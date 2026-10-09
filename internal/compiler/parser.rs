@@ -420,7 +420,7 @@ declare_syntax! {
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
         /// `slot header;`
-        SlotDeclaration -> [ DeclaredIdentifier ],
+        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node

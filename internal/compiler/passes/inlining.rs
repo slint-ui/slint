@@ -195,6 +195,34 @@ fn inline_element(
         children_by_slot.entry(slot).or_default().push(child);
     }
 
+    if Rc::ptr_eq(elem, &root_component.root_element) {
+        for slot in inlined_component.declared_slots.borrow().iter() {
+            if slot.interface.is_none()
+                || children_by_slot.contains_key(&slot.name)
+                || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
+            {
+                continue;
+            }
+            if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
+                && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
+            {
+                root_component
+                    .child_insertion_points
+                    .borrow_mut()
+                    .entry(slot.name.to_string())
+                    .or_insert_with(|| ChildrenInsertionPoint {
+                        parent: parent.clone(),
+                        insertion_index: cip.insertion_index,
+                        node: cip.node.clone(),
+                    });
+                let mut declarations = root_component.declared_slots.borrow_mut();
+                if !declarations.iter().any(|s| s.name == slot.name) {
+                    declarations.push(slot.clone());
+                }
+            }
+        }
+    }
+
     // Validate that all referenced slots exist on the inlined component.
     let mut unknown_slots = Vec::new();
     for (slot_name, children) in &children_by_slot {
@@ -641,6 +669,7 @@ fn duplicate_element_with_mapping(
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
+        typed_slot_interface: elem.typed_slot_interface.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need
@@ -952,6 +981,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
             || prop.starts_with("inner-shadow-")
+            || prop == "backdrop-blur"
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"

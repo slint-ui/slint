@@ -3,6 +3,8 @@ title: Coding Standards
 description: The Rust coding standards Slint SC follows, and what enforces each one.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 A coding standard that isn't checked is a wish, so each rule below names what enforces it.
 The rules differ between the runtime, the compiler, and the code the compiler generates.
 The runtime and the generated code ship inside the customer's binary, while the compiler only produces source code for the customer's build.
@@ -21,7 +23,7 @@ The runtime and the generated code ship inside the customer's binary, while the 
 
 ### Design Principles
 
-**Addresses:** ISO 26262-6 8.4.5, Table 6
+<Addresses>ISO 26262-6 8.4.5, Table 6</Addresses>
 
 ISO 26262-6 Table 6 lists design principles for software units.
 The runtime applies each principle the table recommends at ASIL B.

@@ -2897,14 +2897,23 @@ fn maybe_lookup_object(
                     LookupResult::Callable(..) => {
                         ctx.diag.push_error("Cannot access fields of a function".into(), &next)
                     }
-                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
-                        format!(
-                            "'{}' is not a member of the enum {}",
-                            next.text(),
-                            enumeration.name
-                        ),
-                        &next,
-                    ),
+                    LookupResult::Enumeration(enumeration) => {
+                        let kebab = crate::generator::to_kebab_case(&next_str);
+                        let suggestion = enumeration
+                            .for_each_entry(ctx, &mut |v, _| {
+                                (crate::generator::to_kebab_case(v) == kebab).then(|| v.clone())
+                            })
+                            .map(|v| format!(". Did you mean '{v}'?"))
+                            .unwrap_or_default();
+                        ctx.diag.push_error(
+                            format!(
+                                "'{}' is not a member of the enum {}{suggestion}",
+                                next.text(),
+                                enumeration.name
+                            ),
+                            &next,
+                        )
+                    }
 
                     LookupResult::Namespace(ns) => {
                         ctx.diag.push_error(

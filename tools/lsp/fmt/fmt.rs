@@ -152,6 +152,9 @@ fn format_node(
         SyntaxKind::SlotDeclaration => {
             return format_slot_declaration(node, writer, state);
         }
+        SyntaxKind::SlotForwarding => {
+            return format_slot_forwarding(node, writer, state);
+        }
         SyntaxKind::RepeatedElement => {
             return format_repeated_element(node, writer, state);
         }
@@ -1250,9 +1253,29 @@ fn format_slot_declaration(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
-    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
-        && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_node(SyntaxKind::QualifiedName).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::LAngle, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
+        whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
+    }
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
+fn format_slot_forwarding(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     finish_node(sub, writer, state)?;
     state.new_line();
     Ok(())
@@ -2415,6 +2438,26 @@ mod tests {
         assert_formatting(
             "interface   A   {}  export interface  B  inherits  A {  }",
             "interface A { }\n\nexport interface B inherits A { }\n",
+        );
+    }
+
+    #[test]
+    fn slot_forwarding() {
+        assert_formatting(
+            "component Host { inner:=Child{control<<input;} }",
+            "component Host {\n    inner := Child {\n        control << input;\n    }\n}\n",
+        );
+        assert_formatting(
+            "component Host { slot input; inner:=Child{control << input;} }",
+            "component Host {\n    slot input;\n    inner := Child {\n        control << input;\n    }\n}\n",
+        );
+        assert_formatting(
+            "component Host { slot<Interaction> input; inner := Child { first << input; second << input; enabled: true; } }",
+            "component Host {\n    slot <Interaction> input;\n    inner := Child {\n        first << input;\n        second << input;\n        enabled: true;\n    }\n}\n",
+        );
+        assert_formatting(
+            "component Host { inner := Child { control << input; // comment\n } }",
+            "component Host {\n    inner := Child {\n        control << input; // comment\n    }\n}\n",
         );
     }
 

@@ -175,9 +175,6 @@ component RecentProjectRow inherits Rectangle {
         clicked => {
             root.opened();
         }
-        double-clicked => {
-            root.opened();
-        }
 
         Tooltip {
             text: @markdown("\{root.path}");

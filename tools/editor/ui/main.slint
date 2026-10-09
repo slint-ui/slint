@@ -6,6 +6,8 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
 import { Springboard, SpringboardState, SpringboardView } from "@springboard";
 import { StartupWizard } from "startup-wizard.slint";
@@ -163,6 +165,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !root.preview-editable {
+            AppState.cancel-active-drags();
+            FillSession.close-picker(false, false);
+        }
+    }
     private property <bool> palette-drag-in-outline: false;
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
@@ -217,6 +226,7 @@ export component EditorUi inherits Window {
     private property <length> inspector-width-maximum: min(Style.panes.maximum-width,
         root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
+    callback quit-requested();
     private property <string> new-file-error;
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
         && Api.editor-surface-mode == EditorSurfaceMode.component
@@ -233,6 +243,7 @@ export component EditorUi inherits Window {
     }
 
     function apply-history(redo: bool) {
+        if !Diagnostics.preview-editable { return; }
         FillSession.apply-history(redo);
     }
 
@@ -263,6 +274,13 @@ export component EditorUi inherits Window {
                     title: project.name;
                     activated => { Project.open-recent-project(project); }
                 }
+            }
+            // The macOS application menu already provides Quit.
+            if Platform.os != OperatingSystemType.macos: MenuSeparator { }
+            if Platform.os != OperatingSystemType.macos: MenuItem {
+                title: @tr("Quit");
+                shortcut: @keys(Control + "q");
+                activated => { root.quit-requested(); }
             }
         }
         Menu {
@@ -379,7 +397,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
                     return accept;
                 }

@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface ValueControl {
+    in-out property <int> value;
+    callback changed(value: int);
+    public function update(value: int);
+    public pure function doubled() -> int;
+}
+
+component StructuralControl {
+    in-out property <int> value: 3;
+    callback changed(value: int);
+    public function update(value: int) {
+        root.value = value;
+        root.changed(value);
+    }
+    public pure function doubled() -> int { root.value * 2 }
+}
+
+component InheritedControl inherits StructuralControl { }
+
+component DelegatedControl {
+    implement ValueControl <=> child;
+    child := StructuralControl { }
+}
+
+component InferredControl {
+    in-out property value <=> child.value;
+    callback changed(value: int);
+    public function update(value: int) {
+        root.value = value;
+        root.changed(value);
+    }
+    public pure function doubled() -> int { root.value * 2 }
+    child := StructuralControl { }
+}
+
+component Host {
+    slot <ValueControl> control;
+    out property <int> observed: control.value;
+    out property <int> doubled: control.doubled();
+    out property <int> last;
+    out property <int> changes;
+    public function update(value: int) { control.update(value); }
+    public function set-value(value: int) { control.value = value; }
+    control {
+        changed(value) => { root.last = value; root.changes += 1; }
+    }
+}
+
+component ForwardingHost {
+    slot <ValueControl> input;
+    out property <int> observed: input.value;
+    out property <int> last: inner.last;
+    public function update(value: int) { input.update(value); }
+    inner := Host {
+        control << input;
+    }
+}
+
+export component TestCase inherits Window {
+    direct := Host {
+        control << StructuralControl { }
+    }
+
+    inherited := Host {
+        control << InheritedControl { }
+    }
+
+    delegated := Host {
+        control << DelegatedControl { }
+    }
+
+    inferred := Host {
+        control << InferredControl { }
+    }
+
+    forwarded := ForwardingHost {
+        input << StructuralControl { }
+    }
+
+    out property <bool> test;
+    init => {
+        root.test = direct.observed == 3 && direct.doubled == 6
+            && inherited.observed == 3 && delegated.observed == 3 && inferred.observed == 3;
+        direct.update(7);
+        inherited.update(8);
+        delegated.update(9);
+        inferred.update(10);
+        forwarded.update(11);
+        root.test = root.test && direct.observed == 7 && direct.doubled == 14
+            && direct.last == 7 && direct.changes == 1 && inherited.last == 8
+            && delegated.last == 9 && inferred.last == 10 && forwarded.last == 11
+            && forwarded.observed == 11;
+        direct.set-value(12);
+        root.test = root.test && direct.observed == 12 && direct.doubled == 24;
+    }
+}
