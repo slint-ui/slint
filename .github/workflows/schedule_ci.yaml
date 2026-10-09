@@ -6,9 +6,10 @@ name: Scheduled CI
 
 on:
   schedule:
-    # One night build + two during the European working day
-    # 1:00 UTC = ~2:00-3:00 CET, 9:00 UTC = ~10:00-11:00 CET, 14:00 UTC = ~15:00-16:00 CET
-    - cron: '18 1,9,14 * * *'
+    # Pull requests share the organization's concurrent job limit with these runs,
+    # so they start before, in the middle of, and after the European working day.
+    # 4:18 UTC = ~5:00-6:00 CET, 11:18 UTC = ~12:00-13:00 CET, 18:18 UTC = ~19:00-20:00 CET
+    - cron: '18 4,11,18 * * *'
   workflow_dispatch:
     inputs:
       branch:
