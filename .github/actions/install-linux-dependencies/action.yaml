@@ -19,6 +19,9 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: Configure network retries
+          shell: bash
+          run: bash "$GITHUB_ACTION_PATH/../network-retries.sh"
         - name: Install Linux dependencies
           if: runner.os == 'Linux'
           shell: bash
