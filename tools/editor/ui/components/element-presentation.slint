@@ -12,7 +12,6 @@ export struct ElementPresentation {
     label: string,
 }
 
-// Primitive identity and grouping are defined in preview/element_catalog.rs.
 export global ElementVisuals {
     public pure function for-kind(kind: ElementKind) -> ElementPresentation {
         if kind == ElementKind.rectangle {
@@ -49,6 +48,15 @@ export global ElementVisuals {
                 corner-radius: 0px,
                 show-thumbnail: false,
                 label: "TouchArea",
+            };
+        }
+        if kind == ElementKind.button || kind == ElementKind.slider || kind == ElementKind.combo-box {
+            return {
+                icon: EditorTreeIcons.default-item,
+                preview-size: { width: kind == ElementKind.slider ? 200px : 160px, height: 36px },
+                corner-radius: 4px,
+                show-thumbnail: false,
+                label: kind == ElementKind.button ? "Button" : kind == ElementKind.slider ? "Slider" : "ComboBox",
             };
         }
         return {

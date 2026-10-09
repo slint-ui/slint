@@ -23,6 +23,7 @@ use i_slint_live_preview::protocol::{
 };
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
+use slint_editor::component_support::controls;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod file_dialog;
@@ -380,8 +381,10 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
             let to_previews = to_previews.clone();
             Box::pin(async move {
                 tracing::trace!("Importing file: {path}");
-                let contents = path.read().map(std::borrow::Cow::into_owned);
-                if let SourcePath::File(_) = &path
+                let contents = controls::source(&path)
+                    .map(|source| Ok(source.as_bytes().to_vec()))
+                    .unwrap_or_else(|| path.read().map(std::borrow::Cow::into_owned));
+                if !path.is_builtin()
                     && let Some(url) = path.to_url()
                 {
                     for to_preview in &to_previews {
@@ -408,6 +411,8 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
     };
     let compiler_config = CompilerConfiguration {
         style: Some("fluent".into()),
+        library_paths: controls::library_paths(),
+        enable_experimental: true,
         open_import_callback: Some(open_import_callback),
         format: editor_preview::ByteFormat::Utf8,
         ..Default::default()
@@ -417,6 +422,8 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
         document_cache: editor_preview::DocumentCache::new(compiler_config),
         preview_config: i_slint_live_preview::protocol::PreviewConfig {
             style: "fluent".into(),
+            library_paths: controls::library_paths(),
+            enable_experimental: true,
             ..Default::default()
         },
         open_urls: Default::default(),

@@ -1061,7 +1061,7 @@ enum DragItem {
 }
 
 fn new_component_data_for_kind(kind: ui::ElementKind) -> DataTransfer {
-    if element_catalog::primitive(kind).is_none() {
+    if element_catalog::element(kind).is_none() {
         return Default::default();
     }
     DragItem::NewComponent { kind }.into()
@@ -1121,12 +1121,22 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 }
 
 fn palette_component(kind: ui::ElementKind) -> Option<ComponentInformation> {
-    let primitive = element_catalog::primitive(kind)?;
+    let entry = element_catalog::element(kind)?;
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .find(|component| component.name == primitive.type_name && component.is_builtin)
+            .find(|component| {
+                component.name == entry.type_name
+                    && if entry.group == element_catalog::Group::Controls {
+                        component.defined_at.as_ref().is_some_and(|position| {
+                            position.url().scheme() == "slint-editor-controls"
+                                && position.url().path() == "/@editor-controls"
+                        })
+                    } else {
+                        component.is_builtin
+                    }
+            })
             .cloned()
     })
 }
@@ -1953,15 +1963,26 @@ fn previewed_component_changed() {
 
         let uses_widgets = document_cache.uses_widgets(&previewed_url);
 
-        let mut components = Vec::new();
+        let mut components =
+            slint_editor::component_support::controls::components(&mut document_cache);
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| {
+                !ci.is_global
+                    && !ci.is_interface
+                    && ci
+                        .defined_at
+                        .as_ref()
+                        .is_none_or(|position| position.url().scheme() != "slint-editor-controls")
+            },
             &mut components,
         );
 
-        for url in document_cache.all_urls().filter(|u| u.scheme() != "builtin") {
+        for url in document_cache
+            .all_urls()
+            .filter(|u| u.scheme() != "builtin" && u.scheme() != "slint-editor-controls")
+        {
             component_catalog::file_local_components(&document_cache, &url, &mut components);
         }
 
@@ -2065,6 +2086,9 @@ fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)>
 }
 
 fn get_path_from_cache(path: &SourcePath) -> std::io::Result<(SourceFileVersion, String)> {
+    if let Some(source) = slint_editor::component_support::controls::source(path) {
+        return Ok((None, source.into()));
+    }
     let url = path.to_url().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "Failed to convert path to URL")
     })?;
@@ -2946,6 +2970,142 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    fn controls_preview(
+        source: &str,
+    ) -> (ComponentInstance, i_slint_editor_preview::DocumentCache) {
+        use slint_editor::component_support::controls;
+        let (diagnostics, compiled, callback, versions) = spin_on::spin_on(parse_source(
+            PreviewConfig {
+                library_paths: controls::library_paths(),
+                enable_experimental: true,
+                ..Default::default()
+            },
+            i_slint_editor_preview::test::main_test_file_name(),
+            Some(1),
+            source.into(),
+            "fluent".into(),
+            None,
+            |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+        ));
+        let compiled = compiled.unwrap_or_else(|| panic!("{diagnostics:?}"));
+        let cache = i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+            compiled.raw_type_loader().unwrap(),
+            callback,
+            versions,
+            i_slint_editor_preview::ByteFormat::Utf8,
+        );
+        (compiled.create().unwrap(), cache)
+    }
+
+    #[test]
+    fn controls_can_be_dropped_and_edited_with_standard_widgets() {
+        use slint_editor::component_support::controls;
+        const SOURCE: &str = r#"import { Button } from "std-widgets.slint";
+export component Main inherits Window {
+    width: 640px;
+    height: 480px;
+    Button { text: "Standard"; width: 100px; height: 36px; }
+}
+"#;
+        i_slint_backend_testing::init_no_event_loop();
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let url = path.to_url().unwrap();
+        for (kind, name, property, value, group) in [
+            (ui::ElementKind::Button, "ControlButton", "text", "\"Tap me\"", "ButtonBase"),
+            (ui::ElementKind::Slider, "ControlSlider", "value", "65", "SliderBase"),
+            (
+                ui::ElementKind::ComboBox,
+                "ControlComboBox",
+                "model",
+                "[\"Small\", \"Large\"]",
+                "ComboBoxBase",
+            ),
+        ] {
+            let (instance, mut cache) = controls_preview(SOURCE);
+            instance.show().unwrap();
+            install_preview_instance(&instance);
+            let components = controls::components(&mut cache);
+            assert_eq!(components.len(), 3);
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.known_components = components;
+                state.source_code.insert(
+                    url.clone(),
+                    SourceCodeCacheEntry { version: Some(1), code: SOURCE.into() },
+                );
+            });
+            let component = palette_component(kind).expect("palette control");
+            let geometry = LogicalRect::new(
+                LogicalPoint::new(120.0, 180.0),
+                CoreLogicalSize::new(200.0, 36.0),
+            );
+            let (edit, _) = drop_location::drop_at_with_geometry(
+                &cache,
+                LogicalPoint::new(220.0, 198.0),
+                &component,
+                geometry,
+            )
+            .expect("control drop must compile");
+            let dropped =
+                text_edit::apply_workspace_edit(&cache, &edit).unwrap().remove(0).contents;
+            assert!(dropped.contains(&format!("import {{ {name} }} from \"@editor-controls\";")));
+            assert!(dropped.contains("x: 120px;") && dropped.contains("height: 36px;"));
+            assert!(dropped.contains("Button { text: \"Standard\";"));
+
+            let (_, cache) = controls_preview(&dropped);
+            let offset = dropped.find(&format!("{name} {{")).unwrap() as u32;
+            let doc = cache.get_document(&url).unwrap();
+            let source_file = doc.node.as_ref().unwrap().source_file.clone();
+            let position =
+                util::text_size_to_lsp_position(&source_file, offset.into(), cache.format);
+            let element = cache.element_at_position(&url, &position).unwrap();
+            let queried =
+                properties::query_properties(&url, Some(1), &element, properties::LayoutKind::None)
+                    .unwrap();
+            assert_eq!(queried.element.unwrap().type_name, name);
+            assert!(queried.properties.iter().any(|p| p.name == property && p.group == group));
+            assert!(queried.properties.iter().any(|p| p.name == "enabled"));
+
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            reset_preview_state(messages.clone());
+            let cache = Rc::new(cache);
+            PREVIEW_STATE
+                .with_borrow_mut(|state| state.document_cache.replace(Some(cache.clone())));
+            assert!(!test_code_binding(
+                url.as_str().into(),
+                1,
+                offset as i32,
+                "unknown".into(),
+                value.into(),
+            ));
+            assert!(!set_code_binding(
+                url.as_str().into(),
+                0,
+                offset as i32,
+                property.into(),
+                value.into(),
+            ));
+            assert!(set_code_binding(
+                url.as_str().into(),
+                1,
+                offset as i32,
+                property.into(),
+                value.into(),
+            ));
+            let messages = messages.borrow();
+            let edit = messages
+                .iter()
+                .find_map(|message| match message {
+                    PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit),
+                    _ => None,
+                })
+                .expect("property edit");
+            let edited = text_edit::apply_workspace_edit(&cache, edit).unwrap().remove(0).contents;
+            assert!(edited.contains(&format!("{property}: {value};")));
+            controls_preview(&edited);
+        }
+        reset_preview_state(Default::default());
     }
 
     #[test]

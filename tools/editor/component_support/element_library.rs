@@ -6,16 +6,16 @@ use slint::{Model, ModelExt, ModelRc, SharedString};
 use crate::ui::{Api, ElementLibraryEntry, ElementLibraryGroup};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
-    use super::element_catalog::{GROUPS, PRIMITIVES};
+    use super::element_catalog::{ELEMENTS, GROUPS};
     ModelRc::new(slint::VecModel::from(
         GROUPS
             .iter()
             .map(|group| {
-                let mut entries: Vec<_> = PRIMITIVES
+                let mut entries: Vec<_> = ELEMENTS
                     .iter()
                     .filter(|entry| entry.group == *group)
                     .map(|entry| ElementLibraryEntry {
-                        label: entry.type_name.into(),
+                        label: entry.label.into(),
                         kind: entry.kind,
                     })
                     .collect();
@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {
         let groups = catalog();
-        assert_eq!(groups.row_count(), 2);
+        assert_eq!(groups.row_count(), 3);
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
@@ -84,6 +84,16 @@ mod tests {
         let interaction = groups.row_data(1).unwrap();
         assert_eq!(interaction.label, "Input & interaction");
         assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::TouchArea);
+        let controls = groups.row_data(2).unwrap();
+        assert_eq!(controls.label, "Controls");
+        assert_eq!(
+            controls.entries.iter().map(|entry| entry.label.to_string()).collect::<Vec<_>>(),
+            ["Button", "ComboBox", "Slider"]
+        );
+        assert_eq!(
+            filter(controls.entries, "slide".into()).row_data(0).unwrap().kind,
+            ElementKind::Slider
+        );
         for (query, expected) in [
             ("", vec!["TouchArea"]),
             ("  ", vec!["TouchArea"]),

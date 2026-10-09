@@ -621,6 +621,12 @@ fn get_element_information(element: &i_slint_editor_preview::ElementRcNode) -> E
     });
     let type_name = if matches!(&e.base_type, ElementType::Builtin(b) if b.name == "Empty") {
         SmolStr::default()
+    } else if matches!(&e.base_type, ElementType::Component(_)) {
+        element.with_element_node(|node| {
+            node.QualifiedName()
+                .map(|name| name.text().to_string().trim().to_smolstr())
+                .unwrap_or_else(|| e.base_type.to_smolstr())
+        })
     } else {
         e.base_type.to_smolstr()
     };

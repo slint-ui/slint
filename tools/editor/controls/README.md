@@ -125,6 +125,17 @@ SliderBase {
 }
 ```
 
+## Visual Editor Integration
+
+The editor's Controls group offers the Basic Button, Slider, and ComboBox.
+Drag a control onto the canvas, then edit its geometry and public properties in the inspector.
+Property fields accept Slint expressions, including quoted text, colors, and lists.
+Drops and property edits use the editor's undo and redo history.
+
+Dropped controls use `ControlButton`, `ControlSlider`, and `ControlComboBox` from `@editor-controls` to avoid standard-widget name collisions.
+The editor bundles this library and resolves it for editing and running previews.
+For an external build, map the `editor-controls` library to `tools/editor/controls/src/editor.slint` and enable experimental features.
+
 ## Example
 
 The standalone gallery has Button, ComboBox, and Slider pages, each with Base theme and custom sections.

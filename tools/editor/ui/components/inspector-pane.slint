@@ -107,6 +107,11 @@ export component InspectorPane inherits Rectangle {
         return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
 
+    function is-control-selection() -> bool {
+        return root.has-backend-rect() && (root.element-information.type-name == "ControlButton"
+            || root.element-information.type-name == "ControlSlider" || root.element-information.type-name == "ControlComboBox");
+    }
+
     function selected-x() -> length {
         return root.has-backend-rect()
             ? root.selection-rects[Api.selection.highlight-index].x
@@ -538,7 +543,7 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection() || root.is-control-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";
@@ -952,6 +957,29 @@ export component InspectorPane inherits Rectangle {
                                 selected-column: root.image-horizontal-alignment-index();
                                 selected-row: root.image-vertical-alignment-index();
                                 chosen(column, row) => { root.set-image-alignment(column, row); }
+                            }
+                        }
+                    }
+                }
+
+                if root.is-control-selection(): VerticalLayout {
+                    for group in Api.properties: VerticalLayout {
+                        vertical-stretch: 0;
+                        if group.group-name == "Button" || group.group-name == "ButtonBase"
+                            || group.group-name == "Slider" || group.group-name == "SliderBase"
+                            || group.group-name == "ComboBox" || group.group-name == "ComboBoxBase": InspectorSection {
+                            title: group.group-name;
+                            VerticalLayout {
+                                padding-left: root.style.padding;
+                                padding-right: root.style.padding;
+                                spacing: Metrics.space-compact;
+                                for prop in group.properties: InspectorCodeField {
+                                    accessible-name: "Control " + prop.name;
+                                    prefix: prop.name;
+                                    value: prop.value.code;
+                                    commit-key: root.field-key(prop.name);
+                                    accepted(text) => { return root.commit-code(prop.name, text); }
+                                }
                             }
                         }
                     }

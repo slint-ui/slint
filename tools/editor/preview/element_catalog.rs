@@ -50,7 +50,7 @@ mod tests {
                 continue;
             }
             count += 1;
-            let entries: Vec<_> = PRIMITIVES
+            let entries: Vec<_> = ELEMENTS
                 .iter()
                 .filter(|entry| {
                     format!("{:?}", entry.kind).to_lowercase() == variant.replace('-', "")
@@ -65,22 +65,25 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 label,
-                Value::String(entries[0].type_name.into()),
+                Value::String(entries[0].label.into()),
                 "{variant} must have presentation metadata",
             );
         }
-        assert_eq!(count, PRIMITIVES.len(), "catalog must contain only primitive kinds");
+        assert_eq!(count, ELEMENTS.len(), "catalog must contain only palette kinds");
     }
 
     #[test]
-    fn primitive_names_and_drop_payloads_share_the_catalog() {
+    fn element_names_and_drop_payloads_share_the_catalog() {
         for (kind, name, group) in [
             (ElementKind::Image, "Image", "Visual"),
             (ElementKind::Rectangle, "Rectangle", "Visual"),
             (ElementKind::Text, "Text", "Visual"),
             (ElementKind::TouchArea, "TouchArea", "Input & interaction"),
+            (ElementKind::Button, "ControlButton", "Controls"),
+            (ElementKind::Slider, "ControlSlider", "Controls"),
+            (ElementKind::ComboBox, "ControlComboBox", "Controls"),
         ] {
-            let entry = primitive(kind).unwrap();
+            let entry = element(kind).unwrap();
             assert_eq!(entry.type_name, name);
             assert_eq!(entry.group.label(), group);
             assert_eq!(kind_for_type(&format!(" {name} ")), kind);
@@ -97,7 +100,7 @@ mod tests {
             assert_eq!(kind_for_type(name), ElementKind::Component);
         }
         for kind in [ElementKind::None, ElementKind::Component] {
-            assert!(primitive(kind).is_none());
+            assert!(element(kind).is_none());
             assert!(DragItem::try_from(new_component_data_for_kind(kind)).is_err());
         }
     }

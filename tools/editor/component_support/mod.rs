@@ -5,6 +5,7 @@ use crate::ui::{FillData, GradientStop, LinearGradientAxis};
 
 pub mod brushes;
 mod conic_gradient;
+pub mod controls;
 pub mod element_catalog;
 pub mod element_library;
 mod linear_gradient;
