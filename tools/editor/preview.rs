@@ -2519,7 +2519,7 @@ pub fn set_remote_connection_state(
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
                 R::Reconnecting => ui::RemoteConnectionState::Reconnecting,
-                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
+                R::PairingRequired { .. } => ui::RemoteConnectionState::PairingRequired,
                 R::UnpairedWarning => ui::RemoteConnectionState::UnpairedWarning,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,

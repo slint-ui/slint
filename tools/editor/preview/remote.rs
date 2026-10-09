@@ -30,9 +30,6 @@ pub fn setup(
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
 ) {
     api.set_remote_discovered_viewers(ModelRc::new(VecModel::<RemoteViewerInfo>::default()));
-    // The code field is fixed-length, so the UI needs the same number the
-    // viewer generates against.
-    api.set_remote_pairing_code_length(i_slint_live_preview::protocol::pairing::CODE_DIGITS as i32);
 
     let discovery_api_weak = api_weak.clone();
     api.on_remote_start_discovery(move || {

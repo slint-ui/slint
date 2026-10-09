@@ -20,7 +20,7 @@ pub struct PairingCredentials {
 }
 
 pub enum PairingPrompt {
-    Code { attempts_left: u8, expires_in_seconds: u16 },
+    Code { attempts_left: u8, expires_in_seconds: u16, code_digits: u8 },
     Unpaired,
 }
 
@@ -123,9 +123,17 @@ pub async fn authenticate(
                     }
                 }
             }
-            PreviewToLspMessage::PairingRequired { attempts_left, expires_in_seconds, element } => {
-                let input =
-                    request_input(PairingPrompt::Code { attempts_left, expires_in_seconds });
+            PreviewToLspMessage::PairingRequired {
+                attempts_left,
+                expires_in_seconds,
+                code_digits,
+                element,
+            } => {
+                let input = request_input(PairingPrompt::Code {
+                    attempts_left,
+                    expires_in_seconds,
+                    code_digits,
+                });
                 let code = prompt_for_code(socket, input).await?;
                 let handshake = pairing::Handshake::with_code(pairing::Role::Editor, &code);
                 match run_exchange(socket, handshake, &element, handshake_deadline()).await? {
