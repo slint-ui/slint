@@ -1,0 +1,118 @@
+---
+title: Safety Management
+description: The safety policy of Slint SC, who is responsible for what, and how the work is confirmed.
+---
+
+This chapter states what we commit to, the roles that carry out the safety work, and the confirmation measures that check that work.
+
+## Safety Policy
+
+The safety and quality of Slint SC are the primary objectives of all management, development, maintenance and support activities.
+
+Each commitment below names where it's implemented, so a reader can check the commitment rather than take it on trust.
+
+* Every change follows a defined process. See [Development Process](/safety-plan/development-process/) and [Development Phases](/safety-plan/development-phases/).
+* Every change is verified by automated tests before it's merged. See [Test Suites](/safety-plan/test-suites/).
+* Every requirement is traced to the tests that verify it. See [Traceability Matrix](/qualification-report/traceability-matrix/).
+* Each known safety-critical problem is recorded, with its fix and the test that covers the problem. See [Known Problems](/user-manual/known-problems/).
+* We improve the process and the tooling as we go, and automate what we can.
+
+## Safety Culture
+
+**Addresses:** ISO 26262-2 5.4.2.1, Annex B
+
+A safety culture shows in what people do, not in what a policy says.
+Each practice below answers a row of ISO 26262-2 Table B.1.
+The Where column names what enforces the practice.
+
+| Practice | Where |
+| --- | --- |
+| Every decision about safety can be traced to the person who made it. | [Roles](#roles-and-responsibilities); review approvals and commits in GitHub |
+| Safety comes before schedule: a release with an open safety question waits. | The Safety Manager can block a release; see [R-05](/safety-plan/release/#on-every-release) |
+| Nobody checks their own work. | Every change is reviewed by someone other than its author ([C-07](/safety-plan/development-phases/#on-every-change)); the [confirmation measures](#confirmation-measures) are independent of the authors; TÜV Nord assesses the result |
+| Problems are found when they're made, not at the end. | A change brings its requirement and its tests in the same pull request, and CI checks traceability and coverage before the pull request can merge |
+| Anyone can raise a safety problem, and is thanked for it. | Employees, outside contributors, and integrators report safety anomalies the same way, and each report reaches the Safety Manager; see [O-03](#organization-level-prerequisites) and [F-01](/safety-plan/release/#after-a-release) |
+| Disagreement is welcome, and reviewers aren't picked to agree. | The reviewer of a safety-relevant change isn't chosen by the change's author |
+| We learn from what went wrong. | Safety anomalies and audit findings lead to a change in the process, not only in the code |
+| The work is planned and resourced. | The project plan includes the safety activities of this plan |
+
+:::caution[TODO]
+Three practices have nothing that enforces them yet:
+how a reviewer is assigned to a safety-relevant change,
+how anomalies and audit findings feed back into the process, such as a review after each release,
+and the reporting channel of O-03.
+:::
+
+## Organization-Level Prerequisites
+
+**Addresses:** ISO 26262-2 Clause 5
+
+ISO 26262-2 6.3.1 makes these organization-level items a prerequisite of the project's safety management.
+
+| ID | Prerequisite | Clause | Responsible | How |
+| --- | --- | --- | --- | --- |
+| O-01 | Safety culture, and rules and processes for functional safety | 5.4.2 | Project Manager | This Safety Plan, the [Safety Policy](#safety-policy), and the practices of [Safety Culture](#safety-culture) |
+| O-02 | Communication with cybersecurity and quality | 5.4.2.3 | Safety Manager | Security advisories that affect Slint SC go to the Safety Manager |
+| O-03 | Management of safety anomalies | 5.4.3 | Safety Manager | Issues labeled as safety anomalies are analyzed, and closed only with a rationale that someone other than the rationale's author has reviewed. The Safety Manager escalates any anomaly that isn't closed. The labeled issues feed [Known Problems](/user-manual/known-problems/). |
+| O-04 | Competence management | 5.4.4 | Project Manager | Competence criteria for each role, and training records |
+| O-05 | Quality management system | 5.4.5 | Project Manager | A quality management system built to ISO 9001, with GitHub issues, pull requests, and CI runs as its records |
+| O-06 | Tailoring across projects | 5.4.6 | Safety Manager | The [V-model per change](/safety-plan/lifecycle/#v-model-per-change) |
+
+:::caution[TODO]
+O-02 to O-05 aren't in place yet.
+The records of these prerequisites are internal; this table states what the records are and where they're kept.
+:::
+
+## Roles and Responsibilities
+
+**Addresses:** ISO 26262-2 6.4.2
+
+The administrators of the slint-ui GitHub organization are the founders of SixtyFPS GmbH.
+All employees of SixtyFPS GmbH are members of the organization.
+External contributors may also be invited to become members of the GitHub organization.
+
+One person can hold several roles, as long as the independence of each [confirmation measure](#confirmation-measures) holds.
+Who holds each role is recorded internally.
+
+| Role | Responsible for |
+| --- | --- |
+| Project Manager | Resources, schedule, and compliance with ISO 26262 |
+| Safety Manager | This Safety Plan and its tailoring, tracking progress against the plan, the safety case, and scheduling the confirmation measures |
+| Technical Lead, Runtime | Software requirements, architecture, and implementation of the runtime |
+| Technical Lead, Compiler | The `--slint-sc` mode of the compiler, and `slint-sc-coverage` |
+| Verification Lead | Test strategy, test suites, coverage, and traceability |
+| Release Manager | Branches, tags, baselines, and release artifacts |
+| Confirmation Reviewer | The confirmation reviews below |
+| Functional Safety Auditor | The functional safety audit |
+| Functional Safety Assessor | The functional safety assessment, by TÜV Nord |
+| Release Authority | Signing the release report |
+| Field Monitoring Owner | Taking in anomaly reports after a release, and notifying integrators |
+
+## Confirmation Measures
+
+**Addresses:** ISO 26262-2 6.4.9 to 6.4.12
+
+Confirmation measures check that the work products, the process, and the resulting safety are adequate.
+Each confirmation measure needs a level of independence from the people who did the work.
+The required level depends on the ASIL.
+At ASIL B, ISO 26262-2 Table 1 asks for:
+
+* **I0:** should be done; if done, by someone other than the author.
+* **I1:** must be done, by someone other than the author.
+
+Table 1 has no ASIL B entry for the impact analysis or the hazard analysis, because neither applies; see [Tailoring](/safety-plan/standards-compliance/#tailoring).
+
+| Measure | Independence at ASIL B | Performed by | When |
+| --- | --- | --- | --- |
+| Confirmation review of this Safety Plan, including its tailoring | I1 | Confirmation Reviewer | Before the first release, then in any release that revised the plan |
+| Confirmation review of the verification strategy | I1 | Confirmation Reviewer | Before the first release, then when [Verification](/safety-plan/verification/) changes |
+| Confirmation review of the safety analyses | I1 | Confirmation Reviewer | Before the first release, then in any release that changed the safety analyses |
+| Confirmation review of the safety case | I1 | Confirmation Reviewer, not the Safety Manager | Every release |
+| Functional safety audit | I0 | Functional Safety Auditor | Before the first release, early enough to fix findings, then once a year |
+| Functional safety assessment | I0 | TÜV Nord | A full assessment for the first release; for later releases, an assessment of what changed |
+
+The audit and the assessment are only recommended at ASIL B, by ISO 26262-2 6.4.11.1 and 6.4.12.1.
+We do both, since the TÜV Nord certificate rests on the assessment.
+
+Each confirmation report names the work products it covers and their versions.
+The confirmation reviews and the audit due for a release finish before the release ships.

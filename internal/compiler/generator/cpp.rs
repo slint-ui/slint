@@ -1248,18 +1248,12 @@ fn embed_resource(
             let charmap_var = format_smolstr!("slint_embedded_resource_{}_charmap", resource_id);
             let charmap_size = character_map.len();
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
+                ty: "const uint32_t".into(),
                 name: charmap_var.clone(),
                 array_size: Some(charmap_size),
                 init: Some(format!(
                     "{{ {} }}",
-                    character_map
-                        .iter()
-                        .map(|entry| format!(
-                            "{{ .code_point = {}, .glyph_index = {} }}",
-                            entry.code_point as u32, entry.glyph_index
-                        ))
-                        .join(", ")
+                    character_map.iter().map(|code_point| *code_point as u32).join(", ")
                 )),
                 ..Default::default()
             }));

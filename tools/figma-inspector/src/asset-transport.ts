@@ -252,28 +252,47 @@ export function packPreviewAssets(source: string): AssetPreview {
     };
 }
 
-export function createPreviewAssetPool(): (value: unknown) => {
+type PreviewAssetOptions = {
+    createObjectUrl?: (blob: Blob) => string;
+    revokeObjectUrl?: (url: string) => void;
+};
+
+function previewAssetBlob(data: string, mime: string): Blob {
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++)
+        bytes[index] = binary.charCodeAt(index);
+    return new Blob([bytes], { type: mime });
+}
+
+export function createPreviewAssetPool(options: PreviewAssetOptions = {}): (
+    value: unknown,
+) => {
     source: string;
     dispose: () => void;
 } {
-    const entries = new Map<string, { url: string; owners: number }>();
+    const entries = new Map<
+        string,
+        Map<string, { url: string; owners: number }>
+    >();
+    const createObjectUrl =
+        options.createObjectUrl ?? ((blob: Blob) => URL.createObjectURL(blob));
+    const revokeObjectUrl =
+        options.revokeObjectUrl ?? ((url: string) => URL.revokeObjectURL(url));
     return (value) =>
         materializePreviewAssets(value, {
             acquireAsset: (data, mime) => {
-                const key = `${mime}:${data}`;
-                let entry = entries.get(key);
+                const assets =
+                    entries.get(mime) ??
+                    new Map<string, { url: string; owners: number }>();
+                let entry = assets.get(data);
                 if (!entry) {
-                    const binary = atob(data);
-                    const bytes = Uint8Array.from(binary, (character) =>
-                        character.charCodeAt(0),
-                    );
                     entry = {
-                        url: URL.createObjectURL(
-                            new Blob([bytes], { type: mime }),
-                        ),
+                        url: createObjectUrl(previewAssetBlob(data, mime)),
                         owners: 0,
                     };
-                    entries.set(key, entry);
+                    assets.set(data, entry);
+                    entries.set(mime, assets);
                 }
                 entry.owners++;
                 const held = entry;
@@ -282,8 +301,9 @@ export function createPreviewAssetPool(): (value: unknown) => {
                     release: () => {
                         held.owners--;
                         if (held.owners === 0) {
-                            URL.revokeObjectURL(held.url);
-                            entries.delete(key);
+                            revokeObjectUrl(held.url);
+                            assets.delete(data);
+                            if (assets.size === 0) entries.delete(mime);
                         }
                     },
                 };
@@ -293,9 +313,7 @@ export function createPreviewAssetPool(): (value: unknown) => {
 
 export function materializePreviewAssets(
     value: unknown,
-    options: {
-        createObjectUrl?: (blob: Blob) => string;
-        revokeObjectUrl?: (url: string) => void;
+    options: PreviewAssetOptions & {
         acquireAsset?: (
             data: string,
             mime: string,
@@ -338,11 +356,10 @@ export function materializePreviewAssets(
                     url = asset.url;
                     releases.push(asset.release);
                 } else {
-                    const binary = atob(packed.assets[part]);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let index = 0; index < binary.length; index++)
-                        bytes[index] = binary.charCodeAt(index);
-                    const blob = new Blob([bytes], { type: match[1] });
+                    const blob = previewAssetBlob(
+                        packed.assets[part],
+                        match[1],
+                    );
                     url = createObjectUrl(blob);
                     created.push(url);
                 }

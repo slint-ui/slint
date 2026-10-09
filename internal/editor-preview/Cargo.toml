@@ -14,10 +14,14 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+links = "springboard"
+
 [lib]
 path = "lib.rs"
 
 [features]
+remote-client = ["dep:tokio-tungstenite-wasm", "dep:postcard", "futures-util/sink"]
+springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client"]
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [
@@ -28,11 +32,15 @@ preview-process = [
 ]
 preview-external = []
 ## Support the LSP-owned remote preview transport.
-preview-remote = []
+preview-remote = ["remote-client"]
 ## Expose the test fixtures so that dependent crates can build on them
 testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
 
+[build-dependencies]
+slint-build = { workspace = true, features = ["experimental-module-builds"], optional = true }
+
 [dependencies]
+slint = { workspace = true, features = ["compat-1-2"], optional = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-live-preview = { version = "=1.19.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
 
@@ -43,6 +51,7 @@ serde_json = { workspace = true }
 smol_str = { workspace = true }
 tracing = { workspace = true }
 
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 futures-util = "0.3.32"
 async-compat = { version = "0.2.4", optional = true }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal"], optional = true }
@@ -52,15 +61,21 @@ i-slint-backend-testing = { workspace = true, optional = true }
 spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
+tokio-tungstenite-wasm = { version = "0.8.2", optional = true }
 directories = "6.0"
 scopeguard = { version = "1.1.0", default-features = false }
-tokio = { version = "1.50.0", features = ["io-util", "process", "rt", "sync"] }
+tokio = { version = "1.50.0", features = ["io-util", "process", "rt", "sync", "time", "macros"] }
 tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
+tokio = { version = "1.50.0", features = ["test-util"] }
+flume = "0.12"
+i-slint-live-preview = { path = "../live-preview", features = ["remote"] }
+tokio-tungstenite = "0.30.0"
 i-slint-backend-testing = { path = "../backends/testing" }
 spin_on = { workspace = true }
 

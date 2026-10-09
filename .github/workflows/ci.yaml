@@ -101,10 +101,6 @@ jobs:
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
-            # The UI tests need a private package that GitHub doesn't hand the
-            # token for to pull requests from forks. Build and test the editor
-            # there anyway, and skip only the steps that need the token.
-            UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
@@ -122,16 +118,20 @@ jobs:
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
             - name: Install UI test dependencies
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
-                  UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
-              run: uv sync --locked
+                  SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
+              # GitHub withholds secrets from pull requests from forks.
+              # Until the OIDC setup is ready, those fetch a throwaway token instead.
+              run: |
+                  token="${SLINT_TESTING_TOKEN:-$(curl -fsSL https://gist.githubusercontent.com/ogoffart/2404d9d20e3c3edc38f33645987a52bb/raw/slint-testing-token)}"
+                  UV_INDEX_SLINT_PRIVATE_PASSWORD="$token" uv sync --locked
             # ty needs slint-testing installed, so this also needs the private package.
             - name: Check visual editor UI tests
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               run: |
                   uv run --no-sync ty check
@@ -141,7 +141,7 @@ jobs:
               if: matrix.run_ui_tests
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
