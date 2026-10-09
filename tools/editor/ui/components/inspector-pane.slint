@@ -78,6 +78,20 @@ export component InspectorPane inherits Rectangle {
         { value: "inner", label: "Inner Shadow" },
     ];
 
+    property <[InspectorComboOption]> text-horizontal-alignment-options: [
+        { value: "start", label: @tr("Start") },
+        { value: "end", label: @tr("End") },
+        { value: "left", label: @tr("Left") },
+        { value: "center", label: @tr("Center") },
+        { value: "right", label: @tr("Right") },
+    ];
+
+    property <[InspectorComboOption]> text-vertical-alignment-options: [
+        { value: "top", label: @tr("Top") },
+        { value: "center", label: @tr("Center") },
+        { value: "bottom", label: @tr("Bottom") },
+    ];
+
     property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
     property <string> inspector-key: root.element-information.source-uri + ":" + root.element-information.source-version + ":" + root.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     property <[float]> control-values: Api.inspector-values(root.inspector-key);
@@ -415,6 +429,40 @@ export component InspectorPane inherits Rectangle {
         return root.property-length-label("font-size", "Default size");
     }
 
+    function text-horizontal-alignment-index() -> int {
+        let value = Api.current-property-value("horizontal-alignment", "start");
+        if value == "start" {
+            return 0;
+        }
+        if value == "end" {
+            return 1;
+        }
+        if value == "left" {
+            return 2;
+        }
+        if value == "center" {
+            return 3;
+        }
+        if value == "right" {
+            return 4;
+        }
+        return -1;
+    }
+
+    function text-vertical-alignment-index() -> int {
+        let value = Api.current-property-value("vertical-alignment", "top");
+        if value == "top" {
+            return 0;
+        }
+        if value == "center" {
+            return 1;
+        }
+        if value == "bottom" {
+            return 2;
+        }
+        return -1;
+    }
+
     function image-fit-index() -> int {
         let value = Api.current-property-value("image-fit", "fill");
         if value == "fill" {
@@ -513,6 +561,16 @@ export component InspectorPane inherits Rectangle {
     function text-font-weight-label() -> string {
         let index = root.text-font-weight-index();
         return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
+    }
+
+    function text-horizontal-alignment-label() -> string {
+        let index = root.text-horizontal-alignment-index();
+        return index >= 0 ? root.text-horizontal-alignment-options[index].label : @tr("Start");
+    }
+
+    function text-vertical-alignment-label() -> string {
+        let index = root.text-vertical-alignment-index();
+        return index >= 0 ? root.text-vertical-alignment-options[index].label : @tr("Top");
     }
 
     EdgeDivider {
@@ -1021,7 +1079,62 @@ export component InspectorPane inherits Rectangle {
                                 }
                             }
                         }
+                    }
+                }
+                if root.is-text-selection(): InspectorSection {
+                    title: @tr("Alignment");
 
+                    GridLayout {
+                        padding-left: root.style.padding;
+                        spacing: Metrics.space-compact;
+
+                        Row {
+                            Text {
+                                text: @tr("Horizontal");
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
+                                horizontal-stretch: 0;
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Horizontal Alignment");
+                                value: root.text-horizontal-alignment-label();
+                                selected-index: root.text-horizontal-alignment-index();
+                                options: root.text-horizontal-alignment-options;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                                }
+                            }
+
+                            Rectangle { }
+                        }
+
+                        Row {
+                            Text {
+                                text: @tr("Vertical");
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
+                                horizontal-stretch: 0;
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Vertical Alignment");
+                                value: root.text-vertical-alignment-label();
+                                selected-index: root.text-vertical-alignment-index();
+                                options: root.text-vertical-alignment-options;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("vertical-alignment", text);
+                                }
+                            }
+
+                            Rectangle { }
+                        }
                     }
                 }
             }
