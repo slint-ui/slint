@@ -26,11 +26,42 @@ pub fn setup(global: &ui::Diagnostics<'_>) {
     );
     global.on_format_location(|diagnostic| format_location(&diagnostic, project_root().as_deref()));
     let global_weak = <ui::Diagnostics as slint::Global<'_, ui::EditorUi>>::as_weak(global);
+    global.on_file_diagnostics({
+        let global_weak = global_weak.clone();
+        move |path| {
+            global_weak
+                .upgrade()
+                .map(|global| file_diagnostics(&global.get_entries(), Path::new(path.as_str())))
+                .unwrap_or_default()
+        }
+    });
     global.on_copy_to_clipboard(move || {
         if let Some(global) = global_weak.upgrade() {
             copy_to_clipboard(&global);
         }
     });
+}
+
+fn file_diagnostics(
+    entries: &slint::ModelRc<ui::Diagnostic>,
+    path: &Path,
+) -> ui::FileDiagnosticSummary {
+    let mut summary = ui::FileDiagnosticSummary::default();
+    entries.model_tracker().track_any_change(entries.row_count(), i_slint_core::InternalToken);
+    if path.as_os_str().is_empty() {
+        return summary;
+    }
+    for diagnostic in entries.iter() {
+        if diagnostic.file.is_empty() || !Path::new(diagnostic.file.as_str()).starts_with(path) {
+            continue;
+        }
+        match diagnostic.level {
+            ui::DiagnosticLevel::Error => summary.error_count += 1,
+            ui::DiagnosticLevel::Warning => summary.warning_count += 1,
+            _ => {}
+        }
+    }
+    summary
 }
 
 fn project_root() -> Option<PathBuf> {
@@ -214,6 +245,86 @@ pub(in crate::preview) fn append_preview_debug_message(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_summaries_count_severities_for_files_and_descendants() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let global = editor.global::<ui::Diagnostics>();
+        setup(&global);
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        for (file, level) in [
+            ("Main.slint", ui::DiagnosticLevel::Error),
+            ("components/Card.slint", ui::DiagnosticLevel::Error),
+            ("components/Card.slint", ui::DiagnosticLevel::Warning),
+            ("components/nested/Item.slint", ui::DiagnosticLevel::Warning),
+            ("components-other/Card.slint", ui::DiagnosticLevel::Error),
+            ("Main.slint-other", ui::DiagnosticLevel::Error),
+            ("Main.slint", ui::DiagnosticLevel::Debug),
+            ("Main.slint", ui::DiagnosticLevel::Note),
+        ] {
+            append_diagnostic(
+                &global,
+                level,
+                Some((root.join(file).to_string_lossy().as_ref().into(), 1, 1)),
+                "Message",
+            );
+        }
+        append_diagnostic(&global, ui::DiagnosticLevel::Error, None, "No file");
+        for (path, errors, warnings) in [
+            (root.to_path_buf(), 4, 2),
+            (root.join("Main.slint"), 1, 0),
+            (root.join("components"), 1, 2),
+            (root.join("components/Card.slint"), 1, 1),
+            (root.join("components/nested"), 0, 1),
+            (root.join("missing.slint"), 0, 0),
+            (PathBuf::new(), 0, 0),
+        ] {
+            let summary = global.invoke_file_diagnostics(path.to_string_lossy().as_ref().into());
+            assert_eq!(
+                (summary.error_count, summary.warning_count),
+                (errors, warnings),
+                "{path:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn file_summary_bindings_track_appends_row_changes_and_clearing() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let global = editor.global::<ui::Diagnostics>();
+        setup(&global);
+        let tracker = Box::pin(<i_slint_core::properties::PropertyTracker>::default());
+        let summary =
+            || tracker.as_ref().evaluate(|| global.invoke_file_diagnostics("Main.slint".into()));
+        assert_eq!(summary().error_count, 0);
+        append_diagnostic(
+            &global,
+            ui::DiagnosticLevel::Error,
+            Some(("Main.slint".into(), 1, 1)),
+            "Error",
+        );
+        assert!(tracker.is_dirty());
+        assert_eq!(summary().error_count, 1);
+        let entries = global.get_entries();
+        let model = entries.as_any().downcast_ref::<VecModel<ui::Diagnostic>>().unwrap();
+        for (file, level, errors, warnings) in [
+            ("Main.slint", ui::DiagnosticLevel::Warning, 0, 1),
+            ("Other.slint", ui::DiagnosticLevel::Error, 0, 0),
+            ("Main.slint", ui::DiagnosticLevel::Error, 1, 0),
+        ] {
+            model
+                .set_row_data(0, ui::Diagnostic { file: file.into(), level, ..Default::default() });
+            assert!(tracker.is_dirty());
+            let summary = summary();
+            assert_eq!((summary.error_count, summary.warning_count), (errors, warnings));
+        }
+        clear_diagnostics(&global);
+        assert!(tracker.is_dirty());
+        assert_eq!(summary().error_count, 0);
+    }
 
     #[test]
     fn locations_handle_project_paths_and_partial_positions() {
