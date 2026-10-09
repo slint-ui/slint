@@ -1487,6 +1487,20 @@ pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) 
     }
 }
 
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_flickable_scroll_to(
+    flickable: Pin<&Flickable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    x: Coord,
+    y: Coord,
+    scroll_mode: ScrollMode,
+) {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    flickable.scroll_to(&self_rc, LogicalPosition::new(x, y), scroll_mode);
+}
+
 #[cfg(test)]
 mod velocity_history_tests {
     use super::*;

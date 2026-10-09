@@ -14,8 +14,8 @@ use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
-use i_slint_core::api::LogicalPosition;
 use i_slint_compiler::source_path::SourcePath;
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };

@@ -8,7 +8,7 @@ export component TestCase inherits Window {
 
     callback flickable-scroll-to(length, length, ScrollMode);
     flickable-scroll-to(x, y, scroll_mode) => {
-        f.scroll-to({x: x, y: y}, scroll_mode);
+        f.scroll-to({ x: x, y: y }, scroll_mode);
     }
 
     f := Flickable {
@@ -22,8 +22,8 @@ export component TestCase inherits Window {
         }
     }
 
-    in-out property<length> offset_x: -f.content_x;
-    in-out property<length> offset_y: -f.content_y;
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
 }
 
 /*
@@ -77,6 +77,89 @@ slint_testing::mock_elapsed_time(1000000);
 
 assert_eq!(instance.get_offset_x(), ORIGIN.x);
 assert_eq!(instance.get_offset_y(), ORIGIN.y);
+```
+
+```cpp
+using slint::language::ScrollMode;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(35., 45., ScrollMode::Instant);
+assert_eq(instance.get_offset_x(), 35.);
+assert_eq(instance.get_offset_y(), 45.);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 35.);
+assert_eq(instance.get_offset_y(), 45.);
+
+instance.invoke_flickable_scroll_to(0., 0., ScrollMode::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(105., 135., ScrollMode::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_offset_x() > 0.);
+assert(instance.get_offset_y() > 0.);
+assert(instance.get_offset_x() < 105.);
+assert(instance.get_offset_y() < 135.);
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 105.);
+assert_eq(instance.get_offset_y(), 135.);
+
+instance.invoke_flickable_scroll_to(0., 0., ScrollMode::Smooth);
+assert(instance.get_offset_x() > 0.);
+assert(instance.get_offset_y() > 0.);
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(35, 45, "instant");
+assert(instance.offset_x === 35, instance.offset_x);
+assert(instance.offset_y === 45, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 35, instance.offset_x);
+assert(instance.offset_y === 45, instance.offset_y);
+
+instance.flickable_scroll_to(0, 0, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(105, 135, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(10);
+assert(instance.offset_x > 0, instance.offset_x);
+assert(instance.offset_y > 0, instance.offset_y);
+assert(instance.offset_x < 105, instance.offset_x);
+assert(instance.offset_y < 135, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 105, instance.offset_x);
+assert(instance.offset_y === 135, instance.offset_y);
+
+instance.flickable_scroll_to(0, 0, "smooth");
+assert(instance.offset_x > 0, instance.offset_x);
+assert(instance.offset_y > 0, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
 ```
 
 */

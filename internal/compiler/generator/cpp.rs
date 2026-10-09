@@ -5105,10 +5105,11 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::EnsureVisible => {
-            if let [llr::Expression::PropertyReference(pr)] = arguments {
+            if let [llr::Expression::PropertyReference(pr), mode] = arguments {
+                let mode = compile_expression(mode, ctx);
                 item_owner(pr).then(|owner| {
-                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
-                    format!("{focus_item}.ensure_visible()")
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint::cbindgen_private::slint_item_try_scroll_into_visible(&{item_rc}, {mode})")
                 })
             } else {
                 panic!("internal error: invalid args to EnsureVisible {arguments:?}")
@@ -5588,16 +5589,16 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ScrollTo => {
             if let [llr::Expression::PropertyReference(pr), pos, mode] = arguments {
-                let window = access_window_field(ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
-                    // format!(
-                    //     "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
-                    // )
-                    unimplemented!("Not yet implemented")
+                let pos = compile_expression(pos, ctx);
+                let mode = compile_expression(mode, ctx);
+                item_owner(pr).then(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    format!(
+                        "[&]{{ auto pos = {pos}; slint::cbindgen_private::slint_flickable_scroll_to(&{item}, &{item_rc}, pos.x, pos.y, {mode}); }}()"
+                    )
                 })
             } else {
-                panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")
+                panic!("internal error: invalid args to ScrollTo {arguments:?}")
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {

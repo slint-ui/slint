@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 import { Button } from "std-widgets.slint";
 export component TestCase inherits Window {
     width: 500phx;
@@ -29,7 +32,6 @@ export component TestCase inherits Window {
                 } else {
                     counter += 1;
                 }
-
             }
         }
 
@@ -39,7 +41,7 @@ export component TestCase inherits Window {
             content_width: 1000phx;
             content_height: 1000phx;
 
-            r1:= Rectangle {
+            r1 := Rectangle {
                 x: 0px;
                 y: 0px;
                 width: 100px;
@@ -47,7 +49,7 @@ export component TestCase inherits Window {
                 background: red;
             }
 
-            r2:= Rectangle {
+            r2 := Rectangle {
                 x: 300px;
                 y: 300px;
                 width: 100px;
@@ -55,7 +57,7 @@ export component TestCase inherits Window {
                 background: blue;
             }
 
-            r3:= Rectangle {
+            r3 := Rectangle {
                 x: 700px;
                 y: 700px;
                 width: 100px;
@@ -65,8 +67,8 @@ export component TestCase inherits Window {
         }
     }
 
-    in-out property<length> offset_x: -f.content_x;
-    in-out property<length> offset_y: -f.content_y;
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
 }
 
 /*
@@ -156,5 +158,111 @@ assert_eq!(instance.get_offset_y(), offset_y, "The flickable did not scroll yet"
 slint_testing::mock_elapsed_time(1000000);
 assert!(instance.get_offset_x() <= POS_RED_RECTANGLE.x + RED_RECTANGLE_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
 assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
+```
+
+/// Instant scrolling
+```cpp
+using slint::language::ScrollMode;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_ensure_visible_(0, ScrollMode::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(1, ScrollMode::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(2, ScrollMode::Instant);
+assert(instance.get_offset_x() >= 700. - 500.);
+assert(instance.get_offset_y() >= 700. - 500.);
+
+instance.invoke_ensure_visible_(0, ScrollMode::Instant);
+assert(instance.get_offset_x() <= 100.);
+assert(instance.get_offset_y() <= 100.);
+```
+
+/// Smooth scrolling
+```cpp
+using slint::language::ScrollMode;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_ensure_visible_(0, ScrollMode::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(1, ScrollMode::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(2, ScrollMode::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+slint_testing::mock_elapsed_time(1000000);
+assert(instance.get_offset_x() >= 700. - 500.);
+assert(instance.get_offset_y() >= 700. - 500.);
+
+auto offset_x = instance.get_offset_x();
+auto offset_y = instance.get_offset_y();
+instance.invoke_ensure_visible_(0, ScrollMode::Smooth);
+assert_eq(instance.get_offset_x(), offset_x);
+assert_eq(instance.get_offset_y(), offset_y);
+slint_testing::mock_elapsed_time(1000000);
+assert(instance.get_offset_x() <= 100.);
+assert(instance.get_offset_y() <= 100.);
+```
+
+/// Instant scrolling
+```js
+var instance = new slint.TestCase({});
+
+instance.ensure_visible_(0, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(1, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(2, "instant");
+assert(instance.offset_x >= 700 - 500, instance.offset_x);
+assert(instance.offset_y >= 700 - 500, instance.offset_y);
+
+instance.ensure_visible_(0, "instant");
+assert(instance.offset_x <= 100, instance.offset_x);
+assert(instance.offset_y <= 100, instance.offset_y);
+```
+
+/// Smooth scrolling
+```js
+var instance = new slint.TestCase({});
+
+instance.ensure_visible_(0, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(1, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(2, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x >= 700 - 500, instance.offset_x);
+assert(instance.offset_y >= 700 - 500, instance.offset_y);
+
+let offset_x = instance.offset_x;
+let offset_y = instance.offset_y;
+instance.ensure_visible_(0, "smooth");
+assert(instance.offset_x === offset_x, instance.offset_x);
+assert(instance.offset_y === offset_y, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x <= 100, instance.offset_x);
+assert(instance.offset_y <= 100, instance.offset_y);
 ```
 */

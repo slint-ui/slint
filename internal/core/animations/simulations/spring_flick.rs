@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 use crate::animations::simulations::Direction;
 use crate::animations::simulations::spring::{SpringParameters, SpringPhysicalParameters};
 use crate::animations::{
@@ -13,7 +16,7 @@ pub struct SpringFlick {
     traveled: f32,
     data: SpringRegime,
     initial_velocity: f32,
-    inital_deflection: f32,
+    initial_deflection: f32,
     finished: bool,
     direction: Direction,
 }
@@ -62,7 +65,7 @@ impl SpringFlick {
             data,
             initial_velocity,
             finished,
-            inital_deflection: deflection,
+            initial_deflection: deflection,
             direction,
         }
     }
@@ -72,7 +75,7 @@ impl SpringFlick {
             return (self.data.evaluate(Duration::from_secs(10000).as_secs_f32()).0, 0.);
         }
         if elapsed.is_zero() {
-            return (self.inital_deflection, self.initial_velocity);
+            return (self.initial_deflection, self.initial_velocity);
         }
         let t = elapsed.as_secs_f32();
         self.data.evaluate(t)
@@ -87,7 +90,7 @@ impl SpringFlick {
         let (displacement, velocity) = self.sample(elapsed);
 
         // Apply increments: virtualized views may move the content between frames.
-        let position = displacement - self.inital_deflection;
+        let position = displacement - self.initial_deflection;
         *current += position - self.traveled;
         self.traveled = position;
         let limit = self.limit_value.as_ref().get();
@@ -100,7 +103,7 @@ impl SpringFlick {
             *current = limit;
         }
         // This works only for critical damped spring simulations, otherwise
-        // wether the simulation never ends or we don't even reach the position
+        // whether the simulation never ends or we don't even reach the position
         if clamped
             || (displacement.abs() < SPRING_SETTLE_POSITION_EPSILON
                 && velocity.abs() < SPRING_SETTLE_VELOCITY_EPSILON)
@@ -120,7 +123,7 @@ impl Simulation for SpringFlick {
 impl PositionSimulation for SpringFlick {
     fn remaining_distance(&self, now: Instant) -> f32 {
         let elapsed = now.duration_since(self.start_time);
-        self.sample(elapsed).0 - self.inital_deflection
+        self.sample(elapsed).0 - self.initial_deflection
     }
 
     fn remaining_velocity(&self, now: Instant) -> f32 {

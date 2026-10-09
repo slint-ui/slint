@@ -15,7 +15,7 @@ use crate::langtype::{
     Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
-use crate::{typeloader, typeregister};
+use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
