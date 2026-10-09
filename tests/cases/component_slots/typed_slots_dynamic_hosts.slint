@@ -1,0 +1,72 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface I {
+    in-out property <int> value;
+}
+
+component Impl {
+    in-out property <int> value;
+}
+
+component Host {
+    in property <int> v;
+    out property <int> seen: control.value;
+    slot <I> control;
+    control {
+        value: root.v;
+    }
+}
+
+export component TestCase inherits Window {
+    in property <[int]> model: [10, 20, 30];
+    in property <bool> cond: true;
+    out property <int> sum;
+    out property <int> popup-seen;
+
+    for m in model: Host {
+        v: m;
+        control << Impl { }
+        init => { root.sum += self.seen; }
+    }
+    if cond: Host {
+        v: 4;
+        control << Impl { }
+        init => { root.sum += 100 * self.seen; }
+    }
+    popup := PopupWindow {
+        Host {
+            v: 5;
+            control << Impl { }
+            init => { root.popup-seen = self.seen; }
+        }
+    }
+
+    public function show-popup() { popup.show(); }
+
+    out property <bool> test: sum == 460;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_show_popup();
+assert_eq!(instance.get_popup_seen(), 5);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_show_popup();
+assert_eq(instance.get_popup_seen(), 5);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.show_popup();
+assert.equal(instance.popup_seen, 5);
+```
+*/

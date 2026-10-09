@@ -1,0 +1,93 @@
+---
+title: ISO 26262-8
+description: How Slint SC meets ISO 26262-8, supporting processes.
+---
+
+See [Status](/norm-mapping/#status) for what each status means.
+
+## Clause 5: Distributed Developments
+
+[Distributed Development](/safety-plan/development-process/#distributed-development) explains why the clause reaches only the interface between SixtyFPS GmbH and the integrator.
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 5.4.1 | Application of requirements | Met | [Distributed Development](/safety-plan/development-process/#distributed-development). |
+| 5.4.2 | Supplier selection criteria | Integrator | The integrator selects Slint SC as a supplier. |
+| 5.4.3 | Development interface agreement | Open | [S-02](/safety-plan/lifecycle/#once-to-set-up) plans the agreement template, which doesn't exist yet. |
+| 5.4.4 | Execution of distributed development | Partly met | The [User Manual](/user-manual/) states what the integrator needs, and [F-02](/safety-plan/release/#after-a-release) reports safety anomalies. The agreement of 5.4.3 is missing. |
+| 5.4.5 | Functional safety assessment | Met | TÜV Nord assesses Slint SC; see [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures). |
+| 5.4.6 | Agreement for production and operation | Partly met | [After a Release](/safety-plan/release/#after-a-release). The reporting channel is missing. |
+
+## Clause 6: Specification and Management of Safety Requirements
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 6.4.1 | Specification of safety requirements | Met | [Safety Requirements](/safety-plan/standards-compliance/#safety-requirements). |
+| 6.4.2 | Attributes and characteristics | Partly met | Each requirement has a unique identifier and is assumed at ASIL B; see [Requirements](/component-documentation/assumed-safety-requirements/#requirements). Allocation is open; see 7.4.6 in [ISO 26262-6](/norm-mapping/iso-26262-6/#clause-7-software-architectural-design). |
+| 6.4.3 | Management of safety requirements | Partly met | Every requirement paragraph is traced to its tests; see the [Traceability Matrix](/qualification-report/traceability-matrix/). An assumed safety requirement names its specification paragraphs, but a paragraph doesn't name its assumed safety requirement yet. |
+
+## Clause 7: Configuration Management
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 7.4.1 | Planning | Met | [Configuration Management](/safety-plan/development-process/#configuration-management). |
+| 7.4.2 | Compliance with the quality management system | Partly met | The quality management system of [O-05](/safety-plan/safety-management/#organization-level-prerequisites) isn't in place yet. |
+| 7.4.3 | Baselines | Met | [R-08](/safety-plan/release/#on-every-release) tags each release. |
+| 7.4.4 | Identification strategy | Met | [Configuration Management](/safety-plan/development-process/#configuration-management), and [Traceability](/safety-plan/development-phases/#traceability). |
+| 7.4.5 | Maintenance throughout the lifecycle | Met | The repository keeps every commit permanently; see [Traceability](/safety-plan/development-phases/#traceability). |
+
+## Clause 8: Change Management
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 8.4.1 | Planning | Met | [Change Management](/safety-plan/development-process/#change-management), and [Development Phases](/safety-plan/development-phases/). |
+| 8.4.2 | Change requests | Met | A pull request is the change request, identified by its number; see [Development Phases](/safety-plan/development-phases/). |
+| 8.4.3 | Change request analysis | Open | [C-01](/safety-plan/development-phases/#on-every-change) plans the impact analysis, but neither its form nor its enforcement exists yet. |
+| 8.4.4 | Change request evaluation | Partly met | [C-07](/safety-plan/development-phases/#on-every-change). Nothing enforces the review yet. |
+| 8.4.5 | Implementing and documenting the change | Met | The pull request and its commits; see [Traceability](/safety-plan/development-phases/#traceability). |
+
+## Clause 9: Verification
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 9.4.1 | Verification planning | Met | [Verification](/safety-plan/verification/), set up by [S-06](/safety-plan/lifecycle/#once-to-set-up). |
+| 9.4.2 | Verification specification | Met | [Test Suites](/safety-plan/test-suites/), and [Tagging Requirements](/safety-plan/test-suites/#tagging-requirements). |
+| 9.4.3 | Verification execution and evaluation | Met | [Pass Criteria](/safety-plan/verification/#pass-criteria), and the [Test Results](/qualification-report/test-results/). |
+
+## Clause 10: Documentation Management
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 10.4.1 | Planning | Met | This manual, versioned with the repository; see [S-09](/safety-plan/lifecycle/#once-to-set-up). |
+| 10.4.2 | Work products as documentation | Met | Each work product is a chapter of this manual, or a record the chapter names. |
+| 10.4.3 | Qualities of documents | Met | The [Safety Manual](/) is written to the repository's writing style guide. |
+| 10.4.4 | Structure | Met | The [document set](/#documents). |
+| 10.4.5 | Formal elements | Partly met | The repository history records the author, the revision, and the change history of each page. The approver and the status are missing. |
+| 10.4.6 | Current revision | Met | Each release builds its manual from its baseline tag; see [Deliverables](/safety-plan/deliverables/). |
+
+## Clause 11: Confidence in the Use of Software Tools
+
+The criteria evaluation report of 11.5.1 is the [Tool Evaluation Report](/evaluation-report/).
+The qualification report of 11.5.2 is [Tool Qualification](/qualification-report/tool-qualification/).
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 11.4.1 | General | Met | The [Tool Evaluation Report](/evaluation-report/) covers the Slint compiler and `slint-sc-coverage`. |
+| 11.4.2 | Validity of a predetermined confidence level | Integrator | The integrator verifies the maximum ASIL; see [Planning of Usage](/evaluation-report/#planning-of-usage). |
+| 11.4.3 | Compliance with the evaluation | Integrator | [`slint.aou.same-release`](/user-manual/#slint.aou.same-release) and [`slint.aou.compile`](/user-manual/#slint.aou.compile). |
+| 11.4.4 | Planning of usage | Partly met | [Planning of Usage](/evaluation-report/#planning-of-usage) and [Available Information](/evaluation-report/#available-information). The Rust toolchain and CI aren't classified yet. |
+| 11.4.5 | Evaluation by analysis | Met | [Use Cases](/evaluation-report/use-cases/), [Potential Errors](/evaluation-report/potential-errors/), and [Tool Classification](/evaluation-report/tool-classification/). |
+| 11.4.6 | Qualification | Met | [Qualification Method](/evaluation-report/qualification-method/), and [Tool Qualification](/qualification-report/tool-qualification/). |
+| 11.4.7 | Increased confidence from use | N/A | Not used. |
+| 11.4.8 | Evaluation of the tool development process | N/A | Not used. |
+| 11.4.9 | Validation of the software tool | Met | [Qualification Method](/evaluation-report/qualification-method/#slint-sc-coverage), and [Coverage Tool Verification](/safety-plan/slint-coverage/). |
+
+## Clauses 12 to 16
+
+| Clause | Topic | Status | How |
+| --- | --- | --- | --- |
+| 12 | Qualification of software components | N/A | The runtime is developed under ISO 26262-6, not reused; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed). |
+| 13 | Evaluation of hardware elements | N/A | Slint SC is software only. |
+| 14 | Proven in use argument | N/A | Not claimed. |
+| 15 | Interfacing an application out of scope of ISO 26262 | N/A | Applies to trucks and buses only. |
+| 16 | Integration of safety-related systems not developed to ISO 26262 | N/A | Applies to trucks and buses only. |

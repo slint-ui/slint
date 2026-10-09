@@ -3,11 +3,13 @@ title: Architecture Design
 description: Software units of Slint SC and their static and dynamic architecture.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 This chapter describes the units that make up Slint SC, and how they fit together at build time and at run time.
 
 ## Software Units
 
-**Addresses:** ISO 26262-6 7.4.4
+<Addresses>ISO 26262-6 7.4.4</Addresses>
 
 Slint SC consists of three units.
 
@@ -24,9 +26,9 @@ The Reference is generated from the `\sc` markers in the compiler's builtins, so
 
 ## Architectural Design
 
-**Addresses:** ISO 26262-6 7.4
+<Addresses>ISO 26262-6 7.4</Addresses>
 
-During the development of the software architectural design, 7.4.2 says the following shall be considered:
+During the development of the software architectural design, ISO 26262-6 7.4.2 says the following shall be considered:
 
 1. Verifiability of the software architectural design.
     This implies bi-directional traceability between the software architectural design and the

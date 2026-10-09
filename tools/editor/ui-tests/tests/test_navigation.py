@@ -20,7 +20,39 @@ from ui_driver import (
     press_key,
     press_keys,
     query,
+    select_outline_row,
 )
+
+
+def test_recompilation_preserves_inspector_focus_after_file_tree_navigation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        file_row(window, source).invoke_accessible_default_action()
+        select_outline_row(window, "root-rectangle")
+        field = element(
+            window, "Position X", role=slint_testing.AccessibleRole.TextInput
+        )
+        field.invoke_accessible_default_action()
+        for _ in field.accessible_value:
+            press_key(window, keys.Delete)
+        press_keys(window, "99")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        press_key(window, keys.Return)
+        expected = snapshot.sources[Path("Main.slint")].replace(
+            b"x: 40px;", b"x: 99px;", 1
+        )
+        snapshot.wait_for_applied(expected)
+        press_key(window, "7")
+        expect(field).to_have_value("997")
+        press_key(window, keys.Return)
+        snapshot.wait_for_applied(expected.replace(b"x: 99px;", b"x: 997px;", 1))
+        expect(query(window, "Rename Main.slint")).to_be_hidden()
 
 
 def test_file_tree_renames_file_inline(

@@ -3,6 +3,8 @@ title: Development Phases
 description: How a change to Slint SC is made, reviewed, and merged.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 Slint SC is developed in the same repository as Slint, [slint-ui/slint](https://github.com/slint-ui/slint), and follows the [same process as the rest of the repository](https://github.com/slint-ui/slint/blob/master/docs/internal/processes.md).
 
 A change is a pull request that touches Slint SC.
@@ -11,22 +13,22 @@ The approval of a pull request covers every commit in the pull request at the mo
 
 ## On Every Change
 
-**Addresses:** ISO 26262-6 Clauses 6 to 10, ISO 26262-8 Clause 8
+<Addresses>ISO 26262-6 Clauses 6 to 10, ISO 26262-8 Clause 8</Addresses>
 
 The activities below run in the pull request, before anyone merges the pull request.
 CI enforces C-04 and C-05; the reviewer checks the rest.
 See [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change) for why the activities run per change.
 
-| ID | Activity | Clause | Responsible | Work product |
-| --- | --- | --- | --- | --- |
-| C-01 | Analyze the impact: whether the change touches Slint SC, and which requirements and analyses the change affects | 8-8.4.3 | Author | Impact statement in the pull request |
-| C-02 | Specify or update the requirement | 6-6, 8-6 | Author | A `{#sls.…}` paragraph in the [Reference](/reference/) |
-| C-03 | Update the architecture, if the change affects the architecture | 6-7 | Author | [Architecture Design](/safety-plan/architecture/) |
-| C-04 | Implement, and verify with unit and integration tests | 6-8, 6-9, 6-10 | Author | Code and tests; the runtime stays at complete line, function, region, and branch coverage |
-| C-05 | Trace every requirement to a test | 8-6 | Author | A `//#sls.…` test per requirement; see the [Traceability Matrix](/qualification-report/traceability-matrix/) |
-| C-06 | Update the safety analysis, or the potential errors of a tool, if the change affects them | 9-8, 8-11 | Author | [Safety Analysis](/component-documentation/safety-analysis/), [Potential Errors](/evaluation-report/potential-errors/) |
-| C-07 | Review and approve, by someone other than the author | 8-8.4.4, 8-9 | Reviewer | Pull request approval |
-| C-08 | Record a safety anomaly the change fixes | 2-5.4.3 | Author | The anomaly's issue, closed with its rationale, and an entry in [Known Problems](/user-manual/known-problems/) |
+| ID | Activity | Responsible | Work product |
+| --- | --- | --- | --- |
+| C-01 | Analyze the impact: whether the change touches Slint SC, and which requirements and analyses the change affects | Author | Impact statement in the pull request |
+| C-02 | Specify or update the requirement | Author | A `{#sls.…}` paragraph in the [Reference](/reference/) |
+| C-03 | Update the architecture, if the change affects the architecture | Author | [Architecture Design](/safety-plan/architecture/) |
+| C-04 | Implement, and verify with unit and integration tests | Author | Code and tests; the runtime stays at complete line, function, region, and branch coverage |
+| C-05 | Trace every requirement to a test | Author | A `//#sls.…` test per requirement; see the [Traceability Matrix](/qualification-report/traceability-matrix/) |
+| C-06 | Update the safety analysis, or the potential errors of a tool, if the change affects them | Author | [Safety Analysis](/component-documentation/safety-analysis/), [Potential Errors](/evaluation-report/potential-errors/) |
+| C-07 | Review and approve, by someone other than the author | Reviewer | Pull request approval |
+| C-08 | Record a safety anomaly the change fixes | Author | The anomaly's issue, closed with its rationale, and an entry in [Known Problems](/user-manual/known-problems/) |
 
 :::caution[TODO]
 C-01, C-07, and C-08 aren't enforced yet.

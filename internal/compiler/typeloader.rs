@@ -196,6 +196,22 @@ impl Snapshotter {
     }
 
     fn finalize(&mut self) {
+        for (source, target) in &self.keep_alive {
+            for (name, point) in source.child_insertion_points.borrow().iter() {
+                if let Some(copied) = target.child_insertion_points.borrow_mut().get_mut(name) {
+                    copied.parent = self.use_element(&point.parent);
+                }
+            }
+            for (original, copied) in source
+                .declared_slots
+                .borrow()
+                .iter()
+                .zip(target.declared_slots.borrow_mut().iter_mut())
+            {
+                copied.interface =
+                    original.interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+            }
+        }
         let mut elements = std::mem::take(&mut self.keep_alive_elements);
 
         while !elements.is_empty() {
@@ -472,6 +488,12 @@ impl Snapshotter {
         let elem = element.borrow();
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
+        target_element.slot_target = elem.slot_target.clone();
+        target_element.forwarded_slots = elem.forwarded_slots.clone();
+        target_element.typed_slot_interface =
+            elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+        target_element.implement_statements =
+            elem.implement_statements.iter().map(|statement| statement.snapshot(self)).collect();
 
         target_element.transitions = elem
             .transitions
@@ -2772,6 +2794,63 @@ fn test_snapshotting() {
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_snapshotting_typed_slot_implementations() {
+    let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.enable_experimental = true;
+    let mut type_loader = TypeLoader::new(config, &mut BuildDiagnostics::default());
+    let library_path = SourcePath::new("/tmp/typed-slot-implementations.slint");
+    let mut diag = BuildDiagnostics::default();
+    diag.enable_experimental = true;
+    spin_on::spin_on(
+        type_loader.load_file(
+            &library_path,
+            r#"
+            interface ValueControl { in-out property <int> value; }
+            export component SelfImplementation {
+                implement ValueControl <=> self;
+                in-out property <int> value;
+            }
+            export component ChildImplementation {
+                implement ValueControl <=> child;
+                child := SelfImplementation { }
+            }
+            export component InheritedImplementation inherits SelfImplementation { }
+            export component Host {
+                slot <ValueControl> control;
+                control { value: 42; }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+
+    let mut copy = snapshot(&type_loader).unwrap();
+    drop(type_loader);
+    let application_path = SourcePath::new("/tmp/typed-slot-application.slint");
+    spin_on::spin_on(
+        copy.load_file(
+            &application_path,
+            r#"
+            import { SelfImplementation, ChildImplementation, InheritedImplementation, Host }
+                from "typed-slot-implementations.slint";
+            export component TestCase {
+                Host { control << SelfImplementation { } }
+                Host { control << ChildImplementation { } }
+                Host { control << InheritedImplementation { } }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
 #[test]

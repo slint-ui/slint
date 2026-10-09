@@ -64,6 +64,7 @@ impl ItemRegistry {
             TextInput,
             Clip,
             BoxShadow,
+            BackdropBlur,
             Transform,
             Opacity,
             Layer,

@@ -30,6 +30,16 @@ SCENARIO("SharedString API")
         REQUIRE(std::string_view(str.data()) == "Foo");
     }
 
+    SECTION("Construct from default constructed string_view")
+    {
+        // A default constructed string_view has a null data() pointer.
+        REQUIRE(slint::SharedString(std::string_view {}).empty());
+        str = std::string_view {};
+        REQUIRE(str.empty());
+        str += std::string_view {};
+        REQUIRE(str.empty());
+    }
+
     SECTION("Construct from char*")
     {
         str = "Bar";

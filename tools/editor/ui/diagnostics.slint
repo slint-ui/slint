@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum DiagnosticLevel { Debug, Note, Warning, Error }
+
+export struct Diagnostic {
+    file: string,
+    line: int,
+    column: int,
+    message: string,
+    level: DiagnosticLevel,
+}
+
+export struct FileDiagnosticSummary {
+    error-count: int,
+    warning-count: int,
+}
+
+export enum PreviewAvailability { Unavailable, Current, Stale, NoComponent }
+
+export global Diagnostics {
+    in property <[Diagnostic]> entries: Platform.uses-mock-data ? DiagnosticsMock.entries : [];
+    in property <[Diagnostic]> errors: Platform.uses-mock-data ? DiagnosticsMock.errors : [];
+    in property <[Diagnostic]> warnings: Platform.uses-mock-data ? DiagnosticsMock.warnings : [];
+    in property <bool> compiling;
+    in property <PreviewAvailability> preview-availability: Platform.uses-mock-data ? DiagnosticsMock.availability : PreviewAvailability.Unavailable;
+    out property <bool> preview-editable: self.preview-availability == PreviewAvailability.Current;
+
+    pure callback file-diagnostics(path: string) -> FileDiagnosticSummary;
+    file-diagnostics(path) => {
+        if Platform.uses-mock-data {
+            return DiagnosticsMock.file-summary(path);
+        }
+        return { error-count: 0, warning-count: 0 };
+    }
+    pure callback format-location(diagnostic: Diagnostic) -> string;
+    format-location(diagnostic) => {
+        if Platform.uses-mock-data {
+            return diagnostic.line > 0 ? "\{diagnostic.file}:\{diagnostic.line}:\{diagnostic.column}" : diagnostic.file;
+        }
+        return "";
+    }
+    callback copy-to-clipboard();
+    copy-to-clipboard => {
+        if Platform.uses-mock-data { DiagnosticsMock.copy-count += 1; }
+    }
+}
+
+export enum DiagnosticMockScenario { Current, Warnings, Stale, Unavailable, NoComponent, ManyErrors, Imports }
+
+export global DiagnosticsMock {
+    in-out property <DiagnosticMockScenario> scenario: DiagnosticMockScenario.Current;
+    in-out property <int> copy-count;
+    private property <Diagnostic> root-error: {
+        file: "Main.slint", line: 18, column: 5,
+        message: "Expected '}'", level: DiagnosticLevel.Error,
+    };
+    private property <Diagnostic> imported-error: {
+        file: "components/Card.slint", line: 12, column: 9,
+        message: "Unknown property 'foreground'", level: DiagnosticLevel.Error,
+    };
+    private property <Diagnostic> warning: {
+        file: "Main.slint", line: 1, column: 17,
+        message: "Component declaration syntax is deprecated", level: DiagnosticLevel.Warning,
+    };
+    out property <[Diagnostic]> errors: scenario == DiagnosticMockScenario.Imports ? [imported-error]
+        : scenario == DiagnosticMockScenario.ManyErrors ? [root-error, root-error, root-error, root-error, root-error]
+        : scenario == DiagnosticMockScenario.Stale || scenario == DiagnosticMockScenario.Unavailable ? [root-error] : [];
+    out property <[Diagnostic]> warnings: scenario == DiagnosticMockScenario.Warnings ? [warning] : [];
+    out property <[Diagnostic]> entries: scenario == DiagnosticMockScenario.Warnings ? warnings : errors;
+    out property <PreviewAvailability> availability: scenario == DiagnosticMockScenario.NoComponent ? PreviewAvailability.NoComponent
+        : scenario == DiagnosticMockScenario.Unavailable ? PreviewAvailability.Unavailable
+        : errors.length > 0 ? PreviewAvailability.Stale : PreviewAvailability.Current;
+
+    public pure function file-summary(path: string) -> FileDiagnosticSummary {
+        let imported = scenario == DiagnosticMockScenario.Imports;
+        let root-folder = path == "/mock/project";
+        let matches-error = root-folder || (imported ? path.ends-with("/components/Card.slint") || path.ends-with("/components") : path.ends-with("/Main.slint"));
+        return {
+            error-count: matches-error ? errors.length : 0,
+            warning-count: root-folder || path.ends-with("/Main.slint") ? warnings.length : 0,
+        };
+    }
+}
