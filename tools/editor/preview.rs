@@ -3000,6 +3000,132 @@ mod tests {
     }
 
     #[test]
+    fn palette_pointer_drags_emit_source_edits() {
+        use slint_editor::component_support::controls;
+        const SOURCE: &str = r#"export component Main inherits Window {
+    width: 390px;
+    height: 720px;
+    Text {
+        text: "Hello from Slint";
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}"#;
+        i_slint_backend_testing::init_no_event_loop();
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let url = path.to_url().unwrap();
+        for kind in [
+            ui::ElementKind::Text,
+            ui::ElementKind::Rectangle,
+            ui::ElementKind::Image,
+            ui::ElementKind::TouchArea,
+            ui::ElementKind::Button,
+            ui::ElementKind::Slider,
+            ui::ElementKind::ComboBox,
+        ] {
+            let (instance, cache) = controls_preview(SOURCE);
+            instance.show().unwrap();
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            install_preview_instance(&instance);
+            let editor = ui::EditorUi::new().unwrap();
+            editor.set_elements_pane_height(500.0);
+            let api = editor.global::<ui::Api>();
+            let to_lsp: Rc<dyn PreviewToLsp> =
+                Rc::new(CapturePreviewToLsp { messages: messages.clone() });
+            ui::initialize_editor(&editor, &to_lsp, "");
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+                state.editor_ui = Some(editor.clone_strong());
+                *state.to_lsp.borrow_mut() = Some(to_lsp);
+                state.document_cache.replace(Some(Rc::new(cache)));
+                state.config.library_paths = controls::library_paths();
+                state.current_previewed_component =
+                    Some(PreviewComponent { url: url.clone(), component: Some("Main".into()) });
+                state.source_code.insert(
+                    url.clone(),
+                    SourceCodeCacheEntry { version: Some(1), code: SOURCE.into() },
+                );
+            });
+            set_preview_factory(
+                &editor,
+                &api,
+                instance.definition().clone(),
+                Box::new(|embedded| {
+                    PREVIEW_STATE.with_borrow(|state| state.handle.replace(Some(embedded)));
+                    previewed_component_changed();
+                }),
+                LoadBehavior::Reload,
+            );
+            editor.show().unwrap();
+            i_slint_backend_testing::mock_elapsed_time(0);
+            let artboard = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor, "Artboard",
+            )
+            .next()
+            .unwrap();
+            let target = artboard.absolute_position();
+            assert!(palette_component(kind).is_some(), "control must be registered after refresh");
+            let data = api.invoke_new_component_data_for_kind(kind);
+            assert!(api.invoke_can_drop(data.clone(), 220.0, 198.0, true));
+            let cache = document_cache().unwrap();
+            let root_offset = SOURCE.find("Window").unwrap() as i32;
+            assert!(api.invoke_outline_can_drop(
+                data.clone(),
+                url.as_str().into(),
+                root_offset,
+                ui::DropLocation::Onto,
+            ));
+            let entry = element_catalog::element(kind).unwrap();
+            let row = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                entry.label,
+            )
+            .find(|element| {
+                element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::ListItem)
+            })
+            .expect("palette row");
+            assert_eq!(row.accessible_enabled(), Some(true));
+            use slint::platform::{PointerEventButton, WindowEvent};
+            let start = row.absolute_position();
+            let start = LogicalPosition::new(
+                start.x + row.size().width / 2.0,
+                start.y + row.size().height / 2.0,
+            );
+            let end = LogicalPosition::new(target.x + 195.0, target.y + 360.0);
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position: start,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(start.x + 16.0, start.y + 16.0),
+            });
+            i_slint_backend_testing::mock_elapsed_time(16);
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+            i_slint_backend_testing::mock_elapsed_time(16);
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position: end,
+                button: PointerEventButton::Left,
+            });
+            let messages = messages.borrow();
+            let edit = messages
+                .iter()
+                .find_map(|message| match message {
+                    PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit),
+                    _ => None,
+                })
+                .unwrap_or_else(|| {
+                    panic!("{kind:?}: canvas drop must emit a source edit: {messages:?}")
+                });
+            let dropped = text_edit::apply_workspace_edit(&cache, edit).unwrap().remove(0).contents;
+            assert!(dropped.contains(&format!("{} {{", entry.type_name)));
+            if entry.group == element_catalog::Group::Controls {
+                assert!(dropped.contains("@editor-controls"));
+            }
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
     fn controls_can_be_dropped_and_edited_with_standard_widgets() {
         use slint_editor::component_support::controls;
         const SOURCE: &str = r#"import { Button } from "std-widgets.slint";
