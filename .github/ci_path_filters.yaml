@@ -163,12 +163,12 @@ examples_mcu:
  - 'examples/*mcu*/**'
  - 'internal/renderers/software/**'
 
+# The extension embeds the wasm build of the LSP, which the slintpad job also
+# builds, so changes to the LSP and its dependencies don't need this job.
 vsce:
- - *internal
  - *js_config
- - 'api/rs/**'
+ - *ci_config
  - 'editors/vscode/**'
- - 'tools/lsp/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
 
 slintpad:
