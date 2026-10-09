@@ -273,31 +273,24 @@ pub fn initialize_editor(
     api.on_set_element_id(super::set_element_id);
     api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
-    let property_api_weak = api_weak.clone();
-    api.on_current_property_value_data(move |property_name| {
-        let Some(api) = property_api_weak.upgrade() else {
-            return PropertyValue::default();
-        };
-
-        current_property_value_data(&api, property_name).unwrap_or_default()
-    });
+    property_view::setup(editor_ui, &api);
     let color_field_api_weak = api_weak.clone();
-    api.on_current_color_field_data(move |property_name| {
+    api.on_source_color_field_data(move |property_name| {
         let Some(api) = color_field_api_weak.upgrade() else {
             return ColorFieldData::default();
         };
 
-        current_property_value_data(&api, property_name)
+        source_property_value_data(&api, property_name)
             .map(brushes::color_field_data)
             .unwrap_or_default()
     });
     let property_value_api_weak = api_weak.clone();
-    api.on_current_property_value(move |property_name, fallback| {
+    api.on_source_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {
             return fallback;
         };
 
-        current_property_value(&api, property_name, fallback)
+        source_property_value(&api, property_name, fallback)
     });
     api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
@@ -362,6 +355,25 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
 
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
+}
+
+pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::ComponentInstance) {
+    let item =
+        i_slint_core::items::ItemRc::new_root(instance.as_item_tree(i_slint_core::InternalToken));
+    let font = i_slint_core::items::WindowItem::resolved_font_request(
+        &item,
+        SharedString::default(),
+        0,
+        i_slint_core::lengths::LogicalLength::default(),
+        i_slint_core::lengths::LogicalLength::default(),
+        1.0,
+        false,
+    );
+    api.set_preview_default_font_family(font.family.unwrap_or_default());
+    api.set_preview_default_font_size(
+        font.pixel_size.unwrap_or(i_slint_core::textlayout::DEFAULT_FONT_SIZE).get(),
+    );
+    api.set_preview_default_font_weight(font.weight.unwrap_or_default());
 }
 
 pub fn ui_set_known_components(
@@ -1191,10 +1203,7 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
-fn current_property_value_data(
-    api: &Api<'_>,
-    property_name: SharedString,
-) -> Option<PropertyValue> {
+fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
     let groups = api.get_properties();
     groups.model_tracker().track_row_count_changes();
     for (group_index, group) in groups.iter().enumerate() {
@@ -1211,12 +1220,12 @@ fn current_property_value_data(
     None
 }
 
-fn current_property_value(
+fn source_property_value(
     api: &Api<'_>,
     property_name: SharedString,
     fallback: SharedString,
 ) -> SharedString {
-    let Some(property) = current_property_value_data(api, property_name) else {
+    let Some(property) = source_property_value_data(api, property_name) else {
         return fallback;
     };
 
@@ -1635,7 +1644,7 @@ mod tests {
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
         ] {
-            api.on_current_property_value_data(move |_| PropertyValue {
+            api.on_source_property_value_data(move |_, _| PropertyValue {
                 code: code.into(),
                 kind,
                 value_kind,
@@ -1659,7 +1668,7 @@ mod tests {
         });
         api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
         let weak = editor.as_weak();
-        api.on_current_property_value_data(move |name| {
+        api.on_source_property_value_data(move |name, _| {
             let editor = weak.unwrap();
             let refreshed = editor.global::<super::Api>().get_inspector_generation() > 0;
             PropertyValue {
@@ -2059,7 +2068,7 @@ mod tests {
             }]))
             .into()
         });
-        api.on_current_property_value_data(move |name| {
+        api.on_source_property_value_data(move |name, _| {
             let Some(&(_, radius)) =
                 radius_properties.iter().find(|(property, _)| *property == name.as_str())
             else {

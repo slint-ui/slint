@@ -2590,6 +2590,7 @@ fn set_preview_factory(
             editor_ui
                 .global::<ui::Diagnostics>()
                 .set_preview_availability(ui::PreviewAvailability::Current);
+            ui::set_preview_default_fonts(&editor_ui.global::<ui::Api>(), &instance);
         }
 
         Some(instance)

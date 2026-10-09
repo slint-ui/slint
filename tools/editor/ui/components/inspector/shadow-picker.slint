@@ -38,7 +38,7 @@ export component InspectorShadowControl inherits FocusScope {
                 border-radius: self.width / 2;
                 border-width: Metrics.border-width;
                 outline-color: Style.color-field.swatch-border;
-                color: Api.current-color-field-data("drop-shadow-color").fill.color;
+                color: Api.source-color-field-data("drop-shadow-color").fill.color;
                 checker-light: Style.color-field.checker.light;
                 checker-dark: Style.color-field.checker.dark;
             }
@@ -100,8 +100,8 @@ export component InspectorShadowPicker inherits FocusScope {
             }
             InspectorColorField {
                 accessible-name: @tr("Shadow color");
-                value: Api.current-property-value("drop-shadow-color", "");
-                swatch: Api.current-property-value-data("drop-shadow-color").value-brush;
+                value: Api.source-property-value("drop-shadow-color", "");
+                swatch: Api.source-property-value-data("drop-shadow-color", {}).value-brush;
                 wide: true;
                 width: parent.width - Style.effect-slider.label-width - Metrics.space-small;
                 horizontal-stretch: 1;

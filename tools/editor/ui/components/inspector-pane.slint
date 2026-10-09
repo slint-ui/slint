@@ -245,12 +245,12 @@ export component InspectorPane inherits Rectangle {
     }
 
     function property-brush(property-name: string) -> brush {
-        let property = Api.current-property-value-data(property-name);
+        let property = Api.runtime-property-value-data(property-name, {});
         return property.value-resolved ? property.value-brush : transparent;
     }
 
     function property-string(property-name: string, fallback: string) -> string {
-        let property = Api.current-property-value-data(property-name);
+        let property = Api.source-property-value-data(property-name, {});
         if property.code == "" {
             return fallback;
         }
@@ -264,7 +264,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function property-length-label(property-name: string, fallback: string) -> string {
-        let property = Api.current-property-value-data(property-name);
+        let property = Api.source-property-value-data(property-name, {});
         if property.code == "" {
             return fallback;
         }
@@ -299,11 +299,12 @@ export component InspectorPane inherits Rectangle {
     }
 
     function shadow-color-code() -> string {
-        return Api.current-property-value("inner-shadow-color", "");
+        return Api.source-property-value("inner-shadow-color", "");
     }
 
     function shadow-color-swatch() -> brush {
-        return root.property-brush("inner-shadow-color");
+        let property = Api.source-property-value-data("inner-shadow-color", {});
+        return property.value-resolved ? property.value-brush : transparent;
     }
 
     function shadow-blur() -> float {
@@ -381,7 +382,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function text-horizontal-alignment-index() -> int {
-        let value = Api.current-property-value("horizontal-alignment", "start");
+        let value = Api.source-property-value("horizontal-alignment", "start");
         if value == "start" || value == "TextHorizontalAlignment.start" {
             return 0;
         }
@@ -401,7 +402,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function text-word-wrap-index() -> int {
-        let value = Api.current-property-value("wrap", "no-wrap");
+        let value = Api.source-property-value("wrap", "no-wrap");
         if value == "no-wrap" || value == "TextWrap.no-wrap" {
             return 0;
         }
@@ -415,7 +416,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function text-vertical-alignment-index() -> int {
-        let value = Api.current-property-value("vertical-alignment", "top");
+        let value = Api.source-property-value("vertical-alignment", "top");
         if value == "top" || value == "TextVerticalAlignment.top" {
             return 0;
         }
@@ -429,7 +430,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function image-fit-index() -> int {
-        let value = Api.current-property-value("image-fit", "fill");
+        let value = Api.source-property-value("image-fit", "fill");
         if value == "fill" || value == "ImageFit.fill" {
             return 0;
         }
@@ -451,7 +452,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function image-horizontal-alignment-index() -> int {
-        let value = Api.current-property-value("horizontal-alignment", "center");
+        let value = Api.source-property-value("horizontal-alignment", "center");
         if value == "left" || value == "ImageHorizontalAlignment.left" {
             return 0;
         }
@@ -465,7 +466,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function image-vertical-alignment-index() -> int {
-        let value = Api.current-property-value("vertical-alignment", "center");
+        let value = Api.source-property-value("vertical-alignment", "center");
         if value == "top" || value == "ImageVerticalAlignment.top" {
             return 0;
         }
@@ -492,7 +493,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function text-font-weight-index() -> int {
-        let value = Api.current-property-value("font-weight", "400");
+        let value = Api.source-property-value("font-weight", "400");
         if value == "100" || value == "FontWeight.thin" || value == "thin" {
             return 0;
         }
@@ -660,9 +661,9 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-root-selection(): InspectorColorField {
-                            property <PropertyValue> background-value: Api.current-property-value-data("background");
+                            property <PropertyValue> background-value: Api.runtime-property-value-data("background", {});
                             accessible-name: @tr("Root background");
-                            value: Api.current-property-value("background", "");
+                            value: Api.source-property-value("background", "");
                             swatch: background-value.value-resolved ? background-value.value-brush : transparent;
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
@@ -677,7 +678,7 @@ export component InspectorPane inherits Rectangle {
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: @tr("Rectangle background");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: Api.current-property-value("background", "");
+                            value: Api.source-property-value("background", "");
                             swatch: root.property-brush("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
@@ -692,7 +693,7 @@ export component InspectorPane inherits Rectangle {
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: @tr("Text color");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: Api.current-property-value("color", "");
+                            value: Api.source-property-value("color", "");
                             swatch: root.property-brush("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
@@ -756,7 +757,7 @@ export component InspectorPane inherits Rectangle {
                     InspectorPropertyRow {
                         label: @tr("Width");
                         InspectorValueField {
-                            property <PropertyValue> border-value: Api.current-property-value-data("border-width");
+                            property <PropertyValue> border-value: Api.source-property-value-data("border-width", {});
                             accessible-name: @tr("Border width");
                             value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : root.property-length-label("border-width", "0");
                             suffix: "px";
@@ -789,7 +790,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorColorField {
                             accessible-name: @tr("Border color");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: Api.current-property-value("border-color", "");
+                            value: Api.source-property-value("border-color", "");
                             swatch: root.property-brush("border-color");
                             commit-key: root.field-key("border-color");
                             preview-key: root.field-key("border-color");
@@ -944,7 +945,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorImageSourceField {
-                                value: Api.image-source-file-name(Api.current-property-value("source", ""));
+                                value: Api.image-source-file-name(Api.source-property-value("source", ""));
                                 browse => { root.choose-image-source(); }
                             }
                         }
@@ -1026,7 +1027,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorCodeField {
                             accessible-name: @tr("Text content");
                             prefix: @tr("Text");
-                            value: Api.current-property-value("text", "\"\"");
+                            value: Api.source-property-value("text", "\"\"");
                             commit-key: root.field-key("text");
                             accepted(text) => {
                                 return root.commit-code("text", text);

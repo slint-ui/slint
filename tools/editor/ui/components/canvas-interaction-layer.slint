@@ -35,17 +35,17 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     function current-corner-radius(property-name: string) -> length {
-        let corner = Api.current-property-value-data(property-name);
+        let corner = Api.source-property-value-data(property-name, {});
         return corner.code != ""
             ? corner.value-float * 1px
-            : Api.current-property-value-data("border-radius").value-float * 1px;
+            : Api.source-property-value-data("border-radius", {}).value-float * 1px;
     }
 
     function has-independent-corner-radii() -> bool {
-        return Api.current-property-value-data("border-top-left-radius").code != ""
-            || Api.current-property-value-data("border-top-right-radius").code != ""
-            || Api.current-property-value-data("border-bottom-right-radius").code != ""
-            || Api.current-property-value-data("border-bottom-left-radius").code != "";
+        return Api.source-property-value-data("border-top-left-radius", {}).code != ""
+            || Api.source-property-value-data("border-top-right-radius", {}).code != ""
+            || Api.source-property-value-data("border-bottom-right-radius", {}).code != ""
+            || Api.source-property-value-data("border-bottom-left-radius", {}).code != "";
     }
 
     function preview-geometry(position: Point, size: Size) {
@@ -439,9 +439,9 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     function begin-text-edit() {
-        let text = Api.current-property-value-data("text");
-        let width = Api.current-property-value-data("width").value-float;
-        let height = Api.current-property-value-data("height").value-float;
+        let text = Api.source-property-value-data("text", {});
+        let width = Api.runtime-property-value-data("width", {}).value-float;
+        let height = Api.runtime-property-value-data("height", {}).value-float;
         let scale-x = width > 0
             ? root.primary-selection.width / 1px / width
             : 1;
@@ -456,7 +456,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             || text.is-translatable
             || text.code == ""
             || !Api.string-is-single-line(text.value-string)
-            || Api.current-property-value-data("wrap").value-int != 0
+            || Api.runtime-property-value-data("wrap", {}).value-int != 0
             || (scale-x - scale-y).abs() > 0.001 {
             return;
         }
@@ -465,9 +465,11 @@ export component CanvasInteractionLayer inherits TouchArea {
             width: root.primary-selection.width,
             height: root.primary-selection.height,
         };
-        root.text-edit-intrinsic-width = Api.current-property-value-data("width").code == ""
+        root.text-edit-intrinsic-width = Api.source-property-value-data("width", {}).code == ""
             && Api.selection.is-resizable;
-        root.text-edit-color = Api.current-text-color();
+        root.text-edit-color = Api.runtime-property-value-data("color", {
+            value-brush: Api.source-property-value-data("color", {}).value-brush,
+        }).value-brush;
         root.text-edit-override-id = Api.override-element-text("", "");
         if root.text-edit-override-id == "" {
             return;
@@ -671,26 +673,28 @@ export component CanvasInteractionLayer inherits TouchArea {
             color: root.text-edit-color;
             selection-background-color: Style.field.appearance.selection;
             selection-foreground-color: Style.field.appearance.focus.foreground;
-            font-family: Api.current-property-value-data("font-family").value-string != ""
-                ? Api.current-property-value-data("font-family").value-string
-                : Api.preview-default-font-family;
-            font-size: (Api.current-property-value-data("font-size").value-float > 0
-                ? Api.current-property-value-data("font-size").value-float
-                : Api.preview-default-font-size)
+            font-family: Api.runtime-property-value-data("font-family", {
+                value-string: Api.preview-default-font-family,
+            }).value-string;
+            font-size: Api.runtime-property-value-data("font-size", {
+                value-float: Api.preview-default-font-size,
+            }).value-float
                 * root.text-edit-scale-y * CanvasView.zoom * 1px;
-            font-weight: Api.current-property-value-data("font-weight").value-int != 0
-                ? Api.current-property-value-data("font-weight").value-int
-                : Api.preview-default-font-weight;
-            font-italic: Api.current-property-value-data("font-italic").value-bool;
+            font-weight: Api.runtime-property-value-data("font-weight", {
+                value-int: Api.preview-default-font-weight,
+            }).value-int;
+            font-italic: Api.runtime-property-value-data("font-italic", {}).value-bool;
             horizontal-alignment: root.horizontal-text-alignment(
-                Api.current-property-value-data("horizontal-alignment").value-int,
+                Api.runtime-property-value-data("horizontal-alignment", {}).value-int,
             );
             vertical-alignment: root.vertical-text-alignment(
-                Api.current-property-value-data("vertical-alignment").value-int,
+                Api.runtime-property-value-data("vertical-alignment", {}).value-int,
             );
-            letter-spacing: Api.current-property-value-data("letter-spacing").value-float
+            letter-spacing: Api.runtime-property-value-data("letter-spacing", {}).value-float
                 * root.text-edit-scale-x * CanvasView.zoom * 1px;
-            line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
+            line-height-factor: Api.runtime-property-value-data("line-height-factor", {
+                value-float: 1,
+            }).value-float;
             accessible-label: @tr("Inline text editor");
 
             accepted => { root.commit-text-edit(); }
