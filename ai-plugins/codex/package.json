@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build-preview.mjs",
     "test:layout": "node --test tests/preview-layout.mjs",
-    "test": "python3 tests/check_source.py && node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs tests/runtime-readiness.mjs tests/captures.mjs tests/views.mjs tests/preview-zoom.mjs"
+    "test": "python3 tests/check_source.py && node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs tests/runtime-readiness.mjs tests/captures.mjs tests/views.mjs tests/preview-zoom.mjs tests/editor-mcp.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

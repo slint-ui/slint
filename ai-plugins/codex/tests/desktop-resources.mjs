@@ -39,6 +39,10 @@ try {
   await call("initialize", { clientInfo: { name: "slint-resource-test", version: "1" }, capabilities: { experimentalApi: true } });
   child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "initialized" }) + "\n");
   const inventory = await call("mcpServerStatus/list", { limit: 100, detail: "full" });
+  const editor = inventory.data.find(entry => entry.pluginId === "slint@slint" && entry.tools?.discover_visual_editors);
+  assert(editor, "The installed Slint plugin has no Visual Editor bridge.");
+  assert.equal(editor.toolsError, null);
+  for (const name of ["register_visual_editor_chat", "screenshot_visual_editor_canvas", "reply_visual_editor_annotation", "resolve_visual_editor_annotation"]) assert(editor.tools[name], `The installed editor bridge has no ${name} tool.`);
   const server = inventory.data.find(entry => entry.pluginId === "slint@slint" && entry.tools?.render_slint);
   assert(server, "Install and enable Slint from Slint before running this test.");
   assert.equal(server.toolsError, null);

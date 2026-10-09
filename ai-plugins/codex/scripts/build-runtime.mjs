@@ -13,7 +13,7 @@ const repository = dirname(dirname(pluginRoot));
 const destination = join(pluginRoot, "runtime");
 const target = process.env.CARGO_TARGET_DIR || join(repository, "target");
 const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
-const trackedChanges = execFileSync("git", ["diff", "HEAD", "--", "Cargo.toml", "Cargo.lock", "api", "internal", "tools/lsp"], { cwd: repository, encoding: "utf8" });
+const trackedChanges = execFileSync("git", ["diff", "HEAD", "--", "Cargo.toml", "Cargo.lock", "api", "internal", "tools/lsp", "tools/editor", "tools/editor-mcp"], { cwd: repository, encoding: "utf8" });
 if (trackedChanges) throw new Error("Commit Slint runtime source changes before building the plugin runtime.");
 
 async function run(command, args, cwd = repository, extra = {}) {
@@ -27,11 +27,15 @@ async function run(command, args, cwd = repository, extra = {}) {
 const runtime = await mkdtemp(join(pluginRoot, ".runtime-build-"));
 try {
   await run("cargo", ["build", "--locked", "-p", "slint-lsp", "--bin", "slint-lsp", "--no-default-features", "--features", "backend-winit,renderer-software"]);
+  await run("cargo", ["build", "--locked", "-p", "slint-editor-mcp", "--bin", "slint-editor-mcp"]);
   await run("wasm-pack", ["build", "--release", "--target", "web", "--no-opt", "--out-dir", join(runtime, "wasm"), "--", "--locked", "--features", "console_error_panic_hook"], join(repository, "api/wasm-interpreter"));
-  const executable = process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp";
-  await copyFile(join(target, "debug", executable), join(runtime, executable));
-  await chmod(join(runtime, executable), 0o755);
-  if (process.platform !== "win32") await run("strip", ["-S", join(runtime, executable)]);
+  const executables = ["slint-lsp", "slint-editor-mcp"].map(name => process.platform === "win32" ? `${name}.exe` : name);
+  for (const executable of executables) {
+    await copyFile(join(target, "debug", executable), join(runtime, executable));
+    await chmod(join(runtime, executable), 0o755);
+    if (process.platform !== "win32") await run("strip", ["-S", join(runtime, executable)]);
+  }
+  const executable = executables[0];
   const lspVersion = execFileSync(join(runtime, executable), ["--version"], { encoding: "utf8" }).trim();
   const wasmPackage = JSON.parse(await readFile(join(runtime, "wasm/package.json"), "utf8"));
   if (lspVersion !== `slint-lsp ${wasmPackage.version}`) throw new Error("LSP and Wasm versions differ.");

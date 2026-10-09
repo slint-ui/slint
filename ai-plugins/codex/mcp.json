@@ -9,6 +9,14 @@
       ],
       "cwd": "."
     },
+    "slint-visual-editor": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "codex/editor-mcp.mjs"
+      ],
+      "cwd": "."
+    },
     "slint-docs": {
       "type": "http",
       "url": "https://docs.slint.dev/mcp"
