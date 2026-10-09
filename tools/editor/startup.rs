@@ -86,7 +86,6 @@ pub fn setup(
     });
 
     let editor_ui_weak = editor_ui.as_weak();
-    let settings = settings.clone();
     project.on_open_recent_project(move |recent_project| {
         let root = PathBuf::from(recent_project.root_path.as_str());
         let path = PathBuf::from(recent_project.path.as_str());
@@ -97,10 +96,31 @@ pub fn setup(
             Err(error) => {
                 tracing::warn!("Failed to open recent project: {error}");
                 if let Some(editor_ui) = editor_ui_weak.upgrade() {
+                    let settings = preview::session_settings().unwrap_or_else(load_settings);
                     preview::apply_visible_recent_projects(&editor_ui, &settings);
                 }
                 false
             }
+        }
+    });
+
+    let editor_ui_weak = editor_ui.as_weak();
+    project.on_clear_recent_projects(move || {
+        if preview::clear_recent_projects() {
+            return;
+        }
+        let mut settings = load_settings();
+        if settings.clear_recent_projects()
+            && let Err(error) = i_slint_editor_preview::settings_store::save(
+                TOOL_NAME,
+                SETTINGS_FILE,
+                &settings.serialize(),
+            )
+        {
+            tracing::warn!("Failed to save visual editor settings: {error}");
+        }
+        if let Some(editor_ui) = editor_ui_weak.upgrade() {
+            preview::apply_visible_recent_projects(&editor_ui, &settings);
         }
     });
 }
