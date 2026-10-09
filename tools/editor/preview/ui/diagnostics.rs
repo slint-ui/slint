@@ -187,6 +187,9 @@ pub(in crate::preview) fn set_compilation_diagnostics(
     no_component: bool,
     has_component: bool,
 ) {
+    if !has_component {
+        crate::preview::inline_text_edit::discard();
+    }
     if no_component {
         diagnostics.retain(|diagnostic| !is_no_component_diagnostic(diagnostic));
     }

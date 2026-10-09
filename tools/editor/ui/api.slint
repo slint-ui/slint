@@ -379,6 +379,38 @@ export struct ElementInformation {
     offset: int,
 }
 
+export struct InlineTextEditStart {
+    success: bool,
+    text: string,
+    color: brush,
+}
+
+export global InlineTextEdit {
+    in property <bool> can-edit;
+    in property <bool> active;
+    in property <bool> commit-pending;
+    in property <float> scale: 1;
+    in property <bool> grow-width;
+
+    callback begin() -> InlineTextEditStart;
+    callback commit(text: string) -> bool;
+    private property <bool> deferred-selection;
+    private property <Point> deferred-selection-position;
+
+    public function defer-selection(position: Point) {
+        self.deferred-selection-position = position;
+        self.deferred-selection = true;
+    }
+
+    callback finished(accepted: bool) -> bool;
+    finished(accepted) => {
+        let select = self.deferred-selection && accepted;
+        self.deferred-selection = false;
+        if select { Api.select-at(self.deferred-selection-position.x, self.deferred-selection-position.y, false); }
+        return select;
+    }
+}
+
 export struct PaletteEntry {
     name: string,
     value: PropertyValue,
@@ -446,9 +478,6 @@ export global Api {
     in-out property <string> update-version;
     in-out property <string> update-error;
     in property <bool> focus-previewed-element;
-    in property <int> inline-text-edit-request-generation;
-    in property <string> inline-text-edit-request-source-uri;
-    in property <int> inline-text-edit-request-offset: -1;
     in property <string> preview-default-font-family;
     in property <float> preview-default-font-size: 12;
     in property <int> preview-default-font-weight;
@@ -597,7 +626,6 @@ export global Api {
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
-    callback override-element-text(override-id: string, text: string) -> string;
 
     callback selected-element-delete();
 

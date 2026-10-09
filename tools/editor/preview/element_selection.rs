@@ -14,7 +14,7 @@ use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::Highlight
 
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ElementSelection {
     pub path: SourcePath,
     pub offset: TextSize,
@@ -31,7 +31,7 @@ impl ElementSelection {
             .map(|(element, _)| element.clone())
     }
 
-    fn as_element_node_in(
+    pub(super) fn as_element_node_in(
         &self,
         component_instance: &ComponentInstance,
     ) -> Option<i_slint_editor_preview::ElementRcNode> {
@@ -404,6 +404,7 @@ pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
     let position = LogicalPoint::new(x, y);
 
     let Some(en) = select_element_at_impl(&component_instance, position, enter_component) else {
+        unselect_element(SelectionNotification::Now);
         return;
     };
 
