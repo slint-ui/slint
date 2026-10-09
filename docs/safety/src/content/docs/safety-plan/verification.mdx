@@ -3,6 +3,8 @@ title: Verification
 description: How changes to Slint SC are verified, and where the evidence is.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 Verification confirms that Slint SC does what it's specified to do.
 ISO 26262-6 covers verification in Clause 9 for the software units and in Clause 10 for their integration.
 ISO 26262-8 Clause 9.4 covers the supporting process.
@@ -24,6 +26,8 @@ Validating the finished system belongs to the integrator; see [`slint.aou.valida
 The suites run automatically in CI on every change, and on demand when a release is baselined.
 
 ## Test Environment and Targets
+
+<Addresses>ISO 26262-6 9.4.5, 10.4.7</Addresses>
 
 The suites run on a 64-bit host.
 Slint SC runs on targets we don't know, so there's no single target to test on.

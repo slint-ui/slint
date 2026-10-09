@@ -3,6 +3,8 @@ title: Development Phases
 description: How a change to Slint SC is made, reviewed, and merged.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 Slint SC is developed in the same repository as Slint, [slint-ui/slint](https://github.com/slint-ui/slint), and follows the [same process as the rest of the repository](https://github.com/slint-ui/slint/blob/master/docs/internal/processes.md).
 
 A change is a pull request that touches Slint SC.
@@ -10,6 +12,8 @@ A pull request is the change request of ISO 26262-8 Clause 8, and lands in `mast
 The approval of a pull request covers every commit in the pull request at the moment of merging.
 
 ## On Every Change
+
+<Addresses>ISO 26262-6 Clauses 6 to 10, ISO 26262-8 Clause 8</Addresses>
 
 The activities below run in the pull request, before anyone merges the pull request.
 CI enforces C-04 and C-05; the reviewer checks the rest.
