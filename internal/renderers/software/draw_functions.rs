@@ -239,12 +239,7 @@ pub(super) fn draw_texture_line(
             }
             TexturePixelFormat::RgbaPremultiplied => {
                 for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
-                    pix.blend(PremultipliedRgbaColor {
-                        alpha: p[3],
-                        red: p[0],
-                        green: p[1],
-                        blue: p[2],
-                    });
+                    blend_premultiplied(pix, p);
                 }
             }
             TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => {
@@ -255,12 +250,24 @@ pub(super) fn draw_texture_line(
 
     #[inline(always)]
     fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: &[u8]) {
-        if alpha == 0xff {
-            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-        } else {
-            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                alpha, p[0], p[1], p[2],
-            )));
+        match alpha {
+            0 => {}
+            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+            a => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                a, p[0], p[1], p[2],
+            ))),
+        }
+    }
+
+    #[inline(always)]
+    fn blend_premultiplied(pix: &mut impl TargetPixel, p: &[u8]) {
+        match p[3] {
+            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+            // Alpha 0 with a non-zero color still adds to the target under source-over.
+            0 if p[..3] == [0, 0, 0] => {}
+            alpha => {
+                pix.blend(PremultipliedRgbaColor { alpha, red: p[0], green: p[1], blue: p[2] })
+            }
         }
     }
 
@@ -342,18 +349,14 @@ pub(super) fn draw_texture_line(
                     }
                 } else if alpha == 0xff {
                     for pix in line_buffer {
-                        let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor {
-                            alpha: data[pos + 3],
-                            red: data[pos + 0],
-                            green: data[pos + 1],
-                            blue: data[pos + 2],
-                        };
-                        pix.blend(c);
+                        blend_premultiplied(pix, &data[pos(4).0..][..4]);
                     }
                 } else {
                     for pix in line_buffer {
                         let pos = pos(4).0;
+                        if data[pos..][..4] == [0, 0, 0, 0] {
+                            continue;
+                        }
                         let c = PremultipliedRgbaColor {
                             alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
                             red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
@@ -1536,7 +1539,7 @@ fn unscaled_texture_line_wraps_into_next_tile() {
         })
     );
 
-    let premultiplied = [0, 0, 0, 0, 200, 100, 50, 255, 100, 50, 25, 128, 10, 20, 30, 255];
+    let premultiplied = [5, 6, 7, 0, 200, 100, 50, 255, 100, 50, 25, 128, 10, 20, 30, 255];
     assert_eq!(
         draw(TexturePixelFormat::RgbaPremultiplied, &premultiplied),
         SAMPLED.map(|i| {
