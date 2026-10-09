@@ -307,12 +307,7 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Released {
-                position,
-                button: PointerEventButton::Left,
-                click_count: _,
-                touch_finger_id: _,
-            } => {
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));

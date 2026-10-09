@@ -775,6 +775,21 @@ impl ComponentCompiler {
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
+
+    /// Replaces the diagnostics with a single error about the file at `path`.
+    #[cfg(feature = "ffi")]
+    pub(crate) fn set_error(&mut self, message: &str, path: PathBuf) {
+        use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileInner, SourceLocation};
+        let mut diagnostics = BuildDiagnostics::default();
+        diagnostics.push_error_with_span(
+            message.into(),
+            SourceLocation {
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
+                span: Default::default(),
+            },
+        );
+        self.diagnostics = diagnostics.into_iter().collect();
+    }
 }
 
 /// This is the entry point of the crate, it can be used to load a `.slint` file and

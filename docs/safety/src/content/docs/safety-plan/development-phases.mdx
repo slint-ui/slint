@@ -1,0 +1,81 @@
+---
+title: Development Phases
+description: How a change to Slint SC is made, reviewed, and merged.
+---
+
+import Addresses from '../../../components/Addresses.astro';
+
+Slint SC is developed in the same repository as Slint, [slint-ui/slint](https://github.com/slint-ui/slint), and follows the [same process as the rest of the repository](https://github.com/slint-ui/slint/blob/master/docs/internal/processes.md).
+
+A change is a pull request that touches Slint SC.
+A pull request is the change request of ISO 26262-8 Clause 8, and lands in `master` as one or more commits.
+The approval of a pull request covers every commit in the pull request at the moment of merging.
+
+## On Every Change
+
+<Addresses>ISO 26262-6 Clauses 6 to 10, ISO 26262-8 Clause 8</Addresses>
+
+The activities below run in the pull request, before anyone merges the pull request.
+CI enforces C-04 and C-05; the reviewer checks the rest.
+See [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change) for why the activities run per change.
+
+| ID | Activity | Responsible | Work product |
+| --- | --- | --- | --- |
+| C-01 | Analyze the impact: whether the change touches Slint SC, and which requirements and analyses the change affects | Author | Impact statement in the pull request |
+| C-02 | Specify or update the requirement | Author | A `{#sls.…}` paragraph in the [Reference](/reference/) |
+| C-03 | Update the architecture, if the change affects the architecture | Author | [Architecture Design](/safety-plan/architecture/) |
+| C-04 | Implement, and verify with unit and integration tests | Author | Code and tests; the runtime stays at complete line, function, region, and branch coverage |
+| C-05 | Trace every requirement to a test | Author | A `//#sls.…` test per requirement; see the [Traceability Matrix](/qualification-report/traceability-matrix/) |
+| C-06 | Update the safety analysis, or the potential errors of a tool, if the change affects them | Author | [Safety Analysis](/component-documentation/safety-analysis/), [Potential Errors](/evaluation-report/potential-errors/) |
+| C-07 | Review and approve, by someone other than the author | Reviewer | Pull request approval |
+| C-08 | Record a safety anomaly the change fixes | Author | The anomaly's issue, closed with its rationale, and an entry in [Known Problems](/user-manual/known-problems/) |
+
+:::caution[TODO]
+C-01, C-07, and C-08 aren't enforced yet.
+Changes to Slint SC can still merge without an impact statement or review, or be pushed directly to `master` without a pull request.
+For an approval to cover what merges, branch protection has to dismiss approvals when new commits are pushed, and require the pull request's branch to be up to date before merging.
+
+Decide what form the impact analysis of C-01 takes; ISO 26262-8 8.4.3.1 requires one per change request.
+ISO 26262-8 8.4.4.1 envisions a decision by the project manager, the safety manager, QA, and the developers, rather than by a single reviewer.
+Decide whether Slint SC needs a dedicated approval step, distinct from ordinary code review.
+:::
+
+## Branching
+
+Organization members create branches usually named `<developer-name>/<feature-name>` in `slint-ui/slint`.
+Outside contributors work from a fork and open a PR from there, since only organization members can push to `slint-ui/slint`.
+
+`master` and `feature/*` branches are protected.
+Trusted members, admins included, can push directly to these protected branches.
+For simple changes that don't need review and are unlikely to break CI, a trusted member can push straight to `master` without a PR.
+
+## Pull Requests and Review
+
+A PR should be reviewed before merging, unless the change is trivial.
+Reviewers leave comments, and mark each comment as either a nitpick or something the author must address before merging.
+There is no independent-reviewer requirement beyond ordinary review, and no distinction between safety-impacting and other changes at review time.
+
+Once a reviewer approves a PR, the author merges the PR.
+The author can also enable auto-merge, which merges the PR once CI passes and the approval is in.
+For external contributions, the reviewer merges instead.
+
+Merges to `master` are squash or rebase only.
+GitHub isn't configured to allow merge commits, so history stays linear.
+Only an admin can merge a feature branch into `master` with a merge commit.
+
+## Continuous Integration
+
+CI runs on every PR, and a full CI run happens three times a day on the latest `master`.
+For PRs that touch files relevant to Slint SC, CI also runs `scripts/slint_sc_test_suite.sh`.
+That script runs the Slint SC test suite and measures the runtime's coverage.
+The script is part of the full CI suite, not separate from it, so it also runs in the scheduled runs, independent of any single change.
+CI decides what's relevant by file path.
+File paths are an imprecise proxy, since Slint and Slint SC share the compiler.
+
+## Traceability
+
+Every merged change lands in `master`'s history as one or more commits, each identified by its hash, and stays there permanently.
+GitHub links most commits to the PR they came from.
+Some commits also reference the issue they resolve, with `Fixes #NNN` in the commit message.
+Not every change is tied to an issue.
+A PR number or a commit hash is enough to track a change on its own.

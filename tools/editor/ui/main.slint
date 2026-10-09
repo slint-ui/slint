@@ -6,7 +6,10 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
+import { Springboard, SpringboardState, SpringboardView } from "@springboard";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
@@ -24,7 +27,7 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 
 export {
     Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, Hover, Preview, Project,
+    FillSessionTarget, Hover, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -162,6 +165,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !root.preview-editable {
+            AppState.cancel-active-drags();
+            FillSession.close-picker(false, false);
+        }
+    }
     private property <bool> palette-drag-in-outline: false;
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
@@ -232,6 +242,7 @@ export component EditorUi inherits Window {
     }
 
     function apply-history(redo: bool) {
+        if !Diagnostics.preview-editable { return; }
         FillSession.apply-history(redo);
     }
 
@@ -378,7 +389,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
                     return accept;
                 }
@@ -533,6 +544,14 @@ export component EditorUi inherits Window {
                         root.dragged-inspector-width = 0px;
                         root.inspector-pane-reset();
                     }
+                }
+
+                if Springboard.state != SpringboardState.Stopped: SpringboardView {
+                    x: parent.width - self.width - 12px;
+                    y: Style.shell.top-bar-height;
+                    width: 260px;
+                    height: 300px;
+                    background: Colors.background;
                 }
 
                 if root.sidebars-collapsed: Rectangle {

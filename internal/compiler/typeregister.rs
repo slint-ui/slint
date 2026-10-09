@@ -247,6 +247,9 @@ pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("inner-shadow-color", Type::Color),
 ];
 
+pub const RESERVED_BACKDROP_BLUR_PROPERTIES: &[(&str, Type)] =
+    &[("backdrop-blur", Type::LogicalLength)];
+
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-rotation", Type::Angle),
     ("transform-scale-x", Type::Float32),
@@ -313,6 +316,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_BACKDROP_BLUR_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
@@ -492,6 +496,13 @@ impl TypeRegister {
     }
 
     fn builtin_internal() -> Self {
+        let mut register = Self::with_builtin_types();
+        crate::builtin_elements::load(&mut register);
+        register
+    }
+
+    /// A register with the basic types, the builtin structs and enums, but no elements.
+    pub(crate) fn with_builtin_types() -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -538,8 +549,6 @@ impl TypeRegister {
             )* };
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
-
-        crate::builtin_elements::load(&mut register);
 
         register
     }
@@ -643,7 +652,7 @@ impl TypeRegister {
         self.elements.insert(name, ElementType::Component(comp)).is_none()
     }
 
-    pub fn add_builtin(&mut self, builtin: Rc<BuiltinElement>) {
+    pub fn add_builtin(&mut self, builtin: Arc<BuiltinElement>) {
         self.elements.insert(builtin.name.clone(), ElementType::Builtin(builtin));
     }
 

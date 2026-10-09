@@ -1,0 +1,173 @@
+---
+title: ISO 26262-6 Method Tables
+description: Which methods of the ISO 26262-6 tables Slint SC applies at ASIL B, and why.
+---
+
+Each table lists the methods of one table of ISO 26262-6, with the recommendation at ASIL B:
+`++` highly recommended, `+` recommended, `o` no recommendation.
+See [Status](/norm-mapping/#status) for how to read the Applied column.
+
+## Table 1: Coding Guidelines
+
+| No. | Topic | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Enforcement of low complexity | ++ | Partly applied | The runtime is about 700 lines. No complexity limit is set or checked yet. |
+| 1b | Use of language subsets | ++ | Partly applied | No unsafe code, no standard library, and no `alloc`; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). Panicking operations and lossy casts aren't excluded yet. |
+| 1c | Enforcement of strong typing | ++ | Applied | Rust is strongly typed, with no implicit conversions. |
+| 1d | Use of defensive implementation techniques | + | Partly applied | [`slint.runtime.avd.buffer-size-check`](/component-documentation/safety-analysis/#slint.runtime.avd.buffer-size-check). Whether arithmetic overflow panics or wraps depends on the integrator's build profile. |
+| 1e | Use of well-trusted design principles | + | Applied | The principles of Table 6; see [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1f | Use of unambiguous graphical representation | ++ | Not applied | Slint SC uses no graphical modelling. |
+| 1g | Use of style guides | ++ | Partly applied | CI runs clippy with warnings as errors; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). Coding Standards doesn't name the formatting rules yet. |
+| 1h | Use of naming conventions | ++ | Applied | Rust's naming lints, which the CI clippy run turns into errors. |
+| 1i | Concurrency aspects | + | Applied | The runtime has no threads and no interrupts; see [Dynamic Design](/safety-plan/architecture/#dynamic-design). |
+
+## Table 2: Architecture Notations
+
+| No. | Notation | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Natural language | ++ | Applied | [Architecture Design](/safety-plan/architecture/). |
+| 1b | Informal notations | ++ | Applied | The diagrams of [Static Design](/safety-plan/architecture/#static-design) and [Dynamic Design](/safety-plan/architecture/#dynamic-design). |
+| 1c | Semi-formal notations | + | Not applied | Three units and one call sequence don't need more than 1a and 1b. |
+| 1d | Formal notations | + | Not applied | See 1c. |
+
+## Table 3: Architecture Principles
+
+| No. | Principle | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Appropriate hierarchical structure | ++ | Partly applied | [Software Units](/safety-plan/architecture/#software-units). The structure inside the runtime isn't described yet. |
+| 1b | Restricted size and complexity | ++ | Applied | The runtime is about 700 lines. |
+| 1c | Restricted size of interfaces | + | Applied | The generated component has a constructor, `render_rgb8`, property accessors, and `dispatch_touch_event`; see [Generated Code](/reference/generated-code/). |
+| 1d | Strong cohesion | ++ | Partly applied | The runtime renders, and the generated code holds the state of one component. The argument isn't written up yet. |
+| 1e | Loose coupling | ++ | Partly applied | The generated code depends on nothing but the runtime; see [`sls.gen.output`](/reference/generated-code/#sls.gen.output). It calls the runtime through the hidden `private_unstable_api` module. |
+| 1f | Appropriate scheduling properties | ++ | Applied | Slint SC has no scheduler; every call runs on the caller's thread. See [Dynamic Design](/safety-plan/architecture/#dynamic-design). |
+| 1g | Restricted use of interrupts | + | Applied | Slint SC uses no interrupts. |
+| 1h | Appropriate spatial isolation | + | Not applied | The integrator isolates Slint SC from other software; see [`slint.aou.freedom-from-interference`](/user-manual/#slint.aou.freedom-from-interference). |
+| 1i | Appropriate management of shared resources | ++ | Applied | The only shared resource is the frame buffer, which the application owns and lends to `render_rgb8`; see [Properties](/safety-plan/architecture/#properties). |
+
+## Table 4: Architecture Verification
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Walk-through of the design | + | Not applied | 1b is used instead. |
+| 1b | Inspection of the design | ++ | Partly applied | A change to the architecture is reviewed with its pull request ([C-03 and C-07](/safety-plan/development-phases/#on-every-change)). There's no record of what the review checked yet. |
+| 1c | Simulation of dynamic behavior | + | Applied | The [Runtime Test Cases](/safety-plan/test-suites/#runtime-test-cases) run the generated code against the runtime. |
+| 1d | Prototype generation | o | Not applied | No recommendation at ASIL B. |
+| 1e | Formal verification | o | Not applied | No recommendation at ASIL B. |
+| 1f | Control flow analysis | + | Not applied | The architecture has one call sequence and no concurrency; see [Dynamic Design](/safety-plan/architecture/#dynamic-design). |
+| 1g | Data flow analysis | + | Not applied | See 1f. |
+| 1h | Scheduling analysis | + | Not applied | Slint SC has no scheduling. |
+
+## Table 5: Unit Design Notations
+
+| No. | Notation | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Natural language | ++ | Applied | Documentation comments, required on every public item; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). |
+| 1b | Informal notations | ++ | Not applied | The rationale is missing. |
+| 1c | Semi-formal notations | + | Not applied | The rationale is missing. |
+| 1d | Formal notations | + | Not applied | The rationale is missing. |
+
+## Table 6: Unit Design Principles
+
+| No. | Principle | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | One entry and one exit point | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1b | No dynamic objects or variables | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1c | Initialization of variables | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1d | No multiple use of variable names | ++ | Partly applied | The runtime forbids shadowing; see [Design Principles](/safety-plan/coding-standards/#design-principles). The generated code still reuses the names of position offsets in nested elements. |
+| 1e | Avoid global variables | + | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1f | Restricted use of pointers | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1g | No implicit type conversions | ++ | Partly applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). A frame buffer dimension above `i32::MAX` makes the renderer's casts wrap. |
+| 1h | No hidden data flow or control flow | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1i | No unconditional jumps | ++ | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+| 1j | No recursions | + | Applied | See [Design Principles](/safety-plan/coding-standards/#design-principles). |
+
+## Table 7: Unit Verification
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Walk-through | + | Not applied | 1c is used instead. |
+| 1b | Pair programming | + | Not applied | Someone other than the author reviews every change instead; see 1c. |
+| 1c | Inspection | ++ | Partly applied | Every change is reviewed with its pull request ([C-07](/safety-plan/development-phases/#on-every-change)). There's no record of what the review checked yet. |
+| 1d | Semi-formal verification | + | Not applied | The rationale is missing. |
+| 1e | Formal verification | o | Not applied | No recommendation at ASIL B. |
+| 1f | Control flow analysis | + | Not applied | The rationale is missing. |
+| 1g | Data flow analysis | + | Not applied | The rationale is missing. |
+| 1h | Static code analysis | ++ | Applied | Clippy, with warnings as errors; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). |
+| 1i | Abstract interpretation | + | Not applied | The rationale is missing. |
+| 1j | Requirements-based test | ++ | Applied | Every requirement paragraph is traced to a test; see the [Traceability Matrix](/qualification-report/traceability-matrix/). |
+| 1k | Interface test | ++ | Applied | The [Runtime Test Cases](/safety-plan/test-suites/#runtime-test-cases) test the [Generated Code](/reference/generated-code/) interface, and the [Runtime Unit Tests](/safety-plan/test-suites/#runtime-unit-tests) the runtime API. |
+| 1l | Fault injection test | + | Not applied | The rationale is missing. |
+| 1m | Resource usage evaluation | + | Not applied | The rationale is missing. |
+| 1n | Back-to-back test between model and code | + | Not applied | Slint SC uses no models. |
+
+## Table 8: Unit Test Derivation
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Analysis of requirements | ++ | Applied | Each test verifies the requirement paragraphs it names; see [Tagging Requirements](/safety-plan/test-suites/#tagging-requirements). |
+| 1b | Equivalence classes | ++ | Partly applied | The tests use equivalence classes, such as positions inside and outside the frame buffer. [Test Suites](/safety-plan/test-suites/) doesn't state the method yet. |
+| 1c | Boundary values | ++ | Partly applied | The tests use boundary values, such as negative positions. [Test Suites](/safety-plan/test-suites/) doesn't state the method yet. |
+| 1d | Error guessing | + | Not applied | The rationale is missing. |
+
+## Table 9: Unit Structural Coverage
+
+| No. | Metric | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Statement coverage | ++ | Applied | Complete line coverage; see [Metrics](/safety-plan/test-coverage/#metrics). |
+| 1b | Branch coverage | ++ | Applied | Complete branch coverage; see [Metrics](/safety-plan/test-coverage/#metrics). |
+| 1c | MC/DC | + | Not applied | See [Metrics](/safety-plan/test-coverage/#metrics). |
+
+## Table 10: Integration Verification
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Requirements-based test | ++ | Applied | See Table 7, 1j. |
+| 1b | Interface test | ++ | Applied | See Table 7, 1k. |
+| 1c | Fault injection test | + | Not applied | The rationale is missing. |
+| 1d | Resource usage evaluation | ++ | Not applied | Open; see 7.4.13 in [ISO 26262-6](/norm-mapping/iso-26262-6/#clause-7-software-architectural-design). |
+| 1e | Back-to-back test between model and code | + | Not applied | Slint SC uses no models. |
+| 1f | Verification of control flow and data flow | + | Not applied | The rationale is missing. |
+| 1g | Static code analysis | ++ | Applied | See Table 7, 1h. |
+| 1h | Abstract interpretation | + | Not applied | The rationale is missing. |
+
+## Table 11: Integration Test Derivation
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Analysis of requirements | ++ | Applied | See Table 8. |
+| 1b | Equivalence classes | ++ | Partly applied | See Table 8. |
+| 1c | Boundary values | ++ | Partly applied | See Table 8. |
+| 1d | Error guessing | + | Not applied | See Table 8. |
+
+## Table 12: Integration Structural Coverage
+
+| No. | Metric | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Function coverage | + | Applied | Complete function coverage; see [Metrics](/safety-plan/test-coverage/#metrics). |
+| 1b | Call coverage | + | Applied | Complete region coverage executes every call; see [Metrics](/safety-plan/test-coverage/#metrics). |
+
+## Table 13: Embedded Software Test Environments
+
+| No. | Environment | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Hardware-in-the-loop | ++ | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |
+| 1b | Electronic control unit network | ++ | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |
+| 1c | Vehicles | + | Integrator | [`slint.aou.validation`](/user-manual/#slint.aou.validation). |
+
+## Table 14: Embedded Software Tests
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Requirements-based test | ++ | Integrator | The test suite for the target is requirements-based; see Table 7, 1j. |
+| 1b | Fault injection test | + | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |
+
+## Table 15: Embedded Software Test Derivation
+
+| No. | Method | ASIL B | Applied | How |
+| --- | --- | --- | --- | --- |
+| 1a | Analysis of requirements | ++ | Integrator | The test suite for the target is derived as in Table 8. |
+| 1b | Equivalence classes | ++ | Integrator | See 1a. |
+| 1c | Boundary values | + | Integrator | See 1a. |
+| 1d | Error guessing | + | Integrator | See 1a. |
+| 1e | Functional dependencies | + | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |
+| 1f | Operational use cases | ++ | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |

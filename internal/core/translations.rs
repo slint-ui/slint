@@ -720,7 +720,7 @@ mod ffi {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_translate_select_bundled_translation(language: Slice<u8>) -> bool {
-        let language = core::str::from_utf8(&language).unwrap();
+        let Ok(language) = core::str::from_utf8(&language) else { return false };
         select_bundled_translation(language).is_ok()
     }
 }

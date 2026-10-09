@@ -679,6 +679,26 @@ describe("converter", () => {
         }
     });
 
+    test("rejects SVG paint bounds when a raster supplies the visual", async () => {
+        const snapshot = JSON.parse(
+            await readFile("tests/font-icon.snapshot.json", "utf8"),
+        );
+        snapshot.root.svgBounds = { x: -2, y: -2, width: 28, height: 28 };
+        expect(validateSnapshot(snapshot).ok).toBe(true);
+        snapshot.root.raster = {
+            data: await readFile("fixtures/authored/square.png", "base64"),
+            exportScale: 1,
+            pixelWidth: 24,
+            pixelHeight: 24,
+        };
+        expect(validateSnapshot(snapshot)).toMatchObject({
+            ok: false,
+            diagnostics: [
+                expect.objectContaining({ propertyPath: "root.svgBounds" }),
+            ],
+        });
+    });
+
     test("rejects malformed SVG snapshot content with stable diagnostics", async () => {
         const json = JSON.parse(
             await readFile("fixtures/svg-multi-path.snapshot.json", "utf8"),

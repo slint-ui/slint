@@ -12,6 +12,33 @@ import {
 } from "../src/plugin/capture-work";
 
 describe("capture-cache", () => {
+    test("fallback retains completed entries but rejects late abandoned results", async () => {
+        const cache = new CaptureCache();
+        cache.put("completed", "keep", 4);
+        let finish: (value: string) => void = () => {};
+        const abandoned = cache.get(
+            "pending",
+            () =>
+                new Promise<string>((resolve) => {
+                    finish = resolve;
+                }),
+            (value) => value.length,
+        );
+        const token = cache.token();
+        cache.discardPending();
+        expect(cache.peek("completed")).toBe("keep");
+        await cache.get(
+            "pending",
+            async () => "fresh",
+            (value) => value.length,
+        );
+        finish("abandoned");
+        await abandoned;
+        expect(cache.peek("pending")).toBe("fresh");
+        expect(cache.valid(token)).toBe(false);
+        cache.clear();
+        expect(cache.peek("completed")).toBeUndefined();
+    });
     test("capture cache reuses successes, evicts to its byte budget and retries failures", async () => {
         const cache = new CaptureCache(12);
         let reads = 0;

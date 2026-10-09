@@ -110,6 +110,11 @@ impl SkiaTestWindow {
             slint::LogicalSize::new(size.width as _, size.height as _)
         })
     }
+    fn pixel(&self, x: u32, y: u32) -> slint::Rgba8Pixel {
+        let pixels = self.render_buffer.pixels.borrow();
+        let pixels = pixels.as_ref().unwrap();
+        pixels.as_slice()[(y * pixels.width() + x) as usize]
+    }
     fn last_dirty_region_bounding_box_origin(&self) -> Option<slint::LogicalPosition> {
         self.render_buffer.last_dirty_region.borrow().as_ref().map(|r| {
             let origin = r.bounding_rect().origin;
@@ -958,6 +963,216 @@ fn shadow_redraw_beyond_geometry() {
     assert_eq!(
         window.last_dirty_region_bounding_box_origin(),
         Some(slint::LogicalPosition { x: old_rect_x, y: old_shadow_y })
+    );
+}
+
+#[test]
+fn backdrop_blur_redraws_as_a_whole() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> x-pos: 10px;
+            Rectangle {
+                x: root.x-pos;
+                y: 20px;
+                width: 10px;
+                height: 10px;
+                background: red;
+            }
+            Rectangle {
+                x: 50px;
+                y: 10px;
+                width: 100px;
+                height: 40px;
+                background: #fff4;
+                backdrop-blur: 4px;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // Moving far from the blur only repaints the old and new position.
+    ui.set_x_pos(20.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 20., height: 10. })
+    );
+
+    // Moving next to the blur, within the 3 * 4px it samples beyond its edges, repaints the
+    // whole blur and that margin (clipped to the window at the top).
+    ui.set_x_pos(30.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 20., y: 0. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 142., height: 62. })
+    );
+}
+
+#[test]
+fn backdrop_blur_opacity_over_translucent_backdrop() {
+    slint::slint! {
+        export component Ui inherits Window {
+            background: transparent;
+            Rectangle {
+                background: #ffffff40;
+            }
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 40px;
+                backdrop-blur: 4px;
+                opacity: 0.5;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+    assert!(window.draw_if_needed());
+
+    // Blurring and fading a uniform backdrop leaves it as it is, inside and outside the blur.
+    let expected = slint::Rgba8Pixel { r: 64, g: 64, b: 64, a: 64 };
+    for (x, y) in [(10, 10), (100, 70), (200, 200)] {
+        let pixel = window.pixel(x, y);
+        for (channel, expected) in [
+            (pixel.r, expected.r),
+            (pixel.g, expected.g),
+            (pixel.b, expected.b),
+            (pixel.a, expected.a),
+        ] {
+            assert!(channel.abs_diff(expected) <= 1, "pixel at {x},{y} is {pixel:?}");
+        }
+    }
+}
+
+#[test]
+fn backdrop_blur_redraws_as_a_whole_for_a_removed_item() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <bool> show: true;
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 40px;
+                background: #fff4;
+                backdrop-blur: 4px;
+            }
+            if root.show: Rectangle {
+                x: 140px;
+                y: 60px;
+                width: 30px;
+                height: 10px;
+                background: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // The removed rectangle overlaps the blur, so the whole blur and its 3 * 4px margin repaint.
+    ui.set_show(false);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 38., y: 38. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 132., height: 64. })
+    );
+}
+
+#[test]
+fn backdrop_blur_redraws_for_changes_outside_its_clip() {
+    slint::slint! {
+        export component Ui inherits Window {
+            in property <length> x-pos: 30px;
+            Rectangle {
+                x: root.x-pos;
+                y: 60px;
+                width: 10px;
+                height: 10px;
+                background: red;
+            }
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 100px;
+                clip: true;
+                Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: 100px;
+                    height: 40px;
+                    background: #fff4;
+                    backdrop-blur: 4px;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // The red rectangle is outside the clip, but within the 3 * 4px the blur samples beyond it.
+    // Everything the blur samples is repainted, including the parts outside of the clip,
+    // so that the blur doesn't read the previous frame's pixels there.
+    ui.set_x_pos(35.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 30., y: 38. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 132., height: 64. })
     );
 }
 

@@ -17,7 +17,7 @@ Create the component with the size of your display, in pixels:
 let mut indicator = Indicator::new(slint_sc::Size::new(320, 240));
 ```
 
-The size is fixed for the life of the component, and every frame buffer you render into must match it.
+The size is fixed for the life of the component, and every frame buffer you render into must match that size.
 
 ## Set Properties
 
@@ -34,7 +34,7 @@ The component shows the values you set when it next renders.
 ## Implement the Callbacks
 
 The `IndicatorCallbacks` trait has one method for each callback of the component.
-Implement it on the type that holds your application's state:
+Implement the trait on the type that holds your application's state:
 
 ```rust
 struct Application {
@@ -49,7 +49,7 @@ impl IndicatorCallbacks for Application {
 }
 ```
 
-Each method takes your state and the component by mutable reference, so it can update both.
+Each method takes your state and the component by mutable reference, so a method can update both.
 None of the methods has a default, so the application doesn't compile until it handles every callback.
 
 ## Deliver Touch Input
@@ -139,10 +139,10 @@ pub fn run(board: &mut impl Board) -> ! {
 ```
 
 Each pass of the loop copies the state into the component, handles the pending touch events, and renders a frame.
-The application decides that the alarm is raised and when it's acknowledged.
-The component only shows it.
+The application decides that the alarm is raised, and when the alarm is acknowledged.
+The component only shows the alarm.
 
-`present` is where the loop waits: return from it once the display has taken the frame, for example at the next refresh.
+`present` is where the loop waits: return from `present` once the display has taken the frame, for example at the next refresh.
 
 ## Next Steps
 

@@ -1115,11 +1115,13 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
             errors.push(...validateRaster(value.raster, `${path}.raster`));
         if (
             value.svgBounds !== undefined &&
-            !validVisualBounds(value.svgBounds)
+            (!validVisualBounds(value.svgBounds) ||
+                value.raster !== undefined ||
+                value.svg === undefined)
         )
             errors.push(
                 diagnostic(
-                    "SVG paint bounds must be finite with positive dimensions",
+                    "SVG paint bounds require SVG content without raster pixels and finite positive dimensions",
                     `${path}.svgBounds`,
                 ),
             );

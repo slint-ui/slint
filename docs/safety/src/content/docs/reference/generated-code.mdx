@@ -7,7 +7,25 @@ The Slint SC compiler translates a `.slint` file into Rust code that depends
 only on the [`slint-sc`](/api/slint_sc/) runtime crate. \{#sls.gen.output}
 
 The generated code compiles only with the [`slint-sc`](/api/slint_sc/) runtime
-of the same version as the compiler that generated it. \{#sls.gen.version}
+of the same version as the compiler that generated the code. \{#sls.gen.version}
+
+## Coding Rules
+
+The generated code contains no `unsafe` code. \{#sls.gen.no-unsafe}
+
+The generated code uses neither `std` nor `alloc`, so it allocates no heap memory. \{#sls.gen.no-std}
+
+No variable in the generated code shadows another one. \{#sls.gen.no-shadow}
+
+The generated code calls no `unwrap`, `expect`, `panic!`, `unreachable!`, `todo!`, or `unimplemented!`. \{#sls.gen.no-panic}
+
+The generated code indexes no slice. \{#sls.gen.no-indexing}
+
+The generated code doesn't use the `?` operator. \{#sls.gen.no-question-mark}
+
+No arithmetic operator in the generated code can overflow: the arithmetic saturates, or checks for overflow. \{#sls.gen.no-overflow}
+
+The generated code converts no value with `as`. \{#sls.gen.no-as}
 
 ## The Component Struct
 
@@ -41,7 +59,7 @@ let mut frame_buffer = [0u8; 320 * 240 * 3];
 instance.render_rgb8(&mut frame_buffer)?;
 ```
 
-When the length of `frame_buffer` isn't `width * height * 3` for that size, `render_rgb8` returns
+When the length of `frame_buffer` isn't `width * height * 3` for the size the window was created with, `render_rgb8` returns
 [`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html) and paints nothing. \{#sls.gen.render-error}
 
 ## Properties
@@ -96,7 +114,7 @@ alpha, red, green, and blue.
 The default is `Image::None`. \{#sls.gen.prop.types.image}
 
 The image of an [`@image-url()`](/reference/language/expressions/#sls.expr.image.form)
-literal is decoded when the code is generated and embedded in it as a
+literal is decoded when the code is generated, and embedded in the generated code as a
 `static` holding an `Image::StaticArgb`; the literals of one `.slint` file
 that name the same image file share one embedded
 copy. \{#sls.gen.image.static}
@@ -117,7 +135,7 @@ pub trait FooCallbacks {
 The trait is named after the component with `Callbacks` appended, and is generated whether or not the
 component declares a callback. \{#sls.gen.callback.trait}
 
-It has one method per declared callback, named after the callback with `on_` prepended and `-` replaced by `_`:
+The trait has one method per declared callback, named after the callback with `on_` prepended and `-` replaced by `_`:
 the method of a callback `alarm-raised` is `on_alarm_raised`. \{#sls.gen.callback.names}
 
 No method has a default body, so an application that leaves a callback of the component unimplemented
@@ -151,7 +169,7 @@ generates a public Rust type of the same name. \{#sls.gen.types}
 A struct generates a Rust `struct` whose fields are public and of the mapped
 Rust type, each named after the Slint field with `-` replaced by `_`
 (so `line-width` becomes `line_width`);
-it derives `Default`, `Clone`, `PartialEq`, and `Debug`. \{#sls.gen.types.struct}
+the Rust `struct` derives `Default`, `Clone`, `PartialEq`, and `Debug`. \{#sls.gen.types.struct}
 
 ### Enums
 
@@ -177,7 +195,7 @@ variants. \{#sls.gen.types.enum.names}
 
 :::caution[Names become Rust identifiers]
 A component, struct, enum, or struct field whose name is a Rust keyword, or an
-enum value whose variant name is one (a value `self` becomes `Self`), generates
-code that does not compile; rename it. Property names are unaffected: their
+enum value whose variant name is a Rust keyword (a value `self` becomes `Self`), generates
+code that does not compile; rename the item. Property names are unaffected: their
 accessors are always prefixed with `get_` or `set_`.
 :::
