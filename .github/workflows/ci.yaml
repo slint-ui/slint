@@ -157,9 +157,9 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 7
 
-    # For changes to Slint internals, do a quick test on Linux for Node.js only.
+    # For changes to the test cases, do a quick test on Linux for Node.js only.
     node_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
