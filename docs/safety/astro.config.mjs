@@ -359,20 +359,20 @@ export default defineConfig({
                         ],
                     },
                     {
-                        label: "Component Documentation",
-                        link: "/component-documentation/",
+                        label: "Runtime Safety Documentation",
+                        link: "/runtime/",
                         items: [
                             {
                                 label: "Overview",
-                                slug: "component-documentation",
+                                slug: "runtime",
                             },
                             {
                                 label: "Assumed Safety Requirements",
-                                slug: "component-documentation/assumed-safety-requirements",
+                                slug: "runtime/assumed-safety-requirements",
                             },
                             {
                                 label: "Safety Analysis",
-                                slug: "component-documentation/safety-analysis",
+                                slug: "runtime/safety-analysis",
                             },
                         ],
                     },
