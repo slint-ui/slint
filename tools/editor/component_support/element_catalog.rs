@@ -22,10 +22,10 @@ pub enum Group {
 }
 
 impl Group {
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Self::Visual => "Visual",
-            Self::InputInteraction => "Input & interaction",
+            Self::Visual => tr::tr!("Visual"),
+            Self::InputInteraction => tr::tr!("Input & interaction"),
         }
     }
 }
