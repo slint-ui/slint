@@ -28,6 +28,11 @@ on:
           default: false
           required: false
           description: "Run the slint-sc tests and include the measured coverage in the Safety Manual"
+        node-python-docs:
+          type: boolean
+          default: true
+          required: false
+          description: "Build the Node.js and Python API documentation"
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -291,6 +296,7 @@ jobs:
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
+        if: ${{ inputs['node-python-docs'] }}
         runs-on: ubuntu-24.04
         env:
             RELEASE_INPUT: ${{ inputs.release }}

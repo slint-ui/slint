@@ -131,15 +131,24 @@ api_cpp:
 android_backend:
  - 'internal/backends/android-activity/**'
 
-api_python:
+api_python: &api_python
  - 'api/python/**'
  - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
 
-api_node:
+api_node: &api_node
  - 'api/node/**'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
+
+node_python_docs:
+ - *api_node
+ - *api_python
+ - '.github/workflows/build_docs.yaml'
+ - 'docs/common/**'
+ - 'docs/nodejs/**'
+ - 'docs/python/**'
+ - *ci_config
 
 api_rs:
  - 'api/rs/**'

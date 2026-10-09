@@ -466,6 +466,7 @@ jobs:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') || contains(fromJSON(inputs.changes), 'safety_docs') }}
+          node-python-docs: ${{ contains(fromJSON(inputs.changes), 'node_python_docs') }}
 
     slintpad:
         if: ${{ !inputs.full && contains(fromJSON(inputs.changes), 'slintpad') }}
