@@ -1,0 +1,143 @@
+---
+title: Packaging
+description: Build a Slint desktop application into something your users install and start like any other application.
+---
+
+{/* cSpell: ignore briefcasex myapp */}
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Packaging turns your application into files your users install and start without your development tools.
+First set your application up for release, which depends on your programming language.
+Then each platform page shows how to build and package it.
+
+<Steps>
+
+1. Set your application up for release:
+
+   <Tabs syncKey="dev-language">
+   <TabItem label="Rust" icon="seti:rust">
+
+   A release build, with `cargo build --release`, makes an optimized executable.
+   It contains your compiled `.slint` files and the images and fonts they use, so it ships on its own.
+
+   </TabItem>
+   <TabItem label="C++" icon="seti:cpp">
+
+   Build in release mode, with `CMAKE_BUILD_TYPE` set to `Release`.
+   By default, the application loads the images and fonts of your `.slint` files from their paths on the build machine,
+   so embed them into the executable:
+
+   ```cmake
+   set_property(TARGET my_application PROPERTY SLINT_EMBED_RESOURCES embed-files)
+   ```
+
+   See [Resource Embedding](https://slint.dev/docs/cpp/cmake-reference/resource-embedding/) for the other options.
+   Ship the executable with Slint's shared library next to it:
+   `slint_cpp.dll` on Windows, `libslint_cpp.dylib` on macOS, or `libslint_cpp.so` on Linux.
+
+   </TabItem>
+   <TabItem label="NodeJS" icon="node">
+
+   Node.js builds an executable from its own binary, as a [single executable application](https://nodejs.org/api/single-executable-applications.html).
+   Your code goes into the executable, and Slint's native addon and your `.slint` files ship next to it.
+   This takes Node.js 25.5 or newer, which is also the Node.js your application runs on.
+   Build on each platform you ship to:
+   npm installs native addons, including Slint's, for the platform it runs on.
+
+   #### Bundle Your Code
+
+   The executable runs one script built into it,
+   and that script [loads only the built-in modules](https://nodejs.org/api/single-executable-applications.html#module-loading-in-the-injected-main-script) of Node.js.
+   A bundler combines your code and its dependencies into that script.
+   Use esbuild with the plugin of `slint-ui` so that `import { MainWindow } from "./ui/main.slint"` works in the bundle.
+
+   Install [esbuild](https://esbuild.github.io/):
+
+   ```sh
+   npm install --save-dev esbuild
+   ```
+
+   Save this as `build.mjs`, with your entry point in `entryPoints`:
+
+   ```js
+   import * as esbuild from "esbuild";
+   import { slint } from "slint-ui/esbuild";
+
+   await esbuild.build({
+       entryPoints: ["main.js"],
+       bundle: true,
+       platform: "node",
+       format: "esm",
+       outfile: "main.bundle.mjs",
+       plugins: [slint()],
+   });
+   ```
+
+   `node build.mjs` writes `main.bundle.mjs`, and copies Slint's native addon next to it.
+   The plugin compiles `import { MainWindow } from "./ui/main.slint"` into a `loadFile()` call,
+   so the `.slint` file loads at run time from the same path relative to the bundle.
+   In every module of the bundle, `import.meta.url` is the location of the bundle,
+   so build other paths, such as those for `loadFile()`, relative to it.
+
+   #### Describe the Executable
+
+   Describe the executable in `sea-config.json`.
+   On Windows, name the output `myapp.exe`:
+
+   ```json
+   {
+       "main": "main.bundle.mjs",
+       "mainFormat": "module",
+       "output": "myapp",
+       "disableExperimentalSEAWarning": true
+   }
+   ```
+
+   `node --build-sea sea-config.json` then builds the executable.
+   Ship it with Slint's addon next to it, `slint-ui.<platform>.node`,
+   and your `.slint` files and other assets, keeping their layout.
+   Ship the native addons of other packages your application uses as well, as their documentation describes.
+
+   #### Without esbuild
+
+   Another bundler works if your code loads `.slint` files with `loadFile()`, and you copy Slint's addon next to the bundle.
+
+   Without a bundler, ship your code and `node_modules` next to the executable.
+   Build the executable from `sea-main.cjs`, without `mainFormat`, and put `start.cjs` next to it:
+
+   ```js
+   // sea-main.cjs, built into the executable
+   require("node:module").createRequire(__filename)("./start.cjs");
+   ```
+
+   ```js
+   // start.cjs
+   import("slint-ui/register").then(() => import("./main.js"));
+   ```
+
+   </TabItem>
+   <TabItem label="Python" icon="seti:python">
+
+   Package your application with [Briefcase](https://briefcase.beeware.org/en/stable/),
+   which builds an installer for each platform that includes Python.
+   The `briefcasex-slint` plugin adds Slint to it.
+   Start a new project with:
+
+   ```sh
+   pip install briefcasex-slint
+   briefcase new -Q bootstrap=Slint
+   ```
+
+   `briefcase package` then builds the installer for the platform you run it on.
+
+   </TabItem>
+   </Tabs>
+
+2. Build and package it for each platform:
+
+   - [Windows](/guide/platforms/desktop/packaging/windows/)
+   - [macOS](/guide/platforms/desktop/packaging/macos/)
+   - [Linux](/guide/platforms/desktop/packaging/linux/)
+
+</Steps>

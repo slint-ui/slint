@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Follows docs/nodejs/src/content/docs/packaging.mdx.
+// Follows the NodeJS tab of docs/astro/src/content/docs/guide/platforms/desktop/packaging/general.mdx.
 
 import { describe, test, expect } from "vitest";
 import * as fs from "node:fs";

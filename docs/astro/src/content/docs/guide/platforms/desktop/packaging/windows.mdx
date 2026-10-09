@@ -1,11 +1,64 @@
 ---
-title: Packaging
+title: Windows Packaging
 description: Package a desktop Slint app for distribution on Windows, using MSIX
 ---
 
-{/* cSpell: ignore makeappx makepri msix msixbundle appx Appx appxmanifest rescap UWPDesktop VCLibs VCRUNTIME MSVCP dumpbin signtool targetsize altform unplated lightunplated priconfig createconfig taskbars Inno NSIS yourorganization */}
+{/* cSpell: ignore makeappx makepri msix msixbundle appx Appx appxmanifest rescap UWPDesktop VCLibs VCRUNTIME MSVCP dumpbin signtool targetsize altform unplated lightunplated priconfig createconfig taskbars Inno NSIS yourorganization myapp resedit */}
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Set your application up for release first, as described in [Packaging](/guide/platforms/desktop/packaging/general/).
+
+## Build the Executable
+
+Set the `WINDOWS` subsystem, as described in the [Windows platform guide](/guide/platforms/desktop/windows/general/),
+so that the executable starts without a console window.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+Build the executable:
+
+```powershell
+cargo build --release
+```
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+Build it in release mode.
+Put `slint_cpp.dll` next to the executable in the package layout.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Bundle your code, and build `myapp.exe`, with the `build.mjs` and `sea-config.json` described in [Packaging](/guide/platforms/desktop/packaging/general/):
+
+```powershell
+node build.mjs
+node --build-sea sea-config.json
+```
+
+The executable shows the icon and version information of Node.js.
+To show your application's icon and name in Explorer and Task Manager instead, use [`resedit-cli`](https://www.npmjs.com/package/resedit-cli):
+
+```powershell
+npx resedit-cli --in myapp.exe --out myapp.exe --ignore-signed --icon 1,myapp.ico `
+    --product-name "My App" --file-description "My App" --product-version 1.0.0.0 --file-version 1.0.0.0
+```
+
+Put the executable, Slint's addon, and your `.slint` files into the package layout.
+The addon needs the [Visual C++ runtime](#the-visual-c-runtime), and you sign it with `signtool` like the executable.
+
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+
+Briefcase builds the executable, as described in [Packaging](/guide/platforms/desktop/packaging/general/).
+
+</TabItem>
+</Tabs>
+
+## MSIX
 
 This guide gets your app ready for the [Microsoft Store](https://learn.microsoft.com/en-us/windows/apps/publish/),
 which lists your app, installs it for users, and delivers every update you publish.
@@ -18,18 +71,12 @@ MSIX also works outside the Store, but it isn't the only option.
 Packaging your application in these formats is outside the scope of this documentation.
 </Aside>
 
-<Aside type="note">
-This guide packages an executable, whatever language it's written in.
-For a JavaScript or TypeScript application, build the executable as described in [Package Your Application](https://slint.dev/docs/node/packaging/).
-Put the executable, Slint's addon, and your `.slint` files into the package layout.
-</Aside>
-
-## Prerequisites
+### Prerequisites
 
 Install the [Windows SDK](https://developer.microsoft.com/windows/downloads/windows-sdk/).
 It comes with `makeappx`, which builds the package, and `makepri`, which builds the resource index it needs.
 
-## The Manifest
+### The Manifest
 
 An `AppxManifest.xml` at the root of the package describes it.
 This is the smallest manifest that you need for a Slint app:
@@ -82,7 +129,7 @@ This is the smallest manifest that you need for a Slint app:
 </Package>
 ```
 
-### Full Trust
+#### Full Trust
 
 A packaged app runs in an app container by default, in a sandbox,
 with its own storage and all of its capabilities.
@@ -97,11 +144,11 @@ In your manifest, the following three parts are necessary to declare full trust:
 - `uap10:TrustLevel="mediumIL"` runs the process as the user.
 - `runFullTrust` is the required capability.
 
-### Asset Paths
+#### Asset Paths
 
 Every path in the manifest is relative within the package.
 
-## The Visual C++ Runtime
+### The Visual C++ Runtime
 
 Binaries built with the MSVC toolchain link the C runtime dynamically,
 and the Skia renderer adds the C++ standard library on top.
@@ -128,7 +175,7 @@ and Windows installs the runtime alongside your app:
 while the `api-ms-win-crt-*` entries are part of Windows.
 </Aside>
 
-## Building the Package
+### Building the Package
 
 Create a directory that has what your package needs, then pack it:
 
@@ -144,7 +191,7 @@ makeappx pack /d layout /p YourApp_1.0.0.0_x64.msix /o
 This completes a single architecture.
 The result is unsigned, as the Store requires, and can't be installed yet.
 
-## Supporting Both x64 and arm64
+### Supporting Both x64 and arm64
 
 Windows on Arm runs x64 binaries through emulation.
 A native arm64 build is faster and takes little effort.
@@ -160,7 +207,7 @@ Everything except `ProcessorArchitecture` must be identical between the slices;
 we recommend generating each manifest from one template.
 
 
-## Icons
+### Icons
 
 The manifest names one file per logo, and Windows selects among variants of that file
 by the size required and the context.
@@ -195,7 +242,7 @@ Copy-Item resources.pri layout\resources.pri
 
 Keep `priconfig.xml` outside the layout, otherwise it's indexed and packaged with everything else.
 
-## Signing
+### Signing
 
 The Store re-signs your package with a Microsoft certificate,
 so leave a package destined for it **unsigned**.
@@ -205,7 +252,7 @@ For distribution outside the Store, Windows won't install a package it doesn't t
 and the certificate's subject must match `Identity/Publisher` in your manifest exactly.
 For more information, see [signing a package with SignTool](https://learn.microsoft.com/en-us/windows/win32/appxpkg/how-to-sign-a-package-using-signtool).
 
-## Testing Without Signing
+### Testing Without Signing
 
 You don't need a certificate during development.
 With [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) enabled,

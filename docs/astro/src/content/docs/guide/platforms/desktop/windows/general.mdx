@@ -72,8 +72,15 @@ editbin /SUBSYSTEM:WINDOWS my-app.exe
 ```
 
 Start your application with `.\my-app.exe main.js`.
-To build an executable that starts your application without arguments,
-see [Package Your Application](https://slint.dev/docs/node/packaging/).
+
+An executable built as described in [Packaging](/guide/platforms/desktop/packaging/general/) starts your application without arguments.
+Run the same command on it:
+
+```powershell
+npx create-nodew-exe myapp.exe myapp.exe
+```
+
+The output of `console.log()` is then lost, so skip this step while you debug.
 </TabItem>
 
 <TabItem label="Python" icon="seti:python">

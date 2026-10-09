@@ -1,5 +1,5 @@
 ---
-title: Packaging
+title: Linux Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
@@ -34,23 +34,34 @@ Depending on your programming language, you also need a tool that converts your 
 The build process is sandboxed just like Flatpaks themselves, and nothing inside it reaches the network.
 Every dependency that would otherwise be downloaded has to be declared up front.
 
-Lockfile conversion scripts exist for every programming language Slint supports:
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
-- Rust
-  - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
-- NodeJS
-  - [`node`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node) - this is the recommended method, supporting `npm`, `yarn` and `pnpm`
-  - [`npm`](https://github.com/flatpak/flatpak-builder-tools/tree/master/npm) (if the `node` script does not work)
-  - [`yarn`](https://github.com/flatpak/flatpak-builder-tools/tree/master/yarn) (if the `node` script does not work)
-- Deno
-  - [`deno`](https://github.com/flatpak/flatpak-builder-tools/tree/master/deno)
-- Python
-  - [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
-  - [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry)
+Convert `Cargo.lock` with the [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
 
 C++ has no standard, cross-platform package manager.
 Vendor your dependencies instead.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+An executable built as described in [Packaging](/guide/platforms/desktop/packaging/general/) needs no conversion, since the Flatpak copies it in.
+
+To build from source inside the sandbox instead, convert your lockfile with the [`node`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node) script, which supports `npm`, `yarn`, and `pnpm`.
+If it doesn't work for you, use the [`npm`](https://github.com/flatpak/flatpak-builder-tools/tree/master/npm) or [`yarn`](https://github.com/flatpak/flatpak-builder-tools/tree/master/yarn) script.
+For Deno, use the [`deno`](https://github.com/flatpak/flatpak-builder-tools/tree/master/deno) script.
 Slint supports Bun, but Flatpak doesn't.
+
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+
+Convert your lockfile with the [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip) or [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry) script.
+
+</TabItem>
+</Tabs>
 
 ## Creating a Build File
 
@@ -382,10 +393,13 @@ Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds
 </TabItem>
 <TabItem label="NodeJS" icon="node">
 
-Build the executable as described in [Package Your Application](https://slint.dev/docs/node/packaging/) before you run `flatpak-builder`.
+Build the executable as described in [Packaging](/guide/platforms/desktop/packaging/general/) before you run `flatpak-builder`.
 Copy the application into the Flatpak with a `dir` source.
-Slint's pre-built addon for Node.js needs libinput, which the Freedesktop runtime doesn't include:
-build libinput, and the libraries it depends on, as modules of your Flatpak.
+
+Slint's pre-built addon for Node.js includes the [LinuxKMS backend](/guide/backends-and-renderers/backend_linuxkms/) with libinput support,
+so it needs libinput, even when the application runs on Wayland or X11.
+The Freedesktop runtime doesn't include libinput:
+build it, and the libraries it depends on, as modules of your Flatpak.
 
 </TabItem>
 </Tabs>

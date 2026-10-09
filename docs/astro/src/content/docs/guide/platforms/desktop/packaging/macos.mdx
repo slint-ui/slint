@@ -1,11 +1,11 @@
 ---
-title: macOS Packaging (Rust)
-description: Package a desktop Rust-based Slint app for direct macOS distribution or the Mac App Store.
+title: macOS Packaging
+description: Package a desktop Slint app for direct macOS distribution or the Mac App Store.
 ---
 
-{/* cSpell: ignore APPL pipefail esac notarytool spctl */}
+{/* cSpell: ignore APPL pipefail esac notarytool spctl codesign entitlements hdiutil icns myapp UDZO volname */}
 
-import { Aside, Code } from '@astrojs/starlight/components';
+import { Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
 import buildScript from './../../../../../../../../../scripts/build_macos_app_with_cargo.bash?raw'
 
 There are two main routes for distributing macOS apps: the [Mac App Store](https://www.apple.com/app-store/) and direct distribution.
@@ -15,12 +15,115 @@ Slint supports both routes by generating standard Xcode projects that work with 
 To distribute an app outside the Mac App Store, you need an [Apple Developer Program](https://developer.apple.com/programs/) membership.
 Without one, you can only self-sign your app for local development and testing.
 </Aside>
+Set your application up for release first, as described in [Packaging](/guide/platforms/desktop/packaging/general/).
 
-<Aside type="note">
-This guide covers Rust applications.
-For a JavaScript or TypeScript application, [Package Your Application](https://slint.dev/docs/node/packaging/) shows how to build an app bundle without Xcode,
-then sign, notarize, and distribute it.
-</Aside>
+## Build the App Bundle
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+The Xcode project in this guide builds a Rust application, starting with its [prerequisites](#prerequisites).
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Build the executable of a Node.js application as described in [Packaging](/guide/platforms/desktop/packaging/general/),
+then put it in an app bundle, which is what Finder starts.
+Bundle your code and build the executable, with the settings below:
+
+```sh
+node build.mjs
+node --build-sea sea-config.json
+```
+
+The app bundle looks like this:
+
+```
+My App.app/
+  Contents/
+    Info.plist
+    MacOS/myapp
+    MacOS/slint-ui.darwin-arm64.node
+    Resources/ui/...
+    Resources/myapp.icns
+```
+
+The executable and the addon go in `MacOS`, and your `.slint` files and other assets in `Resources`.
+Pass `slint({ runtimeDir: "../Resources" })` in `build.mjs`, so the bundle finds them there,
+and set `output` in `sea-config.json` to `My App.app/Contents/MacOS/myapp`.
+Start the paths you build from `import.meta.url` with `../Resources/` too.
+
+`Info.plist` names the executable, the bundle identifier, and the icon:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>myapp</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.example.myapp</string>
+    <key>CFBundleName</key>
+    <string>My App</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleIconFile</key>
+    <string>myapp.icns</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+```
+
+Building the executable invalidates the signature of the Node.js binary.
+Sign the app again with an ad-hoc signature, which is enough to run it on your own Mac:
+
+```sh
+codesign --sign - --force "My App.app"
+```
+
+To distribute the app to other Macs, sign it with your Developer ID and notarize it.
+Node.js compiles JavaScript at run time, so the hardened runtime needs to allow it.
+Write an `entitlements.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>
+```
+
+Sign Slint's addon before the app:
+
+```sh
+APP="My App.app"
+codesign --force --timestamp --options runtime --sign "Developer ID Application: Your Name" \
+    "$APP"/Contents/MacOS/*.node
+codesign --force --timestamp --options runtime --entitlements entitlements.plist \
+    --sign "Developer ID Application: Your Name" "$APP"
+```
+
+Put the app in a disk image, sign it, and send it to Apple to [notarize](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+Store your credentials for `notarytool` once with `xcrun notarytool store-credentials notary`:
+
+```sh
+hdiutil create -volname "My App" -srcfolder "$APP" -format UDZO myapp.dmg
+codesign --timestamp --sign "Developer ID Application: Your Name" myapp.dmg
+xcrun notarytool submit myapp.dmg --keychain-profile notary --wait
+xcrun stapler staple myapp.dmg
+```
+
+</TabItem>
+</Tabs>
 
 ## Prerequisites
 

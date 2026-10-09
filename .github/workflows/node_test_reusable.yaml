@@ -90,7 +90,7 @@ jobs:
               working-directory: api/node
               run: pnpm exec vitest run __test__/sea.spec.mts
             - name: Package the home-automation demo as a single executable
-              # Follows docs/nodejs/src/content/docs/packaging.mdx.
+              # Follows the NodeJS tab of docs/astro/src/content/docs/guide/platforms/desktop/packaging/general.mdx.
               shell: bash
               working-directory: demos/home-automation
               run: |
