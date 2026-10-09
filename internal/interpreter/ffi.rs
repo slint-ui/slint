@@ -5,7 +5,7 @@
 
 use super::*;
 use core::ptr::NonNull;
-use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units};
+use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units, path_to_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -847,7 +847,7 @@ pub struct FileLoaderUserData {
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     callback: extern "C" fn(
         user_data: *mut c_void,
-        path: Slice<Slice<u8>>,
+        path: Slice<PathValueType>,
         out: *mut SharedString,
     ) -> FileLoaderResult,
 }
@@ -866,7 +866,7 @@ impl FileLoaderUserData {
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
         callback: extern "C" fn(
             user_data: *mut c_void,
-            path: Slice<Slice<u8>>,
+            path: Slice<PathValueType>,
             out: *mut SharedString,
         ) -> FileLoaderResult,
     ) -> Self {
@@ -885,7 +885,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
     compiler: &mut ComponentCompilerOpaque,
     callback: extern "C" fn(
         user_data: *mut c_void,
-        path: Slice<Slice<u8>>,
+        path: Slice<PathValueType>,
         out: *mut SharedString,
     ) -> FileLoaderResult,
     user_data: *mut c_void,
@@ -893,11 +893,8 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
 ) {
     let ud = unsafe { FileLoaderUserData::new(user_data, drop_user_data, callback) };
     compiler.as_component_compiler_mut().set_file_loader(move |path| {
-        let segments: Vec<Slice<u8>> = path
-            .components()
-            .filter_map(|c| c.as_os_str().to_str().map(|s| Slice::from_slice(s.as_bytes())))
-            .collect();
-        let path_slice = Slice::from_slice(&segments);
+        let path_units = path_to_units(path);
+        let path_slice = Slice::from_slice(&path_units);
         let mut result = SharedString::default();
         let status = (ud.callback)(ud.user_data, path_slice, &mut result);
         Box::pin(async move {

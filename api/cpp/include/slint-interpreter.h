@@ -1035,26 +1035,23 @@ public:
         using namespace cbindgen_private;
         cbindgen_private::slint_interpreter_component_compiler_set_file_loader(
                 &inner,
-                [](void *data, Slice<Slice<uint8_t>> path_segments,
+                [](void *data, Slice<PathValueType> path_units,
                    SharedString *out) -> FileLoaderResult {
                     std::filesystem::path path;
-                    for (size_t i = 0; i < path_segments.len; ++i) {
-                        const auto &seg = path_segments.ptr[i];
-                        path /= std::string_view(reinterpret_cast<const char *>(seg.ptr), seg.len);
-                    }
+                    path.assign(std::basic_string_view(path_units.ptr, path_units.len));
                     try {
-                        auto result = (*reinterpret_cast<F *>(data))(path);
+                        auto result = (*static_cast<F *>(data))(path);
                         if (result.has_value()) {
-                            *out = SharedString(result.value());
-                            return cbindgen_private::FileLoaderResult::Found;
+                            *out = result.value();
+                            return FileLoaderResult::Found;
                         }
-                        return cbindgen_private::FileLoaderResult::NotFound;
+                        return FileLoaderResult::NotFound;
                     } catch (const std::exception &e) {
-                        *out = SharedString(e.what());
-                        return cbindgen_private::FileLoaderResult::Error;
+                        *out = e.what();
+                        return FileLoaderResult::Error;
                     }
                 },
-                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
+                new F(std::move(callback)), [](void *data) { delete static_cast<F *>(data); });
     }
 
     /// Returns the include paths the component compiler is currently configured with.
