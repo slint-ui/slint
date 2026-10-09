@@ -169,7 +169,7 @@ export component ShadowOverlay inherits FocusScope {
         y: root.shadow-center.y - self.height / 2;
         width: max(0px, FillSession.selection.width + self.expansion * 2px) * CanvasView.zoom;
         height: max(0px, FillSession.selection.height + self.expansion * 2px) * CanvasView.zoom;
-        border-radius: max(0px, Api.current-property-value-data("border-radius").value-float * 1px + self.expansion * 1px) * CanvasView.zoom;
+        border-radius: max(0px, Api.source-property-value-data("border-radius", {}).value-float * 1px + self.expansion * 1px) * CanvasView.zoom;
         border-width: Metrics.border-width;
         border-color: (soft == 0 ? Style.shadow-spread-color : Colors.focus).with-alpha(0.3);
         transform-rotation: FillSession.selection.angle;
