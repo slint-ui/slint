@@ -20,11 +20,6 @@ use wgpu_30 as wgpu;
 
 use crate::drmoutput::{DrmOutput, OwnedFramebufferHandle, SharedFd};
 
-/// Number of buffers in the ring.
-/// A frame is drawn while the previous one is still on its way to the screen,
-/// so at any moment one buffer is being rendered into, one is mid-flip and one is on screen.
-pub const BUFFER_COUNT: usize = 3;
-
 /// The scanout format.
 /// `Xrgb8888` is the one format every DRM plane is required to support,
 /// and its byte order matches wgpu's `Bgra8Unorm`.
@@ -67,13 +62,23 @@ impl drm::buffer::PlanarBuffer for ImplicitLayout<'_> {
 
 pub struct GbmDmabufDisplay {
     pub drm_output: DrmOutput,
-    buffers: [Buffer; BUFFER_COUNT],
+    buffers: Vec<Buffer>,
     /// Index into `buffers` of the buffer to render the next frame into.
     next: Cell<usize>,
+    /// A frame [`Self::present_after`] hasn't posted yet:
+    /// its buffer's index, and the submission that finishes drawing it.
+    #[cfg(skia_wgpu_30)]
+    pending: Cell<Option<(usize, wgpu::SubmissionIndex)>>,
 }
 
 impl GbmDmabufDisplay {
-    pub fn new(drm_output: DrmOutput, device: &wgpu::Device) -> Result<Self, PlatformError> {
+    /// A display with a ring of `buffer_count` scanout buffers.
+    /// [`Self::present`] and [`Self::present_after`] each say how many they need.
+    pub fn new(
+        drm_output: DrmOutput,
+        device: &wgpu::Device,
+        buffer_count: usize,
+    ) -> Result<Self, PlatformError> {
         let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
             .map_err(|e| format!("Error creating gbm device: {e}"))?;
 
@@ -142,8 +147,8 @@ impl GbmDmabufDisplay {
         // Notes on slower or riskier paths taken, each printed once.
         let mut notes: Vec<String> = Vec::new();
 
-        let mut buffers = Vec::with_capacity(BUFFER_COUNT);
-        for _ in 0..BUFFER_COUNT {
+        let mut buffers = Vec::with_capacity(buffer_count);
+        for _ in 0..buffer_count {
             let (buffer, buffer_notes) = Self::allocate_buffer(
                 &gbm_device,
                 &drm_output,
@@ -165,11 +170,13 @@ impl GbmDmabufDisplay {
         for note in notes {
             eprintln!("{note}");
         }
-        let buffers: [Buffer; BUFFER_COUNT] = buffers
-            .try_into()
-            .unwrap_or_else(|_| unreachable!("the loop pushes exactly BUFFER_COUNT buffers"));
-
-        Ok(Self { drm_output, buffers, next: Cell::new(0) })
+        Ok(Self {
+            drm_output,
+            buffers,
+            next: Cell::new(0),
+            #[cfg(skia_wgpu_30)]
+            pending: Cell::new(None),
+        })
     }
 
     fn allocate_buffer(
@@ -280,15 +287,71 @@ impl GbmDmabufDisplay {
 
     /// Posts the back buffer and advances the ring.
     /// The caller must have waited for the GPU work writing it to complete.
+    ///
+    /// This needs three buffers: one being drawn into, one mid-flip, and one on screen.
+    #[cfg_attr(not(feature = "renderer-femtovg-wgpu"), allow(dead_code))]
     pub fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        debug_assert!(self.buffers.len() >= 3, "see the buffers this needs");
         let index = self.next.get();
         // Waiting here rather than before the frame was drawn overlaps rendering
-        // with the flip still in flight, see `BUFFER_COUNT`. A flip can only be
-        // queued once the last one landed.
+        // with the flip still in flight. A flip can only be queued once the last
+        // one landed.
         self.drm_output.wait_for_page_flip();
         self.drm_output.present_framebuffer(self.buffers[index].framebuffer.handle)?;
-        self.next.set((index + 1) % BUFFER_COUNT);
+        self.next.set((index + 1) % self.buffers.len());
         Ok(())
+    }
+}
+
+#[cfg(skia_wgpu_30)]
+impl GbmDmabufDisplay {
+    /// Posts the frame left pending by the last call, if any,
+    /// then leaves the back buffer pending until `submission` completed and advances the ring.
+    /// A frame that fails to post stays pending, and the back buffer stays the same.
+    ///
+    /// Posting a frame only once the next one is drawn costs a frame of latency.
+    /// In exchange, the GPU finishes the frame while the CPU draws the next one.
+    /// Call [`Self::flush`] when no frame follows right away.
+    ///
+    /// This needs four buffers: one being drawn into, one waiting for the GPU, one mid-flip,
+    /// and one on screen.
+    pub fn present_after(
+        &self,
+        device: &wgpu::Device,
+        submission: wgpu::SubmissionIndex,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        debug_assert!(self.buffers.len() >= 4, "see the buffers this needs");
+        self.flush(device)?;
+        self.pending.set(Some((self.next.get(), submission)));
+        self.next.set((self.next.get() + 1) % self.buffers.len());
+        Ok(())
+    }
+
+    /// Posts the frame [`Self::present_after`] left pending, if any.
+    /// A frame that fails to post stays pending.
+    pub fn flush(
+        &self,
+        device: &wgpu::Device,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let Some(pending) = self.pending.take() else { return Ok(()) };
+        self.post(device, &pending).inspect_err(|_| self.pending.set(Some(pending)))
+    }
+
+    fn post(
+        &self,
+        device: &wgpu::Device,
+        (index, submission): &(usize, wgpu::SubmissionIndex),
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Why the CPU waits rather than KMS: see "Presentation Paths" in
+        // docs/development/window-backend-integration.md.
+        device.poll(wgpu::PollType::Wait {
+            submission_index: Some(submission.clone()),
+            timeout: None,
+        })?;
+        // A flip can only be queued once the last one landed. That one also took
+        // the frame before last off screen, whose buffer is drawn into next.
+        self.drm_output.wait_for_page_flip();
+        self.drm_output.present_framebuffer(self.buffers[*index].framebuffer.handle)
     }
 }
 
