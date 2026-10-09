@@ -77,7 +77,8 @@ jobs:
             # macOS only runs the rust driver when its inputs changed;
             # Windows always does, for the live-preview test.
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
-            build_examples: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples') }}
+            # Windows is the slower of the two.
+            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
