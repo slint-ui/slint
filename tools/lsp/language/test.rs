@@ -7,7 +7,9 @@ use lsp_types::Url;
 
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use crate::editor_preview;
 use crate::editor_preview::LspToPreviews;
@@ -41,6 +43,7 @@ pub fn mock_context_with_document_cache(document_cache: editor_preview::Document
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
+        enable_rust_formatting: Rc::new(Cell::new(true)),
     }
 }
 
