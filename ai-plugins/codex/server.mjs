@@ -1,0 +1,264 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, join, isAbsolute, extname } from "node:path";
+import { createInterface } from "node:readline";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { createViewStore } from "./views.mjs";
+import { createCaptureStore } from "./captures.mjs";
+import { loadRuntime } from "./runtime-assets.mjs";
+import { captureProject, snapshotProject, readProjectResource } from "./project.mjs";
+
+const root = dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const builtRuntime = await loadRuntime(join(root, "runtime"));
+const runtimeMetadata = builtRuntime?.metadata;
+const runtimeVersion = runtimeMetadata?.version;
+const viewUri = `ui://slint/view/v${version}.html`;
+const uiUri = `ui://slint/preview/v${version}.html`;
+const example = await readFile(join(root, "examples/button.slint"), "utf8");
+const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
+const runtimeWasm = builtRuntime?.wasm ?? Buffer.alloc(0);
+const wasmHash = createHash("sha256").update(runtimeWasm).digest("hex");
+const runtimeResources = new Map();
+const compressedWasm = gzipSync(runtimeWasm);
+const wasmChunkUris = [];
+for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
+  const uri = `slint://runtime/${wasmHash}/wasm/${wasmChunkUris.length}`;
+  wasmChunkUris.push(uri);
+  runtimeResources.set(uri, { uri, mimeType: "application/octet-stream", blob: compressedWasm.subarray(offset, offset + 256 * 1024).toString("base64") });
+}
+const html = builtRuntime ? builtRuntime.html
+  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, wasmChunkUris, wasmHash })) : "";
+if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
+const icon = builtRuntime?.icon ?? await readFile(join(root, "../icon.svg"));
+const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
+const run = promisify(execFile);
+const captures = createCaptureStore();
+const views = createViewStore();
+const viewPresentation = { ui: { resourceUri: viewUri }, "openai/outputTemplate": viewUri };
+const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };
+const sourceSchema = {
+  type: "object",
+  properties: {
+    path: { type: "string", description: "Absolute saved .slint source path." },
+    projectRoot: { type: "string", description: "Absolute root containing relative imports and assets. Defaults to the source directory." },
+    validatedProjectHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The projectHash returned by validate_slint, covering the entry, dependencies, assets, and runtime revision." },
+    revision: { type: "integer", minimum: 1 },
+    width: { type: "integer", minimum: 64, maximum: 2048, default: 320 },
+    height: { type: "integer", minimum: 64, maximum: 2048, default: 160 },
+  },
+  required: ["path", "revision", "validatedProjectHash"],
+  additionalProperties: false,
+};
+const renderOutputSchema = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["submitted"] }, previewId: { type: "string" }, revision: { type: "integer" },
+    width: { type: "integer" }, height: { type: "integer" },
+    sourceHash: { type: "string" }, runtimeVersion: { type: "string" }, runtimeRevision: { type: "string" },
+    sourcePath: { type: "string" }, projectRoot: { type: "string" }, projectHash: { type: "string" },
+  },
+  required: ["status", "previewId", "revision", "width", "height", "sourceHash", "projectHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot"],
+  additionalProperties: false,
+};
+const tools = [
+  {
+    name: "validate_slint", title: "Validate Slint Source", icons,
+    description: "Validate a saved Slint file with the bundled language server. Success is structuredContent.status === 'valid'. Status is 'error' for Slint errors or 'failure' for validator/setup errors; never check for 'ok'. Return diagnostics, source hash, and revision. The bundled Button import is resolved automatically. Provide an absolute source path and projectRoot for dependencies outside its directory. No environment discovery is needed. Save, validate, and render in one code-mode execution, rendering only after status 'valid'.",
+    inputSchema: { type: "object", properties: { path: { type: "string" }, projectRoot: { type: "string" }, revision: { type: "integer", minimum: 1 } }, required: ["path", "revision"], additionalProperties: false },
+    outputSchema: { type: "object", properties: { status: { type: "string", enum: ["valid", "error", "failure"], description: "valid means no error diagnostics; error means Slint errors; failure means a validator or setup error." }, diagnostics: { type: "array" }, sourceHash: { type: "string" }, projectHash: { type: "string" }, projectRoot: { type: "string" }, revision: { type: "integer" }, runtimeVersion: { type: "string" }, message: { type: "string" } }, required: ["status"] },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  },
+  {
+    name: "render_slint", title: "Render Slint Source", icons,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted. Call get_preview_screenshot with the returned previewId, revision, and sourceHash and inspect its image before claiming visual verification. Use fresh: true on get_preview_screenshot to inspect later runtime state without recompiling. Starter:\n" + example,
+    inputSchema: sourceSchema,
+    outputSchema: renderOutputSchema,
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: presentation,
+  },
+  {
+    name: "get_preview_screenshot", title: "Get Slint Preview Screenshot", icons,
+    description: "Get the PNG captured from the inline Slint canvas for a submitted source revision. Use previewId, revision, and sourceHash from render_slint. Inspect the returned image to verify appearance before finishing UI work. A ready render is not visual verification. If status is pending, wait briefly and retry without rendering again; if unavailable or error, report that visual verification was unavailable. Use fresh: true once to request a current-state capture without recompiling or resetting the preview. Then retrieve with the returned captureId and omit fresh on retries. This preserves the running component and its interaction state.",
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string", pattern: "^[a-f0-9]{64}$" }, fresh: { type: "boolean", default: false }, captureId: { type: "string" } }, required: ["previewId", "revision", "sourceHash"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  },
+  {
+    name: "publish_preview_capture", title: "Publish Slint Preview Capture",
+    description: "Publish a canvas capture or capture failure from the Slint preview app.",
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, captureToken: { type: "string" }, captureId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string" }, data: { type: "string", maxLength: 5592408 }, capturedAt: { type: "integer", minimum: 1 }, error: { type: "string", maxLength: 1024 } }, required: ["previewId", "captureToken", "captureId", "revision", "sourceHash"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ui: { visibility: ["app"] } },
+  },
+  {
+    name: "open_slint_file", title: "Slint File Preview", icons,
+    description: "Open a .slint file in the Slint viewer using the host file resource.",
+    inputSchema: { type: "object", properties: { file: { type: "object", properties: { name: { type: "string" }, resourceUri: { type: "string" } }, required: ["name", "resourceUri"], additionalProperties: false } }, required: ["file"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ...viewPresentation, "openai/ui": { entrypoints: [{ type: "file", extensions: [".slint"] }] } },
+  },
+  {
+    name: "load_slint_file_preview", title: "Load Slint File Preview",
+    description: "Validate and render host-provided file contents using the file path granted by the host. Does not write source files.",
+    inputSchema: { type: "object", properties: { source: { type: "string", maxLength: 65536 }, revision: { type: "integer", minimum: 1 }, projectRoot: { type: "string" } }, required: ["source", "revision"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ui: { visibility: ["app"] } },
+  },
+  {
+    name: "open_slint_preview", title: "Slint Preview", icons,
+    description: "Open one persistent Slint preview beside the conversation. On the third follow-up edit to the same item, say 'Let’s now work on this beside the chat' and call this instead of another inline render. Provide saved source and its validation hash. Subsequent edits use update_slint_preview with the returned viewId. Empty input opens the thread entrypoint awaiting source.",
+    inputSchema: { ...sourceSchema, required: [] },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ...viewPresentation, "openai/ui": { entrypoints: [{ type: "thread" }] } },
+  },
+  {
+    name: "update_slint_preview", title: "Update Slint Preview", icons,
+    description: "Update the existing side preview after editing and validating the same saved source. Pass its viewId, canonical path, new revision, and validatedProjectHash. This updates the open view without creating another inline preview. Read the updated screenshot before claiming visual verification.",
+    inputSchema: { ...sourceSchema, properties: { ...sourceSchema.properties, viewId: { type: "string" } }, required: [...sourceSchema.required, "viewId"] },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  },
+];
+
+async function render(args, entrySource) {
+  const { revision, width = 320, height = 160 } = args;
+  if (!Number.isSafeInteger(revision) || revision < 1 || !Number.isSafeInteger(width) || width < 64 || width > 2048 || !Number.isSafeInteger(height) || height < 64 || height > 2048) throw new Error("Provide a positive revision and dimensions from 64 to 2048 pixels.");
+  if (typeof args.path !== "string" || !isAbsolute(args.path) || !args.validatedProjectHash || args.source !== undefined) throw new Error("Provide an absolute saved path and validatedProjectHash before rendering.");
+  const { source, ...project } = await snapshotProject(args.path, args.projectRoot, component, args.validatedProjectHash, runtimeMetadata.revision, entrySource);
+  if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
+  const structuredContent = { status: "submitted", revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
+  Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, projectHash: project.id });
+  const capture = await captures.create({ revision, sourceHash: structuredContent.sourceHash, projectHash: project.id, runtimeRevision: runtimeMetadata.revision });
+  structuredContent.previewId = capture.previewId;
+  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, preview: { source, project }, captureToken: capture.captureToken, captureId: capture.captureId } };
+}
+
+async function validate(args, entrySource) {
+  if (typeof args.path !== "string" || !isAbsolute(args.path) || !Number.isSafeInteger(args.revision) || args.revision < 1) throw new Error("Provide an absolute source path and positive revision.");
+  let captured;
+  let captureError;
+  try { captured = await captureProject(args.path, args.projectRoot, component, runtimeMetadata.revision, entrySource); }
+  catch (error) { captureError = error; }
+  const sourceArgs = entrySource === undefined ? [] : ["--source-base64", Buffer.from(entrySource).toString("base64")];
+  const { stdout } = await run(process.env.SLINT_PYTHON_BIN || "python3", [join(root, "scripts/check-source.py"), args.path, "--revision", String(args.revision), ...sourceArgs], { timeout: 45000, maxBuffer: 1024 * 1024, windowsHide: true });
+  const result = JSON.parse(stdout);
+  if (result.status === "valid") {
+    if (captureError) throw captureError;
+    const after = await captureProject(args.path, args.projectRoot, component, runtimeMetadata.revision, entrySource);
+    if (captured.id !== after.id || result.sourceHash !== captured.snapshot.files[captured.snapshot.entry].hash) throw new Error("The project changed during validation. Validate it again.");
+    if (result.runtimeRevision !== runtimeMetadata.revision) throw new Error("The validator runtime changed. Refresh the Slint plugin.");
+    result.projectHash = captured.id;
+    result.projectRoot = captured.snapshot.projectRoot;
+  }
+  return result;
+}
+
+async function handle(message) {
+  switch (message.method) {
+    case "initialize":
+      return { protocolVersion: message.params?.protocolVersion ?? "2025-06-18", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "slint", title: "Slint", version, icons } };
+    case "ping": return {};
+    case "tools/list": return { tools: runtimeMetadata ? tools : [] };
+    case "resources/list": return { resources: runtimeMetadata ? [
+      { uri: uiUri, name: "slint-preview", title: "Slint Preview", mimeType: "text/html;profile=mcp-app" },
+      { uri: viewUri, name: "slint-view", title: "Slint File Preview", mimeType: "text/html;profile=mcp-app" },
+      ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
+    ] : [] };
+    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://view/{viewId}/{previewId}/next", name: "view-update", description: "Wait for the next source revision in a persistent Slint view." }, { uriTemplate: "slint://capture/{previewId}/{captureId}/next", name: "capture-request", description: "Wait for a new screenshot request for an open preview." }, { uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
+    case "resources/read": {
+      const uri = message.params?.uri;
+      const viewRequest = typeof uri === "string" && uri.match(/^slint:\/\/view\/([a-f0-9-]{36})\/([a-f0-9-]{36})\/next$/);
+      if (viewRequest) return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await views.wait(viewRequest[1], viewRequest[2])) }] };
+      const captureRequest = typeof uri === "string" && uri.match(/^slint:\/\/capture\/([a-f0-9-]{36})\/([a-f0-9-]{36})\/next$/);
+      if (captureRequest) return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await captures.wait(captureRequest[1], captureRequest[2])) }] };
+      if (typeof uri === "string" && uri.startsWith("slint://project/")) return { contents: [await readProjectResource(uri)] };
+      if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
+      if (uri !== uiUri && uri !== viewUri) throw new Error("Unknown Slint resource.");
+      return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
+        ui: { prefersBorder: true, csp: { resourceDomains: ["blob:", "data:"] } },
+        "openai/ui": { availableDisplayModes: uri === viewUri ? ["fullscreen"] : ["inline"], preferredDisplayMode: uri === viewUri ? "fullscreen" : "inline" },
+      } }] };
+    }
+    case "tools/call": {
+      const args = message.params?.arguments ?? {};
+      try {
+        if (!runtimeMetadata) throw new Error("Build the Codex runtime in the Slint monorepo or install a platform package to enable preview tools.");
+        if (message.params?.name === "open_slint_preview") {
+          const result = await views.create(args.path ? await render(args) : { structuredContent: { status: "awaiting-source" }, content: [{ type: "text", text: "Slint side preview opened. Provide saved source to update this view." }] });
+          result._meta = { ...result._meta, ...viewPresentation, surface: "side" };
+          return result;
+        }
+        if (message.params?.name === "update_slint_preview") {
+          const result = await views.update(args.viewId, await render(args));
+          return { structuredContent: result.structuredContent, content: [{ type: "text", text: "Slint side preview updated." }] };
+        }
+        if (message.params?.name === "open_slint_file") {
+          if (typeof args.file?.name !== "string" || extname(args.file.name) !== ".slint" || typeof args.file.resourceUri !== "string" || !args.file.resourceUri.trim()) throw new Error("Provide a .slint host file resource.");
+          return { structuredContent: { status: "opening-file", fileName: args.file.name }, content: [{ type: "text", text: "Slint file preview opened." }], _meta: { ...viewPresentation, file: args.file } };
+        }
+        if (message.params?.name === "load_slint_file_preview") {
+          const path = message.params?._meta?.["openai/resource"]?.path;
+          if (typeof path !== "string" || !isAbsolute(path) || extname(path) !== ".slint") throw new Error("The host did not grant a local .slint file path.");
+          if (typeof args.source !== "string" || !args.source.length || Buffer.byteLength(args.source) > 65536) throw new Error("Provide host file contents of at most 64 KiB.");
+          let projectRoot = args.projectRoot;
+          if (!projectRoot) {
+            try { projectRoot = (await run("git", ["rev-parse", "--show-toplevel"], { cwd: dirname(path), timeout: 2000 })).stdout.trim(); }
+            catch { projectRoot = dirname(path); }
+          }
+          const input = { path, projectRoot, revision: args.revision };
+          const validation = await validate(input, args.source);
+          if (validation.status !== "valid") return { isError: true, structuredContent: validation, content: [{ type: "text", text: "Slint file validation failed." }] };
+          const result = await render({ ...input, projectRoot: validation.projectRoot, validatedProjectHash: validation.projectHash }, args.source);
+          const saved = await readFile(path, "utf8");
+          result.structuredContent.sourceState = saved === args.source ? "saved" : "unsaved";
+          result._meta.automaticSize = true;
+          delete result._meta.ui;
+          delete result._meta["openai/outputTemplate"];
+          return result;
+        }
+        if (message.params?.name === "publish_preview_capture") {
+          const structuredContent = await captures.publish(args);
+          return { structuredContent, content: [{ type: "text", text: "Slint capture result stored." }] };
+        }
+        if (message.params?.name === "get_preview_screenshot") {
+          const { data, ...structuredContent } = args.fresh ? await captures.request(args) : await captures.get(args);
+          return { structuredContent, content: data ? [{ type: "image", mimeType: "image/png", data }] : [{ type: "text", text: structuredContent.message ?? "Slint capture pending. Wait briefly and retry." }] };
+        }
+        if (message.params?.name === "render_slint") return await render(args);
+        if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");
+        const result = await validate(args);
+        return { structuredContent: result, content: [{ type: "text", text: result.status === 'valid' ? 'Slint source validated.' : 'Slint validation returned diagnostics.' }] };
+      } catch (error) {
+        const output = error.stdout?.trim() || error.stderr?.trim() || error.message;
+        let result;
+        try { result = JSON.parse(output); } catch { result = { status: "failure", message: output }; }
+        return { isError: true, structuredContent: result, content: [{ type: "text", text: JSON.stringify(result) }] };
+      }
+    }
+    default: throw new Error("Unknown MCP method.");
+  }
+}
+for await (const line of createInterface({ input: process.stdin })) {
+  let message;
+  try {
+    message = JSON.parse(line);
+    if (message.id === undefined) continue;
+    if (message.method === "resources/read" && typeof message.params?.uri === "string" && /^slint:\/\/(?:capture|view)\//.test(message.params.uri)) {
+      const id = message.id;
+      void handle(message).then(result => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n"), error => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32602, message: error.message } }) + "\n"));
+      continue;
+    }
+    const result = await handle(message);
+    process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }) + "\n");
+  } catch (error) {
+    process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message?.id ?? null, error: { code: -32602, message: error.message } }) + "\n");
+  }
+}
+
+captures.close();
+views.close();

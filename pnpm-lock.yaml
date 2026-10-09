@@ -108,6 +108,15 @@ importers:
         specifier: 6.39.0
         version: 6.39.0
 
+  ai-plugins/codex:
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      shiki:
+        specifier: 4.5.0
+        version: 4.5.0
+
   api/node:
     devDependencies:
       '@biomejs/biome':

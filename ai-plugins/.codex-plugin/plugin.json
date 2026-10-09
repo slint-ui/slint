@@ -1,0 +1,24 @@
+{
+  "name": "slint",
+  "version": "1.19.0",
+  "description": "Develop Slint applications with source validation and a Slint Wasm preview.",
+  "author": {
+    "name": "SixtyFPS GmbH"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./codex/mcp.json",
+  "interface": {
+    "displayName": "Slint",
+    "shortDescription": "Develop Slint apps",
+    "longDescription": "Develop Slint source, validate saved files with the Slint language server, and preview components in hosts that support MCP Apps.",
+    "developerName": "SixtyFPS GmbH",
+    "category": "Developer tools",
+    "capabilities": [
+      "Read",
+      "Interactive"
+    ],
+    "logo": "./icon.svg",
+    "composerIcon": "./icon.svg",
+    "defaultPrompt": "Help me develop a Slint application."
+  }
+}

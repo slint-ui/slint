@@ -60,8 +60,16 @@ pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    resource_urls: Option<js_sys::Map>,
 ) -> Result<CompilationResult, JsValue> {
-    compile_from_string_with_style(source, base_url, String::new(), optional_import_callback).await
+    compile_from_string_with_style(
+        source,
+        base_url,
+        String::new(),
+        optional_import_callback,
+        resource_urls,
+    )
+    .await
 }
 
 /// Same as [`compile_from_string`], but also takes a style parameter
@@ -71,10 +79,18 @@ pub async fn compile_from_string_with_style(
     base_url: String,
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    resource_urls: Option<js_sys::Map>,
 ) -> Result<CompilationResult, JsValue> {
     #[allow(deprecated)]
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = true;
+    if let Some(resource_urls) = resource_urls {
+        compiler.compiler_configuration(i_slint_core::InternalToken).resource_url_mapper =
+            Some(Rc::new(move |url| {
+                let mapped = resource_urls.get(&JsValue::from_str(url.as_str())).as_string();
+                Box::pin(async move { mapped.and_then(|value| value.parse().ok()) })
+            }));
+    }
     if !style.is_empty() {
         compiler.set_style(style)
     }
@@ -241,6 +257,37 @@ impl Clone for WrappedInstance {
 
 #[wasm_bindgen]
 impl WrappedInstance {
+    /// Requests a fresh frame without changing the component's state.
+    #[wasm_bindgen]
+    pub fn request_redraw(&self) -> Result<js_sys::Promise, JsValue> {
+        self.invoke_from_event_loop_wrapped_in_promise(|instance| {
+            instance.window().request_redraw();
+            Ok(())
+        })
+    }
+
+    /// Calls the JavaScript callback after drawing, before the frame is presented.
+    #[wasm_bindgen]
+    pub fn on_after_rendering(
+        &self,
+        callback: js_sys::Function,
+    ) -> Result<js_sys::Promise, JsValue> {
+        let callback = send_wrapper::SendWrapper::new(callback);
+        self.invoke_from_event_loop_wrapped_in_promise(move |instance| {
+            let callback = callback.take();
+            instance
+                .window()
+                .set_rendering_notifier(move |state, _| {
+                    if matches!(state, i_slint_core::api::RenderingState::AfterRendering) {
+                        if let Err(error) = callback.call0(&JsValue::UNDEFINED) {
+                            web_sys::console::error_1(&error);
+                        }
+                    }
+                })
+                .map_err(|error| slint_interpreter::PlatformError::Other(error.to_string()))
+        })
+    }
+
     /// Marks this instance for rendering and input handling.
     ///
     /// Note that the promise will only be resolved after calling `slint.run_event_loop()`.

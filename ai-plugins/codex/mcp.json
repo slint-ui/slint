@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "slint": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "codex/server.mjs"
+      ],
+      "cwd": "."
+    },
+    "slint-docs": {
+      "type": "http",
+      "url": "https://docs.slint.dev/mcp"
+    }
+  }
+}

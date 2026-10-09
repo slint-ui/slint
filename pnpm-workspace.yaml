@@ -5,6 +5,7 @@ packages:
   - api/node
   - editors/vscode
   - tools/figma-inspector
+  - ai-plugins/codex
   - tools/slintpad
   - demos/printerdemo/node
   - demos/home-automation/node

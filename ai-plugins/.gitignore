@@ -1,0 +1,5 @@
+/codex/runtime/
+**/__pycache__/
+**/*.pyc
+/codex/.runtime-build-*/
+/codex/runtime.previous-*/

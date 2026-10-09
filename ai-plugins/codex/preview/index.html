@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slint Preview</title>
+  <link rel="icon" type="image/svg+xml" href="__SLINT_ICON__">
+  <style>
+    @font-face {
+      font-family: "JetBrains Mono";
+      src: url("__SLINT_CODE_FONT__") format("woff2");
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+    /* Keep the root canvas transparent when host and system themes differ. */
+    :root { color-scheme: normal; --fallback-text: #15191e; --fallback-muted: #626973; --text: var(--color-text-primary, var(--fallback-text)); --muted: var(--color-text-secondary, var(--fallback-muted)); }
+    @media (prefers-color-scheme: dark) { :root { --fallback-text: #ededed; --fallback-muted: #ababab; } }
+    html, body { margin: 0; background: transparent; color: var(--text); }
+    body { display: grid; justify-items: center; }
+    [hidden] { display: none !important; }
+    #view-controls { position: relative; width: min(100%, 720px); box-sizing: border-box; padding: 4px 8px; }
+    #view-menu-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+    #view-menu-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+    #view-menu { color-scheme: light dark; position: absolute; z-index: 2; top: 34px; left: 8px; min-width: 96px; padding: 4px; border: 1px solid var(--color-border-primary, GrayText); border-radius: 4px; background: var(--color-background-primary, Canvas); color: var(--text); }
+    #view-menu button { display: block; width: 100%; border: 0; padding: 6px 8px; background: transparent; color: inherit; font: 13px system-ui; text-align: left; cursor: pointer; }
+    #view-menu button:hover, #view-menu button:focus-visible { background: var(--color-background-secondary, color-mix(in srgb, CanvasText 8%, transparent)); }
+    #preview-panel, #code-panel { width: min(100%, 720px); min-width: 0; }
+    #preview-scroll { box-sizing: border-box; width: 100%; padding: 12px; overflow: auto; overscroll-behavior: contain; }
+    #preview-content { position: relative; margin: auto; overflow: hidden; }
+    #preview-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; line-height: 0; }
+    #preview-stage canvas { display: block; }
+    #code-panel { box-sizing: border-box; height: 320px; overflow: auto; background: transparent; padding: 12px 16px; }
+    #code-panel pre { margin: 0; background: transparent !important; font: 13px/1.6 "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-ligatures: none; tab-size: 4; }
+    #code-panel code { font: inherit; }
+    canvas { max-width: none; }
+    canvas:focus { outline: none; }
+    canvas[data-keyboard-focus="true"]:focus-visible { outline: auto; }
+    #status { font: 14px system-ui; padding: 12px; white-space: pre-wrap; }
+    #version { font: 11px system-ui; color: var(--muted); padding: 6px 8px; width: min(100%, 720px); box-sizing: border-box; text-align: left; }
+    canvas[data-stale="true"] { opacity: 0.45; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="view-controls">
+    <button id="view-menu-toggle" type="button" aria-label="View menu" aria-haspopup="menu" aria-expanded="false" aria-controls="view-menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div id="view-menu" role="menu" aria-label="Slint view" hidden>
+      <button type="button" role="menuitemradio" aria-checked="true" data-view="preview">Preview</button>
+      <button type="button" role="menuitemradio" aria-checked="false" data-view="code">Code</button>
+    </div>
+  </div>
+  <section id="preview-panel" aria-label="Preview">
+    <div id="preview-scroll" tabindex="0">
+      <div id="preview-content"><div id="preview-stage">
+        <canvas id="slint-preview" role="application" aria-label="Interactive Slint preview" tabindex="0" hidden></canvas>
+      </div></div>
+    </div>
+    <div id="status" role="status">Loading Slint…</div>
+  </section>
+  <section id="code-panel" aria-label="Code" tabindex="0" hidden></section>
+  <div id="version" role="status"></div>
+  <script id="slint-build" type="application/json">__SLINT_BUILD_METADATA__</script>
+  <script id="slint-runtime" type="application/json">__SLINT_RUNTIME_METADATA__</script>
+  <script type="module">__SLINT_PREVIEW_SCRIPT__</script>
+</body>
+</html>
