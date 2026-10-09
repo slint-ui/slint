@@ -1780,11 +1780,12 @@ impl WinitWindowAdapter {
                 self.draw()?;
             };
 
-            // On iOS making an already-created window visible doesn't generate a fresh
-            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
-            // created (during `resumed`), so a window first shown later misses it and stays blank.
-            #[cfg(ios_and_friends)]
-            self.request_redraw();
+            // winit doesn't guarantee a RedrawRequested for a window shown after the event loop
+            // started: on iOS the only initial one is delivered during `resumed`, and on Wayland
+            // none comes when the initial configure matches the requested size and scale.
+            if !self.first_frame_presented.get() || cfg!(ios_and_friends) {
+                self.request_redraw();
+            }
 
             Ok(())
         } else {
