@@ -7,7 +7,7 @@
 //! bevy [`App`] in a thread separate from the main thread and supply textures of the rendered
 //! scenes via channels.
 
-use slint::wgpu_29::wgpu;
+use slint::wgpu_30::wgpu;
 
 use bevy::{
     camera::RenderTarget,
@@ -15,7 +15,10 @@ use bevy::{
     render::{
         RenderApp, RenderPlugin,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        renderer::{RenderGraph, RenderGraphSystems, WgpuWrapper},
+        renderer::{
+            RenderAdapter, RenderAdapterInfo, RenderGraph, RenderGraphSystems, RenderInstance,
+            RenderQueue,
+        },
         settings::RenderCreation,
     },
 };
@@ -32,7 +35,7 @@ pub enum ControlMessage {
 /// textures of the rendered scenes via channels.
 ///
 /// This function expects Slint to already be initialized with a wgpu-based renderer. The wgpu
-/// `instance`, `device`, and `queue` are obtained from Slint's `GraphicsAPI::WGPU29` in the
+/// `instance`, `device`, and `queue` are obtained from Slint's `GraphicsAPI::WGPU30` in the
 /// rendering notifier callback and passed here.
 ///
 /// Use the `bevy_app_pre_default_plugins_callback` callback to add any plugins to the app before the default plugins.
@@ -102,18 +105,15 @@ pub fn run_bevy_app_with_slint(
         power_preference: wgpu::PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }))
     .expect("Failed to find adapter for Bevy");
 
     let render_device: bevy::render::renderer::RenderDevice = device.into();
-    let render_queue =
-        bevy::render::renderer::RenderQueue(std::sync::Arc::new(WgpuWrapper::new(queue)));
-    let render_adapter_info =
-        bevy::render::renderer::RenderAdapterInfo(WgpuWrapper::new(adapter.get_info()));
-    let render_adapter =
-        bevy::render::renderer::RenderAdapter(std::sync::Arc::new(WgpuWrapper::new(adapter)));
-    let render_instance =
-        bevy::render::renderer::RenderInstance(std::sync::Arc::new(WgpuWrapper::new(instance)));
+    let render_queue = RenderQueue::new(queue);
+    let render_adapter_info = RenderAdapterInfo::new(adapter.get_info());
+    let render_adapter = RenderAdapter::new(adapter);
+    let render_instance = RenderInstance::new(instance);
 
     let _bevy_thread = std::thread::spawn(move || {
         let runner = move |mut app: bevy::app::App| {
@@ -227,6 +227,7 @@ impl Plugin for SlintRenderToTexturePlugin {
 }
 
 #[derive(Clone, Resource, ExtractResource, Deref, DerefMut)]
+#[extract_app(RenderApp)]
 struct BackBuffer(pub Option<wgpu::Texture>);
 
 fn slint_swap_chain_driver(

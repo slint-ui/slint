@@ -15,8 +15,8 @@ name = "bevy_hosts_slint_gpu"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["renderer-skia", "unstable-wgpu-29", "std", "compat-1-2"] }
-bevy = { version = "0.19" }
-bevy_image = { version = "0.19", features = ["zstd_rust"] }
-wgpu-29 = { package = "wgpu", version = "29", default-features = false, features = ["wgsl"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["renderer-skia", "unstable-wgpu-30", "std", "compat-1-2"] }
+bevy = { version = "0.20" }
+bevy_image = { version = "0.20", features = ["zstd_rust"] }
+wgpu-30 = { package = "wgpu", version = "30", default-features = false, features = ["wgsl"] }
 spin_on = "0.1.1"
