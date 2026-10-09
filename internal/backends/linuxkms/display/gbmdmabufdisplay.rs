@@ -32,6 +32,10 @@ const VK_FORMAT: ash::vk::Format = ash::vk::Format::B8G8R8A8_UNORM;
 struct Buffer {
     framebuffer: OwnedFramebufferHandle,
     texture: wgpu::Texture,
+    /// Whether [`Self::texture`]'s image has `VK_IMAGE_TILING_LINEAR`, see
+    /// [`LinearImport`]. Otherwise a DRM format modifier decides its tiling.
+    #[cfg_attr(not(skia_wgpu_30), allow(dead_code))]
+    linear_tiling: bool,
     /// Dropped after the framebuffer and the texture that refer to it.
     _bo: gbm::BufferObject<()>,
 }
@@ -65,10 +69,14 @@ pub struct GbmDmabufDisplay {
     buffers: Vec<Buffer>,
     /// Index into `buffers` of the buffer to render the next frame into.
     next: Cell<usize>,
-    /// A frame [`Self::present_after`] hasn't posted yet:
-    /// its buffer's index, and the submission that finishes drawing it.
+    /// A frame [`Self::present_after`] or [`Self::present_tiled`] hasn't posted yet:
+    /// its buffer's index, and the submission that finishes drawing it,
+    /// or `None` where the copy from [`Self::tiled`] does.
     #[cfg(skia_wgpu_30)]
-    pending: Cell<Option<(usize, wgpu::SubmissionIndex)>>,
+    pending: Cell<Option<(usize, Option<wgpu::SubmissionIndex>)>>,
+    /// The frame to render into, see [`Self::enable_tiled_frame`].
+    #[cfg(skia_wgpu_30)]
+    tiled: Option<super::tiled_frame::TiledFrame>,
 }
 
 impl GbmDmabufDisplay {
@@ -176,6 +184,8 @@ impl GbmDmabufDisplay {
             next: Cell::new(0),
             #[cfg(skia_wgpu_30)]
             pending: Cell::new(None),
+            #[cfg(skia_wgpu_30)]
+            tiled: None,
         })
     }
 
@@ -273,10 +283,11 @@ impl GbmDmabufDisplay {
         })?;
         let framebuffer = OwnedFramebufferHandle { handle, device: drm_output.drm_device.clone() };
 
-        let (texture, import_note) = import_dmabuf_texture(device, &bo, modifier, linear_import)?;
+        let (texture, linear_tiling, import_note) =
+            import_dmabuf_texture(device, &bo, modifier, linear_import)?;
         notes.extend(import_note);
 
-        Ok((Buffer { framebuffer, texture, _bo: bo }, notes))
+        Ok((Buffer { framebuffer, texture, linear_tiling, _bo: bo }, notes))
     }
 
     /// The texture to render the next frame into, and its index in the ring.
@@ -322,8 +333,47 @@ impl GbmDmabufDisplay {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug_assert!(self.buffers.len() >= 4, "see the buffers this needs");
         self.flush(device)?;
-        self.pending.set(Some((self.next.get(), submission)));
+        self.pending.set(Some((self.next.get(), Some(submission))));
         self.next.set((self.next.get() + 1) % self.buffers.len());
+        Ok(())
+    }
+
+    /// Renders into an optimally tiled frame from now on, which [`Self::present_tiled`]
+    /// copies into the back buffer, where the scanout buffers are linear. Linear images are
+    /// much slower to render into on some GPUs, such as NXP's Vivante ones; Mesa's etnaviv
+    /// renders into a tiled shadow as well where it has to. Returns whether it does.
+    pub fn enable_tiled_frame(&mut self, device: &wgpu::Device) -> Result<bool, PlatformError> {
+        if !self.buffers.iter().all(|buffer| buffer.linear_tiling) {
+            return Ok(false);
+        }
+        self.tiled = Some(super::tiled_frame::TiledFrame::new(
+            device,
+            self.buffers[0].texture.size(),
+            WGPU_FORMAT,
+            self.buffers.len(),
+        )?);
+        Ok(true)
+    }
+
+    /// The frame to render into, after [`Self::enable_tiled_frame`].
+    pub fn tiled_frame(&self) -> Option<&wgpu::Texture> {
+        self.tiled.as_ref().map(|tiled| &tiled.texture)
+    }
+
+    /// Copies the tiled frame into the back buffer and posts it like [`Self::present_after`].
+    pub fn present_tiled(
+        &self,
+        device: &wgpu::Device,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        debug_assert!(self.buffers.len() >= 4, "see the buffers this needs");
+        self.flush(device)?;
+        let index = self.next.get();
+        self.tiled
+            .as_ref()
+            .expect("a tiled frame")
+            .copy_into(index, &self.buffers[index].texture)?;
+        self.pending.set(Some((index, None)));
+        self.next.set((index + 1) % self.buffers.len());
         Ok(())
     }
 
@@ -340,14 +390,19 @@ impl GbmDmabufDisplay {
     fn post(
         &self,
         device: &wgpu::Device,
-        (index, submission): &(usize, wgpu::SubmissionIndex),
+        (index, submission): &(usize, Option<wgpu::SubmissionIndex>),
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Why the CPU waits rather than KMS: see "Presentation Paths" in
         // docs/development/window-backend-integration.md.
-        device.poll(wgpu::PollType::Wait {
-            submission_index: Some(submission.clone()),
-            timeout: None,
-        })?;
+        match submission {
+            Some(submission) => {
+                device.poll(wgpu::PollType::Wait {
+                    submission_index: Some(submission.clone()),
+                    timeout: None,
+                })?;
+            }
+            None => self.tiled.as_ref().expect("a copy from the tiled frame").wait(*index)?,
+        }
         // A flip can only be queued once the last one landed. That one also took
         // the frame before last off screen, whose buffer is drawn into next.
         self.drm_output.wait_for_page_flip();
@@ -542,13 +597,13 @@ impl Properties2 {
 }
 
 /// Imports `bo`'s dma-buf as a wgpu texture that renders directly into the
-/// memory the display scans out.
+/// memory the display scans out. Also returns whether the image has linear tiling.
 fn import_dmabuf_texture(
     device: &wgpu::Device,
     bo: &gbm::BufferObject<()>,
     modifier: gbm::Modifier,
     linear_import: &LinearImport,
-) -> Result<(wgpu::Texture, Option<String>), PlatformError> {
+) -> Result<(wgpu::Texture, bool, Option<String>), PlatformError> {
     let size = wgpu::Extent3d { width: bo.width(), height: bo.height(), depth_or_array_layers: 1 };
 
     let hal_descriptor = wgpu::hal::TextureDescriptor {
@@ -569,16 +624,16 @@ fn import_dmabuf_texture(
 
     // Safety: the descriptor describes `bo`, and `texture_from_dmabuf_fd` takes
     // ownership of the fd exported from it.
-    let (hal_texture, note) = unsafe {
+    let (hal_texture, linear_tiling, note) = unsafe {
         let hal_device = crate::renderer::dmabuf::vulkan_device(device)?;
         let (linear, note) = linear_import.import(&hal_device, bo, modifier, &hal_descriptor)?;
-        let texture = match linear {
-            Some(texture) => texture,
+        let (texture, linear_tiling) = match linear {
+            Some(texture) => (texture, true),
             None => {
                 let fd = bo
                     .fd()
                     .map_err(|e| format!("Error exporting gbm buffer object as dma-buf: {e}"))?;
-                hal_device
+                let texture = hal_device
                     .texture_from_dmabuf_fd(
                         fd,
                         &hal_descriptor,
@@ -586,10 +641,11 @@ fn import_dmabuf_texture(
                         bo.stride() as u64,
                         bo.offset(0) as u64,
                     )
-                    .map_err(|e| format!("Error importing dma-buf as a Vulkan image: {e}"))?
+                    .map_err(|e| format!("Error importing dma-buf as a Vulkan image: {e}"))?;
+                (texture, false)
             }
         };
-        (texture, note)
+        (texture, linear_tiling, note)
     };
 
     let descriptor = wgpu::TextureDescriptor {
@@ -614,7 +670,7 @@ fn import_dmabuf_texture(
             wgpu::TextureUses::UNINITIALIZED,
         )
     };
-    Ok((texture, note))
+    Ok((texture, linear_tiling, note))
 }
 
 /// Imports linear scanout buffers as `VK_IMAGE_TILING_LINEAR` images.

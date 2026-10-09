@@ -252,6 +252,15 @@ Both renderers draw into the buffer as an ordinary color target.
 `display/scanout_barriers.rs` records the release, and the acquire before the next frame,
 with ash and submits them on wgpu's queue.
 
+Where the scanout buffers are linear, rendering into them is much slower than into a tiled image
+on some GPUs, such as NXP's Vivante ones.
+There the Skia renderer draws into one optimally tiled frame, `display/tiled_frame.rs`, and a
+raw Vulkan copy moves it into the next scanout buffer and releases that to the display.
+Without rotation, the frame is also the `BackgroundTarget` that the rendering notifier offers
+the application.
+The tests in `scanout_barriers.rs` and `tiled_frame.rs` check this raw Vulkan work against the
+validation layers, where they're installed.
+
 ### Testing Backend (`internal/backends/testing/`)
 
 Headless testing:

@@ -18,6 +18,8 @@ pub mod gbmdmabufdisplay;
 pub mod scanout_barriers;
 #[cfg(any(enable_skia, feature = "renderer-software"))]
 pub mod swdisplay;
+#[cfg(skia_wgpu_30)]
+pub mod tiled_frame;
 
 /// This enum describes the way the output is supposed to be rotated to simulate
 /// a screen rotation. This is implemented entirely inside the actual renderer.

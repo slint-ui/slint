@@ -44,12 +44,16 @@ impl SkiaDmabufRendererAdapter {
         let (width, height) = drm_output.size();
         let size = PhysicalWindowSize::new(width, height);
 
-        let display = GbmDmabufDisplay::new(drm_output, &device, BUFFER_COUNT)?;
+        let mut display = GbmDmabufDisplay::new(drm_output, &device, BUFFER_COUNT)?;
+        let tiled = display.enable_tiled_frame(&device)?;
         let barriers = ScanoutBarriers::new(&device, BUFFER_COUNT)?;
 
         let renderer = SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue.clone())?;
 
-        eprintln!("Using Skia renderer with wgpu, presenting dma-bufs on a DRM plane");
+        eprintln!(
+            "Using Skia renderer with wgpu, presenting dma-bufs on a DRM plane{}",
+            if tiled { ", copied from a tiled frame" } else { "" }
+        );
 
         Ok(Box::new(Self { renderer, display, barriers, device, queue, size }))
     }
@@ -65,6 +69,31 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
+        let post_render_cb = |item_renderer: &mut dyn ItemRenderer| {
+            draw_mouse_cursor_callback(item_renderer);
+        };
+
+        if let Some(frame) = self.display.tiled_frame() {
+            let drawn = self.renderer.render_to_texture_transformed(
+                frame,
+                rotation.degrees(),
+                rotation.translation_after_rotation(self.size),
+                Some(&post_render_cb),
+                // The background is offered in the window's orientation only.
+                rotation == RenderingRotation::NoRotation,
+            );
+            if let Err(err) = drawn {
+                if let Err(e) = self.display.flush(&self.device) {
+                    eprintln!("Error presenting the frame before a failed one: {e}");
+                }
+                return Err(err);
+            }
+            self.display
+                .present_tiled(&self.device)
+                .map_err(|e| format!("Error presenting dma-buf: {e}"))?;
+            return Ok(DrawOutcome::Success);
+        }
+
         let (index, texture) = self.display.back_buffer();
         let drawn = self
             .barriers
@@ -74,9 +103,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     texture,
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
-                    Some(&|item_renderer| {
-                        draw_mouse_cursor_callback(item_renderer);
-                    }),
+                    Some(&post_render_cb),
                     false,
                 )
             })
@@ -96,8 +123,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
             return Err(err);
         }
 
-        // Skia and the release submit to the queue directly, so this empty submission
-        // is the first one known to wgpu that completes after the frame.
+        // Skia submits to the queue directly, so this empty submission is the
+        // first one known to wgpu that completes after the frame.
         let submission = self.queue.submit([]);
         self.display
             .present_after(&self.device, submission)
