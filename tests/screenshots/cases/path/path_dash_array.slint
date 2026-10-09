@@ -8,52 +8,76 @@
 export component TestCase inherits Window {
     width: 64px;
     height: 64px;
-    background: white;
+    background: Colors.white;
 
     Path {
-        y: 4px;
+        y: 1px;
         width: 64px;
         height: 8px;
         fit: preserve;
-        commands: "M 4 4 L 60 4";
-        stroke: #0000ff;
-        stroke-width: 4px;
-        stroke-dash-array: [10px, 6px];
-        stroke-dash-offset: 5px;
-    }
-
-    Path {
-        y: 20px;
-        width: 64px;
-        height: 8px;
-        fit: preserve;
-        commands: "M 4 4 L 60 4";
-        stroke: #ff0000;
+        commands: "M 2 4 L 62 4";
+        stroke: Colors.blue;
         stroke-width: 3px;
-        stroke-dash-array: [8px, 4px, 3px, 4px];
+        stroke-dash-array: [8px, 5px];
+        stroke-dash-offset: 4px;
     }
 
     Path {
-        y: 36px;
+        y: 11px;
         width: 64px;
         height: 8px;
         fit: preserve;
-        commands: "M 4 4 L 60 4";
-        stroke: #800080;
+        commands: "M 2 4 L 62 4";
+        stroke: Colors.purple;
         stroke-width: 2px;
-        stroke-dash-array: [8px, 4px, 2px];
+        stroke-dash-array: [7px, 3px, 2px];
     }
 
     Path {
-        y: 52px;
+        y: 21px;
         width: 64px;
         height: 8px;
         fit: preserve;
-        commands: "M 4 4 L 60 4";
-        stroke: #008000;
-        stroke-width: 6px;
-        stroke-dash-array: [0px, 12px];
+        commands: "M 2 4 L 62 4";
+        stroke: Colors.green;
+        stroke-width: 4px;
         stroke-line-cap: round;
+        stroke-dash-array: [0px, 10px];
+    }
+
+    Path {
+        y: 31px;
+        width: 64px;
+        height: 12px;
+        fit: preserve;
+        commands: "M 2 6 C 12 0 22 0 32 6 S 52 12 62 6";
+        stroke: Colors.darkorange;
+        stroke-width: 2px;
+        stroke-line-cap: round;
+        stroke-dash-array: [5px, 3px];
+    }
+
+    Path {
+        y: 44px;
+        width: 64px;
+        height: 8px;
+        fit: preserve;
+        commands: "M 2 4 L 62 4";
+        stroke: Colors.teal;
+        stroke-width: 3px;
+        stroke-dash-array: [8px, 5px];
+        stroke-dash-offset: -6px;
+    }
+
+    Path {
+        y: 53px;
+        width: 64px;
+        height: 8px;
+        fit: preserve;
+        commands: "M 2 4 L 62 4";
+        stroke: Colors.brown;
+        stroke-width: 3px;
+        stroke-dash-array: [8px, 5px];
+        stroke-dash-offset: 1000px;
     }
 }
-

@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in property <length> len: 4px;
+    in property <[length]> lengths: [1px, 2px];
+
+    Path {
+        stroke-dash-array: len;
+//                         >  <error{Cannot convert length to [length]}
+    }
+
+    Path {
+        stroke-dash-array: lengths;
+//                         >      <error{`stroke-dash-array` must be an array literal}
+    }
+
+    Path {
+        stroke-dash-array: [1px, len];
+//                               > <error{`stroke-dash-array` entries must be non-negative length literals}
+    }
+
+    Path {
+        stroke-dash-array: [1px, -2px];
+//                               >  <error{`stroke-dash-array` entries must be non-negative length literals}
+    }
+
+    Path {
+        stroke-dash-array: [1px, "2px"];
+//                               >   <error{Cannot convert string to length}
+    }
+
+    Path {
+        stroke-dash-array: [1px, 2];
+//                               ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+    }
+
+    Path {
+        stroke-dash-array: [0, 4px];
+    }
+
+    Path {
+        stroke-dash-array: [1px, 2px, 3px];
+    }
+
+    Path {
+        stroke-dash-array: [];
+    }
+
+    Rectangle {
+        property <[length]> stroke-dash-array: [1px, len];
+    }
+}

@@ -3,11 +3,8 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
-<<<<<<< HEAD
 use i_slint_compiler::source_path::SourcePath;
-=======
 use i_slint_core::Coord;
->>>>>>> d5dedde0a (Resolve `stroke-dash-array`(`[length]`) at comptime)
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]

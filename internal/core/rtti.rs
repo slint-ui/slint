@@ -40,7 +40,7 @@ macro_rules! declare_ValueType {
             crate::SharedString,
             crate::graphics::Image,
             crate::Color,
-            crate::PathData,
+            PathData,
             crate::SharedVector<crate::Coord>,
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,

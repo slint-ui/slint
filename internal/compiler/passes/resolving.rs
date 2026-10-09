@@ -2271,6 +2271,30 @@ impl Expression {
             );
         }
 
+        if element_ty == Type::LogicalLength
+            && ctx.property_name == Some("stroke-dash-array")
+            && ctx
+                .component_scope
+                .last()
+                .is_some_and(|e| e.borrow().builtin_type().is_some_and(|bt| bt.name == "Path"))
+        {
+            let mut has_err = false;
+            for (val, val_node) in values.iter().zip(node.Expression()) {
+                if val.ty() == Type::LogicalLength
+                    && !matches!(val, Expression::NumberLiteral(v, Unit::Px) if *v >= 0.)
+                {
+                    ctx.diag.push_error(
+                        "`stroke-dash-array` entries must be non-negative length literals".into(),
+                        &val_node,
+                    );
+                    has_err = true;
+                }
+            }
+            if has_err {
+                return Expression::Invalid;
+            }
+        }
+
         Expression::Array { element_ty, values }
     }
 

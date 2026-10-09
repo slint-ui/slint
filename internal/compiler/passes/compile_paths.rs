@@ -264,28 +264,19 @@ fn compile_dash_array(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     let Some(binding) = elem.borrow_mut().take_binding("stroke-dash-array") else { return };
 
     let Expression::Array { values, .. } = binding.expression.ignore_debug_hooks() else {
-        diag.push_error(
-            "`stroke-dash-array` must be an array literal: it is resolved at compile time".into(),
-            &binding,
-        );
+        if matches!(binding.expression.ty(), Type::Array(_)) {
+            diag.push_error("`stroke-dash-array` must be an array literal".into(), &binding);
+        }
         return;
     };
 
-    let mut dash_array = Vec::with_capacity(values.len());
-    for value in values {
-        match value {
-            Expression::NumberLiteral(v, Unit::Px | Unit::None) if *v >= 0. => {
-                dash_array.push(*v as f32)
-            }
-            _ => {
-                diag.push_error(
-                    "`stroke-dash-array` entries must be non-negative length literals".into(),
-                    &binding,
-                );
-                return;
-            }
-        }
-    }
+    let mut dash_array: Vec<f32> = values
+        .iter()
+        .filter_map(|value| match value {
+            Expression::NumberLiteral(v, Unit::Px) => Some(*v as f32),
+            _ => None,
+        })
+        .collect();
     if dash_array.len() % 2 == 1 {
         dash_array = dash_array.repeat(2);
     }

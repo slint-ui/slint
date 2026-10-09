@@ -1595,7 +1595,7 @@ impl Expression {
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
             Expression::Closure { expression, .. } => expression.is_constant(ga),
-            Expression::DashArray(_) => false,
+            Expression::DashArray(_) => true,
         }
     }
 
