@@ -42,6 +42,8 @@ jobs:
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
+            # The cppreference-doc release that the Doxygen tag file comes from, also the cache key.
+            CPPREFERENCE_DOC_VERSION: "20250209"
         steps:
             - uses: actions/checkout@v7
             - name: Set up crate rustdoc link
@@ -64,17 +66,24 @@ jobs:
               run: pnpm i --frozen-lockfile
             - name: Test Cpp docs converter
               run: pnpm -C docs/cpp test
+            - name: Cache cppreference Doxygen tag file
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/cppreference
+                  key: cppreference-doxygen-tag-${{ env.CPPREFERENCE_DOC_VERSION }}
             - name: Download cppreference Doxygen tag file
               run: |
                 # Lets Doxygen link std:: types to cppreference.com. The tag file
                 # is bundled in the cppreference-doc html-book release; pin a known
                 # version for reproducibility. The build degrades gracefully (std
                 # types stay plain) if this variable is unset.
-                tag_file="$PWD/target/cppreference-doxygen-web.tag.xml"
-                mkdir -p "$(dirname "$tag_file")"
-                curl -fsSL --retry 3 -o /tmp/cppreference-html-book.tar.xz \
-                  "https://github.com/PeterFeicht/cppreference-doc/releases/download/v20250209/html-book-20250209.tar.xz"
-                tar -xJf /tmp/cppreference-html-book.tar.xz -C "$(dirname "$tag_file")" cppreference-doxygen-web.tag.xml
+                tag_file="$HOME/.cache/cppreference/cppreference-doxygen-web.tag.xml"
+                if [ ! -f "$tag_file" ]; then
+                  mkdir -p "$(dirname "$tag_file")"
+                  curl -fsSL --retry 3 -o /tmp/cppreference-html-book.tar.xz \
+                    "https://github.com/PeterFeicht/cppreference-doc/releases/download/v${CPPREFERENCE_DOC_VERSION}/html-book-${CPPREFERENCE_DOC_VERSION}.tar.xz"
+                  tar -xJf /tmp/cppreference-html-book.tar.xz -C "$(dirname "$tag_file")" cppreference-doxygen-web.tag.xml
+                fi
                 echo "SLINT_CPPREFERENCE_TAGFILE=$tag_file" >> "$GITHUB_ENV"
             - name: Build Cpp docs
               run: |
