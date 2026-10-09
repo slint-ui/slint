@@ -517,7 +517,7 @@ jobs:
                   git diff --exit-code
 
     esp-idf:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         strategy:
             matrix:
                 # v5.3 is the minimum supported version; home-automation needs IDF 6
