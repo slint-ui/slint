@@ -15,6 +15,8 @@ use crate::lengths::{LogicalPx, LogicalVector};
 use alloc::vec::Vec;
 use core::time::Duration;
 use euclid::Vector2D;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 const HORIZON: Duration = Duration::from_millis(100);
 const MIN_SAMPLE_SIZE: usize = 2;
