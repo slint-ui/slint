@@ -3,9 +3,8 @@
 
 //! Offscreen shadow regression tests for FemtoVG's shared item renderer.
 //!
-//! These tests are `#[ignore]`d by default, so `--all-features` doesn't run them on a CI runner
-//! without a WGPU adapter or a driver that tolerates them. Run them deliberately with:
-//! `cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --features femtovg -- --ignored`
+//! They run with the other screenshot tests when the `femtovg` feature is enabled, and pass without
+//! rendering on a machine without a WGPU adapter.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -101,7 +100,18 @@ fn shared_wgpu() -> Option<&'static SharedWgpu> {
         let instance = wgpu::Instance::default();
         let adapter =
             spin_on::spin_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
-                .ok()?;
+                .ok();
+        // Written to stderr directly, which libtest doesn't capture, so a CI log shows whether
+        // these tests rendered anything.
+        let report = match &adapter {
+            Some(adapter) => {
+                let info = adapter.get_info();
+                format!("FemtoVG screenshot tests: {} ({:?})\n", info.name, info.backend)
+            }
+            None => "FemtoVG screenshot tests: skipped, no WGPU adapter\n".into(),
+        };
+        let _ = std::io::Write::write_all(&mut std::io::stderr(), report.as_bytes());
+        let adapter = adapter?;
         let (device, queue) =
             spin_on::spin_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
         Some(SharedWgpu { instance, device, queue })
@@ -109,13 +119,11 @@ fn shared_wgpu() -> Option<&'static SharedWgpu> {
     .as_ref()
 }
 
-/// Sets up the FemtoVG test platform on the current thread. Returns `false`, instead of panicking,
-/// when no WGPU adapter is available: these tests only run when deliberately requested (see the
-/// module doc comment), but still shouldn't fail outright on a runner without a GPU.
+/// Sets up the FemtoVG test platform on the current thread, or returns `false` when no WGPU
+/// adapter is available.
 fn init_femtovg() -> bool {
     crate::testing::force_reference_os();
     let Some(shared) = shared_wgpu() else {
-        eprintln!("skipping: no WGPU adapter available for the FemtoVG screenshot tests");
         return false;
     };
     i_slint_core::platform::set_platform(Box::new(ScreenshotBackend {
@@ -159,7 +167,6 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-#[ignore]
 fn shadow_tracks_source_paint() {
     if !init_femtovg() {
         return;
@@ -168,7 +175,6 @@ fn shadow_tracks_source_paint() {
 }
 
 #[test]
-#[ignore]
 fn shadow_spread_preserves_adjusted_corner_radii() {
     if !init_femtovg() {
         return;
