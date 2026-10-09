@@ -587,6 +587,7 @@ sdkmanager
 seatd
 segmentedbutton
 segmenteditem
+semihosting
 Segoe
 serde
 setattr
@@ -733,6 +734,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+virt
 vlayout
 vref
 vscodeversion
