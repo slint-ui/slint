@@ -464,7 +464,7 @@ jobs:
     # QEMU. Debian has a QEMU with the Cortex-R52 machine, which Ubuntu 24.04
     # lacks.
     slint_sc_targets:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         runs-on: ubuntu-24.04
         container: debian:trixie
         steps:
@@ -505,7 +505,7 @@ jobs:
     # The slint-sc tests on the host targets of Ferrocene other than
     # x86_64-unknown-linux-gnu
     slint_sc_hosts:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         strategy:
             matrix:
                 os: [macos-14, windows-2022]
