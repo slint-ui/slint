@@ -466,6 +466,12 @@ export global Api {
     in-out property <string> update-version;
     in-out property <string> update-error;
     in property <bool> focus-previewed-element;
+    in property <int> inline-text-edit-request-generation;
+    in property <string> inline-text-edit-request-source-uri;
+    in property <int> inline-text-edit-request-offset: -1;
+    in property <string> preview-default-font-family;
+    in property <float> preview-default-font-size: 12;
+    in property <int> preview-default-font-weight;
     callback check-for-update();
 
     // ## Component Data for ComponentList:
@@ -583,6 +589,7 @@ export global Api {
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
     callback override-element-text(override-id: string, text: string) -> string;
+    callback current-text-color() -> brush;
 
     callback selected-element-delete();
 

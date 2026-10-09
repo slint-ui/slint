@@ -14,7 +14,7 @@ use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::Highlight
 
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ElementSelection {
     pub path: SourcePath,
     pub offset: TextSize,
@@ -75,6 +75,9 @@ fn lsp_element_node_position(
 }
 
 pub fn unselect_element(editor_notification: SelectionNotification) {
+    super::PREVIEW_STATE.with_borrow_mut(|state| {
+        state.pending_inline_text_edit = None;
+    });
     super::set_selected_element(None, editor_notification);
 }
 
