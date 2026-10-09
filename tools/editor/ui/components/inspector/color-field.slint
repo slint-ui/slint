@@ -100,7 +100,7 @@ export component InspectorColorField inherits Rectangle {
         width: root.style.field.height;
         height: parent.height;
         key-pressed(event) => {
-            if event.text == Key.Return || event.text == " " {
+            if event.text == Key.Return || event.text == Key.Space {
                 root.show-picker();
                 return accept;
             }
