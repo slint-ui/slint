@@ -35,6 +35,8 @@ The preview verifies the reconstructed Wasm hash before initializing it.
 A browser cache retains one runtime, containing verified Wasm bytes.
 Changing the runtime replaces that entry; unavailable browser storage falls back to MCP resource reads.
 Run `pnpm --filter slint.codex.plugin test` after building to check resource size and restart behavior.
+Install Chromium with `pnpm exec playwright install chromium --only-shell`.
+Run `pnpm --filter slint.codex.plugin test:layout` to check fullscreen and inline dimensions in a browser.
 After installation, run `node ai-plugins/codex/tests/desktop-resources.mjs` to check resource delivery through Codex's backend.
 Pass the desktop app's bundled Codex executable as its first argument to test that backend version.
 This checks the installed package and resource transport; visible inline rendering still needs a check in the app.
@@ -84,6 +86,8 @@ The included native runtime works on the recorded platform and architecture; oth
 The preview surface is transparent and follows the host's colour scheme.
 Use the hamburger menu to switch between Preview and Code.
 Keyboard zoom remains available; edits happen through the saved Slint source in chat.
+Opening the preview in a separate tab fits it to the available width and height, preserving its proportions.
+Inline previews retain their compact chat dimensions.
 Third-party notices are in `THIRD_PARTY_NOTICES.txt`.
 
 ## Preview screenshots

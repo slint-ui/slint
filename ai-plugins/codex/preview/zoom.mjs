@@ -12,12 +12,15 @@ export function installPreviewZoom({ canvas, initialSize }) {
   let size = { width: initialSize.width, height: initialSize.height };
   let mode = "fit";
   let scale = 1;
+  let fullscreen = false;
 
   function fit() {
-    return Math.max(0.01, Math.min(1, (viewport.clientWidth - 2 * padding) / size.width, (maxHeight - 2 * padding) / size.height));
+    const height = fullscreen ? viewport.clientHeight : maxHeight;
+    return Math.max(0.01, Math.min(fullscreen ? Infinity : 1, (viewport.clientWidth - 2 * padding) / size.width, (height - 2 * padding) / size.height));
   }
   function apply() {
-    if (viewport.clientWidth === 0) return;
+    if (fullscreen) viewport.style.height = "";
+    if (viewport.clientWidth === 0 || (fullscreen && viewport.clientHeight === 0)) return;
     const previous = scale;
     const viewBounds = viewport.getBoundingClientRect();
     const before = canvas.getBoundingClientRect();
@@ -29,7 +32,7 @@ export function installPreviewZoom({ canvas, initialSize }) {
     content.style.width = size.width * scale + "px";
     content.style.height = size.height * scale + "px";
     stage.style.transform = `scale(${scale})`;
-    viewport.style.height = Math.min(maxHeight, Math.ceil(size.height * scale + 2 * padding)) + "px";
+    if (!fullscreen) viewport.style.height = Math.min(maxHeight, Math.ceil(size.height * scale + 2 * padding)) + "px";
     if (mode === "fit") { viewport.scrollLeft = 0; viewport.scrollTop = 0; }
     else {
       const after = canvas.getBoundingClientRect();
@@ -56,11 +59,26 @@ export function installPreviewZoom({ canvas, initialSize }) {
     step(event.deltaY < 0 ? 1 : -1);
   }, { passive: false, capture: true });
   let previousWidth = 0;
+  let previousHeight = 0;
   new ResizeObserver(() => {
-    if (viewport.clientWidth !== previousWidth) { previousWidth = viewport.clientWidth; apply(); }
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
+    if (width !== previousWidth || (fullscreen && height !== previousHeight)) {
+      previousWidth = width;
+      previousHeight = height;
+      apply();
+    }
   }).observe(viewport);
   apply();
   return {
+    setDisplayMode(displayMode) {
+      const nextFullscreen = displayMode === "fullscreen";
+      document.body.dataset.displayMode = nextFullscreen ? "fullscreen" : "inline";
+      if (fullscreen === nextFullscreen) return;
+      fullscreen = nextFullscreen;
+      mode = "fit";
+      apply();
+    },
     setSize(width, height) { size = { width, height }; apply(); },
     refresh: apply,
   };

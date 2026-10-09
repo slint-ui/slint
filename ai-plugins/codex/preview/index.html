@@ -17,15 +17,15 @@
     :root { color-scheme: normal; --fallback-text: #15191e; --fallback-muted: #626973; --text: var(--color-text-primary, var(--fallback-text)); --muted: var(--color-text-secondary, var(--fallback-muted)); }
     @media (prefers-color-scheme: dark) { :root { --fallback-text: #ededed; --fallback-muted: #ababab; } }
     html, body { margin: 0; background: transparent; color: var(--text); }
-    body { display: grid; justify-items: center; }
+    body { display: grid; justify-items: center; --view-width: min(100%, 720px); }
     [hidden] { display: none !important; }
-    #view-controls { position: relative; width: min(100%, 720px); box-sizing: border-box; padding: 4px 8px; }
+    #view-controls { position: relative; width: var(--view-width); box-sizing: border-box; padding: 4px 8px; }
     #view-menu-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
     #view-menu-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
     #view-menu { color-scheme: light dark; position: absolute; z-index: 2; top: 34px; left: 8px; min-width: 96px; padding: 4px; border: 1px solid var(--color-border-primary, GrayText); border-radius: 4px; background: var(--color-background-primary, Canvas); color: var(--text); }
     #view-menu button { display: block; width: 100%; border: 0; padding: 6px 8px; background: transparent; color: inherit; font: 13px system-ui; text-align: left; cursor: pointer; }
     #view-menu button:hover, #view-menu button:focus-visible { background: var(--color-background-secondary, color-mix(in srgb, CanvasText 8%, transparent)); }
-    #preview-panel, #code-panel { width: min(100%, 720px); min-width: 0; }
+    #preview-panel, #code-panel { width: var(--view-width); min-width: 0; }
     #preview-scroll { box-sizing: border-box; width: 100%; padding: 12px; overflow: auto; overscroll-behavior: contain; }
     #preview-content { position: relative; margin: auto; overflow: hidden; }
     #preview-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; line-height: 0; }
@@ -37,8 +37,14 @@
     canvas:focus { outline: none; }
     canvas[data-keyboard-focus="true"]:focus-visible { outline: auto; }
     #status { font: 14px system-ui; padding: 12px; white-space: pre-wrap; }
-    #version { font: 11px system-ui; color: var(--muted); padding: 6px 8px; width: min(100%, 720px); box-sizing: border-box; text-align: left; }
+    #version { font: 11px system-ui; color: var(--muted); padding: 6px 8px; width: var(--view-width); box-sizing: border-box; text-align: left; }
     canvas[data-stale="true"] { opacity: 0.45; pointer-events: none; }
+    body[data-display-mode="fullscreen"] { --view-width: 100%; height: 100dvh; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+    body[data-display-mode="fullscreen"] > * { min-height: 0; }
+    body[data-display-mode="fullscreen"] #preview-panel { display: flex; flex-direction: column; }
+    body[data-display-mode="fullscreen"] #preview-scroll { flex: 1; min-height: 0; display: flex; }
+    body[data-display-mode="fullscreen"] #preview-content { flex-shrink: 0; }
+    body[data-display-mode="fullscreen"] #code-panel { height: 100%; }
   </style>
 </head>
 <body>

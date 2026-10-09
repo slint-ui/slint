@@ -93,6 +93,7 @@ document.addEventListener("focusin", event => {
 });
 function applyHostContext(context) {
   hostContext = { ...hostContext, ...context };
+  zoom?.setDisplayMode(hostContext.displayMode);
   if (context?.theme === "light" || context?.theme === "dark") {
     hostTheme = context.theme;
     menu.style.colorScheme = hostTheme;
@@ -109,7 +110,7 @@ colorScheme.addEventListener("change", updateCode);
 zoom = installPreviewZoom({ canvas, initialSize: { width: 320, height: 160 } });
 updateCode();
 new ResizeObserver(() => {
-  if (window.parent === window) return;
+  if (window.parent === window || hostContext.displayMode === "fullscreen") return;
   window.parent.postMessage({ jsonrpc: "2.0", method: "ui/notifications/size-changed", params: { height: Math.ceil(document.body.getBoundingClientRect().height) } }, "*");
 }).observe(document.body);
 

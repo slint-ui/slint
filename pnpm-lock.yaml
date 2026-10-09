@@ -113,6 +113,9 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
+      playwright:
+        specifier: 'catalog:'
+        version: 1.63.0
       shiki:
         specifier: 4.5.0
         version: 4.5.0
