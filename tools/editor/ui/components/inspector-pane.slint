@@ -431,19 +431,19 @@ export component InspectorPane inherits Rectangle {
 
     function text-horizontal-alignment-index() -> int {
         let value = Api.current-property-value("horizontal-alignment", "start");
-        if value == "start" {
+        if value == "start" || value == "TextHorizontalAlignment.start" {
             return 0;
         }
-        if value == "end" {
+        if value == "end" || value == "TextHorizontalAlignment.end" {
             return 1;
         }
-        if value == "left" {
+        if value == "left" || value == "TextHorizontalAlignment.left" {
             return 2;
         }
-        if value == "center" {
+        if value == "center" || value == "TextHorizontalAlignment.center" {
             return 3;
         }
-        if value == "right" {
+        if value == "right" || value == "TextHorizontalAlignment.right" {
             return 4;
         }
         return -1;
@@ -451,13 +451,13 @@ export component InspectorPane inherits Rectangle {
 
     function text-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "top");
-        if value == "top" {
+        if value == "top" || value == "TextVerticalAlignment.top" {
             return 0;
         }
-        if value == "center" {
+        if value == "center" || value == "TextVerticalAlignment.center" {
             return 1;
         }
-        if value == "bottom" {
+        if value == "bottom" || value == "TextVerticalAlignment.bottom" {
             return 2;
         }
         return -1;
