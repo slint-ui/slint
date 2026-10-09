@@ -831,34 +831,42 @@ impl SkiaRenderer {
                 item_renderer = &mut partial_renderer;
             }
 
-            if let Some(window_item_rc) = window_inner.window_item_rc() {
-                let window_item =
-                    window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                let background = window_item.as_pin_ref().background();
-                if let Brush::SolidColor(clear_color) = background {
-                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
-                } else {
-                    // The gradient blends over what the target holds, which may be undefined.
-                    if !background.is_opaque() {
-                        skia_canvas.clear(skia_safe::Color::TRANSPARENT);
+            // With a background offered, the notifier comes first, and the window's background
+            // only fills the frame when the application didn't draw one.
+            let offers_background = surface.is_some_and(|surface| surface.offers_background());
+            let draw_window_background = |item_renderer: &mut dyn ItemRenderer| {
+                if let Some(window_item_rc) = window_inner.window_item_rc() {
+                    let window_item =
+                        window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
+                    let background = window_item.as_pin_ref().background();
+                    if let Brush::SolidColor(clear_color) = background {
+                        skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
+                    } else {
+                        // The gradient blends over what the target holds, which may be undefined.
+                        if !background.is_opaque() {
+                            skia_canvas.clear(skia_safe::Color::TRANSPARENT);
+                        }
+                        // Draws the window background as gradient
+                        item_renderer.draw_rectangle(
+                            window_item.as_pin_ref(),
+                            &window_item_rc,
+                            i_slint_core::lengths::logical_size_from_api(
+                                window.size().to_logical(window_inner.scale_factor()),
+                            ),
+                            &window_item.as_pin_ref().cached_rendering_data,
+                        );
                     }
-                    // Draws the window background as gradient
-                    item_renderer.draw_rectangle(
-                        window_item.as_pin_ref(),
-                        &window_item_rc,
-                        i_slint_core::lengths::logical_size_from_api(
-                            window.size().to_logical(window_inner.scale_factor()),
-                        ),
-                        &window_item.as_pin_ref().cached_rendering_data,
-                    );
                 }
+            };
+            if !offers_background {
+                draw_window_background(item_renderer);
             }
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut() {
+                if !offers_background && let Some(ctx) = gr_context.as_mut() {
                     ctx.flush(None);
                 }
 
@@ -867,6 +875,12 @@ impl SkiaRenderer {
                         callback.notify(RenderingState::BeforeRendering, &api)
                     })
                 }
+            }
+
+            if offers_background
+                && surface.is_some_and(|surface| !surface.finish_background_offer())
+            {
+                draw_window_background(item_renderer);
             }
 
             for (component, origin) in components {
@@ -1060,6 +1074,16 @@ pub trait Surface {
 
     /// If supported, this invokes the specified callback with access to the platform graphics API.
     fn with_graphics_api(&self, _callback: &mut dyn FnMut(GraphicsAPI<'_>)) {}
+    /// Whether [`Self::with_graphics_api`] offers a texture in
+    /// [`RenderingState::BeforeRendering`] for the application to draw the background into.
+    fn offers_background(&self) -> bool {
+        false
+    }
+    /// Ends the offer after [`RenderingState::BeforeRendering`], and returns whether the
+    /// application drew the background, so that the frame mustn't be cleared.
+    fn finish_background_offer(&self) -> bool {
+        false
+    }
     /// Invokes the callback with the surface active. This has only a meaning for OpenGL rendering, where
     /// the implementation must make the GL context current.
     fn with_active_surface(

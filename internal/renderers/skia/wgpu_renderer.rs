@@ -187,7 +187,7 @@ impl SkiaWGPU30Renderer {
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.render_to_texture_transformed(texture, 0., (0., 0.), None)
+        self.render_to_texture_transformed(texture, 0., (0., 0.), None, false)
     }
 }
 
@@ -200,12 +200,16 @@ pub trait SkiaWGPU30RendererExt {
     /// `rotation_angle_degrees` around the origin and then moves it by `translation`,
     /// for a screen mounted in a different orientation than the window's.
     /// `post_render_cb` draws on top of the finished scene, for a cursor the platform renders.
+    ///
+    /// With `offer_background`, the rendering notifier gets `texture` to draw the window's
+    /// background into, see [`i_slint_core::graphics::wgpu_30::BackgroundTarget`].
     fn render_to_texture_transformed(
         &self,
         texture: &wgpu_30::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        offer_background: bool,
     ) -> Result<(), PlatformError>;
 }
 
@@ -218,6 +222,7 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        offer_background: bool,
     ) -> Result<(), PlatformError> {
         let surface = self.surface();
         self.renderer.invoke_rendering_notifier_setup(&*surface)?;
@@ -229,6 +234,9 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
             surface.backend.make_surface(gr_context, texture).ok_or_else(|| {
                 PlatformError::from("Failed to wrap WGPU texture as Skia render target")
             })?;
+        if offer_background {
+            surface.offer_background(texture);
+        }
 
         let window_adapter = self.renderer.window_adapter()?;
         let window = window_adapter.window();

@@ -77,6 +77,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     Some(&|item_renderer| {
                         draw_mouse_cursor_callback(item_renderer);
                     }),
+                    false,
                 )
             })
             .and_then(|()| self.barriers.release(index, texture));

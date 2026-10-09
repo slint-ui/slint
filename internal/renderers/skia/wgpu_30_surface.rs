@@ -47,6 +47,8 @@ pub struct WGPUSurface {
     surface_config: RefCell<Option<wgpu::SurfaceConfiguration>>,
     surface: Option<wgpu::Surface<'static>>,
     textures_to_transition_for_sampling: RefCell<Vec<wgpu::Texture>>,
+    /// What's offered for the application's background, see [`Self::offer_background`].
+    background: RefCell<Option<i_slint_core::graphics::wgpu_30::BackgroundTarget>>,
     pub(crate) backend: Backend,
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
@@ -121,6 +123,7 @@ impl WGPUSurface {
             surface_config: Some(surface_config).into(),
             surface: Some(surface),
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            background: RefCell::new(None),
             backend,
             alpha_modes: swapchain_capabilities.alpha_modes,
         })
@@ -140,6 +143,7 @@ impl WGPUSurface {
             surface_config: None.into(),
             surface: None,
             textures_to_transition_for_sampling: RefCell::new(Vec::new()),
+            background: RefCell::new(None),
             backend,
             alpha_modes: vec![],
         }
@@ -183,6 +187,13 @@ impl WGPUSurface {
         );
         self.wgpu.queue.submit(Some(encoder.finish()));
         Ok(())
+    }
+
+    /// Offers `frame` to the rendering notifier for the application to draw the background
+    /// into. Until then, wgpu must have used `frame` as a render target last, if at all.
+    pub(crate) fn offer_background(&self, frame: &wgpu::Texture) {
+        *self.background.borrow_mut() =
+            Some(i_slint_core::graphics::wgpu_30::BackgroundTarget::new(frame.clone()));
     }
 
     /// Transitions any imported wgpu textures to sampling state and flushes
@@ -504,13 +515,22 @@ impl crate::Surface for WGPUSurface {
 
     #[cfg(feature = "unstable-wgpu-30")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
+        let background = self.background.borrow();
         let api = i_slint_core::graphics::create_graphics_api_wgpu_30(
             self.wgpu.instance.clone(),
             self.wgpu.device.clone(),
             self.wgpu.queue.clone(),
-            None,
+            background.as_ref(),
         );
         callback(api)
+    }
+
+    fn offers_background(&self) -> bool {
+        self.background.borrow().is_some()
+    }
+
+    fn finish_background_offer(&self) -> bool {
+        self.background.take().is_some_and(|background| background.is_claimed())
     }
 
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
