@@ -155,11 +155,16 @@ api_rs:
  # The slint crate re-exports i-slint-core as its api
  - 'internal/core{,-macros}/**'
 
-# The test drivers (doctests are run by the docs build) and the testing
+# What every test driver runs: the test cases, and the drivers with the testing
 # backend they use.
 tests:
- - 'tests/!(doctests/**)'
+ - 'tests/{cases,helper_components,driver}/**'
+ - 'tests/Cargo.{toml,lock}'
  - 'internal/backends/testing/**'
+
+# The other members of the tests/ workspace, which only the integration tests build.
+integration_tests:
+ - 'tests/{screenshots,manual,backends,issues}/**'
 
 examples:
  # Some examples are tested separately and can be excluded from here
