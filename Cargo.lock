@@ -7477,7 +7477,6 @@ dependencies = [
  "tr",
  "tracing",
  "tracing-subscriber",
- "vtable",
  "web-sys",
  "windows",
  "windows-collections",
