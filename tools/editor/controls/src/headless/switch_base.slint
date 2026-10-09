@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SwitchInterface } from "std-widget-interfaces.slint";
+import { PressInteraction } from "internal/press_interaction.slint";
+
+export component SwitchBase {
+    implement SwitchInterface <=> self;
+
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    in property <string> text;
+    in property <length> indicator-width: 40px;
+    in property <length> indicator-height: 22px;
+    in property <length> spacing: 8px;
+    in property <length> content-padding;
+    in property <length> content-padding-left: root.content-padding;
+    in property <length> content-padding-right: root.content-padding;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
+    out property <bool> has-focus: interaction.has-focus;
+    out property <bool> hovered: interaction.hovered;
+    out property <bool> pressed: interaction.pressed;
+    callback toggled();
+
+    slot background;
+    slot indicator;
+    slot content;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    forward-focus: interaction;
+    accessible-role: switch;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
+    public function activate() {
+        if !root.enabled { return; }
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    background { }
+
+    interaction := PressInteraction {
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        activated => { root.activate(); }
+    }
+
+    HorizontalLayout {
+        padding-left: root.content-padding-left;
+        padding-right: root.content-padding-right;
+        padding-top: root.content-padding-top;
+        padding-bottom: root.content-padding-bottom;
+        spacing: root.spacing;
+        Rectangle {
+            width: root.indicator-width;
+            height: root.indicator-height;
+            vertical-stretch: 0;
+            indicator { }
+        }
+
+        content { }
+    }
+}

@@ -7,10 +7,11 @@ import { ButtonExamples } from "buttons.slint";
 import { CheckBoxExamples } from "check_boxes.slint";
 import { ComboBoxExamples } from "combo_boxes.slint";
 import { SliderExamples } from "sliders.slint";
+import { SwitchExamples } from "switches.slint";
 
 export component ControlsDemo inherits Window {
     in-out property <int> current-page;
-    private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox"];
+    private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox", "Switch"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
     preferred-height: 760px;
@@ -108,7 +109,9 @@ export component ControlsDemo inherits Window {
                         ? "Shared selection behavior, with a base theme or your own field and popup."
                         : root.current-page == 2
                         ? "Shared range behavior, with a base theme or your own track and handle."
-                        : "Shared toggle behavior, with a base theme or your own indicator and label.";
+                        : root.current-page == 3
+                        ? "Shared toggle behavior, with a base theme or your own indicator and label."
+                        : "Shared switch behavior, with a base theme or your own track and label.";
                     color: BasicTheme.disabled-foreground;
                     wrap: word-wrap;
                 }
@@ -121,6 +124,7 @@ export component ControlsDemo inherits Window {
                 if root.current-page == 1: ComboBoxExamples { }
                 if root.current-page == 2: SliderExamples { }
                 if root.current-page == 3: CheckBoxExamples { }
+                if root.current-page == 4: SwitchExamples { }
             }
         }
     }

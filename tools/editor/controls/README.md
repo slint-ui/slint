@@ -10,10 +10,15 @@ Import `Button` from `src/basic.slint` for default visuals and theme values.
 The same entry points export `ComboBoxBase` and the styled `ComboBox`.
 They also export `SliderBase` and the styled `Slider`.
 Import `CheckBoxBase` from the headless entry point or `CheckBox` from the Basic entry point for boolean choices.
+The same entry points export `SwitchBase` and the styled `Switch`.
 
 Headless implementations live in `src/headless/`.
 The Basic style lives in `src/basic/`.
 Examples live in `examples/`.
+
+Button, CheckBox, and Switch bases share an internal `PressInteraction` component for pointer and keyboard handling.
+Each base defines its own activation behavior, interface implementation, and accessibility role.
+`PressInteraction` isn't exported from the headless entry point.
 
 Enable `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` when loading these components.
 They use experimental named slots and default content.
@@ -77,6 +82,26 @@ Replace `background`, `indicator`, or `content` to supply custom visuals.
 `indicator-width`, `indicator-height`, `spacing`, and content padding arrange the indicator and label.
 The Basic style adds indicator colors, borders, radius, size, and a focus ring.
 `text` supplies the accessible label even when the content slot displays different visuals.
+
+## Switch Behavior
+
+`SwitchBase` implements `SwitchInterface` from `std-widget-interfaces.slint`.
+It handles pointer input with `TouchArea` and keyboard input with `FocusScope`.
+Activating an enabled switch toggles `checked`, then emits `toggled()` without an argument.
+Assigning `checked` directly doesn't emit the callback.
+`activate()` also supports programmatic activation through the same path.
+
+Click the indicator or label to toggle.
+Space and Enter toggle on release; key repeats don't toggle again.
+Escape, focus loss, or disabling cancel a pending key press.
+Pointer release outside the switch or losing the pointer grab cancels activation.
+Pointer clicks preserve keyboard focus.
+
+Replace `background`, `indicator`, or `content` to supply custom visuals.
+`hovered`, `pressed`, and `has-focus` expose interaction state.
+The Basic style supplies a track, thumb, and focus ring, with configurable colors, dimensions, borders, and radii.
+Its font properties belong to the styled component.
+`text` supplies the accessible label even when custom content displays a different label.
 
 ## ComboBox Behavior
 
@@ -146,7 +171,7 @@ SliderBase {
 
 ## Example
 
-The standalone gallery has Button, CheckBox, ComboBox, and Slider pages, each with Base theme and custom sections.
+The standalone gallery has Button, CheckBox, ComboBox, Slider, and Switch pages, each with Base theme and custom sections.
 It includes default states, style overrides, replaced content, and custom headless visuals.
 Run it from the repository root:
 

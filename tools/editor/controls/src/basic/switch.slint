@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SwitchBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component Switch inherits SwitchBase {
+    in property <length> track-width: 40px;
+    in property <length> track-height: 22px;
+    in property <length> thumb-size: 16px;
+    in property <length> thumb-padding: 3px;
+    in property <length> track-radius: root.track-height / 2;
+    in property <length> thumb-radius: root.thumb-size / 2;
+    private property <brush> state-track: root.checked ? BasicTheme.accent : BasicTheme.background;
+    private property <brush> state-thumb: root.checked ? BasicTheme.accent-foreground : BasicTheme.foreground;
+    private property <brush> state-foreground: BasicTheme.foreground;
+    in property <brush> track-color: root.state-track;
+    in property <brush> track-border-color: !root.enabled ? BasicTheme.disabled-foreground
+        : root.checked ? root.track-color : BasicTheme.border;
+    in property <length> track-border-width: 1px;
+    in property <brush> thumb-color: root.state-thumb;
+    in property <brush> foreground: root.state-foreground;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: 400;
+
+    indicator-width: root.track-width;
+    indicator-height: root.track-height;
+    content-padding: 6px;
+    min-height: 34px;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-track: BasicTheme.disabled-background;
+            root.state-thumb: BasicTheme.disabled-foreground;
+            root.state-foreground: BasicTheme.disabled-foreground;
+        }
+        pressed when root.pressed: {
+            root.state-track: root.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+        }
+        hover when root.hovered: {
+            root.state-track: root.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
+        }
+    ]
+
+    indicator {
+        Rectangle {
+            background: root.track-color;
+            border-color: root.track-border-color;
+            border-width: root.track-border-width;
+            border-radius: root.track-radius;
+
+            Rectangle {
+                width: min(root.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.thumb-padding));
+                height: self.width;
+                x: root.checked ? max(0px, parent.width - self.width - root.thumb-padding) : root.thumb-padding;
+                y: (parent.height - self.height) / 2;
+                background: root.thumb-color;
+                border-radius: root.thumb-radius;
+            }
+
+            if root.enabled && root.has-focus: Rectangle {
+                x: -3px;
+                y: -3px;
+                width: parent.width + 6px;
+                height: parent.height + 6px;
+                border-width: 2px;
+                border-color: BasicTheme.focus;
+                border-radius: root.track-radius + 2px;
+            }
+        }
+    }
+
+    content {
+        Text {
+            text: root.text;
+            color: root.foreground;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            vertical-alignment: center;
+        }
+    }
+}
