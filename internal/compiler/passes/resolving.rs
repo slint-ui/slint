@@ -2902,7 +2902,7 @@ fn maybe_lookup_object(
                         let suggestion = enumeration
                             .values
                             .iter()
-                            .find(|v| **v == kebab)
+                            .find(|v| crate::generator::to_kebab_case(*v) == kebab)
                             .map(|v| format!(". Did you mean '{v}'?"))
                             .unwrap_or_default();
                         ctx.diag.push_error(
