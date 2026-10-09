@@ -48,11 +48,11 @@ use std::{
 
 use bevy::{
     input::{ButtonState, mouse::MouseButtonInput},
-    math::primitives::InfinitePlane3d,
     prelude::*,
     render::render_resource::{
         Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
+    shape::InfinitePlane3d,
 };
 use slint::{
     LogicalPosition, PhysicalSize, platform::WindowEvent,
@@ -745,7 +745,7 @@ fn render_slint(
     // Render the Slint UI directly into the Bevy texture's CPU-side storage.
     // We use bytemuck::cast_slice_mut to safely reinterpret the &mut [u8] as &mut [PremultipliedRgbaColor].
     // Read the stride before the mutable borrow of `image.data` below.
-    // In Bevy 0.19 `Image::data` is an `Option<Vec<u8>>`, so the mutable
+    // `Image::data` is an `Option<Vec<u8>>`, so the mutable
     // borrow would otherwise conflict with reading the texture descriptor.
     let stride = image.texture_descriptor.size.width as usize;
     if let Some(data) = image.data.as_mut() {
