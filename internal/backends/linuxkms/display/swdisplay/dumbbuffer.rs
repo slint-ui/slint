@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use crate::drmoutput::DrmOutput;
+use drm::buffer::Buffer;
 use drm::control::Device;
 use i_slint_core::platform::PlatformError;
 
@@ -79,11 +80,15 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
         let mut back_buffer = self.back_buffer.borrow_mut();
         let age = back_buffer.age;
         let format = back_buffer.format;
+        let pitch = back_buffer.buffer_handle.pitch();
+        let height = back_buffer.buffer_handle.size().1;
         self.drm_output
             .drm_device
             .map_dumb_buffer(&mut back_buffer.buffer_handle)
             .map_err(|e| PlatformError::Other(format!("Error mapping dumb buffer: {e}")))
-            .and_then(|mut buffer| callback(buffer.as_mut(), age, format))
+            .and_then(|mut buffer| {
+                callback(mapped_pixel_buffer(buffer.as_mut(), pitch, height)?, age, format)
+            })
     }
 
     fn is_write_combined_memory(&self) -> bool {
@@ -94,6 +99,21 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {
         self
     }
+}
+
+fn mapped_pixel_buffer(
+    mapping: &mut [u8],
+    pitch: u32,
+    height: u32,
+) -> Result<&mut [u8], PlatformError> {
+    // DRM allocations can have page-alignment padding after the last row.
+    // Renderers infer the row pitch from the slice length, so exclude that padding.
+    let len = (pitch as usize)
+        .checked_mul(height as usize)
+        .ok_or("DRM dumb buffer dimensions overflow")?;
+    mapping
+        .get_mut(..len)
+        .ok_or_else(|| "DRM dumb buffer mapping is smaller than pitch * height".into())
 }
 
 impl crate::display::Presenter for DumbBufferDisplay {
@@ -225,5 +245,53 @@ impl DumbBuffer {
         })?;
 
         Ok(Self { fb_handle, buffer_handle, age: 0, format, depth, bpp })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mapped_pixels_exclude_allocation_padding() {
+        let pitch = 7680;
+        let height = 1021;
+        let pixel_len = pitch as usize * height as usize;
+        let mut mapping = vec![0xa5; pixel_len.next_multiple_of(4096)];
+        let pixels = mapped_pixel_buffer(&mut mapping, pitch, height).unwrap();
+        assert_eq!(pixels.len() / height as usize, pitch as usize);
+        pixels.fill(0);
+        assert!(mapping[pixel_len..].iter().all(|byte| *byte == 0xa5));
+        assert!(mapped_pixel_buffer(&mut mapping[..pixel_len - 1], pitch, height).is_err());
+    }
+
+    #[cfg(enable_skia)]
+    #[test]
+    fn skia_renders_with_row_and_allocation_padding() {
+        use i_slint_renderer_skia::skia_safe::{self, AlphaType, ColorType, ImageInfo};
+
+        for (width, height) in [(1912u32, 1021u32), (1366, 768), (1920, 1080)] {
+            let pitch = (width * 4).next_multiple_of(64);
+            let pixel_len = pitch as usize * height as usize;
+            let mut mapping = vec![0xa5; pixel_len.next_multiple_of(4096)];
+            let pixels = mapped_pixel_buffer(&mut mapping, pitch, height).unwrap();
+            let row_bytes = pixels.len() / height as usize;
+            let info = ImageInfo::new(
+                (width as i32, height as i32),
+                ColorType::BGRA8888,
+                AlphaType::Opaque,
+                None,
+            );
+            let mut surface =
+                skia_safe::surfaces::wrap_pixels(&info, pixels, Some(row_bytes), None).unwrap();
+            surface.canvas().clear(skia_safe::Color::WHITE);
+            drop(surface);
+
+            for row in mapping[..pixel_len].chunks_exact(pitch as usize) {
+                assert!(row[..width as usize * 4].iter().all(|byte| *byte == 0xff));
+                assert!(row[width as usize * 4..].iter().all(|byte| *byte == 0xa5));
+            }
+            assert!(mapping[pixel_len..].iter().all(|byte| *byte == 0xa5));
+        }
     }
 }
