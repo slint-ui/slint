@@ -1,0 +1,10 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+ScrollToComparison.xcodeproj/
+Info.plist
+target/
+raw/
+cases/*/plots/
+cases/*/*.slint.csv
+__pycache__/

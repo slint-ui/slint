@@ -1,0 +1,66 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+# cspell:ignore INFOPLIST
+
+name: ScrollToComparison
+settings:
+  base:
+    # Override on the xcodebuild command line if the team can't register `dev.slint.*` identifiers.
+    BUNDLE_ID_PREFIX: dev.slint
+targets:
+  ScrollToComparison:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: []
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Scroll-to comparison
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        CADisableMinimumFrameDurationOnPhone: true
+        UIRequiresFullScreen: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Scroll-to comparison
+                UISceneDelegateClassName: ScrollComparisonSceneDelegate
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).scroll-to-comparison
+        PRODUCT_NAME: ScrollToComparison
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Info.plist
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    postCompileScripts:
+      - name: Build Slint with Cargo
+        script: |
+          bash "$SRCROOT/../../../scripts/build_for_ios_with_cargo.bash" scroll-to-comparison
+  ScrollToComparisonUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "16.6"
+    sources: [UITests]
+    dependencies:
+      - target: ScrollToComparison
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).scroll-to-comparison.tests
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_OBJC_BRIDGING_HEADER: UITests/TouchSynthesis.h
+schemes:
+  ScrollToComparison:
+    build:
+      targets:
+        ScrollToComparison: all
+        ScrollToComparisonUITests: [test]
+    test:
+      config: Release
+      targets: [ScrollToComparisonUITests]

@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "scroll-to-comparison"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-18", "unstable-winit-030", "renderer-skia", "renderer-software"] }
+raw-window-handle = "0.6"
+i-slint-core = { path = "../../../internal/core", default-features = false, features = ["std"] }
+
+[build-dependencies]
+cc = "1"
+
+[profile.release]
+panic = "abort"
