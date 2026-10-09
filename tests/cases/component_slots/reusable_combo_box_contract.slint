@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBox } from "../../../tools/editor/controls/src/basic.slint";
+import {
+    ComboBoxBase,
+    ComboBoxPopupBase,
+} from "../../../tools/editor/controls/src/headless.slint";
+import { ComboBoxInterface } from "std-widget-interfaces.slint";
+
+component SelectionHost {
+    slot <ComboBoxInterface> control;
+    out property <string> value: control.current-value;
+    in-out property <int> selections;
+    in-out property <string> last-selected;
+    control {
+        enabled: true;
+        model: ["Alpha", "Beta"];
+        selected(value) => {
+            root.selections += 1;
+            root.last-selected = value;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 200px;
+    styled-host := SelectionHost {
+        control << styled := ComboBox { }
+    }
+
+    headless-host := SelectionHost {
+        control << headless := ComboBoxBase {
+            popup << ComboBoxPopupBase { }
+        }
+    }
+
+    initial-value := ComboBox {
+        model: ["Alpha", "Beta"];
+        current-value: "Beta";
+    }
+
+    empty := ComboBox {
+        placeholder: "Choose an option";
+    }
+
+    init => {
+        styled.select(1);
+        headless.select(1);
+    }
+    out property <bool> test: styled-host.value == "Beta" && headless-host.value == "Beta"
+        && styled-host.selections == 1 && styled-host.last-selected == "Beta"
+        && headless-host.selections == 1 && headless-host.last-selected == "Beta"
+        && initial-value.current-index == 1 && initial-value.current-value == "Beta"
+        && empty.current-index == -1 && empty.current-value == ""
+        && empty.display-text == "Choose an option";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

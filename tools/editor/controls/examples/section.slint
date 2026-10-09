@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { BasicTheme } from "../src/basic.slint";
+
+export component ExampleSection inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    background: white;
+    border-color: BasicTheme.border.with-alpha(0.4);
+    border-width: 1px;
+    border-radius: 8px;
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text {
+            text: root.title;
+            color: BasicTheme.foreground;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        Text {
+            text: root.description;
+            color: BasicTheme.disabled-foreground;
+            wrap: word-wrap;
+        }
+
+        @children
+    }
+}

@@ -4,8 +4,12 @@
 import { ScrollView } from "std-widgets.slint";
 import { Button, BasicTheme } from "../src/basic.slint";
 import { ButtonExamples } from "buttons.slint";
+import { ComboBoxExamples } from "combo_boxes.slint";
+import { SliderExamples } from "sliders.slint";
 
 export component ControlsDemo inherits Window {
+    in-out property <int> current-page;
+    private property <[string]> pages: ["Button", "ComboBox", "Slider"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
     preferred-height: 760px;
@@ -52,14 +56,15 @@ export component ControlsDemo inherits Window {
                     font-weight: 600;
                 }
 
-                Button {
-                    text: "Button";
-                    checked: true;
+                for page[index] in root.pages: Button {
+                    text: page;
+                    checked: root.current-page == index;
                     min-height: 44px;
-                    background-color: BasicTheme.accent.with-alpha(0.08);
-                    foreground: BasicTheme.accent;
-                    border-color: BasicTheme.accent.with-alpha(0.4);
+                    background-color: self.checked ? BasicTheme.accent.with-alpha(0.08) : transparent;
+                    foreground: self.checked ? BasicTheme.accent : BasicTheme.foreground;
+                    border-color: self.checked ? BasicTheme.accent.with-alpha(0.4) : transparent;
                     font-weight: 600;
+                    clicked => { root.current-page = index; }
                 }
 
                 Rectangle {
@@ -89,14 +94,18 @@ export component ControlsDemo inherits Window {
                 }
 
                 Text {
-                    text: "Button";
+                    text: root.pages[root.current-page];
                     color: BasicTheme.foreground;
                     font-size: 30px;
                     font-weight: 700;
                 }
 
                 Text {
-                    text: "Shared button behavior, with a base theme or your own visuals.";
+                    text: root.current-page == 0
+                        ? "Shared button behavior, with a base theme or your own visuals."
+                        : root.current-page == 1
+                        ? "Shared selection behavior, with a base theme or your own field and popup."
+                        : "Shared range behavior, with a base theme or your own track and handle.";
                     color: BasicTheme.disabled-foreground;
                     wrap: word-wrap;
                 }
@@ -105,7 +114,9 @@ export component ControlsDemo inherits Window {
                     height: 12px;
                 }
 
-                ButtonExamples { }
+                if root.current-page == 0: ButtonExamples { }
+                if root.current-page == 1: ComboBoxExamples { }
+                if root.current-page == 2: SliderExamples { }
             }
         }
     }

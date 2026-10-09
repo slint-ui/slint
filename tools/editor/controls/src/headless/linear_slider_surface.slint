@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SliderSurface } from "slider_base.slint";
+
+export component LinearSliderSurface {
+    implement SliderSurface <=> self;
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    in property <bool> pressed;
+    in property <Orientation> orientation;
+    in property <bool> inverted;
+    out property <float> visual-position: root.linear-reversed ? 1 - root.position : root.position;
+    callback started();
+    callback seek(position: float);
+    callback finished();
+    callback canceled();
+    in property <length> handle-width: 20px;
+    in property <length> handle-height: 20px;
+    in property <length> track-thickness: 4px;
+    out property <bool> hovered: root.enabled && pointer.has-hover
+        && pointer.mouse-x >= 0px && pointer.mouse-x < root.width
+        && pointer.mouse-y >= 0px && pointer.mouse-y < root.height;
+
+    slot track;
+    slot handle;
+
+    private property <bool> linear-vertical: root.orientation == Orientation.vertical;
+    private property <bool> linear-reversed: root.linear-vertical != root.inverted;
+    private property <length> travel: max(0px, root.linear-vertical
+        ? root.height - root.handle-height : root.width - root.handle-width);
+    private property <length> inset: ((root.linear-vertical ? root.height : root.width) - root.travel) / 2;
+    private property <length> grab-offset;
+    private property <length> last-coordinate;
+
+    min-width: root.handle-width;
+    min-height: root.handle-height;
+    horizontal-stretch: root.linear-vertical ? 0 : 1;
+    vertical-stretch: root.linear-vertical ? 1 : 0;
+
+    function update-pointer() {
+        if !root.pressed || !root.enabled || root.travel <= 0px { return; }
+        let coordinate = root.linear-vertical ? pointer.mouse-y : pointer.mouse-x;
+        root.last-coordinate = coordinate;
+        let visual = clamp((coordinate - root.grab-offset - root.inset) / root.travel, 0, 1);
+        root.seek(root.linear-reversed ? 1 - visual : visual);
+    }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                let coordinate = root.linear-vertical ? self.mouse-y : self.mouse-x;
+                let on-handle = self.mouse-x >= handle-box.x && self.mouse-x <= handle-box.x + handle-box.width
+                    && self.mouse-y >= handle-box.y && self.mouse-y <= handle-box.y + handle-box.height;
+                root.grab-offset = on-handle ? coordinate - (root.inset + root.travel * root.visual-position) : 0px;
+                root.last-coordinate = coordinate;
+                root.started();
+                if !on-handle { root.update-pointer(); }
+            } else if event.kind == PointerEventKind.move && root.pressed {
+                if (root.linear-vertical ? self.mouse-y : self.mouse-x) != root.last-coordinate { root.update-pointer(); }
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                if (root.linear-vertical ? self.mouse-y : self.mouse-x) != root.last-coordinate { root.update-pointer(); }
+                root.finished();
+            } else if event.kind == PointerEventKind.cancel {
+                root.canceled();
+            }
+        }
+    }
+
+    Rectangle {
+        x: root.linear-vertical ? (root.width - self.width) / 2 : root.inset;
+        y: root.linear-vertical ? root.inset : (root.height - self.height) / 2;
+        width: root.linear-vertical ? root.track-thickness : root.travel;
+        height: root.linear-vertical ? root.travel : root.track-thickness;
+        track { }
+    }
+
+    handle-box := Rectangle {
+        x: root.linear-vertical ? (root.width - self.width) / 2
+            : root.inset + root.travel * root.visual-position - self.width / 2;
+        y: root.linear-vertical ? root.inset + root.travel * root.visual-position - self.height / 2
+            : (root.height - self.height) / 2;
+        width: root.handle-width;
+        height: root.handle-height;
+        handle { }
+    }
+}

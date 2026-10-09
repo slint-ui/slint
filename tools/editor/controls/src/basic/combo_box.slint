@@ -1,0 +1,170 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ComboBoxBase,
+    ComboBoxPopupBase,
+    ButtonBase,
+} from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component ComboBoxPopup inherits ComboBoxPopupBase {
+    in property <brush> popup-color: BasicTheme.background;
+    in property <brush> popup-border-color: BasicTheme.border;
+    in property <length> border-radius: 4px;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: 400;
+    in property <brush> item-foreground: BasicTheme.foreground;
+    in property <brush> highlighted-background: BasicTheme.accent;
+    in property <brush> highlighted-foreground: BasicTheme.accent-foreground;
+    in property <brush> selected-background: BasicTheme.hover-background;
+    in property <length> item-padding-inline: 12px;
+
+    Rectangle {
+        background: root.popup-color;
+        border-color: root.popup-border-color;
+        border-width: 1px;
+        border-radius: root.border-radius;
+    }
+
+    items := Flickable {
+        interactive: true;
+        x: root.popup-padding;
+        y: root.popup-padding;
+        width: root.popup-width - 2 * root.popup-padding;
+        height: root.popup-height - 2 * root.popup-padding;
+        content-width: self.width;
+        content-height: root.count * root.item-height;
+        content-y: -max(0, clamp(root.current-index, 0, root.count - 1) - max(1, root.maximum-visible-items) + 1) * root.item-height;
+        private property <int> highlight-index: root.highlighted-index;
+        changed highlight-index => {
+            let top = self.highlight-index * root.item-height;
+            if top < -self.content-y { self.content-y = -top; }
+            else if top + root.item-height > -self.content-y + self.height {
+                self.content-y = -(top + root.item-height - self.height);
+            }
+        }
+        for value[index] in root.model: item := ButtonBase {
+            y: index * root.item-height;
+            width: items.width;
+            height: root.item-height;
+            enabled: root.enabled;
+            text: value;
+            accessible-role: list-item;
+            accessible-checked: index == root.current-index;
+            content-padding-left: root.item-padding-inline;
+            content-padding-right: root.item-padding-inline;
+            clicked => { root.selected(index); }
+            changed hovered => { if self.hovered { root.highlight(index); } }
+            background << Rectangle {
+                background: index == root.highlighted-index ? root.highlighted-background
+                    : index == root.current-index ? root.selected-background : transparent;
+                border-radius: root.border-radius;
+            }
+            content << Text {
+                text: value;
+                color: index == root.highlighted-index ? root.highlighted-foreground : root.item-foreground;
+                font-size: root.font-size;
+                font-weight: index == root.current-index ? 600 : root.font-weight;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component ComboBox inherits ComboBoxBase {
+    min-width: 120px;
+    min-height: 32px;
+    preferred-width: 200px;
+    content-padding: 6px;
+    content-padding-left: 12px;
+    content-padding-right: 12px;
+    private property <brush> state-background: BasicTheme.background;
+    private property <brush> state-foreground: BasicTheme.foreground;
+    in property <brush> background-color: root.state-background;
+    in property <brush> foreground: root.state-foreground;
+    in property <brush> border-color: root.has-focus || root.expanded ? BasicTheme.focus : BasicTheme.border;
+    in property <length> border-width: root.has-focus || root.expanded ? 2px : 1px;
+    in property <length> border-radius: 4px;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: 400;
+    in property <brush> popup-color: BasicTheme.background;
+    in property <brush> popup-border-color: BasicTheme.border;
+    in property <brush> item-foreground: BasicTheme.foreground;
+    in property <brush> highlighted-background: BasicTheme.accent;
+    in property <brush> highlighted-foreground: BasicTheme.accent-foreground;
+    in property <brush> selected-background: BasicTheme.hover-background;
+    in property <length> item-padding-inline: 12px;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-background: BasicTheme.disabled-background;
+            root.state-foreground: BasicTheme.disabled-foreground;
+        }
+        pressed when root.pressed || root.expanded: {
+            root.state-background: BasicTheme.pressed-background;
+        }
+        hover when root.hovered: {
+            root.state-background: BasicTheme.hover-background;
+        }
+    ]
+    background {
+        Rectangle {
+            background: root.background-color;
+            border-color: root.border-color;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
+        }
+    }
+
+    content {
+        Text {
+            horizontal-stretch: 1;
+            text: root.display-text;
+            color: root.foreground;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    indicator {
+        Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: 16;
+            viewbox-height: 20;
+            stroke: root.foreground;
+            stroke-width: 2px;
+            MoveTo {
+                x: 3;
+                y: 8;
+            }
+
+            LineTo {
+                x: 8;
+                y: 13;
+            }
+
+            LineTo {
+                x: 13;
+                y: 8;
+            }
+        }
+    }
+
+    popup << ComboBoxPopup {
+        popup-color: root.popup-color;
+        popup-border-color: root.popup-border-color;
+        border-radius: root.border-radius;
+        font-size: root.font-size;
+        font-weight: root.font-weight;
+        item-foreground: root.item-foreground;
+        highlighted-background: root.highlighted-background;
+        highlighted-foreground: root.highlighted-foreground;
+        selected-background: root.selected-background;
+        item-padding-inline: root.item-padding-inline;
+    }
+}

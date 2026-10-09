@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ControlsDemo,
+} from "../../../tools/editor/controls/examples/controls.slint";
+
+export component TestCase inherits ControlsDemo {
+    out property <int> page: root.current-page;
+    out property <bool> test: root.current-page == 0;
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::AccessibleRole;
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let find = |label: &str, role: AccessibleRole| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|element| element.accessible_role() == Some(role))
+        .unwrap_or_else(|| panic!("Missing {role:?} with label {label:?}"))
+};
+find("ComboBox", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_page(), 1);
+let standard = find("Image fit", AccessibleRole::Combobox);
+assert_eq!(standard.accessible_value().as_deref(), Some("Contain"));
+standard.mock_single_click(PointerEventButton::Left);
+assert_eq!(standard.accessible_expanded(), Some(true));
+let option = find("Cover", AccessibleRole::ListItem);
+assert!(option.size().width > 100.);
+assert!(option.size().height > 20.);
+option.mock_single_click(PointerEventButton::Left);
+assert_eq!(standard.accessible_value().as_deref(), Some("Cover"));
+assert_eq!(standard.accessible_expanded(), Some(false));
+let custom = find("Custom combo box", AccessibleRole::Combobox);
+custom.mock_single_click(PointerEventButton::Left);
+assert_eq!(custom.accessible_expanded(), Some(true));
+find("Second", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+assert_eq!(custom.accessible_value().as_deref(), Some("Second"));
+assert_eq!(custom.accessible_expanded(), Some(false));
+find("Slider", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_page(), 2);
+let slider = find("Default slider", AccessibleRole::Slider);
+assert_eq!(slider.accessible_value().as_deref(), Some("40"));
+slider.invoke_accessible_increment_action();
+assert_eq!(slider.accessible_value().as_deref(), Some("41"));
+let custom_slider = find("Custom slider", AccessibleRole::Slider);
+custom_slider.set_accessible_value("72");
+assert_eq!(custom_slider.accessible_value().as_deref(), Some("72"));
+assert_eq!(find("Styled custom slider", AccessibleRole::Slider).accessible_value().as_deref(), Some("72"));
+let circular = find("Circular slider", AccessibleRole::Slider);
+assert_eq!(circular.accessible_value().as_deref(), Some("72"));
+circular.invoke_accessible_increment_action();
+assert_eq!(circular.accessible_value().as_deref(), Some("73"));
+assert_eq!(custom_slider.accessible_value().as_deref(), Some("73"));
+assert_eq!(find("Styled custom slider", AccessibleRole::Slider).accessible_value().as_deref(), Some("73"));
+find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_page(), 0);
+assert!(instance.get_test());
+```
+*/
