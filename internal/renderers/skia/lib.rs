@@ -834,9 +834,14 @@ impl SkiaRenderer {
             if let Some(window_item_rc) = window_inner.window_item_rc() {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
+                let background = window_item.as_pin_ref().background();
+                if let Brush::SolidColor(clear_color) = background {
                     skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
                 } else {
+                    // The gradient blends over what the target holds, which may be undefined.
+                    if !background.is_opaque() {
+                        skia_canvas.clear(skia_safe::Color::TRANSPARENT);
+                    }
                     // Draws the window background as gradient
                     item_renderer.draw_rectangle(
                         window_item.as_pin_ref(),
