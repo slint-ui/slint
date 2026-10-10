@@ -16,7 +16,7 @@ fn layout_text_with_options(text: &str, options: LayoutOptions) -> Layout {
 
 // Don't load system fonts: that goes through fontconfig FFI, which Miri
 // can't execute. Use the bundled Inter font instead.
-fn test_font_context() -> parley::FontContext {
+pub(super) fn test_font_context() -> parley::FontContext {
     let mut font_ctx = parley::FontContext {
         collection: fontique::Collection::new(fontique::CollectionOptions {
             system_fonts: false,
