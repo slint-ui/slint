@@ -185,6 +185,21 @@ waveshare-esp32-s3-touch-amoled-1-8 = [
   "dep:ft3x68-rs",
   "esp-bootloader-esp-idf/esp32s3",
 ]
+m5stack-stopwatch = [
+  "slint/unsafe-single-threaded",
+  "esp-hal/esp32s3",
+  "esp-hal/unstable",               # required for PSRAM support
+  "embedded-hal",
+  "embedded-hal-bus",
+  "esp-alloc/esp32s3",
+  "esp-println/esp32s3",
+  "esp-backtrace/esp32s3",
+  "esp-backtrace/panic-handler",
+  "slint/libm",
+  "dep:static_cell",
+  "esp-bootloader-esp-idf/esp32s3",
+]
+
 m5stack-cores3 = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
