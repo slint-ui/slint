@@ -1620,18 +1620,6 @@ fn generate_item_tree(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
-    let needs_window_adapter = root.needs_window_adapter();
-    // True only for the root tree of a SystemTrayIcon-rooted public component.
-    // Repeaters / popup_menu / popup-window trees stay on the windowed code
-    // path even when they live inside a tray-only unit (popup menus are
-    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
-    let is_system_tray_root = parent_ctx.is_none()
-        && !is_popup
-        && root.public_components.iter().any(|p| {
-            p.item_tree.root == sub_tree.root
-                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
-        });
-
     target_struct.friends.push(format_smolstr!(
         "vtable::VRc<slint::private_api::ItemTreeVTable, {}>",
         item_tree_class_name
@@ -1646,6 +1634,39 @@ fn generate_item_tree(
         file,
         conditional_includes,
     );
+    generate_item_tree_body(
+        target_struct,
+        sub_tree,
+        root,
+        parent_ctx,
+        is_popup,
+        item_tree_class_name,
+        file,
+        conditional_includes,
+    );
+}
+
+fn generate_item_tree_body(
+    target_struct: &mut Struct,
+    sub_tree: &llr::ItemTree,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    is_popup: bool,
+    item_tree_class_name: SmolStr,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let needs_window_adapter = root.needs_window_adapter();
+    // True only for the root tree of a SystemTrayIcon-rooted public component.
+    // Repeaters / popup_menu / popup-window trees stay on the windowed code
+    // path even when they live inside a tray-only unit (popup menus are
+    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
+    let is_system_tray_root = parent_ctx.is_none()
+        && !is_popup
+        && root.public_components.iter().any(|p| {
+            p.item_tree.root == sub_tree.root
+                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
+        });
 
     let mut item_tree_array: Vec<String> = Default::default();
     let mut item_array: Vec<String> = Default::default();
@@ -2250,6 +2271,90 @@ fn generate_sub_component(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
+    generate_child_item_trees(component, root, parent_ctx, file, conditional_includes);
+    generate_sub_component_body(
+        target_struct,
+        component,
+        root,
+        parent_ctx,
+        field_access,
+        conditional_includes,
+    );
+}
+
+/// Generate the popup windows, menus, and repeated components of `component`.
+fn generate_child_item_trees(
+    component: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component,
+        CppGeneratorContext { global_access: "self->globals".into(), conditional_includes },
+        parent_ctx,
+    );
+    let component = &root.sub_components[component];
+    let parent_ctx = ParentScope::new(&ctx, None);
+
+    component.popup_windows.iter().for_each(|popup| {
+        let component_id = ident(&root.sub_components[popup.item_tree.root].name);
+        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut popup_struct,
+            &popup.item_tree,
+            root,
+            Some(&parent_ctx),
+            true,
+            component_id,
+            Access::Public,
+            file,
+            conditional_includes,
+        );
+        file.definitions.extend(popup_struct.extract_definitions());
+        file.declarations.push(Declaration::Struct(popup_struct));
+    });
+    for menu in &component.menu_item_trees {
+        let component_id = ident(&root.sub_components[menu.root].name);
+        let mut menu_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut menu_struct,
+            menu,
+            root,
+            Some(&parent_ctx),
+            false,
+            component_id,
+            Access::Public,
+            file,
+            conditional_includes,
+        );
+        file.definitions.extend(menu_struct.extract_definitions());
+        file.declarations.push(Declaration::Struct(menu_struct));
+    }
+    for (idx, repeated) in component.repeated.iter_enumerated() {
+        let sc = &root.sub_components[repeated.sub_tree.root];
+        let data_type = repeated.data_prop.map(|data_prop| sc.properties[data_prop].ty.clone());
+        generate_repeated_component(
+            repeated,
+            root,
+            ParentScope::new(&ctx, Some(idx)),
+            data_type.as_ref(),
+            file,
+            conditional_includes,
+        );
+    }
+}
+
+fn generate_sub_component_body(
+    target_struct: &mut Struct,
+    component: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    field_access: Access,
+    conditional_includes: &ConditionalIncludes,
+) {
     let globals_type_ptr = "const class SharedGlobals*";
 
     let mut init_parameters = vec![
@@ -2327,43 +2432,6 @@ fn generate_sub_component(
     );
 
     let component = &root.sub_components[component];
-
-    let parent_ctx = ParentScope::new(&ctx, None);
-
-    component.popup_windows.iter().for_each(|popup| {
-        let component_id = ident(&root.sub_components[popup.item_tree.root].name);
-        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
-        generate_item_tree(
-            &mut popup_struct,
-            &popup.item_tree,
-            root,
-            Some(&parent_ctx),
-            true,
-            component_id,
-            Access::Public,
-            file,
-            conditional_includes,
-        );
-        file.definitions.extend(popup_struct.extract_definitions());
-        file.declarations.push(Declaration::Struct(popup_struct));
-    });
-    for menu in &component.menu_item_trees {
-        let component_id = ident(&root.sub_components[menu.root].name);
-        let mut menu_struct = Struct { name: component_id.clone(), ..Default::default() };
-        generate_item_tree(
-            &mut menu_struct,
-            menu,
-            root,
-            Some(&parent_ctx),
-            false,
-            component_id,
-            Access::Public,
-            file,
-            conditional_includes,
-        );
-        file.definitions.extend(menu_struct.extract_definitions());
-        file.declarations.push(Declaration::Struct(menu_struct));
-    }
 
     for property in component.properties.iter() {
         let cpp_name = field_name(&property.name);
@@ -2546,15 +2614,6 @@ fn generate_sub_component(
     for (idx, repeated) in component.repeated.iter_enumerated() {
         let sc = &root.sub_components[repeated.sub_tree.root];
         let data_type = repeated.data_prop.map(|data_prop| sc.properties[data_prop].ty.clone());
-
-        generate_repeated_component(
-            repeated,
-            root,
-            ParentScope::new(&ctx, Some(idx)),
-            data_type.as_ref(),
-            file,
-            conditional_includes,
-        );
 
         let idx = usize::from(idx);
         let repeater_id = format_smolstr!("repeater_{}", idx);
@@ -3343,7 +3402,28 @@ fn generate_repeated_component(
         file,
         conditional_includes,
     );
+    generate_repeated_component_body(
+        repeated,
+        unit,
+        parent_ctx,
+        model_data_type,
+        repeater_struct,
+        file,
+        conditional_includes,
+    );
+}
 
+fn generate_repeated_component_body(
+    repeated: &llr::RepeatedElement,
+    unit: &llr::CompilationUnit,
+    parent_ctx: ParentScope,
+    model_data_type: Option<&Type>,
+    mut repeater_struct: Struct,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let root_sc = &unit.sub_components[repeated.sub_tree.root];
+    let repeater_id = repeater_struct.name.clone();
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(&parent_ctx)),
@@ -4204,11 +4284,15 @@ impl std::fmt::Display for crate::expression_types::ImageReference {
     }
 }
 
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
-        Expression::NumberLiteral(num) => {
+        Expression::NumberLiteral(num) => (|| {
             if num.is_nan() {
                 "std::numeric_limits<double>::quiet_NaN()".to_string()
             } else if num.is_infinite() {
@@ -4223,9 +4307,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             } else {
                 num.to_string()
             }
-        }
+        })(),
         Expression::BoolLiteral(b) => b.to_string(),
-        Expression::KeysLiteral(ks) => {
+        Expression::KeysLiteral(ks) => (|| {
             format!(
                 "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
                     slint::Keys out;
@@ -4240,12 +4324,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ks.ignore_shift,
                 ks.ignore_alt,
             )
-        }
+        })(),
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
-        Expression::CallBackCall { callback, arguments } => {
+        Expression::CallBackCall { callback, arguments } => (|| {
             let f = access_member(callback, ctx);
             let tracker_get = access_callback_tracker_cpp(callback, ctx)
                 .map(|t| format!("(void)({}), ", t.get_property()))
@@ -4256,8 +4340,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             } else {
                 f.map_or_default(|f| format!("({tracker_get}{f}.call({}))", a.join(",")))
             }
-        }
-        Expression::FunctionCall { function, arguments } => {
+        })(),
+        Expression::FunctionCall { function, arguments } => (|| {
             let f = access_member(function, ctx);
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
@@ -4265,11 +4349,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             } else {
                 f.map_or_default(|f| format!("{}({})", f, a.join(",")))
             }
-        }
-        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
+        })(),
+        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => (|| {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("slint::private_api::{}({})", ident(function), a.join(","))
-        }
+        })(),
         Expression::FunctionParameterReference { index, .. } => format!("arg_{index}"),
         Expression::StoreLocalVariable { name, value } => {
             format!("[[maybe_unused]] auto {} = {};", ident(name), compile_expression(value, ctx))
@@ -4279,14 +4363,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             Type::Struct(s) => struct_field_access(compile_expression(base, ctx), &s, name),
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => {
+        Expression::ArrayIndex { array, index } => (|| {
             format!(
                 "slint::private_api::access_array_index({}, {})",
                 compile_expression(array, ctx),
                 compile_expression(index, ctx)
             )
-        }
-        Expression::Cast { from, to } => {
+        })(),
+        Expression::Cast { from, to } => (|| {
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
@@ -4440,8 +4524,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 _ => f,
             }
-        }
-        Expression::CodeBlock(sub) => match sub.len() {
+        })(),
+        Expression::CodeBlock(sub) => (|| match sub.len() {
             0 => String::new(),
             1 => compile_expression(&sub[0], ctx),
             len => {
@@ -4454,12 +4538,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 });
                 format!("[&]{{ {} }}()", x.join(";"))
             }
-        },
+        })(),
         Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
             property_set_value_code(property, &value, ctx)
         }
-        Expression::ModelDataAssignment { level, value } => {
+        Expression::ModelDataAssignment { level, value } => (|| {
             let value = compile_expression(value, ctx);
             let mut owner = MemberAccess::Direct("self".to_string());
             let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
@@ -4487,8 +4571,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     usize::from(repeater_index)
                 )
             })
-        }
-        Expression::ArrayIndexAssignment { array, index, value } => {
+        })(),
+        Expression::ArrayIndexAssignment { array, index, value } => (|| {
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
@@ -4496,12 +4580,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(
                 "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
             )
-        }
+        })(),
         Expression::SliceIndexAssignment { slice_name, index, value } => {
             let value_e = compile_expression(value, ctx);
             format!("{slice_name}[{index}] = {value_e}")
         }
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op } => (|| {
             let lhs_str = compile_expression(lhs, ctx);
             let rhs_str = compile_expression(rhs, ctx);
 
@@ -4529,19 +4613,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     },
                 )
             }
-        }
+        })(),
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, nine_slice } => match &nine_slice {
+        Expression::ImageReference { resource_ref, nine_slice } => (|| match &nine_slice {
             Some([a, b, c, d]) => {
                 format!(
                     "([&] {{ auto image = {resource_ref}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
                 )
             }
             None => resource_ref.to_string(),
-        },
-        Expression::Condition { condition, true_expr, false_expr } => {
+        })(),
+        Expression::Condition { condition, true_expr, false_expr } => (|| {
             let ty = expr.ty(ctx);
             let cond_code = compile_expression(condition, ctx);
             let cond_code = remove_parentheses(&cond_code);
@@ -4552,8 +4636,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             } else {
                 format!("({cond_code} ? {true_code} : {false_code})")
             }
-        }
-        Expression::Array { element_ty, values, output } => {
+        })(),
+        Expression::Array { element_ty, values, output } => (|| {
             let ty = element_ty.cpp_type().unwrap();
             let mut val = values
                 .iter()
@@ -4574,8 +4658,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     format!("std::vector<{ty}>{{ {val} }}", ty = ty, val = val.join(", "))
                 }
             }
-        }
-        Expression::Struct { ty, values } => {
+        })(),
+        Expression::Struct { ty, values } => (|| {
             if ty.name.is_none() {
                 let mut elem = ty.fields.iter().map(|(k, t)| {
                     values
@@ -4605,8 +4689,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
                 )
             }
-        }
-        Expression::MouseCursor(cursor) => match cursor {
+        })(),
+        Expression::MouseCursor(cursor) => (|| match cursor {
             llr::MouseCursorInner::BuiltIn(cursor) => {
                 let cursor = compile_expression(cursor.as_ref(), ctx);
                 format!("slint::cbindgen_private::MouseCursorInner({cursor})")
@@ -4619,7 +4703,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     "slint::cbindgen_private::MouseCursorInner({image}, {hotspot_x}, {hotspot_y})"
                 )
             }
-        },
+        })(),
         Expression::EasingCurve(EasingCurve::Linear) => {
             "slint::cbindgen_private::EasingCurve()".into()
         }
@@ -4633,7 +4717,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(e) => {
             format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")
         }
-        Expression::LinearGradient { angle, stops } => {
+        Expression::LinearGradient { angle, stops } => (|| {
             let angle = compile_expression(angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
@@ -4646,8 +4730,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 angle,
                 stops.len()
             )
-        }
-        Expression::RadialGradient { center, radius, stops } => {
+        })(),
+        Expression::RadialGradient { center, radius, stops } => (|| {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
@@ -4690,8 +4774,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops_it.join(", "),
                 center_setup
             )
-        }
-        Expression::ConicGradient { from_angle, center, stops } => {
+        })(),
+        Expression::ConicGradient { from_angle, center, stops } => (|| {
             let from_angle = compile_expression(from_angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
@@ -4716,8 +4800,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops_it.join(", "),
                 center_setup
             )
-        }
-        Expression::EnumerationValue(value) => {
+        })(),
+        Expression::EnumerationValue(value) => (|| {
             let prefix =
                 if value.enumeration.node.is_some() { "" } else { "slint::cbindgen_private::" };
             format!(
@@ -4725,13 +4809,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ident(&value.enumeration.name),
                 ident(&value.to_pascal_case()),
             )
-        }
+        })(),
         Expression::LayoutCacheAccess {
             layout_cache_prop,
             index,
             repeater_index,
             entries_per_item,
-        } => {
+        } => (|| {
             let cache = access_member(layout_cache_prop, ctx);
             cache.map_or_default(|cache| {
                 if let Some(ri) = repeater_index {
@@ -4746,7 +4830,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     format!("{cache}.get()[{index}]")
                 }
             })
-        }
+        })(),
         Expression::GridRepeaterCacheAccess {
             layout_cache_prop,
             index,
@@ -4755,7 +4839,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             child_offset,
             inner_repeater_index,
             entries_per_item,
-        } => {
+        } => (|| {
             let cache = access_member(layout_cache_prop, ctx);
             cache.map_or_default(|cache| {
                 let stride_val = compile_expression(stride, ctx);
@@ -4778,7 +4862,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     col_offset
                 )
             })
-        }
+        })(),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -4816,31 +4900,35 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             ctx,
         ),
         Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
-            let data = compile_expression(data, ctx);
-            let repeater_indices = compile_expression(repeater_indices, ctx);
-            let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
-            format!(
-                "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, {lambda})"
-            )
+            (|| {
+                let data = compile_expression(data, ctx);
+                let repeater_indices = compile_expression(repeater_indices, ctx);
+                let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
+                format!(
+                    "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, {lambda})"
+                )
+            })()
         }
-        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => (|| {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
             format!(
                 "slint::private_api::flexbox_layout_info_cross_axis_with_measure({}, {lambda})",
                 a.join(",")
             )
-        }
+        })(
+        ),
         Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } => {
-            let data = compile_expression(solve_data, ctx);
-            let padding = compile_expression(padding_ortho, ctx);
-            let min_cell_count = measure_cells.len();
-            let mut steps = String::new();
-            for cell in measure_cells {
-                match cell {
-                    llr::BoxMeasureCell::Static { info } => {
-                        let info = compile_expression(info, ctx);
-                        write!(
+            (|| {
+                let data = compile_expression(solve_data, ctx);
+                let padding = compile_expression(padding_ortho, ctx);
+                let min_cell_count = measure_cells.len();
+                let mut steps = String::new();
+                for cell in measure_cells {
+                    match cell {
+                        llr::BoxMeasureCell::Static { info } => {
+                            let info = compile_expression(info, ctx);
+                            write!(
                             steps,
                             "{{
                                 [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = box_ortho_solved[cursor * 2 + 1];
@@ -4849,10 +4937,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             }}"
                         )
                         .unwrap();
-                    }
-                    llr::BoxMeasureCell::Repeated(repeater) => {
-                        let rep_idx = usize::from(repeater.repeater_index);
-                        write!(
+                        }
+                        llr::BoxMeasureCell::Repeated(repeater) => {
+                            let rep_idx = usize::from(repeater.repeater_index);
+                            write!(
                             steps,
                             "for (std::size_t i = 0; i < self->repeater_{rep_idx}.len(); ++i) {{
                                 if (auto *sub_comp = self->repeater_{rep_idx}.typed_instance_at(i)) {{
@@ -4864,10 +4952,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                             }}"
                         )
                         .unwrap();
+                        }
                     }
                 }
-            }
-            format!(
+                format!(
                 "[&]{{
                     auto box_ortho_solved = slint::private_api::solve_box_layout({data}, slint::private_api::make_slice<int>(nullptr, 0));
                     std::vector<slint::cbindgen_private::LayoutItemInfo> measure_cells_vector;
@@ -4878,6 +4966,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     return slint::private_api::box_layout_info_ortho(slint::private_api::make_slice(std::span(measure_cells_vector)), {padding});
                 }}()"
             )
+            })()
         }
         Expression::WithGridInputData {
             cells_variable,
@@ -4893,7 +4982,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::MinMax { ty, op, lhs, rhs } => {
+        Expression::MinMax { ty, op, lhs, rhs } => (|| {
             let ident = match op {
                 MinMaxOp::Min => "min",
                 MinMaxOp::Max => "max",
@@ -4907,10 +4996,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 lhs_code = lhs_code,
                 rhs_code = rhs_code
             )
-        }
+        })(),
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
         Expression::EmptyDataTransfer => "slint::DataTransfer()".into(),
-        Expression::TranslationReference { format_args, string_index, plural } => {
+        Expression::TranslationReference { format_args, string_index, plural } => (|| {
             let args = compile_expression(format_args, ctx);
             match plural {
                 Some(plural) => {
@@ -4923,14 +5012,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     "slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"
                 ),
             }
-        }
-        Expression::Closure { arg_name, expression } => {
+        })(),
+        Expression::Closure { arg_name, expression } => (|| {
             let arg = ident(arg_name);
             let expr = compile_expression(expression, ctx);
 
             format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
-        }
-        Expression::DashArray(dash_array) => {
+        })(),
+        Expression::DashArray(dash_array) => (|| {
             if dash_array.is_empty() {
                 "slint::SharedVector<float>()".into()
             } else {
@@ -4939,7 +5028,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     dash_array.iter().map(|v| format!("float({v})")).collect::<Vec<_>>().join(", ")
                 )
             }
-        }
+        })(),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
@@ -4958,6 +5047,10 @@ fn struct_field_access(base: String, s: &crate::langtype::Struct, name: &str) ->
     }
 }
 
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn compile_builtin_function_call(
     function: BuiltinFunction,
     arguments: &[llr::Expression],
@@ -4966,7 +5059,7 @@ fn compile_builtin_function_call(
     let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
 
     match function {
-        runtime_builtin_function!() => {
+        runtime_builtin_function!() => (|| {
             let (item, arguments) = llr::split_element_argument(&function, arguments);
             let args = arguments.iter().map(|a| compile_expression(a, ctx));
             let call = |item: Option<String>| {
@@ -4992,7 +5085,7 @@ fn compile_builtin_function_call(
                     }
                 }
             }
-        }
+        })(),
         BuiltinFunction::GetWindowScaleFactor => {
             format!("{}.scale_factor()", access_window_field(ctx))
         }
@@ -5004,7 +5097,7 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.iostream.set(true);
             format!("slint::private_api::debug({});", a.join(","))
         }
-        BuiltinFunction::SetFocusItem => {
+        BuiltinFunction::SetFocusItem => (|| {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 item_owner(pr).then(|owner| {
@@ -5014,8 +5107,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
-        }
-        BuiltinFunction::ClearFocusItem => {
+        })(),
+        BuiltinFunction::ClearFocusItem => (|| {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
                 item_owner(pr).then(|owner| {
@@ -5025,30 +5118,30 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
-        }
+        })(),
         BuiltinFunction::ImageSize => {
             format!("{}.size()", a.next().unwrap())
         }
         BuiltinFunction::ArrayLength => {
             format!("slint::private_api::model_length({})", a.next().unwrap())
         }
-        BuiltinFunction::ArrayPush => {
+        BuiltinFunction::ArrayPush => (|| {
             let model = a.next().unwrap();
             let value = a.next().unwrap();
             format!("slint::private_api::model_push({model}, {value})")
-        }
-        BuiltinFunction::ArrayRemove => {
+        })(),
+        BuiltinFunction::ArrayRemove => (|| {
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             format!("slint::private_api::model_remove({model}, {index})")
-        }
-        BuiltinFunction::ArrayInsert => {
+        })(),
+        BuiltinFunction::ArrayInsert => (|| {
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             let value = a.next().unwrap();
             format!("slint::private_api::model_insert({model}, {index}, {value})")
-        }
-        BuiltinFunction::ColorScheme => {
+        })(),
+        BuiltinFunction::ColorScheme => (|| {
             // Route through the runtime helper so a `Palette.color-scheme` binding
             // inside a SystemTrayIcon-rooted component naturally resolves against
             // the tray's scheme without going through any window adapter.
@@ -5056,11 +5149,11 @@ fn compile_builtin_function_call(
                 "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_context_color_scheme(&_root); }}()",
                 ctx.generator_state.global_access
             )
-        }
+        })(),
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }
-        BuiltinFunction::SetupMenuBar => {
+        BuiltinFunction::SetupMenuBar => (|| {
             let window = access_window_field(ctx);
             let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), condition, visible, ..] = arguments
             else {
@@ -5094,8 +5187,8 @@ fn compile_builtin_function_call(
                     auto menu_wrapper = {menu_wrapper};
                     slint::private_api::setup_menu_bar_from_menu_item_tree(&{window}.handle(), {no_native}, menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
-        }
-        BuiltinFunction::SetupSystemTrayIcon => {
+        })(),
+        BuiltinFunction::SetupSystemTrayIcon => (|| {
             let [
                 llr::Expression::PropertyReference(system_tray_ref),
                 llr::Expression::NumberLiteral(tree_index),
@@ -5138,23 +5231,23 @@ fn compile_builtin_function_call(
                     slint::cbindgen_private::slint_system_tray_icon_set_menu(&{system_tray}, &item_rc, &menu_wrapper);
                 }}"
             )
-        }
+        })(),
         BuiltinFunction::DateNow => {
             "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{ d, m, y }); }()".into()
         }
-        BuiltinFunction::ParseDate => {
+        BuiltinFunction::ParseDate => (|| {
             format!(
                 "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{{ d, m, y }}); }}({}, {})",
                 a.next().unwrap(), a.next().unwrap()
             )
-        }
+        })(),
         BuiltinFunction::SetTextInputFocused => {
             format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())
         }
         BuiltinFunction::TextInputFocused => {
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
-        BuiltinFunction::ShowPopupWindow => {
+        BuiltinFunction::ShowPopupWindow => (|| {
             // `owner_ref` is the popup's declaring component (its `popup_id` and scope); `anchor_ref`
             // is the parent item for positioning. A trailing argument may carry the synthesized
             // `is-open` property reference, resolved in this call's own frame (see
@@ -5238,8 +5331,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
-        }
-        BuiltinFunction::ClosePopupWindow => {
+        })(),
+        BuiltinFunction::ClosePopupWindow => (|| {
             if let [llr::Expression::NumberLiteral(popup_index), llr::Expression::PropertyReference(parent_ref)] = arguments {
                 let mut component_access = MemberAccess::Direct("self".into());
                 let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref else {unreachable!()};
@@ -5256,9 +5349,9 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
-        }
+        })(),
 
-        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
+        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => (|| {
             let [llr::Expression::PropertyReference(context_menu_ref), entries, position] = arguments
             else {
                 panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
@@ -5343,8 +5436,8 @@ fn compile_builtin_function_call(
                 ", globals = ctx.generator_state.global_access)
             }
             })
-        }
-        BuiltinFunction::RegisterCustomFontByPath => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByPath => (|| {
             if let [llr::Expression::StringLiteral(path)] = arguments {
                 let window = access_window_field(ctx);
                 format!("{window}.register_font_from_path(\"{}\");", escape_string(path))
@@ -5353,8 +5446,8 @@ fn compile_builtin_function_call(
                     "internal error: argument to RegisterCustomFontByPath must be a string literal"
                 )
             }
-        }
-        BuiltinFunction::RegisterCustomFontByMemory => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByMemory => (|| {
             if let [llr::Expression::NumberLiteral(resource_id)] = &arguments {
                 let window = access_window_field(ctx);
                 let resource_id: usize = *resource_id as _;
@@ -5363,8 +5456,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
-        }
-        BuiltinFunction::RegisterBitmapFont => {
+        })(),
+        BuiltinFunction::RegisterBitmapFont => (|| {
             if let [llr::Expression::NumberLiteral(resource_id)] = &arguments {
                 let window = access_window_field(ctx);
                 let resource_id: usize = *resource_id as _;
@@ -5373,8 +5466,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont {arguments:?}")
             }
-        }
-        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+        })(),
+        BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             if let [llr::Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let native = native_class(pr, ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
@@ -5391,7 +5484,7 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
-        }
+        })(),
         BuiltinFunction::Translate => {
             format!("slint::private_api::translate({})", a.join(","))
         }
@@ -5401,35 +5494,35 @@ fn compile_builtin_function_call(
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
-        BuiltinFunction::RestartTimer => {
+        BuiltinFunction::RestartTimer => (|| {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 access_member(pr, ctx)
                     .then(|x| format!("const_cast<slint::Timer&>({x}).restart()"))
             } else {
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
-        }
+        })(),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             "slint::private_api::macos_bring_all_windows_to_front()".to_owned()
         }
-        BuiltinFunction::ParseMarkdown => {
+        BuiltinFunction::ParseMarkdown => (|| {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
             format!("slint::private_api::parse_markdown({}, {})", format_string, args)
-        }
+        })(),
         BuiltinFunction::ArrayAny => {
             format!("slint::private_api::model_any({}, {})", a.next().unwrap(), a.next().unwrap())
         },
         BuiltinFunction::ArrayAll => {
             format!("slint::private_api::model_all({}, {})", a.next().unwrap(), a.next().unwrap())
         },
-        BuiltinFunction::ArrayFindIndex => {
+        BuiltinFunction::ArrayFindIndex => (|| {
             format!(
                 "slint::private_api::model_find_index({}, {})",
                 a.next().unwrap(),
                 a.next().unwrap()
             )
-        },
+        })(),
     }
 }
 
