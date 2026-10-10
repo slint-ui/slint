@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component InvalidBinding {
+    slot content;
+    content {
+        width: 10px;
+//      >          <error{Slot defaults accept elements; wrap bindings and repeated elements in a component}
+    }
+}
+
+export component ExternalReference {
+    slot content;
+    out property <length> width-of-default: default-label.width;
+//                                          >                  <error{Move references to the default content of slot 'content' inside that content}
+    content {
+        default-label := Text {
+            text: "Default";
+        }
+    }
+}
+
+export component ExternalTextReference {
+    slot bar;
+    Text {
+        text: i-text.text;
+//            >          <error{Move references to the default content of slot 'bar' inside that content}
+    }
+
+    bar {
+        i-text := Text {
+            text: "Default";
+        }
+    }
+}
+
+export component ValidReferences {
+    slot content;
+    content {
+        Rectangle {
+            first := Text {
+                text: "Default";
+            }
+
+            Text {
+                text: first.text;
+            }
+        }
+    }
+}
+
+component PlainHost {
+    slot content;
+    content {
+        Rectangle { }
+    }
+}
+
+export component ValidAssignment {
+    PlainHost {
+        content << Rectangle { }
+    }
+}
+
+export component NestedDefault {
+    slot outer;
+    slot inner;
+    outer {
+        Rectangle {
+            inner { }
+//          >       <error{The slot 'inner' cannot appear in another slot's default content}
+        }
+    }
+}

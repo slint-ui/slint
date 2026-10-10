@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base {
+    slot content;
+    VerticalLayout {
+        content {
+            Rectangle {
+                min-width: 300px;
+            }
+        }
+    }
+}
+
+export component Derived inherits Base {
+    content {
+        Rectangle {
+            min-width: 30px;
+        }
+    }
+}
+
+export component EmptyDefault inherits Derived {
+    content { }
+}
+
+export component MixedAssignment inherits Base {
+    content {
+//  >note{'content' is already declared here}
+        Rectangle { }
+    }
+//  <note{'content' is already declared here}
+    content << Rectangle { }
+//             >        <error{Cannot override the slot 'content'}
+}
+
+export component NestedOverride inherits Base {
+    VerticalLayout {
+//  >             <error{'Base' cannot have children. Only components with @children can have children}
+        content {
+//      >error{Place the default placeholder for inherited slot 'content' at the component root}
+            Rectangle { }
+        }
+//      <error{Place the default placeholder for inherited slot 'content' at the component root}
+    }
+}
+
+export component RedeclaredSlot inherits Base {
+    slot content;
+//       >     <error{Cannot redeclare slot 'content' inherited from 'Base'}
+    content {
+        Rectangle { }
+    }
+}
+
+export component AssignmentBeforePlaceholder inherits Base {
+    content << Rectangle { }
+//             >        <error{Cannot override the slot 'content'}
+    content {
+//  >note{'content' is already declared here}
+        Rectangle { }
+    }
+//  <note{'content' is already declared here}
+}
