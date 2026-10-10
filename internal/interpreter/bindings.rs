@@ -206,32 +206,51 @@ fn install_repeater_model_bindings(
     let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
     for (idx, repeated) in sc.repeated.iter_enumerated() {
         let repeater = &sub.repeaters[idx];
+        let is_conditional = repeater.is_conditional();
+        if repeated.model_is_constant {
+            let expr = repeated.model.borrow();
+            if is_conditional {
+                repeater.set_constant_condition(eval_condition(sub.clone(), &expr));
+            } else {
+                repeater.set_constant_model(eval_repeater_model(sub.clone(), &expr));
+            }
+            continue;
+        }
         let expr = mut_expression_clone(&repeated.model);
         let weak_sub = weak_sub.clone();
-        if repeater.is_conditional() {
+        if is_conditional {
             repeater.set_condition_binding(move || {
-                let Some(owner) = weak_sub.upgrade() else { return false };
-                let mut ctx = EvalContext::new(Pin::new(owner));
-                // The compiler guarantees the condition of an `if` is bool.
-                matches!(eval_expression(&mut ctx, &expr), Value::Bool(true))
+                weak_sub.upgrade().is_some_and(|owner| eval_condition(Pin::new(owner), &expr))
             });
         } else {
             repeater.set_model_binding(move || {
-                let Some(owner) = weak_sub.upgrade() else {
-                    return i_slint_core::model::ModelRc::default();
-                };
-                let mut ctx = EvalContext::new(Pin::new(owner));
-                match eval_expression(&mut ctx, &expr) {
-                    Value::Model(m) => m,
-                    // A number model (`for i in 42`): the `Cast { to: Model }`
-                    // evaluates to the number itself.
-                    Value::Number(n) => i_slint_core::model::ModelRc::new(
-                        crate::value_model::IntModel(n.max(0.) as usize),
-                    ),
-                    _ => i_slint_core::model::ModelRc::default(),
-                }
+                weak_sub.upgrade().map_or_else(Default::default, |owner| {
+                    eval_repeater_model(Pin::new(owner), &expr)
+                })
             });
         }
+    }
+}
+
+fn eval_condition(owner: Pin<Rc<SubComponentInstance>>, expr: &Expression) -> bool {
+    let mut ctx = EvalContext::new(owner);
+    // The compiler guarantees the condition of an `if` is bool.
+    matches!(eval_expression(&mut ctx, expr), Value::Bool(true))
+}
+
+fn eval_repeater_model(
+    owner: Pin<Rc<SubComponentInstance>>,
+    expr: &Expression,
+) -> i_slint_core::model::ModelRc<Value> {
+    let mut ctx = EvalContext::new(owner);
+    match eval_expression(&mut ctx, expr) {
+        Value::Model(m) => m,
+        // A number model (`for i in 42`): the `Cast { to: Model }`
+        // evaluates to the number itself.
+        Value::Number(n) => {
+            i_slint_core::model::ModelRc::new(crate::value_model::IntModel(n.max(0.) as usize))
+        }
+        _ => i_slint_core::model::ModelRc::default(),
     }
 }
 

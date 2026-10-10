@@ -1394,6 +1394,7 @@ fn generate_sub_component(
     let declared_functions = generate_functions(component.functions.as_ref(), &ctx);
 
     let mut init = Vec::new();
+    let mut model_init = Vec::new();
     let mut item_names = Vec::new();
     let mut item_types = Vec::new();
 
@@ -1477,15 +1478,22 @@ fn generate_sub_component(
                 self::inner_component_id(&root.sub_components[repeated.sub_tree.root]);
 
             let model = compile_expression(&repeated.model.borrow(), &ctx);
-            init.push(quote! {
-                _self.#repeater_id.set_model_binding({
-                    let self_weak = sp::VRcMapped::downgrade(&self_rc);
-                    move || {
-                        let self_rc = self_weak.upgrade().unwrap();
-                        let _self = self_rc.as_pin_ref();
-                        (#model) as _
-                    }
-                });
+            model_init.push(if repeated.model_is_constant {
+                quote! {
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self)
+                        .set_constant_model((#model) as _);
+                }
+            } else {
+                quote! {
+                    _self.#repeater_id.set_model_binding({
+                        let self_weak = sp::VRcMapped::downgrade(&self_rc);
+                        move || {
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
+                            (#model) as _
+                        }
+                    });
+                }
             });
             if let Some(listview) = &repeated.listview {
                 let content_y = access_member(&listview.content_y, &ctx).unwrap();
@@ -1746,6 +1754,7 @@ fn generate_sub_component(
         let rust_property = access_local_member(prop, &ctx);
         init.push(quote!(#rust_property.set_constant();))
     }
+    init.extend(model_init);
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id =

@@ -677,15 +677,18 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let old_model = model.get_internal();
             let m = model.get();
             if old_model != m {
-                *self.data().inner.borrow_mut() = RepeaterInner::default();
-                self.data().instances_changed();
-                let peer = self.project_ref().0.model_peer();
-                m.model_tracker().attach_peer(peer);
+                self.attach_model(&m);
             }
             m
         } else {
             model.get()
         }
+    }
+
+    fn attach_model(self: Pin<&Self>, m: &ModelRc<C::Data>) {
+        *self.data().inner.borrow_mut() = RepeaterInner::default();
+        self.data().instances_changed();
+        m.model_tracker().attach_peer(self.project_ref().0.model_peer());
     }
 
     /// Call this function to make sure that the model is updated.
@@ -826,6 +829,14 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// Set the model binding
     pub fn set_model_binding(&self, binding: impl Fn() -> ModelRc<C::Data> + 'static) {
         self.0.model.set_binding(binding);
+    }
+
+    /// Set a model that never changes, instead of a binding.
+    pub fn set_constant_model(self: Pin<&Self>, m: ModelRc<C::Data>) {
+        self.attach_model(&m);
+        let model = &self.data().model;
+        model.set(m);
+        model.set_constant();
     }
 
     /// Call the visitor for the root of each instance.
@@ -974,6 +985,12 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     /// Set the model binding
     pub fn set_model_binding(&self, binding: impl Fn() -> bool + 'static) {
         self.model.set_binding(binding);
+    }
+
+    /// Set a condition that never changes, instead of a binding.
+    pub fn set_constant_model(&self, condition: bool) {
+        self.model.set(condition);
+        self.model.set_constant();
     }
 
     /// Call the visitor for the root of each instance.

@@ -436,8 +436,8 @@ impl BuiltinFunction {
             // and updates once the image is loaded. Calls to this function must stay within a
             // binding so that the property notification kicks in when the code may run on the web.
             BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
-            BuiltinFunction::ArrayLength => true,
-            BuiltinFunction::ArrayPush
+            BuiltinFunction::ArrayLength
+            | BuiltinFunction::ArrayPush
             | BuiltinFunction::ArrayRemove
             | BuiltinFunction::ArrayInsert => false,
             BuiltinFunction::Rgb => true,
@@ -1500,9 +1500,8 @@ impl Expression {
             // Allow functions to be marked as const
             Expression::FunctionParameterReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(ga),
-            Expression::ArrayIndex { array, index } => {
-                array.is_constant(ga) && index.is_constant(ga)
-            }
+            // A constant model can still change its rows
+            Expression::ArrayIndex { .. } => false,
             Expression::Cast { from, to } => {
                 // Converting a float to string depends on the locale's decimal separator,
                 // unless the result contains none, like for integer literals.
@@ -1537,10 +1536,7 @@ impl Expression {
                 lhs.is_constant(ga) && rhs.is_constant(ga)
             }
             Expression::UnaryOp { sub, .. } => sub.is_constant(ga),
-            // Array will turn into model, and they can't be considered as constant if the model
-            // is used and the model is changed. CF issue #5249
-            //Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
-            Expression::Array { .. } => false,
+            Expression::Array { values, .. } => values.iter().all(|v| v.is_constant(ga)),
             Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant(ga)),
             Expression::PathData(data) => match data {
                 Path::Elements(elements) => elements

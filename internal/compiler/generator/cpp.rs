@@ -2573,10 +2573,13 @@ fn generate_sub_component(
 
         let model = compile_expression(&repeated.model.borrow(), &ctx);
 
-        // FIXME: optimize  if repeated.model.is_constant()
-        properties_init_code.push(format!(
-            "self->{repeater_id}.set_model_binding([self] {{ (void)self; return {model}; }});",
-        ));
+        properties_init_code.push(if repeated.model_is_constant {
+            format!("self->{repeater_id}.set_constant_model({model});")
+        } else {
+            format!(
+                "self->{repeater_id}.set_model_binding([self] {{ (void)self; return {model}; }});"
+            )
+        });
 
         if let Some(listview) = &repeated.listview {
             let content_y = access_member(&listview.content_y, &ctx).unwrap();
