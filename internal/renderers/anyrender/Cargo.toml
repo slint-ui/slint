@@ -18,7 +18,7 @@ path = "lib.rs"
 [features]
 default = []
 ## Render through vello on WGPU, using Slint's own WGPU initialization.
-vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-29"]
+vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-30"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
 
@@ -32,14 +32,14 @@ rgb = "0.8.27"
 peniko = { version = "0.6" }
 kurbo = { version = "0.13" }
 
-# anyrender asserts the size of FilterEffect for a 64-bit layout on every target except
-# wasm32, so it doesn't compile on i686/armv7 either. See the matching `cfg` in lib.rs.
-[target.'cfg(any(target_pointer_width = "64", target_arch = "wasm32"))'.dependencies]
-anyrender = { version = "0.13" }
+# anyrender's size assertion for `FilterEffect` assumes 8-byte aligned 64-bit fields,
+# so it doesn't compile on 32-bit x86. See the matching `cfg` in lib.rs.
+[target.'cfg(not(target_arch = "x86"))'.dependencies]
+anyrender = { version = "0.14" }
 # Only the scene recording is used from anyrender_vello; the WGPU setup is
 # Slint's own, see vello.rs.
-anyrender_vello = { version = "0.14", optional = true, default-features = false }
-vello = { version = "0.10", optional = true }
+anyrender_vello = { version = "0.15", optional = true, default-features = false }
+vello = { version = "0.11", optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

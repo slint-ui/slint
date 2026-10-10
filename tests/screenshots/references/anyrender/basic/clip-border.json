@@ -60,6 +60,7 @@
   {
     "PushClipLayer": {
       "clip": "M12,16 C12,13.7909 13.7909,12 16,12 L40,12 C42.2091,12 44,13.7909 44,16 L44,40 C44,42.2091 42.2091,44 40,44 L16,44 C13.7909,44 12,42.2091 12,40 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,
@@ -157,6 +158,7 @@
   {
     "PushClipLayer": {
       "clip": "M12,12 L44,12 L44,44 L12,44 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,
@@ -254,6 +256,7 @@
   {
     "PushClipLayer": {
       "clip": "M20,20 L36,20 L36,36 L20,36 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,
