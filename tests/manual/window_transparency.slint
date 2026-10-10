@@ -1,0 +1,68 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Ian McFarlane <ian.mcfarlane@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Manual test for window transparency (`background: transparent` on a decorated window).
+//
+// Run with one of:
+// SLINT_BACKEND=winit-skia     cargo run -p slint-viewer --features renderer-skia -- tests/manual/window_transparency.slint
+// SLINT_BACKEND=winit-femtovg  cargo run -p slint-viewer -- tests/manual/window_transparency.slint
+// SLINT_BACKEND=winit-software cargo run -p slint-viewer -- tests/manual/window_transparency.slint
+
+import { CheckBox, VerticalBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    title: "Window transparency";
+    preferred-width: 480px;
+    preferred-height: 360px;
+    background: opaque-background.checked ? #202020 : transparent;
+
+    VerticalBox {
+        Rectangle {
+            background: #2d8cff;
+            border-radius: 12px;
+
+            VerticalBox {
+                Text {
+                    text: "The window background is transparent.\nEverything outside this blue panel should show the desktop,\nincluding while the window is resized";
+                    color: white;
+                    font-size: 15px;
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Rectangle {
+            background: #ff000080;
+            border-radius: 6px;
+            vertical-stretch: 0;
+
+            VerticalLayout {
+                padding: 12px;
+
+                Text {
+                    text: "this should tint the desktop red by 50% and not turn black or washed out";
+                    color: white;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        Rectangle {
+            background: white;
+            border-radius: 6px;
+            vertical-stretch: 0;
+
+            HorizontalLayout {
+                padding: 8px;
+
+                opaque-background := CheckBox {
+                    text: "Opaque window background";
+                }
+            }
+        }
+    }
+}
