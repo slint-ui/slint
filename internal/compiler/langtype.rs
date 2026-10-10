@@ -915,7 +915,7 @@ impl std::fmt::Display for EnumerationValue {
 
 impl EnumerationValue {
     pub fn to_pascal_case(&self) -> String {
-        crate::generator::to_pascal_case(&self.enumeration.values[self.value])
+        crate::names::to_pascal_case(&self.enumeration.values[self.value])
     }
 }
 

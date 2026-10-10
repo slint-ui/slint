@@ -35,6 +35,7 @@ pub mod literals;
 pub mod llr;
 pub mod lookup;
 pub mod namedreference;
+pub mod names;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;

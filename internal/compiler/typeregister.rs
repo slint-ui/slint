@@ -87,7 +87,7 @@ fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
         public,
         values: values
             .iter()
-            .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())
+            .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
         node: None,
@@ -784,7 +784,7 @@ pub mod builtin_structs {
         ($enum:ident :: $value:ident) => {
             Some(ConstantExpression::EnumerationValue(
                 BUILTIN.enums.$enum.clone()
-                    .try_value_from_string(&crate::generator::to_kebab_case(stringify!($value)))
+                    .try_value_from_string(&crate::names::to_kebab_case(stringify!($value)))
                     .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value))),
             ))
         };
