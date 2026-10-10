@@ -1632,18 +1632,6 @@ fn generate_item_tree(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
-    let needs_window_adapter = root.needs_window_adapter();
-    // True only for the root tree of a SystemTrayIcon-rooted public component.
-    // Repeaters / popup_menu / popup-window trees stay on the windowed code
-    // path even when they live inside a tray-only unit (popup menus are
-    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
-    let is_system_tray_root = parent_ctx.is_none()
-        && !is_popup
-        && root.public_components.iter().any(|p| {
-            p.item_tree.root == sub_tree.root
-                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
-        });
-
     target_struct.friends.push(format_smolstr!(
         "vtable::VRc<slint::private_api::ItemTreeVTable, {}>",
         item_tree_class_name
@@ -1658,6 +1646,39 @@ fn generate_item_tree(
         file,
         conditional_includes,
     );
+    generate_item_tree_body(
+        target_struct,
+        sub_tree,
+        root,
+        parent_ctx,
+        is_popup,
+        item_tree_class_name,
+        file,
+        conditional_includes,
+    );
+}
+
+fn generate_item_tree_body(
+    target_struct: &mut Struct,
+    sub_tree: &llr::ItemTree,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    is_popup: bool,
+    item_tree_class_name: SmolStr,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let needs_window_adapter = root.needs_window_adapter();
+    // True only for the root tree of a SystemTrayIcon-rooted public component.
+    // Repeaters / popup_menu / popup-window trees stay on the windowed code
+    // path even when they live inside a tray-only unit (popup menus are
+    // window-shaped, and there's no SystemTrayIcon-rooted repeater root anyway).
+    let is_system_tray_root = parent_ctx.is_none()
+        && !is_popup
+        && root.public_components.iter().any(|p| {
+            p.item_tree.root == sub_tree.root
+                && p.top_level_type == llr::TopLevelComponentType::SystemTrayIcon
+        });
 
     let mut item_tree_array: Vec<String> = Default::default();
     let mut item_array: Vec<String> = Default::default();
@@ -2262,6 +2283,90 @@ fn generate_sub_component(
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
+    generate_child_item_trees(component, root, parent_ctx, file, conditional_includes);
+    generate_sub_component_body(
+        target_struct,
+        component,
+        root,
+        parent_ctx,
+        field_access,
+        conditional_includes,
+    );
+}
+
+/// Generate the popup windows, menus, and repeated components of `component`.
+fn generate_child_item_trees(
+    component: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component,
+        CppGeneratorContext { global_access: "self->globals".into(), conditional_includes },
+        parent_ctx,
+    );
+    let component = &root.sub_components[component];
+    let parent_ctx = ParentScope::new(&ctx, None);
+
+    component.popup_windows.iter().for_each(|popup| {
+        let component_id = ident(&root.sub_components[popup.item_tree.root].name);
+        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut popup_struct,
+            &popup.item_tree,
+            root,
+            Some(&parent_ctx),
+            true,
+            component_id,
+            Access::Public,
+            file,
+            conditional_includes,
+        );
+        file.definitions.extend(popup_struct.extract_definitions());
+        file.declarations.push(Declaration::Struct(popup_struct));
+    });
+    for menu in &component.menu_item_trees {
+        let component_id = ident(&root.sub_components[menu.root].name);
+        let mut menu_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut menu_struct,
+            menu,
+            root,
+            Some(&parent_ctx),
+            false,
+            component_id,
+            Access::Public,
+            file,
+            conditional_includes,
+        );
+        file.definitions.extend(menu_struct.extract_definitions());
+        file.declarations.push(Declaration::Struct(menu_struct));
+    }
+    for (idx, repeated) in component.repeated.iter_enumerated() {
+        let sc = &root.sub_components[repeated.sub_tree.root];
+        let data_type = repeated.data_prop.map(|data_prop| sc.properties[data_prop].ty.clone());
+        generate_repeated_component(
+            repeated,
+            root,
+            ParentScope::new(&ctx, Some(idx)),
+            data_type.as_ref(),
+            file,
+            conditional_includes,
+        );
+    }
+}
+
+fn generate_sub_component_body(
+    target_struct: &mut Struct,
+    component: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    field_access: Access,
+    conditional_includes: &ConditionalIncludes,
+) {
     let globals_type_ptr = "const class SharedGlobals*";
 
     let mut init_parameters = vec![
@@ -2339,43 +2444,6 @@ fn generate_sub_component(
     );
 
     let component = &root.sub_components[component];
-
-    let parent_ctx = ParentScope::new(&ctx, None);
-
-    component.popup_windows.iter().for_each(|popup| {
-        let component_id = ident(&root.sub_components[popup.item_tree.root].name);
-        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
-        generate_item_tree(
-            &mut popup_struct,
-            &popup.item_tree,
-            root,
-            Some(&parent_ctx),
-            true,
-            component_id,
-            Access::Public,
-            file,
-            conditional_includes,
-        );
-        file.definitions.extend(popup_struct.extract_definitions());
-        file.declarations.push(Declaration::Struct(popup_struct));
-    });
-    for menu in &component.menu_item_trees {
-        let component_id = ident(&root.sub_components[menu.root].name);
-        let mut menu_struct = Struct { name: component_id.clone(), ..Default::default() };
-        generate_item_tree(
-            &mut menu_struct,
-            menu,
-            root,
-            Some(&parent_ctx),
-            false,
-            component_id,
-            Access::Public,
-            file,
-            conditional_includes,
-        );
-        file.definitions.extend(menu_struct.extract_definitions());
-        file.declarations.push(Declaration::Struct(menu_struct));
-    }
 
     for property in component.properties.iter() {
         let cpp_name = field_name(&property.name);
@@ -2558,15 +2626,6 @@ fn generate_sub_component(
     for (idx, repeated) in component.repeated.iter_enumerated() {
         let sc = &root.sub_components[repeated.sub_tree.root];
         let data_type = repeated.data_prop.map(|data_prop| sc.properties[data_prop].ty.clone());
-
-        generate_repeated_component(
-            repeated,
-            root,
-            ParentScope::new(&ctx, Some(idx)),
-            data_type.as_ref(),
-            file,
-            conditional_includes,
-        );
 
         let idx = usize::from(idx);
         let repeater_id = format_smolstr!("repeater_{}", idx);
@@ -3355,7 +3414,28 @@ fn generate_repeated_component(
         file,
         conditional_includes,
     );
+    generate_repeated_component_body(
+        repeated,
+        unit,
+        parent_ctx,
+        model_data_type,
+        repeater_struct,
+        file,
+        conditional_includes,
+    );
+}
 
+fn generate_repeated_component_body(
+    repeated: &llr::RepeatedElement,
+    unit: &llr::CompilationUnit,
+    parent_ctx: ParentScope,
+    model_data_type: Option<&Type>,
+    mut repeater_struct: Struct,
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+) {
+    let root_sc = &unit.sub_components[repeated.sub_tree.root];
+    let repeater_id = repeater_struct.name.clone();
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(&parent_ctx)),
