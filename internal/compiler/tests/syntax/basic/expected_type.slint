@@ -53,9 +53,20 @@ export component Test inherits Rectangle {
     property<int> len: arr.length();
 //                     >          <error{The expression is not a function}
 
-    // the value of a statement that isn't the last one is discarded, so it has no expected type
+    // a statement that isn't the last one still resolves against the type of the block
     property<color> discarded: { red; blue };
-//                               > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                               > <warning{Expression has no effect!}
+
+    // `accept` in an `if` that isn't the last statement used to be an unknown identifier
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == "q" {
+                self.clear-focus();
+                accept;
+            }
+            reject
+        }
+    }
 
     // a `let` without a declared type takes the type of its value
     property<color> untyped_let: { let c = red; c };
