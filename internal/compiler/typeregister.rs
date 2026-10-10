@@ -429,6 +429,7 @@ pub fn reserved_member_functions()
     IntoIterator::into_iter([
         ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
         ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
     ])
 }
 

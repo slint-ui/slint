@@ -1,0 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# Lets code gated with `any(target_os = "ios", slint_ios_scroll_physics)` run in the replay.
+[build]
+rustflags = ["--cfg", "slint_ios_scroll_physics"]

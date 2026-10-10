@@ -14,6 +14,9 @@ use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
 use crate::animations::simulations::bounce::BounceFlick;
 use crate::animations::simulations::rubber_band;
+use crate::animations::simulations::spring::SpringPhysicalParameters;
+use crate::animations::simulations::spring_flick::SpringFlick;
+use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -21,6 +24,7 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
+use crate::items::ScrollMode;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -280,6 +284,20 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub fn scroll_to(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPosition,
+        scroll_mode: ScrollMode,
+    ) {
+        self.as_ref().data.inner.borrow_mut().scroll_to(
+            self,
+            self_rc,
+            position.to_euclid(),
+            scroll_mode,
+        );
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
@@ -353,7 +371,12 @@ impl Flickable {
 
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
     /// The points have to be in the parent's coordinate space.
-    pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
+    pub(crate) fn reveal_points(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        pts: &[LogicalPoint],
+        scroll_mode: ScrollMode,
+    ) {
         if pts.is_empty() {
             return;
         }
@@ -374,8 +397,11 @@ impl Flickable {
         let new_cx = cx + tx;
         let new_cy = cy + ty;
 
-        Self::FIELD_OFFSETS.content_x().apply_pin(self).set(euclid::Length::new(-new_cx));
-        Self::FIELD_OFFSETS.content_y().apply_pin(self).set(euclid::Length::new(-new_cy));
+        self.scroll_to(
+            self_rc,
+            LogicalPosition::from_euclid(LogicalPoint::new(new_cx, new_cy)),
+            scroll_mode,
+        );
     }
 
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -1044,6 +1070,58 @@ impl FlickableDataInner {
                 Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
         }
     }
+
+    fn scroll_to(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_mode: ScrollMode,
+    ) {
+        if scroll_mode == ScrollMode::Instant {
+            self.running_animation = None;
+
+            flick.content_x.set(-LogicalLength::new(position.x));
+            flick.content_y.set(-LogicalLength::new(position.y));
+            return;
+        }
+        let deflection_x = (flick.content_x() - LogicalLength::new(-position.x)).0;
+        let deflection_y = (flick.content_y() - LogicalLength::new(-position.y)).0;
+
+        // https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/VectorizedAnimationSpec.kt#L801
+        // https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/AnimationSpec.kt#L144-L145
+        // https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/foundation/foundation/src/commonMain/kotlin/androidx/compose/foundation/Scroll.kt#L203-L205
+        const ANDROID_SCROLL_TO_STIFFNESS: f32 = 1500.;
+
+        let spring_simulation = |deflection: f32, dimension: Dimension| {
+            let content = match dimension {
+                Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
+                Dimension::Y => Flickable::FIELD_OFFSETS.content_y(),
+            }
+            .apply_pin(flick);
+
+            let flick_velocity = if deflection < 0. { 1. } else { -1. };
+
+            Rc::new_cyclic(|weak: &Weak<RefCell<SpringFlick>>| {
+                content.set_physic_animation_value(weak.clone());
+                RefCell::new(SpringFlick::new(
+                    deflection,
+                    FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension),
+                    0.,
+                    SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
+                ))
+            })
+        };
+
+        let x_simulation = spring_simulation(deflection_x as f32, Dimension::X);
+        let y_simulation = spring_simulation(deflection_y as f32, Dimension::Y);
+
+        self.running_animation = Some(RunningSimulation {
+            weak: flick_rc.downgrade(),
+            x_simulation: Some(x_simulation),
+            y_simulation: Some(y_simulation),
+        });
+    }
 }
 
 #[derive(Default)]
@@ -1416,6 +1494,20 @@ pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) 
     unsafe {
         core::ptr::drop_in_place(data);
     }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_flickable_scroll_to(
+    flickable: Pin<&Flickable>,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    x: Coord,
+    y: Coord,
+    scroll_mode: ScrollMode,
+) {
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    flickable.scroll_to(&self_rc, LogicalPosition::new(x, y), scroll_mode);
 }
 
 #[cfg(test)]

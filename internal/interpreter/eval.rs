@@ -15,9 +15,11 @@ use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
 use i_slint_compiler::source_path::SourcePath;
+use i_slint_core::api::LogicalPosition;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
+use i_slint_core::items::ScrollMode;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector};
 use smol_str::SmolStr;
@@ -2738,6 +2740,38 @@ fn call_builtin_function(
         BuiltinFunction::StartTimer | BuiltinFunction::StopTimer => {
             // Lowered into property assignments by `materialize_state`; never reached.
             Value::Void
+        }
+        BuiltinFunction::ScrollTo => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
+            {
+                let item_rc =
+                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
+                let pos: LogicalPosition =
+                    eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
+                let mode: ScrollMode =
+                    eval_expression(ctx, &arguments[2]).try_into().unwrap_or_default();
+                item_rc
+                    .downcast::<i_slint_core::items::Flickable>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .scroll_to(&item_rc, pos, mode);
+                return Value::Void;
+            }
+            panic!("internal error: argument to ScrollTo must be an element")
+        }
+        BuiltinFunction::EnsureVisible => {
+            if let Some(Expression::PropertyReference(mr)) = arguments.first()
+                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
+            {
+                let mode: ScrollMode =
+                    eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
+                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
+                item_rc.try_scroll_into_visible(mode);
+                return Value::Void;
+            }
+            panic!("internal error: argument to ScrollTo must be an element")
         }
     }
 }

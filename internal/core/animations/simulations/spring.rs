@@ -59,6 +59,19 @@ impl SpringPhysicalParameters {
     pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
         Self { mass, stiffness, damping }
     }
+
+    /// Creates a new spring with fixed damping ratio `zeta` and stiffness `stiffness`
+    pub fn new_critical_damped(stiffness: f32) -> Self {
+        const MASS: f32 = 1.;
+        const ZETA: f32 = 1.;
+        let critical_damping = Self::critical_damping(MASS, stiffness);
+        let damping = if critical_damping > 0. { ZETA * critical_damping } else { 0. };
+        Self { mass: MASS, stiffness, damping }
+    }
+
+    fn critical_damping(mass: f32, stiffness: f32) -> f32 {
+        2. * f32::sqrt(mass * stiffness)
+    }
 }
 
 impl SpringParameters for SpringPhysicalParameters {
@@ -66,7 +79,7 @@ impl SpringParameters for SpringPhysicalParameters {
         debug_assert!(self.mass > 0., "mass must be greater than zero");
         debug_assert!(self.stiffness >= 0., "stiffness must not be negative");
         let w_n = f32::sqrt(self.stiffness / self.mass);
-        let critical_damping = 2. * f32::sqrt(self.mass * self.stiffness);
+        let critical_damping = Self::critical_damping(self.mass, self.stiffness);
         let zeta = if critical_damping > 0. { self.damping / critical_damping } else { 0. };
         (w_n, zeta)
     }

@@ -2440,6 +2440,16 @@ fn builtin_struct_field_defaults() {
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_item_try_scroll_into_visible(
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+    scroll_mode: ScrollMode,
+) {
+    ItemRc::new(self_component.clone(), self_index).try_scroll_into_visible(scroll_mode);
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_item_absolute_position(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
