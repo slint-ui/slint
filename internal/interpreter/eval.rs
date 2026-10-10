@@ -12,12 +12,12 @@ use crate::instance::{RepeaterOrConditional, SubComponentInstance};
 use crate::prelude::*;
 use alloc::rc::Weak;
 use i_slint_compiler::builtin_functions::BuiltinFunction;
-use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{
     self, Expression, LocalMemberIndex, MemberReference, RadialGradientShape,
 };
+#[cfg(feature = "std")]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
@@ -26,6 +26,8 @@ use i_slint_core::item_tree::ItemRc;
 use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector};
+#[cfg(not(feature = "std"))]
+use num_traits::Float as _;
 
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
@@ -865,8 +867,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
             v
         }
-        Expression::BuiltinFunctionCall { function, arguments, source_location } => {
-            call_builtin_function(ctx, function.clone(), arguments, source_location)
+        Expression::BuiltinFunctionCall { function, arguments, .. } => {
+            call_builtin_function(ctx, function.clone(), arguments, expression)
         }
         Expression::CallBackCall { callback, arguments } => {
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
@@ -1816,14 +1818,16 @@ fn load_image_reference(
     resource_ref: &i_slint_compiler::expression_types::ImageReference,
 ) -> i_slint_core::graphics::Image {
     use i_slint_compiler::expression_types::ImageReference as Ref;
-    let image = match resource_ref {
+    let image: Result<_, i_slint_core::graphics::LoadImageError> = match resource_ref {
         Ref::None => Ok(Default::default()),
+        #[cfg(feature = "std")]
         Ref::DataUri(data_uri) => i_slint_compiler::data_uri::decode_data_uri(data_uri)
             .ok()
             .and_then(|(data, extension)| {
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
+        #[cfg(feature = "std")]
         Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
             // baked into the compiler's builtin library.
@@ -1837,7 +1841,9 @@ fn load_image_reference(
                 })
                 .ok_or_else(Default::default)
         }
+        #[cfg(feature = "std")]
         Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        #[cfg(feature = "std")]
         Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
@@ -1850,10 +1856,13 @@ fn load_image_reference(
                 Err(Default::default())
             }
         }
+        // Without the compiler, only the images it embedded in the unit show
+        #[cfg(not(feature = "std"))]
+        Ref::DataUri(_) | Ref::Source(_) => Err(Default::default()),
         Ref::EmbeddedData { .. } | Ref::EmbeddedTexture { .. } => Ok(Default::default()),
     };
     image.unwrap_or_else(|_| {
-        eprintln!("Could not load image {resource_ref:?}");
+        i_slint_core::debug_log!("Could not load image {resource_ref:?}");
         Default::default()
     })
 }
@@ -1946,7 +1955,10 @@ impl LogLocation<'_> {
     }
 }
 
-fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogLocation<'_>> {
+/// The location of the builtin function call `call`. A unit compiled elsewhere has none.
+#[cfg(feature = "std")]
+fn log_message_location(call: &Expression) -> Option<LogLocation<'_>> {
+    let Expression::BuiltinFunctionCall { source_location, .. } = call else { return None };
     let location = source_location.as_ref()?;
     let source_file = location.source_file.as_ref()?;
     let (line, column) = source_file
@@ -1956,6 +1968,11 @@ fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogL
         path => path.to_string().into(),
     };
     Some(LogLocation { path, line, column })
+}
+
+#[cfg(not(feature = "std"))]
+fn log_message_location(_call: &Expression) -> Option<LogLocation<'_>> {
+    None
 }
 
 /// Arguments of a `@tr(...)` formatting, as a model of strings.
@@ -2096,7 +2113,7 @@ fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
-    source_location: &Option<SourceLocation>,
+    call: &Expression,
 ) -> Value {
     let to_string = |ctx: &mut EvalContext, e: &Expression| -> SharedString {
         eval_expression(ctx, e).try_into().unwrap_or_default()
@@ -2140,7 +2157,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &component_context(ctx),
                 "push",
-                log_message_location(source_location).as_ref().map(LogLocation::get),
+                log_message_location(call).as_ref().map(LogLocation::get),
                 model.push_row(value),
             );
 
@@ -2167,7 +2184,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &component_context(ctx),
                 "remove",
-                log_message_location(source_location).as_ref().map(LogLocation::get),
+                log_message_location(call).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2196,7 +2213,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &component_context(ctx),
                 "insert",
-                log_message_location(source_location).as_ref().map(LogLocation::get),
+                log_message_location(call).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2298,12 +2315,13 @@ fn call_builtin_function(
         })(),
         BuiltinFunction::RegisterCustomFontByPath => (|| {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
-                && let Some(root) = find_root_instance(ctx)
+                && let Some(_root) = find_root_instance(ctx)
             {
-                if let Some(data) = root.globals.font_files.get(s.as_str()) {
+                #[cfg(feature = "std")]
+                if let Some(data) = _root.globals.font_files.get(s.as_str()) {
                     let blob =
                         i_slint_core::textlayout::sharedparley::fontique::Blob::new(data.clone());
-                    root.globals.context.font_context().borrow_mut().register_fonts(blob);
+                    _root.globals.context.font_context().borrow_mut().register_fonts(blob);
                     return Value::Void;
                 }
                 // The browser has no file system to read the font from,
@@ -2313,13 +2331,17 @@ fn call_builtin_function(
                 }
                 // Log and skip if the window adapter can't be created; the
                 // same error resurfaces when the window is actually used.
+                #[cfg(feature = "std")]
                 let result =
-                    root.try_window_adapter().map_err(|e| e.to_string()).and_then(|adapter| {
+                    _root.try_window_adapter().map_err(|e| e.to_string()).and_then(|adapter| {
                         adapter
                             .renderer()
                             .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
                             .map_err(|e| format!("Cannot load custom font {}: {e}", s.as_str()))
                     });
+                #[cfg(not(feature = "std"))]
+                let result: Result<(), String> =
+                    Err(format!("Cannot load custom font {} without a file system", s.as_str()));
                 if let Err(err) = result {
                     i_slint_core::debug_log!("{err}");
                 }
@@ -2384,7 +2406,7 @@ fn call_builtin_function(
             let msg = to_string(ctx, &arguments[0]);
             component_context(ctx).dispatch_log_message(LogMessage::new(
                 LogMessageSource::SlintCode,
-                log_message_location(source_location).as_ref().map(LogLocation::get),
+                log_message_location(call).as_ref().map(LogLocation::get),
                 format_args!("{msg}"),
             ));
             Value::Void

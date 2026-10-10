@@ -8,20 +8,23 @@ use alloc::sync::Arc;
 use core::future::Future;
 use core::time::Duration;
 use i_slint_compiler::langtype::Type as LangType;
+#[cfg(any(feature = "std", feature = "internal"))]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::Coord;
-use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
+use i_slint_core::graphics::PathData;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "std")]
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
@@ -30,6 +33,7 @@ pub use i_slint_core::api::*;
 
 /// Argument of [`Compiler::set_default_translation_context()`]
 ///
+#[cfg(feature = "std")]
 pub use i_slint_compiler::DefaultTranslationContext;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
@@ -529,7 +533,7 @@ fn value_model_conversion() {
 }
 
 pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
-    i_slint_compiler::parser::normalize_identifier(ident)
+    i_slint_compiler::names::normalize_identifier(ident)
 }
 
 /// This type represents a runtime instance of structure in `.slint`.
@@ -558,7 +562,7 @@ pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
-        if i_slint_compiler::parser::is_identifier_normalized(name) {
+        if i_slint_compiler::names::is_identifier_normalized(name) {
             self.0.get(name)
         } else {
             self.0.get(&*normalize_identifier(name))
@@ -593,6 +597,7 @@ fn struct_field_name_normalization() {
     assert_eq!(s.get_field("cross_axis_self_alignment"), Some(&Value::Number(2.)));
 }
 
+#[cfg(feature = "std")]
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
 #[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
@@ -601,6 +606,7 @@ pub struct ComponentCompiler {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl Default for ComponentCompiler {
     fn default() -> Self {
@@ -612,6 +618,7 @@ impl Default for ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl ComponentCompiler {
     /// Returns a new ComponentCompiler.
@@ -792,6 +799,7 @@ impl ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 /// This is the entry point of the crate, it can be used to load a `.slint` file and
 /// compile it into a [`CompilationResult`].
 pub struct Compiler {
@@ -801,6 +809,7 @@ pub struct Compiler {
     resource_loader: Option<crate::component::ResourceLoader>,
 }
 
+#[cfg(feature = "std")]
 impl Default for Compiler {
     fn default() -> Self {
         let config = i_slint_compiler::CompilerConfiguration::new(
@@ -815,6 +824,7 @@ impl Default for Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
@@ -1161,6 +1171,7 @@ impl Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 pub(crate) enum AnimationMode {
     /// In static mode, all timers & animations are disabled.
     /// The item tree should not update anything without interaction.
@@ -1169,6 +1180,7 @@ pub(crate) enum AnimationMode {
     Running,
 }
 
+#[cfg(feature = "std")]
 fn empty_compilation_result() -> CompilationResult {
     CompilationResult {
         components: HashMap::new(),
@@ -1180,6 +1192,7 @@ fn empty_compilation_result() -> CompilationResult {
     }
 }
 
+#[cfg(feature = "std")]
 fn compilation_error(
     message: String,
     path: &SourcePath,
@@ -1202,6 +1215,7 @@ fn compilation_error(
     result
 }
 
+#[cfg(feature = "std")]
 async fn build_compilation_result(
     source_code: String,
     path: SourcePath,
@@ -1259,7 +1273,8 @@ pub struct SendableCompilationResult {
     compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
-    font_files: HashMap<String, std::sync::Arc<Vec<u8>>>,
+    font_files: HashMap<String, alloc::sync::Arc<Vec<u8>>>,
+    #[cfg(feature = "std")]
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<SourcePath>,
@@ -1278,6 +1293,7 @@ impl From<SendableCompilationResult> for CompilationResult {
             compilation_unit,
             components,
             font_files,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1300,6 +1316,7 @@ impl From<SendableCompilationResult> for CompilationResult {
             .collect();
         Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1318,6 +1335,7 @@ impl From<SendableCompilationResult> for CompilationResult {
 #[derive(Clone)]
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
+    #[cfg(feature = "std")]
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<SourcePath>,
@@ -1326,17 +1344,19 @@ pub struct CompilationResult {
 }
 
 impl core::fmt::Debug for CompilationResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompilationResult")
-            .field("components", &self.components.keys())
-            .field("diagnostics", &self.diagnostics)
-            .finish()
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut f = f.debug_struct("CompilationResult");
+        f.field("components", &self.components.keys());
+        #[cfg(feature = "std")]
+        f.field("diagnostics", &self.diagnostics);
+        f.finish()
     }
 }
 
 impl CompilationResult {
     /// Returns true if the compilation failed.
     /// The errors can be retrieved using the [`Self::diagnostics()`] function.
+    #[cfg(feature = "std")]
     pub fn has_errors(&self) -> bool {
         self.diagnostics().any(|diag| diag.level() == DiagnosticLevel::Error)
     }
@@ -1344,6 +1364,7 @@ impl CompilationResult {
     /// Return an iterator over the diagnostics.
     ///
     /// You can also call [`Self::print_diagnostics()`] to output the diagnostics to stderr
+    #[cfg(feature = "std")]
     pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
         self.diagnostics.iter().cloned()
     }
@@ -1393,6 +1414,7 @@ impl CompilationResult {
             compilation_unit: Some(unit),
             components,
             font_files: HashMap::new(),
+            #[cfg(feature = "std")]
             diagnostics: Vec::new(),
             watch_paths: Vec::new(),
             structs_and_enums: Vec::new(),
@@ -1404,6 +1426,7 @@ impl CompilationResult {
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1438,6 +1461,7 @@ impl CompilationResult {
             compilation_unit,
             components,
             font_files,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1720,7 +1744,7 @@ impl ComponentDefinition {
     }
 
     /// This gives access to the tree of Elements.
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "std"))]
     #[doc(hidden)]
     pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
         self.inner
