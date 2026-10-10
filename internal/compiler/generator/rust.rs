@@ -4745,466 +4745,40 @@ fn compile_builtin_function_call(
     arguments: &[Expression],
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     match function {
-        BuiltinFunction::SetFocusItem => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                let window_tokens = access_window_adapter_field(ctx);
-                item_owner(pr).then(|owner| {
-                    let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, true, sp::FocusReason::Programmatic))
-                })
-            } else {
-                panic!("internal error: invalid args to SetFocusItem {arguments:?}")
-            }
-        }
-        BuiltinFunction::ClearFocusItem => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                let window_tokens = access_window_adapter_field(ctx);
-                item_owner(pr).then(|owner| {
-                    let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, false, sp::FocusReason::Programmatic))
-                })
-            } else {
-                panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
-            }
-        }
-        BuiltinFunction::ShowPopupWindow => {
-            // `owner_ref` is the popup's declaring component (its `popup_id` and scope);
-            // `anchor_ref` is the parent item for positioning.
-            if let [
-                Expression::NumberLiteral(popup_index),
-                close_policy,
-                Expression::PropertyReference(owner_ref),
-                Expression::PropertyReference(anchor_ref),
-                is_open_args @ ..,
-            ] = arguments
-            {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref
-                else {
-                    unreachable!()
-                };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
-                let (suffix, _) = follow_sub_component_path_fields(
-                    ctx.compilation_unit,
-                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
-                    &local_reference.sub_component_path,
-                );
-                ctx.with_reference_scope(
-                    *parent_level,
-                    &local_reference.sub_component_path,
-                    |parent_ctx| {
-                let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
-                    .popup_windows[*popup_index as usize];
-                let popup_window_id =
-                    inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
-                let popup_ctx = EvaluationContext::new_sub_component(
-                    ctx.compilation_unit,
-                    popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals()) },
-                    Some(&parent_ctx),
-                );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-                let close_policy = compile_expression(close_policy, ctx);
-                let popup_id_name = internal_popup_id(*popup_index as usize);
-                let window_kind = if popup.is_tooltip {
-                    quote!(sp::WindowKind::ToolTip)
-                } else {
-                    quote!(sp::WindowKind::Popup)
-                };
-                let globals_init = quote! {
-                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    }
-                };
-                // The optional 4th argument is a property reference to the synthesized `is-open`,
-                // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
-                // directly against `ctx`/`_self`, exactly like `parent_ref`.
-                let is_open_set_expr = is_open_args.first().map(|arg| {
-                    let Expression::PropertyReference(is_open_ref) = arg else {
-                        unreachable!(
-                            "ShowPopupWindow is-open argument must be a property reference"
-                        )
-                    };
-                    access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
-                });
-                item_owner(anchor_ref).then_named("anchor_owner", |owner| {
-                    let (_, parent_item) = native_item_from_owner(anchor_ref, ctx, &owner);
-                    component_access_tokens.then(|component_access_tokens| {
-                    let compo = quote!(#component_access_tokens #suffix);
-                    // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
-                    // immediately and with `false` from every close path (see window.rs). Passing it
-                    // directly into `show_popup` avoids an extra registration call and a second popup
-                    // lookup. Menus and `is-open`-less popups get a no-op setter.
-                    let (is_open_self_weak_decl, is_open_setter) = match &is_open_set_expr {
-                        Some(set_expr) => (
-                            quote!(let is_open_self_weak = _self.self_weak.get().unwrap().clone();),
-                            quote! {
-                                sp::Box::new(move |value: bool| {
-                                    if let Some(is_open_self) = is_open_self_weak.upgrade() {
-                                        let _self = is_open_self.as_pin_ref();
-                                        #set_expr
-                                    }
-                                })
-                            },
-                        ),
-                        None => (quote!(), quote!(sp::Box::new(|_| {}))),
-                    };
-                    quote!({
-                        let parent_item = &#parent_item;
-                        // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
-                        let shared_global = #compo.globals.get().unwrap();
-                        let window_adapter = shared_global.window_adapter_impl();
-                        let window = sp::WindowInner::from_pub(window_adapter.window());
-                        let globals = #globals_init;
-
-                        let popup_instance = #popup_window_id::new(#compo.self_weak.get().unwrap().clone(), globals).unwrap();
-                        let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                        if let Some(current_id) = #compo.#popup_id_name.take() {
-                            window.close_popup(current_id);
-                        }
-
-                        let popup_instance_vrc_for_position = popup_instance_vrc.clone();
-                        let access_position = sp::Box::new(move || {
-                            let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
-                        });
-
-                        #is_open_self_weak_decl
-                        let popup_id = window.show_popup(
-                            &sp::VRc::into_dyn(popup_instance.into()),
-                            access_position,
-                            #close_policy,
-                            parent_item,
-                            #window_kind,
-                            #is_open_setter,
-                        );
-                        #compo.#popup_id_name.set(Some(popup_id));
-                        #popup_window_id::user_init(popup_instance_vrc.clone());
-                    })
-                    })
-                })
-                    },
-                )
-            } else {
-                panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
-            }
-        }
-        BuiltinFunction::ClosePopupWindow => {
-            if let [
-                Expression::NumberLiteral(popup_index),
-                Expression::PropertyReference(parent_ref),
-            ] = arguments
-            {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
-                let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
-                else {
-                    unreachable!()
-                };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
-                let (suffix, _) = follow_sub_component_path_fields(
-                    ctx.compilation_unit,
-                    ctx.parent_sub_component_idx(*parent_level).unwrap(),
-                    &local_reference.sub_component_path,
-                );
-                let popup_id_name = internal_popup_id(*popup_index as usize);
-                let current_id_tokens = match component_access_tokens {
-                    MemberAccess::Option(token_stream) => quote!(
-                        #token_stream.and_then(|a| a.as_pin_ref() #suffix.#popup_id_name.take().map(|id| (a.as_pin_ref() #suffix.globals.get().unwrap().clone(), id)))
-                    ),
-                    MemberAccess::Direct(token_stream) => {
-                        quote!(#token_stream.as_ref() #suffix.#popup_id_name.take().map(|id|(#token_stream.as_ref() #suffix.globals.get().unwrap().clone(), id)))
-                    }
-                    _ => unreachable!(),
-                };
-                quote!(
-                    if let Some((globals, current_id)) = #current_id_tokens {
-                        sp::WindowInner::from_pub(globals.window_adapter_impl().window()).close_popup(current_id);
-                    }
-                )
-            } else {
-                panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
-            }
-        }
+        BuiltinFunction::SetFocusItem => compile_set_focus_item(arguments, ctx),
+        BuiltinFunction::ClearFocusItem => compile_clear_focus_item(arguments, ctx),
+        BuiltinFunction::ShowPopupWindow => compile_show_popup_window(arguments, ctx),
+        BuiltinFunction::ClosePopupWindow => compile_close_popup_window(arguments, ctx),
         BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
-            let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments
-            else {
-                panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
-            };
-
-            let context_menu = access_member(context_menu_ref, ctx);
-            let position = compile_expression(position, ctx);
-
-            let popup = ctx
-                .compilation_unit
-                .popup_menu
-                .as_ref()
-                .expect("there should be a popup menu if we want to show it");
-            let popup_id =
-                inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-
-            let popup_ctx = EvaluationContext::new_sub_component(
-                ctx.compilation_unit,
-                popup.item_tree.root,
-                RustGeneratorContext { global_access: quote!(_self.globals()) },
-                None,
-            );
-            let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
-            let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx).unwrap();
-            let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
-            let access_close = access_member(&popup.close, &popup_ctx).unwrap();
-
-            let close_popup = context_menu.clone().then(|context_menu| quote!{
-                if let Some(current_id) = #context_menu.popup_id.take() {
-                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
-                }
-            });
-
-            let set_id = context_menu
-                .clone()
-                .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
-            item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
-                let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, &owner);
-                let slint_show = quote! {
-                    #close_popup
-                    let access_position = sp::Box::new(move || position);
-                    let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
-                        &sp::VRc::into_dyn(popup_instance.into()),
-                        access_position,
-                        sp::PopupClosePolicy::CloseOnClickOutside,
-                        &#context_menu_rc,
-                        sp::WindowKind::Menu,
-                        sp::Box::new(|_| {}),
-                    );
-                    #set_id;
-                    #popup_id::user_init(popup_instance_vrc);
-                };
-
-                let common_init = quote! {
-                    let position = #position;
-                    let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
-                    let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let parent_weak = _self.self_weak.get().unwrap().clone();
-                    let window_adapter = #window_adapter_tokens;
-                };
-
-                if let Expression::NumberLiteral(tree_index) = entries {
-                    // We have an MenuItem tree
-                    let current_sub_component = ctx.current_sub_component().unwrap();
-                    let item_tree_id = inner_component_id(
-                        &ctx.compilation_unit.sub_components
-                            [current_sub_component.menu_item_trees[*tree_index as usize].root],
-                    );
-                    quote! {{
-                        #common_init
-                        let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                        let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
-                        let context_menu_item_tree_ = context_menu_item_tree.clone();
-                        {
-                            let mut entries = sp::SharedVector::default();
-                            sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
-                            let _self = popup_instance_vrc.as_pin_ref();
-                            #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
-                            let context_menu_item_tree = context_menu_item_tree_.clone();
-                            #access_sub_menu.set_handler(move |entry| {
-                                let mut entries = sp::SharedVector::default();
-                                sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
-                                sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                            });
-                            let context_menu_item_tree = context_menu_item_tree_.clone();
-                            #access_activated.set_handler(move |entry| {
-                                sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
-                            });
-                            let self_weak = parent_weak.clone();
-                            #access_close.set_handler(move |()| {
-                                let Some(self_rc) = self_weak.upgrade() else { return };
-                                let _self = self_rc.as_pin_ref();
-                                #close_popup
-                            });
-                        }
-                        let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
-                        if !sp::WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(context_menu_item_tree, position, &#context_menu_rc) {
-                            #slint_show
-                        }
-                    }}
-                } else {
-                    // ShowPopupMenuInternal: entries should be an expression of type array of MenuEntry
-                    debug_assert!(
-                        matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
-                    );
-                    let entries = compile_expression(entries, ctx);
-                    let forward_callback = |access, cb| {
-                        let call = context_menu
-                            .clone()
-                            .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
-                        quote!(
-                            let self_weak = parent_weak.clone();
-                            #access.set_handler(move |entry| {
-                                if let Some(self_rc) = self_weak.upgrade() {
-                                    let _self = self_rc.as_pin_ref();
-                                    #call
-                                } else { ::core::default::Default::default() }
-                            });
-                        )
-                    };
-                    let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
-                    let fw_activated =
-                        forward_callback(access_activated.clone(), quote!(activated));
-                    quote! {{
-                        #common_init
-                        let entries = #entries;
-                        {
-                            let _self = popup_instance_vrc.as_pin_ref();
-                            #access_entries.set(entries.clone());
-                            #fw_sub_menu
-                            #fw_activated
-                            let self_weak = parent_weak.clone();
-                            #access_close.set_handler(move |()| {
-                                let Some(self_rc) = self_weak.upgrade() else { return };
-                                let _self = self_rc.as_pin_ref();
-                                #close_popup
-                            });
-                        }
-                        #slint_show
-                    }}
-                }
-            })
+            compile_show_popup_menu(arguments, ctx)
         }
-        BuiltinFunction::SetSelectionOffsets => {
-            if let [llr::Expression::PropertyReference(pr), anchor_expr, focus_expr] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                let anchor = compile_expression(anchor_expr, ctx);
-                let focus = compile_expression(focus_expr, ctx);
-
-                item_owner(pr).then(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #anchor as i32, #focus as i32)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
-            }
-        }
-        BuiltinFunction::HasSelection => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, _) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(#item.has_selection())
-                })
-            } else {
-                panic!("internal error: invalid args to has-selection {arguments:?}")
-            }
-        }
-        BuiltinFunction::ItemFontMetrics => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        #item.font_metrics(#window_adapter_tokens, &#item_rc)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
-            }
-        }
+        BuiltinFunction::SetSelectionOffsets => compile_set_selection_offsets(arguments, ctx),
+        BuiltinFunction::HasSelection => compile_has_selection(arguments, ctx),
+        BuiltinFunction::ItemFontMetrics => compile_item_font_metrics(arguments, ctx),
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
-            if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                let constraint = compile_expression(constraint_expr, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        sp::Item::layout_info(#item, #orient, #constraint as _, #window_adapter_tokens, &#item_rc)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
-            }
+            compile_implicit_layout_info(orient, arguments, ctx)
         }
         BuiltinFunction::RegisterCustomFontByPath => {
-            if let [Expression::StringLiteral(path)] = arguments {
-                let global_access = &ctx.generator_state.global_access;
-                let path = path.as_str();
-                // The `?` requires the enclosing generated function to return `Result`: font
-                // registration is only emitted in `init()`, which does.
-                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
-            } else {
-                panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
-            }
+            compile_register_custom_font_by_path(arguments, ctx)
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
-            if let [Expression::NumberLiteral(resource_id)] = &arguments {
-                let global_access = &ctx.generator_state.global_access;
-                let resource_id: usize = *resource_id as _;
-                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_memory(#symbol.into()).unwrap())
-            } else {
-                panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
-            }
+            compile_register_custom_font_by_memory(arguments, ctx)
         }
-        BuiltinFunction::RegisterBitmapFont => {
-            if let [Expression::NumberLiteral(resource_id)] = &arguments {
-                let global_access = &ctx.generator_state.global_access;
-                let resource_id: usize = *resource_id as _;
-                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(#global_access.window_adapter_ref()?.renderer().register_bitmap_font(&#symbol))
-            } else {
-                panic!("internal error: invalid args to RegisterBitmapFont must be a number")
-            }
-        }
-        BuiltinFunction::GetWindowScaleFactor => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        }
-        BuiltinFunction::GetWindowDefaultFontSize => {
-            quote!(
-                sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
-                    &_self.self_weak.get().unwrap().upgrade().unwrap()
-                ))
-                .get()
-            )
-        }
-        BuiltinFunction::AnimationTick => {
-            quote!(sp::animation_tick())
-        }
-        BuiltinFunction::Debug => {
-            let context = access_context(ctx);
-            quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
-        }
+        BuiltinFunction::RegisterBitmapFont => compile_register_bitmap_font(arguments, ctx),
+        BuiltinFunction::GetWindowScaleFactor => compile_get_window_scale_factor(ctx),
+        BuiltinFunction::GetWindowDefaultFontSize => quote!(
+            sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
+                &_self.self_weak.get().unwrap().upgrade().unwrap()
+            ))
+            .get()
+        ),
+        BuiltinFunction::AnimationTick => quote!(sp::animation_tick()),
+        BuiltinFunction::Debug => compile_debug(arguments, ctx),
         BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
-        BuiltinFunction::DecimalSeparator => {
-            let context = access_context(ctx);
-            quote!(sp::SharedString::from(#context.locale_decimal_separator()))
-        }
-        BuiltinFunction::Mod => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
-        }
+        BuiltinFunction::DecimalSeparator => compile_decimal_separator(ctx),
+        BuiltinFunction::Mod => compile_mod(arguments, ctx),
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
         BuiltinFunction::Floor => quote!((#(#a)* as f64).floor()),
@@ -5216,460 +4790,1068 @@ fn compile_builtin_function_call(
         BuiltinFunction::ASin => quote!((#(#a)* as f64).asin().to_degrees()),
         BuiltinFunction::ACos => quote!((#(#a)* as f64).acos().to_degrees()),
         BuiltinFunction::ATan => quote!((#(#a)* as f64).atan().to_degrees()),
-        BuiltinFunction::ATan2 => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).atan2(#a2 as f64).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).log(#a2 as f64))
-        }
+        BuiltinFunction::ATan2 => compile_atan2(arguments, ctx),
+        BuiltinFunction::Log => compile_log(arguments, ctx),
         BuiltinFunction::Ln => quote!((#(#a)* as f64).ln()),
-        BuiltinFunction::Pow => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).powf(#a2 as f64))
-        }
+        BuiltinFunction::Pow => compile_pow(arguments, ctx),
         BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
-        BuiltinFunction::ToFixed => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            let context = access_context(ctx);
-            quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
-        }
-        BuiltinFunction::ToPrecision => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            let context = access_context(ctx);
-            quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
-        }
-        BuiltinFunction::ToStringUnlocalized => {
-            let a1 = a.next().unwrap();
-            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
-        }
-        BuiltinFunction::StringToFloat => {
-            let context = access_context(ctx);
-            quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
-        }
-        BuiltinFunction::StringIsFloat => {
-            let context = access_context(ctx);
-            quote!(#context.parse_number(#(#a)*.as_str()).is_some())
-        }
+        BuiltinFunction::ToFixed => compile_to_fixed(arguments, ctx),
+        BuiltinFunction::ToPrecision => compile_to_precision(arguments, ctx),
+        BuiltinFunction::ToStringUnlocalized => compile_to_string_unlocalized(arguments, ctx),
+        BuiltinFunction::StringToFloat => compile_string_to_float(arguments, ctx),
+        BuiltinFunction::StringIsFloat => compile_string_is_float(arguments, ctx),
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
-        BuiltinFunction::StringCharacterCount => {
-            quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
-        }
+        BuiltinFunction::StringCharacterCount => compile_string_character_count(arguments, ctx),
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
-        BuiltinFunction::StringStartsWith => {
-            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
-            quote!(#s.starts_with(#pat.as_str()))
-        }
-        BuiltinFunction::StringEndsWith => {
-            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
-            quote!(#s.ends_with(#pat.as_str()))
-        }
-        BuiltinFunction::StringReplaceAll => {
-            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_replace_all(&#s, #from.as_str(), #to.as_str()))
-        }
+        BuiltinFunction::StringStartsWith => compile_string_starts_with(arguments, ctx),
+        BuiltinFunction::StringEndsWith => compile_string_ends_with(arguments, ctx),
+        BuiltinFunction::StringReplaceAll => compile_string_replace_all(arguments, ctx),
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
         BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),
-        BuiltinFunction::ColorBrighter => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.brighter(#factor as f32))
-        }
-        BuiltinFunction::ColorDarker => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.darker(#factor as f32))
-        }
-        BuiltinFunction::ColorTransparentize => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.transparentize(#factor as f32))
-        }
-        BuiltinFunction::ColorMix => {
-            let x = a.next().unwrap();
-            let y = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.mix(&#y.into(), #factor as f32))
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            let x = a.next().unwrap();
-            let alpha = a.next().unwrap();
-            quote!(#x.with_alpha(#alpha as f32))
-        }
+        BuiltinFunction::ColorBrighter => compile_color_brighter(arguments, ctx),
+        BuiltinFunction::ColorDarker => compile_color_darker(arguments, ctx),
+        BuiltinFunction::ColorTransparentize => compile_color_transparentize(arguments, ctx),
+        BuiltinFunction::ColorMix => compile_color_mix(arguments, ctx),
+        BuiltinFunction::ColorWithAlpha => compile_color_with_alpha(arguments, ctx),
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
-        BuiltinFunction::ArrayLength => {
-            quote!(match &#(#a)* { x => {
-                x.model_tracker().track_row_count_changes();
-                x.row_count() as i32
-            }})
+        BuiltinFunction::ArrayLength => compile_array_length(arguments, ctx),
+        BuiltinFunction::ArrayPush => compile_array_push(arguments, ctx),
+        BuiltinFunction::ArrayRemove => compile_array_remove(arguments, ctx),
+        BuiltinFunction::ArrayInsert => compile_array_insert(arguments, ctx),
+        BuiltinFunction::Rgb => compile_rgb(arguments, ctx),
+        BuiltinFunction::Hsv => compile_hsv(arguments, ctx),
+        BuiltinFunction::Oklch => compile_oklch(arguments, ctx),
+        BuiltinFunction::ColorScheme => compile_color_scheme(ctx),
+        BuiltinFunction::AccentColor => compile_accent_color(ctx),
+        BuiltinFunction::SupportsNativeMenuBar => compile_supports_native_menu_bar(ctx),
+        BuiltinFunction::SetupMenuBar => compile_setup_menu_bar(arguments, ctx),
+        BuiltinFunction::SetupSystemTrayIcon => compile_setup_system_tray_icon(arguments, ctx),
+        BuiltinFunction::MonthDayCount => compile_month_day_count(arguments, ctx),
+        BuiltinFunction::MonthOffset => compile_month_offset(arguments, ctx),
+        BuiltinFunction::FormatDate => compile_format_date(arguments, ctx),
+        BuiltinFunction::ValidDate => compile_valid_date(arguments, ctx),
+        BuiltinFunction::ParseDate => compile_parse_date(arguments, ctx),
+        BuiltinFunction::DateNow => {
+            quote!(sp::ModelRc::new(sp::VecModel::from_slice(&sp::date_now())))
         }
-        BuiltinFunction::ArrayPush => {
-            let context = access_context(ctx);
-            let model = a.next().unwrap();
-            let value = a.next().unwrap();
-            quote!({
-                let model = &#model;
-                let value = #value;
-                sp::report_model_error(&#context, "push", None, model.push_row(value));
-            })
+        BuiltinFunction::TextInputFocused => compile_text_input_focused(ctx),
+        BuiltinFunction::SetTextInputFocused => compile_set_text_input_focused(arguments, ctx),
+        BuiltinFunction::Translate => compile_translate(arguments, ctx),
+        BuiltinFunction::Use24HourFormat => {
+            quote!(slint::private_unstable_api::use_24_hour_format())
         }
-        BuiltinFunction::ArrayRemove => {
-            let context = access_context(ctx);
-            let model = a.next().unwrap();
-            let index = a.next().unwrap();
-            quote!({
-                let model = &#model;
-                let result = match usize::try_from(#index) {
-                    Ok(index) => model.remove_row(index),
-                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
-                };
-                sp::report_model_error(&#context, "remove", None, result);
-            })
+        BuiltinFunction::ItemAbsolutePosition => compile_item_absolute_position(arguments, ctx),
+        BuiltinFunction::UpdateTimers => quote!(_self.update_timers()),
+        BuiltinFunction::DetectOperatingSystem => quote!(sp::detect_operating_system()),
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartTimer => unreachable!(),
+        BuiltinFunction::StopTimer => unreachable!(),
+        BuiltinFunction::RestartTimer => compile_restart_timer(arguments, ctx),
+        BuiltinFunction::OpenUrl => compile_open_url(arguments, ctx),
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            quote!(sp::macos_bring_all_windows_to_front())
         }
-        BuiltinFunction::ArrayInsert => {
-            let context = access_context(ctx);
-            let model = a.next().unwrap();
-            let index = a.next().unwrap();
-            let value = a.next().unwrap();
-            quote!({
-                let model = &#model;
-                let index = #index;
-                let value = #value;
-                let result = match usize::try_from(index) {
-                    Ok(index) => model.insert_row(index, value),
-                    Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
-                };
-                sp::report_model_error(&#context, "insert", None, result);
-            })
-        }
-        BuiltinFunction::Rgb => {
-            let (r, g, b, a) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let r: u8 = (#r as u32).min(255) as u8;
-                let g: u8 = (#g as u32).min(255) as u8;
-                let b: u8 = (#b as u32).min(255) as u8;
-                let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
-                sp::Color::from_argb_u8(a, r, g, b)
-            })
-        }
-        BuiltinFunction::Hsv => {
-            let (h, s, v, a) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let s: f32 = (#s as f32).max(0.).min(1.) as f32;
-                let v: f32 = (#v as f32).max(0.).min(1.) as f32;
-                let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
-                sp::Color::from_hsva(#h as f32, s, v, a)
-            })
-        }
-        BuiltinFunction::Oklch => {
-            let (l, c, h, alpha) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let l: f32 = (#l as f32).max(0.).min(1.) as f32;
-                let c: f32 = (#c as f32).max(0.) as f32;
-                let alpha: f32 = (#alpha as f32).max(0.).min(1.) as f32;
-                sp::Color::from_oklch(l, c, #h as f32, alpha)
-            })
-        }
-        BuiltinFunction::ColorScheme => {
-            // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
-            // resolves against the tray's own scheme; everything else falls back to the
-            // process-wide value held by the SlintContext.
-            let global_access = &ctx.generator_state.global_access;
-            let context = access_context(ctx);
-            quote!({
-                let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
-                #context.color_scheme(Some(&_root))
-            })
-        }
-        BuiltinFunction::AccentColor => {
-            let context = access_context(ctx);
-            quote!(#context.accent_color())
-        }
-        BuiltinFunction::SupportsNativeMenuBar => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
-        }
-        BuiltinFunction::SetupMenuBar => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            let [
-                Expression::PropertyReference(entries_r),
-                Expression::PropertyReference(sub_menu_r),
-                Expression::PropertyReference(activated_r),
-                Expression::NumberLiteral(tree_index),
-                Expression::BoolLiteral(no_native),
-                condition,
-                visible,
-                ..,
-            ] = arguments
-            else {
-                panic!("internal error: incorrect arguments to SetupMenuBar")
-            };
+        BuiltinFunction::ParseMarkdown => compile_parse_markdown(arguments, ctx),
+        BuiltinFunction::StringToStyledText => compile_string_to_styled_text(arguments, ctx),
+        BuiltinFunction::ColorToStyledText => compile_color_to_styled_text(arguments, ctx),
+        BuiltinFunction::PathPointAt => compile_path_point_at(arguments, ctx),
+        BuiltinFunction::PathAngleAt => compile_path_angle_at(arguments, ctx),
+        BuiltinFunction::ArrayAny => compile_array_any(arguments, ctx),
+        BuiltinFunction::ArrayAll => compile_array_all(arguments, ctx),
+        BuiltinFunction::ArrayFindIndex => compile_array_find_index(arguments, ctx),
+    }
+}
 
+fn compile_get_window_scale_factor(ctx: &EvaluationContext) -> TokenStream {
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
+}
+
+fn compile_debug(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
+}
+
+fn compile_decimal_separator(ctx: &EvaluationContext) -> TokenStream {
+    let context = access_context(ctx);
+    quote!(sp::SharedString::from(#context.locale_decimal_separator()))
+}
+
+fn compile_mod(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
+}
+
+fn compile_atan2(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    quote!((#a1 as f64).atan2(#a2 as f64).to_degrees())
+}
+
+fn compile_log(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    quote!((#a1 as f64).log(#a2 as f64))
+}
+
+fn compile_pow(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    quote!((#a1 as f64).powf(#a2 as f64))
+}
+
+fn compile_to_string_unlocalized(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let a1 = a.next().unwrap();
+    quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
+}
+
+fn compile_string_to_float(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
+}
+
+fn compile_string_is_float(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    quote!(#context.parse_number(#(#a)*.as_str()).is_some())
+}
+
+fn compile_string_character_count(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
+}
+
+fn compile_string_starts_with(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+    quote!(#s.starts_with(#pat.as_str()))
+}
+
+fn compile_string_ends_with(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+    quote!(#s.ends_with(#pat.as_str()))
+}
+
+fn compile_string_replace_all(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+    quote!(sp::shared_string_replace_all(&#s, #from.as_str(), #to.as_str()))
+}
+
+fn compile_accent_color(ctx: &EvaluationContext) -> TokenStream {
+    let context = access_context(ctx);
+    quote!(#context.accent_color())
+}
+
+fn compile_supports_native_menu_bar(ctx: &EvaluationContext) -> TokenStream {
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
+}
+
+fn compile_month_day_count(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (m, y) = (a.next().unwrap(), a.next().unwrap());
+    quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
+}
+
+fn compile_month_offset(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (m, y) = (a.next().unwrap(), a.next().unwrap());
+    quote!(sp::month_offset(#m as u32, #y as i32))
+}
+
+fn compile_valid_date(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (d, f) = (a.next().unwrap(), a.next().unwrap());
+    quote!(sp::parse_date(#d.as_str(), #f.as_str()).is_some())
+}
+
+fn compile_parse_date(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (d, f) = (a.next().unwrap(), a.next().unwrap());
+    quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
+}
+
+fn compile_text_input_focused(ctx: &EvaluationContext) -> TokenStream {
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_focused())
+}
+
+fn compile_set_text_input_focused(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
+}
+
+fn compile_translate(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
+}
+
+fn compile_string_to_styled_text(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let string = a.next().unwrap();
+    quote!(sp::string_to_styled_text(#string.to_string()))
+}
+
+fn compile_color_to_styled_text(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let color = a.next().unwrap();
+    quote!(sp::color_to_styled_text(#color))
+}
+
+fn compile_set_focus_item(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        let window_tokens = access_window_adapter_field(ctx);
+        item_owner(pr).then(|owner| {
+            let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
+            quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, true, sp::FocusReason::Programmatic))
+        })
+    } else {
+        panic!("internal error: invalid args to SetFocusItem {arguments:?}")
+    }
+}
+
+fn compile_clear_focus_item(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        let window_tokens = access_window_adapter_field(ctx);
+        item_owner(pr).then(|owner| {
+            let (_, focus_item) = native_item_from_owner(pr, ctx, &owner);
+            quote!(sp::WindowInner::from_pub(#window_tokens.window()).set_focus_item(&#focus_item, false, sp::FocusReason::Programmatic))
+        })
+    } else {
+        panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
+    }
+}
+
+fn compile_show_popup_window(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    // `owner_ref` is the popup's declaring component (its `popup_id` and scope);
+    // `anchor_ref` is the parent item for positioning.
+    if let [
+        Expression::NumberLiteral(popup_index),
+        close_policy,
+        Expression::PropertyReference(owner_ref),
+        Expression::PropertyReference(anchor_ref),
+        is_open_args @ ..,
+    ] = arguments
+    {
+        let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
+        let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref else {
+            unreachable!()
+        };
+        for _ in 0..*parent_level {
+            component_access_tokens = match component_access_tokens {
+                MemberAccess::Option(token_stream) => MemberAccess::Option(
+                    quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
+                ),
+                MemberAccess::Direct(token_stream) => {
+                    MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                }
+                _ => unreachable!(),
+            };
+        }
+        let (suffix, _) = follow_sub_component_path_fields(
+            ctx.compilation_unit,
+            ctx.parent_sub_component_idx(*parent_level).unwrap(),
+            &local_reference.sub_component_path,
+        );
+        ctx.with_reference_scope(
+            *parent_level,
+            &local_reference.sub_component_path,
+            |parent_ctx| {
+        let popup = &ctx.compilation_unit.sub_components[parent_ctx.sub_component]
+            .popup_windows[*popup_index as usize];
+        let popup_window_id =
+            inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
+        let popup_ctx = EvaluationContext::new_sub_component(
+            ctx.compilation_unit,
+            popup.item_tree.root,
+            RustGeneratorContext { global_access: quote!(_self.globals()) },
+            Some(&parent_ctx),
+        );
+        let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+        let close_policy = compile_expression(close_policy, ctx);
+        let popup_id_name = internal_popup_id(*popup_index as usize);
+        let window_kind = if popup.is_tooltip {
+            quote!(sp::WindowKind::ToolTip)
+        } else {
+            quote!(sp::WindowKind::Popup)
+        };
+        let globals_init = quote! {
+            if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
+                shared_global.clone_with_window_adapter(popup_window_adapter)
+            } else {
+                shared_global.clone()
+            }
+        };
+        // The optional 4th argument is a property reference to the synthesized `is-open`,
+        // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
+        // directly against `ctx`/`_self`, exactly like `parent_ref`.
+        let is_open_set_expr = is_open_args.first().map(|arg| {
+            let Expression::PropertyReference(is_open_ref) = arg else {
+                unreachable!(
+                    "ShowPopupWindow is-open argument must be a property reference"
+                )
+            };
+            access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value)))
+        });
+        item_owner(anchor_ref).then_named("anchor_owner", |owner| {
+            let (_, parent_item) = native_item_from_owner(anchor_ref, ctx, &owner);
+            component_access_tokens.then(|component_access_tokens| {
+            let compo = quote!(#component_access_tokens #suffix);
+            // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
+            // immediately and with `false` from every close path (see window.rs). Passing it
+            // directly into `show_popup` avoids an extra registration call and a second popup
+            // lookup. Menus and `is-open`-less popups get a no-op setter.
+            let (is_open_self_weak_decl, is_open_setter) = match &is_open_set_expr {
+                Some(set_expr) => (
+                    quote!(let is_open_self_weak = _self.self_weak.get().unwrap().clone();),
+                    quote! {
+                        sp::Box::new(move |value: bool| {
+                            if let Some(is_open_self) = is_open_self_weak.upgrade() {
+                                let _self = is_open_self.as_pin_ref();
+                                #set_expr
+                            }
+                        })
+                    },
+                ),
+                None => (quote!(), quote!(sp::Box::new(|_| {}))),
+            };
+            quote!({
+                let parent_item = &#parent_item;
+                // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
+                let shared_global = #compo.globals.get().unwrap();
+                let window_adapter = shared_global.window_adapter_impl();
+                let window = sp::WindowInner::from_pub(window_adapter.window());
+                let globals = #globals_init;
+
+                let popup_instance = #popup_window_id::new(#compo.self_weak.get().unwrap().clone(), globals).unwrap();
+                let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+                if let Some(current_id) = #compo.#popup_id_name.take() {
+                    window.close_popup(current_id);
+                }
+
+                let popup_instance_vrc_for_position = popup_instance_vrc.clone();
+                let access_position = sp::Box::new(move || {
+                    let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                });
+
+                #is_open_self_weak_decl
+                let popup_id = window.show_popup(
+                    &sp::VRc::into_dyn(popup_instance.into()),
+                    access_position,
+                    #close_policy,
+                    parent_item,
+                    #window_kind,
+                    #is_open_setter,
+                );
+                #compo.#popup_id_name.set(Some(popup_id));
+                #popup_window_id::user_init(popup_instance_vrc.clone());
+            })
+            })
+        })
+            },
+        )
+    } else {
+        panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
+    }
+}
+
+fn compile_close_popup_window(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::NumberLiteral(popup_index), Expression::PropertyReference(parent_ref)] =
+        arguments
+    {
+        let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
+        let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref else {
+            unreachable!()
+        };
+        for _ in 0..*parent_level {
+            component_access_tokens = match component_access_tokens {
+                MemberAccess::Option(token_stream) => {
+                    MemberAccess::Option(quote!(#token_stream.and_then(|a| a.parent.upgrade())))
+                }
+                MemberAccess::Direct(token_stream) => {
+                    MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
+                }
+                _ => unreachable!(),
+            };
+        }
+        let (suffix, _) = follow_sub_component_path_fields(
+            ctx.compilation_unit,
+            ctx.parent_sub_component_idx(*parent_level).unwrap(),
+            &local_reference.sub_component_path,
+        );
+        let popup_id_name = internal_popup_id(*popup_index as usize);
+        let current_id_tokens = match component_access_tokens {
+            MemberAccess::Option(token_stream) => quote!(
+                #token_stream.and_then(|a| a.as_pin_ref() #suffix.#popup_id_name.take().map(|id| (a.as_pin_ref() #suffix.globals.get().unwrap().clone(), id)))
+            ),
+            MemberAccess::Direct(token_stream) => {
+                quote!(#token_stream.as_ref() #suffix.#popup_id_name.take().map(|id|(#token_stream.as_ref() #suffix.globals.get().unwrap().clone(), id)))
+            }
+            _ => unreachable!(),
+        };
+        quote!(
+            if let Some((globals, current_id)) = #current_id_tokens {
+                sp::WindowInner::from_pub(globals.window_adapter_impl().window()).close_popup(current_id);
+            }
+        )
+    } else {
+        panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
+    }
+}
+
+fn compile_show_popup_menu(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments else {
+        panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
+    };
+
+    let context_menu = access_member(context_menu_ref, ctx);
+    let position = compile_expression(position, ctx);
+
+    let popup = ctx
+        .compilation_unit
+        .popup_menu
+        .as_ref()
+        .expect("there should be a popup menu if we want to show it");
+    let popup_id = inner_component_id(&ctx.compilation_unit.sub_components[popup.item_tree.root]);
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+
+    let popup_ctx = EvaluationContext::new_sub_component(
+        ctx.compilation_unit,
+        popup.item_tree.root,
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        None,
+    );
+    let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
+    let access_sub_menu = access_member(&popup.sub_menu, &popup_ctx).unwrap();
+    let access_activated = access_member(&popup.activated, &popup_ctx).unwrap();
+    let access_close = access_member(&popup.close, &popup_ctx).unwrap();
+
+    let close_popup = context_menu.clone().then(|context_menu| {
+        quote! {
+            if let Some(current_id) = #context_menu.popup_id.take() {
+                sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+            }
+        }
+    });
+
+    let set_id =
+        context_menu.clone().then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
+    item_owner(context_menu_ref).then_named("context_menu_owner", |owner| {
+        let (_, context_menu_rc) = native_item_from_owner(context_menu_ref, ctx, &owner);
+        let slint_show = quote! {
+            #close_popup
+            let access_position = sp::Box::new(move || position);
+            let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
+                &sp::VRc::into_dyn(popup_instance.into()),
+                access_position,
+                sp::PopupClosePolicy::CloseOnClickOutside,
+                &#context_menu_rc,
+                sp::WindowKind::Menu,
+                sp::Box::new(|_| {}),
+            );
+            #set_id;
+            #popup_id::user_init(popup_instance_vrc);
+        };
+
+        let common_init = quote! {
+            let position = #position;
+            let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+            let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
+            let parent_weak = _self.self_weak.get().unwrap().clone();
+            let window_adapter = #window_adapter_tokens;
+        };
+
+        if let Expression::NumberLiteral(tree_index) = entries {
             // We have an MenuItem tree
             let current_sub_component = ctx.current_sub_component().unwrap();
             let item_tree_id = inner_component_id(
                 &ctx.compilation_unit.sub_components
                     [current_sub_component.menu_item_trees[*tree_index as usize].root],
             );
-
-            let access_entries = access_member(entries_r, ctx).unwrap();
-            let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
-            let access_activated = access_member(activated_r, ctx).unwrap();
-
-            let compile_prop = |prop_expr: &Expression| {
-                let binding = compile_expression(prop_expr, ctx);
-                quote!({
-                    let self_weak = _self.self_weak.get().unwrap().clone();
-                    move || {
-                        let Some(self_rc) = self_weak.upgrade() else { return false };
-                        let _self = self_rc.as_pin_ref();
-                        #binding
-                    }
-                })
-            };
-
-            let condition_tokens = compile_prop(condition);
-            let visible_tokens = compile_prop(visible);
-
-            let native_impl = {
-                let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new_with_condition_and_visible(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
-                if *no_native {
-                    quote!(let menu_item_tree = #menu_from_item_tree;)
-                } else {
-                    quote! {
-                        let menu_item_tree = #menu_from_item_tree;
-                        if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                            let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
-                            sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
-                        }
-                    }
-                }
-            };
-
-            quote!({
+            quote! {{
+                #common_init
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                #native_impl
-                // These handlers keep the menu item tree alive on the component; the native menu bar
-                // holds only a weak reference to it.
+                let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
+                let context_menu_item_tree_ = context_menu_item_tree.clone();
                 {
-                    let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
-                    #access_entries.set_binding(move || {
-                        let mut entries = sp::SharedVector::default();
-                        sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::None, &mut entries);
-                        sp::ModelRc::new(sp::SharedVectorModel::from(entries))
-                    });
-                    let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
+                    let mut entries = sp::SharedVector::default();
+                    sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::None, &mut entries);
+                    let _self = popup_instance_vrc.as_pin_ref();
+                    #access_entries.set(sp::ModelRc::new(sp::SharedVectorModel::from(entries)));
+                    let context_menu_item_tree = context_menu_item_tree_.clone();
                     #access_sub_menu.set_handler(move |entry| {
                         let mut entries = sp::SharedVector::default();
-                        sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::Some(&entry.0), &mut entries);
+                        sp::Menu::sub_menu(&*context_menu_item_tree, sp::Option::Some(&entry.0), &mut entries);
                         sp::ModelRc::new(sp::SharedVectorModel::from(entries))
                     });
-                    let menu_item_tree_ = menu_item_tree.clone();
+                    let context_menu_item_tree = context_menu_item_tree_.clone();
                     #access_activated.set_handler(move |entry| {
-                        sp::VRc::borrow(&menu_item_tree_).activate(&entry.0);
+                        sp::Menu::activate(&*context_menu_item_tree_, &entry.0);
+                    });
+                    let self_weak = parent_weak.clone();
+                    #access_close.set_handler(move |()| {
+                        let Some(self_rc) = self_weak.upgrade() else { return };
+                        let _self = self_rc.as_pin_ref();
+                        #close_popup
                     });
                 }
-                sp::WindowInner::from_pub(#window_adapter_tokens.window())
-                    .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
-            })
-        }
-        BuiltinFunction::SetupSystemTrayIcon => {
-            let [
-                Expression::PropertyReference(system_tray_ref),
-                Expression::NumberLiteral(tree_index),
-                rest @ ..,
-            ] = arguments
-            else {
-                panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
-            };
-
-            let current_sub_component = ctx.current_sub_component().unwrap();
-            let item_tree_id = inner_component_id(
-                &ctx.compilation_unit.sub_components
-                    [current_sub_component.menu_item_trees[*tree_index as usize].root],
+                let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
+                if !sp::WindowInner::from_pub(window_adapter.window()).show_native_popup_menu(context_menu_item_tree, position, &#context_menu_rc) {
+                    #slint_show
+                }
+            }}
+        } else {
+            // ShowPopupMenuInternal: entries should be an expression of type array of MenuEntry
+            debug_assert!(
+                matches!(entries.ty(ctx), Type::Array(ty) if matches!(&*ty, Type::Struct{..}))
             );
-
-            let system_tray = access_member(system_tray_ref, ctx).unwrap();
-            let (_, system_tray_rc) = native_item_from_owner(system_tray_ref, ctx, &quote!(_self));
-
-            // `if cond : Menu { ... }` lowers the condition into a closure that
-            // gates the menu's shadow tree.
-            let condition_tokens = if let Some(condition) = rest.first() {
-                let binding = compile_expression(condition, ctx);
-                quote!({
-                    let self_weak = _self.self_weak.get().unwrap().clone();
-                    move || {
-                        let Some(self_rc) = self_weak.upgrade() else { return false };
-                        let _self = self_rc.as_pin_ref();
-                        #binding
-                    }
-                })
-            } else {
-                quote!(|| true)
+            let entries = compile_expression(entries, ctx);
+            let forward_callback = |access, cb| {
+                let call = context_menu
+                    .clone()
+                    .map_or_default(|context_menu| quote!(#context_menu.#cb.call(entry)));
+                quote!(
+                    let self_weak = parent_weak.clone();
+                    #access.set_handler(move |entry| {
+                        if let Some(self_rc) = self_weak.upgrade() {
+                            let _self = self_rc.as_pin_ref();
+                            #call
+                        } else { ::core::default::Default::default() }
+                    });
+                )
             };
+            let fw_sub_menu = forward_callback(access_sub_menu.clone(), quote!(sub_menu));
+            let fw_activated =
+                forward_callback(access_activated.clone(), quote!(activated));
+            quote! {{
+                #common_init
+                let entries = #entries;
+                {
+                    let _self = popup_instance_vrc.as_pin_ref();
+                    #access_entries.set(entries.clone());
+                    #fw_sub_menu
+                    #fw_activated
+                    let self_weak = parent_weak.clone();
+                    #access_close.set_handler(move |()| {
+                        let Some(self_rc) = self_weak.upgrade() else { return };
+                        let _self = self_rc.as_pin_ref();
+                        #close_popup
+                    });
+                }
+                #slint_show
+            }}
+        }
+    })
+}
 
-            let menu_from_item_tree = quote!(sp::MenuFromItemTree::new_with_condition_and_visible(
-                sp::VRc::into_dyn(menu_item_tree_instance),
-                #condition_tokens,
-                || true
-            ));
+fn compile_set_selection_offsets(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [llr::Expression::PropertyReference(pr), anchor_expr, focus_expr] = arguments {
+        let window_adapter_tokens = access_window_adapter_field(ctx);
+        let anchor = compile_expression(anchor_expr, ctx);
+        let focus = compile_expression(focus_expr, ctx);
 
-            quote!({
-                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
-                #system_tray.set_menu(&#system_tray_rc, menu_vrc);
-            })
-        }
-        BuiltinFunction::MonthDayCount => {
-            let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
-        }
-        BuiltinFunction::MonthOffset => {
-            let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::month_offset(#m as u32, #y as i32))
-        }
-        BuiltinFunction::FormatDate => {
-            let (f, d, m, y) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(sp::format_date(&#f, #d as u32, #m as u32, #y as i32))
-        }
-        BuiltinFunction::ValidDate => {
-            let (d, f) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::parse_date(#d.as_str(), #f.as_str()).is_some())
-        }
-        BuiltinFunction::ParseDate => {
-            let (d, f) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
-        }
-        BuiltinFunction::DateNow => {
-            quote!(sp::ModelRc::new(sp::VecModel::from_slice(&sp::date_now())))
-        }
-        BuiltinFunction::TextInputFocused => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_focused())
-        }
-        BuiltinFunction::SetTextInputFocused => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
-        }
-        BuiltinFunction::Translate => {
-            let context = access_context(ctx);
-            quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
-        }
-        BuiltinFunction::Use24HourFormat => {
-            quote!(slint::private_unstable_api::use_24_hour_format())
-        }
-        BuiltinFunction::ItemAbsolutePosition => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        sp::logical_position_to_api(item_rc.map_to_window(item_rc.geometry().origin))
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
-            }
-        }
-        BuiltinFunction::UpdateTimers => {
-            quote!(_self.update_timers())
-        }
-        BuiltinFunction::DetectOperatingSystem => {
-            quote!(sp::detect_operating_system())
-        }
-        // start and stop are unreachable because they are lowered to simple assignment of running
-        BuiltinFunction::StartTimer => unreachable!(),
-        BuiltinFunction::StopTimer => unreachable!(),
-        BuiltinFunction::RestartTimer => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                access_member(pr, ctx).then(|timer| quote!(#timer.restart()))
-            } else {
-                panic!("internal error: invalid args to RestartTimer {arguments:?}")
-            }
-        }
-        BuiltinFunction::OpenUrl => {
-            let url = a.next().unwrap();
-            let context = access_context(ctx);
-            quote!(sp::open_url(&#url, &#context).is_ok())
-        }
-        BuiltinFunction::MacosBringAllWindowsToFront => {
-            quote!(sp::macos_bring_all_windows_to_front())
-        }
-        BuiltinFunction::ParseMarkdown => {
-            let format_string = a.next().unwrap();
-            let args = a.next().unwrap();
-            quote!(sp::parse_markdown(&#format_string, &#args))
-        }
-        BuiltinFunction::StringToStyledText => {
-            let string = a.next().unwrap();
-            quote!(sp::string_to_styled_text(#string.to_string()))
-        }
-        BuiltinFunction::ColorToStyledText => {
-            let color = a.next().unwrap();
-            quote!(sp::color_to_styled_text(#color))
-        }
-        BuiltinFunction::PathPointAt => {
-            if let [Expression::PropertyReference(pr), t] = arguments {
-                let t = compile_expression(t, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        sp::logical_position_to_api(
-                            item_rc
-                                .downcast::<sp::Path>()
-                                .unwrap()
-                                .as_pin_ref()
-                                .point_at(&item_rc, #t as f32),
-                        )
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to PathPointAt {arguments:?}")
-            }
-        }
-        BuiltinFunction::PathAngleAt => {
-            if let [Expression::PropertyReference(pr), t] = arguments {
-                let t = compile_expression(t, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        item_rc
-                            .downcast::<sp::Path>()
-                            .unwrap()
-                            .as_pin_ref()
-                            .angle_at(&item_rc, #t as f32)
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to PathAngleAt {arguments:?}")
-            }
-        }
-        BuiltinFunction::ArrayAny => {
-            let model = a.next().unwrap();
-            let predicate = a.next().unwrap();
-            quote!(sp::model_any(&#model, #predicate))
-        }
-        BuiltinFunction::ArrayAll => {
-            let model = a.next().unwrap();
-            let predicate = a.next().unwrap();
-            quote!(sp::model_all(&#model, #predicate))
-        }
-        BuiltinFunction::ArrayFindIndex => {
-            let model = a.next().unwrap();
-            let predicate = a.next().unwrap();
-            quote!(sp::model_find_index(&#model, #predicate))
-        }
+        item_owner(pr).then(|owner| {
+            let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!(
+                #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #anchor as i32, #focus as i32)
+            )
+        })
+    } else {
+        panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
     }
+}
+
+fn compile_has_selection(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        item_owner(pr).map_or_default(|owner| {
+            let (item, _) = native_item_from_owner(pr, ctx, &owner);
+            quote!(#item.has_selection())
+        })
+    } else {
+        panic!("internal error: invalid args to has-selection {arguments:?}")
+    }
+}
+
+fn compile_item_font_metrics(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        let window_adapter_tokens = access_window_adapter_field(ctx);
+        item_owner(pr).map_or_default(|owner| {
+            let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!(
+                #item.font_metrics(#window_adapter_tokens, &#item_rc)
+            )
+        })
+    } else {
+        panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
+    }
+}
+
+fn compile_implicit_layout_info(
+    orient: Orientation,
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
+        let window_adapter_tokens = access_window_adapter_field(ctx);
+        let constraint = compile_expression(constraint_expr, ctx);
+        item_owner(pr).map_or_default(|owner| {
+            let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!(
+                sp::Item::layout_info(#item, #orient, #constraint as _, #window_adapter_tokens, &#item_rc)
+            )
+        })
+    } else {
+        panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
+    }
+}
+
+fn compile_register_custom_font_by_path(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    if let [Expression::StringLiteral(path)] = arguments {
+        let global_access = &ctx.generator_state.global_access;
+        let path = path.as_str();
+        // The `?` requires the enclosing generated function to return `Result`: font
+        // registration is only emitted in `init()`, which does.
+        quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
+    } else {
+        panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
+    }
+}
+
+fn compile_register_custom_font_by_memory(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    if let [Expression::NumberLiteral(resource_id)] = &arguments {
+        let global_access = &ctx.generator_state.global_access;
+        let resource_id: usize = *resource_id as _;
+        let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+        quote!(#global_access.window_adapter_ref()?.renderer().register_font_from_memory(#symbol.into()).unwrap())
+    } else {
+        panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
+    }
+}
+
+fn compile_register_bitmap_font(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::NumberLiteral(resource_id)] = &arguments {
+        let global_access = &ctx.generator_state.global_access;
+        let resource_id: usize = *resource_id as _;
+        let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
+        quote!(#global_access.window_adapter_ref()?.renderer().register_bitmap_font(&#symbol))
+    } else {
+        panic!("internal error: invalid args to RegisterBitmapFont must be a number")
+    }
+}
+
+fn compile_to_fixed(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    let context = access_context(ctx);
+    quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
+}
+
+fn compile_to_precision(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
+    let context = access_context(ctx);
+    quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
+}
+
+fn compile_color_brighter(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let x = a.next().unwrap();
+    let factor = a.next().unwrap();
+    quote!(#x.brighter(#factor as f32))
+}
+
+fn compile_color_darker(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let x = a.next().unwrap();
+    let factor = a.next().unwrap();
+    quote!(#x.darker(#factor as f32))
+}
+
+fn compile_color_transparentize(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let x = a.next().unwrap();
+    let factor = a.next().unwrap();
+    quote!(#x.transparentize(#factor as f32))
+}
+
+fn compile_color_mix(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let x = a.next().unwrap();
+    let y = a.next().unwrap();
+    let factor = a.next().unwrap();
+    quote!(#x.mix(&#y.into(), #factor as f32))
+}
+
+fn compile_color_with_alpha(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let x = a.next().unwrap();
+    let alpha = a.next().unwrap();
+    quote!(#x.with_alpha(#alpha as f32))
+}
+
+fn compile_array_length(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    quote!(match &#(#a)* { x => {
+        x.model_tracker().track_row_count_changes();
+        x.row_count() as i32
+    }})
+}
+
+fn compile_array_push(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    let model = a.next().unwrap();
+    let value = a.next().unwrap();
+    quote!({
+        let model = &#model;
+        let value = #value;
+        sp::report_model_error(&#context, "push", None, model.push_row(value));
+    })
+}
+
+fn compile_array_remove(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    let model = a.next().unwrap();
+    let index = a.next().unwrap();
+    quote!({
+        let model = &#model;
+        let result = match usize::try_from(#index) {
+            Ok(index) => model.remove_row(index),
+            Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+        };
+        sp::report_model_error(&#context, "remove", None, result);
+    })
+}
+
+fn compile_array_insert(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let context = access_context(ctx);
+    let model = a.next().unwrap();
+    let index = a.next().unwrap();
+    let value = a.next().unwrap();
+    quote!({
+        let model = &#model;
+        let index = #index;
+        let value = #value;
+        let result = match usize::try_from(index) {
+            Ok(index) => model.insert_row(index, value),
+            Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
+        };
+        sp::report_model_error(&#context, "insert", None, result);
+    })
+}
+
+fn compile_rgb(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (r, g, b, a) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+    quote!({
+        let r: u8 = (#r as u32).min(255) as u8;
+        let g: u8 = (#g as u32).min(255) as u8;
+        let b: u8 = (#b as u32).min(255) as u8;
+        let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
+        sp::Color::from_argb_u8(a, r, g, b)
+    })
+}
+
+fn compile_hsv(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (h, s, v, a) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+    quote!({
+        let s: f32 = (#s as f32).max(0.).min(1.) as f32;
+        let v: f32 = (#v as f32).max(0.).min(1.) as f32;
+        let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
+        sp::Color::from_hsva(#h as f32, s, v, a)
+    })
+}
+
+fn compile_oklch(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (l, c, h, alpha) =
+        (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+    quote!({
+        let l: f32 = (#l as f32).max(0.).min(1.) as f32;
+        let c: f32 = (#c as f32).max(0.) as f32;
+        let alpha: f32 = (#alpha as f32).max(0.).min(1.) as f32;
+        sp::Color::from_oklch(l, c, #h as f32, alpha)
+    })
+}
+
+fn compile_color_scheme(ctx: &EvaluationContext) -> TokenStream {
+    // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
+    // resolves against the tray's own scheme; everything else falls back to the
+    // process-wide value held by the SlintContext.
+    let global_access = &ctx.generator_state.global_access;
+    let context = access_context(ctx);
+    quote!({
+        let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
+        #context.color_scheme(Some(&_root))
+    })
+}
+
+fn compile_setup_menu_bar(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let window_adapter_tokens = access_window_adapter_field(ctx);
+    let [
+        Expression::PropertyReference(entries_r),
+        Expression::PropertyReference(sub_menu_r),
+        Expression::PropertyReference(activated_r),
+        Expression::NumberLiteral(tree_index),
+        Expression::BoolLiteral(no_native),
+        condition,
+        visible,
+        ..,
+    ] = arguments
+    else {
+        panic!("internal error: incorrect arguments to SetupMenuBar")
+    };
+
+    // We have an MenuItem tree
+    let current_sub_component = ctx.current_sub_component().unwrap();
+    let item_tree_id = inner_component_id(
+        &ctx.compilation_unit.sub_components
+            [current_sub_component.menu_item_trees[*tree_index as usize].root],
+    );
+
+    let access_entries = access_member(entries_r, ctx).unwrap();
+    let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
+    let access_activated = access_member(activated_r, ctx).unwrap();
+
+    let compile_prop = |prop_expr: &Expression| {
+        let binding = compile_expression(prop_expr, ctx);
+        quote!({
+            let self_weak = _self.self_weak.get().unwrap().clone();
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else { return false };
+                let _self = self_rc.as_pin_ref();
+                #binding
+            }
+        })
+    };
+
+    let condition_tokens = compile_prop(condition);
+    let visible_tokens = compile_prop(visible);
+
+    let native_impl = {
+        let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new_with_condition_and_visible(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
+        if *no_native {
+            quote!(let menu_item_tree = #menu_from_item_tree;)
+        } else {
+            quote! {
+                let menu_item_tree = #menu_from_item_tree;
+                if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                    let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
+                    sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
+                }
+            }
+        }
+    };
+
+    quote!({
+        let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+        #native_impl
+        // These handlers keep the menu item tree alive on the component; the native menu bar
+        // holds only a weak reference to it.
+        {
+            let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
+            #access_entries.set_binding(move || {
+                let mut entries = sp::SharedVector::default();
+                sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::None, &mut entries);
+                sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+            });
+            let menu_item_tree_ = sp::VRc::clone(&menu_item_tree);
+            #access_sub_menu.set_handler(move |entry| {
+                let mut entries = sp::SharedVector::default();
+                sp::VRc::borrow(&menu_item_tree_).sub_menu(sp::Option::Some(&entry.0), &mut entries);
+                sp::ModelRc::new(sp::SharedVectorModel::from(entries))
+            });
+            let menu_item_tree_ = menu_item_tree.clone();
+            #access_activated.set_handler(move |entry| {
+                sp::VRc::borrow(&menu_item_tree_).activate(&entry.0);
+            });
+        }
+        sp::WindowInner::from_pub(#window_adapter_tokens.window())
+            .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
+    })
+}
+
+fn compile_setup_system_tray_icon(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let [
+        Expression::PropertyReference(system_tray_ref),
+        Expression::NumberLiteral(tree_index),
+        rest @ ..,
+    ] = arguments
+    else {
+        panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
+    };
+
+    let current_sub_component = ctx.current_sub_component().unwrap();
+    let item_tree_id = inner_component_id(
+        &ctx.compilation_unit.sub_components
+            [current_sub_component.menu_item_trees[*tree_index as usize].root],
+    );
+
+    let system_tray = access_member(system_tray_ref, ctx).unwrap();
+    let (_, system_tray_rc) = native_item_from_owner(system_tray_ref, ctx, &quote!(_self));
+
+    // `if cond : Menu { ... }` lowers the condition into a closure that
+    // gates the menu's shadow tree.
+    let condition_tokens = if let Some(condition) = rest.first() {
+        let binding = compile_expression(condition, ctx);
+        quote!({
+            let self_weak = _self.self_weak.get().unwrap().clone();
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else { return false };
+                let _self = self_rc.as_pin_ref();
+                #binding
+            }
+        })
+    } else {
+        quote!(|| true)
+    };
+
+    let menu_from_item_tree = quote!(sp::MenuFromItemTree::new_with_condition_and_visible(
+        sp::VRc::into_dyn(menu_item_tree_instance),
+        #condition_tokens,
+        || true
+    ));
+
+    quote!({
+        let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+        let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
+        #system_tray.set_menu(&#system_tray_rc, menu_vrc);
+    })
+}
+
+fn compile_format_date(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let (f, d, m, y) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+    quote!(sp::format_date(&#f, #d as u32, #m as u32, #y as i32))
+}
+
+fn compile_item_absolute_position(
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        item_owner(pr).map_or_default(|owner| {
+            let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!({
+                let item_rc = #item_rc;
+                sp::logical_position_to_api(item_rc.map_to_window(item_rc.geometry().origin))
+            })
+        })
+    } else {
+        panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
+    }
+}
+
+fn compile_restart_timer(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr)] = arguments {
+        access_member(pr, ctx).then(|timer| quote!(#timer.restart()))
+    } else {
+        panic!("internal error: invalid args to RestartTimer {arguments:?}")
+    }
+}
+
+fn compile_open_url(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let url = a.next().unwrap();
+    let context = access_context(ctx);
+    quote!(sp::open_url(&#url, &#context).is_ok())
+}
+
+fn compile_parse_markdown(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let format_string = a.next().unwrap();
+    let args = a.next().unwrap();
+    quote!(sp::parse_markdown(&#format_string, &#args))
+}
+
+fn compile_path_point_at(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr), t] = arguments {
+        let t = compile_expression(t, ctx);
+        item_owner(pr).map_or_default(|owner| {
+            let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!({
+                let item_rc = #item_rc;
+                sp::logical_position_to_api(
+                    item_rc
+                        .downcast::<sp::Path>()
+                        .unwrap()
+                        .as_pin_ref()
+                        .point_at(&item_rc, #t as f32),
+                )
+            })
+        })
+    } else {
+        panic!("internal error: invalid args to PathPointAt {arguments:?}")
+    }
+}
+
+fn compile_path_angle_at(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    if let [Expression::PropertyReference(pr), t] = arguments {
+        let t = compile_expression(t, ctx);
+        item_owner(pr).map_or_default(|owner| {
+            let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
+            quote!({
+                let item_rc = #item_rc;
+                item_rc
+                    .downcast::<sp::Path>()
+                    .unwrap()
+                    .as_pin_ref()
+                    .angle_at(&item_rc, #t as f32)
+            })
+        })
+    } else {
+        panic!("internal error: invalid args to PathAngleAt {arguments:?}")
+    }
+}
+
+fn compile_array_any(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let model = a.next().unwrap();
+    let predicate = a.next().unwrap();
+    quote!(sp::model_any(&#model, #predicate))
+}
+
+fn compile_array_all(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let model = a.next().unwrap();
+    let predicate = a.next().unwrap();
+    quote!(sp::model_all(&#model, #predicate))
+}
+
+fn compile_array_find_index(arguments: &[Expression], ctx: &EvaluationContext) -> TokenStream {
+    let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
+    let model = a.next().unwrap();
+    let predicate = a.next().unwrap();
+    quote!(sp::model_find_index(&#model, #predicate))
 }
 
 fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> {
