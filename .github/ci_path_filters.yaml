@@ -166,6 +166,11 @@ tests:
 integration_tests:
  - 'tests/{screenshots,manual,backends,issues}/**'
 
+# The widget styles and the widget tests, which run once per style.
+widget_tests:
+ - *widgets
+ - 'tests/cases/widgets/**'
+
 examples:
  # Some examples are tested separately and can be excluded from here
  - 'examples/!({servo,bevy,*mcu*,uefi-demo,}/**)'

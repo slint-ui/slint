@@ -44,6 +44,13 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
         all_styles.push("qt");
     }
 
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_STYLES");
+    if let Ok(styles) = std::env::var("SLINT_TEST_STYLES")
+        && !styles.is_empty()
+    {
+        all_styles.retain(|style| styles.split(',').any(|requested| requested.trim() == *style));
+    }
+
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "..", sub_folders].iter().collect();
 

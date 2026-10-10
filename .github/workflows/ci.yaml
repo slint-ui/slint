@@ -61,10 +61,12 @@ jobs:
                       rust_version: "1.95"
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
+                      pr_test_styles: "fluent"
                     - os: macos-14
                       name: "MacOS 14 beta"
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
+                      pr_test_styles: "qt"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
             os: ${{ matrix.os }}
@@ -79,6 +81,7 @@ jobs:
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
             build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
+            test_styles: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && matrix.pr_test_styles || '' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
@@ -243,6 +246,7 @@ jobs:
             RUSTFLAGS: -D warnings
             CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: gcc
             PKG_CONFIG_ALLOW_CROSS: 1
+            SLINT_TEST_STYLES: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && !contains(fromJSON(inputs.changes), 'api_cpp') && 'cosmic' || '' }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
