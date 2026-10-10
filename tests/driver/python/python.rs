@@ -8,6 +8,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+/// The `ty` version that `api/python/slint` pins, so that a new `ty` release can't break the tests.
+static TY_VERSION: LazyLock<&str> = LazyLock::new(|| {
+    let pyproject = include_str!("../../../api/python/slint/pyproject.toml");
+    let (_, version) = pyproject.split_once("\"ty==").expect("pyproject.toml pins ty");
+    version.split('"').next().unwrap()
+});
+
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
@@ -133,7 +140,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let o = std::process::Command::new("uvx")
         .arg("--python")
         .arg("3.12")
-        .arg("ty")
+        .arg(format!("ty@{}", *TY_VERSION))
         .arg("check")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())

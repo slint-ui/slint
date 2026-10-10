@@ -293,7 +293,8 @@ pub fn all_exported_components(
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+    let enable_experimental =
+        document_cache.compiler_configuration().compiler_config.enable_experimental;
 
     for url in document_cache.all_urls() {
         let Some(doc) = document_cache.get_document(&url) else { continue };
