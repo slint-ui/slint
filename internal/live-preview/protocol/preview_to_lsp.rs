@@ -76,8 +76,14 @@ pub enum PreviewToLspMessage {
     /// The client offered no usable token, so the viewer is now showing a
     /// pairing code and waiting for the user to type it. `element` starts
     /// the SPAKE2 exchange the code is established through; a fresh one is
-    /// sent for every attempt.
-    PairingRequired { attempts_left: u8, expires_in_seconds: u16, element: super::pairing::Element },
+    /// sent for every attempt. `code_digits` is the length of the code, which
+    /// may be longer than [`super::pairing::CODE_DIGITS`] if it's pinned.
+    PairingRequired {
+        attempts_left: u8,
+        expires_in_seconds: u16,
+        code_digits: u8,
+        element: super::pairing::Element,
+    },
     /// The client announced a token this viewer issued, so the viewer opens
     /// the reconnect exchange, with the token as the secret and nobody on
     /// the screen. Answered like a code prompt, by

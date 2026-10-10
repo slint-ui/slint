@@ -28,9 +28,6 @@ use crate::preview::ui::{Api, AppWindow, RemoteConnectionState, RemoteViewerInfo
 pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn editor_preview::PreviewToLsp>) {
     let api = app_window.api();
     api.set_remote_discovered_viewers(ModelRc::new(VecModel::<RemoteViewerInfo>::default()));
-    // The code field is fixed-length, so the UI needs the same number the
-    // viewer generates against.
-    api.set_remote_pairing_code_length(i_slint_live_preview::protocol::pairing::CODE_DIGITS as i32);
 
     let api_weak = app_window.api_weak();
     api.on_remote_start_discovery(move || {

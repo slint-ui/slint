@@ -264,6 +264,7 @@ mod tests {
                             PreviewToLspMessage::PairingRequired {
                                 attempts_left: 3,
                                 expires_in_seconds: 60,
+                                code_digits: 4,
                                 element: handshake.element().clone(),
                             }
                         } else {

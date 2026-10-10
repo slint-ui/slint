@@ -441,13 +441,13 @@ impl RemoteLspToPreview {
                     let (sender, mut receiver) = mpsc::unbounded_channel();
                     let _guard = PairingInputGuard::arm(&shared.pairing_input, sender);
                     match prompt {
-                        PairingPrompt::Code { attempts_left, expires_in_seconds } => {
+                        PairingPrompt::Code { attempts_left, expires_in_seconds, code_digits } => {
                             let hint = if attempts_left < MAX_ATTEMPTS {
                                 format!("Incorrect code. {attempts_left} attempts left, {expires_in_seconds}s remaining")
                             } else {
                                 format!("Enter the code shown on the viewer within {expires_in_seconds}s")
                             };
-                            shared.emit_state(RemoteConnectionState::PairingRequired, target, Some(hint));
+                            shared.emit_state(RemoteConnectionState::PairingRequired { code_digits }, target, Some(hint));
                         }
                         PairingPrompt::Unpaired => shared.emit_state(RemoteConnectionState::UnpairedWarning, target, None),
                     }
@@ -1409,7 +1409,11 @@ mod tests {
                 // Burn every attempt. `pairing_input` is armed before the
                 // state goes out, so a prompt seen here is ready for a code.
                 for _ in 0..MAX_ATTEMPTS {
-                    expect_state(&mut state_rx, RemoteConnectionState::PairingRequired).await;
+                    expect_state(
+                        &mut state_rx,
+                        RemoteConnectionState::PairingRequired { code_digits: code.len() as u8 },
+                    )
+                    .await;
                     connector.submit_pairing_code(wrong.to_owned());
                 }
 

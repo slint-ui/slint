@@ -1743,7 +1743,13 @@ pub fn set_remote_connection_state(
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
                 R::Reconnecting => ui::RemoteConnectionState::Reconnecting,
-                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
+                R::PairingRequired { code_digits } => {
+                    api.set_remote_pairing_code_length(u32::from(code_digits).clamp(
+                        i_slint_live_preview::protocol::pairing::CODE_DIGITS,
+                        i_slint_live_preview::protocol::pairing::MAX_CODE_DIGITS,
+                    ) as i32);
+                    ui::RemoteConnectionState::PairingRequired
+                }
                 R::UnpairedWarning => ui::RemoteConnectionState::UnpairedWarning,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,

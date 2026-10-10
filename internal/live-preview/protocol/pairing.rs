@@ -299,10 +299,17 @@ fn expand<const N: usize>(hkdf: &hkdf::Hkdf<sha2::Sha256>, label: &[u8]) -> [u8;
 /// isn't, which is what the escalation is for.
 pub const CODE_DIGITS: u32 = 4;
 
-/// Whether `code` has the shape of a pairing code. Pinned codes are held to
-/// it too, so they stay typeable in the editor's digits-only field.
+/// Most digits a pinned code may have.
+/// The cool-down escalation is capped, so a short pinned code can still be
+/// guessed given weeks; a longer one keeps that out of reach.
+pub const MAX_CODE_DIGITS: u32 = 12;
+
+/// Whether `code` has the shape of a pairing code: [`CODE_DIGITS`] to
+/// [`MAX_CODE_DIGITS`] ASCII digits, so it stays typeable in the editor's
+/// digits-only field.
 pub fn is_valid_code(code: &str) -> bool {
-    code.len() == CODE_DIGITS as usize && code.bytes().all(|b| b.is_ascii_digit())
+    (CODE_DIGITS as usize..=MAX_CODE_DIGITS as usize).contains(&code.len())
+        && code.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// How long a displayed code stays valid before the viewer drops the connection.
@@ -506,12 +513,14 @@ mod tests {
     }
 
     #[test]
-    fn code_validation_matches_what_is_generated() {
+    fn code_validation_accepts_generated_and_longer_pinned_codes() {
         assert!(is_valid_code("0000"));
         assert!(is_valid_code("4321"));
         assert!(!is_valid_code(""));
         assert!(!is_valid_code("123"));
-        assert!(!is_valid_code("12345"));
+        assert!(is_valid_code("12345"));
+        assert!(is_valid_code("123456789012"));
+        assert!(!is_valid_code("1234567890123"));
         assert!(!is_valid_code("12a4"));
         // Digits, not just anything that parses as a number.
         assert!(!is_valid_code("+123"));

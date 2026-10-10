@@ -124,13 +124,11 @@ fn pairing_code_and_no_pairing_conflict() {
 #[cfg(feature = "remote")]
 #[test]
 fn malformed_pairing_codes_are_rejected() {
-    // A pinned code has to have the same shape as a generated one, so the
-    // editor can keep a fixed-length numeric field.
-    for bad in ["", "123", "12345", "12a4", "abcd"] {
+    for bad in ["", "123", "1234567890123", "12a4", "abcd"] {
         let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", bad]);
         assert_eq!(code, 2, "{bad:?} should have been rejected");
         assert!(
-            stderr.contains("--pairing-code must be exactly 4 digits"),
+            stderr.contains("--pairing-code must be 4 to 12 digits"),
             "for {bad:?} stderr was:\n{stderr}"
         );
     }
