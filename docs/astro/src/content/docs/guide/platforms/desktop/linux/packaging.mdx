@@ -20,6 +20,12 @@ Flatpaks are sandboxed, work across distributions, and are straightforward to cr
 each with a different trade-off between integration, sandboxing, and how many systems you have to build on.
 </Aside>
 
+<Aside type="note">
+An application written in JavaScript or TypeScript builds its executable with `slint-ui pack`,
+as described in [Package Your Application](https://slint.dev/docs/node/packaging/).
+Copy the directory it writes into the Flatpak, instead of building the application from source there.
+</Aside>
+
 ## Prerequisites
 
 The tools needed are the `flatpak` and `flatpak-builder` tools.

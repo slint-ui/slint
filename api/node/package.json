@@ -3,6 +3,9 @@
   "version": "1.19.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "slint-ui": "dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -34,6 +37,7 @@
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
     "image-js": "1.7.1",
+    "resedit": "3.1.0",
     "typescript": "catalog:",
     "verdaccio": "6.10.4",
     "vitest": "catalog:"
@@ -59,5 +63,13 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "test": "vitest run"
+  },
+  "peerDependencies": {
+    "resedit": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "resedit": {
+      "optional": true
+    }
   }
 }
