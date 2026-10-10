@@ -28,7 +28,6 @@ harness = false
 default = ["backend-qt"]
 
 build-time = ["i-slint-compiler", "spin_on"]
-deterministic-output = ["build-time"]
 backend-qt = ["slint/backend-qt"]
 live-preview = ["slint/live-preview"]
 

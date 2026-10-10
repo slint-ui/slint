@@ -58,6 +58,11 @@ on:
                 required: false
                 type: boolean
                 default: true
+            check_deterministic_output:
+                description: 'Check that the Rust driver compiles each test case to the same code twice'
+                required: false
+                type: boolean
+                default: true
             build_examples:
                 description: 'Build the examples and demos workspaces'
                 required: false
@@ -83,6 +88,7 @@ jobs:
             RUST_BACKTRACE: 1
             SLINT_EMIT_DEBUG_INFO: 1
             CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
+            SLINT_TEST_DETERMINISTIC_OUTPUT: ${{ inputs.check_deterministic_output && '1' || '' }}
 
         runs-on: ${{ inputs.os }}
 

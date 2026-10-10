@@ -78,6 +78,7 @@ jobs:
             # Windows always does, for the live-preview test.
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
+            check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
             build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
@@ -328,8 +329,8 @@ jobs:
 
     cpp_package_test:
         needs: cpp_cmake
-        # The condition that adds ubuntu-22.04 to the cpp_cmake matrix
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        # cpp_cmake_config is part of api_cpp, which adds ubuntu-22.04 to the cpp_cmake matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'cpp_cmake_config') }}
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
@@ -842,7 +843,7 @@ jobs:
     # resolution itself, from the CMake options down. `cargo tree` and CMake only, no
     # compilation and no system libraries.
     linuxkms_features:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v7

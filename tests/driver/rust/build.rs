@@ -101,7 +101,7 @@ fn main() -> std::io::Result<()> {
     let testcases = test_driver_lib::collect_test_cases("cases")?;
 
     // Generate the per-case modules on all cores: with the build-time feature,
-    // each case runs the Slint compiler (twice with deterministic-output),
+    // each case runs the Slint compiler (twice with SLINT_TEST_DETERMINISTIC_OUTPUT),
     // which dominates the build script's runtime.
     let module_lines = rayon::ThreadPoolBuilder::new()
         .stack_size(512 * 1024)
@@ -297,8 +297,8 @@ fn generate_source(
 
     let generated = compile_and_generate(source, testcase)?;
 
-    #[cfg(feature = "deterministic-output")]
-    {
+    println!("cargo::rerun-if-env-changed=SLINT_TEST_DETERMINISTIC_OUTPUT");
+    if std::env::var_os("SLINT_TEST_DETERMINISTIC_OUTPUT").is_some_and(|value| !value.is_empty()) {
         let second = compile_and_generate(source, testcase)?;
         let expect_utf8 =
             |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
