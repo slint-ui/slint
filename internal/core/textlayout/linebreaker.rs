@@ -71,6 +71,10 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
     current_line: TextLine<Font::Length>,
     num_emitted_lines: usize,
     mandatory_line_break_on_next_iteration: bool,
+    /// Whether the fragment read most recently ends with a mandatory line break.
+    /// A text ending on one ends on an empty line that no fragment reports.
+    /// `TextFragmentIterator` folds a trailing separator into the fragment before it.
+    trailing_mandatory_break: bool,
     max_lines: Option<usize>,
     text_wrap: TextWrap,
     done: bool,
@@ -90,6 +94,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
             current_line: Default::default(),
             num_emitted_lines: 0,
             mandatory_line_break_on_next_iteration: false,
+            trailing_mandatory_break: false,
             max_lines,
             text_wrap,
             done: false,
@@ -130,6 +135,10 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                 }
             };
 
+            // Every fragment that is read, not only one that is consumed.
+            // A fragment put back is read again before the iterator runs dry.
+            self.trailing_mandatory_break = fragment.trailing_mandatory_break;
+
             // As trailing_mandatory_break is only set if break_anywhere is false, the fragment must
             // be first processed with break_anywhere = false and if no mandatory break is found, the
             // loop is re-run with break_anywhere = true when using CharWrap.
@@ -161,7 +170,6 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                 }
 
                 let next_line = core::mem::take(&mut self.current_line);
-                self.mandatory_line_break_on_next_iteration = fragment.trailing_mandatory_break;
 
                 if self.text_wrap != TextWrap::CharWrap
                     && !fragments.break_anywhere
@@ -169,6 +177,9 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                 {
                     self.current_line.add_fragment(&fragment);
                     self.fragments = fragments;
+                    // Only for a fragment this branch takes.
+                    // One it puts back is read again, and its break belongs to the next line.
+                    self.mandatory_line_break_on_next_iteration = fragment.trailing_mandatory_break;
                 }
 
                 break Some(next_line);
@@ -189,9 +200,13 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
             }
         };
 
-        // Emit at least one single line
+        // Emit at least one single line, and one more when the text ends on a mandatory break.
+        // "Hello\n" is two lines, the way "Hello\n\nWorld" is four.
+        // Taking the flag emits that line once.
         if next_line.is_none()
-            && (!self.current_line.byte_range.is_empty() || self.num_emitted_lines == 0)
+            && (!self.current_line.byte_range.is_empty()
+                || self.num_emitted_lines == 0
+                || core::mem::take(&mut self.trailing_mandatory_break))
         {
             next_line = Some(core::mem::take(&mut self.current_line));
         }
@@ -367,6 +382,65 @@ fn test_forced_break_multi_char_wrap() {
     assert_eq!(lines[3].line_text(text), "");
     assert_eq!(lines[4].line_text(text), "Wor");
     assert_eq!(lines[5].line_text(text), "ld");
+}
+
+/// A text that ends with a line separator ends on an empty line.
+#[test]
+fn test_forced_break_trailing() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld\n";
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
+            .collect::<std::vec::Vec<_>>();
+    assert_eq!(lines.len(), 3);
+    assert_eq!(lines[0].line_text(text), "Hello");
+    assert_eq!(lines[1].line_text(text), "World");
+    assert_eq!(lines[2].line_text(text), "");
+}
+
+/// A text that is nothing but a separator is two empty lines.
+#[test]
+fn test_forced_break_trailing_only() {
+    let font = FixedTestFont;
+    let text = "\n";
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, None, None, TextWrap::WordWrap)
+            .collect::<std::vec::Vec<_>>();
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[0].line_text(text), "");
+    assert_eq!(lines[1].line_text(text), "");
+}
+
+/// The empty line a trailing separator opens survives a wrap on the line before it.
+/// The fragment that carries the separator is the one the width check puts back.
+#[test]
+fn test_forced_break_trailing_after_wrap() {
+    let font = FixedTestFont;
+    let text = "Hello World\n";
+    let shape_buffer = ShapeBuffer::new(
+        &TextLayout { font: &font, letter_spacing: None, line_height: None },
+        text,
+    );
+    let lines = TextLineBreaker::<FixedTestFont>::new(
+        text,
+        &shape_buffer,
+        Some(50.),
+        None,
+        TextWrap::WordWrap,
+    )
+    .collect::<std::vec::Vec<_>>();
+    assert_eq!(lines.len(), 3);
+    assert_eq!(lines[0].line_text(text), "Hello");
+    assert_eq!(lines[1].line_text(text), "World");
+    assert_eq!(lines[2].line_text(text), "");
 }
 
 #[test]
