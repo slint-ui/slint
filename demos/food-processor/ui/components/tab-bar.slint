@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Styles } from "../styles.slint";
+component TabButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> active: false;
+
+    callback clicked();
+
+    height: 32px;
+    width: text.preferred-width;
+    background: active ? #EFF6FF : #f8f9fa;
+
+    TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    if active: Rectangle {
+        y: 0px;
+        height: 2px;
+        background: #237AF3;
+    }
+
+    text := VerticalLayout {
+        alignment: center;
+        padding-left: 20px;
+        padding-right: 20px;
+
+        Text {
+            text: root.text;
+            font-size: Styles.small-font-size;
+            font-weight: FontWeight.bold;
+            color: active ? Styles.slint-blue : #525252;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+export component TabBar inherits Rectangle {
+    in property <[string]> tabs;
+    in property <int> active-tab: 0;
+
+    property <length> tab-width: root.width / tabs.length;
+    height: hl.preferred-height;
+    callback tab-changed(int);
+
+    hl := HorizontalLayout {
+        for tab[index] in tabs: TabButton {
+            width: tab-width;
+            text: tab;
+            active: active-tab == index;
+            clicked => {
+                tab-changed(index);
+            }
+        }
+    }
+
+    Rectangle {
+        y: 0px;
+        width: 100%;
+        height: 1phx;
+        background: #E5E5E5;
+    }
+}
+

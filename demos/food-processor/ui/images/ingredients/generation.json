@@ -1,0 +1,47 @@
+{
+  "generator": "OpenAI imagegen (built-in tool)",
+  "generatedOn": "2026-10-09",
+  "referenceImages": [],
+  "icons": [
+    {
+      "file": "oil.png",
+      "subject": "A small unbranded glass bottle filled with golden light sesame oil, a simple cork stopper and one broad cream highlight. Clear bottle silhouette; rich golden liquid. Pale butter-yellow circular badge #FFF3C9.",
+      "prompt": "Use case: stylized-concept.\nAsset type: one square raster ingredient icon for a food processor touchscreen UI, displayed at 24px.\nCreate a wholly original illustration from this text description; no reference images.\nStyle: distinctive simple cut-paper illustration with bold rounded silhouettes, two or three flat color tones and subtle paper grain. Elegant, friendly, readable at very small sizes. Not photorealistic, not an emoji, and not a copy of any Apple or other vendor icon.\nComposition: exactly one centered pastel circular badge, diameter 88% of square canvas, with fully transparent pixels outside the circle. Subject occupies about 60% of the canvas, centered inside the circle, entirely visible with generous clear margins. Flat front/three-quarter view, minimal detail, tiny soft grounding shadow within the circle only.\nConstraints: no text, labels, logos, lettering, border, watermark, surrounding props, scene, or extra icons. Generate a single icon, not a sheet. Genuine transparent background outside the pastel disc.\nSubject: A small unbranded glass bottle filled with golden light sesame oil, a simple cork stopper and one broad cream highlight. Clear bottle silhouette; rich golden liquid. Pale butter-yellow circular badge #FFF3C9.",
+      "generatedSourceSha256": "5a45599a2c0482d1542d3a749f4c1abb58b642207100c1ff9dfa4741484769a1",
+      "assetSha256": "703a2a86861f3b99fcb9a78b5a5831625204bc3957a5a141412096a1036ab637"
+    },
+    {
+      "file": "soy.png",
+      "subject": "A small squat glass pouring jug containing dark brown soy sauce, with a short lip and a simple curved handle; the liquid is a deep warm brown with one amber highlight. Pale warm-gray circular badge #EAEAE7.",
+      "prompt": "Use case: stylized-concept.\nAsset type: one square raster ingredient icon for a food processor touchscreen UI, displayed at 24px.\nCreate a wholly original illustration from this text description; no reference images.\nStyle: distinctive simple cut-paper illustration with bold rounded silhouettes, two or three flat color tones and subtle paper grain. Elegant, friendly, readable at very small sizes. Not photorealistic, not an emoji, and not a copy of any Apple or other vendor icon.\nComposition: exactly one centered pastel circular badge, diameter 88% of square canvas, with fully transparent pixels outside the circle. Subject occupies about 60% of the canvas, centered inside the circle, entirely visible with generous clear margins. Flat front/three-quarter view, minimal detail, tiny soft grounding shadow within the circle only.\nConstraints: no text, labels, logos, lettering, border, watermark, surrounding props, scene, or extra icons. Generate a single icon, not a sheet. Genuine transparent background outside the pastel disc.\nSubject: A small squat glass pouring jug containing dark brown soy sauce, with a short lip and a simple curved handle; the liquid is a deep warm brown with one amber highlight. Pale warm-gray circular badge #EAEAE7.",
+      "generatedSourceSha256": "71fd42a41b00c8dfadd2114afca55d8da182d400bae7a242697ec6c3c4ef6d84",
+      "assetSha256": "66ec689bd0215562f91238162d1c6ce9ba13279db68245b6fb8c940954654354"
+    },
+    {
+      "file": "onion.png",
+      "subject": "One golden brown onion bulb with a small stem and one quarter onion wedge beside it showing a cream interior. Chunky simplified shapes, warm ochre skin, very few broad curved bands. Pale cream circular badge #FFF0D7.",
+      "prompt": "Use case: stylized-concept.\nAsset type: one square raster ingredient icon for a food processor touchscreen UI, displayed at 24px.\nCreate a wholly original illustration from this text description; no reference images.\nStyle: distinctive simple cut-paper illustration with bold rounded silhouettes, two or three flat color tones and subtle paper grain. Elegant, friendly, readable at very small sizes. Not photorealistic, not an emoji, and not a copy of any Apple or other vendor icon.\nComposition: exactly one centered pastel circular badge, diameter 88% of square canvas, with fully transparent pixels outside the circle. Subject occupies about 60% of the canvas, centered inside the circle, entirely visible with generous clear margins. Flat front/three-quarter view, minimal detail, tiny soft grounding shadow within the circle only.\nConstraints: no text, labels, logos, lettering, border, watermark, surrounding props, scene, or extra icons. Generate a single icon, not a sheet. Genuine transparent background outside the pastel disc.\nSubject: One golden brown onion bulb with a small stem and one quarter onion wedge beside it showing a cream interior. Chunky simplified shapes, warm ochre skin, very few broad curved bands. Pale cream circular badge #FFF0D7.",
+      "generatedSourceSha256": "af8c4e9721ef1ac9b38768ec40e911fcbaaa7576a3ca5886fc905b90d383c166",
+      "assetSha256": "e859d4aced2ca4a01f435b44711285ce29fd488d3aae2dceeff26236bfe92736"
+    },
+    {
+      "file": "bacon.png",
+      "subject": "A small cluster of four chunky diced bacon cubes, coral-red meat with broad cream fat bands. Simple cube silhouettes in a clear three-quarter view; appetizing raw bacon cubes rather than strips. Pale blush-pink circular badge #FFE3E8.",
+      "prompt": "Use case: stylized-concept.\nAsset type: one square raster ingredient icon for a food processor touchscreen UI, displayed at 24px.\nCreate a wholly original illustration from this text description; no reference images.\nStyle: distinctive simple cut-paper illustration with bold rounded silhouettes, two or three flat color tones and subtle paper grain. Elegant, friendly, readable at very small sizes. Not photorealistic, not an emoji, and not a copy of any Apple or other vendor icon.\nComposition: exactly one centered pastel circular badge, diameter 88% of square canvas, with fully transparent pixels outside the circle. Subject occupies about 60% of the canvas, centered inside the circle, entirely visible with generous clear margins. Flat front/three-quarter view, minimal detail, tiny soft grounding shadow within the circle only.\nConstraints: no text, labels, logos, lettering, border, watermark, surrounding props, scene, or extra icons. Generate a single icon, not a sheet. Genuine transparent background outside the pastel disc.\nSubject: A small cluster of four chunky diced bacon cubes, coral-red meat with broad cream fat bands. Simple cube silhouettes in a clear three-quarter view; appetizing raw bacon cubes rather than strips. Pale blush-pink circular badge #FFE3E8.",
+      "generatedSourceSha256": "02bdc7afae6af5d27111fbd947f0165222d3702d874cf4022ea852ccc5285394",
+      "assetSha256": "3f583a8fe66092014178a473845c4f541b9d8a841f22ea173c59cb4e23379fd6"
+    },
+    {
+      "file": "carrots.png",
+      "subject": "One short vivid orange carrot with a compact green leafy top, and one thick carrot slice beside it showing a simple orange center. Bold rounded silhouettes, minimal detail. Pale apricot circular badge #FFDCAE.",
+      "prompt": "Use case: stylized-concept.\nAsset type: one square raster ingredient icon for a food processor touchscreen UI, displayed at 24px.\nCreate a wholly original illustration from this text description; no reference images.\nStyle: distinctive simple cut-paper illustration with bold rounded silhouettes, two or three flat color tones and subtle paper grain. Elegant, friendly, readable at very small sizes. Not photorealistic, not an emoji, and not a copy of any Apple or other vendor icon.\nComposition: exactly one centered pastel circular badge, diameter 88% of square canvas, with fully transparent pixels outside the circle. Subject occupies about 60% of the canvas, centered inside the circle, entirely visible with generous clear margins. Flat front/three-quarter view, minimal detail, tiny soft grounding shadow within the circle only.\nConstraints: no text, labels, logos, lettering, border, watermark, surrounding props, scene, or extra icons. Generate a single icon, not a sheet. Genuine transparent background outside the pastel disc.\nSubject: One short vivid orange carrot with a compact green leafy top, and one thick carrot slice beside it showing a simple orange center. Bold rounded silhouettes, minimal detail. Pale apricot circular badge #FFDCAE.",
+      "generatedSourceSha256": "a21a5acaa5a9ed96a77e02223b57ed5bc7697bff90ca9d66bc0e92bf75303dbc",
+      "assetSha256": "ce5b89f648c005d25bc8d616504a172017c10daa7ca3911f7125428e18ae2e5d"
+    }
+  ],
+  "assetSize": [
+    48,
+    48
+  ],
+  "license": "MIT"
+}
