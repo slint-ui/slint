@@ -205,7 +205,7 @@ impl TextParagraph {
                             let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
                                 &glyph_run,
                                 vertically_truncated,
-                                metrics.trailing_whitespace,
+                                metrics.hanging_advance,
                             );
 
                             Self::draw_glyph_run_with_selection(
@@ -240,7 +240,7 @@ impl TextParagraph {
                             item_renderer.draw_glyph_run(
                                 &ellipsis_font,
                                 font_size,
-                                run.normalized_coords(),
+                                bytemuck::cast_slice(run.normalized_coords()),
                                 // Never synthesize italic for the ellipsis itself: it's a
                                 // narrow, low-value case (a punctuation-like glyph, not a
                                 // language's own text) not worth the complexity of tracking a
@@ -325,7 +325,7 @@ impl TextParagraph {
                     continue;
                 }
 
-                let metrics = run.metrics();
+                let metrics = run.font_metrics();
                 let ascent = metrics.ascent;
                 let descent = metrics.descent;
                 let cap_height = metrics.cap_height.unwrap_or(ascent * 0.72);
@@ -535,7 +535,7 @@ impl TextParagraph {
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
         let run = glyph_run.run();
-        let normalized_coords = run.normalized_coords();
+        let normalized_coords: &[i16] = bytemuck::cast_slice(run.normalized_coords());
         let synthesis = run.synthesis();
         let brush = &glyph_run.style().brush;
 
@@ -624,7 +624,7 @@ impl TextParagraph {
             }
         }
 
-        let metrics = run.metrics();
+        let metrics = run.font_metrics();
 
         // A decoration spans the whole run. Where a selection boundary cuts through it, the
         // renderer clip that cuts the glyphs cuts the rectangle too.

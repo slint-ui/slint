@@ -413,14 +413,14 @@ jobs:
                       sub_path: "n_music_desktop"
                       extra_commands: |
                           # the android crate asks for the fontique 0.10 feature, so the patched slint is rejected
-                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' ../n_music_android/Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' ../n_music_android/Cargo.toml
                           cargo update
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/Enn3Developer/n_music"
                       sub_path: "n_music_android"
                       extra_commands: |
-                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' Cargo.toml
                           cargo update
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"

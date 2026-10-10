@@ -37,7 +37,7 @@ default = ["slint/default"]
 #wasm# web-sys = { version = "0.3", features = ["console", "Window", "Navigator"] }
 #wasm# js-sys = { version = "0.3.57" }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# slint = { path = "../../api/rs/slint", default-features = false, features = ["unstable-fontique-011"] }
+#wasm# slint = { path = "../../api/rs/slint", default-features = false, features = ["unstable-fontique-012"] }
 #wasm# icu_locale_core = { version = "2.1.1" }
 
 [package.metadata.bundle]
