@@ -3,15 +3,12 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
-use std::rc::Rc;
 use std::sync::Arc;
-
-use itertools::Itertools;
 
 use smol_str::SmolStr;
 
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::expression_tree::{BuiltinFunction, Unit};
 use crate::object_tree::PropertyVisibility;
 
 #[derive(Debug, Clone, Default)]
@@ -161,19 +158,23 @@ impl Display for Type {
             Type::DataTransfer => write!(f, "data-transfer"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-                let mut x = vec.iter().map(|(unit, power)| {
+                f.write_str("(")?;
+                for (i, (unit, power)) in vec.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str("×")?;
+                    }
+                    write!(f, "{unit}")?;
                     if *power == 1 {
-                        return unit.to_string();
+                        continue;
                     }
-                    let mut res = format!("{}{}", unit, if *power < 0 { "⁻" } else { "" });
-                    let value = power.abs().to_string();
-                    for x in value.as_bytes() {
-                        res.push(POWERS[(x - b'0') as usize]);
+                    if *power < 0 {
+                        f.write_str("⁻")?;
                     }
-
-                    res
-                });
-                write!(f, "({})", x.join("×"))
+                    for x in power.unsigned_abs().to_string().as_bytes() {
+                        write!(f, "{}", POWERS[(x - b'0') as usize])?;
+                    }
+                }
+                f.write_str(")")
             }
             Type::ElementReference => write!(f, "element ref"),
             Type::ArrayOfCoord => write!(f, "[coord]"),
@@ -304,17 +305,6 @@ impl Type {
         }
     }
 
-    /// The noun for a member of this type in diagnostics.
-    pub fn member_kind(&self) -> &'static str {
-        use crate::generator::accessor_names::DeclarationKind;
-        match self {
-            Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
-            Type::Function { .. } => DeclarationKind::Function,
-            _ => DeclarationKind::Property,
-        }
-        .label()
-    }
-
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
@@ -379,37 +369,6 @@ pub enum BuiltinPropertyDefault {
     RuntimeValue(BuiltinFunction),
     /// The property is actually not a property but a builtin function
     BuiltinFunction(BuiltinFunction),
-}
-
-impl BuiltinPropertyDefault {
-    /// The default of a property that doesn't need an element to express, for the callers that
-    /// have no `ElementRc` at hand.
-    pub fn expr_without_element(&self) -> Option<Expression> {
-        match self {
-            BuiltinPropertyDefault::None => None,
-            BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
-            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
-                function: function.clone().into(),
-                arguments: Vec::new(),
-                source_location: None,
-            }),
-            // Neither is a default this caller can express: ElementFunction needs the element,
-            // and a function is not a property in the first place
-            BuiltinPropertyDefault::ElementFunction(..)
-            | BuiltinPropertyDefault::BuiltinFunction(..) => None,
-        }
-    }
-
-    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
-        match self {
-            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
-                function: function.clone().into(),
-                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-                source_location: None,
-            }),
-            other => other.expr_without_element(),
-        }
-    }
 }
 
 /// Information about properties in NativeClass
@@ -765,28 +724,18 @@ impl Struct {
             _ => &[],
         }
     }
-
-    /// The default value for the given field: the user-declared default if there is one,
-    /// otherwise the default value for the field's type.
-    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
-        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
-            Expression::default_value_for_type(
-                self.fields.get(name).expect("default value requested for unknown struct field"),
-            )
-        })
-    }
 }
 
 /// A constant expression, used for the default values of struct fields
 /// (see [`Struct::field_defaults`]).
 ///
-/// This is deliberately neither [`Expression`] nor an llr expression:
+/// This is deliberately neither [`Expression`](crate::expression_tree::Expression) nor an llr expression:
 /// unlike those, it cannot reference any properties, elements, or syntax nodes,
 /// so a [`Struct`] carrying one can safely outlive the object tree.
 /// The variants are the subset that every consumer can materialize.
 /// Keep the matches over this type exhaustive,
 /// so that adding a variant is a compile error in each consumer:
-/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the conversion to an expression tree (`Expression::from_constant`),
 /// the lowering for the code generators (`lower_constant_expression` in the llr module),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
@@ -812,68 +761,6 @@ pub enum ConstantExpression {
         element_ty: Type,
         values: Vec<ConstantExpression>,
     },
-}
-
-impl ConstantExpression {
-    /// Create a constant expression from a resolved, converted, and constant-folded
-    /// expression, or `None` if the expression is not in the constant subset.
-    pub fn from_expression(expression: &Expression) -> Option<Self> {
-        Some(match expression {
-            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
-            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
-            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
-            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
-            Expression::Cast { from, to } => {
-                // Converting a number to a string depends on the locale's decimal separator.
-                // The constant propagation folds the cases that render the same in every
-                // locale into a string literal, so a cast that's still here isn't constant
-                // (see `Expression::is_constant`).
-                if *to == Type::String {
-                    return None;
-                }
-                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
-            }
-            Expression::UnaryOp { sub, op } => {
-                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
-            }
-            Expression::Struct { ty, values } => Self::Struct {
-                ty: ty.clone(),
-                values: values
-                    .iter()
-                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
-                    .collect::<Option<_>>()?,
-            },
-            Expression::Array { element_ty, values } => Self::Array {
-                element_ty: element_ty.clone(),
-                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
-            },
-            _ => return None,
-        })
-    }
-
-    /// The expression tree form, for splicing the constant into bindings at compile time
-    pub fn to_expression(&self) -> Expression {
-        match self {
-            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
-            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
-            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
-            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
-            Self::Cast { from, to } => {
-                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
-            }
-            Self::UnaryOp { sub, op } => {
-                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
-            }
-            Self::Struct { ty, values } => Expression::Struct {
-                ty: ty.clone(),
-                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
-            },
-            Self::Array { element_ty, values } => Expression::Array {
-                element_ty: element_ty.clone(),
-                values: values.iter().map(Self::to_expression).collect(),
-            },
-        }
-    }
 }
 
 impl Display for Struct {

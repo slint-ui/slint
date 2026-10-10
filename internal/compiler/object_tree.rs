@@ -12,7 +12,10 @@ use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, Prope
 use crate::expression_tree::{
     self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
 };
-use crate::langtype::{Enumeration, EnumerationValue, Function, Struct, StructName, Type};
+use crate::generator::accessor_names::DeclarationKind;
+use crate::langtype::{
+    ConstantExpression, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
+};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
@@ -3257,7 +3260,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = existing.property_type.member_kind();
+                let kind = member_kind(&existing.property_type);
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }
@@ -3386,7 +3389,7 @@ impl Element {
                 lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
             {
                 diag.push_member_deprecation_warning(
-                    lookup_result.property_type.member_kind(),
+                    member_kind(&lookup_result.property_type),
                     &unresolved_name,
                     message,
                     &name_token,
@@ -3952,7 +3955,7 @@ pub(crate) fn apply_default_type_properties(element: &mut Element) {
             if element.property_declarations.contains_key(prop) {
                 continue;
             }
-            if let Some(expr) = info.default_value.expr_without_element() {
+            if let Some(expr) = Expression::from_builtin_default(&info.default_value, None) {
                 element.bindings.0.entry(prop.clone()).or_insert_with(|| {
                     let mut binding = BindingExpression::from(expr);
                     binding.priority = i32::MAX;
@@ -4088,7 +4091,7 @@ fn resolve_struct_field_default_value(
     if has_invalid {
         return None;
     }
-    let constant = crate::langtype::ConstantExpression::from_expression(&expr);
+    let constant = constant_from_expression(&expr);
     if constant.is_none() {
         let reason = non_constant_expression_reason(&expr)
             .map_or_else(Default::default, |reason| format!(": {reason}"));
@@ -4098,6 +4101,52 @@ fn resolve_struct_field_default_value(
         );
     }
     constant
+}
+
+fn constant_from_expression(expression: &Expression) -> Option<ConstantExpression> {
+    Some(match expression {
+        Expression::StringLiteral(s) => ConstantExpression::StringLiteral(s.clone()),
+        Expression::NumberLiteral(n, unit) => ConstantExpression::NumberLiteral(*n, *unit),
+        Expression::BoolLiteral(b) => ConstantExpression::BoolLiteral(*b),
+        Expression::EnumerationValue(e) => ConstantExpression::EnumerationValue(e.clone()),
+        Expression::Cast { from, to } => {
+            // Converting a number to a string depends on the locale's decimal separator.
+            // The constant propagation folds the cases that render the same in every
+            // locale into a string literal, so a cast that's still here isn't constant
+            // (see `Expression::is_constant`).
+            if *to == Type::String {
+                return None;
+            }
+            ConstantExpression::Cast {
+                from: Box::new(constant_from_expression(from)?),
+                to: to.clone(),
+            }
+        }
+        Expression::UnaryOp { sub, op } => {
+            ConstantExpression::UnaryOp { sub: Box::new(constant_from_expression(sub)?), op: *op }
+        }
+        Expression::Struct { ty, values } => ConstantExpression::Struct {
+            ty: ty.clone(),
+            values: values
+                .iter()
+                .map(|(k, v)| Some((k.clone(), constant_from_expression(v)?)))
+                .collect::<Option<_>>()?,
+        },
+        Expression::Array { element_ty, values } => ConstantExpression::Array {
+            element_ty: element_ty.clone(),
+            values: values.iter().map(constant_from_expression).collect::<Option<_>>()?,
+        },
+        _ => return None,
+    })
+}
+
+fn member_kind(ty: &Type) -> &'static str {
+    match ty {
+        Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
+        Type::Function { .. } => DeclarationKind::Function,
+        _ => DeclarationKind::Property,
+    }
+    .label()
 }
 
 /// A user-facing explanation of what makes the expression non-constant, if there is
