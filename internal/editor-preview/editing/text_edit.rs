@@ -957,7 +957,7 @@ fn test_texteditor_edit_out_of_range() {
 }
 
 #[test]
-fn test_texteditor_edit_inside_multibyte_character() {
+fn test_texteditor_edit_splitting_a_character() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
