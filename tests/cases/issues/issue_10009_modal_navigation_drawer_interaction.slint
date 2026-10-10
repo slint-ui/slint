@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ModalNavigationDrawer } from "../../../ui-libraries/material/src/material.slint";
+
+export component TestCase inherits Window {
+    width: 1000px;
+    height: 700px;
+
+    out property <int> selections;
+    out property <int> selected-index: drawer.current_index;
+    out property <bool> is-open: drawer.is-open;
+    out property <bool> selection-synced;
+
+    public function open-drawer() { drawer.show(); }
+    public function close-drawer() { drawer.close(); }
+    public function select-entry(group: int, index: int) { drawer.select(group, index); }
+
+    drawer := ModalNavigationDrawer {
+        x: 100px;
+        y: 40px;
+        width: 400px;
+        height: 300px;
+        groups: [{ title: "Group", items: [{ text: "First" }, { text: "Second" }] }];
+        selected(group, index) => {
+            root.selections += 1;
+            root.selection-synced = self.current_group == group && self.current_index == index;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_is_open());
+
+instance.invoke_open_drawer();
+assert!(instance.get_is_open());
+slint_testing::mock_elapsed_time(60);
+slint_testing::mock_elapsed_time(1000);
+
+for (group, index) in [(-1, 0), (1, 0), (0, -1), (0, 2)] {
+    instance.invoke_select_entry(group, index);
+}
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_selections(), 0);
+assert!(instance.get_is_open());
+
+// The popup offset is relative to the wrapper (#11457).
+slint_testing::send_mouse_click(&instance, 130., 130.);
+assert_eq!(instance.get_selections(), 1);
+assert!(instance.get_selection_synced());
+slint_testing::mock_elapsed_time(1);
+assert!(!instance.get_is_open());
+
+instance.invoke_open_drawer();
+slint_testing::mock_elapsed_time(60);
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 130., 190.);
+assert_eq!(instance.get_selections(), 2);
+assert!(instance.get_selection_synced());
+assert_eq!(instance.get_selected_index(), 1);
+slint_testing::mock_elapsed_time(1);
+assert!(!instance.get_is_open());
+
+instance.invoke_open_drawer();
+assert_eq!(instance.get_selected_index(), 1);
+instance.invoke_close_drawer();
+assert!(!instance.get_is_open());
+
+instance.invoke_select_entry(0, 0);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_selections(), 3);
+assert!(instance.get_selection_synced());
+instance.invoke_open_drawer();
+assert_eq!(instance.get_selected_index(), 0);
+slint_testing::mock_elapsed_time(60);
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 490., 250.);
+assert!(!instance.get_is_open());
+assert_eq!(instance.get_selections(), 3);
+```
+*/
