@@ -474,6 +474,13 @@ jobs:
               # Host target, overriding the embedded default target of this directory's .cargo/config.toml
               run: cargo check --bin ui_simulator --target=x86_64-unknown-linux-gnu --no-default-features --features=simulator --release
               working-directory: examples/mcu-embassy
+            - name: Check the compiler and the interpreter without std
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') }}
+              env:
+                  RUSTFLAGS: -D warnings
+              run: |
+                  cargo check --target=thumbv7em-none-eabihf -p i-slint-compiler --no-default-features --features=serde
+                  cargo check --target=thumbv7em-none-eabihf -p slint-interpreter --no-default-features --features=internal-mcu-interpreter,internal,libm,i-slint-core/unsafe-single-threaded
             - name: Check all boards
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') }}
               env:

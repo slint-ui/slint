@@ -73,13 +73,14 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-1-18"))]
+#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
 compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
 extern crate alloc;
+#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
 
@@ -96,9 +97,12 @@ mod prelude {
 
     pub use crate::api::Value;
     pub use crate::instance::Instance;
+    #[cfg(not(feature = "std"))]
+    pub use hashbrown::HashMap;
     pub use i_slint_core::item_tree::ItemTreeVTable;
     pub use i_slint_core::{Callback, Property, SlintContext};
     pub use smol_str::SmolStr;
+    #[cfg(feature = "std")]
     pub use std::collections::HashMap;
     pub use vtable::VRc;
 }
