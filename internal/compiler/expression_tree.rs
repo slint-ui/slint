@@ -3,7 +3,9 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
-use crate::langtype::{EnumerationValue, Keys, Struct, Type};
+use crate::langtype::{
+    BuiltinPropertyDefault, ConstantExpression, EnumerationValue, Keys, Struct, Type,
+};
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
@@ -13,7 +15,7 @@ use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
 use std::collections::BTreeMap;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 // FIXME remove the pub
@@ -1292,7 +1294,7 @@ impl Expression {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
-                                || (key.clone(), right.default_value_for_field(key)),
+                                || (key.clone(), Expression::default_value_for_field(right, key)),
                                 |(k, e)| {
                                     (k, e.maybe_convert_to(ty.clone(), node, diag, symbol_counters))
                                 },
@@ -1319,7 +1321,7 @@ impl Expression {
                                 symbol_counters,
                             )
                         } else {
-                            right.default_value_for_field(key)
+                            Expression::default_value_for_field(right, key)
                         };
                         new_values.insert(key.clone(), expression);
                     }
@@ -1428,7 +1430,7 @@ impl Expression {
                 }
             }
             for f in target_fields.into_keys() {
-                let default_value = target_struct_type.default_value_for_field(&f);
+                let default_value = Expression::default_value_for_field(target_struct_type, &f);
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: target_struct_type.clone(), values: new_values }
@@ -1532,7 +1534,7 @@ impl Expression {
                 values: s
                     .fields
                     .keys()
-                    .map(|k| (k.clone(), s.default_value_for_field(k)))
+                    .map(|k| (k.clone(), Expression::default_value_for_field(s, k)))
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
@@ -1557,6 +1559,58 @@ impl Expression {
                 source_location: None,
             },
             Type::Closure => Expression::Invalid,
+        }
+    }
+
+    pub fn default_value_for_field(ty: &Struct, name: &SmolStr) -> Expression {
+        ty.field_defaults.get(name).map(Expression::from_constant).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                ty.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+
+    pub fn from_constant(constant: &ConstantExpression) -> Expression {
+        match constant {
+            ConstantExpression::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            ConstantExpression::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            ConstantExpression::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            ConstantExpression::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            ConstantExpression::Cast { from, to } => {
+                Expression::Cast { from: Box::new(Self::from_constant(from)), to: to.clone() }
+            }
+            ConstantExpression::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(Self::from_constant(sub)), op: *op }
+            }
+            ConstantExpression::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), Self::from_constant(v))).collect(),
+            },
+            ConstantExpression::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_constant).collect(),
+            },
+        }
+    }
+
+    pub fn from_builtin_default(
+        default: &BuiltinPropertyDefault,
+        elem: Option<&ElementRc>,
+    ) -> Option<Expression> {
+        match default {
+            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::Expr(constant) => Some(Self::from_constant(constant)),
+            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: Vec::new(),
+                source_location: None,
+            }),
+            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: vec![Expression::ElementReference(Rc::downgrade(elem?))],
+                source_location: None,
+            }),
+            BuiltinPropertyDefault::BuiltinFunction(..) => None,
         }
     }
 

@@ -159,7 +159,9 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
         base_type = match base_type {
             ElementType::Component(ref c) => c.root_element.borrow().base_type.clone(),
             ElementType::Builtin(b) => {
-                match b.properties.get(name).and_then(|prop| prop.default_value.expr(elem)) {
+                match b.properties.get(name).and_then(|prop| {
+                    Expression::from_builtin_default(&prop.default_value, Some(elem))
+                }) {
                     Some(expr) => return Some(expr),
                     None => break,
                 }

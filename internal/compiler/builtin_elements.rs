@@ -64,7 +64,7 @@
 //! them.
 
 use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementDocEntry, ElementType};
-use crate::expression_tree::{BuiltinFunction, Unit};
+use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::langtype::{
     BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ConstantExpression, Function,
     NativeClass, Type,
@@ -308,7 +308,7 @@ impl Builder {
                 self.class.class_name
             );
             debug_assert_eq!(
-                default.to_expression().ty(),
+                Expression::from_constant(&default).ty(),
                 info.ty,
                 "the default value of {}::{name} has the wrong type",
                 self.class.class_name

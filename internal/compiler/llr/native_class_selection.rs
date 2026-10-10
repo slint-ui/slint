@@ -62,7 +62,7 @@ fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExp
     };
     binding.animation.is_none()
         && binding.two_way_bindings.is_empty()
-        && same_literal(binding.value_expression(), &default.to_expression())
+        && same_literal(binding.value_expression(), &Expression::from_constant(default))
 }
 
 /// Anything that isn't a literal compares as different, so a computed binding counts as a use.
@@ -160,7 +160,7 @@ fn builtin_defaults_are_comparable() {
         let crate::element_type::ElementType::Builtin(element) = element else { continue };
         for (property, info) in &element.properties {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
-                let default = default.to_expression();
+                let default = Expression::from_constant(default);
                 assert!(
                     same_literal(&default, &default),
                     "the default of {name}::{property} is a shape same_literal doesn't compare, \

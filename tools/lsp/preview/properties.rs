@@ -367,7 +367,7 @@ fn insert_property_definitions(
             ElementType::Builtin(b) => b
                 .properties
                 .get(prop)
-                .and_then(|p| p.default_value.expr(element))
+                .and_then(|p| Expression::from_builtin_default(&p.default_value, Some(element)))
                 .unwrap_or_default(),
             _ => Expression::Invalid,
         }
@@ -452,7 +452,10 @@ pub(super) fn get_properties(
                         visibility: t.property_visibility,
                         declared_at: None,
                         defined_at: None,
-                        default_value: t.default_value.expr(&current_element),
+                        default_value: Expression::from_builtin_default(
+                            &t.default_value,
+                            Some(&current_element),
+                        ),
                         group: b.name.clone(),
                         group_priority: depth,
                     })
