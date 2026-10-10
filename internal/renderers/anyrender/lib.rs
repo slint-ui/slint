@@ -35,7 +35,9 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::Brush;
-use i_slint_core::api::SetRenderingNotifierError;
+use i_slint_core::api::{
+    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
@@ -121,6 +123,16 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     fn winsys_info(&self) -> String {
         "anyrender renderer".into()
     }
+
+    /// Whether [`Self::graphics_api`] can return a graphics API,
+    /// which [`Window::set_rendering_notifier`](i_slint_core::api::Window::set_rendering_notifier) requires.
+    const PROVIDES_GRAPHICS_API: bool = false;
+
+    /// The graphics API passed to rendering notifier callbacks,
+    /// or `None` while there is no surface.
+    fn graphics_api(&self) -> Option<GraphicsAPI<'static>> {
+        None
+    }
 }
 
 /// Created on the first frame after a surface becomes available, so that
@@ -141,6 +153,10 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     /// Set when a surface is created, so the collector is rebuilt against the
     /// device that surface ended up on.
     rendering_first_time: Cell<bool>,
+    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    /// Whether the rendering notifier received [`RenderingState::RenderingSetup`]
+    /// without a matching [`RenderingState::RenderingTeardown`] yet.
+    rendering_set_up: Cell<bool>,
 }
 
 impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
@@ -153,6 +169,20 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
+            rendering_notifier: Default::default(),
+            rendering_set_up: Cell::new(false),
+        }
+    }
+
+    /// Call before the window renderer releases its graphics device, such as
+    /// when its surface is dropped or replaced.
+    pub fn notify_rendering_teardown(&self) {
+        if !self.rendering_set_up.take() {
+            return;
+        }
+        let Some(api) = self.window_renderer.borrow().graphics_api() else { return };
+        if let Some(notifier) = self.rendering_notifier.borrow_mut().as_mut() {
+            notifier.notify(RenderingState::RenderingTeardown, &api);
         }
     }
 
@@ -200,6 +230,20 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         self.item_image_cache.clear_cache_if_scale_factor_changed(window);
 
         let base_color = window_background_color(window_inner);
+
+        let graphics_api = if self.rendering_notifier.borrow().is_some() {
+            self.window_renderer.borrow().graphics_api()
+        } else {
+            None
+        };
+        if let Some(api) = &graphics_api
+            && let Some(notifier) = self.rendering_notifier.borrow_mut().as_mut()
+        {
+            if !self.rendering_set_up.replace(true) {
+                notifier.notify(RenderingState::RenderingSetup, api);
+            }
+            notifier.notify(RenderingState::BeforeRendering, api);
+        }
 
         let initial_transform = if rotation_angle_degrees != 0. || translation != (0., 0.) {
             kurbo::Affine::translate((translation.0 as f64, translation.1 as f64))
@@ -252,6 +296,13 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
 
         self.image_cache.borrow_mut().drain();
 
+        if let Ok(DrawOutcome::Success) = result
+            && let Some(api) = &graphics_api
+            && let Some(notifier) = self.rendering_notifier.borrow_mut().as_mut()
+        {
+            notifier.notify(RenderingState::AfterRendering, api);
+        }
+
         result
     }
 
@@ -285,9 +336,17 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
 
     fn set_rendering_notifier(
         &self,
-        _callback: Box<dyn i_slint_core::api::RenderingNotifier>,
-    ) -> Result<(), i_slint_core::api::SetRenderingNotifierError> {
-        Err(SetRenderingNotifierError::Unsupported)
+        callback: Box<dyn RenderingNotifier>,
+    ) -> Result<(), SetRenderingNotifierError> {
+        if !W::PROVIDES_GRAPHICS_API {
+            return Err(SetRenderingNotifierError::Unsupported);
+        }
+        let mut notifier = self.rendering_notifier.borrow_mut();
+        if notifier.replace(callback).is_some() {
+            Err(SetRenderingNotifierError::AlreadySet)
+        } else {
+            Ok(())
+        }
     }
 
     fn free_graphics_resources(
@@ -371,5 +430,11 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
 
     fn supports_transformations(&self) -> bool {
         true
+    }
+}
+
+impl<W: SlintWindowRenderer> Drop for AnyrenderSlintRenderer<W> {
+    fn drop(&mut self) {
+        self.notify_rendering_teardown();
     }
 }

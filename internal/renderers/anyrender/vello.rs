@@ -83,7 +83,7 @@ struct ActiveState {
     /// Names the WGPU backend and adapter this surface ended up on, for
     /// `SLINT_DEBUG_PERFORMANCE` to report what is doing the rendering.
     winsys_info: String,
-    _instance: wgpu::Instance,
+    instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
@@ -229,7 +229,7 @@ impl VelloWindowRenderer {
             ),
             target: TargetTexture::new(&device, width.max(1), height.max(1)),
             blitter: wgpu::util::TextureBlitter::new(&device, surface_config.format),
-            _instance: instance,
+            instance,
             device,
             queue,
             surface,
@@ -356,6 +356,17 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             .as_ref()
             .map(|state| state.winsys_info.clone())
             .unwrap_or_else(|| "vello renderer on WGPU (no surface)".into())
+    }
+
+    const PROVIDES_GRAPHICS_API: bool = true;
+
+    fn graphics_api(&self) -> Option<i_slint_core::api::GraphicsAPI<'static>> {
+        let state = self.state.as_ref()?;
+        Some(i_slint_core::graphics::create_graphics_api_wgpu_30(
+            state.instance.clone(),
+            state.device.clone(),
+            state.queue.clone(),
+        ))
     }
 
     fn slint_render<F>(
@@ -585,6 +596,7 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
         transparent: bool,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
+        self.notify_rendering_teardown();
         let mut window_renderer = self.window_renderer();
         window_renderer.set_transparent(transparent);
         window_renderer.set_requested_graphics_api(requested_graphics_api);
@@ -612,6 +624,7 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
         height: u32,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
+        self.notify_rendering_teardown();
         let mut window_renderer = self.window_renderer();
         window_renderer.set_requested_graphics_api(requested_graphics_api);
         window_renderer.set_state_from_surface_target(surface_target, width, height)?;
@@ -624,6 +637,7 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     /// the window away. Rendering is skipped until the next
     /// [`Self::resume_window`].
     pub fn suspend_window(&self) {
+        self.notify_rendering_teardown();
         self.window_renderer().suspend();
     }
 
