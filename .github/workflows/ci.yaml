@@ -326,8 +326,8 @@ jobs:
 
     cpp_package_test:
         needs: cpp_cmake
-        # The condition that adds ubuntu-22.04 to the cpp_cmake matrix
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        # cpp_cmake_config is part of api_cpp, which adds ubuntu-22.04 to the cpp_cmake matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'cpp_cmake_config') }}
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen

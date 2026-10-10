@@ -136,6 +136,12 @@ api_cpp:
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
+# The CMake setup of the C++ API, which the package test checks.
+cpp_cmake_config:
+ - 'api/cpp/{CMakeLists.txt,Cargo.toml}'
+ - 'api/cpp/cmake/**'
+ - 'cmake/**'
+
 android_backend:
  - 'internal/backends/android-activity/**'
 
