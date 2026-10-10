@@ -1,0 +1,129 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { RecipesGrid } from "components/recipes-grid.slint";
+import { RecipeDetail } from "components/recipe-detail.slint";
+import { CookingTimer } from "components/cooking-timer.slint";
+import { StartButton } from "components/start-button.slint";
+import { RecipesAdapter } from "recipe-adapter.slint";
+import { Styles } from "styles.slint";
+
+import "../../../internal/common/sharedfontique/Inter-VariableFont.ttf";
+
+export component MainWindow inherits Window {
+    width: 512px;
+    height: 300px;
+    background: black;
+
+    default-font-family: "Inter";
+    default-font-weight: FontWeight.medium;
+
+    property <bool> details-page-visible: selected-recipe-index >= 0;
+    property <int> selected-recipe-index: -1;
+    property <int> cooking-recipe-index: -1;
+    property <bool> is-cooking: false;
+    property <int> remaining-seconds: 0;
+    property <bool> show-start-button: details-page-visible && !is-cooking;
+
+    countdown-timer := Timer {
+        interval: 1s;
+        running: root.is-cooking && root.remaining-seconds > 0;
+        triggered => {
+            if (root.remaining-seconds > 0) {
+                root.remaining-seconds -= 1;
+            }
+            if (root.remaining-seconds == 0) {
+                root.is-cooking = false;
+                root.cooking-recipe-index = -1;
+            }
+        }
+    }
+
+    Rectangle {
+        background: #f8f9fa;
+        border-radius: 14px;
+        clip: true;
+
+        grid := RecipesGrid {
+            width: 100%;
+            height: 100%;
+            recipes: RecipesAdapter.recipes;
+            visible: !details-page-visible;
+
+            item-clicked(index) => {
+                root.selected-recipe-index = index;
+            }
+        }
+
+        detail := RecipeDetail {
+            width: parent.width;
+            height: parent.height;
+            recipe: root.selected-recipe-index >= 0 ? RecipesAdapter.recipes[root.selected-recipe-index] : RecipesAdapter.recipes[0];
+            visible: details-page-visible;
+
+            back-clicked => {
+                root.selected-recipe-index = -1;
+            }
+            portions-changed(portions) => {
+                if (root.selected-recipe-index >= 0) {
+                    RecipesAdapter.update-recipe-portions(root.selected-recipe-index, portions);
+                }
+            }
+        }
+
+        if (is-cooking || show-start-button): button-container := Rectangle {
+            y: 5px;
+            width: show-start-button ? 150px : cooking-timer.preferred-width;
+            height: show-start-button ? 30px : 34px;
+            background: show-start-button ? Styles.slint-blue : #2a2a2a;
+            border-radius: show-start-button ? 8px : 34px / 2;
+
+            animate width, height, border-radius, background {
+                duration: 0.2s;
+            }
+
+            start-button := StartButton {
+                opacity: root.show-start-button ? 1 : 0;
+                visible: self.opacity > 0;
+                width: 100%;
+                height: 100%;
+
+                animate opacity {
+                    duration: 0.2s;
+                }
+
+                clicked => {
+                    root.is-cooking = true;
+                    root.cooking-recipe-index = root.selected-recipe-index;
+                    root.remaining-seconds = RecipesAdapter.recipes[root.selected-recipe-index].total-time * 60;
+                }
+            }
+
+            cooking-timer := CookingTimer {
+                width: 100%;
+                height: 100%;
+                recipe: root.cooking-recipe-index >= 0 ? RecipesAdapter.recipes[root.cooking-recipe-index] : RecipesAdapter.recipes[0];
+                remaining-seconds: root.remaining-seconds;
+                opacity: root.is-cooking ? 1 : 0;
+                visible: self.opacity > 0;
+
+                animate opacity {
+                    duration: 0.2s;
+                }
+
+                clicked => {
+                    if (root.cooking-recipe-index >= 0) {
+                        root.selected-recipe-index = root.cooking-recipe-index;
+                    }
+                }
+
+                close => {
+                    if (root.cooking-recipe-index >= 0) {
+                        root.is-cooking = false;
+                        root.cooking-recipe-index = -1;
+                    }
+                }
+            }
+        }
+    }
+}

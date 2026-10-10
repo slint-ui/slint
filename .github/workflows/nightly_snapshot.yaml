@@ -29,9 +29,10 @@ env:
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
-    # Rebuild and push the `cross` container images first, so every `cross` build
-    # below (the ARM tool binaries and the cross LSP) runs against images built
-    # from this commit rather than stale ones.
+    # Rebuild and push the `cross` container images first, so every job below
+    # that runs in them (the ARM tool binaries, the cross LSP, the C++ packages,
+    # and the Python wheels) uses images built from this commit rather than
+    # stale ones.
     cross_containers:
         uses: ./.github/workflows/cross_containers.yaml
         secrets: inherit
@@ -71,6 +72,7 @@ jobs:
     wasm:
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
     cpp_package:
+        needs: [cross_containers]
         uses: ./.github/workflows/cpp_package.yaml
         with:
             extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
@@ -79,6 +81,7 @@ jobs:
     # wheel build shows up here instead of during a release. In release mode
     # `trigger_package_publishing` dispatches these workflows to publish.
     python_wheels:
+        needs: [cross_containers]
         if: github.event.inputs.mode != 'release'
         uses: ./.github/workflows/upload_pypi.yaml
 
@@ -487,7 +490,7 @@ jobs:
                 rm -rf $output_path/demos
                 mkdir -p $output_path/demos
 
-                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,dnd-kanban, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,usecases,rust; do
+                for demo_subdir in examples,gallery, demos,printerdemo,rust examples,todo,rust examples,todo-mvc,rust examples,slide_puzzle, examples,speedometer,rust examples,memory, examples,dnd-kanban, examples,imagefilter,rust examples,plotter, examples,opengl_underlay, examples,carousel,rust demos,energy-monitor, demos,weather-demo, demos,home-automation,rust demos,food-processor,rust demos,usecases,rust; do
                   IFS=',' read example_or_demo demo subdir <<< "${demo_subdir}"
 
                   mkdir -p $output_path/demos/$demo

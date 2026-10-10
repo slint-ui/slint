@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component RecipeCard inherits Rectangle {
+    width: 109px;
+    height: 109px;
+
+    in property <image> photo;
+    in property <string> title: "Recipe Name";
+    in property <string> rating: "4.8";
+    in property <int> reviews: 693;
+    in property <string> time: "1 Std. 20 Min";
+    in property <int> portions: 4;
+
+    callback recipe-clicked();
+    TouchArea {
+        clicked => {
+            root.recipe-clicked();
+        }
+    }
+
+    frame := Rectangle {
+
+        Image {
+            source: root.photo;
+            width: 100%;
+            height: 100%;
+            image-fit: contain;
+        }
+    }
+
+    title := Text {
+        y: 89px;
+        width: 80%;
+        text: root.title;
+        font-size: 8px;
+        font-weight: FontWeight.bold;
+        color: white;
+        wrap: no-wrap;
+        overflow: elide;
+        horizontal-alignment: center;
+        letter-spacing: -0.1px;
+    }
+
+    Rectangle {
+        x: parent.width - self.width - 5px;
+        y: 5px;
+        width: 44px;
+
+        Rectangle {
+            x: 4px;
+            y: 1px;
+            width: 40px;
+            height: 15px;
+
+            Image {
+                x: 5px;
+                width: 6px;
+                source: @image-url("../images/time.svg");
+            }
+            Text {
+                x: 14px;
+                y: 4px;
+                text: root.time;
+                color: #171717;
+                font-size: 6px;
+                font-weight: FontWeight.bold;
+            }
+        }
+    }
+}

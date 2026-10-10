@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component Bubble inherits Image {
+    width: 70px;
+    source: @image-url("../images/bubble.jpg");
+
+    in property <string> title: "PREP";
+    in property <string> time: "15 Min";
+    in property <image> icon: @image-url("../images/prep.jpg");
+
+    Rectangle {
+        x: 8px;
+        width: vl.preferred-width;
+        height: vl.preferred-height;
+        vl := VerticalLayout {
+            spacing: 2px;
+            info := HorizontalLayout {
+                alignment: start;
+                spacing: 4px;
+                Image {
+                    width: 8px;
+                    source: root.icon;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.title;
+                    font-size: 6px;
+                    font-weight: FontWeight.medium;
+                    color: #737373;
+                }
+            }
+
+            Text {
+                text: root.time;
+                font-size: 9px;
+                font-weight: FontWeight.bold;
+                color: #171717;
+            }
+        }
+    }
+}
