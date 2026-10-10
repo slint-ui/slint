@@ -6,12 +6,11 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
-use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
-    Unit,
-};
+use crate::expression_tree::{BuiltinMacroFunction, Callable, Expression};
+use crate::expression_types::{EasingCurve, MouseCursorInner, Unit};
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;

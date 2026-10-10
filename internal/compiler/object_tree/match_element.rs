@@ -7,7 +7,8 @@ use std::collections::HashSet;
 
 use smol_str::SmolStr;
 
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
 use crate::langtype::{EnumerationValue, Type};
 
 #[derive(Clone, PartialEq)]

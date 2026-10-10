@@ -22,7 +22,8 @@ Slint has a rich type system that includes primitive types, unit types for dimen
 | `internal/compiler/langtype.rs` | Core `Type` enum and type definitions |
 | `internal/compiler/lookup.rs` | Name resolution and expression lookup |
 | `internal/compiler/typeregister.rs` | Type registry, built-in types, reserved properties |
-| `internal/compiler/expression_tree.rs` | Unit definitions and expressions |
+| `internal/compiler/expression_tree.rs` | Expressions |
+| `internal/compiler/expression_types.rs` | Unit definitions and other types shared with the LLR |
 | `internal/compiler/typeloader.rs` | Import resolution and document loading |
 
 ## Core Type Enum

@@ -14,8 +14,9 @@ Some convention used in the generated code:
 
 use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -3609,17 +3610,17 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
-impl quote::ToTokens for crate::expression_tree::ImageReference {
+impl quote::ToTokens for crate::expression_types::ImageReference {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
-            crate::expression_tree::ImageReference::None => {
+            crate::expression_types::ImageReference::None => {
                 quote!(sp::Image::default())
             }
-            crate::expression_tree::ImageReference::Source(SourcePath::File(path)) => {
+            crate::expression_types::ImageReference::Source(SourcePath::File(path)) => {
                 let path = path.to_string_lossy();
                 quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
             }
-            crate::expression_tree::ImageReference::Source(url) => {
+            crate::expression_types::ImageReference::Source(url) => {
                 let url = url.to_string();
                 // URL image references only work on the web, where the browser fetches them.
                 quote!({
@@ -3629,15 +3630,15 @@ impl quote::ToTokens for crate::expression_tree::ImageReference {
                     { sp::Image::default() }
                 })
             }
-            crate::expression_tree::ImageReference::DataUri(_) => {
+            crate::expression_types::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
-            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+            crate::expression_types::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                 quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
             }
-            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+            crate::expression_types::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                 quote!(
                     sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
@@ -4217,7 +4218,7 @@ fn compile_binary_operator(
         let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
         quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
     } else {
-        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
+        let (conv1, conv2) = match crate::expression_types::operator_class(op) {
             OperatorClass::ArithmeticOp => match lhs_ty {
                 Type::String => (None, Some(quote!(.as_str()))),
                 Type::Struct { .. } => (None, None),

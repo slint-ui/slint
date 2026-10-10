@@ -125,8 +125,8 @@ macro_rules! builtin_type {
     (NoArgCallback) => { $crate::typeregister::noarg_callback_type() };
     (ScaleFactor) => {
         $crate::langtype::Type::UnitProduct(vec![
-            ($crate::expression_tree::Unit::Phx, 1),
-            ($crate::expression_tree::Unit::Px, -1),
+            ($crate::expression_types::Unit::Phx, 1),
+            ($crate::expression_types::Unit::Px, -1),
         ])
     };
     (Int32) => { $crate::langtype::Type::Int32 };

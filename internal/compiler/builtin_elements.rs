@@ -63,8 +63,10 @@
 //! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`BUILTIN_ELEMENTS`] runs
 //! them.
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementDocEntry, ElementType};
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
 use crate::langtype::{BuiltinStruct, ConstantExpression, Function, Type};
 use crate::native_class::{
     BuiltinPropertyDefault, BuiltinPropertyInfo, NativeClass, PropertyVisibility,

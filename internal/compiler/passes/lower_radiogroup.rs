@@ -11,7 +11,8 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::element_type::ElementType;
-use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
@@ -123,7 +124,7 @@ fn process_radiogroup(
 
     let count_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
         Some(rep) if children.len() == 1 => Expression::FunctionCall {
-            function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
+            function: Callable::Builtin(crate::builtin_functions::BuiltinFunction::ArrayLength),
             arguments: vec![rep.model],
             source_location: None,
         },

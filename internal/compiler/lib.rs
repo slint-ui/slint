@@ -26,6 +26,7 @@ pub mod diagnostics;
 pub mod element_type;
 pub mod embedded_resources;
 pub mod expression_tree;
+pub mod expression_types;
 pub mod fileaccess;
 pub mod generator;
 pub mod langtype;

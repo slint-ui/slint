@@ -8,7 +8,7 @@ use std::sync::Arc;
 use smol_str::SmolStr;
 
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::Unit;
+use crate::expression_types::Unit;
 
 #[derive(Debug, Clone, Default)]
 pub enum Type {

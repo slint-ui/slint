@@ -11,7 +11,8 @@
 //! binding reference to fake properties
 
 use crate::element_type::ElementType;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
 use crate::layout::{MergedFixedSize, Orientation, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};

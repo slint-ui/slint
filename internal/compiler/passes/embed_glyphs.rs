@@ -3,12 +3,13 @@
 
 // cSpell: ignore fsdm msdf msdfgen
 use crate::CompilerConfiguration;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::expression_tree::BuiltinFunction;
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 use std::collections::{BTreeMap, BTreeSet, HashMap};

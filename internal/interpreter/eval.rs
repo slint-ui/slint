@@ -10,8 +10,9 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
+use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
-use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
+use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
 use i_slint_compiler::source_path::SourcePath;
@@ -942,7 +943,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
         ),
         Expression::EasingCurve(curve) => {
-            use i_slint_compiler::expression_tree::EasingCurve as EC;
+            use i_slint_compiler::expression_types::EasingCurve as EC;
             use i_slint_core::animations::EasingCurve as Core;
             Value::EasingCurve(match curve {
                 EC::Linear => Core::Linear,
@@ -957,7 +958,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             })
         }
         Expression::MouseCursor(cursor) => {
-            use i_slint_compiler::expression_tree::MouseCursorInner as Expr;
+            use i_slint_compiler::expression_types::MouseCursorInner as Expr;
             use i_slint_core::cursor::MouseCursorInner as Core;
             Value::MouseCursorInner(match cursor {
                 Expr::BuiltIn(cursor) => {
@@ -1775,9 +1776,9 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
 }
 
 fn load_image_reference(
-    resource_ref: &i_slint_compiler::expression_tree::ImageReference,
+    resource_ref: &i_slint_compiler::expression_types::ImageReference,
 ) -> i_slint_core::graphics::Image {
-    use i_slint_compiler::expression_tree::ImageReference as Ref;
+    use i_slint_compiler::expression_types::ImageReference as Ref;
     let image = match resource_ref {
         Ref::None => Ok(Default::default()),
         Ref::DataUri(data_uri) => i_slint_compiler::data_uri::decode_data_uri(data_uri)

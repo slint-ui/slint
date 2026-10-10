@@ -9,9 +9,11 @@
 //!
 //! Most of the code for the resolving actually lies in the expression_tree module
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
+use crate::expression_types::{ImageReference, OperatorClass, Unit, operator_class};
 use crate::langtype::{self, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::native_class::PropertyVisibility;
@@ -748,7 +750,7 @@ impl Expression {
                             Ok((value, unit)) => {
                                 #[cfg(feature = "slint-sc")]
                                 {
-                                    use crate::expression_tree::WrittenUnit;
+                                    use crate::expression_types::WrittenUnit;
                                     match unit {
                                         WrittenUnit::Px if value.fract() != 0. => ctx
                                             .diag
@@ -1727,7 +1729,7 @@ impl Expression {
             LookupResult::Expression { expression, .. } => expression,
             // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
             LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
-                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
+                Expression::EasingCurve(crate::expression_types::EasingCurve::Spring(0.))
             }
             LookupResult::Callable(c) => {
                 let what = match c {

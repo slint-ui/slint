@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use smol_str::SmolStr;
 
-use i_slint_compiler::{expression_tree, langtype};
+use i_slint_compiler::{builtin_functions, expression_tree, expression_types, langtype};
 use slint::Model;
 use slint_interpreter::{Value, ValueType};
 
@@ -204,29 +204,29 @@ fn eval_expression(
             local_context.local_variables.get(name).cloned().unwrap_or_default()
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            expression_tree::EasingCurve::Linear => i_slint_core::animations::EasingCurve::Linear,
-            expression_tree::EasingCurve::EaseInElastic => {
+            expression_types::EasingCurve::Linear => i_slint_core::animations::EasingCurve::Linear,
+            expression_types::EasingCurve::EaseInElastic => {
                 i_slint_core::animations::EasingCurve::EaseInElastic
             }
-            expression_tree::EasingCurve::EaseOutElastic => {
+            expression_types::EasingCurve::EaseOutElastic => {
                 i_slint_core::animations::EasingCurve::EaseOutElastic
             }
-            expression_tree::EasingCurve::EaseInOutElastic => {
+            expression_types::EasingCurve::EaseInOutElastic => {
                 i_slint_core::animations::EasingCurve::EaseInOutElastic
             }
-            expression_tree::EasingCurve::EaseInBounce => {
+            expression_types::EasingCurve::EaseInBounce => {
                 i_slint_core::animations::EasingCurve::EaseInBounce
             }
-            expression_tree::EasingCurve::EaseOutBounce => {
+            expression_types::EasingCurve::EaseOutBounce => {
                 i_slint_core::animations::EasingCurve::EaseOutBounce
             }
-            expression_tree::EasingCurve::EaseInOutBounce => {
+            expression_types::EasingCurve::EaseInOutBounce => {
                 i_slint_core::animations::EasingCurve::EaseInOutBounce
             }
-            expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
+            expression_types::EasingCurve::CubicBezier(a, b, c, d) => {
                 i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
-            expression_tree::EasingCurve::Spring(a) => {
+            expression_types::EasingCurve::Spring(a) => {
                 i_slint_core::animations::EasingCurve::Spring(*a)
             }
         }),
@@ -310,8 +310,8 @@ fn eval_expression(
                 return local_context.return_value.clone().unwrap_or_default();
             };
             match op {
-                expression_tree::MinMaxOp::Min => Value::Number(lhs.min(rhs)),
-                expression_tree::MinMaxOp::Max => Value::Number(lhs.max(rhs)),
+                expression_types::MinMaxOp::Min => Value::Number(lhs.min(rhs)),
+                expression_types::MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
         _ => Value::Void,
@@ -340,11 +340,11 @@ pub fn fully_eval_expression_tree_expression(
 }
 
 fn handle_builtin_function(
-    f: &expression_tree::BuiltinFunction,
+    f: &builtin_functions::BuiltinFunction,
     arguments: &[expression_tree::Expression],
     local_context: &mut EvalLocalContext,
 ) -> slint_interpreter::Value {
-    use i_slint_compiler::expression_tree::BuiltinFunction;
+    use i_slint_compiler::builtin_functions::BuiltinFunction;
 
     if f.is_pure() {
         let context = f.runtime_function_takes_context().then(|| local_context.context()).flatten();

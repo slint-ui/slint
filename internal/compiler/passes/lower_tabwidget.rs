@@ -10,7 +10,8 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::element_type::ElementType;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};

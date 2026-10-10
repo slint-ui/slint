@@ -7,7 +7,8 @@
 
 use crate::diagnostics::Spanned;
 use crate::element_type::{ElementType, PropertyLookupMode};
-use crate::expression_tree::{BindingExpression, Expression, Unit};
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
