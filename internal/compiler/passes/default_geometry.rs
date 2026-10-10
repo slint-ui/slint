@@ -196,16 +196,27 @@ fn gen_layout_info_prop(
     if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_content {
         return;
     }
+    for c in elem.borrow().children.iter().filter(|c| has_no_explicit_position(c)) {
+        gen_layout_info_prop(c, diag, symbol_counters);
+    }
+    gen_layout_info_prop_from_children(elem, diag, symbol_counters);
+}
 
+fn has_no_explicit_position(elem: &ElementRc) -> bool {
+    !elem.borrow().is_binding_set("x", false) && !elem.borrow().is_binding_set("y", false)
+}
+
+fn gen_layout_info_prop_from_children(
+    elem: &ElementRc,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+) {
     let child_infos = elem
         .borrow()
         .children
         .iter()
-        .filter(|c| {
-            !c.borrow().is_binding_set("x", false) && !c.borrow().is_binding_set("y", false)
-        })
+        .filter(|c| has_no_explicit_position(c))
         .filter_map(|c| {
-            gen_layout_info_prop(c, diag, symbol_counters);
             let cb = c.borrow();
             cb.effective_layout_info_prop(Orientation::Horizontal)
                 .cloned()

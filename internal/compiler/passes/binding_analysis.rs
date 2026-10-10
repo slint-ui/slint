@@ -933,8 +933,16 @@ fn recurse_expression(
     expr: &Expression,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(elem, sub, vis));
+    visit_expression_reads(elem, expr, vis);
+}
+
+fn visit_expression_reads(
+    elem: &ElementRc,
+    expr: &Expression,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    const P: ReadType = ReadType::PropertyRead;
     match expr {
         Expression::PropertyReference(r) => vis(&r.clone().into(), P),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {

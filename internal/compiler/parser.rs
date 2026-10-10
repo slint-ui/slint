@@ -547,7 +547,7 @@ mod parser_trait {
         #[must_use = "The node will be finished when it is dropped"]
         fn start_node(&mut self, kind: SyntaxKind) -> Node<'_, Self> {
             self.start_node_impl(kind, None, NodeToken(()));
-            Node(self)
+            Node(self, kind)
         }
         #[must_use = "use start_node_at to use this checkpoint"]
         fn checkpoint(&mut self) -> Self::Checkpoint;
@@ -558,11 +558,11 @@ mod parser_trait {
             kind: SyntaxKind,
         ) -> Node<'_, Self> {
             self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
-            Node(self)
+            Node(self, kind)
         }
 
         /// Can only be called by Node::drop
-        fn finish_node_impl(&mut self, token: NodeToken);
+        fn finish_node_impl(&mut self, kind: SyntaxKind, token: NodeToken);
         /// Can only be called by Self::start_node
         fn start_node_impl(
             &mut self,
@@ -635,10 +635,10 @@ mod parser_trait {
     /// The return value of `DefaultParser::start_node`. This borrows the parser
     /// and finishes the node on Drop
     #[derive(derive_more::DerefMut)]
-    pub struct Node<'a, P: Parser>(&'a mut P);
+    pub struct Node<'a, P: Parser>(#[deref_mut] &'a mut P, SyntaxKind);
     impl<P: Parser> Drop for Node<'_, P> {
         fn drop(&mut self) {
-            self.0.finish_node_impl(NodeToken(()));
+            self.0.finish_node_impl(self.1, NodeToken(()));
         }
     }
     impl<P: Parser> core::ops::Deref for Node<'_, P> {
@@ -651,8 +651,20 @@ mod parser_trait {
 #[doc(inline)]
 pub use parser_trait::*;
 
-/// Nesting level at which the parser gives up (#6494). Real files stay well below that.
-const MAX_DEPTH: usize = 128;
+/// Nesting level at which the parser gives up (#6494).
+/// Up to that depth, a debug build of the compiler fits in a 900 KB stack: see `tests/deep_nesting.rs`.
+const MAX_DEPTH: usize = 256;
+
+/// How much a node of this kind counts toward [`MAX_DEPTH`].
+/// A nested call, array, `if` element, or `for` element uses more stack in the compiler than
+/// other nesting.
+fn nesting_weight(kind: SyntaxKind) -> usize {
+    match kind {
+        SyntaxKind::FunctionCallExpression => 4,
+        SyntaxKind::Array | SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => 3,
+        _ => 1,
+    }
+}
 
 pub struct DefaultParser<'a> {
     builder: rowan::GreenNodeBuilder<'static>,
@@ -717,7 +729,7 @@ impl Parser for DefaultParser<'_> {
         if kind != SyntaxKind::Document {
             self.consume_ws();
         }
-        self.depth += 1;
+        self.depth += nesting_weight(kind);
         match checkpoint {
             None => self.builder.start_node(kind.into()),
             Some(cp) => self.builder.start_node_at(cp, kind.into()),
@@ -734,8 +746,8 @@ impl Parser for DefaultParser<'_> {
         }
     }
 
-    fn finish_node_impl(&mut self, _: NodeToken) {
-        self.depth -= 1;
+    fn finish_node_impl(&mut self, kind: SyntaxKind, _: NodeToken) {
+        self.depth -= nesting_weight(kind);
         self.builder.finish_node();
     }
 
