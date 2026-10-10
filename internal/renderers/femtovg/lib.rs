@@ -224,14 +224,23 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
                     select_render_target(&mut femtovg_canvas, render_target);
 
-                    // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                    if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                    // A gradient that isn't opaque blends over what the target holds, which may
+                    // be undefined.
+                    let clear_color =
+                        if let Some(Brush::SolidColor(clear_color)) = &window_background_brush {
+                            Some(self::itemrenderer::to_femtovg_color(clear_color))
+                        } else if window_background_brush.as_ref().is_some_and(|b| !b.is_opaque()) {
+                            Some(femtovg::Color::rgba(0, 0, 0, 0))
+                        } else {
+                            None
+                        };
+                    if let Some(clear_color) = clear_color {
                         femtovg_canvas.clear_rect(
                             0,
                             0,
                             surface_size.width,
                             surface_size.height,
-                            self::itemrenderer::to_femtovg_color(&clear_color),
+                            clear_color,
                         );
                     }
                 }
