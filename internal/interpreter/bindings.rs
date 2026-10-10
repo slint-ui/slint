@@ -21,6 +21,8 @@ use i_slint_compiler::llr::{
 use i_slint_core::Property;
 use i_slint_core::items::PropertyAnimation;
 use i_slint_core::rtti::AnimatedBindingKind;
+#[cfg(not(feature = "std"))]
+use num_traits::Float as _;
 use vtable::VRc;
 
 use i_slint_core::item_tree::ItemTreeVTable;

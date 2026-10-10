@@ -507,7 +507,7 @@ fn resolve_accessible_candidates(
 /// PascalCase form the lowering derives from the enum's kebab-case
 /// `Display` (see `lower_to_item_tree`).
 fn accessible_string_property_name(what: AccessibleStringProperty) -> String {
-    i_slint_compiler::generator::to_pascal_case(&what.to_string())
+    i_slint_compiler::names::to_pascal_case(&what.to_string())
 }
 
 fn accessibility_action_name(action: &AccessibilityAction) -> &'static str {

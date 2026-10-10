@@ -6,16 +6,22 @@
 //! The public API wraps these thin structs so downstream callers never
 //! see the compilation-unit surface directly.
 
+#[cfg(feature = "std")]
+use crate::AnimationMode;
+use crate::Value;
 use crate::instance::Instance;
 use crate::prelude::*;
 use crate::public_api;
-use crate::{AnimationMode, Value};
 use alloc::rc::Rc;
+#[cfg(feature = "std")]
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
+#[cfg(feature = "std")]
+use i_slint_compiler::llr::Expression;
+use i_slint_compiler::llr::{CompilationUnit, GlobalComponent, PublicComponentIdx};
+use i_slint_compiler::names::normalize_identifier;
 use i_slint_compiler::native_class::PropertyVisibility;
-use i_slint_compiler::parser::normalize_identifier;
+#[cfg(feature = "std")]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::item_tree::ItemTreeVTable;
 use smol_str::SmolStr;
@@ -32,8 +38,10 @@ use vtable::VRc;
 /// the other; passes are destructive.
 #[derive(Clone, Default)]
 pub struct TypeLoaders {
+    #[cfg(feature = "std")]
     #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
-    pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    pub type_loader: Option<alloc::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    #[cfg(feature = "std")]
     #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
     pub raw_type_loader: Option<alloc::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The object-tree component of each public component, indexed like
@@ -41,7 +49,8 @@ pub struct TypeLoaders {
     /// resolve elements against the exact component the definition was
     /// built from — a name lookup could hit a same-named component from
     /// another document.
-    pub originals: std::rc::Rc<
+    #[cfg(feature = "std")]
+    pub originals: alloc::rc::Rc<
         typed_index_collections::TiVec<
             PublicComponentIdx,
             alloc::rc::Rc<i_slint_compiler::object_tree::Component>,
@@ -338,6 +347,7 @@ impl ComponentInstanceInner {
     }
 }
 
+#[cfg(feature = "std")]
 /// Lower a compiled `Document` to a `CompilationUnit` and wrap each public
 /// component in a `ComponentDefinitionInner`.
 pub fn build_from_document(
@@ -365,6 +375,7 @@ pub fn build_from_document(
         .collect()
 }
 
+#[cfg(feature = "std")]
 fn make_static(compilation_unit: &mut CompilationUnit) {
     fn make_expression_static(expression: &mut Expression) {
         let replacement = match expression {
@@ -399,19 +410,21 @@ fn make_static(compilation_unit: &mut CompilationUnit) {
     }
 }
 
+#[cfg(feature = "std")]
 /// What [`build_from_source`] produces: the diagnostics, a map of public
 /// component name → `ComponentDefinitionInner` for each exported root in the
 /// document, and the extra document metadata that the `internal` API of
 /// [`crate::CompilationResult`] exposes for the LSP and live preview.
 pub struct BuildResult {
     pub diagnostics: Vec<i_slint_compiler::diagnostics::Diagnostic>,
-    pub components: std::collections::HashMap<String, ComponentDefinitionInner>,
+    pub components: crate::HashMap<String, ComponentDefinitionInner>,
     #[cfg(feature = "internal")]
     pub watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
 }
 
+#[cfg(feature = "std")]
 /// Compile a `.slint` source string.
 pub async fn build_from_source(
     source_code: String,
@@ -499,7 +512,7 @@ pub async fn build_from_source(
             };
         }
     };
-    let mut components = std::collections::HashMap::new();
+    let mut components = crate::HashMap::new();
     for def in build_from_document(doc, &config, type_loaders, animation_mode) {
         components.insert(def.name().to_string(), def);
     }

@@ -4837,6 +4837,7 @@ version = "1.19.0"
 dependencies = [
  "derive_more",
  "either",
+ "hashbrown 0.16.1",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-winit",
@@ -4845,6 +4846,8 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "lyon_path",
+ "num-traits",
+ "once_cell",
  "smol_str 0.3.6",
  "typed-index-collections",
  "vtable",

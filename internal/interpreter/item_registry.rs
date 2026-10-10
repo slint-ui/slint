@@ -12,7 +12,6 @@ use crate::erased::ErasedItemRc;
 use crate::item_holder::make_item;
 use i_slint_core::items::*;
 use i_slint_core::rtti::BuiltinItem;
-use std::sync::OnceLock;
 
 pub type ItemFactory = fn() -> ErasedItemRc;
 
@@ -26,7 +25,7 @@ impl ItemRegistry {
     }
 
     pub fn global() -> &'static ItemRegistry {
-        static REGISTRY: OnceLock<ItemRegistry> = OnceLock::new();
+        static REGISTRY: once_cell::sync::OnceCell<ItemRegistry> = once_cell::sync::OnceCell::new();
         REGISTRY.get_or_init(ItemRegistry::build)
     }
 

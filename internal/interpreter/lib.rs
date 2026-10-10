@@ -73,13 +73,14 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-1-18"))]
+#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
 compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
 extern crate alloc;
+#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
 
@@ -93,6 +94,9 @@ mod prelude {
     pub use alloc::vec::Vec;
 }
 
+#[cfg(not(feature = "std"))]
+pub(crate) use hashbrown::HashMap;
+#[cfg(feature = "std")]
 pub(crate) use std::collections::HashMap;
 
 mod api;
