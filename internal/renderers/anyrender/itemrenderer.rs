@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use anyrender::PaintScene;
@@ -53,6 +54,7 @@ pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
     image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
     item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
+    texture_importer: Option<&'a dyn crate::TextureImporter>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
 }
@@ -100,6 +102,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             image_cache,
             item_image_cache,
             text_layout_cache,
+            texture_importer: None,
             state_stack: vec![],
             current_state: RenderState {
                 clip_rect: LogicalRect::from_size(
@@ -110,6 +113,15 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 alpha: 1.,
             },
         }
+    }
+
+    /// Draw images that wrap a GPU texture through `texture_importer`.
+    pub fn with_texture_importer(
+        mut self,
+        texture_importer: Option<&'a dyn crate::TextureImporter>,
+    ) -> Self {
+        self.texture_importer = texture_importer;
+        self
     }
 }
 
@@ -213,20 +225,29 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let resolve_image_fit =
             || if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
 
-        // The per-item cache tracks the properties read in the closure
-        // (source, image-fit, target size) and invalidates on change; the
-        // shared conversion cache deduplicates across items. The fit has to
-        // be resolved inside the closure to be tracked: SVGs rasterize at
-        // the fitted size.
-        let image_data = self.item_image_cache.get_or_update_cache_entry(item_rc, || {
-            load_image(
-                image.source(),
-                &|| image.target_size(),
-                resolve_image_fit(),
-                self.scale_factor,
-                self.image_cache,
-            )
-        });
+        // Imported textures bypass the per-item cache: the importer has to see
+        // every frame's textures to know which ones are still in use.
+        let imported_texture = self
+            .texture_importer
+            .and_then(|importer| importer.import_texture((&image.source()).into()));
+        let image_data = if let Some(image_data) = imported_texture {
+            Some(Rc::new(image_data))
+        } else {
+            // The per-item cache tracks the properties read in the closure
+            // (source, image-fit, target size) and invalidates on change; the
+            // shared conversion cache deduplicates across items. The fit has to
+            // be resolved inside the closure to be tracked: SVGs rasterize at
+            // the fitted size.
+            self.item_image_cache.get_or_update_cache_entry(item_rc, || {
+                load_image(
+                    image.source(),
+                    &|| image.target_size(),
+                    resolve_image_fit(),
+                    self.scale_factor,
+                    self.image_cache,
+                )
+            })
+        };
         let Some(image_data) = image_data else {
             return;
         };
@@ -1352,9 +1373,9 @@ fn load_image(
         ImageInner::NineSlice(n) => {
             load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, image_cache)
         }
-        // Remaining variants hold live GPU resources (borrowed GL textures,
-        // wgpu textures behind the unstable-wgpu-* features) that this
-        // backend-agnostic renderer cannot import.
+        // Remaining variants hold live GPU resources. Borrowed GL textures
+        // can't be drawn; WGPU textures go through the texture importer,
+        // see `draw_image`.
         #[allow(unreachable_patterns)]
         _ => None,
     }
