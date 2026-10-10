@@ -1,0 +1,1425 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore tnum wasd
+
+// Barlow Semi Condensed with its tabular digits made the default, so race numbers don't jitter.
+import "./fonts/BarlowSemiCondensedTnum-Medium.ttf";
+import "./fonts/BarlowSemiCondensedTnum-SemiBold.ttf";
+import "./fonts/BarlowSemiCondensedTnum-Bold.ttf";
+
+global Theme {
+    out property <color> background: #05070a;
+    out property <color> plate: #080b10;
+    out property <color> plate-glass: self.plate.with-alpha(0.88);
+    out property <color> plate-hover: #111720;
+    out property <color> rule: #ffb86ad0;
+    out property <color> hairline: #ffffff1f;
+    out property <color> hairline-strong: #ffffff52;
+    out property <color> control-border: #58626e;
+    out property <color> field: #ffffff0a;
+    out property <color> field-hover: #ffffff14;
+    out property <color> field-pressed: #ffffff24;
+    out property <color> text: #eef1f4;
+    out property <color> text-dim: #8a96a3;
+    out property <color> label: #e3b07a;
+    // Slint blue marks the player and the active state.
+    out property <color> accent: #2379f4;
+    out property <color> accent-text: #6aa5fa;
+    out property <color> boost: #35d6ff;
+    out property <color> best: #c56cf0;
+    out property <length> touch-target: 44px;
+}
+
+// A broadcast-graphics plate: square, nearly opaque, with a lit rule along the top.
+component Plate inherits Rectangle {
+    background: Theme.plate-glass;
+
+    Rectangle {
+        y: 0;
+        height: 2px;
+        background: Theme.rule;
+    }
+}
+
+// A section heading, in spaced capitals.
+component Label inherits Text {
+    color: Theme.label;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+}
+
+// The touch, keyboard, and accessibility handling that all buttons share.
+component ButtonBase inherits Rectangle {
+    in property <string> label;
+    in property <bool> checked;
+    out property <bool> pressed: touch.pressed;
+    out property <bool> hovered: touch.has-hover;
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// A button on a plate, for overlays on the 3D view.
+component PlateButton inherits ButtonBase {
+    height: Theme.touch-target;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : root.hovered ? Theme.text-dim : Theme.control-border;
+    background: root.pressed ? Theme.field-pressed : root.hovered ? Theme.plate-hover : Theme.plate;
+    animate background, border-color { duration: 120ms; }
+}
+
+component TouchButton inherits PlateButton {
+    // The key that does the same, shown after the label.
+    in property <string> key;
+
+    min-width: Theme.touch-target;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+
+        Text {
+            text: root.label;
+            color: root.checked ? Theme.accent-text : Theme.text;
+            font-size: 14px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+
+        if root.key != "": Text {
+            text: root.key;
+            color: Theme.text-dim;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component PrimaryButton inherits ButtonBase {
+    min-width: 160px;
+    height: 48px;
+    background: root.pressed ? Theme.accent.darker(0.25) : root.hovered ? Theme.accent.brighter(0.12) : Theme.accent;
+    animate background { duration: 120ms; }
+
+    Text {
+        text: root.label.to-uppercase();
+        color: Theme.text;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Path commands in a 16 x 16 box, drawn as 1.5 px strokes.
+global Icons {
+    out property <string> sliders: "M 2 4 L 14 4 M 2 8 L 14 8 M 2 12 L 14 12 M 5 2 L 5 6 M 11 6 L 11 10 M 7 10 L 7 14";
+}
+
+// A square plate button with a line icon.
+component IconButton inherits PlateButton {
+    in property <string> icon;
+
+    width: Theme.touch-target;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+
+    Path {
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: root.icon;
+        stroke: root.checked ? Theme.accent-text : Theme.text;
+        stroke-width: 1.5px;
+        stroke-line-cap: square;
+    }
+}
+
+// Options side by side; the selected one lights up with an accent bar underneath.
+component Segmented inherits Rectangle {
+    in property <string> label;
+    in property <[string]> options;
+    in property <int> current;
+    callback selected(index: int);
+
+    height: Theme.touch-target + 2px;
+    border-width: 1px;
+    border-color: Theme.control-border;
+    background: Theme.field;
+    accessible-role: radio-group;
+    accessible-label: root.label;
+
+    HorizontalLayout {
+        padding: 1px;
+        spacing: 1px;
+        for option[index] in root.options: cell := ButtonBase {
+            label: option;
+            checked: index == root.current;
+            accessible-role: radio-button;
+            accessible-checked: self.checked;
+            clicked => {
+                root.selected(index);
+            }
+            background: self.checked || self.pressed ? Theme.field-pressed : self.hovered ? Theme.field-hover : transparent;
+            animate background { duration: 120ms; }
+
+            Text {
+                text: option;
+                color: cell.checked || cell.hovered ? Theme.text : Theme.text-dim;
+                font-size: 14px;
+                font-weight: 500;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            if cell.checked: Rectangle {
+                y: parent.height - self.height;
+                height: 2px;
+                background: Theme.accent;
+            }
+        }
+    }
+}
+
+// A line between groups of settings.
+component SettingsDivider inherits Rectangle {
+    height: 9px;
+
+    Rectangle {
+        height: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// A key and what it does.
+component Shortcut inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> action;
+    spacing: 8px;
+
+    Text {
+        width: 40px;
+        text: root.key;
+        color: Theme.text;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    Text {
+        text: root.action;
+        color: Theme.text-dim;
+        font-size: 13px;
+    }
+}
+
+export enum Quality {
+    low,
+    medium,
+    high,
+}
+
+export enum Phase {
+    ready,
+    countdown,
+    racing,
+    // After the player's last lap, while the car drives on.
+    finished,
+}
+
+export struct MapPoint {
+    x: float,
+    y: float,
+}
+
+// One car in the standings.
+export struct Standing {
+    name: string,
+    color: color,
+    // Behind the leader, such as "+1.4"; empty for the leader and before the start.
+    gap: string,
+    player: bool,
+}
+
+// A car on the map.
+export struct CarDot {
+    x: float,
+    y: float,
+    color: color,
+    player: bool,
+}
+
+export struct RaceResult {
+    // From 1.
+    place: int,
+    time: string,
+    best-lap: string,
+}
+
+// A finished lap, shown for a few seconds after crossing the line.
+export struct LapFlash {
+    shown: bool,
+    lap: int,
+    time: string,
+    // Against the best lap before this one, such as "−1.08"; empty for the first lap.
+    delta: string,
+    improved: bool,
+}
+
+// A virtual thumb stick for manual driving: left and right steer, up is the gas and down the
+// brake. Drag the knob, it springs back when released. It's see-through while idle, so the
+// scene shows, and solid while the thumb is on it.
+component Joystick inherits Rectangle {
+    out property <float> axis-x;
+    out property <float> axis-y;
+    // The input from elsewhere, such as the keyboard, which the knob shows while not touched.
+    in property <float> shown-x;
+    in property <float> shown-y;
+    property <float> knob-x: touch.pressed ? root.axis-x : root.shown-x;
+    property <float> knob-y: touch.pressed ? root.axis-y : root.shown-y;
+    property <length> travel: self.width / 2 - 26px;
+    property <bool> active: touch.pressed || root.shown-x != 0 || root.shown-y != 0;
+
+    function track(x: length, y: length) {
+        let dx = (x - self.width / 2) / self.travel;
+        let dy = (self.height / 2 - y) / self.travel;
+        let scale = 1 / max(1, sqrt(dx * dx + dy * dy));
+        self.axis-x = dx * scale;
+        self.axis-y = dy * scale;
+    }
+
+    width: 150px;
+    height: 150px;
+    border-radius: self.width / 2;
+    border-width: 1px;
+    border-color: root.active ? Theme.rule : Theme.control-border.with-alpha(0.6);
+    background: Theme.plate.with-alpha(root.active ? 0.9 : 0.45);
+    animate background, border-color { duration: 150ms; }
+    accessible-role: groupbox;
+    accessible-label: "Steering and pedals, or W A S D and the arrow keys";
+
+    Rectangle {
+        width: parent.width - 28px;
+        height: 1px;
+        background: Theme.hairline;
+    }
+
+    Rectangle {
+        width: 1px;
+        height: parent.height - 28px;
+        background: Theme.hairline;
+    }
+
+    Rectangle {
+        x: parent.width / 2 - self.width / 2 + root.knob-x * root.travel;
+        y: parent.height / 2 - self.height / 2 - root.knob-y * root.travel;
+        width: 44px;
+        height: 44px;
+        border-radius: self.width / 2;
+        background: root.active ? Theme.accent : Theme.plate-hover.with-alpha(0.7);
+        border-width: 2px;
+        border-color: root.active ? Theme.accent : Theme.text-dim;
+        animate x, y { duration: touch.pressed ? 0ms : 160ms; easing: ease-out; }
+        animate background { duration: 150ms; }
+    }
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.track(self.mouse-x, self.mouse-y);
+            } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                root.axis-x = 0;
+                root.axis-y = 0;
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.track(self.mouse-x, self.mouse-y);
+            }
+        }
+    }
+}
+
+// The steering for assisted driving, where the car keeps its own speed: drag the knob left
+// or right, it springs back to the middle when released. One thumb is all it takes, since
+// Slint only follows one finger at a time. See-through while idle, solid while in use.
+component SteeringSlider inherits Rectangle {
+    out property <float> axis-x;
+    // The steering from elsewhere, such as the keyboard, which the knob shows while not
+    // touched.
+    in property <float> shown-x;
+    property <float> knob-x: touch.pressed ? root.axis-x : root.shown-x;
+    property <length> travel: (self.width - self.height) / 2;
+    property <bool> active: touch.pressed || root.shown-x != 0;
+
+    function track(x: length) {
+        self.axis-x = clamp((x - self.width / 2) / self.travel, -1, 1);
+    }
+
+    height: 64px;
+    border-radius: self.height / 2;
+    border-width: 1px;
+    border-color: root.active ? Theme.rule : Theme.control-border.with-alpha(0.6);
+    background: Theme.plate.with-alpha(root.active ? 0.9 : 0.45);
+    animate background, border-color { duration: 150ms; }
+    accessible-role: slider;
+    accessible-label: "Steering, or A and D and the arrow keys";
+    accessible-value: round(root.knob-x * 100);
+    accessible-value-minimum: -100;
+    accessible-value-maximum: 100;
+
+    // The way the knob turns the car, in chevrons at both ends.
+    for side in [-1, 1]: Path {
+        x: parent.width / 2 - self.width / 2 + side * (parent.width / 2 - parent.height / 2 - 2px);
+        width: 16px;
+        height: 16px;
+        viewbox-width: 16;
+        viewbox-height: 16;
+        commands: side < 0 ? "M 10 3 L 5 8 L 10 13" : "M 6 3 L 11 8 L 6 13";
+        stroke: Theme.text-dim;
+        stroke-width: 1.5px;
+        stroke-line-cap: square;
+    }
+
+    Rectangle {
+        width: parent.width - parent.height;
+        height: 1px;
+        background: Theme.hairline;
+    }
+
+    Rectangle {
+        x: parent.width / 2 - self.width / 2 + root.knob-x * root.travel;
+        width: parent.height - 16px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: root.active ? Theme.accent : Theme.plate-hover.with-alpha(0.7);
+        border-width: 2px;
+        border-color: root.active ? Theme.accent : Theme.text-dim;
+        animate x { duration: touch.pressed ? 0ms : 160ms; easing: ease-out; }
+        animate background { duration: 150ms; }
+    }
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.track(self.mouse-x);
+            } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                root.axis-x = 0;
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.track(self.mouse-x);
+            }
+        }
+    }
+}
+
+// A top-down map of the track with the tunnels, the boost pads, and the cars, in meters.
+component Minimap inherits Rectangle {
+    in property <string> track;
+    in property <string> tunnels;
+    in property <[MapPoint]> pads;
+    in property <MapPoint> lower;
+    in property <MapPoint> upper;
+    in property <[CarDot]> cars;
+    property <length> inset: 12px;
+    property <length> per-meter: min((self.width - 2 * self.inset) / max(1, root.upper.x - root.lower.x), (self.height - 2 * self.inset) / max(1, root.upper.y - root.lower.y));
+
+    function at-x(value: float) -> length {
+        return self.width / 2 + (value - (root.lower.x + root.upper.x) / 2) * self.per-meter;
+    }
+    function at-y(value: float) -> length {
+        return self.height / 2 + (value - (root.lower.y + root.upper.y) / 2) * self.per-meter;
+    }
+
+    accessible-role: image;
+    accessible-label: "Track map";
+
+    for commands[index] in [root.track, root.tunnels]: Path {
+        x: root.at-x(root.lower.x);
+        y: root.at-y(root.lower.y);
+        width: (root.upper.x - root.lower.x) * root.per-meter;
+        height: (root.upper.y - root.lower.y) * root.per-meter;
+        viewbox-x: root.lower.x;
+        viewbox-y: root.lower.y;
+        viewbox-width: root.upper.x - root.lower.x;
+        viewbox-height: root.upper.y - root.lower.y;
+        commands: commands;
+        stroke: index == 0 ? Theme.hairline-strong : Theme.label;
+        stroke-width: index == 0 ? 4px : 5px;
+    }
+
+    for pad in root.pads: Rectangle {
+        x: root.at-x(pad.x) - self.width / 2;
+        y: root.at-y(pad.y) - self.height / 2;
+        width: 6px;
+        height: 6px;
+        background: Theme.boost;
+    }
+
+    for car in root.cars: Rectangle {
+        x: root.at-x(car.x) - self.width / 2;
+        y: root.at-y(car.y) - self.height / 2;
+        width: car.player ? 11px : 8px;
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: car.player ? 2px : 0;
+        border-color: Theme.text;
+        background: car.color;
+    }
+}
+
+export component AppWindow inherits Window {
+    in property <image> texture;
+    in property <string> track-text;
+    in property <string> map-track;
+    in property <string> map-tunnels;
+    in property <[MapPoint]> map-pads;
+    in property <MapPoint> map-lower;
+    in property <MapPoint> map-upper;
+    in property <[CarDot]> cars;
+
+    in property <Phase> phase;
+    in property <string> countdown-text;
+    in property <float> countdown-progress;
+    in property <int> lap;
+    in property <int> laps;
+    in property <string> lap-time;
+    in property <string> best-lap;
+    in property <LapFlash> lap-flash;
+    in property <float> speed;
+    // From 1 when a pad was just hit, to 0 when the boost runs out.
+    in property <float> boost;
+    in property <bool> boost-flash;
+    in property <int> place;
+    in property <[Standing]> standings;
+    in property <RaceResult> result;
+    in property <string> fps-text;
+    in property <string> gpu-text;
+
+    in-out property <bool> autopilot: true;
+    in-out property <bool> assist: true;
+    in-out property <Quality> quality: Quality.high;
+    in-out property <bool> bumper-camera;
+
+    callback input-changed(x: float, y: float);
+    callback start();
+    callback reset();
+    callback new-track();
+    callback settings-changed();
+    callback paused-changed(paused: bool);
+
+    property <bool> settings-open;
+    property <bool> driving: !root.autopilot && root.phase != Phase.ready && root.phase != Phase.finished;
+    // Opening the settings in the middle of a race the player drives pauses it.
+    property <bool> paused: root.settings-open && root.phase == Phase.racing && !root.autopilot;
+    changed paused => {
+        root.paused-changed(root.paused);
+    }
+    // A hidden control loses the focus, and with it the keyboard driving.
+    changed settings-open => {
+        keys.focus();
+    }
+
+    // Once the scene shows, the panels slide in from the window's edges, one group after the
+    // other. Restarting or changing the track slides them out quickly and in again.
+    property <bool> scene-shown;
+    property <bool> replaying;
+    property <bool> started: root.scene-shown && !root.replaying;
+    property <float> enter-left: root.started ? 1 : 0;
+    property <float> enter-right: root.started ? 1 : 0;
+    property <float> enter-bottom: root.started ? 1 : 0;
+    animate enter-left {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 120ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    animate enter-right {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 240ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    animate enter-bottom {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 360ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    changed texture => {
+        root.scene-shown = true;
+    }
+    // Brings the panels back in once they've slid out.
+    changed enter-left => {
+        if root.replaying && root.enter-left == 0 {
+            root.replaying = false;
+        }
+    }
+
+    // Where a panel resting at `rest` is while it slides in from an edge, as `entered` goes
+    // from 0, just outside the window, to 1.
+    pure function from-start(rest: length, size: length, entered: float) -> length {
+        rest - (1 - entered) * (rest + size)
+    }
+    pure function from-right(rest: length, entered: float) -> length {
+        rest + (1 - entered) * (root.width - rest)
+    }
+    pure function from-bottom(rest: length, entered: float) -> length {
+        rest + (1 - entered) * (root.height - rest)
+    }
+
+    // Keyboard driving, combined with the stick.
+    property <bool> key-left;
+    property <bool> key-right;
+    property <bool> key-up;
+    property <bool> key-down;
+    property <float> axis-x: clamp(stick.axis-x + steering.axis-x + (root.key-right ? 1 : 0) - (root.key-left ? 1 : 0), -1, 1);
+    property <float> axis-y: clamp(stick.axis-y + (root.key-up ? 1 : 0) - (root.key-down ? 1 : 0), -1, 1);
+    // The layout follows the window: the overlays at full size when there's room, smaller in
+    // short or narrow windows, and with the timing in a strip across the top in portrait or
+    // narrow windows, where the lap's plate and the speedometer don't fit.
+    property <bool> portrait: root.height > root.width;
+    property <bool> full: !root.portrait && root.width >= 1100px && root.height >= 700px;
+    property <bool> stripped: root.portrait || root.width < 760px;
+    property <bool> narrow: root.width < 640px;
+    property <length> margin: root.full ? 16px : 10px;
+    property <length> tower-width: root.full ? 220px : 176px;
+    property <length> row-height: root.full ? 26px : 21px;
+    property <length> map-width: root.full ? 240px : root.stripped ? 150px : 180px;
+    property <length> map-height: root.full ? 170px : root.stripped ? 110px : 130px;
+    property <length> stick-size: root.full ? 150px : max(110px, min(130px, root.height * 0.3));
+    // Where the overlays below the top row start, and where the settings open.
+    property <length> top-inset: root.stripped ? strip.y + strip.height + 8px : root.margin;
+    property <length> settings-top: root.top-inset + root.map-height + 8px + Theme.touch-target + 8px;
+    // Big text, such as the countdown, shrinks with the window.
+    property <float> text-scale: root.full ? 1 : 0.7;
+    changed axis-x => {
+        root.input-changed(root.axis-x, root.axis-y);
+    }
+    changed axis-y => {
+        root.input-changed(root.axis-x, root.axis-y);
+    }
+
+    function race() {
+        root.replaying = true;
+        root.autopilot = false;
+        root.settings-changed();
+        root.reset();
+        root.start();
+        keys.focus();
+    }
+    function watch() {
+        root.autopilot = true;
+        root.settings-changed();
+        root.start();
+    }
+    function toggle-camera() {
+        root.bumper-camera = !root.bumper-camera;
+        root.settings-changed();
+    }
+    function next-quality() {
+        root.quality = root.quality == Quality.low ? Quality.medium : root.quality == Quality.medium ? Quality.high : Quality.low;
+        root.settings-changed();
+    }
+    function select-quality(index: int) {
+        root.quality = index == 0 ? Quality.low : index == 1 ? Quality.medium : Quality.high;
+        root.settings-changed();
+    }
+    function toggle-assist() {
+        root.assist = !root.assist;
+        root.settings-changed();
+    }
+    // 0: assist, 1: manual, 2: autopilot.
+    function select-driver(index: int) {
+        if index < 2 {
+            root.assist = index == 0;
+        }
+        root.autopilot = index == 2;
+        root.settings-changed();
+    }
+    function restart(new-track: bool) {
+        root.replaying = true;
+        if new-track {
+            root.new-track();
+        }
+        root.reset();
+        root.start();
+        root.settings-open = false;
+    }
+    function handle-key(text: string, down: bool) -> EventResult {
+        if text == Key.LeftArrow || text == "a" || text == "A" {
+            root.key-left = down;
+        } else if text == Key.RightArrow || text == "d" || text == "D" {
+            root.key-right = down;
+        } else if text == Key.UpArrow || text == "w" || text == "W" {
+            root.key-up = down;
+        } else if text == Key.DownArrow || text == "s" || text == "S" {
+            root.key-down = down;
+        } else if down && (text == Key.Return || text == " ") && (root.autopilot || root.phase == Phase.ready || root.phase == Phase.finished) {
+            root.race();
+        } else if down && (text == "c" || text == "C") {
+            root.toggle-camera();
+        } else if down && (text == "p" || text == "P") {
+            root.autopilot = !root.autopilot;
+            root.settings-changed();
+        } else if down && (text == "r" || text == "R") {
+            root.replaying = true;
+            root.reset();
+        } else if down && (text == "n" || text == "N") {
+            root.replaying = true;
+            root.new-track();
+        } else if down && (text == "q" || text == "Q") {
+            root.next-quality();
+        } else if down && (text == "h" || text == "H") {
+            root.toggle-assist();
+        } else if down && text == Key.Escape {
+            root.settings-open = !root.settings-open;
+        } else {
+            return EventResult.reject;
+        }
+        return EventResult.accept;
+    }
+
+    title: "Slint Racer";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: Theme.background;
+    default-font-family: "Barlow Semi Condensed Tnum";
+    default-font-size: 16px;
+    forward-focus: keys;
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            root.handle-key(event.text, true)
+        }
+        key-released(event) => {
+            root.handle-key(event.text, false)
+        }
+
+        // After a race, the demo goes back to racing on its own when nobody plays.
+        Timer {
+            interval: root.phase == Phase.finished ? 20s : 15s;
+            running: (root.phase == Phase.ready || root.phase == Phase.finished) && !root.autopilot;
+            triggered => {
+                root.watch();
+            }
+        }
+
+        Image {
+            source: root.texture;
+            width: 100%;
+            height: 100%;
+            image-fit: fill;
+        }
+
+        // Tapping the scene closes the settings; the controls on top keep working.
+        if root.settings-open: TouchArea {
+            clicked => {
+                root.settings-open = false;
+            }
+        }
+
+        // The standings, like a broadcast's timing tower.
+        Plate {
+            x: root.from-start(root.margin, self.width, root.enter-left);
+            y: root.top-inset;
+            width: root.tower-width;
+            height: tower.preferred-height;
+
+            tower := VerticalLayout {
+                padding: 8px;
+                padding-top: 12px;
+                spacing: 2px;
+
+                if !root.stripped: VerticalLayout {
+                    padding-left: 6px;
+                    padding-bottom: 6px;
+
+                    Text {
+                        text: "Slint Grand Prix";
+                        color: Theme.text;
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+
+                    Text {
+                        text: root.track-text;
+                        color: Theme.text-dim;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                }
+
+                for entry[index] in root.standings: Rectangle {
+                    height: root.row-height;
+                    background: entry.player ? Theme.field-pressed : transparent;
+                    accessible-role: list-item;
+                    accessible-label: (index + 1) + " " + entry.name + " " + entry.gap;
+
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 8px;
+                        spacing: 8px;
+
+                        Text {
+                            width: 14px;
+                            text: index + 1;
+                            color: Theme.text-dim;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 4px;
+                            height: 14px;
+                            y: (parent.height - self.height) / 2;
+                            background: entry.color;
+                        }
+
+                        Text {
+                            text: entry.name;
+                            color: Theme.text;
+                            font-size: root.full ? 16px : 14px;
+                            font-weight: entry.player ? 700 : 500;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: entry.gap;
+                            color: Theme.text-dim;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // The lap and its time.
+        if !root.stripped: Plate {
+            x: (root.width - self.width) / 2;
+            y: root.from-start(root.margin, self.height, root.enter-left);
+            width: root.full ? 300px : 250px;
+            height: root.full ? 64px : 56px;
+
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 6px;
+                spacing: 18px;
+
+                VerticalLayout {
+                    alignment: center;
+                    Label {
+                        text: "LAP";
+                    }
+                    Text {
+                        text: min(root.lap, root.laps) + "/" + root.laps;
+                        color: Theme.text;
+                        font-size: root.full ? 24px : 20px;
+                        font-weight: 700;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Label {
+                        text: "TIME";
+                    }
+                    Text {
+                        text: root.lap-time;
+                        color: Theme.text;
+                        font-size: root.full ? 24px : 20px;
+                        font-weight: 700;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Label {
+                        text: "BEST";
+                    }
+                    Text {
+                        text: root.best-lap == "" ? "–" : root.best-lap;
+                        color: Theme.best;
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+                }
+            }
+        }
+
+        if root.lap-flash.shown: Plate {
+            x: (root.width - self.width) / 2;
+            y: root.stripped ? root.top-inset : root.margin + (root.full ? 72px : 64px);
+            width: flash-row.preferred-width;
+            height: 40px;
+
+            flash-row := HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                padding-top: 2px;
+                spacing: 12px;
+
+                Text {
+                    text: "LAP " + root.lap-flash.lap;
+                    color: Theme.label;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: root.lap-flash.time;
+                    color: Theme.text;
+                    font-size: 20px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                if root.lap-flash.delta != "": Text {
+                    text: root.lap-flash.delta;
+                    color: root.lap-flash.improved ? Theme.best : #ff8a6a;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // The map, and the settings button below it.
+        VerticalLayout {
+            x: root.from-right(root.width - self.width - root.margin, root.enter-right);
+            y: root.top-inset;
+            width: root.map-width;
+            height: self.preferred-height;
+            spacing: 8px;
+
+            Plate {
+                height: root.map-height;
+
+                Minimap {
+                    y: 4px;
+                    height: parent.height - 4px;
+                    track: root.map-track;
+                    tunnels: root.map-tunnels;
+                    pads: root.map-pads;
+                    lower: root.map-lower;
+                    upper: root.map-upper;
+                    cars: root.cars;
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                IconButton {
+                    icon: Icons.sliders;
+                    label: "Settings";
+                    checked: root.settings-open;
+                    clicked => {
+                        root.settings-open = !root.settings-open;
+                    }
+                }
+            }
+        }
+
+        // The speedometer and the boost.
+        if !root.stripped: Plate {
+            x: root.width - self.width - root.margin;
+            y: root.from-bottom(root.height - self.height - root.margin, root.enter-bottom);
+            width: root.full ? 200px : 160px;
+            height: speedometer.preferred-height;
+
+            speedometer := VerticalLayout {
+                padding: root.full ? 14px : 10px;
+                padding-top: 10px;
+                spacing: 6px;
+
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 6px;
+
+                    Text {
+                        text: round(abs(root.speed));
+                        color: root.boost > 0 ? Theme.boost : Theme.text;
+                        font-size: root.full ? 52px : 40px;
+                        font-weight: 700;
+                        vertical-alignment: bottom;
+                    }
+
+                    Text {
+                        text: "km/h";
+                        color: Theme.text-dim;
+                        font-size: 16px;
+                        vertical-alignment: bottom;
+                    }
+                }
+
+                Rectangle {
+                    height: 6px;
+                    background: Theme.field-hover;
+
+                    Rectangle {
+                        x: 0;
+                        width: parent.width * root.boost;
+                        background: Theme.boost;
+                    }
+                }
+            }
+        }
+
+        // The place, big, while racing.
+        if root.phase == Phase.racing && !root.stripped: Text {
+            x: root.from-start(root.margin + root.tower-width + 12px, self.width, root.enter-left);
+            y: root.margin;
+            text: "P" + root.place;
+            color: Theme.text;
+            font-size: root.full ? 44px : 34px;
+            font-weight: 700;
+        }
+
+        if root.boost-flash: Text {
+            y: root.height * 0.22;
+            width: root.width;
+            text: "BOOST";
+            color: Theme.boost;
+            font-size: 40px * root.text-scale;
+            font-weight: 700;
+            letter-spacing: 8px;
+            horizontal-alignment: center;
+        }
+
+        if root.countdown-text != "": Text {
+            y: root.height * 0.28;
+            width: root.width;
+            text: root.countdown-text;
+            color: root.countdown-text == "GO" ? #6ee07a : Theme.text;
+            font-size: 120px * root.text-scale * (1.25 - 0.25 * root.countdown-progress);
+            font-weight: 700;
+            opacity: 1 - root.countdown-progress * 0.6;
+            horizontal-alignment: center;
+        }
+
+        // The touch controls while the player drives: the slider with assist, which keeps the
+        // speed, and the stick, with the pedals on it, in manual.
+        steering := SteeringSlider {
+            visible: root.driving && root.assist;
+            shown-x: root.axis-x;
+            x: root.margin + (root.full ? 12px : 0);
+            y: root.from-bottom(root.height - self.height - root.margin - (root.full ? 12px : 0), root.enter-bottom);
+            width: root.full ? 300px : min(260px, root.width * 0.5);
+        }
+
+        stick := Joystick {
+            visible: root.driving && !root.assist;
+            shown-x: root.axis-x;
+            shown-y: root.axis-y;
+            x: root.margin + (root.full ? 12px : 0);
+            y: root.from-bottom(root.height - self.height - root.margin - (root.full ? 12px : 0), root.enter-bottom);
+            width: root.stick-size;
+            height: root.stick-size;
+        }
+
+        // The invitation to race while the autopilot drives, or before a race. In narrow
+        // windows, it stacks.
+        if root.autopilot || root.phase == Phase.ready: Plate {
+            x: (root.width - self.width) / 2;
+            y: root.from-bottom(root.height - self.height - root.margin - (root.full ? 12px : 0), root.enter-bottom);
+            width: root.narrow ? narrow-invite.preferred-width : invite.preferred-width;
+            height: root.narrow ? narrow-invite.preferred-height : invite.preferred-height;
+
+            invite := HorizontalLayout {
+                visible: !root.narrow;
+                padding: root.full ? 14px : 10px;
+                padding-top: root.full ? 16px : 12px;
+                spacing: root.full ? 18px : 14px;
+
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: root.autopilot ? "Autopilot racing" : "Ready to race";
+                        color: Theme.text;
+                        font-size: root.full ? 20px : 17px;
+                        font-weight: 600;
+                    }
+
+                    if root.full: Text {
+                        text: "W A S D or arrows to drive, boost pads speed you up";
+                        color: Theme.text-dim;
+                        font-size: 14px;
+                    }
+                }
+
+                PrimaryButton {
+                    label: "Race";
+                    clicked => {
+                        root.race();
+                    }
+                }
+            }
+
+            narrow-invite := VerticalLayout {
+                visible: root.narrow;
+                padding: 12px;
+                padding-top: 12px;
+                spacing: 8px;
+
+                Label {
+                    text: root.autopilot ? "AUTOPILOT RACING" : "READY TO RACE";
+                    horizontal-alignment: center;
+                }
+
+                PrimaryButton {
+                    label: "Race";
+                    clicked => {
+                        root.race();
+                    }
+                }
+            }
+        }
+
+        if root.phase == Phase.finished && !root.autopilot: Plate {
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            width: min(340px, root.width - 2 * root.margin);
+            height: finish.preferred-height;
+
+            finish := VerticalLayout {
+                padding: 20px;
+                spacing: 10px;
+
+                Label {
+                    text: "FINISHED";
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "P" + root.result.place;
+                    color: root.result.place == 1 ? #f2c94c : Theme.text;
+                    font-size: 64px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "Race " + root.result.time + "   Best lap " + root.result.best-lap;
+                    color: Theme.text-dim;
+                    horizontal-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: center;
+                    PrimaryButton {
+                        label: "Race again";
+                        clicked => {
+                            root.race();
+                        }
+                    }
+
+                    TouchButton {
+                        label: "New track";
+                        clicked => {
+                            root.new-track();
+                            root.race();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Drops in when the race pauses, and its label breathes until it resumes.
+        if root.paused: Plate {
+            property <bool> shown;
+            property <bool> dim;
+            x: (root.width - self.width) / 2;
+            width: paused-text.preferred-width + 32px;
+            height: 40px;
+            y: (root.stripped ? root.top-inset : root.margin + (root.full ? 72px : 64px))
+                + (self.shown ? 0 : -12px);
+            opacity: self.shown ? 1 : 0;
+            animate y, opacity { duration: 260ms; easing: cubic-bezier(0.2, 0, 0, 1); }
+            init => {
+                self.shown = true;
+            }
+
+            Timer {
+                interval: 900ms;
+                running: true;
+                triggered => {
+                    parent.dim = !parent.dim;
+                }
+            }
+
+            paused-text := Text {
+                text: "PAUSED";
+                color: Theme.text;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                opacity: parent.dim ? 0.45 : 1;
+                animate opacity { duration: 900ms; easing: ease-in-out; }
+            }
+        }
+
+        // The settings, below their button, scrolling when the window is too short.
+        if root.settings-open: Plate {
+            property <length> top: root.settings-top;
+            x: root.width - self.width - root.margin;
+            y: self.top;
+            width: min(300px, root.width - 2 * root.margin);
+            height: min(settings-layout.preferred-height, root.height - self.top - root.margin);
+            background: Theme.plate;
+            accessible-role: groupbox;
+            accessible-label: "Settings";
+
+            // Swallows taps, so they don't reach the scene.
+            TouchArea { }
+
+            settings-flick := Flickable {
+                content-height: settings-layout.preferred-height;
+
+                settings-layout := VerticalLayout {
+                    width: parent.width;
+                    padding: 16px;
+                    spacing: 8px;
+
+                    Label {
+                        text: "DRIVER";
+                    }
+
+                    Segmented {
+                        label: "Driver";
+                        options: ["Assist", "Manual", "Auto"];
+                        current: root.autopilot ? 2 : root.assist ? 0 : 1;
+                        selected(index) => {
+                            root.select-driver(index);
+                        }
+                    }
+
+                    Label {
+                        text: "CAMERA";
+                    }
+
+                    Segmented {
+                        label: "Camera";
+                        options: ["Chase", "Bumper"];
+                        current: root.bumper-camera ? 1 : 0;
+                        selected(index) => {
+                            if (index == 1) != root.bumper-camera {
+                                root.toggle-camera();
+                            }
+                        }
+                    }
+
+                    Label {
+                        text: "QUALITY";
+                    }
+
+                    Segmented {
+                        label: "Quality";
+                        options: ["Low", "Medium", "High"];
+                        current: root.quality == Quality.low ? 0 : root.quality == Quality.medium ? 1 : 2;
+                        selected(index) => {
+                            root.select-quality(index);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        TouchButton {
+                            label: "Restart";
+                            horizontal-stretch: 1;
+                            clicked => {
+                                root.restart(false);
+                            }
+                        }
+
+                        TouchButton {
+                            label: "New track";
+                            horizontal-stretch: 1;
+                            clicked => {
+                                root.restart(true);
+                            }
+                        }
+                    }
+
+                    SettingsDivider { }
+
+                    Label {
+                        text: "KEYS";
+                    }
+
+                    GridLayout {
+                        spacing-horizontal: 12px;
+                        spacing-vertical: 3px;
+                        Row {
+                            Shortcut {
+                                key: "WASD";
+                                action: "Drive";
+                            }
+
+                            Shortcut {
+                                key: "Enter";
+                                action: "Race";
+                            }
+                        }
+
+                        Row {
+                            Shortcut {
+                                key: "H";
+                                action: "Assist";
+                            }
+
+                            Shortcut {
+                                key: "P";
+                                action: "Autopilot";
+                            }
+                        }
+
+                        Row {
+                            Shortcut {
+                                key: "C";
+                                action: "Camera";
+                            }
+
+                            Shortcut {
+                                key: "Q";
+                                action: "Quality";
+                            }
+                        }
+
+                        Row {
+                            Shortcut {
+                                key: "R";
+                                action: "Restart";
+                            }
+
+                            Shortcut {
+                                key: "N";
+                                action: "New track";
+                            }
+                        }
+
+                        Row {
+                            Shortcut {
+                                key: "Esc";
+                                action: "Settings";
+                            }
+                        }
+                    }
+
+                    SettingsDivider { }
+
+                    Label {
+                        text: "GPU";
+                    }
+
+                    Text {
+                        text: root.gpu-text;
+                        color: Theme.text;
+                        font-size: 14px;
+                        wrap: word-wrap;
+                    }
+
+                    Label {
+                        text: "FRAME RATE";
+                    }
+
+                    Text {
+                        text: root.fps-text;
+                        color: Theme.text;
+                        font-size: 14px;
+                    }
+                }
+            }
+
+            // Fades at the edges show that there's more to scroll to.
+            if settings-flick.content-y < 0: Rectangle {
+                y: 0;
+                height: 28px;
+                background: @linear-gradient(180deg, Theme.plate 0%, transparent 100%);
+            }
+
+            if settings-flick.content-y > settings-flick.height - settings-flick.content-height + 1px: Rectangle {
+                y: parent.height - self.height;
+                height: 36px;
+                background: @linear-gradient(180deg, transparent 0%, Theme.plate 100%);
+            }
+        }
+
+        // In portrait and narrow windows, the timing runs across the top.
+        strip := Plate {
+            x: root.margin;
+            y: root.from-start(root.margin, self.height, root.enter-left);
+            width: root.width - 2 * root.margin;
+            height: strip-layout.preferred-height;
+            visible: root.stripped;
+
+            strip-layout := HorizontalLayout {
+                padding: 12px;
+                padding-top: 10px;
+                spacing: 16px;
+
+                VerticalLayout {
+                    Label {
+                        text: "LAP " + min(root.lap, root.laps) + "/" + root.laps;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: root.lap-time;
+                        color: Theme.text;
+                        font-size: 30px;
+                        font-weight: 700;
+                    }
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 7px;
+
+                    HorizontalLayout {
+                        Label {
+                            text: root.phase == Phase.racing ? "P" + root.place + " / " + root.standings.length : "BEST " + (root.best-lap == "" ? "–" : root.best-lap);
+                            color: Theme.text;
+                        }
+
+                        Label {
+                            text: round(abs(root.speed)) + " KM/H";
+                            color: root.boost > 0 ? Theme.boost : Theme.text;
+                            horizontal-alignment: right;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 4px;
+                        background: Theme.field-hover;
+
+                        Rectangle {
+                            x: 0;
+                            width: parent.width * root.boost;
+                            background: Theme.boost;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
