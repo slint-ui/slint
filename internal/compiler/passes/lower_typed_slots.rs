@@ -123,81 +123,94 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 result.push(child);
                 continue;
             }
-            if child.borrow().children.len() != 1 {
-                let name = child.borrow().id.clone();
-                diag.push_error(
-                    format!("Typed slot '{name}' requires exactly one component"),
-                    &*child.borrow(),
-                );
-                result.push(child);
-                continue;
+            match replace_typed_slot(&child, mapping, diag) {
+                Some(actual) => {
+                    removed.push(child);
+                    result.push(actual);
+                }
+                None => result.push(child),
             }
-            let actual = child.borrow_mut().children.remove(0);
-            let declarations = child.borrow().property_declarations.clone();
-            for (name, declaration) in declarations {
-                let actual_name = actual
-                    .borrow()
-                    .lookup_property(
-                        declaration.declared_name(&name),
-                        PropertyLookupMode::ComponentLocal,
-                    )
-                    .internal_or_resolved_name();
-                let reference = NamedReference::new(&actual, actual_name.clone());
-                mapping.insert(NamedReference::new(&child, name.clone()), reference.clone());
-                let binding = child
-                    .borrow()
-                    .binding_cell_including_synthetic(&name)
-                    .map(|binding| binding.borrow().clone());
-                if let Some(binding) = binding {
-                    if matches!(declaration.property_type, Type::Callback(_))
-                        && has_callback_handler(
-                            &NamedReference::new(&child, name.clone()),
-                            &mut HashSet::new(),
-                        )
-                        && has_callback_handler(&reference, &mut HashSet::new())
-                    {
-                        diag.push_error(
-                            format!("Callback '{name}' has handlers in both the typed slot and its supplied component"),
-                            &*child.borrow(),
-                        );
-                    }
-                    let mut target = actual.borrow_mut();
-                    if let Some(existing) = target.binding_cell_including_synthetic(&actual_name) {
-                        let mut existing = existing.borrow_mut();
-                        if binding.priority < existing.priority && binding.has_binding() {
-                            let mut replacement = binding;
-                            replacement.merge_with(&existing);
-                            *existing = replacement;
-                        } else {
-                            existing.merge_with(&binding);
-                        }
-                    } else {
-                        target.set_binding(actual_name.clone(), binding);
-                    }
-                }
-                if let Some(handlers) = child.borrow().change_callbacks.get(&name) {
-                    actual
-                        .borrow_mut()
-                        .change_callbacks
-                        .entry(actual_name.clone())
-                        .or_default()
-                        .borrow_mut()
-                        .extend(handlers.borrow().iter().cloned());
-                }
-                if let Some(analysis) = child.borrow().property_analysis.borrow().get(&name) {
-                    actual
-                        .borrow()
-                        .property_analysis
-                        .borrow_mut()
-                        .entry(actual_name)
-                        .or_default()
-                        .merge_with_base(analysis);
-                }
-            }
-            removed.push(child);
-            result.push(actual);
         }
         parent.borrow_mut().children = result;
+    }
+
+    /// Replace the typed slot `child` with the component supplied for it, or report why it can't be.
+    fn replace_typed_slot(
+        child: &ElementRc,
+        mapping: &mut HashMap<NamedReference, NamedReference>,
+        diag: &mut BuildDiagnostics,
+    ) -> Option<ElementRc> {
+        if child.borrow().children.len() != 1 {
+            let name = child.borrow().id.clone();
+            diag.push_error(
+                format!("Typed slot '{name}' requires exactly one component"),
+                &*child.borrow(),
+            );
+            return None;
+        }
+        let actual = child.borrow_mut().children.remove(0);
+        let declarations = child.borrow().property_declarations.clone();
+        for (name, declaration) in declarations {
+            let actual_name = actual
+                .borrow()
+                .lookup_property(
+                    declaration.declared_name(&name),
+                    PropertyLookupMode::ComponentLocal,
+                )
+                .internal_or_resolved_name();
+            let reference = NamedReference::new(&actual, actual_name.clone());
+            mapping.insert(NamedReference::new(child, name.clone()), reference.clone());
+            let binding = child
+                .borrow()
+                .binding_cell_including_synthetic(&name)
+                .map(|binding| binding.borrow().clone());
+            if let Some(binding) = binding {
+                if matches!(declaration.property_type, Type::Callback(_))
+                    && has_callback_handler(
+                        &NamedReference::new(child, name.clone()),
+                        &mut HashSet::new(),
+                    )
+                    && has_callback_handler(&reference, &mut HashSet::new())
+                {
+                    diag.push_error(
+                        format!("Callback '{name}' has handlers in both the typed slot and its supplied component"),
+                        &*child.borrow(),
+                    );
+                }
+                let mut target = actual.borrow_mut();
+                if let Some(existing) = target.binding_cell_including_synthetic(&actual_name) {
+                    let mut existing = existing.borrow_mut();
+                    if binding.priority < existing.priority && binding.has_binding() {
+                        let mut replacement = binding;
+                        replacement.merge_with(&existing);
+                        *existing = replacement;
+                    } else {
+                        existing.merge_with(&binding);
+                    }
+                } else {
+                    target.set_binding(actual_name.clone(), binding);
+                }
+            }
+            if let Some(handlers) = child.borrow().change_callbacks.get(&name) {
+                actual
+                    .borrow_mut()
+                    .change_callbacks
+                    .entry(actual_name.clone())
+                    .or_default()
+                    .borrow_mut()
+                    .extend(handlers.borrow().iter().cloned());
+            }
+            if let Some(analysis) = child.borrow().property_analysis.borrow().get(&name) {
+                actual
+                    .borrow()
+                    .property_analysis
+                    .borrow_mut()
+                    .entry(actual_name)
+                    .or_default()
+                    .merge_with_base(analysis);
+            }
+        }
+        Some(actual)
     }
     let mut mapping = HashMap::new();
     let mut removed = Vec::new();
