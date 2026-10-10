@@ -1332,6 +1332,50 @@ fn generate_sub_component(
     index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
 ) -> TokenStream {
+    let extra_components = generate_child_item_trees(component_idx, root, parent_ctx);
+    generate_sub_component_body(
+        component_idx,
+        root,
+        parent_ctx,
+        index_property,
+        pinned_drop,
+        extra_components,
+    )
+}
+
+/// Generate the popup windows, menus, and repeated components of the sub-component.
+fn generate_child_item_trees(
+    component_idx: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+) -> Vec<TokenStream> {
+    let component = &root.sub_components[component_idx];
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component_idx,
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        parent_ctx,
+    );
+    let popups = component.popup_windows.iter().map(|popup| {
+        generate_item_tree(&popup.item_tree, root, Some(&ParentScope::new(&ctx, None)), None, true)
+    });
+    let menus = component.menu_item_trees.iter().map(|tree| {
+        generate_item_tree(tree, root, Some(&ParentScope::new(&ctx, None)), None, false)
+    });
+    let repeated = component.repeated.iter_enumerated().map(|(idx, repeated)| {
+        generate_repeated_component(repeated, root, &ParentScope::new(&ctx, Some(idx)))
+    });
+    popups.chain(menus).chain(repeated).collect()
+}
+
+fn generate_sub_component_body(
+    component_idx: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    index_property: Option<llr::PropertyIdx>,
+    pinned_drop: bool,
+    extra_components: Vec<TokenStream>,
+) -> TokenStream {
     let component = &root.sub_components[component_idx];
     let inner_component_id = inner_component_id(component);
 
@@ -1341,22 +1385,6 @@ fn generate_sub_component(
         RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
-    let mut extra_components = component
-        .popup_windows
-        .iter()
-        .map(|popup| {
-            generate_item_tree(
-                &popup.item_tree,
-                root,
-                Some(&ParentScope::new(&ctx, None)),
-                None,
-                true,
-            )
-        })
-        .chain(component.menu_item_trees.iter().map(|tree| {
-            generate_item_tree(tree, root, Some(&ParentScope::new(&ctx, None)), None, false)
-        }))
-        .collect::<Vec<_>>();
 
     let mut declared_property_vars = Vec::new();
     let mut declared_property_types = Vec::new();
@@ -1432,12 +1460,6 @@ fn generate_sub_component(
     let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
-        extra_components.push(generate_repeated_component(
-            repeated,
-            root,
-            &ParentScope::new(&ctx, Some(idx)),
-        ));
-
         let idx = usize::from(idx) as u32;
 
         if let Some(item_index) = repeated.container_item_index {
@@ -2357,6 +2379,17 @@ fn generate_item_tree(
         index_property,
         needs_window_adapter,
     );
+    generate_item_tree_body(sub_tree, root, parent_ctx, is_popup, needs_window_adapter, sub_comp)
+}
+
+fn generate_item_tree_body(
+    sub_tree: &llr::ItemTree,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    is_popup: bool,
+    needs_window_adapter: bool,
+    sub_comp: TokenStream,
+) -> TokenStream {
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
@@ -2759,7 +2792,15 @@ fn generate_repeated_component(
 ) -> TokenStream {
     let component =
         generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop, false);
+    generate_repeated_component_body(repeated, unit, parent_ctx, component)
+}
 
+fn generate_repeated_component_body(
+    repeated: &llr::RepeatedElement,
+    unit: &llr::CompilationUnit,
+    parent_ctx: &ParentScope,
+    component: TokenStream,
+) -> TokenStream {
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
