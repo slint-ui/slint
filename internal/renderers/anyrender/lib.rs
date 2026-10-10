@@ -133,6 +133,23 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     fn graphics_api(&self) -> Option<GraphicsAPI<'static>> {
         None
     }
+
+    /// Returns the importer for images that wrap a GPU texture,
+    /// or `None` if this backend can't draw them.
+    fn texture_importer(&self) -> Option<Rc<dyn TextureImporter>> {
+        None
+    }
+}
+
+/// Draws images that wrap a GPU texture, such as a WGPU texture.
+/// Only a backend rendering on the same GPU device can draw them.
+pub trait TextureImporter {
+    /// Returns image data that draws the texture `image` wraps in the frame being recorded,
+    /// or `None` if `image` doesn't wrap a texture this backend can draw.
+    fn import_texture(
+        &self,
+        image: &i_slint_core::graphics::ImageInner,
+    ) -> Option<peniko::ImageData>;
 }
 
 /// Created on the first frame after a surface becomes available, so that
@@ -245,6 +262,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             notifier.notify(RenderingState::BeforeRendering, api);
         }
 
+        let texture_importer = self.window_renderer.borrow().texture_importer();
+
         let initial_transform = if rotation_angle_degrees != 0. || translation != (0., 0.) {
             kurbo::Affine::translate((translation.0 as f64, translation.1 as f64))
                 * kurbo::Affine::rotate((rotation_angle_degrees as f64).to_radians())
@@ -265,7 +284,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                             &self.item_image_cache,
                             &self.text_layout_cache,
                             initial_transform,
-                        );
+                        )
+                        .with_texture_importer(texture_importer.as_deref());
 
                         for (component, origin) in components {
                             if let Some(component) = ItemTreeWeak::upgrade(component) {
@@ -390,6 +410,7 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         }
         let window_inner = WindowInner::from_pub(window);
         let base_color = window_background_color(window_inner);
+        let texture_importer = self.window_renderer.borrow().texture_importer();
 
         let result = self.window_renderer.borrow_mut().slint_take_snapshot(
             window_size,
@@ -405,7 +426,8 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
                             &self.image_cache,
                             &self.item_image_cache,
                             &self.text_layout_cache,
-                        );
+                        )
+                        .with_texture_importer(texture_importer.as_deref());
                         for (component, origin) in components {
                             if let Some(component) = ItemTreeWeak::upgrade(component) {
                                 i_slint_core::item_rendering::render_component_items(
