@@ -8,7 +8,7 @@ use crate::graphics::Image;
 use crate::input::{InternalKeyEvent, Keys};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::items::{ItemRc, ItemRef, MenuEntry, StandardMenuItemKind, VoidArg};
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -135,6 +135,7 @@ impl MenuFromItemTree {
                     let checked = menu_item.checked();
                     let icon = menu_item.icon();
                     let shortcut = menu_item.shortcut();
+                    let kind = menu_item.kind();
                     self.item_cache.borrow_mut().insert(
                         id.clone(),
                         ShadowTreeNode { item: ItemRc::downgrade(&item), children },
@@ -149,6 +150,7 @@ impl MenuFromItemTree {
                         checked,
                         icon,
                         shortcut,
+                        kind,
                     });
                 }
                 VisitChildrenResult::CONTINUE
@@ -215,6 +217,7 @@ pub struct MenuItem {
     pub checked: Property<bool>,
     pub icon: Property<Image>,
     pub shortcut: Property<Keys>,
+    pub kind: Property<StandardMenuItemKind>,
 }
 
 impl crate::items::Item for MenuItem {

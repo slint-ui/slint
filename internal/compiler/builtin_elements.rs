@@ -1938,6 +1938,8 @@ fn build(l: &mut Loader) {
         in-out property <bool> checked: false;
         /// The icon shown next to the title.
         in property <image> icon;
+        // Hidden from docs; `Empty` if this is not a standard menu item
+        in property <StandardMenuItemKind> kind;
     } }
 
     element! {
@@ -1956,6 +1958,14 @@ fn build(l: &mut Loader) {
     }
 
     element! {
+        /// A `StandardMenuItem` represents a a standard menu item like 'Cut', 'Copy', 'Paste'.
+        @is_non_item_type @disallow_global_types_as_child_elements
+        StandardMenuItem {
+            in property <StandardMenuItemKind> kind;
+        }
+    }
+
+    element! {
         /// Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
         /// Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
         @is_non_item_type @disallow_global_types_as_child_elements
@@ -1969,7 +1979,7 @@ fn build(l: &mut Loader) {
             in property <image> icon;
 
 
-            children: MenuItem, MenuSeparator, Menu;
+            children: MenuItem, MenuSeparator, Menu, StandardMenuItem;
         }
     }
 
