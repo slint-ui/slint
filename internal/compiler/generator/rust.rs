@@ -1333,6 +1333,50 @@ fn generate_sub_component(
     index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
 ) -> TokenStream {
+    let extra_components = generate_child_item_trees(component_idx, root, parent_ctx);
+    generate_sub_component_body(
+        component_idx,
+        root,
+        parent_ctx,
+        index_property,
+        pinned_drop,
+        extra_components,
+    )
+}
+
+/// Generate the popup windows, menus, and repeated components of the sub-component.
+fn generate_child_item_trees(
+    component_idx: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+) -> Vec<TokenStream> {
+    let component = &root.sub_components[component_idx];
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component_idx,
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        parent_ctx,
+    );
+    let popups = component.popup_windows.iter().map(|popup| {
+        generate_item_tree(&popup.item_tree, root, Some(&ParentScope::new(&ctx, None)), None, true)
+    });
+    let menus = component.menu_item_trees.iter().map(|tree| {
+        generate_item_tree(tree, root, Some(&ParentScope::new(&ctx, None)), None, false)
+    });
+    let repeated = component.repeated.iter_enumerated().map(|(idx, repeated)| {
+        generate_repeated_component(repeated, root, &ParentScope::new(&ctx, Some(idx)))
+    });
+    popups.chain(menus).chain(repeated).collect()
+}
+
+fn generate_sub_component_body(
+    component_idx: llr::SubComponentIdx,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    index_property: Option<llr::PropertyIdx>,
+    pinned_drop: bool,
+    extra_components: Vec<TokenStream>,
+) -> TokenStream {
     let component = &root.sub_components[component_idx];
     let inner_component_id = inner_component_id(component);
 
@@ -1342,22 +1386,6 @@ fn generate_sub_component(
         RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
-    let mut extra_components = component
-        .popup_windows
-        .iter()
-        .map(|popup| {
-            generate_item_tree(
-                &popup.item_tree,
-                root,
-                Some(&ParentScope::new(&ctx, None)),
-                None,
-                true,
-            )
-        })
-        .chain(component.menu_item_trees.iter().map(|tree| {
-            generate_item_tree(tree, root, Some(&ParentScope::new(&ctx, None)), None, false)
-        }))
-        .collect::<Vec<_>>();
 
     let mut declared_property_vars = Vec::new();
     let mut declared_property_types = Vec::new();
@@ -1433,12 +1461,6 @@ fn generate_sub_component(
     let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
-        extra_components.push(generate_repeated_component(
-            repeated,
-            root,
-            &ParentScope::new(&ctx, Some(idx)),
-        ));
-
         let idx = usize::from(idx) as u32;
 
         if let Some(item_index) = repeated.container_item_index {
@@ -2359,6 +2381,17 @@ fn generate_item_tree(
         index_property,
         needs_window_adapter,
     );
+    generate_item_tree_body(sub_tree, root, parent_ctx, is_popup, needs_window_adapter, sub_comp)
+}
+
+fn generate_item_tree_body(
+    sub_tree: &llr::ItemTree,
+    root: &llr::CompilationUnit,
+    parent_ctx: Option<&ParentScope>,
+    is_popup: bool,
+    needs_window_adapter: bool,
+    sub_comp: TokenStream,
+) -> TokenStream {
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
@@ -2761,7 +2794,15 @@ fn generate_repeated_component(
 ) -> TokenStream {
     let component =
         generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop, false);
+    generate_repeated_component_body(repeated, unit, parent_ctx, component)
+}
 
+fn generate_repeated_component_body(
+    repeated: &llr::RepeatedElement,
+    unit: &llr::CompilationUnit,
+    parent_ctx: &ParentScope,
+    component: TokenStream,
+) -> TokenStream {
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
@@ -3644,9 +3685,13 @@ impl quote::ToTokens for crate::expression_types::ImageReference {
 /// Compile `expr` to a Rust expression which may potentially return a reference.
 ///
 /// The body of every non-trivial match arm lives in its own `#[inline(never)]`
-/// helper function: this function recurses for nested expressions, and with all
-/// arm bodies inlined, its stack frame in unoptimized builds becomes so large
-/// that deeply nested expressions overflow the stack.
+/// helper function or closure: this function recurses for nested expressions,
+/// and with all arm bodies inlined, its stack frame in unoptimized builds becomes
+/// so large that deeply nested expressions overflow the stack.
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => {
@@ -3692,19 +3737,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         },
         Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
         Expression::CodeBlock(..) => compile_code_block(expr, ctx),
-        Expression::PropertyAssignment { property, value } => {
+        Expression::PropertyAssignment { property, value } => (|| {
             let value = compile_expression(value, ctx);
             property_set_value_tokens(property, value, ctx)
-        }
+        })(),
         Expression::ModelDataAssignment { .. } => compile_model_data_assignment(expr, ctx),
         Expression::ArrayIndexAssignment { .. } => compile_array_index_assignment(expr, ctx),
-        Expression::SliceIndexAssignment { slice_name, index, value } => {
+        Expression::SliceIndexAssignment { slice_name, index, value } => (|| {
             let slice_ident = ident(slice_name);
             let value_e = compile_expression(value, ctx);
             quote!(#slice_ident[#index] = #value_e)
-        }
+        })(),
         Expression::BinaryExpression { .. } => compile_binary_expression(expr, ctx),
-        Expression::UnaryOp { sub, op } => {
+        Expression::UnaryOp { sub, op } => (|| {
             let sub = compile_expression(sub, ctx);
             if *op == '+' {
                 // there is no unary '+' in rust
@@ -3712,22 +3757,22 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( (#op #sub) )
-        }
+        })(),
         Expression::ImageReference { .. } => compile_image_reference(expr),
         Expression::Condition { .. } => compile_condition(expr, ctx),
         Expression::Array { .. } => compile_array(expr, ctx),
         Expression::Struct { .. } => compile_struct(expr, ctx),
 
-        Expression::StoreLocalVariable { name, value } => {
+        Expression::StoreLocalVariable { name, value } => (|| {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
             quote!(#[allow(unused_variables)] let #name = #value;)
-        }
+        })(),
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
             quote!(#name)
         }
-        Expression::MouseCursor(cursor) => match cursor {
+        Expression::MouseCursor(cursor) => (|| match cursor {
             llr::MouseCursorInner::BuiltIn(expression) => {
                 let expression = compile_expression(expression, ctx);
                 quote!(sp::MouseCursorInner::BuiltIn(#expression.clone()))
@@ -3739,7 +3784,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
                 quote!(sp::MouseCursorInner::CustomMouseCursor { image: #image.clone(), hotspot_x: #hotspot_x.clone() as i32, hotspot_y: #hotspot_y.clone() as i32 })
             }
-        },
+        })(),
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
@@ -3754,7 +3799,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::LinearGradient { .. } => compile_linear_gradient(expr, ctx),
         Expression::RadialGradient { .. } => compile_radial_gradient(expr, ctx),
         Expression::ConicGradient { .. } => compile_conic_gradient(expr, ctx),
-        Expression::EnumerationValue(value) => {
+        Expression::EnumerationValue(value) => (|| {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());
             if value.enumeration.node.is_some() {
@@ -3762,7 +3807,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             } else {
                 quote!(sp::#base_ident::#value_ident)
             }
-        }
+        })(),
         Expression::LayoutCacheAccess { .. } => compile_layout_cache_access(expr, ctx),
         Expression::GridRepeaterCacheAccess { .. } => compile_grid_repeater_cache_access(expr, ctx),
         Expression::WithLayoutItemInfo {
@@ -3804,29 +3849,33 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         ),
 
         Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
-            let data = compile_expression(data, ctx);
-            let repeater_indices = compile_expression(repeater_indices, ctx);
-            let closure = generate_flexbox_measure_closure(measure_cells, ctx);
-            quote! { {
-                #closure
-                sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
-            } }
+            (|| {
+                let data = compile_expression(data, ctx);
+                let repeater_indices = compile_expression(repeater_indices, ctx);
+                let closure = generate_flexbox_measure_closure(measure_cells, ctx);
+                quote! { {
+                    #closure
+                    sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
+                } }
+            })()
         }
 
-        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+        Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => (|| {
             let a = compile_builtin_arguments(arguments, ctx);
             let closure = generate_flexbox_measure_closure(measure_cells, ctx);
             quote! { {
                 #closure
                 sp::flexbox_layout_info_cross_axis_with_measure(#(#a as _,)* Some(&mut measure))
             } }
-        }
+        })(
+        ),
 
         Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } => {
-            let data = compile_expression(solve_data, ctx);
-            let padding = compile_expression(padding_ortho, ctx);
-            let known_size_ident = ident(MEASURE_KNOWN_W_LOCAL);
-            let steps = measure_cells.iter().map(|cell| match cell {
+            (|| {
+                let data = compile_expression(solve_data, ctx);
+                let padding = compile_expression(padding_ortho, ctx);
+                let known_size_ident = ident(MEASURE_KNOWN_W_LOCAL);
+                let steps = measure_cells.iter().map(|cell| match cell {
                 llr::BoxMeasureCell::Static { info } => {
                     let info = compile_expression(info, ctx);
                     quote!(
@@ -3855,15 +3904,16 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     )
                 }
             });
-            let min_cell_count = measure_cells.len();
-            quote! { {
-                let box_ortho_solved = sp::solve_box_layout(&#data, sp::Slice::from_slice(&[]));
-                let mut cells_vec = sp::Vec::with_capacity(#min_cell_count);
-                let mut cursor = 0usize;
-                #(#steps)*
-                let _ = cursor;
-                sp::box_layout_info_ortho(sp::Slice::from_slice(&cells_vec), &#padding)
-            } }
+                let min_cell_count = measure_cells.len();
+                quote! { {
+                    let box_ortho_solved = sp::solve_box_layout(&#data, sp::Slice::from_slice(&[]));
+                    let mut cells_vec = sp::Vec::with_capacity(#min_cell_count);
+                    let mut cursor = 0usize;
+                    #(#steps)*
+                    let _ = cursor;
+                    sp::box_layout_info_ortho(sp::Slice::from_slice(&cells_vec), &#padding)
+                } }
+            })()
         }
 
         Expression::WithGridInputData {
@@ -3885,15 +3935,16 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
         Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
         Expression::TranslationReference { .. } => compile_translation_reference(expr, ctx),
-        Expression::Closure { arg_name, expression } => {
+        Expression::Closure { arg_name, expression } => (|| {
             let arg_name = ident(arg_name);
             let expression = compile_expression(expression, ctx);
             quote! {
                 |#arg_name| {#expression}
             }
-        }
+        })(),
         Expression::DashArray(dash_array) => {
-            quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*]))
+            (|| quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*])))(
+            )
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
@@ -4550,6 +4601,10 @@ fn struct_field_access(s: &Struct, name: &str) -> proc_macro2::TokenTree {
     }
 }
 
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn compile_builtin_function_call(
     function: BuiltinFunction,
     arguments: &[Expression],
@@ -4557,7 +4612,7 @@ fn compile_builtin_function_call(
 ) -> TokenStream {
     let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     match function {
-        runtime_builtin_function!() => {
+        runtime_builtin_function!() => (|| {
             let name = format_ident!("{}", function.runtime_function().unwrap());
             let ty = function.ty();
             let context = function.runtime_function_takes_context().then(|| {
@@ -4583,8 +4638,8 @@ fn compile_builtin_function_call(
                     )))
                 }),
             }
-        }
-        BuiltinFunction::SetFocusItem => {
+        })(),
+        BuiltinFunction::SetFocusItem => (|| {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
                 item_owner(pr).then(|owner| {
@@ -4594,8 +4649,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to SetFocusItem {arguments:?}")
             }
-        }
-        BuiltinFunction::ClearFocusItem => {
+        })(),
+        BuiltinFunction::ClearFocusItem => (|| {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
                 item_owner(pr).then(|owner| {
@@ -4605,8 +4660,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
-        }
-        BuiltinFunction::ShowPopupWindow => {
+        })(),
+        BuiltinFunction::ShowPopupWindow => (|| {
             // `owner_ref` is the popup's declaring component (its `popup_id` and scope);
             // `anchor_ref` is the parent item for positioning.
             if let [
@@ -4738,8 +4793,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
-        }
-        BuiltinFunction::ClosePopupWindow => {
+        })(),
+        BuiltinFunction::ClosePopupWindow => (|| {
             if let [
                 Expression::NumberLiteral(popup_index),
                 Expression::PropertyReference(parent_ref),
@@ -4784,8 +4839,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
-        }
-        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
+        })(),
+        BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => (|| {
             let [Expression::PropertyReference(context_menu_ref), entries, position] = arguments
             else {
                 panic!("internal error: invalid args to ShowPopupMenu {arguments:?}")
@@ -4929,8 +4984,8 @@ fn compile_builtin_function_call(
                     }}
                 }
             })
-        }
-        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+        })(),
+        BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 let constraint = compile_expression(constraint_expr, ctx);
@@ -4943,8 +4998,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {arguments:?}")
             }
-        }
-        BuiltinFunction::RegisterCustomFontByPath => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByPath => (|| {
             if let [Expression::StringLiteral(path)] = arguments {
                 let global_access = &ctx.generator_state.global_access;
                 let path = path.as_str();
@@ -4954,8 +5009,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {arguments:?}")
             }
-        }
-        BuiltinFunction::RegisterCustomFontByMemory => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByMemory => (|| {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
@@ -4964,8 +5019,8 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {arguments:?}")
             }
-        }
-        BuiltinFunction::RegisterBitmapFont => {
+        })(),
+        BuiltinFunction::RegisterBitmapFont => (|| {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let global_access = &ctx.generator_state.global_access;
                 let resource_id: usize = *resource_id as _;
@@ -4974,11 +5029,11 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
-        }
-        BuiltinFunction::GetWindowScaleFactor => {
+        })(),
+        BuiltinFunction::GetWindowScaleFactor => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        }
+        })(),
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
                 sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
@@ -4990,18 +5045,18 @@ fn compile_builtin_function_call(
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
         }
-        BuiltinFunction::Debug => {
+        BuiltinFunction::Debug => (|| {
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
-        }
+        })(),
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
-        BuiltinFunction::ArrayLength => {
+        BuiltinFunction::ArrayLength => (|| {
             quote!(match &#(#a)* { x => {
                 x.model_tracker().track_row_count_changes();
                 x.row_count() as i32
             }})
-        }
-        BuiltinFunction::ArrayPush => {
+        })(),
+        BuiltinFunction::ArrayPush => (|| {
             let context = access_context(ctx);
             let model = a.next().unwrap();
             let value = a.next().unwrap();
@@ -5010,8 +5065,8 @@ fn compile_builtin_function_call(
                 let value = #value;
                 sp::report_model_error(&#context, "push", None, model.push_row(value));
             })
-        }
-        BuiltinFunction::ArrayRemove => {
+        })(),
+        BuiltinFunction::ArrayRemove => (|| {
             let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
@@ -5023,8 +5078,8 @@ fn compile_builtin_function_call(
                 };
                 sp::report_model_error(&#context, "remove", None, result);
             })
-        }
-        BuiltinFunction::ArrayInsert => {
+        })(),
+        BuiltinFunction::ArrayInsert => (|| {
             let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
@@ -5039,8 +5094,8 @@ fn compile_builtin_function_call(
                 };
                 sp::report_model_error(&#context, "insert", None, result);
             })
-        }
-        BuiltinFunction::ColorScheme => {
+        })(),
+        BuiltinFunction::ColorScheme => (|| {
             // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
             // resolves against the tray's own scheme; everything else falls back to the
             // process-wide value held by the SlintContext.
@@ -5050,12 +5105,12 @@ fn compile_builtin_function_call(
                 let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
                 #context.color_scheme(Some(&_root))
             })
-        }
-        BuiltinFunction::SupportsNativeMenuBar => {
+        })(),
+        BuiltinFunction::SupportsNativeMenuBar => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
-        }
-        BuiltinFunction::SetupMenuBar => {
+        })(),
+        BuiltinFunction::SetupMenuBar => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             let [
                 Expression::PropertyReference(entries_r),
@@ -5138,8 +5193,8 @@ fn compile_builtin_function_call(
                 sp::WindowInner::from_pub(#window_adapter_tokens.window())
                     .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
             })
-        }
-        BuiltinFunction::SetupSystemTrayIcon => {
+        })(),
+        BuiltinFunction::SetupSystemTrayIcon => (|| {
             let [
                 Expression::PropertyReference(system_tray_ref),
                 Expression::NumberLiteral(tree_index),
@@ -5185,62 +5240,62 @@ fn compile_builtin_function_call(
                 let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
                 #system_tray.set_menu(&#system_tray_rc, menu_vrc);
             })
-        }
-        BuiltinFunction::ParseDate => {
+        })(),
+        BuiltinFunction::ParseDate => (|| {
             let (d, f) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
-        }
+        })(),
         BuiltinFunction::DateNow => {
             quote!(sp::ModelRc::new(sp::VecModel::from_slice(&sp::date_now())))
         }
-        BuiltinFunction::TextInputFocused => {
+        BuiltinFunction::TextInputFocused => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_focused())
-        }
-        BuiltinFunction::SetTextInputFocused => {
+        })(),
+        BuiltinFunction::SetTextInputFocused => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
-        }
-        BuiltinFunction::Translate => {
+        })(),
+        BuiltinFunction::Translate => (|| {
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
-        }
+        })(),
         BuiltinFunction::UpdateTimers => {
             quote!(_self.update_timers())
         }
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
-        BuiltinFunction::RestartTimer => {
+        BuiltinFunction::RestartTimer => (|| {
             if let [Expression::PropertyReference(pr)] = arguments {
                 access_member(pr, ctx).then(|timer| quote!(#timer.restart()))
             } else {
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
-        }
+        })(),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             quote!(sp::macos_bring_all_windows_to_front())
         }
-        BuiltinFunction::ParseMarkdown => {
+        BuiltinFunction::ParseMarkdown => (|| {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
             quote!(sp::parse_markdown(&#format_string, &#args))
-        }
-        BuiltinFunction::ArrayAny => {
+        })(),
+        BuiltinFunction::ArrayAny => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
             quote!(sp::model_any(&#model, #predicate))
-        }
-        BuiltinFunction::ArrayAll => {
+        })(),
+        BuiltinFunction::ArrayAll => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
             quote!(sp::model_all(&#model, #predicate))
-        }
-        BuiltinFunction::ArrayFindIndex => {
+        })(),
+        BuiltinFunction::ArrayFindIndex => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
             quote!(sp::model_find_index(&#model, #predicate))
-        }
+        })(),
     }
 }
 
