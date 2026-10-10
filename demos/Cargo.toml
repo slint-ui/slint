@@ -16,6 +16,7 @@ members = [
   'launcher',
   'printerdemo/rust',
   'printerdemo_mcu',
+  'racer',
   'usecases/rust',
   'weather-demo',
 ]
