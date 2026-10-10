@@ -206,9 +206,10 @@ impl TextEditor {
         let current_range =
             crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);
+        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
 
-        if self.contents.len() < adjusted_range.end().into() {
-            return Err("Text edit range is out of bounds".into());
+        if self.contents.get(r.clone()).is_none() {
+            return Err("Text edit range is out of bounds or splits a character".into());
         }
 
         // Book keeping:
@@ -216,7 +217,6 @@ impl TextEditor {
             self.original_offset_range.0.min(current_range.start().into());
         self.original_offset_range.1 = self.original_offset_range.1.max(current_range.end().into());
 
-        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
         self.contents.replace_range(r, &text_edit.new_text);
 
         self.adjustments.add_adjustment(TextOffsetAdjustment::new(
@@ -952,6 +952,37 @@ fn test_texteditor_edit_out_of_range() {
             lsp_types::Position::new(1, 3),
         ),
         new_text: "Foobar".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_err());
+}
+
+#[test]
+fn test_texteditor_edit_inside_multibyte_character() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
+        SourcePath::new("/tmp/foo.slint"),
+        "abc".to_string(),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 0),
+            lsp_types::Position::new(0, 3),
+        ),
+        new_text: "ééé".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
+
+    // Used to panic: the adjusted offset of 'c' lands in the middle of the second 'é'.
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 2),
+            lsp_types::Position::new(0, 2),
+        ),
+        new_text: "x".to_string(),
     };
     assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_err());
 }
