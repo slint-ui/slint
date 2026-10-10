@@ -118,6 +118,7 @@ jobs:
         with:
           name: material-playwright-report
           path: ui-libraries/material/docs/playwright-report/
+          if-no-files-found: ignore
           retention-days: 30
       - uses: actions/download-artifact@v8
         with:

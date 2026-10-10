@@ -44,7 +44,10 @@ jobs:
               with:
                   extra-packages: libasound2-dev
             - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
+              if: runner.os == 'Windows'
+              with:
+                  arch: x64
             # bevy is part of the examples workspace (examples/Cargo.toml) but is
             # built here rather than in the main test matrix because of its heavy
             # dependencies.

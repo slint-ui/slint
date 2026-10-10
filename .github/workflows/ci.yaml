@@ -293,7 +293,10 @@ jobs:
                   # Corrosion runs cargo with a target directory inside the
                   # CMake build tree, which the default cache misses
                   cache-directories: ${{ runner.workspace }}/cppbuild/cargo
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
+              if: runner.os == 'Windows'
+              with:
+                  arch: x64
             - name: Select MSVC (windows)
               if: runner.os == 'Windows'
               run: |
