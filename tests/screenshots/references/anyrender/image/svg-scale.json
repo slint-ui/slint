@@ -1,0 +1,35 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.1,
+        0.0,
+        0.0,
+        0.1,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L10,0 L10,10 L0,10 Z",
+      "transform": [
+        10.0,
+        0.0,
+        0.0,
+        20.0,
+        0.0,
+        0.0
+      ]
+    }
+  }
+]
