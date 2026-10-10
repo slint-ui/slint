@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Styles } from "../../styles.slint";
+
+component NutritionCard inherits Rectangle {
+    in property <string> value;
+    in property <string> label;
+
+    background: #fafafa;
+    border-radius: 5px;
+    width: 105px;
+    height: 36px;
+
+    VerticalLayout {
+        padding: 5px;
+        spacing: 4px;
+        alignment: center;
+
+        Text {
+            text: root.value;
+            font-size: 12px;
+            font-weight: FontWeight.bold;
+            color: #171717;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            font-size: Styles.small-font-size;
+            color: #525252;
+            font-weight: FontWeight.normal;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+component DietaryTag inherits Rectangle {
+    in property <string> text;
+    in property <color> bg-color;
+    in property <color> text-color: white;
+
+    background: root.bg-color;
+    border-radius: self.height / 2;
+    height: 14px;
+    width: 48px;
+
+    HorizontalLayout {
+        alignment: center;
+
+        Text {
+            text: root.text;
+            font-size: Styles.small-font-size;
+            font-weight: FontWeight.medium;
+            color: root.text-color;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component MoreInfoPage inherits VerticalLayout {
+    spacing: 20px;
+    padding: 20px;
+
+    alignment: start;
+
+    Text {
+        text: "Additional Information";
+        font-size: Styles.regular-font-size;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+
+        Text {
+            text: "Nutrition Facts (per serving)";
+            font-size: Styles.small-font-size;
+            font-weight: FontWeight.bold;
+            color: #171717;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            NutritionCard {
+                value: "245";
+                label: "Calories";
+            }
+
+            NutritionCard {
+                value: "8g";
+                label: "Protein";
+            }
+
+            NutritionCard {
+                value: "45g";
+                label: "Carbs";
+            }
+
+            NutritionCard {
+                value: "4g";
+                label: "Fat";
+            }
+        }
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+
+        Text {
+            text: "Dietary Information";
+            font-size: 8px;
+            font-weight: FontWeight.medium;
+            color: #171717;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            DietaryTag {
+                text: "Vegetarian";
+                bg-color: #e2fbe8;
+                text-color: #326b3d;
+            }
+
+            DietaryTag {
+                text: "Gluten-Free";
+                bg-color: #deeafd;
+                text-color: #1b34af;
+            }
+
+            DietaryTag {
+                text: "High Protein";
+                bg-color: #f1e8fd;
+                text-color: #9C27B0;
+            }
+        }
+    }
+}

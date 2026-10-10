@@ -411,6 +411,10 @@
       "words": ["uikit"]
     },
     {
+      "filename": "demos/food-processor/ui/images/ingredients/generation.json",
+      "words": ["imagegen"]
+    },
+    {
       "filename": "tools/figma-inspector/**",
       "words": [
         "aqid",
