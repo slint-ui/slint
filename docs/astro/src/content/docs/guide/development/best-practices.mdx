@@ -85,3 +85,52 @@ export component Example {
 
 </Aside>
 
+## Performance
+
+When creating a Slint app, performance can become an issue as scenes get more complex.
+This is most noticeable on low-end hardware.
+Below are some things you can look out for based on the renderer being used.
+
+### General
+- Opacity on an element with multiple children renders to an offscreen layer in Skia and FemtoVG.
+  Put opacity on the children if they don't overlap instead.
+- <Link type="drop-shadows" label="Drop shadows" /> are expensive when redrawn.
+  Skia and FemtoVG cache at most 16 distinct shadows and modifying any of the following properties creates a new cache entry:
+    - geometry
+    - color
+    - blur
+    - radius
+    - spread
+    - inset (along with offsets on inset shadows)
+    - background (only counts for non-inset shadows)
+    - border (only counts for non-inset shadows)
+    - scale factor
+- SVG images are expensive to rasterize.
+  Skia and FemtoVG cache the results, and the software renderer recomputes the images on a redraw.
+  The following properties invalidate the cache:
+    - source
+    - colorize
+    - image-fit
+    - width/height
+
+### Partial Renderer
+- Partial rendering is only supported in the software and Skia software renderers.
+- At most 3 dirty rectangles are redrawn every frame.
+  Rectangles get merged when more than 3 objects are dirty at a time.
+  This can result in more of the screen being redrawn than expected.
+  Keep changing elements close together.
+- Animations mark regions dirty every frame, so expensive elements can be redrawn more than expected.
+
+### FemtoVG
+- Rounded clips (`border-radius` with `clip: true`) render into an offscreen layer which is cached.
+  This can be expensive, especially when animated objects invalidate the cache every frame.
+
+### Skia
+- Backdrop blur is slow on the CPU as it has to resample everything behind the rectangle and blur it.
+
+### Software
+- Radial and conic gradients are slow on MCUs without an FPU.
+  Pre-generate them into opaque images at the displayed size.
+- Scaling images is slow. Store images as the size they are displayed as.
+- Blending pixels is slow. Try to avoid translucency on large surfaces.
+- SVG images and paths are expensive as they are recomputed every time they are drawn.
