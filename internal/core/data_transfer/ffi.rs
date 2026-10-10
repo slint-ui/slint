@@ -41,7 +41,7 @@ pub fn path_from_units(units: &[PathValueType]) -> std::path::PathBuf {
     }
 }
 #[cfg(feature = "std")]
-fn path_to_units(path: &std::path::Path) -> SharedVector<PathValueType> {
+pub fn path_to_units(path: &std::path::Path) -> SharedVector<PathValueType> {
     #[cfg(unix)]
     {
         use std::os::unix::ffi::OsStrExt;

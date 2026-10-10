@@ -5,7 +5,7 @@
 
 use super::*;
 use core::ptr::NonNull;
-use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units};
+use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units, path_to_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -828,6 +828,83 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_do
     compiler
         .as_component_compiler_mut()
         .set_translation_domain(String::from_utf8_lossy(&translation_domain).into_owned())
+}
+
+/// Result of a file loader callback.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileLoaderResult {
+    /// The file was not found; the compiler should try its normal resolution.
+    NotFound = 0,
+    /// The file was found; its contents are in the `out` parameter.
+    Found = 1,
+    /// An error occurred; the error message is in the `out` parameter.
+    Error = 2,
+}
+
+pub struct FileLoaderUserData {
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    callback: extern "C" fn(
+        user_data: *mut c_void,
+        path: Slice<PathValueType>,
+        out: *mut SharedString,
+    ) -> FileLoaderResult,
+}
+
+impl Drop for FileLoaderUserData {
+    fn drop(&mut self) {
+        if let Some(x) = self.drop_user_data {
+            x(self.user_data)
+        }
+    }
+}
+
+impl FileLoaderUserData {
+    pub unsafe fn new(
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        callback: extern "C" fn(
+            user_data: *mut c_void,
+            path: Slice<PathValueType>,
+            out: *mut SharedString,
+        ) -> FileLoaderResult,
+    ) -> Self {
+        Self { user_data, drop_user_data, callback }
+    }
+}
+
+/// Set a custom file loader for the compiler.
+/// The callback is invoked with path components and should return the file contents.
+/// Return values: `FileLoaderResult::NotFound` (compiler tries normal resolution),
+/// `FileLoaderResult::Found` (content written to `out`),
+/// or `FileLoaderResult::Error` (error message written to `out`).
+/// The user_data pointer is passed to the callback and cleaned up by drop_user_data when the compiler is dropped.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
+    compiler: &mut ComponentCompilerOpaque,
+    callback: extern "C" fn(
+        user_data: *mut c_void,
+        path: Slice<PathValueType>,
+        out: *mut SharedString,
+    ) -> FileLoaderResult,
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) {
+    let ud = unsafe { FileLoaderUserData::new(user_data, drop_user_data, callback) };
+    compiler.as_component_compiler_mut().set_file_loader(move |path| {
+        let path_units = path_to_units(path);
+        let path_slice = Slice::from_slice(&path_units);
+        let mut result = SharedString::default();
+        let status = (ud.callback)(ud.user_data, path_slice, &mut result);
+        Box::pin(async move {
+            match status {
+                FileLoaderResult::NotFound => None,
+                FileLoaderResult::Found => Some(Ok(result.to_string())),
+                FileLoaderResult::Error => Some(Err(std::io::Error::other(result.to_string()))),
+            }
+        })
+    });
 }
 
 #[unsafe(no_mangle)]
