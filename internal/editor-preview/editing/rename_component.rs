@@ -686,7 +686,7 @@ fn matching_decl_in_inheritance_chain(
         let base = element_borrow.base_type.clone();
         drop(element_borrow);
         match base {
-            i_slint_compiler::langtype::ElementType::Component(c) => {
+            i_slint_compiler::element_type::ElementType::Component(c) => {
                 element = c.root_element.clone();
             }
             _ => return false,
@@ -772,7 +772,7 @@ impl TokenInformation {
             }) {
                 return true;
             }
-            if let i_slint_compiler::langtype::ElementType::Component(c) =
+            if let i_slint_compiler::element_type::ElementType::Component(c) =
                 &element.borrow().base_type
             {
                 check_element(&c.root_element, node)
@@ -803,14 +803,14 @@ impl TokenInformation {
             ) => Rc::ptr_eq(&nl.element(), &nr.element()) && nl.name() == nr.name(),
             (
                 crate::token_info::TokenInfo::ElementType(
-                    i_slint_compiler::langtype::ElementType::Component(c),
+                    i_slint_compiler::element_type::ElementType::Component(c),
                 ),
                 crate::token_info::TokenInfo::ElementRc(e),
             )
             | (
                 crate::token_info::TokenInfo::ElementRc(e),
                 crate::token_info::TokenInfo::ElementType(
-                    i_slint_compiler::langtype::ElementType::Component(c),
+                    i_slint_compiler::element_type::ElementType::Component(c),
                 ),
             ) => {
                 if let Some(ce) = c.node.as_ref().map(|cn| cn.Element()) {
@@ -838,7 +838,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalProperty(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -863,7 +863,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalCallback(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -888,7 +888,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalFunction(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -1050,12 +1050,12 @@ impl DeclarationNodeQuery {
                     crate::token_info::TokenInfo::IncompleteNamedReference(element_type, name) => {
                         if name == &self.token_info.name {
                             match &element_type {
-                                i_slint_compiler::langtype::ElementType::Component(component) => {
-                                    find_declared_identifier_in_element(
-                                        &self,
-                                        &component.node.as_ref()?.Element(),
-                                    )
-                                }
+                                i_slint_compiler::element_type::ElementType::Component(
+                                    component,
+                                ) => find_declared_identifier_in_element(
+                                    &self,
+                                    &component.node.as_ref()?.Element(),
+                                ),
                                 _ => None,
                             }
                         } else {

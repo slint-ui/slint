@@ -1786,7 +1786,7 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
         || matches!(
             &elem_b.base_type,
-            crate::langtype::ElementType::Component(base_comp)
+            crate::element_type::ElementType::Component(base_comp)
                 if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
         );
     if has_constrained_layoutinfo_v {

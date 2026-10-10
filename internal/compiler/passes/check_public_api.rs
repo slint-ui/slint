@@ -7,7 +7,7 @@
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::{Component, Document, ExportedName, PropertyVisibility};
 use crate::{CompilerConfiguration, ComponentSelection};
 use itertools::Either;

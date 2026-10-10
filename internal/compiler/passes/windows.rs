@@ -5,8 +5,9 @@
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;

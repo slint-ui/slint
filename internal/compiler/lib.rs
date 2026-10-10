@@ -23,6 +23,7 @@ pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod element_type;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;

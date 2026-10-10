@@ -6,9 +6,9 @@ use crate::editor_preview::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
+use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::ElementDocEntry;
-use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;

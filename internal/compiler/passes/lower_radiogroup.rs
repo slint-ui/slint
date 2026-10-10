@@ -10,8 +10,9 @@
 //! that themselves need to be inlined.
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::collections::HashSet;

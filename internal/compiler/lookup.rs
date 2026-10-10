@@ -7,11 +7,12 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{
     BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
     Unit,
 };
-use crate::langtype::{ElementType, Enumeration, EnumerationValue, PropertyLookupMode, Type};
+use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::{NodeOrToken, TextRange, TextSize};

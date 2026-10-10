@@ -8,10 +8,9 @@ use std::sync::Arc;
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use super::native_class_selection::{dropped_defaults, select_native_class};
 use crate::CompilerConfiguration;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{
-    BuiltinStruct, ElementType, NativeClass, PropertyLookupMode, Struct, StructName, Type,
-};
+use crate::langtype::{BuiltinStruct, NativeClass, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};

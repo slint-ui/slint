@@ -5,8 +5,8 @@
 Make sure that the Repeated expression are just components without any children
  */
 
+use crate::element_type::ElementType;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::ElementType;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;

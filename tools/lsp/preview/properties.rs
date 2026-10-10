@@ -4,8 +4,9 @@
 use crate::editor_preview::{self, Result};
 use crate::util;
 use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::element_type::{ElementType, PropertyLookupMode};
 use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,

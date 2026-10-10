@@ -5,9 +5,8 @@
 // Generate mdx documentation files for builtin elements using data from
 // the compiler's TypeRegister.
 
-use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
-};
+use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
+use i_slint_compiler::langtype::{BuiltinPropertyDefault, BuiltinPropertyInfo, Type};
 use i_slint_compiler::object_tree::PropertyVisibility;
 
 use std::collections::HashSet;

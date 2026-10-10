@@ -4,8 +4,9 @@
 //! This pass transforms the PopupWindow element into a component
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation};
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{ElementType, EnumerationValue, Type};
+use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};

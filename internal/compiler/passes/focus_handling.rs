@@ -13,8 +13,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::element_type::ElementType;
 use crate::expression_tree::{BuiltinFunction, Callable, Expression};
-use crate::langtype::{ElementType, Function, Type};
+use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use by_address::ByAddress;

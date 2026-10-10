@@ -11,8 +11,9 @@ use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
 use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::element_type::{ElementType, PropertyLookupMode};
 use i_slint_compiler::expression_tree::{Callable, Expression};
-use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{

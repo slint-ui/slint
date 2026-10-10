@@ -8,13 +8,11 @@
 // cSpell: ignore qualname
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{
     self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
 };
-use crate::langtype::{
-    BuiltinElement, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
-};
-use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
+use crate::langtype::{Enumeration, EnumerationValue, Function, Struct, StructName, Type};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};

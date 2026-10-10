@@ -13,8 +13,9 @@ use std::rc::Rc;
 use by_address::ByAddress;
 
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
+use crate::element_type::{BuiltinElement, ElementType};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::Type;
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
@@ -1531,7 +1532,7 @@ fn visit_implicit_layout_info_dependencies(
 }
 
 fn visit_builtin_property(
-    builtin: &crate::langtype::BuiltinElement,
+    builtin: &BuiltinElement,
     prop: &PropertyPath,
     context: &mut AnalysisContext,
     reverse_aliases: &ReverseAliases,
