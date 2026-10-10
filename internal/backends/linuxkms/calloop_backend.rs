@@ -163,6 +163,23 @@ impl Backend {
     }
 }
 
+#[cfg(all(test, enable_skia, not(any(feature = "libseat", feature = "libinput"))))]
+impl Backend {
+    pub(crate) fn with_renderer_factory(
+        mut self,
+        renderer_factory: fn(
+            &crate::DeviceOpener,
+            Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+        ) -> Result<
+            Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
+            PlatformError,
+        >,
+    ) -> Self {
+        self.renderer_factory = renderer_factory;
+        self
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
     fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
         let _ = self.context.set(ctx);
@@ -285,26 +302,35 @@ impl i_slint_core::platform::Platform for Backend {
             .and_then(|ctx| ctx.upgrade())
             .expect("the event loop runs inside the context that owns this backend");
 
-        while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
-            ctx.update_timers_and_animations();
+        let mut run = || -> Result<(), PlatformError> {
+            while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
+                ctx.update_timers_and_animations();
 
-            // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
-            // might set animated properties, which requires an up-to-date start time.
-            for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
-                callback();
+                // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
+                // might set animated properties, which requires an up-to-date start time.
+                for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
+                    callback();
+                }
+
+                if let Some(adapter) = self.window.borrow().as_ref() {
+                    adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
+                    adapter.flush_unless_frame_follows()?;
+                };
+
+                let next_timeout = ctx.duration_until_next_timer_update();
+                event_loop
+                    .dispatch(next_timeout, &mut loop_data)
+                    .map_err(|e| format!("Error dispatch events: {e}"))?;
             }
+            Ok(())
+        };
+        let result = run();
 
-            if let Some(adapter) = self.window.borrow().as_ref() {
-                adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
-            };
-
-            let next_timeout = ctx.duration_until_next_timer_update();
-            event_loop
-                .dispatch(next_timeout, &mut loop_data)
-                .map_err(|e| format!("Error dispatch events: {e}"))?;
-        }
-
-        Ok(())
+        let flushed = match self.window.borrow().as_ref() {
+            Some(adapter) => adapter.flush_pending_frame(),
+            None => Ok(()),
+        };
+        result.and(flushed)
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {

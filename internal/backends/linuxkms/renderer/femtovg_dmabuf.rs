@@ -4,7 +4,8 @@
 //! FemtoVG on wgpu for drivers without `VK_EXT_acquire_drm_display`.
 //!
 //! It works like the Skia adapter in `skia_dmabuf.rs`,
-//! except that FemtoVG draws through wgpu, see [`ScanoutBarriers`].
+//! except that FemtoVG draws through wgpu, see [`ScanoutBarriers`],
+//! and waits for the GPU after each frame.
 
 // cSpell: ignore bufs dmabuf
 
@@ -18,14 +19,18 @@ use wgpu_30 as wgpu;
 
 use super::dmabuf::{init_wgpu, wait_for_gpu};
 use crate::display::RenderingRotation;
-use crate::display::gbmdmabufdisplay::{BUFFER_COUNT, GbmDmabufDisplay};
+use crate::display::gbmdmabufdisplay::GbmDmabufDisplay;
 use crate::display::scanout_barriers::ScanoutBarriers;
 use crate::drmoutput::DrmOutput;
 
+/// The scanout buffers [`GbmDmabufDisplay::present`] needs.
+const BUFFER_COUNT: usize = 3;
+
 pub struct FemtoVGDmabufRendererAdapter {
+    /// Dropped first, see `SkiaDmabufRendererAdapter`.
+    barriers: ScanoutBarriers,
     renderer: FemtoVGWGPURenderer,
     display: GbmDmabufDisplay,
-    barriers: ScanoutBarriers,
     device: wgpu::Device,
     size: PhysicalWindowSize,
 }
@@ -41,7 +46,7 @@ impl FemtoVGDmabufRendererAdapter {
         let (width, height) = drm_output.size();
         let size = PhysicalWindowSize::new(width, height);
 
-        let display = GbmDmabufDisplay::new(drm_output, &device)?;
+        let display = GbmDmabufDisplay::new(drm_output, &device, BUFFER_COUNT)?;
         let barriers = ScanoutBarriers::new(&device, BUFFER_COUNT)?;
 
         let renderer = FemtoVGWGPURenderer::new(instance, device.clone(), queue)?;
@@ -67,24 +72,27 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGDmabufRendere
             return Ok(DrawOutcome::Success);
         }
 
-        // Drawing starts before the last flip finished, see `BUFFER_COUNT`.
+        // Drawing starts before the last flip finished, see `GbmDmabufDisplay::present`.
         let (index, texture) = self.display.back_buffer();
 
-        self.barriers.acquire(index, texture)?;
-
         let drawn = self
-            .renderer
-            .render_to_texture_transformed(
-                texture,
-                rotation.degrees(),
-                rotation.translation_after_rotation(self.size),
-                Some(draw_mouse_cursor_callback),
-            )
+            .barriers
+            .acquire(index, texture)
+            .and_then(|()| {
+                self.renderer.render_to_texture_transformed(
+                    texture,
+                    rotation.degrees(),
+                    rotation.translation_after_rotation(self.size),
+                    Some(draw_mouse_cursor_callback),
+                )
+            })
             .and_then(|()| self.barriers.release(index, texture));
 
         // wgpu-hal exports no sync fd for KMS to wait on, so wait for the GPU here.
-        // A failed frame waits too, see `ScanoutBarriers::release`.
-        let waited = wait_for_gpu(&self.device);
+        let waited = match &drawn {
+            Ok(()) => wait_for_gpu(&self.device),
+            Err(_) => self.barriers.wait_after_failure(),
+        };
         drawn?;
         waited?;
 
