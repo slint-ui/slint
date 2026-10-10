@@ -12,9 +12,11 @@ use std::rc::Rc;
 
 use by_address::ByAddress;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, ElementType};
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
@@ -1595,9 +1597,7 @@ fn check_window_properties(doc: &Document, global_analysis: &mut GlobalAnalysis)
                         let value = elem.borrow().binding(DEFAULT_FONT_SIZE).and_then(|e| match e
                             .expression
                         {
-                            Expression::NumberLiteral(v, crate::expression_tree::Unit::Px) => {
-                                Some(v as f32)
-                            }
+                            Expression::NumberLiteral(v, Unit::Px) => Some(v as f32),
                             _ => None,
                         });
                         let is_const = value.is_some()

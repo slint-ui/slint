@@ -4,7 +4,8 @@
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
-use crate::expression_tree::{Expression, ImageReference};
+use crate::expression_tree::Expression;
+use crate::expression_types::ImageReference;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 #[cfg(feature = "renderer-software")]

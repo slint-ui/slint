@@ -7,7 +7,7 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::source_path::SourcePath;
-use i_slint_compiler::{expression_tree, langtype};
+use i_slint_compiler::{expression_types, langtype};
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
@@ -512,7 +512,7 @@ fn string_to_code(
     }
 }
 
-fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
+fn unit_model(units: &[expression_types::WrittenUnit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
@@ -666,7 +666,7 @@ fn map_value_and_type(
             ..Default::default()
         });
     }
-    use i_slint_compiler::expression_tree::WrittenUnit;
+    use i_slint_compiler::expression_types::WrittenUnit;
     use langtype::Type;
 
     match ty {

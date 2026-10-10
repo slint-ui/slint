@@ -1,8 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
+use crate::expression_types::{
+    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, Unit, operator_class,
+};
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::LookupCtx;
 use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
@@ -21,118 +25,117 @@ use std::sync::Arc;
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-pub use crate::builtin_functions::BuiltinFunction;
-
-impl BuiltinFunction {
-    /// It is const if the return value only depends on its argument and has no side effect
-    fn is_const(&self, global_analysis: Option<&crate::passes::GlobalAnalysis>) -> bool {
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => {
-                global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
-            }
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                global_analysis.is_some_and(|x| x.default_font_size.is_const())
-            }
-            BuiltinFunction::AnimationTick => false,
-            BuiltinFunction::ColorScheme => false,
-            BuiltinFunction::AccentColor => false,
-            BuiltinFunction::SupportsNativeMenuBar => false,
-            BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTrayIcon => false,
-            BuiltinFunction::MonthDayCount => false,
-            BuiltinFunction::MonthOffset => false,
-            BuiltinFunction::FormatDate => false,
-            BuiltinFunction::DateNow => false,
-            BuiltinFunction::ValidDate => false,
-            BuiltinFunction::ParseDate => false,
-            BuiltinFunction::DecimalSeparator => false,
-            BuiltinFunction::DefaultWindowTitle => false,
-            // Even if it is not pure, we optimize it away anyway
-            BuiltinFunction::Debug => true,
-            BuiltinFunction::Mod
-            | BuiltinFunction::Round
-            | BuiltinFunction::Ceil
-            | BuiltinFunction::Floor
-            | BuiltinFunction::Abs
-            | BuiltinFunction::Sqrt
-            | BuiltinFunction::Cos
-            | BuiltinFunction::Sin
-            | BuiltinFunction::Tan
-            | BuiltinFunction::ACos
-            | BuiltinFunction::ASin
-            | BuiltinFunction::Log
-            | BuiltinFunction::Ln
-            | BuiltinFunction::Pow
-            | BuiltinFunction::Exp
-            | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToStringUnlocalized => true,
-            // The result depends on the locale's decimal separator, like DecimalSeparator.
-            // The constant propagation folds the locale-independent cases and promotes
-            // their binding back to constant.
-            BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision
-            | BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat => false,
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow
-            | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu
-            | BuiltinFunction::ShowPopupMenuInternal => false,
-            BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::HasSelection => false,
-            BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
-            BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount
-            | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase
-            | BuiltinFunction::StringStartsWith
-            | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplaceAll
-            | BuiltinFunction::KeysToString => true,
-            BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHsvaStruct
-            | BuiltinFunction::ColorOklchStruct
-            | BuiltinFunction::ColorBrighter
-            | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorMix
-            | BuiltinFunction::ColorWithAlpha => true,
-            // On the web, the browser loads images asynchronously, so the size is initially 0/0
-            // and updates once the image is loaded. Calls to this function must stay within a
-            // binding so that the property notification kicks in when the code may run on the web.
-            BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
-            BuiltinFunction::ArrayLength => true,
-            BuiltinFunction::ArrayPush
-            | BuiltinFunction::ArrayRemove
-            | BuiltinFunction::ArrayInsert => false,
-            BuiltinFunction::Rgb => true,
-            BuiltinFunction::Hsv => true,
-            BuiltinFunction::Oklch => true,
-            BuiltinFunction::SetTextInputFocused => false,
-            BuiltinFunction::TextInputFocused => false,
-            BuiltinFunction::ImplicitLayoutInfo(_) => false,
-            BuiltinFunction::ItemAbsolutePosition => true,
-            BuiltinFunction::RegisterCustomFontByPath
-            | BuiltinFunction::RegisterCustomFontByMemory
-            | BuiltinFunction::RegisterBitmapFont => false,
-            BuiltinFunction::Translate => false,
-            BuiltinFunction::Use24HourFormat => false,
-            BuiltinFunction::UpdateTimers => false,
-            BuiltinFunction::DetectOperatingSystem => true,
-            BuiltinFunction::StartTimer => false,
-            BuiltinFunction::StopTimer => false,
-            BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown => false,
-            BuiltinFunction::StringToStyledText => true,
-            BuiltinFunction::ColorToStyledText => true,
-            BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PathPointAt => true,
-            BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny
-            | BuiltinFunction::ArrayAll
-            | BuiltinFunction::ArrayFindIndex => true,
+/// It is const if the return value only depends on its argument and has no side effect
+fn builtin_function_is_const(
+    function: &BuiltinFunction,
+    global_analysis: Option<&crate::passes::GlobalAnalysis>,
+) -> bool {
+    match function {
+        BuiltinFunction::GetWindowScaleFactor => {
+            global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
+        }
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            global_analysis.is_some_and(|x| x.default_font_size.is_const())
+        }
+        BuiltinFunction::AnimationTick => false,
+        BuiltinFunction::ColorScheme => false,
+        BuiltinFunction::AccentColor => false,
+        BuiltinFunction::SupportsNativeMenuBar => false,
+        BuiltinFunction::SetupMenuBar => false,
+        BuiltinFunction::SetupSystemTrayIcon => false,
+        BuiltinFunction::MonthDayCount => false,
+        BuiltinFunction::MonthOffset => false,
+        BuiltinFunction::FormatDate => false,
+        BuiltinFunction::DateNow => false,
+        BuiltinFunction::ValidDate => false,
+        BuiltinFunction::ParseDate => false,
+        BuiltinFunction::DecimalSeparator => false,
+        BuiltinFunction::DefaultWindowTitle => false,
+        // Even if it is not pure, we optimize it away anyway
+        BuiltinFunction::Debug => true,
+        BuiltinFunction::Mod
+        | BuiltinFunction::Round
+        | BuiltinFunction::Ceil
+        | BuiltinFunction::Floor
+        | BuiltinFunction::Abs
+        | BuiltinFunction::Sqrt
+        | BuiltinFunction::Cos
+        | BuiltinFunction::Sin
+        | BuiltinFunction::Tan
+        | BuiltinFunction::ACos
+        | BuiltinFunction::ASin
+        | BuiltinFunction::Log
+        | BuiltinFunction::Ln
+        | BuiltinFunction::Pow
+        | BuiltinFunction::Exp
+        | BuiltinFunction::ATan
+        | BuiltinFunction::ATan2
+        | BuiltinFunction::ToStringUnlocalized => true,
+        // The result depends on the locale's decimal separator, like DecimalSeparator.
+        // The constant propagation folds the locale-independent cases and promotes
+        // their binding back to constant.
+        BuiltinFunction::ToFixed
+        | BuiltinFunction::ToPrecision
+        | BuiltinFunction::StringToFloat
+        | BuiltinFunction::StringIsFloat => false,
+        BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
+        BuiltinFunction::ShowPopupWindow
+        | BuiltinFunction::ClosePopupWindow
+        | BuiltinFunction::ShowPopupMenu
+        | BuiltinFunction::ShowPopupMenuInternal => false,
+        BuiltinFunction::SetSelectionOffsets => false,
+        BuiltinFunction::HasSelection => false,
+        BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
+        BuiltinFunction::StringIsEmpty
+        | BuiltinFunction::StringCharacterCount
+        | BuiltinFunction::StringToLowercase
+        | BuiltinFunction::StringToUppercase
+        | BuiltinFunction::StringStartsWith
+        | BuiltinFunction::StringEndsWith
+        | BuiltinFunction::StringReplaceAll
+        | BuiltinFunction::KeysToString => true,
+        BuiltinFunction::ColorRgbaStruct
+        | BuiltinFunction::ColorHsvaStruct
+        | BuiltinFunction::ColorOklchStruct
+        | BuiltinFunction::ColorBrighter
+        | BuiltinFunction::ColorDarker
+        | BuiltinFunction::ColorTransparentize
+        | BuiltinFunction::ColorMix
+        | BuiltinFunction::ColorWithAlpha => true,
+        // On the web, the browser loads images asynchronously, so the size is initially 0/0
+        // and updates once the image is loaded. Calls to this function must stay within a
+        // binding so that the property notification kicks in when the code may run on the web.
+        BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
+        BuiltinFunction::ArrayLength => true,
+        BuiltinFunction::ArrayPush
+        | BuiltinFunction::ArrayRemove
+        | BuiltinFunction::ArrayInsert => false,
+        BuiltinFunction::Rgb => true,
+        BuiltinFunction::Hsv => true,
+        BuiltinFunction::Oklch => true,
+        BuiltinFunction::SetTextInputFocused => false,
+        BuiltinFunction::TextInputFocused => false,
+        BuiltinFunction::ImplicitLayoutInfo(_) => false,
+        BuiltinFunction::ItemAbsolutePosition => true,
+        BuiltinFunction::RegisterCustomFontByPath
+        | BuiltinFunction::RegisterCustomFontByMemory
+        | BuiltinFunction::RegisterBitmapFont => false,
+        BuiltinFunction::Translate => false,
+        BuiltinFunction::Use24HourFormat => false,
+        BuiltinFunction::UpdateTimers => false,
+        BuiltinFunction::DetectOperatingSystem => true,
+        BuiltinFunction::StartTimer => false,
+        BuiltinFunction::StopTimer => false,
+        BuiltinFunction::RestartTimer => false,
+        BuiltinFunction::ParseMarkdown => false,
+        BuiltinFunction::StringToStyledText => true,
+        BuiltinFunction::ColorToStyledText => true,
+        BuiltinFunction::OpenUrl => false,
+        BuiltinFunction::MacosBringAllWindowsToFront => false,
+        BuiltinFunction::PathPointAt => true,
+        BuiltinFunction::PathAngleAt => true,
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
+            true
         }
     }
 }
@@ -193,172 +196,6 @@ impl From<BuiltinFunction> for Callable {
     fn from(function: BuiltinFunction) -> Self {
         Self::Builtin(function)
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum OperatorClass {
-    ComparisonOp,
-    LogicalOp,
-    ArithmeticOp,
-}
-
-/// the class of for this (binary) operation
-pub fn operator_class(op: char) -> OperatorClass {
-    match op {
-        '=' | '!' | '<' | '>' | '≤' | '≥' => OperatorClass::ComparisonOp,
-        '&' | '|' => OperatorClass::LogicalOp,
-        '+' | '-' | '/' | '*' => OperatorClass::ArithmeticOp,
-        _ => panic!("Invalid operator {op:?}"),
-    }
-}
-
-macro_rules! declare_units {
-    // A unit written without a conversion is already its type's canonical unit.
-    (@normalize $value:ident, $ident:ident) => { ($value, Unit::$ident) };
-    // Otherwise scale by the factor and switch to the named canonical unit.
-    (@normalize $value:ident, $ident:ident, $canon:ident, $factor:expr) => {
-        ($value * ($factor as f64), Unit::$canon)
-    };
-    ($( $(#[$m:meta])* $ident:ident = $string:literal $(-> $canon:ident * $factor:expr)? ,)*) => {
-        /// A unit as written after a number in the source (`px`, `cm`, `grad`, ...).
-        ///
-        /// These are all the units a user can type. A literal is normalized to the
-        /// canonical [`Unit`] of its type the moment it enters the expression tree, so
-        /// only the parser and tooling ever handle a `WrittenUnit`.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
-        pub enum WrittenUnit {
-            $($(#[$m])* $ident,)*
-        }
-
-        impl std::fmt::Display for WrittenUnit {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $(Self::$ident => write!(f, $string), )*
-                }
-            }
-        }
-
-        impl std::str::FromStr for WrittenUnit {
-            type Err = ();
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    $($string => Ok(Self::$ident), )*
-                    _ => Err(())
-                }
-            }
-        }
-
-        impl WrittenUnit {
-            /// Scale `value`, written in this surface unit, to the value and canonical
-            /// [`Unit`] a `NumberLiteral` stores. The scale and the unit come out
-            /// together so they can't drift apart.
-            pub fn normalize(self, value: f64) -> (f64, Unit) {
-                match self {
-                    $(Self::$ident => declare_units!(@normalize value, $ident $(, $canon, $factor)?), )*
-                }
-            }
-        }
-    };
-}
-
-declare_units! {
-    /// No unit was given
-    None = "",
-    /// Percent value
-    Percent = "%",
-
-    // Lengths or Coord
-
-    /// Physical pixels
-    Phx = "phx",
-    /// Logical pixels
-    Px = "px",
-    /// Centimeters
-    Cm = "cm" -> Px * 37.8,
-    /// Millimeters
-    Mm = "mm" -> Px * 3.78,
-    /// inches
-    In = "in" -> Px * 96,
-    /// Points
-    Pt = "pt" -> Px * 96./72.,
-    /// Logical pixels multiplied with the window's default-font-size
-    Rem = "rem",
-
-    // durations
-
-    /// Seconds
-    S = "s" -> Ms * 1000,
-    /// Milliseconds
-    Ms = "ms",
-
-    // angles
-
-    /// Degree
-    Deg = "deg",
-    /// Gradians
-    Grad = "grad" -> Deg * 360./180.,
-    /// Turns
-    Turn = "turn" -> Deg * 360.,
-    /// Radians
-    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
-}
-
-/// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
-/// its type, so the stored value is already scaled and needs no further
-/// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
-/// [`WrittenUnit`] and are normalized to one of these on the way in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub enum Unit {
-    /// Dimension-less (`float`, `int`)
-    #[default]
-    None,
-    /// Percent
-    Percent,
-    /// Physical pixels
-    Phx,
-    /// Logical pixels
-    Px,
-    /// Logical pixels multiplied with the window's default-font-size
-    Rem,
-    /// Milliseconds
-    Ms,
-    /// Degrees
-    Deg,
-}
-
-impl Unit {
-    pub fn ty(self) -> Type {
-        match self {
-            Unit::None => Type::Float32,
-            Unit::Percent => Type::Percent,
-            Unit::Px => Type::LogicalLength,
-            Unit::Phx => Type::PhysicalLength,
-            Unit::Rem => Type::Rem,
-            Unit::Ms => Type::Duration,
-            Unit::Deg => Type::Angle,
-        }
-    }
-}
-
-impl std::fmt::Display for Unit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Unit::None => "",
-            Unit::Percent => "%",
-            Unit::Px => "px",
-            Unit::Phx => "phx",
-            Unit::Rem => "rem",
-            Unit::Ms => "ms",
-            Unit::Deg => "deg",
-        };
-        write!(f, "{s}")
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MinMaxOp {
-    Min,
-    Max,
 }
 
 /// The three places a `.slint` file writes a conditional.
@@ -513,7 +350,7 @@ pub enum Expression {
 
     EmptyDataTransfer,
 
-    MouseCursor(MouseCursorInner),
+    MouseCursor(MouseCursorInner<Expression>),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -1122,7 +959,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.iter().all(|s| s.is_constant(ga)),
             Expression::FunctionCall { function, arguments, .. } => {
                 let is_const = match function {
-                    Callable::Builtin(b) => b.is_const(ga),
+                    Callable::Builtin(b) => builtin_function_is_const(b, ga),
                     Callable::Function(nr) => nr.is_constant(),
                     Callable::Callback(..) => false,
                 };
@@ -2023,67 +1860,6 @@ pub enum Path {
 pub struct PathElement {
     pub element_type: Arc<BuiltinElement>,
     pub bindings: BindingsMap,
-}
-
-#[derive(Clone, Debug, Default)]
-pub enum EasingCurve {
-    #[default]
-    Linear,
-    CubicBezier(f32, f32, f32, f32),
-    EaseInElastic,
-    EaseOutElastic,
-    EaseInOutElastic,
-    EaseInBounce,
-    EaseOutBounce,
-    EaseInOutBounce,
-    Spring(f32),
-    // CubicBezierNonConst([Box<Expression>; 4]),
-    // Custom(Box<dyn Fn(f32)->f32>),
-}
-
-/// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
-/// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
-#[derive(Clone, Debug)]
-pub enum MouseCursorInner<E = Expression> {
-    BuiltIn(Box<E>),
-    CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
-}
-
-impl<E: Default> Default for MouseCursorInner<E> {
-    fn default() -> Self {
-        Self::BuiltIn(Box::default())
-    }
-}
-
-// The compiler resolves every `@image-url("foo.png")` into a `Source` or
-// `DataUri` reference; the resource lowering pass may then replace it with
-// `EmbeddedData`/`EmbeddedTexture` if configured.
-#[derive(Clone, Debug)]
-pub enum ImageReference {
-    None,
-    Source(crate::source_path::SourcePath),
-    /// An inline `data:` URI carrying the image content.
-    DataUri(SmolStr),
-    EmbeddedData {
-        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
-        extension: String,
-    },
-    EmbeddedTexture {
-        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
-    },
-}
-
-impl ImageReference {
-    /// Classify a URL returned by the resource mapper. It is already a URL, so
-    /// the only distinction is a `data:` URI (kept as a string, see
-    /// [`Self::DataUri`]) from any other URL.
-    pub fn from_mapped_url(url: url::Url) -> Self {
-        if url.scheme() == "data" {
-            Self::DataUri(url.as_str().into())
-        } else {
-            Self::Source(url.into())
-        }
-    }
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)

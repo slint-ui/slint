@@ -97,9 +97,10 @@
 //! ```
 //!
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
+use crate::expression_tree::{Callable, Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use core::cell::RefCell;

@@ -3,7 +3,8 @@
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::element_type::ElementType;
-use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding};
+use i_slint_compiler::expression_types::Unit;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::native_class::PropertyVisibility;
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration};

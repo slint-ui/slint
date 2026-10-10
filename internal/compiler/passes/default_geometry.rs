@@ -12,11 +12,11 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode};
-use crate::expression_tree::{
-    BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
-};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
 use crate::layout::{
     BuiltinFilter, LayoutConstraints, MergedFixedSize, Orientation, implicit_layout_info_call,

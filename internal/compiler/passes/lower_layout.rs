@@ -6,9 +6,11 @@
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
+use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::native_class::PropertyVisibility;

@@ -9,9 +9,8 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
-use crate::expression_tree::{
-    self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
-};
+use crate::expression_tree::{self, BindingExpression, Callable, ConditionLocation, Expression};
+use crate::expression_types::Unit;
 use crate::generator::accessor_names::DeclarationKind;
 use crate::langtype::{
     ConstantExpression, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
@@ -4121,7 +4120,8 @@ fn member_kind(ty: &Type) -> &'static str {
 /// A user-facing explanation of what makes the expression non-constant, if there is
 /// a better one than "it is not in the supported subset"
 fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
-    use crate::expression_tree::{BuiltinFunction, Callable};
+    use crate::builtin_functions::BuiltinFunction;
+    use crate::expression_tree::Callable;
     let mut reason = None;
     expr.visit_recursive(&mut |e| {
         if reason.is_some() {

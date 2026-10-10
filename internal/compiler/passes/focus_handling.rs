@@ -12,9 +12,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::ElementType;
-use crate::expression_tree::{BuiltinFunction, Callable, Expression};
+use crate::expression_tree::{Callable, Expression};
 use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;

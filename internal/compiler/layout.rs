@@ -3,9 +3,11 @@
 
 //! Datastructures used to represent layouts in the compiler
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::*;
+use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::object_tree::{Component, Element, ElementRc, PropertyDeclaration};
 

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use smol_str::SmolStr;
 
-use crate::expression_tree::BuiltinFunction;
+use crate::builtin_functions::BuiltinFunction;
 use crate::langtype::{BuiltinStruct, ConstantExpression, Type};
 
 #[derive(Debug, Clone)]

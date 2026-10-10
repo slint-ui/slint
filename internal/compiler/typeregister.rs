@@ -9,8 +9,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
-use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
 use crate::native_class::PropertyVisibility;
 use crate::object_tree::Component;
