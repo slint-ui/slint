@@ -5177,6 +5177,7 @@ dependencies = [
  "image",
  "kurbo",
  "peniko",
+ "raw-window-handle",
  "serde_json",
  "slint",
  "slint-interpreter",
