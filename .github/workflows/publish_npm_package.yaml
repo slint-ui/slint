@@ -101,7 +101,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: ${{ !matrix.container }}
             - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
               with:
                   arch: ${{ matrix.msvc-arch }}
