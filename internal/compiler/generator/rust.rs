@@ -3649,8 +3649,8 @@ impl quote::ToTokens for crate::expression_tree::ImageReference {
 
 /// Compile `expr` to a Rust expression which may potentially return a reference.
 ///
-/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
-/// helper function: this function recurses for nested expressions, and with all
+/// The body of every non-trivial match arm lives in its own helper function:
+/// this function recurses for nested expressions, and with all
 /// arm bodies inlined, its stack frame in unoptimized builds becomes so large
 /// that deeply nested expressions overflow the stack.
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
@@ -3659,7 +3659,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let s = s.as_str();
             quote!(sp::SharedString::from(#s))
         }
-        Expression::KeysLiteral(..) => compile_keys_literal(expr),
+        Expression::KeysLiteral(keys) => compile_keys_literal(keys),
         Expression::NumberLiteral(n) => {
             if n.is_nan() {
                 quote!(f64::NAN)
@@ -3670,7 +3670,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::BoolLiteral(b) => quote!(#b),
-        Expression::Cast { .. } => compile_cast(expr, ctx),
+        Expression::Cast { from, to } => compile_cast(from, to, ctx),
         Expression::PropertyReference(nr) => {
             let access = access_member(nr, ctx);
             let prop_type = ctx.property_ty(nr);
@@ -3679,11 +3679,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
-        Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
-        Expression::FunctionCall { .. } => compile_function_call(expr, ctx),
-        Expression::ItemMemberFunctionCall { .. } => compile_item_member_function_call(expr, ctx),
-        Expression::ExtraBuiltinFunctionCall { .. } => {
-            compile_extra_builtin_function_call(expr, ctx)
+        Expression::CallBackCall { callback, arguments } => {
+            compile_callback_call(callback, arguments, expr.ty(ctx) == Type::Void, ctx)
+        }
+        Expression::FunctionCall { function, arguments } => {
+            compile_function_call(function, arguments, expr.ty(ctx) == Type::Void, ctx)
+        }
+        Expression::ItemMemberFunctionCall { function } => {
+            compile_item_member_function_call(function, ctx)
+        }
+        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
+            compile_extra_builtin_function_call(function, arguments, ctx)
         }
         Expression::FunctionParameterReference { index } => {
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
@@ -3697,56 +3703,41 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
-        Expression::CodeBlock(..) => compile_code_block(expr, ctx),
+        Expression::ArrayIndex { array, index } => compile_array_index(array, index, ctx),
+        Expression::CodeBlock(sub) => compile_code_block(sub, ctx),
         Expression::PropertyAssignment { property, value } => {
-            let value = compile_expression(value, ctx);
-            property_set_value_tokens(property, value, ctx)
+            compile_property_assignment(property, value, ctx)
         }
-        Expression::ModelDataAssignment { .. } => compile_model_data_assignment(expr, ctx),
-        Expression::ArrayIndexAssignment { .. } => compile_array_index_assignment(expr, ctx),
+        Expression::ModelDataAssignment { level, value } => {
+            compile_model_data_assignment(*level, value, ctx)
+        }
+        Expression::ArrayIndexAssignment { array, index, value } => {
+            compile_array_index_assignment(array, index, value, ctx)
+        }
         Expression::SliceIndexAssignment { slice_name, index, value } => {
-            let slice_ident = ident(slice_name);
-            let value_e = compile_expression(value, ctx);
-            quote!(#slice_ident[#index] = #value_e)
+            compile_slice_index_assignment(slice_name, *index, value, ctx)
         }
         Expression::BinaryExpression { .. } => compile_binary_expression(expr, ctx),
-        Expression::UnaryOp { sub, op } => {
-            let sub = compile_expression(sub, ctx);
-            if *op == '+' {
-                // there is no unary '+' in rust
-                return sub;
-            }
-            let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
-            quote!( (#op #sub) )
+        Expression::UnaryOp { sub, op } => compile_unary_op(sub, *op, ctx),
+        Expression::ImageReference { resource_ref, nine_slice } => {
+            compile_image_reference(resource_ref, *nine_slice)
         }
-        Expression::ImageReference { .. } => compile_image_reference(expr),
-        Expression::Condition { .. } => compile_condition(expr, ctx),
-        Expression::Array { .. } => compile_array(expr, ctx),
-        Expression::Struct { .. } => compile_struct(expr, ctx),
+        Expression::Condition { condition, true_expr, false_expr } => {
+            compile_condition(condition, true_expr, false_expr, ctx)
+        }
+        Expression::Array { values, element_ty, output } => {
+            compile_array(element_ty, values, output, ctx)
+        }
+        Expression::Struct { ty, values } => compile_struct(ty, values, ctx),
 
         Expression::StoreLocalVariable { name, value } => {
-            let value = compile_expression_to_value_no_parenthesis(value, ctx);
-            let name = ident(name);
-            quote!(#[allow(unused_variables)] let #name = #value;)
+            compile_store_local_variable(name, value, ctx)
         }
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
             quote!(#name)
         }
-        Expression::MouseCursor(cursor) => match cursor {
-            llr::MouseCursorInner::BuiltIn(expression) => {
-                let expression = compile_expression(expression, ctx);
-                quote!(sp::MouseCursorInner::BuiltIn(#expression.clone()))
-            }
-            llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
-                let image = compile_expression(image, ctx);
-                let hotspot_x = compile_expression(hotspot_x, ctx);
-                let hotspot_y = compile_expression(hotspot_y, ctx);
-
-                quote!(sp::MouseCursorInner::CustomMouseCursor { image: #image.clone(), hotspot_x: #hotspot_x.clone() as i32, hotspot_y: #hotspot_y.clone() as i32 })
-            }
-        },
+        Expression::MouseCursor(cursor) => compile_mouse_cursor(cursor, ctx),
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
@@ -3758,20 +3749,50 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let ident = format_ident!("{e:?}");
             quote!(sp::EasingCurve::#ident)
         }
-        Expression::LinearGradient { .. } => compile_linear_gradient(expr, ctx),
-        Expression::RadialGradient { .. } => compile_radial_gradient(expr, ctx),
-        Expression::ConicGradient { .. } => compile_conic_gradient(expr, ctx),
-        Expression::EnumerationValue(value) => {
-            let base_ident = ident(&value.enumeration.name);
-            let value_ident = ident(&value.to_pascal_case());
-            if value.enumeration.node.is_some() {
-                quote!(#base_ident::#value_ident)
-            } else {
-                quote!(sp::#base_ident::#value_ident)
-            }
-        }
-        Expression::LayoutCacheAccess { .. } => compile_layout_cache_access(expr, ctx),
-        Expression::GridRepeaterCacheAccess { .. } => compile_grid_repeater_cache_access(expr, ctx),
+        Expression::LinearGradient { angle, stops } => compile_linear_gradient(angle, stops, ctx),
+        Expression::RadialGradient { center, radius, stops } => compile_radial_gradient(
+            center.as_ref().map(|(x, y)| (&**x, &**y)),
+            radius.as_deref(),
+            stops,
+            ctx,
+        ),
+        Expression::ConicGradient { from_angle, center, stops } => compile_conic_gradient(
+            from_angle,
+            center.as_ref().map(|(x, y)| (&**x, &**y)),
+            stops,
+            ctx,
+        ),
+        Expression::EnumerationValue(value) => compile_enumeration_value(value),
+        Expression::LayoutCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            entries_per_item,
+        } => compile_layout_cache_access(
+            layout_cache_prop,
+            *index,
+            repeater_index.as_deref(),
+            *entries_per_item,
+            ctx,
+        ),
+        Expression::GridRepeaterCacheAccess {
+            layout_cache_prop,
+            index,
+            repeater_index,
+            stride,
+            child_offset,
+            inner_repeater_index,
+            entries_per_item,
+        } => compile_grid_repeater_cache_access(
+            layout_cache_prop,
+            *index,
+            repeater_index,
+            stride,
+            *child_offset,
+            inner_repeater_index.as_deref(),
+            *entries_per_item,
+            ctx,
+        ),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -3811,66 +3832,20 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         ),
 
         Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
-            let data = compile_expression(data, ctx);
-            let repeater_indices = compile_expression(repeater_indices, ctx);
-            let closure = generate_flexbox_measure_closure(measure_cells, ctx);
-            quote! { {
-                #closure
-                sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
-            } }
+            compile_solve_flexbox_layout_with_measure(data, repeater_indices, measure_cells, ctx)
         }
 
         Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
-            let a = compile_builtin_arguments(arguments, ctx);
-            let closure = generate_flexbox_measure_closure(measure_cells, ctx);
-            quote! { {
-                #closure
-                sp::flexbox_layout_info_cross_axis_with_measure(#(#a as _,)* Some(&mut measure))
-            } }
+            compile_flexbox_layout_info_cross_axis_with_measure(arguments, measure_cells, ctx)
         }
 
         Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } => {
-            let data = compile_expression(solve_data, ctx);
-            let padding = compile_expression(padding_ortho, ctx);
-            let known_size_ident = ident(MEASURE_KNOWN_W_LOCAL);
-            let steps = measure_cells.iter().map(|cell| match cell {
-                llr::BoxMeasureCell::Static { info } => {
-                    let info = compile_expression(info, ctx);
-                    quote!(
-                        {
-                            let #known_size_ident = box_ortho_solved.as_slice()[cursor * 2 + 1] as f32;
-                            let _ = #known_size_ident;
-                            cells_vec.push(sp::LayoutItemInfo { constraint: { #info }, ..::core::default::Default::default() });
-                            cursor += 1;
-                        }
-                    )
-                }
-                llr::BoxMeasureCell::Repeated(repeater) => {
-                    let repeater_id =
-                        format_ident!("repeater{}", usize::from(repeater.repeater_index));
-                    quote!(
-                        for i in 0.._self.#repeater_id.len() {
-                            if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
-                                cells_vec.push(sub_comp.as_pin_ref().layout_item_info_at_cross_width(
-                                    box_ortho_solved.as_slice()[cursor * 2 + 1] as f32,
-                                ));
-                            } else {
-                                cells_vec.push(::core::default::Default::default());
-                            }
-                            cursor += 1;
-                        }
-                    )
-                }
-            });
-            let min_cell_count = measure_cells.len();
-            quote! { {
-                let box_ortho_solved = sp::solve_box_layout(&#data, sp::Slice::from_slice(&[]));
-                let mut cells_vec = sp::Vec::with_capacity(#min_cell_count);
-                let mut cursor = 0usize;
-                #(#steps)*
-                let _ = cursor;
-                sp::box_layout_info_ortho(sp::Slice::from_slice(&cells_vec), &#padding)
-            } }
+            compile_box_layout_info_ortho_with_measure(
+                solve_data,
+                padding_ortho,
+                measure_cells,
+                ctx,
+            )
         }
 
         Expression::WithGridInputData {
@@ -3888,28 +3863,183 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
 
-        Expression::MinMax { .. } => compile_min_max(expr, ctx),
+        Expression::MinMax { ty, op, lhs, rhs } => compile_min_max(ty, *op, lhs, rhs, ctx),
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
         Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
-        Expression::TranslationReference { .. } => compile_translation_reference(expr, ctx),
-        Expression::Closure { arg_name, expression } => {
-            let arg_name = ident(arg_name);
-            let expression = compile_expression(expression, ctx);
-            quote! {
-                |#arg_name| {#expression}
-            }
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            compile_translation_reference(format_args, *string_index, plural.as_deref(), ctx)
         }
-        Expression::DashArray(dash_array) => {
-            quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*]))
-        }
+        Expression::Closure { arg_name, expression } => compile_closure(arg_name, expression, ctx),
+        Expression::DashArray(dash_array) => compile_dash_array(dash_array),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
 }
 
+fn compile_property_assignment(
+    property: &llr::MemberReference,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let value = compile_expression(value, ctx);
+    property_set_value_tokens(property, value, ctx)
+}
+
+fn compile_slice_index_assignment(
+    slice_name: &str,
+    index: usize,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let slice_ident = ident(slice_name);
+    let value_e = compile_expression(value, ctx);
+    quote!(#slice_ident[#index] = #value_e)
+}
+
+fn compile_unary_op(sub: &Expression, op: char, ctx: &EvaluationContext) -> TokenStream {
+    let sub = compile_expression(sub, ctx);
+    if op == '+' {
+        // there is no unary '+' in rust
+        return sub;
+    }
+    let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
+    quote!( (#op #sub) )
+}
+
+fn compile_store_local_variable(
+    name: &str,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let value = compile_expression_to_value_no_parenthesis(value, ctx);
+    let name = ident(name);
+    quote!(#[allow(unused_variables)] let #name = #value;)
+}
+
+fn compile_mouse_cursor(
+    cursor: &llr::MouseCursorInner<Expression>,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    match cursor {
+        llr::MouseCursorInner::BuiltIn(expression) => {
+            let expression = compile_expression(expression, ctx);
+            quote!(sp::MouseCursorInner::BuiltIn(#expression.clone()))
+        }
+        llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+            let image = compile_expression(image, ctx);
+            let hotspot_x = compile_expression(hotspot_x, ctx);
+            let hotspot_y = compile_expression(hotspot_y, ctx);
+
+            quote!(sp::MouseCursorInner::CustomMouseCursor { image: #image.clone(), hotspot_x: #hotspot_x.clone() as i32, hotspot_y: #hotspot_y.clone() as i32 })
+        }
+    }
+}
+
+fn compile_enumeration_value(value: &EnumerationValue) -> TokenStream {
+    let base_ident = ident(&value.enumeration.name);
+    let value_ident = ident(&value.to_pascal_case());
+    if value.enumeration.node.is_some() {
+        quote!(#base_ident::#value_ident)
+    } else {
+        quote!(sp::#base_ident::#value_ident)
+    }
+}
+
+fn compile_solve_flexbox_layout_with_measure(
+    data: &Expression,
+    repeater_indices: &Expression,
+    measure_cells: &[llr::FlexboxMeasureCell],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let data = compile_expression(data, ctx);
+    let repeater_indices = compile_expression(repeater_indices, ctx);
+    let closure = generate_flexbox_measure_closure(measure_cells, ctx);
+    quote! { {
+        #closure
+        sp::solve_flexbox_layout_with_measure(&#data, #repeater_indices, Some(&mut measure))
+    } }
+}
+
+fn compile_flexbox_layout_info_cross_axis_with_measure(
+    arguments: &[Expression],
+    measure_cells: &[llr::FlexboxMeasureCell],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let a = compile_builtin_arguments(arguments, ctx);
+    let closure = generate_flexbox_measure_closure(measure_cells, ctx);
+    quote! { {
+        #closure
+        sp::flexbox_layout_info_cross_axis_with_measure(#(#a as _,)* Some(&mut measure))
+    } }
+}
+
+fn compile_box_layout_info_ortho_with_measure(
+    solve_data: &Expression,
+    padding_ortho: &Expression,
+    measure_cells: &[llr::BoxMeasureCell],
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let data = compile_expression(solve_data, ctx);
+    let padding = compile_expression(padding_ortho, ctx);
+    let known_size_ident = ident(MEASURE_KNOWN_W_LOCAL);
+    let steps = measure_cells.iter().map(|cell| match cell {
+        llr::BoxMeasureCell::Static { info } => {
+            let info = compile_expression(info, ctx);
+            quote!(
+                {
+                    let #known_size_ident = box_ortho_solved.as_slice()[cursor * 2 + 1] as f32;
+                    let _ = #known_size_ident;
+                    cells_vec.push(sp::LayoutItemInfo { constraint: { #info }, ..::core::default::Default::default() });
+                    cursor += 1;
+                }
+            )
+        }
+        llr::BoxMeasureCell::Repeated(repeater) => {
+            let repeater_id =
+                format_ident!("repeater{}", usize::from(repeater.repeater_index));
+            quote!(
+                for i in 0.._self.#repeater_id.len() {
+                    if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
+                        cells_vec.push(sub_comp.as_pin_ref().layout_item_info_at_cross_width(
+                            box_ortho_solved.as_slice()[cursor * 2 + 1] as f32,
+                        ));
+                    } else {
+                        cells_vec.push(::core::default::Default::default());
+                    }
+                    cursor += 1;
+                }
+            )
+        }
+    });
+    let min_cell_count = measure_cells.len();
+    quote! { {
+        let box_ortho_solved = sp::solve_box_layout(&#data, sp::Slice::from_slice(&[]));
+        let mut cells_vec = sp::Vec::with_capacity(#min_cell_count);
+        let mut cursor = 0usize;
+        #(#steps)*
+        let _ = cursor;
+        sp::box_layout_info_ortho(sp::Slice::from_slice(&cells_vec), &#padding)
+    } }
+}
+
+fn compile_closure(
+    arg_name: &str,
+    expression: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
+    let arg_name = ident(arg_name);
+    let expression = compile_expression(expression, ctx);
+    quote! {
+        |#arg_name| {#expression}
+    }
+}
+
+fn compile_dash_array(dash_array: &[f32]) -> TokenStream {
+    quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*]))
+}
+
 #[inline(never)]
-fn compile_keys_literal(expr: &Expression) -> TokenStream {
-    let Expression::KeysLiteral(keys) = expr else { unreachable!() };
+fn compile_keys_literal(keys: &crate::langtype::Keys) -> TokenStream {
     let key = &*keys.key;
     let alt = keys.modifiers.alt;
     let control = keys.modifiers.control;
@@ -3938,8 +4068,7 @@ fn access_context(ctx: &EvaluationContext) -> TokenStream {
     quote!(#global_access.context())
 }
 
-fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Cast { from, to } = expr else { unreachable!() };
+fn compile_cast(from: &Expression, to: &Type, ctx: &EvaluationContext) -> TokenStream {
     let f = compile_expression(from, ctx);
     match (from.ty(ctx), to) {
         (Type::Float32, Type::Int32) => {
@@ -3986,12 +4115,9 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             }
         }
         (Type::Array(..), Type::PathData)
-            if matches!(
-                from.as_ref(),
-                Expression::Array { element_ty: Type::Struct { .. }, .. }
-            ) =>
+            if matches!(from, Expression::Array { element_ty: Type::Struct { .. }, .. }) =>
         {
-            let path_elements = match from.as_ref() {
+            let path_elements = match from {
                 Expression::Array { element_ty: _, values, output: _ } => values
                     .iter()
                     .map(|path_elem_expr|
@@ -4008,10 +4134,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             };
             quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
         }
-        (Type::Struct { .. }, Type::PathData)
-            if matches!(from.as_ref(), Expression::Struct { .. }) =>
-        {
-            let (events, points) = match from.as_ref() {
+        (Type::Struct { .. }, Type::PathData) if matches!(from, Expression::Struct { .. }) => {
+            let (events, points) = match from {
                 Expression::Struct { ty: _, values } => (
                     compile_expression(&values["events"], ctx),
                     compile_expression(&values["points"], ctx),
@@ -4047,13 +4171,17 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 }
 
 #[inline(never)]
-fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
+fn compile_callback_call(
+    callback: &llr::MemberReference,
+    arguments: &[Expression],
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let f = access_member(callback, ctx);
     let register_dep =
         access_callback_tracker(callback, ctx).map(|t| t.then(|t| quote!({ #t.get(); })));
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
-    if expr.ty(ctx) == Type::Void {
+    if is_void {
         f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
     } else {
         f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
@@ -4061,11 +4189,15 @@ fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
 }
 
 #[inline(never)]
-fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
+fn compile_function_call(
+    function: &llr::MemberReference,
+    arguments: &[Expression],
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     let f = access_member(function, ctx);
-    if expr.ty(ctx) == Type::Void {
+    if is_void {
         f.then(|f| quote!(#f( #(#a as _),*)))
     } else {
         f.map_or_default(|f| quote!(#f( #(#a as _),*)))
@@ -4073,8 +4205,10 @@ fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
 }
 
 #[inline(never)]
-fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ItemMemberFunctionCall { function } = expr else { unreachable!() };
+fn compile_item_member_function_call(
+    function: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let window_adapter_tokens = access_window_adapter_field(ctx);
     item_owner(function).map_or_default(|owner| {
         let (fun, item_rc) = native_item_from_owner(function, ctx, &owner);
@@ -4097,18 +4231,22 @@ fn compile_builtin_arguments(
 }
 
 #[inline(never)]
-fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } = expr else {
-        unreachable!()
-    };
+fn compile_extra_builtin_function_call(
+    function: &str,
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let f = ident(function);
     let a = compile_builtin_arguments(arguments, ctx);
     quote! { sp::#f(#(#a as _),*) }
 }
 
 #[inline(never)]
-fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ArrayIndex { array, index } = expr else { unreachable!() };
+fn compile_array_index(
+    array: &Expression,
+    index: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
     let base_e = compile_expression(array, ctx);
     let index_e = compile_expression(index, ctx);
@@ -4119,8 +4257,7 @@ fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStrea
 }
 
 #[inline(never)]
-fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::CodeBlock(sub) = expr else { unreachable!() };
+fn compile_code_block(sub: &[Expression], ctx: &EvaluationContext) -> TokenStream {
     let mut body = TokenStream::new();
     for (i, e) in sub.iter().enumerate() {
         body.extend(compile_expression_no_parenthesis(e, ctx));
@@ -4132,13 +4269,16 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 }
 
 #[inline(never)]
-fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
+fn compile_model_data_assignment(
+    level: usize,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let value = compile_expression(value, ctx);
     let mut owner = MemberAccess::Direct(quote!(_self));
     let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
     let mut repeater_index = None;
-    for _ in 0..=*level {
+    for _ in 0..=level {
         let x = par.unwrap();
         par = x.parent;
         repeater_index = x.repeater_index;
@@ -4154,7 +4294,7 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
     let repeater_index = repeater_index.unwrap();
     let sub_component = &ctx.compilation_unit.sub_components[sc];
     let local_reference = sub_component.repeated[repeater_index].index_prop.unwrap().into();
-    let index_prop = llr::MemberReference::Relative { parent_level: *level, local_reference };
+    let index_prop = llr::MemberReference::Relative { parent_level: level, local_reference };
     let index_access = access_member(&index_prop, ctx).get_property();
     let repeater = access_component_field_offset(
         &inner_component_id(sub_component),
@@ -4166,8 +4306,12 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
 }
 
 #[inline(never)]
-fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ArrayIndexAssignment { array, index, value } = expr else { unreachable!() };
+fn compile_array_index_assignment(
+    array: &Expression,
+    index: &Expression,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
     let base_e = compile_expression(array, ctx);
     let index_e = compile_expression(index, ctx);
@@ -4250,9 +4394,11 @@ fn compile_binary_operator(
 }
 
 #[inline(never)]
-fn compile_image_reference(expr: &Expression) -> TokenStream {
-    let Expression::ImageReference { resource_ref, nine_slice } = expr else { unreachable!() };
-    match &nine_slice {
+fn compile_image_reference(
+    resource_ref: &crate::expression_tree::ImageReference,
+    nine_slice: Option<[u16; 4]>,
+) -> TokenStream {
+    match nine_slice {
         Some([a, b, c, d]) => {
             quote! {{ let mut image = #resource_ref; image.set_nine_slice_edges(#a, #b, #c, #d); image }}
         }
@@ -4261,8 +4407,12 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 }
 
 #[inline(never)]
-fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+fn compile_condition(
+    condition: &Expression,
+    true_expr: &Expression,
+    false_expr: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let condition_code = compile_expression_no_parenthesis(condition, ctx);
     let true_code = compile_expression(true_expr, ctx);
     let false_code = compile_expression_no_parenthesis(false_expr, ctx);
@@ -4282,8 +4432,12 @@ fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream 
 const ARRAY_CHUNK_SIZE: usize = 32;
 
 #[inline(never)]
-fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Array { values, element_ty, output } = expr else { unreachable!() };
+fn compile_array(
+    element_ty: &Type,
+    values: &[Expression],
+    output: &llr::ArrayOutput,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
     match output {
         ArrayOutput::Model => {
@@ -4333,8 +4487,11 @@ fn is_plain_value(ty: &Type) -> bool {
 }
 
 #[inline(never)]
-fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Struct { ty, values } = expr else { unreachable!() };
+fn compile_struct(
+    ty: &Struct,
+    values: &BTreeMap<SmolStr, Expression>,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     if ty.name.is_some() {
         let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
         // A struct literal can only be used when all the fields are public, there
@@ -4396,8 +4553,11 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 }
 
 #[inline(never)]
-fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::LinearGradient { angle, stops } = expr else { unreachable!() };
+fn compile_linear_gradient(
+    angle: &Expression,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let angle = compile_expression(angle, ctx);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
@@ -4410,8 +4570,12 @@ fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
 }
 
 #[inline(never)]
-fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
+fn compile_radial_gradient(
+    center: Option<(&Expression, &Expression)>,
+    radius: Option<&Expression>,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
         let position = compile_expression(stop, ctx);
@@ -4435,8 +4599,12 @@ fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
 }
 
 #[inline(never)]
-fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ConicGradient { from_angle, center, stops } = expr else { unreachable!() };
+fn compile_conic_gradient(
+    from_angle: &Expression,
+    center: Option<(&Expression, &Expression)>,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let from_angle = compile_expression(from_angle, ctx);
     let stops = stops.iter().map(|(color, stop)| {
         let color = compile_expression(color, ctx);
@@ -4455,16 +4623,13 @@ fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenSt
 }
 
 #[inline(never)]
-fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::LayoutCacheAccess {
-        layout_cache_prop,
-        index,
-        repeater_index,
-        entries_per_item,
-    } = expr
-    else {
-        unreachable!()
-    };
+fn compile_layout_cache_access(
+    layout_cache_prop: &llr::MemberReference,
+    index: usize,
+    repeater_index: Option<&Expression>,
+    entries_per_item: usize,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     access_member(layout_cache_prop, ctx).map_or_default(|cache| {
         if let Some(ri) = repeater_index {
             let offset = compile_expression(ri, ctx);
@@ -4479,19 +4644,16 @@ fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> To
 }
 
 #[inline(never)]
-fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::GridRepeaterCacheAccess {
-        layout_cache_prop,
-        index,
-        repeater_index,
-        stride,
-        child_offset,
-        inner_repeater_index,
-        entries_per_item,
-    } = expr
-    else {
-        unreachable!()
-    };
+fn compile_grid_repeater_cache_access(
+    layout_cache_prop: &llr::MemberReference,
+    index: usize,
+    repeater_index: &Expression,
+    stride: &Expression,
+    child_offset: usize,
+    inner_repeater_index: Option<&Expression>,
+    entries_per_item: usize,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     access_member(layout_cache_prop, ctx).map_or_default(|cache| {
         let offset = compile_expression(repeater_index, ctx);
         let stride_val = compile_expression(stride, ctx);
@@ -4511,8 +4673,13 @@ fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext
 }
 
 #[inline(never)]
-fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::MinMax { ty, op, lhs, rhs } = expr else { unreachable!() };
+fn compile_min_max(
+    ty: &Type,
+    op: MinMaxOp,
+    lhs: &Expression,
+    rhs: &Expression,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let lhs = compile_expression(lhs, ctx);
     let t = rust_primitive_type(ty);
     let (lhs, rhs) = match t {
@@ -4536,10 +4703,12 @@ fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 }
 
 #[inline(never)]
-fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::TranslationReference { format_args, string_index, plural } = expr else {
-        unreachable!()
-    };
+fn compile_translation_reference(
+    format_args: &Expression,
+    string_index: usize,
+    plural: Option<&Expression>,
+    ctx: &EvaluationContext,
+) -> TokenStream {
     let args = compile_expression(format_args, ctx);
     let context = access_context(ctx);
     match plural {
