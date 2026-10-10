@@ -22,7 +22,6 @@ use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element, ElementRc, ElementWeak, PropertyAnimation};
-use crate::typeregister::BUILTIN;
 
 pub struct ExpressionLoweringCtxInner<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
@@ -740,42 +739,33 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
         a: &ElementRc,
         ctx: &mut ExpressionLoweringCtx<'_>,
     ) -> llr_Expression {
+        let ty = animation_ty();
         llr_Expression::Struct {
-            values: animation_fields()
+            values: ty
+                .fields
+                .iter()
                 .map(|(k, ty)| {
-                    let e = a.borrow().binding_cell_including_synthetic(&k).map_or_else(
-                        || {
-                            if k == "enabled" {
-                                llr_Expression::BoolLiteral(true)
-                            } else {
-                                llr_Expression::default_value_for_type(&ty).unwrap()
-                            }
-                        },
+                    let e = a.borrow().binding_cell_including_synthetic(k).map_or_else(
+                        || default_field(k, ty),
                         |v| lower_expression(&v.borrow().expression, ctx),
                     );
-                    (k, e)
+                    (k.clone(), e)
                 })
                 .collect::<_>(),
-            ty: animation_ty(),
+            ty,
         }
     }
 
-    fn animation_fields() -> impl Iterator<Item = (SmolStr, Type)> {
-        IntoIterator::into_iter([
-            (SmolStr::new_static("duration"), Type::Int32),
-            (SmolStr::new_static("iteration-count"), Type::Float32),
-            (
-                SmolStr::new_static("direction"),
-                Type::Enumeration(BUILTIN.enums.AnimationDirection.clone()),
-            ),
-            (SmolStr::new_static("easing"), Type::Easing),
-            (SmolStr::new_static("delay"), Type::Int32),
-            (SmolStr::new_static("enabled"), Type::Bool),
-        ])
+    fn animation_ty() -> Arc<Struct> {
+        crate::typeregister::builtin_structs::get(&BuiltinStruct::PropertyAnimation)
     }
 
-    fn animation_ty() -> Arc<Struct> {
-        Arc::new(Struct::new(animation_fields().collect(), BuiltinStruct::PropertyAnimation))
+    fn default_field(field: &str, ty: &Type) -> llr_Expression {
+        if field == "enabled" {
+            llr_Expression::BoolLiteral(true)
+        } else {
+            llr_Expression::default_value_for_type(ty).unwrap()
+        }
     }
 
     match a {
@@ -788,17 +778,12 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             let anim_struct_ty = animation_ty();
             let animation_ty = Type::Struct(anim_struct_ty.clone());
             let mut get_anim = llr_Expression::Struct {
-                ty: anim_struct_ty,
-                values: animation_fields()
-                    .map(|(k, ty)| {
-                        let e = if k == "enabled" {
-                            llr_Expression::BoolLiteral(true)
-                        } else {
-                            llr_Expression::default_value_for_type(&ty).unwrap()
-                        };
-                        (k, e)
-                    })
+                values: anim_struct_ty
+                    .fields
+                    .iter()
+                    .map(|(k, ty)| (k.clone(), default_field(k, ty)))
                     .collect(),
+                ty: anim_struct_ty,
             };
             for tr in animations.iter().rev() {
                 let condition = lower_expression(
@@ -867,22 +852,14 @@ fn compile_path(
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let element_type = Arc::new(Struct::new(
+                    let element_type = crate::typeregister::builtin_structs::get(
                         element
                             .element_type
-                            .properties
-                            .iter()
-                            .map(|(k, v)| (k.clone(), v.ty.clone()))
-                            .collect(),
-                        StructName::Builtin(
-                            element
-                                .element_type
-                                .native_class
-                                .builtin_struct
-                                .clone()
-                                .expect("path elements should have a native_type"),
-                        ),
-                    ));
+                            .native_class
+                            .builtin_struct
+                            .as_ref()
+                            .expect("path elements should have a native_type"),
+                    );
 
                     llr_Expression::Struct {
                         ty: element_type,
@@ -964,16 +941,14 @@ fn compile_path(
     }
 }
 
+/// A struct of the builtin type `name`, with the value of each of its fields.
 pub fn make_struct(
-    name: impl Into<StructName>,
-    it: impl IntoIterator<Item = (&'static str, Type, llr_Expression)>,
+    name: BuiltinStruct,
+    values: impl IntoIterator<Item = (&'static str, llr_Expression)>,
 ) -> llr_Expression {
-    let mut fields = BTreeMap::<SmolStr, Type>::new();
-    let mut values = BTreeMap::<SmolStr, llr_Expression>::new();
-    for (name, ty, expr) in it {
-        fields.insert(SmolStr::new(name), ty);
-        values.insert(SmolStr::new(name), expr);
-    }
-
-    llr_Expression::Struct { ty: Arc::new(Struct::new(fields, name)), values }
+    let ty = crate::typeregister::builtin_structs::get(&name);
+    let values: BTreeMap<_, _> =
+        values.into_iter().map(|(field, value)| (SmolStr::new(field), value)).collect();
+    debug_assert!(values.keys().eq(ty.fields.keys()), "{name:?} doesn't match its definition");
+    llr_Expression::Struct { ty, values }
 }

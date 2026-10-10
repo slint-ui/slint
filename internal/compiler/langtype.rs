@@ -738,7 +738,7 @@ macro_rules! define_builtin_struct_enum {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
-        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr)]
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
