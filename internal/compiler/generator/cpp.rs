@@ -484,7 +484,7 @@ use crate::llr::lower_layout_expression::{
     MEASURE_KNOWN_W_LOCAL,
 };
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
+    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression, ParentScope,
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
@@ -4219,88 +4219,26 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
 }
 
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
-    use llr::Expression;
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
-        Expression::NumberLiteral(num) => {
-            if num.is_nan() {
-                "std::numeric_limits<double>::quiet_NaN()".to_string()
-            } else if num.is_infinite() {
-                if *num > 0. {
-                    "std::numeric_limits<double>::infinity()".to_string()
-                } else {
-                    "-std::numeric_limits<double>::infinity()".to_string()
-                }
-            } else if num.abs() > 1_000_000_000. {
-                // If the numbers are too big, decimal notation will give too many digit
-                format!("{num:+e}")
-            } else {
-                num.to_string()
-            }
-        }
+        Expression::NumberLiteral(num) => compile_number_literal(*num),
         Expression::BoolLiteral(b) => b.to_string(),
-        Expression::KeysLiteral(ks) => {
-            format!(
-                "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
-                    slint::Keys out;
-                    slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt);
-                    return out;
-                }}({}, {}, {}, {}, {}, {}, {})",
-                shared_string_literal(&ks.key),
-                ks.modifiers.alt,
-                ks.modifiers.control,
-                ks.modifiers.shift,
-                ks.modifiers.meta,
-                ks.ignore_shift,
-                ks.ignore_alt,
-            )
-        }
+        Expression::KeysLiteral(ks) => compile_keys_literal(ks),
         Expression::PropertyReference(nr) => access_member(nr, ctx).get_property(),
         Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall { callback, arguments } => {
-            let f = access_member(callback, ctx);
-            let tracker_get = access_callback_tracker_cpp(callback, ctx)
-                .map(|t| format!("(void)({}), ", t.get_property()))
-                .unwrap_or_default();
-            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| format!("{tracker_get}{f}.call({})", a.join(",")))
-            } else {
-                f.map_or_default(|f| format!("({tracker_get}{f}.call({}))", a.join(",")))
-            }
+            compile_callback_call(callback, arguments, expr.ty(ctx) == Type::Void, ctx)
         }
         Expression::FunctionCall { function, arguments } => {
-            let f = access_member(function, ctx);
-            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            if expr.ty(ctx) == Type::Void {
-                f.then(|f| format!("{}({})", f, a.join(",")))
-            } else {
-                f.map_or_default(|f| format!("{}({})", f, a.join(",")))
-            }
+            compile_function_call(function, arguments, expr.ty(ctx) == Type::Void, ctx)
         }
         Expression::ItemMemberFunctionCall { function } => {
-            let window = access_window_field(ctx);
-            let (native, name) = native_prop_info(function, ctx);
-            let function_name = format!(
-                "slint_{}_{}",
-                native.class_name.to_lowercase(),
-                ident(name).to_lowercase()
-            );
-            let call = |owner: &str| {
-                let (item, item_rc) = native_item_from_owner(function, ctx, owner);
-                format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
-            };
-            if expr.ty(ctx) == Type::Void {
-                item_owner(function).then(call)
-            } else {
-                item_owner(function).map_or_default(call)
-            }
+            compile_item_member_function_call(function, expr.ty(ctx) == Type::Void, ctx)
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
-            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            format!("slint::private_api::{}({})", ident(function), a.join(","))
+            compile_extra_builtin_function_call(function, arguments, ctx)
         }
         Expression::FunctionParameterReference { index, .. } => format!("arg_{index}"),
         Expression::StoreLocalVariable { name, value } => {
@@ -4311,336 +4249,40 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             Type::Struct(s) => struct_field_access(compile_expression(base, ctx), &s, name),
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => {
-            format!(
-                "slint::private_api::access_array_index({}, {})",
-                compile_expression(array, ctx),
-                compile_expression(index, ctx)
-            )
-        }
-        Expression::Cast { from, to } => {
-            let f = compile_expression(from, ctx);
-            match (from.ty(ctx), to) {
-                (Type::Float32, Type::Int32) => {
-                    format!("slint::private_api::saturating_float_to_int({f})")
-                }
-                (from, Type::String) if from.as_unit_product().is_some() => {
-                    format!("slint::SharedString::from_number({f})")
-                }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!(
-                        "std::make_shared<slint::private_api::UIntModel>(std::max(0, slint::private_api::saturating_float_to_int({f})))"
-                    )
-                }
-                (Type::Array(_), Type::Model) => f,
-                (Type::Float32, Type::Color) => {
-                    format!("slint::Color::from_argb_encoded({f})")
-                }
-                (Type::Color, Type::Brush) => {
-                    format!("slint::Brush({f})")
-                }
-                (Type::Brush, Type::Color) => {
-                    format!("{f}.color()")
-                }
-                (Type::Struct(lhs), Type::Struct(rhs)) => {
-                    debug_assert_eq!(
-                        lhs.fields, rhs.fields,
-                        "cast of struct with deferent fields should be handled before llr"
-                    );
-                    match (&lhs.name, &rhs.name) {
-                        (StructName::None, targetstruct) if targetstruct.is_some() => {
-                            // Convert from an anonymous struct to a named one
-                            format!(
-                                "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
-                                struct_name = to.cpp_type().unwrap(),
-                                fields = lhs
-                                    .fields
-                                    .keys()
-                                    .enumerate()
-                                    .map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i))
-                                    .join(""),
-                                obj = f,
-                            )
-                        }
-                        (sourcestruct, StructName::None) if sourcestruct.is_some() => {
-                            // Convert from a named struct to an anonymous one
-                            format!(
-                                "[&](const auto &o){{ return std::make_tuple({}); }}({f})",
-                                rhs.fields.keys().map(|n| format!("o.{}", ident(n))).join(", ")
-                            )
-                        }
-                        _ => f,
-                    }
-                }
-                (Type::Array(..), Type::PathData)
-                    if matches!(
-                        from.as_ref(),
-                        Expression::Array { element_ty: Type::Struct { .. }, .. }
-                    ) =>
-                {
-                    let path_elements = match from.as_ref() {
-                        Expression::Array { element_ty: _, values, output: _ } => {
-                            values.iter().map(|path_elem_expr| {
-                                let (field_count, qualified_elem_type_name) =
-                                    match path_elem_expr.ty(ctx) {
-                                        Type::Struct(s) if s.name.is_some() => {
-                                            (s.fields.len(), s.name.cpp_type().unwrap().clone())
-                                        }
-                                        _ => unreachable!(),
-                                    };
-                                // Turn slint::private_api::PathLineTo into `LineTo`
-                                let elem_type_name = qualified_elem_type_name
-                                    .split("::")
-                                    .last()
-                                    .unwrap()
-                                    .strip_prefix("Path")
-                                    .unwrap();
-                                let elem_init = if field_count > 0 {
-                                    compile_expression(path_elem_expr, ctx)
-                                } else {
-                                    String::new()
-                                };
-                                format!(
-                                    "slint::private_api::PathElement::{elem_type_name}({elem_init})"
-                                )
-                            })
-                        }
-                        _ => {
-                            unreachable!()
-                        }
-                    }
-                    .collect::<Vec<_>>();
-                    if !path_elements.is_empty() {
-                        format!(
-                            r#"[&](){{
-                                slint::private_api::PathElement elements[{}] = {{
-                                    {}
-                                }};
-                                return slint::private_api::PathData(&elements[0], std::size(elements));
-                            }}()"#,
-                            path_elements.len(),
-                            path_elements.join(",")
-                        )
-                    } else {
-                        "slint::private_api::PathData()".into()
-                    }
-                }
-                (Type::Struct { .. }, Type::PathData)
-                    if matches!(from.as_ref(), Expression::Struct { .. }) =>
-                {
-                    let (events, points) = match from.as_ref() {
-                        Expression::Struct { ty: _, values } => (
-                            compile_expression(&values["events"], ctx),
-                            compile_expression(&values["points"], ctx),
-                        ),
-                        _ => {
-                            unreachable!()
-                        }
-                    };
-                    format!(
-                        r#"[&](auto events, auto points){{
-                            return slint::private_api::PathData(events.ptr, events.len, points.ptr, points.len);
-                        }}({events}, {points})"#
-                    )
-                }
-                (Type::Enumeration(e), Type::String) => {
-                    let mut cases = e.values.iter().enumerate().map(|(idx, v)| {
-                        let c = compile_expression(
-                            &Expression::EnumerationValue(EnumerationValue {
-                                value: idx,
-                                enumeration: e.clone(),
-                            }),
-                            ctx,
-                        );
-                        format!("case {c}: return {v:?};")
-                    });
-                    format!(
-                        "[&]() -> slint::SharedString {{ switch ({f}) {{ {} default: return {{}}; }} }}()",
-                        cases.join(" ")
-                    )
-                }
-                _ => f,
-            }
-        }
-        Expression::CodeBlock(sub) => match sub.len() {
-            0 => String::new(),
-            1 => compile_expression(&sub[0], ctx),
-            len => {
-                let mut x = sub.iter().enumerate().map(|(i, e)| {
-                    if i == len - 1 {
-                        return_compile_expression(e, ctx, None) + ";"
-                    } else {
-                        compile_expression(e, ctx)
-                    }
-                });
-                format!("[&]{{ {} }}()", x.join(";"))
-            }
-        },
+        Expression::ArrayIndex { array, index } => compile_array_index(array, index, ctx),
+        Expression::Cast { from, to } => compile_cast(from, to, ctx),
+        Expression::CodeBlock(sub) => compile_code_block(sub, ctx),
         Expression::PropertyAssignment { property, value } => {
             let value = compile_expression(value, ctx);
             property_set_value_code(property, &value, ctx)
         }
         Expression::ModelDataAssignment { level, value } => {
-            let value = compile_expression(value, ctx);
-            let mut owner = MemberAccess::Direct("self".to_string());
-            let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
-                unreachable!()
-            };
-            let mut repeater_index = None;
-            for _ in 0..=*level {
-                let x = par.unwrap();
-                par = x.parent;
-                repeater_index = x.repeater_index;
-                sc = x.sub_component;
-                owner = owner.and_then(|x| format!("{x}->parent.lock()"));
-            }
-            let repeater_index = repeater_index.unwrap();
-            let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index]
-                .index_prop
-                .unwrap()
-                .into();
-            let index_prop =
-                llr::MemberReference::Relative { parent_level: *level, local_reference };
-            let index_access = access_member(&index_prop, ctx).get_property();
-            owner.then_named("model_owner", |path| {
-                format!(
-                    "{path}->repeater_{}.model_set_row_data({index_access}, {value})",
-                    usize::from(repeater_index)
-                )
-            })
+            compile_model_data_assignment(*level, value, ctx)
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
-            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
-            let base_e = compile_expression(array, ctx);
-            let index_e = compile_expression(index, ctx);
-            let value_e = compile_expression(value, ctx);
-            format!(
-                "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
-            )
+            compile_array_index_assignment(array, index, value, ctx)
         }
         Expression::SliceIndexAssignment { slice_name, index, value } => {
             let value_e = compile_expression(value, ctx);
             format!("{slice_name}[{index}] = {value_e}")
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs_str = compile_expression(lhs, ctx);
-            let rhs_str = compile_expression(rhs, ctx);
-
-            let lhs_ty = lhs.ty(ctx);
-
-            if lhs_ty.as_unit_product().is_some() && (*op == '=' || *op == '!') {
-                let op = if *op == '=' { "<" } else { ">=" };
-                format!(
-                    "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
-                )
-            } else {
-                let mut buffer = [0; 3];
-                format!(
-                    "({lhs_str} {op} {rhs_str})",
-                    op = match op {
-                        '=' => "==",
-                        '!' => "!=",
-                        '≤' => "<=",
-                        '≥' => ">=",
-                        '&' => "&&",
-                        '|' => "||",
-                        '/' => "/(float)",
-                        '-' => "-(float)", // conversion to float to avoid overflow between unsigned
-                        _ => op.encode_utf8(&mut buffer),
-                    },
-                )
-            }
+            compile_binary_expression(lhs, rhs, *op, ctx)
         }
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
-        Expression::ImageReference { resource_ref, nine_slice } => match &nine_slice {
-            Some([a, b, c, d]) => {
-                format!(
-                    "([&] {{ auto image = {resource_ref}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
-                )
-            }
-            None => resource_ref.to_string(),
-        },
+        Expression::ImageReference { resource_ref, nine_slice } => {
+            compile_image_reference(resource_ref, *nine_slice)
+        }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let ty = expr.ty(ctx);
-            let cond_code = compile_expression(condition, ctx);
-            let cond_code = remove_parentheses(&cond_code);
-            let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression(false_expr, ctx);
-            if ty == Type::Void {
-                format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
-            } else {
-                format!("({cond_code} ? {true_code} : {false_code})")
-            }
+            compile_condition(condition, true_expr, false_expr, expr.ty(ctx) == Type::Void, ctx)
         }
         Expression::Array { element_ty, values, output } => {
-            let ty = element_ty.cpp_type().unwrap();
-            let mut val = values
-                .iter()
-                .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
-            match output {
-                llr::ArrayOutput::Model => format!(
-                    "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
-                    ty = ty,
-                    val = val.join(", ")
-                ),
-                llr::ArrayOutput::Slice => format!(
-                    "slint::private_api::make_slice<{ty}>(std::array<{ty}, {count}>{{ {val} }}.data(), {count})",
-                    count = values.len(),
-                    ty = ty,
-                    val = val.join(", ")
-                ),
-                llr::ArrayOutput::Vector => {
-                    format!("std::vector<{ty}>{{ {val} }}", ty = ty, val = val.join(", "))
-                }
-            }
+            compile_array(element_ty, values, output, ctx)
         }
-        Expression::Struct { ty, values } => {
-            if ty.name.is_none() {
-                let mut elem = ty.fields.iter().map(|(k, t)| {
-                    values
-                        .get(k)
-                        .map(|e| compile_expression(e, ctx))
-                        .map(|e| {
-                            // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
-                            if t.as_unit_product().is_some() {
-                                format!("{}({e})", t.cpp_type().unwrap())
-                            } else {
-                                e
-                            }
-                        })
-                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                });
-                format!("std::make_tuple({})", elem.join(", "))
-            } else {
-                format!(
-                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
-                    args = (0..values.len()).map(|i| format!("const auto &a_{i}")).join(", "),
-                    ty = Type::Struct(ty.clone()).cpp_type().unwrap(),
-                    fields = values
-                        .keys()
-                        .enumerate()
-                        .map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i))
-                        .join(""),
-                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
-                )
-            }
-        }
-        Expression::MouseCursor(cursor) => match cursor {
-            llr::MouseCursorInner::BuiltIn(cursor) => {
-                let cursor = compile_expression(cursor.as_ref(), ctx);
-                format!("slint::cbindgen_private::MouseCursorInner({cursor})")
-            }
-            llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
-                let image = compile_expression(image.as_ref(), ctx);
-                let hotspot_x = compile_expression(hotspot_x.as_ref(), ctx);
-                let hotspot_y = compile_expression(hotspot_y.as_ref(), ctx);
-                format!(
-                    "slint::cbindgen_private::MouseCursorInner({image}, {hotspot_x}, {hotspot_y})"
-                )
-            }
-        },
+        Expression::Struct { ty, values } => compile_struct(ty, values, ctx),
+        Expression::MouseCursor(cursor) => compile_mouse_cursor(cursor, ctx),
         Expression::EasingCurve(EasingCurve::Linear) => {
             "slint::cbindgen_private::EasingCurve()".into()
         }
@@ -4654,120 +4296,32 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(e) => {
             format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")
         }
-        Expression::LinearGradient { angle, stops } => {
-            let angle = compile_expression(angle, ctx);
-            let mut stops_it = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
-            });
-            format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, stops, {})); }}()",
-                stops_it.join(", "),
-                angle,
-                stops.len()
-            )
-        }
-        Expression::RadialGradient { center, radius, stops } => {
-            let mut stops_it = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
-            });
-            let center_setup = match (center, radius) {
-                (Some((cx, cy)), Some(r)) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (Some((cx, cy)), None) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, Some(r)) => {
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, None) => {
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}));",
-                        stops.len()
-                    )
-                }
-            };
-            format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
-                stops_it.join(", "),
-                center_setup
-            )
-        }
-        Expression::ConicGradient { from_angle, center, stops } => {
-            let from_angle = compile_expression(from_angle, ctx);
-            let mut stops_it = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, ctx);
-                let position = compile_expression(stop, ctx);
-                format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
-            });
-            let center_setup = if let Some((cx, cy)) = center {
-                let cx = compile_expression(cx, ctx);
-                let cy = compile_expression(cy, ctx);
-                format!(
-                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {stops_count}, float({cx}), float({cy})));",
-                    stops_count = stops.len()
-                )
-            } else {
-                format!(
-                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {}));",
-                    stops.len()
-                )
-            };
-            format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
-                stops_it.join(", "),
-                center_setup
-            )
-        }
-        Expression::EnumerationValue(value) => {
-            let prefix =
-                if value.enumeration.node.is_some() { "" } else { "slint::cbindgen_private::" };
-            format!(
-                "{prefix}{}::{}",
-                ident(&value.enumeration.name),
-                ident(&value.to_pascal_case()),
-            )
-        }
+        Expression::LinearGradient { angle, stops } => compile_linear_gradient(angle, stops, ctx),
+        Expression::RadialGradient { center, radius, stops } => compile_radial_gradient(
+            center.as_ref().map(|(x, y)| (&**x, &**y)),
+            radius.as_deref(),
+            stops,
+            ctx,
+        ),
+        Expression::ConicGradient { from_angle, center, stops } => compile_conic_gradient(
+            from_angle,
+            center.as_ref().map(|(x, y)| (&**x, &**y)),
+            stops,
+            ctx,
+        ),
+        Expression::EnumerationValue(value) => compile_enumeration_value(value),
         Expression::LayoutCacheAccess {
             layout_cache_prop,
             index,
             repeater_index,
             entries_per_item,
-        } => {
-            let cache = access_member(layout_cache_prop, ctx);
-            cache.map_or_default(|cache| {
-                if let Some(ri) = repeater_index {
-                    format!(
-                        "slint::private_api::layout_cache_access({}.get(), {}, {}, {})",
-                        cache,
-                        index,
-                        compile_expression(ri, ctx),
-                        entries_per_item
-                    )
-                } else {
-                    format!("{cache}.get()[{index}]")
-                }
-            })
-        }
+        } => compile_layout_cache_access(
+            layout_cache_prop,
+            *index,
+            repeater_index.as_deref(),
+            *entries_per_item,
+            ctx,
+        ),
         Expression::GridRepeaterCacheAccess {
             layout_cache_prop,
             index,
@@ -4776,30 +4330,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             child_offset,
             inner_repeater_index,
             entries_per_item,
-        } => {
-            let cache = access_member(layout_cache_prop, ctx);
-            cache.map_or_default(|cache| {
-                let stride_val = compile_expression(stride, ctx);
-                let col_offset = if let Some(inner_ri) = inner_repeater_index {
-                    format!(
-                        "{} + {} * {}",
-                        child_offset,
-                        compile_expression(inner_ri, ctx),
-                        entries_per_item
-                    )
-                } else {
-                    child_offset.to_string()
-                };
-                format!(
-                    "slint::private_api::layout_cache_grid_repeater_access({}.get(), {}, {}, {}, {})",
-                    cache,
-                    index,
-                    compile_expression(repeater_index, ctx),
-                    stride_val,
-                    col_offset
-                )
-            })
-        }
+        } => compile_grid_repeater_cache_access(
+            layout_cache_prop,
+            *index,
+            repeater_index,
+            stride,
+            *child_offset,
+            inner_repeater_index.as_deref(),
+            *entries_per_item,
+            ctx,
+        ),
         Expression::WithLayoutItemInfo {
             cells_variable,
             repeater_indices_var_name,
@@ -4837,67 +4377,17 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             ctx,
         ),
         Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
-            let data = compile_expression(data, ctx);
-            let repeater_indices = compile_expression(repeater_indices, ctx);
-            let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
-            format!(
-                "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, {lambda})"
-            )
+            compile_solve_flexbox_layout_with_measure(data, repeater_indices, measure_cells, ctx)
         }
         Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
-            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
-            format!(
-                "slint::private_api::flexbox_layout_info_cross_axis_with_measure({}, {lambda})",
-                a.join(",")
-            )
+            compile_flexbox_layout_info_cross_axis_with_measure(arguments, measure_cells, ctx)
         }
         Expression::BoxLayoutInfoOrthoWithMeasure { solve_data, padding_ortho, measure_cells } => {
-            let data = compile_expression(solve_data, ctx);
-            let padding = compile_expression(padding_ortho, ctx);
-            let min_cell_count = measure_cells.len();
-            let mut steps = String::new();
-            for cell in measure_cells {
-                match cell {
-                    llr::BoxMeasureCell::Static { info } => {
-                        let info = compile_expression(info, ctx);
-                        write!(
-                            steps,
-                            "{{
-                                [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = box_ortho_solved[cursor * 2 + 1];
-                                measure_cells_vector.push_back({{ ({info}), {{}}, {{}} }});
-                                ++cursor;
-                            }}"
-                        )
-                        .unwrap();
-                    }
-                    llr::BoxMeasureCell::Repeated(repeater) => {
-                        let rep_idx = usize::from(repeater.repeater_index);
-                        write!(
-                            steps,
-                            "for (std::size_t i = 0; i < self->repeater_{rep_idx}.len(); ++i) {{
-                                if (auto *sub_comp = self->repeater_{rep_idx}.typed_instance_at(i)) {{
-                                    measure_cells_vector.push_back(sub_comp->layout_item_info_at_cross_width(box_ortho_solved[cursor * 2 + 1]));
-                                }} else {{
-                                    measure_cells_vector.push_back({{}});
-                                }}
-                                ++cursor;
-                            }}"
-                        )
-                        .unwrap();
-                    }
-                }
-            }
-            format!(
-                "[&]{{
-                    auto box_ortho_solved = slint::private_api::solve_box_layout({data}, slint::private_api::make_slice<int>(nullptr, 0));
-                    std::vector<slint::cbindgen_private::LayoutItemInfo> measure_cells_vector;
-                    measure_cells_vector.reserve({min_cell_count});
-                    std::size_t cursor = 0;
-                    {steps}
-                    (void)cursor;
-                    return slint::private_api::box_layout_info_ortho(slint::private_api::make_slice(std::span(measure_cells_vector)), {padding});
-                }}()"
+            compile_box_layout_info_ortho_with_measure(
+                solve_data,
+                padding_ortho,
+                measure_cells,
+                ctx,
             )
         }
         Expression::WithGridInputData {
@@ -4914,55 +4404,771 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
-        Expression::MinMax { ty, op, lhs, rhs } => {
-            let ident = match op {
-                MinMaxOp::Min => "min",
-                MinMaxOp::Max => "max",
-            };
-            let lhs_code = compile_expression(lhs, ctx);
-            let rhs_code = compile_expression(rhs, ctx);
-            format!(
-                r#"std::{ident}<{ty}>({lhs_code}, {rhs_code})"#,
-                ty = ty.cpp_type().unwrap_or_default(),
-                ident = ident,
-                lhs_code = lhs_code,
-                rhs_code = rhs_code
-            )
-        }
+        Expression::MinMax { ty, op, lhs, rhs } => compile_min_max(ty, *op, lhs, rhs, ctx),
         Expression::EmptyComponentFactory => panic!("component-factory not yet supported in C++"),
         Expression::EmptyDataTransfer => "slint::DataTransfer()".into(),
         Expression::TranslationReference { format_args, string_index, plural } => {
-            let args = compile_expression(format_args, ctx);
-            match plural {
-                Some(plural) => {
-                    let plural = compile_expression(plural, ctx);
-                    format!(
-                        "slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})"
-                    )
-                }
-                None => format!(
-                    "slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"
-                ),
-            }
+            compile_translation_reference(format_args, *string_index, plural.as_deref(), ctx)
         }
-        Expression::Closure { arg_name, expression } => {
-            let arg = ident(arg_name);
-            let expr = compile_expression(expression, ctx);
-
-            format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
-        }
-        Expression::DashArray(dash_array) => {
-            if dash_array.is_empty() {
-                "slint::SharedVector<float>()".into()
-            } else {
-                format!(
-                    "slint::SharedVector<float>({{ {} }})",
-                    dash_array.iter().map(|v| format!("float({v})")).collect::<Vec<_>>().join(", ")
-                )
-            }
-        }
+        Expression::Closure { arg_name, expression } => compile_closure(arg_name, expression, ctx),
+        Expression::DashArray(dash_array) => compile_dash_array(dash_array),
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
+    }
+}
+
+fn compile_number_literal(num: f64) -> String {
+    if num.is_nan() {
+        "std::numeric_limits<double>::quiet_NaN()".to_string()
+    } else if num.is_infinite() {
+        if num > 0. {
+            "std::numeric_limits<double>::infinity()".to_string()
+        } else {
+            "-std::numeric_limits<double>::infinity()".to_string()
+        }
+    } else if num.abs() > 1_000_000_000. {
+        // If the numbers are too big, decimal notation will give too many digit
+        format!("{num:+e}")
+    } else {
+        num.to_string()
+    }
+}
+
+fn compile_keys_literal(ks: &crate::langtype::Keys) -> String {
+    format!(
+        "[&](const slint::SharedString &key, bool alt, bool control, bool shift, bool meta, bool ignoreShift, bool ignoreAlt) {{
+            slint::Keys out;
+            slint::private_api::make_keys(out, key, alt, control, shift, meta, ignoreShift, ignoreAlt);
+            return out;
+        }}({}, {}, {}, {}, {}, {}, {})",
+        shared_string_literal(&ks.key),
+        ks.modifiers.alt,
+        ks.modifiers.control,
+        ks.modifiers.shift,
+        ks.modifiers.meta,
+        ks.ignore_shift,
+        ks.ignore_alt,
+    )
+}
+
+fn compile_callback_call(
+    callback: &llr::MemberReference,
+    arguments: &[Expression],
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> String {
+    let f = access_member(callback, ctx);
+    let tracker_get = access_callback_tracker_cpp(callback, ctx)
+        .map(|t| format!("(void)({}), ", t.get_property()))
+        .unwrap_or_default();
+    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    if is_void {
+        f.then(|f| format!("{tracker_get}{f}.call({})", a.join(",")))
+    } else {
+        f.map_or_default(|f| format!("({tracker_get}{f}.call({}))", a.join(",")))
+    }
+}
+
+fn compile_function_call(
+    function: &llr::MemberReference,
+    arguments: &[Expression],
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> String {
+    let f = access_member(function, ctx);
+    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    if is_void {
+        f.then(|f| format!("{}({})", f, a.join(",")))
+    } else {
+        f.map_or_default(|f| format!("{}({})", f, a.join(",")))
+    }
+}
+
+fn compile_item_member_function_call(
+    function: &llr::MemberReference,
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> String {
+    let window = access_window_field(ctx);
+    let (native, name) = native_prop_info(function, ctx);
+    let function_name =
+        format!("slint_{}_{}", native.class_name.to_lowercase(), ident(name).to_lowercase());
+    let call = |owner: &str| {
+        let (item, item_rc) = native_item_from_owner(function, ctx, owner);
+        format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+    };
+    if is_void {
+        item_owner(function).then(call)
+    } else {
+        item_owner(function).map_or_default(call)
+    }
+}
+
+fn compile_extra_builtin_function_call(
+    function: &str,
+    arguments: &[Expression],
+    ctx: &EvaluationContext,
+) -> String {
+    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    format!("slint::private_api::{}({})", ident(function), a.join(","))
+}
+
+fn compile_array_index(array: &Expression, index: &Expression, ctx: &EvaluationContext) -> String {
+    format!(
+        "slint::private_api::access_array_index({}, {})",
+        compile_expression(array, ctx),
+        compile_expression(index, ctx)
+    )
+}
+
+fn compile_cast(from: &Expression, to: &Type, ctx: &EvaluationContext) -> String {
+    let f = compile_expression(from, ctx);
+    match (from.ty(ctx), to) {
+        (Type::Float32, Type::Int32) => {
+            format!("slint::private_api::saturating_float_to_int({f})")
+        }
+        (from, Type::String) if from.as_unit_product().is_some() => {
+            format!("slint::SharedString::from_number({f})")
+        }
+        (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
+            format!(
+                "std::make_shared<slint::private_api::UIntModel>(std::max(0, slint::private_api::saturating_float_to_int({f})))"
+            )
+        }
+        (Type::Array(_), Type::Model) => f,
+        (Type::Float32, Type::Color) => {
+            format!("slint::Color::from_argb_encoded({f})")
+        }
+        (Type::Color, Type::Brush) => {
+            format!("slint::Brush({f})")
+        }
+        (Type::Brush, Type::Color) => {
+            format!("{f}.color()")
+        }
+        (Type::Struct(lhs), Type::Struct(rhs)) => {
+            debug_assert_eq!(
+                lhs.fields, rhs.fields,
+                "cast of struct with deferent fields should be handled before llr"
+            );
+            match (&lhs.name, &rhs.name) {
+                (StructName::None, targetstruct) if targetstruct.is_some() => {
+                    // Convert from an anonymous struct to a named one
+                    format!(
+                        "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
+                        struct_name = to.cpp_type().unwrap(),
+                        fields = lhs
+                            .fields
+                            .keys()
+                            .enumerate()
+                            .map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i))
+                            .join(""),
+                        obj = f,
+                    )
+                }
+                (sourcestruct, StructName::None) if sourcestruct.is_some() => {
+                    // Convert from a named struct to an anonymous one
+                    format!(
+                        "[&](const auto &o){{ return std::make_tuple({}); }}({f})",
+                        rhs.fields.keys().map(|n| format!("o.{}", ident(n))).join(", ")
+                    )
+                }
+                _ => f,
+            }
+        }
+        (Type::Array(..), Type::PathData)
+            if matches!(from, Expression::Array { element_ty: Type::Struct { .. }, .. }) =>
+        {
+            let path_elements = match from {
+                Expression::Array { element_ty: _, values, output: _ } => {
+                    values.iter().map(|path_elem_expr| {
+                        let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
+                            Type::Struct(s) if s.name.is_some() => {
+                                (s.fields.len(), s.name.cpp_type().unwrap().clone())
+                            }
+                            _ => unreachable!(),
+                        };
+                        // Turn slint::private_api::PathLineTo into `LineTo`
+                        let elem_type_name = qualified_elem_type_name
+                            .split("::")
+                            .last()
+                            .unwrap()
+                            .strip_prefix("Path")
+                            .unwrap();
+                        let elem_init = if field_count > 0 {
+                            compile_expression(path_elem_expr, ctx)
+                        } else {
+                            String::new()
+                        };
+                        format!("slint::private_api::PathElement::{elem_type_name}({elem_init})")
+                    })
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+            .collect::<Vec<_>>();
+            if !path_elements.is_empty() {
+                format!(
+                    r#"[&](){{
+                        slint::private_api::PathElement elements[{}] = {{
+                            {}
+                        }};
+                        return slint::private_api::PathData(&elements[0], std::size(elements));
+                    }}()"#,
+                    path_elements.len(),
+                    path_elements.join(",")
+                )
+            } else {
+                "slint::private_api::PathData()".into()
+            }
+        }
+        (Type::Struct { .. }, Type::PathData) if matches!(from, Expression::Struct { .. }) => {
+            let (events, points) = match from {
+                Expression::Struct { ty: _, values } => (
+                    compile_expression(&values["events"], ctx),
+                    compile_expression(&values["points"], ctx),
+                ),
+                _ => {
+                    unreachable!()
+                }
+            };
+            format!(
+                r#"[&](auto events, auto points){{
+                    return slint::private_api::PathData(events.ptr, events.len, points.ptr, points.len);
+                }}({events}, {points})"#
+            )
+        }
+        (Type::Enumeration(e), Type::String) => {
+            let mut cases = e.values.iter().enumerate().map(|(idx, v)| {
+                let c = compile_expression(
+                    &Expression::EnumerationValue(EnumerationValue {
+                        value: idx,
+                        enumeration: e.clone(),
+                    }),
+                    ctx,
+                );
+                format!("case {c}: return {v:?};")
+            });
+            format!(
+                "[&]() -> slint::SharedString {{ switch ({f}) {{ {} default: return {{}}; }} }}()",
+                cases.join(" ")
+            )
+        }
+        _ => f,
+    }
+}
+
+fn compile_code_block(sub: &[Expression], ctx: &EvaluationContext) -> String {
+    match sub.len() {
+        0 => String::new(),
+        1 => compile_expression(&sub[0], ctx),
+        len => {
+            let mut x = sub.iter().enumerate().map(|(i, e)| {
+                if i == len - 1 {
+                    return_compile_expression(e, ctx, None) + ";"
+                } else {
+                    compile_expression(e, ctx)
+                }
+            });
+            format!("[&]{{ {} }}()", x.join(";"))
+        }
+    }
+}
+
+fn compile_model_data_assignment(
+    level: usize,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> String {
+    let value = compile_expression(value, ctx);
+    let mut owner = MemberAccess::Direct("self".to_string());
+    let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
+    let mut repeater_index = None;
+    for _ in 0..=level {
+        let x = par.unwrap();
+        par = x.parent;
+        repeater_index = x.repeater_index;
+        sc = x.sub_component;
+        owner = owner.and_then(|x| format!("{x}->parent.lock()"));
+    }
+    let repeater_index = repeater_index.unwrap();
+    let local_reference =
+        ctx.compilation_unit.sub_components[sc].repeated[repeater_index].index_prop.unwrap().into();
+    let index_prop = llr::MemberReference::Relative { parent_level: level, local_reference };
+    let index_access = access_member(&index_prop, ctx).get_property();
+    owner.then_named("model_owner", |path| {
+        format!(
+            "{path}->repeater_{}.model_set_row_data({index_access}, {value})",
+            usize::from(repeater_index)
+        )
+    })
+}
+
+fn compile_array_index_assignment(
+    array: &Expression,
+    index: &Expression,
+    value: &Expression,
+    ctx: &EvaluationContext,
+) -> String {
+    debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+    let base_e = compile_expression(array, ctx);
+    let index_e = compile_expression(index, ctx);
+    let value_e = compile_expression(value, ctx);
+    format!(
+        "[&](auto index, const auto &base) {{ if (index >= 0. && std::size_t(index) < base->row_count()) base->set_row_data(index, {value_e}); }}({index_e}, {base_e})"
+    )
+}
+
+fn compile_binary_expression(
+    lhs: &Expression,
+    rhs: &Expression,
+    op: char,
+    ctx: &EvaluationContext,
+) -> String {
+    let lhs_str = compile_expression(lhs, ctx);
+    let rhs_str = compile_expression(rhs, ctx);
+
+    let lhs_ty = lhs.ty(ctx);
+
+    if lhs_ty.as_unit_product().is_some() && (op == '=' || op == '!') {
+        let op = if op == '=' { "<" } else { ">=" };
+        format!(
+            "(std::abs(float({lhs_str} - {rhs_str})) {op} std::numeric_limits<float>::epsilon())"
+        )
+    } else {
+        let mut buffer = [0; 3];
+        format!(
+            "({lhs_str} {op} {rhs_str})",
+            op = match op {
+                '=' => "==",
+                '!' => "!=",
+                '≤' => "<=",
+                '≥' => ">=",
+                '&' => "&&",
+                '|' => "||",
+                '/' => "/(float)",
+                '-' => "-(float)", // conversion to float to avoid overflow between unsigned
+                _ => op.encode_utf8(&mut buffer),
+            },
+        )
+    }
+}
+
+fn compile_image_reference(
+    resource_ref: &crate::expression_tree::ImageReference,
+    nine_slice: Option<[u16; 4]>,
+) -> String {
+    match nine_slice {
+        Some([a, b, c, d]) => {
+            format!(
+                "([&] {{ auto image = {resource_ref}; image.set_nine_slice_edges({a}, {b}, {c}, {d}); return image; }})()"
+            )
+        }
+        None => resource_ref.to_string(),
+    }
+}
+
+fn compile_condition(
+    condition: &Expression,
+    true_expr: &Expression,
+    false_expr: &Expression,
+    is_void: bool,
+    ctx: &EvaluationContext,
+) -> String {
+    let cond_code = compile_expression(condition, ctx);
+    let cond_code = remove_parentheses(&cond_code);
+    let true_code = compile_expression(true_expr, ctx);
+    let false_code = compile_expression(false_expr, ctx);
+    if is_void {
+        format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
+    } else {
+        format!("({cond_code} ? {true_code} : {false_code})")
+    }
+}
+
+fn compile_array(
+    element_ty: &Type,
+    values: &[Expression],
+    output: &llr::ArrayOutput,
+    ctx: &EvaluationContext,
+) -> String {
+    let ty = element_ty.cpp_type().unwrap();
+    let mut val = values
+        .iter()
+        .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
+    match output {
+        llr::ArrayOutput::Model => format!(
+            "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
+            ty = ty,
+            val = val.join(", ")
+        ),
+        llr::ArrayOutput::Slice => format!(
+            "slint::private_api::make_slice<{ty}>(std::array<{ty}, {count}>{{ {val} }}.data(), {count})",
+            count = values.len(),
+            ty = ty,
+            val = val.join(", ")
+        ),
+        llr::ArrayOutput::Vector => {
+            format!("std::vector<{ty}>{{ {val} }}", ty = ty, val = val.join(", "))
+        }
+    }
+}
+
+fn compile_struct(
+    ty: &std::sync::Arc<crate::langtype::Struct>,
+    values: &BTreeMap<SmolStr, Expression>,
+    ctx: &EvaluationContext,
+) -> String {
+    if ty.name.is_none() {
+        let mut elem = ty.fields.iter().map(|(k, t)| {
+            values
+                .get(k)
+                .map(|e| compile_expression(e, ctx))
+                .map(|e| {
+                    // explicit conversion to avoid warning C4244 (possible loss of data) with MSVC
+                    if t.as_unit_product().is_some() {
+                        format!("{}({e})", t.cpp_type().unwrap())
+                    } else {
+                        e
+                    }
+                })
+                .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
+        });
+        format!("std::make_tuple({})", elem.join(", "))
+    } else {
+        format!(
+            "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+            args = (0..values.len()).map(|i| format!("const auto &a_{i}")).join(", "),
+            ty = Type::Struct(ty.clone()).cpp_type().unwrap(),
+            fields = values
+                .keys()
+                .enumerate()
+                .map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i))
+                .join(""),
+            vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+        )
+    }
+}
+
+fn compile_mouse_cursor(
+    cursor: &llr::MouseCursorInner<Expression>,
+    ctx: &EvaluationContext,
+) -> String {
+    match cursor {
+        llr::MouseCursorInner::BuiltIn(cursor) => {
+            let cursor = compile_expression(cursor.as_ref(), ctx);
+            format!("slint::cbindgen_private::MouseCursorInner({cursor})")
+        }
+        llr::MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+            let image = compile_expression(image.as_ref(), ctx);
+            let hotspot_x = compile_expression(hotspot_x.as_ref(), ctx);
+            let hotspot_y = compile_expression(hotspot_y.as_ref(), ctx);
+            format!("slint::cbindgen_private::MouseCursorInner({image}, {hotspot_x}, {hotspot_y})")
+        }
+    }
+}
+
+fn compile_linear_gradient(
+    angle: &Expression,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> String {
+    let angle = compile_expression(angle, ctx);
+    let mut stops_it = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
+    });
+    format!(
+        "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, stops, {})); }}()",
+        stops_it.join(", "),
+        angle,
+        stops.len()
+    )
+}
+
+fn compile_radial_gradient(
+    center: Option<(&Expression, &Expression)>,
+    radius: Option<&Expression>,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> String {
+    let mut stops_it = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
+    });
+    let center_setup = match (center, radius) {
+        (Some((cx, cy)), Some(r)) => {
+            let cx = compile_expression(cx, ctx);
+            let cy = compile_expression(cy, ctx);
+            let r = compile_expression(r, ctx);
+            format!(
+                "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
+                stops_count = stops.len()
+            )
+        }
+        (Some((cx, cy)), None) => {
+            let cx = compile_expression(cx, ctx);
+            let cy = compile_expression(cy, ctx);
+            format!(
+                "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
+                stops_count = stops.len()
+            )
+        }
+        (None, Some(r)) => {
+            let r = compile_expression(r, ctx);
+            format!(
+                "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
+                stops_count = stops.len()
+            )
+        }
+        (None, None) => {
+            format!(
+                "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}));",
+                stops.len()
+            )
+        }
+    };
+    format!(
+        "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
+        stops_it.join(", "),
+        center_setup
+    )
+}
+
+fn compile_conic_gradient(
+    from_angle: &Expression,
+    center: Option<(&Expression, &Expression)>,
+    stops: &[(Expression, Expression)],
+    ctx: &EvaluationContext,
+) -> String {
+    let from_angle = compile_expression(from_angle, ctx);
+    let mut stops_it = stops.iter().map(|(color, stop)| {
+        let color = compile_expression(color, ctx);
+        let position = compile_expression(stop, ctx);
+        format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
+    });
+    let center_setup = if let Some((cx, cy)) = center {
+        let cx = compile_expression(cx, ctx);
+        let cy = compile_expression(cy, ctx);
+        format!(
+            "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {stops_count}, float({cx}), float({cy})));",
+            stops_count = stops.len()
+        )
+    } else {
+        format!(
+            "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {}));",
+            stops.len()
+        )
+    };
+    format!(
+        "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
+        stops_it.join(", "),
+        center_setup
+    )
+}
+
+fn compile_enumeration_value(value: &EnumerationValue) -> String {
+    let prefix = if value.enumeration.node.is_some() { "" } else { "slint::cbindgen_private::" };
+    format!("{prefix}{}::{}", ident(&value.enumeration.name), ident(&value.to_pascal_case()),)
+}
+
+fn compile_layout_cache_access(
+    layout_cache_prop: &llr::MemberReference,
+    index: usize,
+    repeater_index: Option<&Expression>,
+    entries_per_item: usize,
+    ctx: &EvaluationContext,
+) -> String {
+    let cache = access_member(layout_cache_prop, ctx);
+    cache.map_or_default(|cache| {
+        if let Some(ri) = repeater_index {
+            format!(
+                "slint::private_api::layout_cache_access({}.get(), {}, {}, {})",
+                cache,
+                index,
+                compile_expression(ri, ctx),
+                entries_per_item
+            )
+        } else {
+            format!("{cache}.get()[{index}]")
+        }
+    })
+}
+
+fn compile_grid_repeater_cache_access(
+    layout_cache_prop: &llr::MemberReference,
+    index: usize,
+    repeater_index: &Expression,
+    stride: &Expression,
+    child_offset: usize,
+    inner_repeater_index: Option<&Expression>,
+    entries_per_item: usize,
+    ctx: &EvaluationContext,
+) -> String {
+    let cache = access_member(layout_cache_prop, ctx);
+    cache.map_or_default(|cache| {
+        let stride_val = compile_expression(stride, ctx);
+        let col_offset = if let Some(inner_ri) = inner_repeater_index {
+            format!(
+                "{} + {} * {}",
+                child_offset,
+                compile_expression(inner_ri, ctx),
+                entries_per_item
+            )
+        } else {
+            child_offset.to_string()
+        };
+        format!(
+            "slint::private_api::layout_cache_grid_repeater_access({}.get(), {}, {}, {}, {})",
+            cache,
+            index,
+            compile_expression(repeater_index, ctx),
+            stride_val,
+            col_offset
+        )
+    })
+}
+
+fn compile_solve_flexbox_layout_with_measure(
+    data: &Expression,
+    repeater_indices: &Expression,
+    measure_cells: &[llr::FlexboxMeasureCell],
+    ctx: &EvaluationContext,
+) -> String {
+    let data = compile_expression(data, ctx);
+    let repeater_indices = compile_expression(repeater_indices, ctx);
+    let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
+    format!(
+        "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, {lambda})"
+    )
+}
+
+fn compile_flexbox_layout_info_cross_axis_with_measure(
+    arguments: &[Expression],
+    measure_cells: &[llr::FlexboxMeasureCell],
+    ctx: &EvaluationContext,
+) -> String {
+    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let lambda = generate_flexbox_measure_lambda(measure_cells, ctx);
+    format!(
+        "slint::private_api::flexbox_layout_info_cross_axis_with_measure({}, {lambda})",
+        a.join(",")
+    )
+}
+
+fn compile_box_layout_info_ortho_with_measure(
+    solve_data: &Expression,
+    padding_ortho: &Expression,
+    measure_cells: &[llr::BoxMeasureCell],
+    ctx: &EvaluationContext,
+) -> String {
+    let data = compile_expression(solve_data, ctx);
+    let padding = compile_expression(padding_ortho, ctx);
+    let min_cell_count = measure_cells.len();
+    let mut steps = String::new();
+    for cell in measure_cells {
+        match cell {
+            llr::BoxMeasureCell::Static { info } => {
+                let info = compile_expression(info, ctx);
+                write!(
+                    steps,
+                    "{{
+                        [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = box_ortho_solved[cursor * 2 + 1];
+                        measure_cells_vector.push_back({{ ({info}), {{}}, {{}} }});
+                        ++cursor;
+                    }}"
+                )
+                .unwrap();
+            }
+            llr::BoxMeasureCell::Repeated(repeater) => {
+                let rep_idx = usize::from(repeater.repeater_index);
+                write!(
+                    steps,
+                    "for (std::size_t i = 0; i < self->repeater_{rep_idx}.len(); ++i) {{
+                        if (auto *sub_comp = self->repeater_{rep_idx}.typed_instance_at(i)) {{
+                            measure_cells_vector.push_back(sub_comp->layout_item_info_at_cross_width(box_ortho_solved[cursor * 2 + 1]));
+                        }} else {{
+                            measure_cells_vector.push_back({{}});
+                        }}
+                        ++cursor;
+                    }}"
+                )
+                .unwrap();
+            }
+        }
+    }
+    format!(
+        "[&]{{
+            auto box_ortho_solved = slint::private_api::solve_box_layout({data}, slint::private_api::make_slice<int>(nullptr, 0));
+            std::vector<slint::cbindgen_private::LayoutItemInfo> measure_cells_vector;
+            measure_cells_vector.reserve({min_cell_count});
+            std::size_t cursor = 0;
+            {steps}
+            (void)cursor;
+            return slint::private_api::box_layout_info_ortho(slint::private_api::make_slice(std::span(measure_cells_vector)), {padding});
+        }}()"
+    )
+}
+
+fn compile_min_max(
+    ty: &Type,
+    op: MinMaxOp,
+    lhs: &Expression,
+    rhs: &Expression,
+    ctx: &EvaluationContext,
+) -> String {
+    let ident = match op {
+        MinMaxOp::Min => "min",
+        MinMaxOp::Max => "max",
+    };
+    let lhs_code = compile_expression(lhs, ctx);
+    let rhs_code = compile_expression(rhs, ctx);
+    format!(
+        r#"std::{ident}<{ty}>({lhs_code}, {rhs_code})"#,
+        ty = ty.cpp_type().unwrap_or_default(),
+        ident = ident,
+        lhs_code = lhs_code,
+        rhs_code = rhs_code
+    )
+}
+
+fn compile_translation_reference(
+    format_args: &Expression,
+    string_index: usize,
+    plural: Option<&Expression>,
+    ctx: &EvaluationContext,
+) -> String {
+    let args = compile_expression(format_args, ctx);
+    match plural {
+        Some(plural) => {
+            let plural = compile_expression(plural, ctx);
+            format!(
+                "slint::private_api::translate_from_bundle_with_plural(slint_translation_bundle_plural_{string_index}_str, slint_translation_bundle_plural_{string_index}_idx,  slint_translated_plural_rules, {args}, {plural})"
+            )
+        }
+        None => format!(
+            "slint::private_api::translate_from_bundle(slint_translation_bundle_{string_index}, {args})"
+        ),
+    }
+}
+
+fn compile_closure(arg_name: &str, expression: &Expression, ctx: &EvaluationContext) -> String {
+    let arg = ident(arg_name);
+    let expr = compile_expression(expression, ctx);
+
+    format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
+}
+
+fn compile_dash_array(dash_array: &[f32]) -> String {
+    if dash_array.is_empty() {
+        "slint::SharedVector<float>()".into()
+    } else {
+        format!(
+            "slint::SharedVector<float>({{ {} }})",
+            dash_array.iter().map(|v| format!("float({v})")).collect::<Vec<_>>().join(", ")
+        )
     }
 }
 
