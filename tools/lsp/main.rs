@@ -972,3 +972,22 @@ async fn handle_preview_to_lsp_message(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    // wasm_main.rs is only compiled for wasm32, so check the rule documented on
+    // `SlintServer::ctx` as text (regression of #11258).
+    #[test]
+    fn no_exported_async_method_takes_mut_self() {
+        let offenders = include_str!("wasm_main.rs")
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.contains("async fn") && line.contains("&mut self"))
+            .collect::<Vec<_>>();
+        assert!(
+            offenders.is_empty(),
+            "exported async SlintServer methods must take `&self`, not `&mut self`:\n{}",
+            offenders.join("\n"),
+        );
+    }
+}
