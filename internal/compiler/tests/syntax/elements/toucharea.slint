@@ -43,13 +43,13 @@ export component Def {
     // Invalid unnamespaced access
     TouchArea {
         mouse-cursor: square-resize;
-//                    >           <error{Unknown unqualified identifier 'square-resize'}
+//                    >           <error{Unknown unqualified identifier 'square-resize'. Did you mean 'se-resize'?}
     }
 
     // Invalid namespaced access
     TouchArea {
         mouse-cursor: MouseCursor.square-resize;
-//                                >           <error{'square-resize' is not a member of the namespace MouseCursor}
+//                                >           <error{'square-resize' is not a member of the namespace MouseCursor. Did you mean 'se-resize'?}
     }
 
     // Custom cursor macro (too many arguments)
