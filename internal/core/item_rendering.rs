@@ -507,7 +507,7 @@ pub trait RenderString: HasFont {
     }
     /// The factor applied to the font's natural line height, or `None` for the natural height.
     ///
-    /// Width measurement goes through [`TextForWidth`], which never calls this: the line height
+    /// Width measurement goes through `TextForWidth`, which never calls this: the line height
     /// can't change the width, and a factor bound to the width would loop there (#13799).
     fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
         None
