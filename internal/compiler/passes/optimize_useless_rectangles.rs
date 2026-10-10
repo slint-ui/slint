@@ -6,7 +6,7 @@
 //! Rectangles which do not draw anything and have no x or y don't need to be in
 //! the item tree, we can just remove them.
 
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::*;
 use std::rc::Rc;
 

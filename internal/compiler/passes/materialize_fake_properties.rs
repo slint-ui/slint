@@ -6,8 +6,9 @@
 //! Must be run after lower_layout and default_geometry passes
 
 use crate::diagnostics::Spanned;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;

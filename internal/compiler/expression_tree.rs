@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, EnumerationValue, Keys, PropertyLookupMode, Struct, Type};
+use crate::element_type::{BuiltinElement, PropertyLookupMode};
+use crate::langtype::{EnumerationValue, Keys, Struct, Type};
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};

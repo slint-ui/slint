@@ -7,9 +7,9 @@ use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::langtype::Type;
-use crate::langtype::{ElementType, PropertyLookupMode};
 use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
@@ -785,7 +785,8 @@ impl GridLayout {
                 let e = nr.element();
                 let mut nr = nr.clone();
                 if e.borrow().repeated.is_some()
-                    && let crate::langtype::ElementType::Component(c) = e.borrow().base_type.clone()
+                    && let crate::element_type::ElementType::Component(c) =
+                        e.borrow().base_type.clone()
                 {
                     nr = NamedReference::new(&c.root_element, nr.name().clone())
                 };
@@ -917,7 +918,7 @@ impl GridLayout {
                         let e = nr.element();
                         let mut nr = nr.clone();
                         if e.borrow().repeated.is_some()
-                            && let crate::langtype::ElementType::Component(c) =
+                            && let crate::element_type::ElementType::Component(c) =
                                 e.borrow().base_type.clone()
                         {
                             nr = NamedReference::new(&c.root_element, nr.name().clone())

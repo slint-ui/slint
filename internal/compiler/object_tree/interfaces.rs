@@ -11,8 +11,9 @@ use itertools::Itertools;
 use smol_str::SmolStr;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{BindingExpression, Callable, Expression};
-use crate::langtype::{ElementType, Function, PropertyLookupMode, PropertyLookupResult, Type};
+use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,

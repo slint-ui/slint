@@ -9,8 +9,9 @@ use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::element_type::BuiltinElement;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, NativeClass};
+use crate::langtype::{BuiltinPropertyDefault, NativeClass};
 use crate::object_tree::Element;
 
 pub fn select_native_class(elem: &Element, builtin: &BuiltinElement) -> Arc<NativeClass> {
@@ -156,7 +157,7 @@ fn builtin_defaults_are_comparable() {
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     for (name, element) in tr.all_elements() {
-        let crate::langtype::ElementType::Builtin(element) = element else { continue };
+        let crate::element_type::ElementType::Builtin(element) = element else { continue };
         for (property, info) in &element.properties {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
                 let default = default.to_expression();

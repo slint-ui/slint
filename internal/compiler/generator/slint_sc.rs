@@ -5,13 +5,14 @@
 
 use crate::CompilerConfiguration;
 use crate::diagnostics::{ByteFormat, SourceLocation, Spanned};
+use crate::element_type::PropertyLookupMode;
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Callable, ConditionLocation, Expression, ImageReference,
     Unit,
 };
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
-use crate::langtype::{EnumerationValue, PropertyLookupMode, StructName, Type};
+use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     Document, Element, ElementRc, GeometryProps, PropertyDeclaration, PropertyVisibility,

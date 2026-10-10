@@ -6,8 +6,9 @@
 use std::collections::HashMap;
 
 use super::GlobalAnalysis;
+use crate::element_type::ElementType;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
+use crate::langtype::{BuiltinStruct, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 #[cfg(test)]

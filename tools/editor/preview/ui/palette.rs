@@ -7,7 +7,7 @@ use crate::preview::{properties, ui};
 
 use lsp_types::Url;
 
-use i_slint_compiler::{expression_tree, langtype, object_tree};
+use i_slint_compiler::{element_type, expression_tree, langtype, object_tree};
 use slint::{Model, ModelRc, SharedString};
 
 pub fn setup(api: &ui::Api<'_>) {
@@ -181,7 +181,7 @@ pub fn evaluate_property(
         let element = element.borrow();
         matches!(property_name, "background" | "border-color")
             && default_value.is_none()
-            && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
+            && matches!(&element.base_type, element_type::ElementType::Builtin(b) if b.name == "Rectangle")
             && element.binding_cell_including_synthetic(property_name).is_none()
     };
     let expression =
@@ -241,11 +241,11 @@ fn collect_palette_from_globals(
     let tr = document_cache.global_type_registry();
     let tr = document_cache.get_document(document_uri).map(|d| &d.local_registry).unwrap_or(&tr);
     for (name, global) in tr.all_elements().iter().filter_map(|(n, e)| match e {
-        langtype::ElementType::Component(c) => c.is_global().then_some((n, c.clone())),
+        element_type::ElementType::Component(c) => c.is_global().then_some((n, c.clone())),
         _ => None,
     }) {
         let global = global.root_element.clone();
-        if !matches!(global.borrow().base_type, langtype::ElementType::Global) {
+        if !matches!(global.borrow().base_type, element_type::ElementType::Global) {
             continue;
         }
 

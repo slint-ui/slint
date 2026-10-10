@@ -3,8 +3,9 @@
 
 // cSpell: ignore qualname rposition
 use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat, SourceFile, Spanned};
+use i_slint_compiler::element_type::{ElementType, PropertyLookupMode};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree::{self, type_from_node};
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};

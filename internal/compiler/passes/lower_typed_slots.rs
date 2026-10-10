@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression;
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::interfaces;
 use crate::object_tree::{

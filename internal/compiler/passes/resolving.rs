@@ -10,11 +10,10 @@
 //! Most of the code for the resolving actually lies in the expression_tree module
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::langtype;
-use crate::langtype::{
-    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
-};
+use crate::langtype::{KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
 use crate::parser::{

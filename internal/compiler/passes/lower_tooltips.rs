@@ -28,8 +28,9 @@
 //!   exists while `cond` is true.
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::{ElementType, EnumerationValue};
+use crate::langtype::EnumerationValue;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::{BUILTIN, TypeRegister};
