@@ -26,6 +26,9 @@ use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 ))]
 mod input;
 
+#[cfg(all(feature = "libinput", not(feature = "libseat")))]
+mod console;
+
 #[derive(Clone)]
 struct Proxy {
     loop_signal: Arc<Mutex<Option<calloop::LoopSignal>>>,
@@ -224,6 +227,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        #[cfg(all(feature = "libinput", not(feature = "libseat")))]
+        let _console_keyboard = console::ConsoleKeyboard::acquire().unwrap_or_else(|e| {
+            eprintln!("Warning: Could not switch off the console keyboard: {e}");
+            None
+        });
+
         let mut event_loop: EventLoop<LoopData> =
             EventLoop::try_new().map_err(|e| format!("Error creating event loop: {}", e))?;
 
