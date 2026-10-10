@@ -99,7 +99,7 @@ system-tray = ["dep:ksni", "dep:async-channel", "ksni/async-io", "ksni/blocking"
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
 
-accessibility-text = ["std", "shared-parley", "dep:accesskit", "parley?/accesskit"]
+accessibility-text = ["std", "shared-parley", "dep:accesskit"]
 
 shared-swash = ["dep:swash"]
 
@@ -182,10 +182,10 @@ async-channel = { version = "2", optional = true }
 # The complex-scripts line-breaking dictionaries cost several MB, so leave them out of
 # wasm binaries.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-parley = { version = "0.11.1", optional = true, features = ["complex-scripts"] }
+parley = { version = "0.12.0", optional = true, features = ["bytemuck", "complex-scripts"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-parley = { version = "0.11.1", optional = true }
+parley = { version = "0.12.0", optional = true, features = ["bytemuck"] }
 web-time = { version = "1.0", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
