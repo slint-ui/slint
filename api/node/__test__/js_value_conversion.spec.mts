@@ -324,6 +324,7 @@ test("get/set brush properties", () => {
     in-out property <brush> ref: transparent;
     in-out property <brush> linear-gradient: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
     in-out property <brush> radial-gradient: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
+    in-out property <brush> elliptical-gradient: @radial-gradient(ellipse, #f00 0%, #00f 100%);
     in-out property <color> ref-color;
   }
   `,
@@ -426,6 +427,14 @@ test("get/set brush properties", () => {
     if (radialGradient instanceof private_api.SlintBrush) {
         expect((radialGradient as private_api.SlintBrush).toString()).toBe(
             "radial-gradient(circle, rgba(255, 0, 0, 255) 0%, rgba(0, 255, 0, 255) 50%, rgba(0, 0, 255, 255) 100%)",
+        );
+    }
+
+    const ellipticalGradient = instance.getProperty("elliptical-gradient");
+
+    if (ellipticalGradient instanceof private_api.SlintBrush) {
+        expect((ellipticalGradient as private_api.SlintBrush).toString()).toBe(
+            "radial-gradient(ellipse, rgba(255, 0, 0, 255) 0%, rgba(0, 0, 255, 255) 100%)",
         );
     }
 

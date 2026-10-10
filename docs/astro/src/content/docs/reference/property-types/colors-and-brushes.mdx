@@ -223,15 +223,24 @@ export component Example inherits Window {
 
 ## Radial Gradients
 
-Radial gradients are like linear gradients but the colors are interpolated circularly instead of
+Radial gradients are like linear gradients but the colors are interpolated circularly or elliptically instead of
 along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
-### @radial-gradient(circle [radius] [at x y], color percentage, color percentage, ...)
+### @radial-gradient(shape [at x y], color percentage, color percentage, ...)
 
-The first parameter to the macro is always `circle` because only circular gradients are supported.
-The optional `radius` value sets the circle radius in the element's local coordinate space.
-The `radius` value is a length expression.
-If omitted, the radius is half of the element's bounding box diagonal.
+The `shape` parameter is one of:
+
+- `circle [radius]`: a circle.
+  The optional `radius` value sets its radius.
+  If omitted, the radius is half of the element's bounding box diagonal.
+- `ellipse [radius-x radius-y]`: an ellipse.
+  The optional `radius-x` and `radius-y` values set its horizontal and vertical radii.
+  If omitted, the radii match CSS `farthest-corner`:
+  the ellipse passes through the bounding box corner farthest from the center,
+  with the aspect ratio of the distances from the center to the farthest sides.
+
+The radii are length expressions in the element's local coordinate space.
+Unlike in CSS, they can't be percentages.
 
 The optional `at` parameter sets the gradient center in the element's local coordinate space.
 The `x` and `y` values are length expressions.
@@ -257,6 +266,14 @@ You can set a center and radius explicitly:
 ```slint
 export component Example inherits Rectangle {
     background: @radial-gradient(circle 60px at 25px 25px, #f00 0%, #00f 100%);
+}
+```
+
+Or use `ellipse` with distinct horizontal and vertical radii:
+
+```slint
+export component Example inherits Rectangle {
+    background: @radial-gradient(ellipse 60px 30px at 25px 25px, #f00 0%, #00f 100%);
 }
 ```
 
