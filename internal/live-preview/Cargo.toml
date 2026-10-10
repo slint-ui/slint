@@ -28,7 +28,7 @@ chacha20poly1305 = { version = "0.10.1", optional = true }
 sha2 = { version = "0.10.9", default-features = false, optional = true }
 subtle = { version = "2.6.1", default-features = false, optional = true }
 # file-watcher
-notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
+notify = { workspace = true, optional = true }
 i-slint-compiler = { workspace = true, optional = true }
 # live-component
 i-slint-core = { workspace = true, optional = true }
