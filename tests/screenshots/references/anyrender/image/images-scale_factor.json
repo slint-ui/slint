@@ -35,6 +35,7 @@
   {
     "PushClipLayer": {
       "clip": "M0,0 L14,0 L14,6 L0,6 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,
@@ -152,6 +153,7 @@
   {
     "PushClipLayer": {
       "clip": "M0,0 L16,0 L16,6 L0,6 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,

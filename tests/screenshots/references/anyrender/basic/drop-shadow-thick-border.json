@@ -8,6 +8,7 @@
         "mix": "Normal"
       },
       "clip": "M0,0 L24,0 L24,24 L0,24 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -86,6 +87,7 @@
         "mix": "Normal"
       },
       "clip": "M0,0 L24,0 L24,24 L0,24 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -191,6 +193,7 @@
         "mix": "Normal"
       },
       "clip": "M-1,-1 L25,-1 L25,25 L-1,25 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -269,6 +272,7 @@
         "mix": "Normal"
       },
       "clip": "M-1,-1 L25,-1 L25,25 L-1,25 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -374,6 +378,7 @@
         "mix": "Normal"
       },
       "clip": "M-2,-2 L26,-2 L26,26 L-2,26 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -452,6 +457,7 @@
         "mix": "Normal"
       },
       "clip": "M-2,-2 L26,-2 L26,26 L-2,26 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -557,6 +563,7 @@
         "mix": "Normal"
       },
       "clip": "M-6,-6 L30,-6 L30,30 L-6,30 Z",
+      "fill": "NonZero",
       "filter": {
         "expansion_rect": {
           "x0": -4.5,
@@ -657,6 +664,7 @@
         "mix": "Normal"
       },
       "clip": "M-6,-6 L30,-6 L30,30 L-6,30 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -762,6 +770,7 @@
         "mix": "Normal"
       },
       "clip": "M-7,-7 L31,-7 L31,31 L-7,31 Z",
+      "fill": "NonZero",
       "filter": {
         "expansion_rect": {
           "x0": -4.5,
@@ -862,6 +871,7 @@
         "mix": "Normal"
       },
       "clip": "M-7,-7 L31,-7 L31,31 L-7,31 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -967,6 +977,7 @@
         "mix": "Normal"
       },
       "clip": "M-8,-8 L32,-8 L32,32 L-8,32 Z",
+      "fill": "NonZero",
       "filter": {
         "expansion_rect": {
           "x0": -4.5,
@@ -1067,6 +1078,7 @@
         "mix": "Normal"
       },
       "clip": "M-8,-8 L32,-8 L32,32 L-8,32 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,

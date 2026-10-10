@@ -8,6 +8,7 @@
         "mix": "Normal"
       },
       "clip": "M-5,-5 L53,-5 L53,53 L-5,53 Z",
+      "fill": "NonZero",
       "filter": {
         "expansion_rect": {
           "x0": -3.0,
@@ -83,6 +84,7 @@
         "mix": "Normal"
       },
       "clip": "M-5,-5 L53,-5 L53,53 L-5,53 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
