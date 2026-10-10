@@ -82,6 +82,7 @@ jobs:
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
             SLINT_EMIT_DEBUG_INFO: 1
+            CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
 
         runs-on: ${{ inputs.os }}
 
