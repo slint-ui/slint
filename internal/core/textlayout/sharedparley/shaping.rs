@@ -31,6 +31,8 @@ pub(super) struct Brush {
 
 pub(super) struct LayoutWithoutLineBreaksBuilder {
     font_request: Option<FontRequest>,
+    /// See [`crate::item_rendering::RenderString::line_height_factor`].
+    pub(super) line_height_factor: Option<f32>,
     pub(super) text_wrap: TextWrap,
     stroke: Option<TextStrokeStyle>,
     pub(super) scale_factor: ScaleFactor,
@@ -43,6 +45,7 @@ pub(super) struct LayoutWithoutLineBreaksBuilder {
 impl LayoutWithoutLineBreaksBuilder {
     pub(super) fn new(
         font_request: Option<FontRequest>,
+        line_height_factor: Option<f32>,
         text_wrap: TextWrap,
         stroke: Option<TextStrokeStyle>,
         scale_factor: ScaleFactor,
@@ -54,6 +57,7 @@ impl LayoutWithoutLineBreaksBuilder {
 
         Self {
             font_request,
+            line_height_factor,
             text_wrap,
             stroke,
             scale_factor,
@@ -71,8 +75,10 @@ impl LayoutWithoutLineBreaksBuilder {
         // Use the requested font's natural line-height ratio for every run so fallback fonts,
         // such as the symbol font used for password characters, don't enlarge the line box.
         // `FontSizeRelative` scales the result with each styled span's font size.
-        let line_height_ratio =
-            self.font_request.as_ref().and_then(|fr| line_height_ratio(font_ctx, fr));
+        let line_height_ratio = self
+            .font_request
+            .as_ref()
+            .and_then(|fr| line_height_ratio(font_ctx, fr, self.line_height_factor));
 
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
@@ -244,6 +250,7 @@ impl LayoutWithoutLineBreaksBuilder {
 pub(super) fn line_height_ratio(
     font_ctx: &mut parley::FontContext,
     font_request: &FontRequest,
+    line_height_factor: Option<f32>,
 ) -> Option<f32> {
     let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
     let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
@@ -252,9 +259,7 @@ pub(super) fn line_height_ratio(
     let units_per_em = metrics.units_per_em as f32;
     (units_per_em > 0.0)
         .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
-        .map(|natural_ratio| {
-            font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio)
-        })
+        .map(|natural_ratio| natural_ratio * line_height_factor.unwrap_or(1.0))
 }
 
 /// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
@@ -335,6 +340,7 @@ pub(super) fn shaping_builder(
     let (stroke_brush, _, stroke_style) = text.stroke();
     LayoutWithoutLineBreaksBuilder::new(
         item_rc.map(|irc| text.font_request(irc)),
+        text.line_height_factor(),
         text_wrap,
         (!stroke_brush.is_transparent()).then_some(stroke_style),
         scale_factor,
@@ -354,6 +360,7 @@ pub(super) fn content_widths_builder(
 ) -> LayoutWithoutLineBreaksBuilder {
     let mut builder = LayoutWithoutLineBreaksBuilder::new(
         Some(font_request),
+        None,
         TextWrap::WordWrap,
         None,
         scale_factor,
@@ -367,12 +374,12 @@ pub(super) fn content_widths_builder(
 /// with what the item's cache entry was shaped with.
 #[cfg(test)]
 pub(super) fn plain_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
-    LayoutWithoutLineBreaksBuilder::new(None, TextWrap::NoWrap, None, ScaleFactor::new(1.0))
+    LayoutWithoutLineBreaksBuilder::new(None, None, TextWrap::NoWrap, None, ScaleFactor::new(1.0))
 }
 
 #[cfg(test)]
 pub(super) fn wrap_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
-    LayoutWithoutLineBreaksBuilder::new(None, TextWrap::WordWrap, None, ScaleFactor::new(1.0))
+    LayoutWithoutLineBreaksBuilder::new(None, None, TextWrap::WordWrap, None, ScaleFactor::new(1.0))
 }
 
 /// Shapes `text` the way both the drawing and the measuring paths need it, so that they can share

@@ -1248,6 +1248,19 @@ fn build(l: &mut Loader) {
         in property <string> default-font-family;
         /// The default font size used to render the text, when no size is specified via markup. If unset (or zero), the value falls back to the enclosing `Window`'s `default-font-size`.
         in property <length> default-font-size;
+        /// The base style of the text.
+        /// To animate the line height, animate a `float` property and bind it into the style:
+        /// ```slint
+        /// export component Example inherits Window {
+        ///     in-out property <float> spacing-factor: 1;
+        ///     animate spacing-factor { duration: 200ms; }
+        ///     StyledText {
+        ///         text: @markdown("Some **formatted text**.");
+        ///         default-style: { line-height-factor: root.spacing-factor };
+        ///     }
+        /// }
+        /// ```
+        in property <RichTextStyle> default-style;
         /// The horizontal alignment of the text.
         in property <TextHorizontalAlignment> horizontal-alignment;
         /// The color used for rendering links in the text.

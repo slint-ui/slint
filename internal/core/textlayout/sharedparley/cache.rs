@@ -23,8 +23,12 @@ use super::*;
 /// layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see `ranged_builder`). The scale factor
 /// is the other input baked into the shaping, but it applies to every entry at once and so is
 /// handled by the cache as a whole.
+///
+/// The line-height factor is baked in too, and width measurement shapes without it (see
+/// `TextForWidth`), so the entry is keyed on it like the wrap mode.
 struct CachedParagraphs {
     wrap: TextWrap,
+    line_height_factor: Option<f32>,
     /// What [`super::layout::layout`] derived when it last broke these paragraphs, so an
     /// unchanged-input call can skip the breaking. `None` after a reshape (fresh entries
     /// start without one) and while checked out through the guard.
@@ -219,6 +223,7 @@ pub(super) fn cached_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
+    line_height_factor: Option<f32>,
     window: &crate::api::Window,
     font_context: &mut parley::FontContext,
     shape: &dyn Fn(&mut parley::FontContext) -> Vec<TextParagraph>,
@@ -233,15 +238,18 @@ pub(super) fn cached_paragraphs<'a>(
 
     cache.clear_if_scale_factor_changed(window);
 
-    // Shaped geometry must never be mixed across wrap modes, and the entry only holds one mode
-    // at a time. Drop a mismatching one up front so the shaping below happens in the regular
+    // Shaped geometry must never be mixed across wrap modes or line-height factors, and the
+    // entry only holds one of each at a time. Drop a mismatching one up front so the shaping below happens in the regular
     // (vacant) path, inside a fresh dependency tracker and without the cache borrowed.
     //
     // Paragraphs that were never handed back can't be served either.
     let stale = cache
         .inner
         .with_entry(item_rc, |entry| {
-            (entry.wrap != wrap || entry.paragraphs.is_none()).then_some(())
+            (entry.wrap != wrap
+                || entry.line_height_factor != line_height_factor
+                || entry.paragraphs.is_none())
+            .then_some(())
         })
         .is_some();
     if stale {
@@ -259,6 +267,7 @@ pub(super) fn cached_paragraphs<'a>(
         cache.entry_count_estimate.set(cache.entry_count_estimate.get() + 1);
         CachedParagraphs {
             wrap,
+            line_height_factor,
             paragraphs: Some(shape(font_context)),
             line_breaking: None,
             last_used: 0, // stamped right below, for both a hit and this miss

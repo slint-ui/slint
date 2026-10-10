@@ -1518,6 +1518,10 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("text")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-family")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-size")).into(), N);
+            // See `RenderString::line_height_factor`.
+            if orientation == Orientation::Vertical {
+                vis(&NamedReference::new(item, SmolStr::new_static("default-style")).into(), N);
+            }
             // A line dropped by the limit is also excluded from the content widths, so
             // `max-lines` is a dependency of both orientations, not just the height.
             vis(&NamedReference::new(item, SmolStr::new_static("max-lines")).into(), N);

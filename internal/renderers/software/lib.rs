@@ -1152,7 +1152,12 @@ impl RendererSealed for SoftwareRenderer {
             }
         };
         let (longest_line_width, height) = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text_item.line_height_factor(),
+                scale_factor,
+            );
             layout.text_size(
                 &string,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
@@ -1206,7 +1211,7 @@ impl RendererSealed for SoftwareRenderer {
             }
         };
         let (min, max) = with_font!(&font, |font| {
-            fonts::text_layout_for_font(font, &font_request, scale_factor)
+            fonts::text_layout_for_font(font, &font_request, None, scale_factor)
                 .content_widths(&string, max_lines)
         });
         Some(i_slint_core::renderer::ContentWidths {
@@ -1219,6 +1224,7 @@ impl RendererSealed for SoftwareRenderer {
     fn text_line_height(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
+        line_height_factor: Option<f32>,
     ) -> Option<LogicalLength> {
         #[cfg(feature = "systemfonts")]
         {
@@ -1227,17 +1233,21 @@ impl RendererSealed for SoftwareRenderer {
             let mut font_ctx = slint_ctx.font_context().borrow_mut();
             let font = fonts::match_font(&font_request, scale_factor, &mut font_ctx);
             if uses_parley(&font) {
-                return sharedparley::text_line_height(&mut font_ctx, &font_request);
+                return sharedparley::text_line_height(
+                    &mut font_ctx,
+                    &font_request,
+                    line_height_factor,
+                );
             }
         }
         #[cfg(not(feature = "systemfonts"))]
-        let _ = font_request;
+        let _ = (font_request, line_height_factor);
         None
     }
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
@@ -1269,7 +1279,12 @@ impl RendererSealed for SoftwareRenderer {
 
         let (longest_line_width, height) = with_font!(&font, |font| {
             let mut buf = [0u8, 0u8, 0u8, 0u8];
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text_item.line_height_factor(),
+                scale_factor,
+            );
             layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None)
         });
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
@@ -1357,7 +1372,12 @@ impl RendererSealed for SoftwareRenderer {
             .cast();
 
         let byte_offset = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                scale_factor,
+            );
             let paragraph = text_input_query_paragraph(
                 text_input,
                 &visual_representation.text,
@@ -1437,7 +1457,12 @@ impl RendererSealed for SoftwareRenderer {
         let visual_representation = text_input.visual_representation();
 
         let (cursor_position, band_offset, cursor_height) = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                scale_factor,
+            );
             let paragraph = text_input_query_paragraph(
                 text_input,
                 &visual_representation.text,
@@ -3199,7 +3224,12 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let max_lines = text.line_limit();
 
         with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text.line_height_factor(),
+                self.scale_factor,
+            );
             let paragraph = TextParagraphLayout {
                 string: &string,
                 layout,
@@ -3271,7 +3301,12 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let cursor_pos_and_height = with_font!(&font, |font| {
             let paragraph = TextParagraphLayout {
                 string: &text_visual_representation.text,
-                layout: fonts::text_layout_for_font(font, &font_request, self.scale_factor),
+                layout: fonts::text_layout_for_font(
+                    font,
+                    &font_request,
+                    i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                    self.scale_factor,
+                ),
                 max_width: max_size.width_length(),
                 max_height: max_size.height_length(),
                 horizontal_alignment: text_input.horizontal_alignment(),
@@ -3544,7 +3579,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let clip = self.current_state.clip.cast() * self.scale_factor;
 
         with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
+            let layout = fonts::text_layout_for_font(font, &font_request, None, self.scale_factor);
 
             let paragraph = TextParagraphLayout {
                 string,

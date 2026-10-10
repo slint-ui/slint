@@ -216,6 +216,7 @@ pub fn match_font(
 pub fn text_layout_for_font<'a, Font>(
     font: &'a Font,
     font_request: &FontRequest,
+    line_height_factor: Option<f32>,
     scale_factor: ScaleFactor,
 ) -> TextLayout<'a, Font>
 where
@@ -224,9 +225,10 @@ where
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
-    let line_height = font_request.line_height_for_natural_height(font.height().get() as f32).map(
-        |line_height| PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16),
-    );
+    let line_height = line_height_factor.map(|factor| {
+        let line_height = font.height().get() as f32 * factor;
+        PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16)
+    });
 
     TextLayout { font, letter_spacing, line_height }
 }
@@ -279,13 +281,11 @@ mod tests {
 
     #[test]
     fn line_height_factor_scales_natural_height() {
-        let font_request = FontRequest {
-            pixel_size: Some(LogicalLength::new(20.)),
-            line_height_factor: Some(1.5),
-            ..Default::default()
-        };
+        let font_request =
+            FontRequest { pixel_size: Some(LogicalLength::new(20.)), ..Default::default() };
 
-        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+        let layout =
+            text_layout_for_font(&TestFont, &font_request, Some(1.5), ScaleFactor::new(1.));
 
         assert_eq!(TestFont.height(), PhysicalLength::new(24));
         assert_eq!(layout.line_height, Some(PhysicalLength::new(36)));
@@ -293,13 +293,10 @@ mod tests {
 
     #[test]
     fn line_height_factor_zero_collapses_lines() {
-        let font_request = FontRequest {
-            pixel_size: Some(LogicalLength::new(20.)),
-            line_height_factor: Some(0.),
-            ..Default::default()
-        };
+        let font_request =
+            FontRequest { pixel_size: Some(LogicalLength::new(20.)), ..Default::default() };
 
-        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+        let layout = text_layout_for_font(&TestFont, &font_request, Some(0.), ScaleFactor::new(1.));
 
         assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
     }

@@ -90,8 +90,9 @@ use shaping::{
 ///
 /// The font context is borrowed from `window`'s Slint context for shaping and layout only, and
 /// released before `f` runs -- glyph drawing inside `f` re-enters it, and property bindings
-/// evaluated under `f` must not find it borrowed. The wrap mode and scale factor the cache entry
-/// is keyed on come from `layout_builder`, so shaping and layout cannot disagree about either.
+/// evaluated under `f` must not find it borrowed. The wrap mode, line-height factor and scale
+/// factor the cache entry is keyed on come from `layout_builder`, so shaping and layout cannot
+/// disagree about them.
 ///
 /// Returns `None` only when `window` has no Slint context yet.
 fn with_text_layout<R>(
@@ -108,10 +109,15 @@ fn with_text_layout<R>(
 
     let text_wrap = layout_builder.text_wrap;
     let scale_factor = layout_builder.scale_factor;
-    let mut guard =
-        cached_paragraphs(cache, item_rc, text_wrap, window, &mut font_ctx, &|font_context| {
-            shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context)
-        });
+    let mut guard = cached_paragraphs(
+        cache,
+        item_rc,
+        text_wrap,
+        layout_builder.line_height_factor,
+        window,
+        &mut font_ctx,
+        &|font_context| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
+    );
 
     let line_breaking = guard.take_line_breaking();
     let layout =
@@ -558,7 +564,7 @@ fn text_content_widths_impl(
 
 pub fn char_size(
     font_ctx: &mut parley::FontContext,
-    text_item: Pin<&dyn crate::item_rendering::HasFont>,
+    text_item: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: &crate::item_tree::ItemRc,
     ch: char,
 ) -> Option<LogicalSize> {
@@ -589,9 +595,7 @@ pub fn char_size(
         &location,
     );
     let natural_line_height = font_metrics.ascent - font_metrics.descent;
-    let line_height = font_request
-        .line_height_for_natural_height(natural_line_height)
-        .unwrap_or(natural_line_height);
+    let line_height = natural_line_height * text_item.line_height_factor().unwrap_or(1.0);
 
     Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }
@@ -600,9 +604,11 @@ pub fn char_size(
 pub fn text_line_height(
     font_ctx: &mut parley::FontContext,
     font_request: &FontRequest,
+    line_height_factor: Option<f32>,
 ) -> Option<LogicalLength> {
     let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
-    shaping::line_height_ratio(font_ctx, font_request).map(|ratio| pixel_size * ratio)
+    shaping::line_height_ratio(font_ctx, font_request, line_height_factor)
+        .map(|ratio| pixel_size * ratio)
 }
 
 pub fn font_metrics(

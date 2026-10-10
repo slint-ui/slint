@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// cSpell:ignore ncccc
+
+// Skia font rendering is not consistent across platforms.
+//ignore: skia
+//SIZE=270x150
+
+component TextBounds inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+export component TestCase inherits Window {
+    width: 270px;
+    height: 150px;
+    default-font-family: "Noto Sans";
+    default-font-size: 14px;
+    background: white;
+
+    HorizontalLayout {
+        x: 5px; y: 5px;
+        width: 80px;
+        StyledText {
+            default-color: black;
+            text: @markdown("aaaa **bbbb**\ncccc *dddd*");
+            TextBounds {}
+        }
+    }
+    HorizontalLayout {
+        x: 95px; y: 5px;
+        width: 80px;
+        StyledText {
+            default-color: black;
+            text: @markdown("aaaa **bbbb**\ncccc *dddd*");
+            default-style: { line-height-factor: 0.5 };
+            TextBounds {}
+        }
+    }
+    HorizontalLayout {
+        x: 185px; y: 5px;
+        width: 80px;
+        StyledText {
+            default-color: black;
+            text: @markdown("aaaa **bbbb**\ncccc *dddd*");
+            default-style: { line-height-factor: 2 };
+            TextBounds {}
+        }
+    }
+}

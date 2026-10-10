@@ -114,19 +114,18 @@ fn bidi_selection_spans_are_ascending_in_x() {
 #[test]
 fn test_text_line_height_matches_shaped_single_line() {
     for (pixel_size, line_height_factor) in [(12.0, None), (25.5, None), (12.0, Some(1.5))] {
-        let font_request = FontRequest {
-            pixel_size: Some(LogicalLength::new(pixel_size)),
-            line_height_factor,
-            ..Default::default()
-        };
+        let font_request =
+            FontRequest { pixel_size: Some(LogicalLength::new(pixel_size)), ..Default::default() };
         let builder = super::shaping::LayoutWithoutLineBreaksBuilder::new(
             Some(font_request.clone()),
+            line_height_factor,
             TextWrap::NoWrap,
             None,
             ScaleFactor::new(1.0),
         );
         let shaped = layout_text_with_builder("Hello world", builder, LayoutOptions::default());
-        let fast = text_line_height(&mut test_font_context(), &font_request).unwrap();
+        let fast =
+            text_line_height(&mut test_font_context(), &font_request, line_height_factor).unwrap();
         assert!(
             (shaped.height.get() - fast.get()).abs() < 0.01,
             "shaped {} != estimated {} (size {pixel_size}, factor {line_height_factor:?})",

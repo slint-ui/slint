@@ -284,6 +284,13 @@ See `StyledText` in `internal/core/styled_text.rs`.
 - `<u>underline</u>`
 - `<span style="color:...">colored</span>`
 
+### Base Style
+
+`RichTextStyle` is the value of a `StyledText` element's `default-style` property.
+Unlike a span's `Style`, it applies to the whole element.
+`StyledTextItem` reports its `line-height-factor` through `RenderString::line_height_factor()`, like `Text`.
+See `RichTextStyle` in `internal/common/builtin_structs.rs`.
+
 ## Common Patterns
 
 ### Measuring Text
