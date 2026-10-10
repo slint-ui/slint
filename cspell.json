@@ -8,6 +8,7 @@
         "AOSP", // Android Open Source Project
         "bbox",
         "bindgen",
+        "boxshadow",
         "boxshadowcache",
         "builtins",
         "canonicalize", // std::path::Path::canonicalize

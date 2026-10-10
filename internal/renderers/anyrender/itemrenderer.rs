@@ -547,7 +547,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
 
         let Some(options) =
-            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(item_rc, box_shadow, sf)
+            i_slint_core::graphics::boxshadow::BoxShadowOptions::new(item_rc, box_shadow, sf)
         else {
             return;
         };

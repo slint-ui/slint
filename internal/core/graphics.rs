@@ -51,6 +51,8 @@ pub use self::bitmapfont::*;
 
 pub mod rendering_metrics_collector;
 
+pub mod boxshadow;
+
 #[cfg(feature = "box-shadow-cache")]
 pub mod boxshadowcache;
 
