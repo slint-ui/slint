@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell:ignore backgrund blu countr emtpy nmae sometihng widht wrod xyzzy
+
+export component TestCase inherits Rectangle {
+    in property <int> counter;
+    in property <{ name: string, age: int }> person;
+    function do-something() {}
+
+    backgrund: #f00;
+//  >       <error{Unknown property backgrund in Rectangle. Did you mean 'background'?}
+    with: 10px;
+//  >  <error{Unknown property with in Rectangle. Did you mean 'width'?}
+    Text {
+        text: countr;
+//            >    <error{Unknown unqualified identifier 'countr'. Did you mean 'counter'?}
+        wrap: TextWrap.wrod-wrap;
+//                     >       <error{'wrod-wrap' is not a member of the enum TextWrap. Did you mean 'word-wrap'?}
+        color: Colors.blu;
+//                    > <error{'blu' is not a member of the namespace Colors. Did you mean 'blue'?}
+    }
+    Text {
+        text: person.nmae;
+//                   >  <error{Cannot access the field 'nmae'. Did you mean 'name'?}
+        width: self.widht;
+//                  >   <error{Element 'Text' does not have a property 'widht'. Did you mean 'width'?}
+        height: self.Height;
+//                   >    <error{Element 'Text' does not have a property 'Height'. Did you mean 'height'?}
+        visible: "".is-emtpy;
+//                  >      <error{Cannot access the field 'is-emtpy' of string. Did you mean 'is-empty'?}
+    }
+    TouchArea {
+        clicked => {
+            root.do-sometihng();
+//               >          <error{Element 'Rectangle' does not have a property 'do-sometihng'. Did you mean 'do-something'?}
+        }
+    }
+
+    // too far from any name for a hint
+    xyzzy: 1;
+//  >   <error{Unknown property xyzzy in Rectangle}
+}
