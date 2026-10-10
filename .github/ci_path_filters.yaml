@@ -215,6 +215,13 @@ slint_sc:
  - 'tools/compiler/**'
  - *ci_config
 
+# The slint-sc test driver, which gates its runs on the other hosts and the
+# targets. Other slint-sc changes that pass on Linux rarely fail there, and the
+# full CI runs them anyway.
+slint_sc_driver:
+ - 'api/slint-sc/tests/driver.rs'
+ - 'api/slint-sc/tests/driver/**'
+
 # Safety manual and the generator that produces it, incl. the coverage chapter
 safety_docs:
  - 'docs/safety/**'

@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "slint-sc-test-sys"
+description = "The platform of the slint-sc test programs on bare-metal targets"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license = "GPL-3.0-only OR LicenseRef-Slint-Software-3.0"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[target.'cfg(target_os = "none")'.dependencies]
+semihosting = { version = "0.1.25", features = ["fs", "stdio", "panic-handler"] }

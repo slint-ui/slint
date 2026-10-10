@@ -458,6 +458,70 @@ jobs:
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') }}
               run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
+    # The slint-sc test programs on the targets of Ferrocene other than
+    # x86_64-unknown-linux-gnu, which the docs job runs with the coverage.
+    # The targets are the `TARGETS` of api/slint-sc/tests/driver.rs, run in
+    # QEMU. Debian has a QEMU with the Cortex-R52 machine, which Ubuntu 24.04
+    # lacks.
+    slint_sc_targets:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
+        runs-on: ubuntu-24.04
+        container: debian:trixie
+        steps:
+            - name: Install QEMU and the cross compilers
+              run: |
+                  apt-get update
+                  apt-get install -y --no-install-recommends ca-certificates curl git gcc libc6-dev \
+                      qemu-user qemu-system-arm \
+                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross \
+                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross \
+                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
+            - uses: actions/checkout@v7
+            - name: List the targets
+              id: targets
+              shell: bash
+              run: |
+                  targets=$(grep -oP 'triple: "\K[^"]+' api/slint-sc/tests/driver.rs | paste -sd,)
+                  echo "list=$targets" >> "$GITHUB_OUTPUT"
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ steps.targets.outputs.list }}
+            - name: Run the slint-sc test driver on each target
+              shell: bash
+              env:
+                  SLINT_SC_TARGETS: ${{ steps.targets.outputs.list }}
+              run: |
+                  failed=""
+                  for target in ${SLINT_SC_TARGETS//,/ }; do
+                      echo "::group::$target"
+                      SLINT_SC_TARGET=$target cargo test --locked -p slint-sc --test driver || failed="$failed $target"
+                      echo "::endgroup::"
+                  done
+                  if [ -n "$failed" ]; then
+                      echo "::error::slint-sc test driver failed on:$failed"
+                      exit 1
+                  fi
+
+    # The slint-sc tests on the host targets of Ferrocene other than
+    # x86_64-unknown-linux-gnu
+    slint_sc_hosts:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
+        strategy:
+            matrix:
+                os: [macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: clippy, llvm-tools-preview
+            - name: Run the slint-sc tests
+              shell: bash
+              run: |
+                  cargo test --locked -p i-slint-compiler --features slint-sc --no-default-features
+                  cargo test --locked -p slint-compiler --features slint-sc --no-default-features
+                  cargo test --locked -p slint-sc
+
     docs:
         if: ${{ !inputs.full && (contains(fromJSON(inputs.changes), 'docs_build') || contains(fromJSON(inputs.changes), 'slint_sc')) }}
         uses: ./.github/workflows/build_docs.yaml

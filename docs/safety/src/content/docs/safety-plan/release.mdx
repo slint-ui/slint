@@ -18,7 +18,7 @@ The activities run in this order.
 | --- | --- | --- | --- |
 | R-01 | Check this Safety Plan and the scope of the release | Safety Manager | A revision of the Safety Plan, if needed; the language subset and features the release covers |
 | R-02 | Choose the commit to release, and check that every commit since the previous release that touches Slint SC belongs to an approved pull request | Release Manager | The release commit, and the list of its commits with their pull requests and approvals |
-| R-03 | Run every suite on the evidence toolchain, on the 64-bit host and on a 32-bit target configuration; see [Test Environment and Targets](/safety-plan/verification/#test-environment-and-targets) | Verification Lead | [Test Results](/qualification-report/test-results/), [Test Coverage](/qualification-report/test-coverage/), and the [Traceability Matrix](/qualification-report/traceability-matrix/), generated from the run |
+| R-03 | Run every suite on the evidence toolchain, on the hosts and the targets; see [Test Environment and Targets](/safety-plan/verification/#test-environment-and-targets) | Verification Lead | [Test Results](/qualification-report/test-results/), [Test Coverage](/qualification-report/test-coverage/), and the [Traceability Matrix](/qualification-report/traceability-matrix/), generated from the run |
 | R-04 | Qualify the tools of this version | Technical Lead Compiler | [Tool Qualification](/qualification-report/tool-qualification/) |
 | R-05 | Close every open safety anomaly, or justify leaving the anomaly open | Safety Manager | [Known Problems](/user-manual/known-problems/) for this release, with a reviewed rationale for each open entry |
 | R-06 | Update the safety case | Safety Manager | The safety case: the argument that this release meets its assumed safety requirements, with links to the evidence of R-03 to R-05 |
@@ -28,7 +28,7 @@ The activities run in this order.
 
 :::caution[TODO]
 No script performs the check of R-02 yet.
-R-03 doesn't run on a 32-bit target configuration yet, and R-06 has no safety case to update.
+R-06 has no safety case to update.
 :::
 
 ## After a Release

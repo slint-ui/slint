@@ -29,22 +29,33 @@ The suites run automatically in CI on every change, and on demand when a release
 
 <Addresses>ISO 26262-6 9.4.5, 10.4.7</Addresses>
 
-The suites run on a 64-bit host.
-Slint SC runs on targets we don't know, so there's no single target to test on.
+The suites run on x86-64 Linux, which also measures the coverage.
+They also run on AArch64 macOS and x86-64 Windows.
+The test driver also builds its test programs for the targets below, and runs them.
+There, it leaves out the lints, the `compile_fail` blocks, and the coverage, which don't depend on the target.
+
+| Target | Runs on |
+| --- | --- |
+| `x86_64-unknown-linux-musl` | The x86-64 Linux host |
+| `aarch64-unknown-linux-musl`, `riscv64gc-unknown-linux-gnu`, `powerpc64le-unknown-linux-gnu`, `s390x-unknown-linux-gnu` | QEMU user-mode emulation |
+| `aarch64-unknown-none` | QEMU, Cortex-A53 (`virt` machine) |
+| `armv7r-none-eabihf`, `armv8r-none-eabihf` | QEMU, Cortex-R52 (MPS3 AN536) |
+| `thumbv6m-none-eabi`, `thumbv7em-none-eabi`, `thumbv7em-none-eabihf` | QEMU, Cortex-M4 (MPS2 AN386) |
+| `thumbv8m.base-none-eabi`, `thumbv8m.main-none-eabi`, `thumbv8m.main-none-eabihf` | QEMU, Cortex-M33 (MPS2 AN505) |
+
+`TARGETS` in `api/slint-sc/tests/driver.rs` holds this list.
+
+Slint SC runs on targets we don't know, so these targets can't stand for every target.
 Instead, the suites cover the properties in which a target can differ from the host:
 
 | Property | Difference from the host | How it's covered |
 | --- | --- | --- |
-| Pointer width | `usize` is 32 bits on most embedded targets. Frame buffer offsets, and the size check of `render_rgb8`, compute in `usize`, so a product of sizes that fits on the host can overflow on a 32-bit target. | The suites also run on a 32-bit target configuration. |
-| Byte order | None. Images are decoded with an explicit byte order, and the frame buffer is written one byte per channel. | Holds on every target. |
+| Pointer width | `usize` is 32 bits on most embedded targets. Frame buffer offsets, and the size check of `render_rgb8`, compute in `usize`, so a product of sizes that fits on the host can overflow on a 32-bit target. | The test programs also run on the 32-bit Arm targets. |
+| Byte order | None. Images are decoded with an explicit byte order, and the frame buffer is written one byte per channel. | Holds on every target. The test programs also run on the big-endian s390x target. |
 | Floating point | None. The runtime and the generated code compute in integers only. | Holds on every target. |
 | Standard library and allocator | None. The runtime is `no_std` and doesn't use `alloc`. | Holds on every target. |
 
 The integrator tests on their actual target; see [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests).
-
-:::caution[TODO]
-Run the suites on a 32-bit target configuration, such as `thumbv7em` under QEMU.
-:::
 
 ## Pass Criteria
 
