@@ -71,10 +71,8 @@ impl SkiaRendererAdapter {
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
-        #[cfg(gbm_dmabuf)]
-        if std::env::var_os("SLINT_KMS_WGPU_DMABUF").is_some()
-            || !super::skia_dmabuf::acquire_drm_display_available()
-        {
+        #[cfg(skia_wgpu_30)]
+        if super::dmabuf::prefer_dmabuf() {
             return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
                 drm_output,
                 requested_graphics_api,
@@ -87,7 +85,7 @@ impl SkiaRendererAdapter {
             Ok(surface_and_size) => surface_and_size,
             // The extension is there but unusable for this device: no Vulkan
             // physical device matching the DRM fd, or no matching display mode.
-            #[cfg(gbm_dmabuf)]
+            #[cfg(skia_wgpu_30)]
             Err(err) => {
                 eprintln!("Falling back to dma-buf presentation: {err}");
                 return super::skia_dmabuf::SkiaDmabufRendererAdapter::new(
@@ -99,7 +97,7 @@ impl SkiaRendererAdapter {
                         .into()
                 });
             }
-            #[cfg(not(gbm_dmabuf))]
+            #[cfg(not(skia_wgpu_30))]
             Err(err) => return Err(err),
         };
 
