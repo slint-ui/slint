@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{diagnostics::BuildDiagnostics, expression_tree::Expression, parser::SyntaxNode};
+use crate::diagnostics::BuildDiagnostics;
+use crate::expression_tree::Expression;
+use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 
 /// Remove all expressions that are proven to have no effect from the given Expressions.
 ///
@@ -27,8 +29,52 @@ pub fn remove_from_codeblock(
             if without_side_effects(expression) {
                 diagnostics.push_warning("Expression has no effect!".to_owned(), node);
                 code_block.remove(index);
+            } else if node.kind() == SyntaxKind::Expression {
+                warn_discarded_branches(&node.clone().into(), expression, diagnostics);
             }
         }
+    }
+}
+
+/// Warn about the value of a branch of the discarded `expression` that has no effect,
+/// such as `accept` in `if c { foo(); accept }`.
+fn warn_discarded_branches(
+    node: &syntax_nodes::Expression,
+    expression: &Expression,
+    diagnostics: &mut BuildDiagnostics,
+) {
+    match expression {
+        Expression::Condition { true_expr, false_expr, .. } => {
+            let Some(conditional) = node.ConditionalExpression() else { return };
+            let (_, true_node, false_node) = conditional.Expression();
+            warn_discarded_value(&true_node, true_expr, diagnostics);
+            warn_discarded_value(&false_node, false_expr, diagnostics);
+        }
+        Expression::CodeBlock(statements) => {
+            let Some(block) = node.CodeBlock() else { return };
+            let last_node = block.children().last().filter(|n| n.kind() == SyntaxKind::Expression);
+            if let (Some(last_node), Some(last)) = (last_node, statements.last()) {
+                warn_discarded_value(&last_node.into(), last, diagnostics);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn warn_discarded_value(
+    node: &syntax_nodes::Expression,
+    expression: &Expression,
+    diagnostics: &mut BuildDiagnostics,
+) {
+    match expression {
+        // An empty block has no side effect, but no value to warn about either
+        Expression::Condition { .. } | Expression::CodeBlock(_) => {
+            warn_discarded_branches(node, expression, diagnostics)
+        }
+        _ if without_side_effects(expression) => {
+            diagnostics.push_warning("Expression has no effect!".to_owned(), node)
+        }
+        _ => {}
     }
 }
 

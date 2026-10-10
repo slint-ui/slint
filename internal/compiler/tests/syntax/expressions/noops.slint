@@ -65,6 +65,52 @@ export component Test {
         12
     }
 
+    function discarded_branch(cond: bool) -> EventResult {
+        if cond {
+            another_function();
+            accept;
+//          >    <warning{Expression has no effect!}
+        } else if !cond {
+            another_function();
+            if cond {
+                another_function();
+                reject;
+//              >    <warning{Expression has no effect!}
+            }
+        } else {
+        }
+        if cond {
+            another_function();
+            return accept;
+        }
+        reject
+    }
+
+    function discarded_branch_shapes(cond: bool) -> int {
+        cond ? another_function() : 1;
+//                                  ^warning{Expression has no effect!}
+        cond ? 2 : another_function();
+//             ><warning{Expression has no effect!}
+        if cond {
+            another_function();
+            let x = 4;
+        }
+        if cond {
+            another_function();
+            if cond { another_function(); } else { another_function(); }
+        }
+        if !cond {
+            return another_function();
+            5;
+//          ^warning{Expression has no effect!}
+        }
+        if another_function() == 6 {
+            7;
+//          ^warning{Expression has no effect!}
+        }
+        8
+    }
+
     function another_function() -> int { 1 }
 
     function make_struct() -> MyStruct {

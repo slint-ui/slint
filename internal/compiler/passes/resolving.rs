@@ -451,28 +451,12 @@ impl Expression {
         // new scope for locals
         ctx.local_variables.push(Vec::new());
 
-        // The block evaluates to its last statement; the value of the others is discarded
-        let value_range = node
-            .children()
-            .filter(|n| {
-                matches!(
-                    n.kind(),
-                    SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
-                )
-            })
-            .last()
-            .filter(|n| n.kind() == SyntaxKind::Expression)
-            .map(|n| n.text_range());
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression if Some(n.text_range()) == value_range => {
+                SyntaxKind::Expression => {
                     Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
                 }
-                SyntaxKind::Expression => Some((
-                    n.clone(),
-                    ctx.without_expected_type(|ctx| Self::from_expression_node(n.into(), ctx)),
-                )),
                 SyntaxKind::ReturnStatement => {
                     Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
                 }
