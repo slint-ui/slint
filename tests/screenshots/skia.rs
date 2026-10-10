@@ -8,7 +8,7 @@ use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use slint_interpreter::ComponentHandle;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -361,4 +361,124 @@ fn shadow_spread_preserves_adjusted_corner_radii() {
             );
         }
     }
+}
+
+/// A target that still holds an earlier frame, as a swapchain image or a scanout buffer may.
+struct DirtySurface(Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>);
+
+impl i_slint_renderer_skia::Surface for DirtySurface {
+    fn new(
+        _shared_context: &SkiaSharedContext,
+        _window_handle: std::sync::Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
+        _display_handle: std::sync::Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
+        _size: i_slint_core::api::PhysicalSize,
+        _requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
+    ) -> Result<Self, PlatformError> {
+        Err("DirtySurface is only created directly".into())
+    }
+
+    fn name(&self) -> &'static str {
+        "dirty"
+    }
+
+    fn render(
+        &self,
+        _window: &i_slint_core::api::Window,
+        _size: i_slint_core::api::PhysicalSize,
+        render_callback: &dyn Fn(
+            &i_slint_renderer_skia::skia_safe::Canvas,
+            Option<&mut i_slint_renderer_skia::skia_safe::gpu::DirectContext>,
+            u8,
+        ) -> Option<i_slint_core::partial_renderer::DirtyRegion>,
+        _pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
+    ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError> {
+        render_callback(self.0.borrow_mut().canvas(), None, 0);
+        Ok(i_slint_core::renderer::DrawOutcome::Success)
+    }
+
+    fn resize_event(&self, _size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
+        Ok(32)
+    }
+}
+
+const DIRTY_SIZE: i32 = 8;
+
+thread_local! {
+    static DIRTY_WINDOW: RefCell<Option<Rc<DirtyWindow>>> = const { RefCell::new(None) };
+}
+
+struct DirtyWindow {
+    window: i_slint_core::api::Window,
+    renderer: SkiaRenderer,
+    target: Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>,
+}
+
+impl WindowAdapter for DirtyWindow {
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
+    }
+
+    fn size(&self) -> PhysicalSize {
+        PhysicalSize::new(DIRTY_SIZE as u32, DIRTY_SIZE as u32)
+    }
+
+    fn renderer(&self) -> &dyn Renderer {
+        &self.renderer
+    }
+}
+
+struct DirtyTargetBackend;
+
+impl Platform for DirtyTargetBackend {
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        use i_slint_renderer_skia::skia_safe;
+        let mut surface = skia_safe::surfaces::raster_n32_premul((DIRTY_SIZE, DIRTY_SIZE))
+            .ok_or("Error creating a raster surface")?;
+        surface.canvas().clear(skia_safe::Color::RED);
+        let target = Rc::new(RefCell::new(surface));
+        let window = Rc::new_cyclic(|self_weak| DirtyWindow {
+            window: i_slint_core::api::Window::new(self_weak.clone() as _),
+            renderer: SkiaRenderer::new_with_surface(
+                &SkiaSharedContext::default(),
+                Box::new(DirtySurface(target.clone())),
+            ),
+            target,
+        });
+        DIRTY_WINDOW.with(|dirty_window| *dirty_window.borrow_mut() = Some(window.clone()));
+        Ok(window)
+    }
+}
+
+#[test]
+fn transparent_gradient_background_replaces_the_previous_frame() {
+    i_slint_core::platform::set_platform(Box::new(DirtyTargetBackend))
+        .expect("platform already initialized");
+
+    let source = r#"
+        export component TestCase inherits Window {
+            background: @linear-gradient(90deg, transparent 0%, #0000ff80 100%);
+        }
+    "#;
+    let result = poll_once(
+        slint_interpreter::Compiler::default().build_from_source(source.into(), Default::default()),
+    )
+    .unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+
+    let window = DIRTY_WINDOW.with(|dirty_window| dirty_window.borrow().clone()).unwrap();
+    assert!(matches!(window.renderer.render(), Ok(i_slint_core::renderer::DrawOutcome::Success)));
+
+    let image = window.target.borrow_mut().image_snapshot();
+    let pixels = image.peek_pixels().unwrap();
+    let red = (0..DIRTY_SIZE)
+        .flat_map(|y| (0..DIRTY_SIZE).map(move |x| (x, y)))
+        .filter(|&(x, y)| pixels.get_color((x, y)).r() > 0)
+        .count();
+    assert_eq!(red, 0, "pixels showing the previous frame");
 }

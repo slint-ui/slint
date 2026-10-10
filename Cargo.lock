@@ -3386,6 +3386,7 @@ dependencies = [
 name = "i-slint-backend-linuxkms"
 version = "1.19.0"
 dependencies = [
+ "ash",
  "bytemuck",
  "calloop 0.14.4",
  "cfg_aliases",
@@ -3400,6 +3401,7 @@ dependencies = [
  "i-slint-renderer-software",
  "input",
  "libseat",
+ "log",
  "memmap2",
  "nix",
  "raw-window-handle",

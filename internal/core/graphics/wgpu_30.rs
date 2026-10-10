@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore surfaceless
+
 #![warn(missing_docs)]
 
 /*!
@@ -281,6 +283,41 @@ fn default_device_descriptor(adapter: &wgpu::Adapter) -> wgpu::DeviceDescriptor<
     }
 }
 
+/// The device descriptor for a renderer that creates its own device without a surface,
+/// such as the linuxkms renderer that scans out a dma-buf.
+///
+/// It applies [`api::WGPUConfiguration::Automatic`] settings like the surface path does,
+/// so an application configures such a renderer with the same `WGPUSettings`.
+/// Only their device half applies.
+/// The renderer creates the instance and picks the adapter itself, so the backends and the
+/// power preference don't apply, and without a surface, there's no present mode to pick.
+///
+/// [`api::WGPUConfiguration::Manual`] is an error.
+/// Such a renderer needs a device built to its requirements, which a supplied one may not meet.
+pub fn surfaceless_device_descriptor<'a>(
+    requested_graphics_api: Option<&'a RequestedGraphicsAPI>,
+    adapter: &wgpu::Adapter,
+) -> Result<wgpu::DeviceDescriptor<'a>, crate::api::PlatformError> {
+    match requested_graphics_api {
+        None | Some(RequestedGraphicsAPI::Vulkan) => Ok(default_device_descriptor(adapter)),
+        #[cfg(feature = "unstable-wgpu-30")]
+        Some(RequestedGraphicsAPI::WGPU30(api::WGPUConfiguration::Automatic(settings))) => {
+            Ok(device_descriptor_from_settings(settings, adapter))
+        }
+        #[cfg(feature = "unstable-wgpu-30")]
+        Some(RequestedGraphicsAPI::WGPU30(api::WGPUConfiguration::Manual { .. })) => {
+            Err(crate::api::PlatformError::from(
+                "This renderer creates its own WGPU device and cannot use a supplied one; \
+                 configure it with WGPUConfiguration::Automatic instead",
+            ))
+        }
+        Some(api) => Err(crate::api::PlatformError::from(alloc::format!(
+            "This renderer creates its own WGPU device, so the requested graphics API {api:?} \
+             cannot be used"
+        ))),
+    }
+}
+
 /// Internal async helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub async fn async_init_instance_adapter_device_queue_surface(
@@ -513,8 +550,10 @@ pub fn init_instance_adapter_device_queue_surface_then(
     }
 }
 
-// Helper function to poll a future once. Remove once the suspension API uses async.
-fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+/// Polls `future` once, which is all a wgpu future needs on native platforms.
+/// `None` if it isn't ready.
+#[doc(hidden)]
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
     let waker = std::task::Waker::noop();
     let mut ctx = std::task::Context::from_waker(waker);
 

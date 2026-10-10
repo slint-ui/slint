@@ -145,6 +145,46 @@ impl WGPUSurface {
         }
     }
 
+    /// Moves `texture` to a color target through wgpu, before Skia draws into it as one.
+    /// The application may have left it in another layout, such as by sampling it.
+    /// Going through wgpu keeps wgpu's record of the layout true, see `release_vulkan_surface`.
+    pub(crate) fn transition_to_color_target(
+        &self,
+        texture: &wgpu::Texture,
+    ) -> Result<(), PlatformError> {
+        let needed = match self.backend {
+            #[cfg(target_vendor = "apple")]
+            Backend::Metal => wgpu::TextureUsages::RENDER_ATTACHMENT,
+            #[cfg(target_family = "windows")]
+            Backend::Dx12 => wgpu::TextureUsages::RENDER_ATTACHMENT,
+            // Skia's Vulkan backend only wraps images it can copy from and into.
+            #[cfg(skia_wgpu_vulkan)]
+            Backend::Vulkan { .. } => {
+                wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::COPY_DST
+            }
+        };
+        let missing = needed - texture.usage();
+        if !missing.is_empty() {
+            return Err(format!("The texture to render into lacks {missing:?} usage").into());
+        }
+        let mut encoder =
+            self.wgpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Skia render target transition encoder"),
+            });
+        encoder.transition_resources(
+            std::iter::empty(),
+            std::iter::once(wgpu::TextureTransition {
+                texture,
+                selector: None,
+                state: wgpu::TextureUses::COLOR_TARGET,
+            }),
+        );
+        self.wgpu.queue.submit(Some(encoder.finish()));
+        Ok(())
+    }
+
     /// Transitions any imported wgpu textures to sampling state and flushes
     /// the Skia graphics context. Must be called after rendering to ensure
     /// Skia's GPU work is submitted.
@@ -603,6 +643,9 @@ impl Backend {
         }
     }
 
+    /// Wraps `texture` for Skia to draw into, as the color target
+    /// [`WGPUSurface::transition_to_color_target`] made it.
+    /// Pair every call with [`Self::release_surface`].
     pub(crate) fn make_surface(
         &self,
         gr_context: &mut skia_safe::gpu::DirectContext,
@@ -665,9 +708,33 @@ impl Backend {
             #[cfg(target_family = "windows")]
             Self::Dx12 => {}
             #[cfg(skia_wgpu_vulkan)]
-            Self::Vulkan { queue_family_index } => vulkan::release_vulkan_swapchain_surface(
+            Self::Vulkan { queue_family_index } => vulkan::release_vulkan_surface(
                 _gr_context,
                 _skia_surface,
+                skia_safe::gpu::vk::ImageLayout::PRESENT_SRC_KHR,
+                *queue_family_index,
+            ),
+        }
+    }
+
+    /// Hands a surface made by [`Self::make_surface`] back as the color target wgpu records it
+    /// as, whatever layouts Skia moved it through while drawing.
+    pub(crate) fn release_surface(
+        &self,
+        _gr_context: &mut skia_safe::gpu::DirectContext,
+        _skia_surface: &mut skia_safe::Surface,
+    ) {
+        match self {
+            // Metal and D3D12 have no image layout for Skia to hand back.
+            #[cfg(target_vendor = "apple")]
+            Self::Metal => {}
+            #[cfg(target_family = "windows")]
+            Self::Dx12 => {}
+            #[cfg(skia_wgpu_vulkan)]
+            Self::Vulkan { queue_family_index } => vulkan::release_vulkan_surface(
+                _gr_context,
+                _skia_surface,
+                skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                 *queue_family_index,
             ),
         }

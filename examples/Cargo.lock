@@ -4603,6 +4603,7 @@ dependencies = [
 name = "i-slint-backend-linuxkms"
 version = "1.19.0"
 dependencies = [
+ "ash",
  "bytemuck",
  "calloop 0.14.5",
  "cfg_aliases",

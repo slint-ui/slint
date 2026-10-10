@@ -72,3 +72,6 @@ i-slint-compiler = { workspace = true, features = ["default", "rust", "display-d
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }
+
+[dev-dependencies]
+raw-window-handle = { version = "0.6" }
