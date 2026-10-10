@@ -47,6 +47,11 @@ internal: &internal
 widgets: &widgets
  - 'internal/compiler/widgets/**'
 
+linuxkms_backend:
+ - 'Cargo.toml'
+ - 'internal/backends/linuxkms/**'
+ - *ci_config
+
 # What the code that the Rust generator emits depends on.
 rust_generator:
  - *compiler
@@ -115,7 +120,6 @@ tree_sitter:
 figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
- - *ci_config
 
 material_components:
  - '.github/workflows/material.yaml'

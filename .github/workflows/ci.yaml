@@ -840,7 +840,7 @@ jobs:
     # resolution itself, from the CMake options down. `cargo tree` and CMake only, no
     # compilation and no system libraries.
     linuxkms_features:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v7
