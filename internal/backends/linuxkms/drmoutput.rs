@@ -300,7 +300,7 @@ impl DrmOutput {
         refresh_rate_millihertz(&self.mode)
     }
 
-    #[cfg(feature = "unstable-wgpu-29")]
+    #[cfg(skia_wgpu_29)]
     /// Creates a wgpu-29 DRM surface target from this output.
     pub fn wgpu_29_surface_target(
         &self,
