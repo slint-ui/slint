@@ -78,6 +78,7 @@ jobs:
             # Windows always does, for the live-preview test.
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
+            check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
             build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 

@@ -47,6 +47,11 @@ internal: &internal
 widgets: &widgets
  - 'internal/compiler/widgets/**'
 
+# What the code that the Rust generator emits depends on.
+rust_generator:
+ - *compiler
+ - 'internal/compiler/generator/rust*{,/**}'
+
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
  - *internal
