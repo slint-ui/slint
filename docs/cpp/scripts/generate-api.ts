@@ -14,7 +14,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHighlighter } from "shiki";
 import { DoxygenConverter } from "./lib/doxygen.ts";
+import { resolveSlintLinks } from "./lib/slint-links.ts";
 import { API_ROOT } from "./lib/slug.ts";
+import { slintDocsBase } from "../src/cpp-site-config.mjs";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
@@ -95,7 +97,11 @@ async function convert(): Promise<void> {
     for (const page of pages) {
         const file = join(contentDocs, `${page.slug}.md`);
         mkdirSync(dirname(file), { recursive: true });
-        writeFileSync(file, page.markdown, "utf8");
+        writeFileSync(
+            file,
+            resolveSlintLinks(page.markdown, slintDocsBase(), page.slug),
+            "utf8",
+        );
     }
     // REUSE-IgnoreStart — the header below is written into the generated file,
     // it is not the license of this script.

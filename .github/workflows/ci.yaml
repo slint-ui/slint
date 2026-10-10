@@ -315,6 +315,14 @@ jobs:
               if: matrix.os == 'ubuntu-22.04'
               run: |
                   echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
+            # The VTK example needs VTK 9.4 or newer, which only Homebrew provides as a package.
+            # Installing it takes minutes, so only the full CI run builds the example.
+            - name: Install VTK (macOS, full CI only)
+              if: runner.os == 'macOS' && inputs.full
+              env:
+                  HOMEBREW_NO_AUTO_UPDATE: 1
+                  HOMEBREW_NO_INSTALL_CLEANUP: 1
+              run: brew install vtk
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
               with:
@@ -323,6 +331,10 @@ jobs:
                   cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON -DSLINT_FEATURE_EXPERIMENTAL=ON -DSLINT_FEATURE_TESTING=ON -DSLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565=ON -DSLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8=ON"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Debug"
+            # CMake skips the example without an error when it doesn't find VTK.
+            - name: Check that the VTK example was built
+              if: runner.os == 'macOS' && inputs.full
+              run: test -x "${{ runner.workspace }}/cppbuild/examples/vtk/vtk_example"
             - name: ctest
               working-directory: ${{ runner.workspace }}/cppbuild
               run: ctest --verbose -C Debug
