@@ -3,9 +3,9 @@
 
 // cSpell: ignore donotexist
 
-#![cfg(feature = "unstable-fontique-011")]
+#![cfg(feature = "unstable-fontique-012")]
 
-use slint::fontique_011::fontique;
+use slint::fontique_012::fontique;
 
 // The wasm gallery downloads a CJK font and registers it as a fallback before the first
 // component is created, so `shared_collection()` must work without an initialized
@@ -23,7 +23,7 @@ fn register_fonts_before_platform_init() {
     .unwrap();
 
     let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
-    let mut collection = slint::fontique_011::shared_collection();
+    let mut collection = slint::fontique_012::shared_collection();
     let fonts = collection.register_fonts(blob, None);
 
     let (family_id, font_infos) = fonts.first().expect("no font was registered");
