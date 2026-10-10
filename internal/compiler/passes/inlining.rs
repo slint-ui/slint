@@ -626,6 +626,7 @@ fn duplicate_element_with_mapping(
         property_declarations: elem.property_declarations.clone(),
         shadowing_members: elem.shadowing_members.clone(),
         implement_statements: Default::default(),
+        moved_property_declarations: elem.moved_property_declarations.clone(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings_including_synthetic()

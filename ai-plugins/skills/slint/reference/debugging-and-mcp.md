@@ -163,6 +163,12 @@ Most take element/window handles returned by `list_windows`/the tree calls.
 
 - Give elements ids (`foo := Rectangle {}`), then target them via
   `find_elements_by_id` (`ComponentName::id`).
+- To verify state, read `testableProperties` from `get_element_properties`:
+  it lists the element's `@testable` properties with typed current values,
+  which beats diffing screenshots.
+  Only properties declared with the experimental `@testable` attribute are
+  listed (any visibility, kept alive even when unread); mark the properties a
+  test needs to observe.
 - Drive a flow (`click_element`, `dispatch_key_event`), then `take_screenshot`
   to verify the result.
 - Claude Code reads a project-level `.mcp.json`; declaring the server there
