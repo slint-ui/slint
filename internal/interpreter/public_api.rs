@@ -23,7 +23,7 @@ pub fn find_public_property<'a>(
     public: &'a PublicComponent,
     name: &str,
 ) -> Option<&'a PublicProperty> {
-    let normalized = i_slint_compiler::parser::normalize_identifier(name);
+    let normalized = i_slint_compiler::names::normalize_identifier(name);
     public.public_properties.get(normalized.as_str())
 }
 
@@ -225,7 +225,7 @@ fn resolve_global<'a>(
     let cu = &instance.root_sub_component.compilation_unit;
     let (_global, global_instance) = instance.globals.find_by_name(cu, global_name)?;
     let global_instance = global_instance.clone();
-    let needle = i_slint_compiler::parser::normalize_identifier(prop_name);
+    let needle = i_slint_compiler::names::normalize_identifier(prop_name);
     let global = &cu.globals[global_instance.global_idx];
     let prop = global.public_properties.get(needle.as_str())?;
     Some((prop, global_instance))
