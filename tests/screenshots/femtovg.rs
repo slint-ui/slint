@@ -144,6 +144,7 @@ pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
     pub reference_path: std::path::PathBuf,
     pub base_threshold: f32,
+    pub size: PhysicalSize,
 }
 
 pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
@@ -157,6 +158,7 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     compiled.print_diagnostics();
     assert!(!compiled.has_errors());
     let component = compiled.components().last().unwrap().create()?;
+    component.window().set_size(testcase.size);
     component.show()?;
     let screenshot = component.window().take_snapshot()?;
     crate::testing::compare_images(

@@ -213,6 +213,9 @@ A case opts in with a `// FEMTOVG` marker:
 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --no-default-features --features femtovg
 ```
 
+The generator honors `SIZE`, `BASE_THRESHOLD`, and `//ignore: femtovg` markers.
+Ignored cases run when the command includes `-- --ignored`.
+
 These tests cover the shared shadow drawing path, texture rendering, and GPU readback.
 They compare screenshot references and check that paint changes invalidate cached shadows.
 

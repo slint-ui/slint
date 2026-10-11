@@ -319,6 +319,7 @@ fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
             continue;
         }
         let base_threshold = markers.base_threshold;
+        let (size_w, size_h) = markers.size;
 
         let reference_path = references_root_dir
             .join(testcase.relative_path.clone())
@@ -328,16 +329,18 @@ fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
         let absolute_path = testcase.absolute_path.to_string_lossy();
 
         let identifier = testcase.identifier();
+        let ignored = if testcase.is_ignored("femtovg") { "#[ignore]" } else { "" };
 
         write!(
             generated_file,
             r##"
-#[test]
+#[test] {ignored}
 fn femtovg_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
     crate::femtovg::run_test(crate::femtovg::TestCase {{
         absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
         reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
         base_threshold: {base_threshold}f32,
+        size: i_slint_core::api::PhysicalSize::new({size_w}, {size_h}),
     }})
 }}"##,
         )?;
