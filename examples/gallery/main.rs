@@ -39,15 +39,12 @@ fn scripts_for_locale(
 
     let scripts: &[fontique::Script] = match locale.id.language.as_str() {
         "ja" => &[
-            fontique::Script::from_str_unchecked("Hira"),
-            fontique::Script::from_str_unchecked("Kana"),
-            fontique::Script::from_str_unchecked("Hani"),
+            fontique::Script::from_bytes(*b"Hira"),
+            fontique::Script::from_bytes(*b"Kana"),
+            fontique::Script::from_bytes(*b"Hani"),
         ],
-        "ko" => &[
-            fontique::Script::from_str_unchecked("Hang"),
-            fontique::Script::from_str_unchecked("Hani"),
-        ],
-        "zh" => &[fontique::Script::from_str_unchecked("Hani")],
+        "ko" => &[fontique::Script::from_bytes(*b"Hang"), fontique::Script::from_bytes(*b"Hani")],
+        "zh" => &[fontique::Script::from_bytes(*b"Hani")],
         _ => {
             if let Some(script) = locale.id.script {
                 &[fontique::Script::from_bytes(script.into_raw())]
