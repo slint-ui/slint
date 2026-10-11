@@ -133,11 +133,16 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                 }
                 let weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
                 let expr = triggered_expr.clone();
-                timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {
-                    let Some(owner) = weak.upgrade() else { return };
-                    let mut ctx = EvalContext::new(Pin::new(owner));
-                    eval_expression(&mut ctx, &expr);
-                });
+                crate::eval::component_context(&ctx).start_timer(
+                    timer,
+                    i_slint_core::timers::TimerMode::Repeated,
+                    interval,
+                    move || {
+                        let Some(owner) = weak.upgrade() else { return };
+                        let mut ctx = EvalContext::new(Pin::new(owner));
+                        eval_expression(&mut ctx, &expr);
+                    },
+                );
             }
         }
     };

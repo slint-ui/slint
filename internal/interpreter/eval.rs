@@ -2788,7 +2788,7 @@ pub(crate) fn find_window_adapter(
     find_root_instance(ctx)?.window_adapter_or_default()
 }
 
-fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext {
+pub(crate) fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext {
     match ctx.globals.upgrade() {
         Some(globals) => globals.context.clone(),
         None => i_slint_core::SlintContext::current()
