@@ -1036,7 +1036,7 @@ impl FlickableData {
         delta_x: Coord,
         delta_y: Coord,
     ) -> LogicalVector {
-        if window_adapter.window().0.context().0.modifiers.get().shift()
+        if window_adapter.window().0.context().modifiers().get().shift()
             && !cfg!(target_os = "macos")
         {
             // Shift invert coordinate for the purpose of scrolling.
