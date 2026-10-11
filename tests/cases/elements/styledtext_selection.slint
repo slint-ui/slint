@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Selecting text in a `StyledText` with the mouse; no string templates, so the Rust driver runs it.
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    plain := StyledText {
+        x: 0;
+        y: 0;
+        width: 400px;
+        height: 80px;
+        text: @markdown("Not [selectable](https://slint.dev/plain) here");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    st := StyledText {
+        x: 0;
+        y: 450px;
+        width: 400px;
+        height: 80px;
+        selectable: true;
+        text: @markdown("[Select this](https://slint.dev/sel) **text**\n\nand more");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    out property <bool> test: st.selectable && !plain.selectable && st.selected-text == "";
+    out property <string> clicked_link_url: "";
+    out property <string> selected <=> st.selected-text;
+    in-out property <int> sel_anchor <=> st.anchor-position-byte-offset;
+    in-out property <int> sel_cursor <=> st.cursor-position-byte-offset;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, MouseCursorInner};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let cursor = || slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor());
+let moved = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+let pressed = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(x, y), button: PointerEventButton::Left });
+let released = |x, y| instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(x, y), button: PointerEventButton::Left });
+
+// Not selectable: as before, a pointer over the link only, and a drag selects nothing.
+moved(300.0, 10.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
+pressed(2.0, 10.0);
+moved(395.0, 10.0);
+released(395.0, 10.0);
+assert_eq!(instance.get_selected(), "");
+
+// Selectable: an I-beam over the text, a pointer over its link.
+moved(300.0, 460.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+moved(5.0, 460.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
+
+// Dragging from the link selects instead of following it; the selection is the raw text.
+pressed(2.0, 460.0);
+moved(395.0, 460.0);
+assert_eq!(instance.get_selected(), "Select this text");
+released(395.0, 460.0);
+assert_eq!(instance.get_selected(), "Select this text");
+assert_eq!(instance.get_clicked_link_url(), "");
+assert_eq!(instance.get_sel_anchor(), 0);
+assert_eq!(instance.get_sel_cursor(), 16);
+
+// Across paragraphs: offsets count the line break between them.
+pressed(2.0, 460.0);
+moved(395.0, 520.0);
+released(395.0, 520.0);
+assert_eq!(instance.get_selected(), "Select this text\nand more");
+
+// Clearing from the outside.
+instance.set_sel_anchor(3);
+instance.set_sel_cursor(3);
+assert_eq!(instance.get_selected(), "");
+
+// A click without a drag follows the link under it, and keeps nothing selected. (Time passes
+// first: clicks in quick succession count as double and triple clicks.)
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 5.0, 460.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/sel");
+assert_eq!(instance.get_selected(), "");
+
+// A double click selects a word.
+slint_testing::mock_elapsed_time(1000);
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+assert_eq!(instance.get_selected(), "Select");
+```
+*/

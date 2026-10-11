@@ -1266,6 +1266,24 @@ fn build(l: &mut Loader) {
         in property <TextVerticalAlignment> vertical-alignment;
         /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
         callback link-clicked(link: string);
+        /// Whether the text can be selected with the mouse.
+        /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
+        /// A click that doesn't drag still follows a link.
+        /// Read the selection from `selected-text`.
+        /// \default false
+        in property <bool> selectable;
+        /// The background color of the selection.
+        in property <color> selection-background-color; // Palette.selection-background set in apply_default_properties_from_style
+        /// The foreground color of the selection.
+        in property <color> selection-foreground-color; // Palette.selection-foreground set in apply_default_properties_from_style
+        /// The end of the selection that stays put, as a UTF-8 byte offset into the text without its markup,
+        /// with its paragraphs joined by `\n`.
+        /// Set both offsets to the same value to clear the selection.
+        in-out property <int> anchor-position-byte-offset;
+        /// The end of the selection the pointer moved to; see `anchor-position-byte-offset`.
+        in-out property <int> cursor-position-byte-offset;
+        /// The selected text, without markup; empty when nothing is selected.
+        out property <string> selected-text;
     } }
 
     element! {

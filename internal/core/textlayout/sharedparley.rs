@@ -213,14 +213,34 @@ pub fn draw_text(
             };
 
             if render {
+                let selection = text.selection().filter(|s| !s.range.is_empty());
+                let selection_spans = match &selection {
+                    Some(selection) => layout.selection_geometry(
+                        selection.range.clone(),
+                        &draw::visible_band(item_renderer),
+                        |x| item_renderer.snap_selection_x(x),
+                    ),
+                    None => SelectionSpans::default(),
+                };
+                if let Some(selection) = &selection {
+                    for background in selection_spans.backgrounds() {
+                        item_renderer.fill_rectangle_with_color(background, selection.background);
+                    }
+                }
+                let selection_rendering = selection
+                    .as_ref()
+                    .filter(|_| !selection_spans.is_empty())
+                    .and_then(|selection| {
+                        item_renderer.platform_brush_for_color(&selection.foreground).map(
+                            |foreground| SelectionRendering { spans: &selection_spans, foreground },
+                        )
+                    });
                 layout.draw(
                     item_renderer,
                     platform_fill_brush,
                     platform_stroke_brush,
                     text_color,
-                    // `Text` has no selection today; the machinery is shared so wiring one up
-                    // later is a matter of passing spans here.
-                    None,
+                    selection_rendering.as_ref(),
                 );
             }
 
@@ -262,6 +282,41 @@ pub fn link_under_cursor(
         |layout| link_in_layout(layout, cursor),
     )
     .flatten()
+}
+
+/// The byte offset into the raw text of the character under `cursor`,
+/// or of the nearest one on that line.
+/// `None` when nothing is laid out there.
+#[cfg(feature = "std")]
+pub fn byte_offset_under_cursor(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    cursor: PhysicalPoint,
+    window: &crate::api::Window,
+    cache: Option<&TextLayoutCache>,
+) -> Option<usize> {
+    let layout_builder = shaping_builder(text, Some(item_rc), text.wrap(), scale_factor);
+
+    let (horizontal_align, vertical_align) = text.alignment();
+
+    with_text_layout(
+        cache,
+        Some(item_rc),
+        text,
+        &layout_builder,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(size.height_length()),
+            max_width: Some(size.width_length()),
+            max_lines: text.line_limit(),
+            text_overflow: text.overflow(),
+        },
+        window,
+        |layout| layout.byte_offset_from_point(cursor).0,
+    )
 }
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {

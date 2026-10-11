@@ -308,11 +308,16 @@ pub(super) fn create_text_paragraphs(
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
+            // Offsets into the paragraphs joined by '\n', as `styled_text::get_raw_text` joins
+            // them, so a selection's offsets index that string.
+            let mut start = 0;
             for paragraph in rich_text.paragraphs {
+                let range = start..start + paragraph.text.len();
+                start = range.end + 1;
                 paragraphs.push(paragraph_from_text(
                     font_context,
                     &paragraph.text,
-                    0..0,
+                    range,
                     paragraph.formatting,
                     paragraph.links,
                 ));

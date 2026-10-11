@@ -248,11 +248,34 @@ pub struct StyledTextItem {
     pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
+    pub selectable: Property<bool>,
+    pub selection_background_color: Property<Color>,
+    pub selection_foreground_color: Property<Color>,
+    /// Byte offsets into the raw text, the paragraphs joined by '\n'.
+    pub anchor_position_byte_offset: Property<i32>,
+    pub cursor_position_byte_offset: Property<i32>,
+    pub selected_text: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
+    /// A mouse selection under way: 1 by character, 2 by word, 3 by paragraph.
+    #[cfg_attr(not(feature = "shared-parley"), allow(dead_code))]
+    pressed: Cell<u8>,
 }
 
 impl Item for StyledTextItem {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        let self_weak = self_rc.downgrade();
+        Self::FIELD_OFFSETS.selected_text().apply_pin(self).set_binding(move || {
+            let Some(item) = self_weak.upgrade().and_then(|rc| rc.downcast::<StyledTextItem>())
+            else {
+                return SharedString::default();
+            };
+            let item = item.as_pin_ref();
+            let styled = item.text();
+            let text = crate::styled_text::get_raw_text(&styled);
+            let (start, end) = item.selection_range(&text);
+            text[start..end].into()
+        });
+    }
 
     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
@@ -305,6 +328,29 @@ impl Item for StyledTextItem {
                 None,
             )
         };
+        #[cfg(feature = "shared-parley")]
+        if self.selectable() {
+            let offset_at = |position: &LogicalPoint| {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
+                crate::textlayout::sharedparley::byte_offset_under_cursor(
+                    scale_factor,
+                    self,
+                    self_rc,
+                    LogicalSize::from_lengths(self.width(), self.height()),
+                    *position * scale_factor,
+                    window_adapter.window(),
+                    None,
+                )
+            };
+            return self.selection_mouse_event(
+                event,
+                &find_link,
+                &offset_at,
+                cursor,
+                window_adapter,
+            );
+        }
         match event {
             #[cfg(feature = "shared-parley")]
             MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
@@ -439,6 +485,20 @@ impl RenderText for StyledTextItem {
     fn is_markdown(self: Pin<&Self>) -> bool {
         true
     }
+
+    fn selection(self: Pin<&Self>) -> Option<crate::item_rendering::TextSelection> {
+        if !self.selectable() {
+            return None;
+        }
+        let styled = self.text();
+        let text = crate::styled_text::get_raw_text(&styled);
+        let (start, end) = self.selection_range(&text);
+        (start < end).then(|| crate::item_rendering::TextSelection {
+            range: start..end,
+            background: self.selection_background_color(),
+            foreground: self.selection_foreground_color(),
+        })
+    }
 }
 
 impl StyledTextItem {
@@ -450,6 +510,104 @@ impl StyledTextItem {
         let font_request = self.font_request(self_rc);
         window_adapter.renderer().font_metrics(font_request)
     }
+
+    /// The selection as offsets into the raw `text`, start first.
+    fn selection_range(self: Pin<&Self>, text: &str) -> (usize, usize) {
+        let anchor = offset_in(text, self.anchor_position_byte_offset());
+        let cursor = offset_in(text, self.cursor_position_byte_offset());
+        (anchor.min(cursor), anchor.max(cursor))
+    }
+
+    /// Pressing and dragging selects; a double click selects a word, a triple click a paragraph.
+    /// A click that doesn't drag follows a link under it, as without `selectable`.
+    #[cfg(feature = "shared-parley")]
+    fn selection_mouse_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        find_link: &dyn Fn(&LogicalPoint) -> Option<std::string::String>,
+        offset_at: &dyn Fn(&LogicalPoint) -> Option<usize>,
+        cursor: &mut super::MouseCursorInner,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> InputEventResult {
+        let styled = self.text();
+        let text = crate::styled_text::get_raw_text(&styled);
+        let by_unit = |anchor: usize, focus: usize, unit: u8| match (unit, anchor <= focus) {
+            (2, true) => (prev_word_boundary(&text, anchor), next_word_boundary(&text, focus)),
+            (2, false) => (next_word_boundary(&text, anchor), prev_word_boundary(&text, focus)),
+            (3, true) => {
+                (prev_paragraph_boundary(&text, anchor), next_paragraph_boundary(&text, focus))
+            }
+            (3, false) => {
+                (next_paragraph_boundary(&text, anchor), prev_paragraph_boundary(&text, focus))
+            }
+            _ => (anchor, focus),
+        };
+        let set = |anchor: usize, focus: usize| {
+            self.anchor_position_byte_offset.set(anchor as i32);
+            self.cursor_position_byte_offset.set(focus as i32);
+        };
+        match event {
+            MouseEvent::Pressed {
+                position, button: PointerEventButton::Left, click_count, ..
+            } => {
+                let Some(offset) = offset_at(position) else {
+                    return InputEventResult::EventIgnored;
+                };
+                let unit = (click_count % 3) as u8 + 1;
+                self.pressed.set(unit);
+                *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Text);
+                let anchor = if window_adapter.window().0.context().modifiers().get().shift() {
+                    offset_in(&text, self.anchor_position_byte_offset())
+                } else {
+                    offset
+                };
+                let (anchor, focus) = by_unit(anchor, offset, unit);
+                set(anchor, focus);
+                InputEventResult::GrabMouse
+            }
+            MouseEvent::Moved { position, .. } => {
+                let unit = self.pressed.get();
+                if unit == 0 {
+                    *cursor = super::MouseCursorInner::BuiltIn(if find_link(position).is_some() {
+                        super::BuiltInMouseCursor::Pointer
+                    } else {
+                        super::BuiltInMouseCursor::Text
+                    });
+                    return InputEventResult::EventAccepted;
+                }
+                if let Some(offset) = offset_at(position) {
+                    let anchor = offset_in(&text, self.anchor_position_byte_offset());
+                    let (anchor, focus) = by_unit(anchor, offset, unit);
+                    set(anchor, focus);
+                }
+                InputEventResult::GrabMouse
+            }
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
+                let (start, end) = self.selection_range(&text);
+                let dragged = self.pressed.get() != 0 && start != end;
+                self.pressed.set(0);
+                if !dragged && let Some(link) = find_link(position) {
+                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
+                    Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
+                }
+                InputEventResult::EventAccepted
+            }
+            MouseEvent::Exit => {
+                self.pressed.set(0);
+                InputEventResult::EventIgnored
+            }
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+}
+
+/// `offset` clamped into `text` and onto a character boundary.
+fn offset_in(text: &str, offset: i32) -> usize {
+    let mut offset = usize::try_from(offset).unwrap_or(0).min(text.len());
+    while !text.is_char_boundary(offset) {
+        offset -= 1;
+    }
+    offset
 }
 
 /// The implementation of the `Text` element
