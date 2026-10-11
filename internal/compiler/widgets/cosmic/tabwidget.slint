@@ -147,6 +147,12 @@ component CosmicTabBarBase inherits TabBarBase {
     accessible-item-count: root.num-tabs;
     preferred-height: 44px;
 
+    changed num-tabs => {
+        if focus-scope.focused-tab >= root.num-tabs {
+            focus-scope.focused-tab = root.num-tabs - 1;
+        }
+    }
+
     if focus-scope.has-focus: Rectangle {
         y: root.height - self.height;
         height: 1px;

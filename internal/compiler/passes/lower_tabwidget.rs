@@ -184,10 +184,10 @@ fn process_tabwidget(
                 },
             },
         };
-        let name = format_smolstr!("tab-count-{i}");
-        elem.borrow_mut().property_declarations.insert(name.clone(), Type::Int32.into());
-        elem.borrow_mut().set_binding(name.clone(), count.into());
-        running = add(running, Expression::PropertyReference(NamedReference::new(elem, name)));
+        let count_prop =
+            crate::layout::create_new_prop(elem, format_smolstr!("tab-count-{i}"), Type::Int32);
+        elem.borrow_mut().set_binding(count_prop.name().clone(), count.into());
+        running = add(running, Expression::PropertyReference(count_prop));
     }
     let num_tabs_expr = running;
 
@@ -205,7 +205,7 @@ fn process_tabwidget(
             .insert(SmolStr::new_static("title"), Type::String.into());
         // Panels are cells (0,0) of a synthetic GridLayout instead of
         // being bound to content-{x,y,width,height} directly.
-        for prop in ["x", "y", "width", "height"] {
+        for prop in ["x", "y", "width", "height", "row", "col", "rowspan", "colspan"] {
             if let Some(old) = child.borrow().binding(prop) {
                 diag.push_error(
                     format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
@@ -318,7 +318,6 @@ fn process_tabwidget(
         } else {
             offsets[position].clone()
         };
-        let _ = index;
         let mut tab = tab_rc.borrow_mut();
         tab.set_binding(
             SmolStr::new_static("current"),
