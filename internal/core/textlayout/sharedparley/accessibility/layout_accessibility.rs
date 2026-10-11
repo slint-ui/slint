@@ -228,13 +228,13 @@ impl LayoutAccessibility {
     ) -> Option<Cursor> {
         let span_path = self.span_paths_by_access_id.get(&pos.node)?;
         let run = span_path.run(layout)?;
-        let index = run
+        let (index, affinity) = run
             .clusters()
             .skip_while(|cluster| cluster.path() != *span_path)
             .nth(pos.character_index)
-            .map(|cluster| cluster.text_range().start)
-            .unwrap_or(layout.text_len());
-        Some(Cursor::from_byte_index(layout, index, Affinity::Downstream))
+            .map(|cluster| (cluster.text_range().start, Affinity::Downstream))
+            .unwrap_or((run.text_range().end, Affinity::Upstream));
+        Some(Cursor::from_byte_index(layout, index, affinity))
     }
 
     /// Converts a [`Cursor`] into a position within the nodes built by [`Self::build_nodes`].
@@ -399,10 +399,18 @@ mod tests {
         text: &str,
         line_break: Option<&str>,
     ) -> (Layout<()>, LayoutAccessibility, Vec<(NodeId, Node)>) {
+        build_wrapped(text, line_break, None)
+    }
+
+    fn build_wrapped(
+        text: &str,
+        line_break: Option<&str>,
+        max_advance: Option<f32>,
+    ) -> (Layout<()>, LayoutAccessibility, Vec<(NodeId, Node)>) {
         let mut font_ctx = crate::textlayout::sharedparley::tests::test_font_context();
         let mut layout_ctx = parley::LayoutContext::new();
         let mut layout = layout_ctx.ranged_builder(&mut font_ctx, text, 1.0, true).build(text);
-        layout.break_all_lines(None);
+        layout.break_all_lines(max_advance);
 
         let mut access = LayoutAccessibility::default();
         let mut text_runs = Vec::new();
@@ -454,5 +462,16 @@ mod tests {
         let (_, node) = text_runs.last().unwrap();
         assert_eq!(node.value(), Some("ab"));
         assert_eq!(node.character_lengths(), [1, 1]);
+    }
+
+    #[test]
+    fn end_of_a_soft_wrapped_line() {
+        let (layout, access, text_runs) = build_wrapped("aaa bbb", None, Some(1.0));
+        assert_eq!(layout.len(), 2);
+        let (id, node) = &text_runs[0];
+        let position = TextPosition { node: *id, character_index: node.character_lengths().len() };
+        let cursor = access.cursor_from_access_position(&position, &layout).unwrap();
+        assert_eq!(cursor.index(), 4);
+        assert_eq!(cursor.affinity(), Affinity::Upstream);
     }
 }
