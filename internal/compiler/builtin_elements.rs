@@ -3587,6 +3587,8 @@ fn build(l: &mut Loader) {
             /// }
             /// ```
             in property <bool> running: true;
+            /// When `true`, the timer will repeat until `stop()` is called.
+            in property <bool> repeat: true;
             /// Invoked every time the timer ticks (every `interval`).
             /// ```slint {4-6}
             /// Timer {
