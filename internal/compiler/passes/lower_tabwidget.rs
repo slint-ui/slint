@@ -9,9 +9,7 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{
-    BindingExpression, Callable, Expression, NamedReference, Unit,
-};
+use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
@@ -216,9 +214,10 @@ fn process_tabwidget(
             }
         }
         for prop in ["row", "col"] {
-            child
-                .borrow_mut()
-                .set_binding(SmolStr::new_static(prop), Expression::NumberLiteral(0.0, Unit::None).into());
+            child.borrow_mut().set_binding(
+                SmolStr::new_static(prop),
+                Expression::NumberLiteral(0.0, Unit::None).into(),
+            );
         }
 
         let is_for = child.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element);
