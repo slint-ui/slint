@@ -769,11 +769,11 @@ pub mod fontique_011 {
     ///     let mut collection = slint::fontique_011::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Hira"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Kana"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Kana"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hani"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Hani"), None), fonts.iter().map(|x| x.0));
     ///     // ...
     /// }
     /// ```

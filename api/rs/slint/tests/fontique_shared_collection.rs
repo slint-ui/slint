@@ -30,7 +30,7 @@ fn register_fonts_before_platform_init() {
     assert!(!font_infos.is_empty());
     assert_eq!(collection.family_name(*family_id), Some("Inter"));
 
-    let script = fontique::Script::from_str_unchecked("Hani");
+    let script = fontique::Script::from_bytes(*b"Hani");
     collection
         .append_fallbacks(fontique::FallbackKey::new(script, None), fonts.iter().map(|x| x.0));
     assert!(
