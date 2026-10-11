@@ -1270,6 +1270,7 @@ fn build(l: &mut Loader) {
         /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
         /// A click that doesn't drag still follows a link.
         /// Read the selection from `selected-text`.
+        /// A change of `text` clears the selection.
         /// \default false
         in property <bool> selectable;
         /// The background color of the selection.
@@ -1279,6 +1280,7 @@ fn build(l: &mut Loader) {
         /// The end of the selection that stays put, as a UTF-8 byte offset into the text without its markup,
         /// with its paragraphs joined by `\n`.
         /// Set both offsets to the same value to clear the selection.
+        /// A selection set here shows whether or not the text is `selectable`.
         in-out property <int> anchor-position-byte-offset;
         /// The end of the selection the pointer moved to; see `anchor-position-byte-offset`.
         in-out property <int> cursor-position-byte-offset;

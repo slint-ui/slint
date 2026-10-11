@@ -251,14 +251,30 @@ pub struct StyledTextItem {
     pub selectable: Property<bool>,
     pub selection_background_color: Property<Color>,
     pub selection_foreground_color: Property<Color>,
-    /// Byte offsets into the raw text, the paragraphs joined by '\n'.
+    /// Byte offsets into the text as `styled_text::get_raw_text` joins it.
     pub anchor_position_byte_offset: Property<i32>,
     pub cursor_position_byte_offset: Property<i32>,
     pub selected_text: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    /// A mouse selection under way: 1 by character, 2 by word, 3 by paragraph.
+    /// The mouse selection under way, if any.
     #[cfg_attr(not(feature = "shared-parley"), allow(dead_code))]
-    pressed: Cell<u8>,
+    mouse_selection: Cell<MouseSelection>,
+    /// `text` as of the last change seen, to tell a changed text from the first evaluation.
+    tracked_text: Cell<crate::styled_text::StyledText>,
+    /// Drops the selection when `text` changes: its offsets would land on the new text.
+    text_change_tracker: crate::properties::ChangeTracker,
+}
+
+/// A mouse selection in a `StyledText` from the press to the release.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct MouseSelection {
+    /// 0 when none is under way, 1 by character, 2 by word, 3 by paragraph.
+    unit: u8,
+    /// The byte offset pressed on.
+    origin: usize,
+    /// Whether the pointer reached another offset since.
+    moved: bool,
 }
 
 impl Item for StyledTextItem {
@@ -270,11 +286,40 @@ impl Item for StyledTextItem {
                 return SharedString::default();
             };
             let item = item.as_pin_ref();
+            let (anchor, cursor) =
+                (item.anchor_position_byte_offset(), item.cursor_position_byte_offset());
+            if anchor == cursor {
+                return SharedString::default();
+            }
             let styled = item.text();
             let text = crate::styled_text::get_raw_text(&styled);
-            let (start, end) = item.selection_range(&text);
+            let (start, end) = ordered_selection(&text, anchor, cursor);
             text[start..end].into()
         });
+
+        // Seeded so that the tracker's first evaluation doesn't count as a change.
+        self.tracked_text.set(self.text());
+        self.text_change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                self_weak
+                    .upgrade()
+                    .and_then(|rc| rc.downcast::<StyledTextItem>())
+                    .map(|item| item.as_pin_ref().text())
+                    .unwrap_or_default()
+            },
+            |self_weak, new_text| {
+                let Some(item) = self_weak.upgrade().and_then(|rc| rc.downcast::<StyledTextItem>())
+                else {
+                    return;
+                };
+                let item = item.as_pin_ref();
+                if item.tracked_text.replace(new_text.clone()) != *new_text {
+                    item.anchor_position_byte_offset.set(0);
+                    item.cursor_position_byte_offset.set(0);
+                }
+            },
+        );
     }
 
     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
@@ -315,9 +360,13 @@ impl Item for StyledTextItem {
         cursor: &mut super::MouseCursorInner,
     ) -> InputEventResult {
         #[cfg(feature = "shared-parley")]
+        let renderer = window_adapter.renderer();
+        #[cfg(feature = "shared-parley")]
+        let scale_factor = crate::lengths::ScaleFactor::new(
+            WindowInner::from_pub(window_adapter.window()).scale_factor(),
+        );
+        #[cfg(feature = "shared-parley")]
         let find_link = |position: &LogicalPoint| {
-            let window_inner = WindowInner::from_pub(window_adapter.window());
-            let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
             crate::textlayout::sharedparley::link_under_cursor(
                 scale_factor,
                 self,
@@ -325,14 +374,14 @@ impl Item for StyledTextItem {
                 LogicalSize::from_lengths(self.width(), self.height()),
                 *position * scale_factor,
                 window_adapter.window(),
-                None,
+                renderer.text_layout_cache(),
             )
         };
         #[cfg(feature = "shared-parley")]
-        if self.selectable() {
+        // The offsets come from the parley layout, so a renderer drawing another one (the
+        // software renderer with a bitmap font) gets no mouse selection.
+        if self.selectable() && renderer.text_has_parley_layout(self, self_rc) {
             let offset_at = |position: &LogicalPoint| {
-                let window_inner = WindowInner::from_pub(window_adapter.window());
-                let scale_factor = crate::lengths::ScaleFactor::new(window_inner.scale_factor());
                 crate::textlayout::sharedparley::byte_offset_under_cursor(
                     scale_factor,
                     self,
@@ -340,16 +389,17 @@ impl Item for StyledTextItem {
                     LogicalSize::from_lengths(self.width(), self.height()),
                     *position * scale_factor,
                     window_adapter.window(),
-                    None,
+                    renderer.text_layout_cache(),
                 )
             };
-            return self.selection_mouse_event(
-                event,
-                &find_link,
-                &offset_at,
-                cursor,
-                window_adapter,
-            );
+            if let Some(result) =
+                self.selection_mouse_event(event, &find_link, &offset_at, cursor, window_adapter)
+            {
+                return result;
+            }
+        } else {
+            // A selection under way ends when `selectable` goes.
+            self.mouse_selection.take();
         }
         match event {
             #[cfg(feature = "shared-parley")]
@@ -487,12 +537,14 @@ impl RenderText for StyledTextItem {
     }
 
     fn selection(self: Pin<&Self>) -> Option<crate::item_rendering::TextSelection> {
-        if !self.selectable() {
+        let (anchor, cursor) =
+            (self.anchor_position_byte_offset(), self.cursor_position_byte_offset());
+        if anchor == cursor {
             return None;
         }
         let styled = self.text();
         let text = crate::styled_text::get_raw_text(&styled);
-        let (start, end) = self.selection_range(&text);
+        let (start, end) = ordered_selection(&text, anchor, cursor);
         (start < end).then(|| crate::item_rendering::TextSelection {
             range: start..end,
             background: self.selection_background_color(),
@@ -511,15 +563,9 @@ impl StyledTextItem {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    /// The selection as offsets into the raw `text`, start first.
-    fn selection_range(self: Pin<&Self>, text: &str) -> (usize, usize) {
-        let anchor = offset_in(text, self.anchor_position_byte_offset());
-        let cursor = offset_in(text, self.cursor_position_byte_offset());
-        (anchor.min(cursor), anchor.max(cursor))
-    }
-
     /// Pressing and dragging selects; a double click selects a word, a triple click a paragraph.
     /// A click that doesn't drag follows a link under it, as without `selectable`.
+    /// `None` for the events the selection doesn't handle.
     #[cfg(feature = "shared-parley")]
     fn selection_mouse_event(
         self: Pin<&Self>,
@@ -528,20 +574,7 @@ impl StyledTextItem {
         offset_at: &dyn Fn(&LogicalPoint) -> Option<usize>,
         cursor: &mut super::MouseCursorInner,
         window_adapter: &Rc<dyn WindowAdapter>,
-    ) -> InputEventResult {
-        let styled = self.text();
-        let text = crate::styled_text::get_raw_text(&styled);
-        let by_unit = |anchor: usize, focus: usize, unit: u8| match (unit, anchor <= focus) {
-            (2, true) => (prev_word_boundary(&text, anchor), next_word_boundary(&text, focus)),
-            (2, false) => (next_word_boundary(&text, anchor), prev_word_boundary(&text, focus)),
-            (3, true) => {
-                (prev_paragraph_boundary(&text, anchor), next_paragraph_boundary(&text, focus))
-            }
-            (3, false) => {
-                (next_paragraph_boundary(&text, anchor), prev_paragraph_boundary(&text, focus))
-            }
-            _ => (anchor, focus),
-        };
+    ) -> Option<InputEventResult> {
         let set = |anchor: usize, focus: usize| {
             self.anchor_position_byte_offset.set(anchor as i32);
             self.cursor_position_byte_offset.set(focus as i32);
@@ -550,64 +583,88 @@ impl StyledTextItem {
             MouseEvent::Pressed {
                 position, button: PointerEventButton::Left, click_count, ..
             } => {
-                let Some(offset) = offset_at(position) else {
-                    return InputEventResult::EventIgnored;
-                };
+                let offset = offset_at(position)?;
+                let styled = self.text();
+                let text = crate::styled_text::get_raw_text(&styled);
+                let offset = safe_byte_offset(offset as i32, &text);
                 let unit = (click_count % 3) as u8 + 1;
-                self.pressed.set(unit);
-                *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Text);
+                self.mouse_selection.set(MouseSelection { unit, origin: offset, moved: false });
+                *cursor = super::MouseCursorInner::BuiltIn(if find_link(position).is_some() {
+                    super::BuiltInMouseCursor::Pointer
+                } else {
+                    super::BuiltInMouseCursor::Text
+                });
                 let anchor = if window_adapter.window().0.context().modifiers().get().shift() {
-                    offset_in(&text, self.anchor_position_byte_offset())
+                    safe_byte_offset(self.anchor_position_byte_offset(), &text)
                 } else {
                     offset
                 };
-                let (anchor, focus) = by_unit(anchor, offset, unit);
+                let (anchor, focus) = selection_by_unit(&text, anchor, offset, unit);
                 set(anchor, focus);
-                InputEventResult::GrabMouse
+                Some(InputEventResult::GrabMouse)
             }
             MouseEvent::Moved { position, .. } => {
-                let unit = self.pressed.get();
-                if unit == 0 {
+                let mut drag = self.mouse_selection.get();
+                if drag.unit == 0 {
                     *cursor = super::MouseCursorInner::BuiltIn(if find_link(position).is_some() {
                         super::BuiltInMouseCursor::Pointer
                     } else {
                         super::BuiltInMouseCursor::Text
                     });
-                    return InputEventResult::EventAccepted;
+                    return Some(InputEventResult::EventAccepted);
                 }
                 if let Some(offset) = offset_at(position) {
-                    let anchor = offset_in(&text, self.anchor_position_byte_offset());
-                    let (anchor, focus) = by_unit(anchor, offset, unit);
+                    let styled = self.text();
+                    let text = crate::styled_text::get_raw_text(&styled);
+                    let offset = safe_byte_offset(offset as i32, &text);
+                    if offset != drag.origin && !drag.moved {
+                        drag.moved = true;
+                        self.mouse_selection.set(drag);
+                    }
+                    let anchor = safe_byte_offset(self.anchor_position_byte_offset(), &text);
+                    let (anchor, focus) = selection_by_unit(&text, anchor, offset, drag.unit);
                     set(anchor, focus);
                 }
-                InputEventResult::GrabMouse
+                Some(InputEventResult::GrabMouse)
             }
             MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                let (start, end) = self.selection_range(&text);
-                let dragged = self.pressed.get() != 0 && start != end;
-                self.pressed.set(0);
-                if !dragged && let Some(link) = find_link(position) {
+                // A single press released where it was, with nothing selected (a Shift-click
+                // extends the selection without moving).
+                let drag = self.mouse_selection.take();
+                let clicked = drag.unit == 1
+                    && !drag.moved
+                    && self.anchor_position_byte_offset() == self.cursor_position_byte_offset();
+                if clicked && let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
                 }
-                InputEventResult::EventAccepted
+                Some(InputEventResult::EventAccepted)
             }
             MouseEvent::Exit => {
-                self.pressed.set(0);
-                InputEventResult::EventIgnored
+                self.mouse_selection.take();
+                Some(InputEventResult::EventIgnored)
             }
-            _ => InputEventResult::EventIgnored,
+            _ => None,
         }
     }
 }
 
-/// `offset` clamped into `text` and onto a character boundary.
-fn offset_in(text: &str, offset: i32) -> usize {
-    let mut offset = usize::try_from(offset).unwrap_or(0).min(text.len());
-    while !text.is_char_boundary(offset) {
-        offset -= 1;
+/// `anchor` and `cursor` clamped into `text`, the smaller first.
+fn ordered_selection(text: &str, anchor: i32, cursor: i32) -> (usize, usize) {
+    let anchor = safe_byte_offset(anchor, text);
+    let cursor = safe_byte_offset(cursor, text);
+    (anchor.min(cursor), anchor.max(cursor))
+}
+
+/// `anchor..focus` (either way round) widened to whole words for `unit` 2,
+/// to whole paragraphs for 3, and as it is otherwise.
+#[cfg(feature = "shared-parley")]
+fn selection_by_unit(text: &str, anchor: usize, focus: usize, unit: u8) -> (usize, usize) {
+    match unit {
+        2 => word_selection(text, anchor, focus),
+        3 => paragraph_selection(text, anchor, focus),
+        _ => (anchor, focus),
     }
-    offset
 }
 
 /// The implementation of the `Text` element
@@ -2084,15 +2141,11 @@ impl TextInput {
     // Avoid accessing self.cursor_position()/self.anchor_position() directly, always
     // use this bounds-checking function.
     pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
-        let text = self.text();
-        let cursor_pos = self.cursor_position(&text);
-        let anchor_pos = self.anchor_position(&text);
-
-        if anchor_pos > cursor_pos {
-            (cursor_pos as _, anchor_pos as _)
-        } else {
-            (anchor_pos as _, cursor_pos as _)
-        }
+        ordered_selection(
+            &self.text(),
+            self.anchor_position_byte_offset(),
+            self.cursor_position_byte_offset(),
+        )
     }
 
     pub fn has_selection(self: Pin<&Self>) -> bool {
@@ -2199,13 +2252,8 @@ impl TextInput {
 
     pub fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let text = self.text();
-        let anchor = self.anchor_position(&text);
-        let cursor = self.cursor_position(&text);
-        let (new_a, new_c) = if anchor <= cursor {
-            (prev_word_boundary(&text, anchor), next_word_boundary(&text, cursor))
-        } else {
-            (next_word_boundary(&text, anchor), prev_word_boundary(&text, cursor))
-        };
+        let (new_a, new_c) =
+            word_selection(&text, self.anchor_position(&text), self.cursor_position(&text));
         self.as_ref().anchor_position_byte_offset.set(new_a as i32);
         self.set_cursor_position(
             new_c as i32,
@@ -2222,13 +2270,8 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         let text = self.text();
-        let anchor = self.anchor_position(&text);
-        let cursor = self.cursor_position(&text);
-        let (new_a, new_c) = if anchor <= cursor {
-            (prev_paragraph_boundary(&text, anchor), next_paragraph_boundary(&text, cursor))
-        } else {
-            (next_paragraph_boundary(&text, anchor), prev_paragraph_boundary(&text, cursor))
-        };
+        let (new_a, new_c) =
+            paragraph_selection(&text, self.anchor_position(&text), self.cursor_position(&text));
         self.as_ref().anchor_position_byte_offset.set(new_a as i32);
         self.set_cursor_position(
             new_c as i32,
@@ -2614,7 +2657,7 @@ fn prev_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .iter()
         .enumerate()
         .rev()
-        .skip(text.len() - last_cursor_pos)
+        .skip(text.len().saturating_sub(last_cursor_pos))
         .find(|(_, c)| **c == b'\n')
         .map(|(new_pos, _)| new_pos + 1)
         .unwrap_or(0)
@@ -2640,6 +2683,36 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .map_or(text.len(), |(offset, slice)| offset + slice.len())
 }
 
+/// The word at `offset`: the first one ending at or after it when that one has begun,
+/// else the stretch from the word before to the word after.
+/// Words that touch, as in a CJK run, each get their own range.
+fn word_at(text: &str, offset: usize) -> core::ops::Range<usize> {
+    let mut words = text.unicode_word_indices().map(|(start, word)| start..start + word.len());
+    match words.find(|word| word.end >= offset) {
+        Some(word) if word.start <= offset => word,
+        _ => prev_word_boundary(text, offset)..next_word_boundary(text, offset),
+    }
+}
+
+/// `anchor..cursor`, either way round, widened to whole words.
+fn word_selection(text: &str, anchor: usize, cursor: usize) -> (usize, usize) {
+    let (anchor_word, cursor_word) = (word_at(text, anchor), word_at(text, cursor));
+    if anchor <= cursor {
+        (anchor_word.start, cursor_word.end)
+    } else {
+        (anchor_word.end, cursor_word.start)
+    }
+}
+
+/// `anchor..cursor`, either way round, widened to whole paragraphs.
+fn paragraph_selection(text: &str, anchor: usize, cursor: usize) -> (usize, usize) {
+    if anchor <= cursor {
+        (prev_paragraph_boundary(text, anchor), next_paragraph_boundary(text, cursor))
+    } else {
+        (next_paragraph_boundary(text, anchor), prev_paragraph_boundary(text, cursor))
+    }
+}
+
 pub fn text_item_font_metrics(
     window_adapter: &Rc<dyn WindowAdapter>,
     self_rc: &ItemRc,
@@ -2653,5 +2726,45 @@ pub fn text_item_font_metrics(
         text_input.font_metrics(window_adapter, self_rc)
     } else {
         Default::default()
+    }
+}
+
+#[cfg(test)]
+mod selection_tests {
+    use super::*;
+
+    #[test]
+    fn words_that_touch_each_get_their_own_selection() {
+        // Each ideograph is a word; `prev`/`next` boundaries alone would meet at 3.
+        assert_eq!(word_selection("日本語", 3, 3), (0, 3));
+        assert_eq!(word_selection("日本語", 6, 6), (3, 6));
+        assert_eq!(word_selection("日本語", 0, 6), (0, 6));
+        assert_eq!(word_selection("日本語", 6, 0), (6, 0));
+    }
+
+    #[test]
+    fn word_selection_keeps_the_text_input_semantics() {
+        assert_eq!(word_selection("foo bar", 1, 1), (0, 3));
+        assert_eq!(word_selection("foo bar", 3, 3), (0, 3));
+        assert_eq!(word_selection("foo bar", 4, 4), (4, 7));
+        assert_eq!(word_selection("foo   bar", 5, 5), (0, 9));
+        assert_eq!(word_selection("foo ", 4, 4), (0, 4));
+        assert_eq!(word_selection("foo bar", 6, 1), (7, 0));
+    }
+
+    #[test]
+    fn paragraph_selection_takes_the_line() {
+        assert_eq!(paragraph_selection("one\ntwo\nthree", 5, 5), (4, 7));
+        assert_eq!(paragraph_selection("one\ntwo\nthree", 1, 9), (0, 13));
+        assert_eq!(paragraph_selection("one\ntwo", 7, 1), (7, 0));
+        // An offset past the text doesn't underflow.
+        assert_eq!(paragraph_selection("one", 9, 9), (0, 3));
+    }
+
+    #[test]
+    fn ordered_selection_clamps_and_orders() {
+        assert_eq!(ordered_selection("héllo", 9, -1), (0, 6));
+        assert_eq!(ordered_selection("héllo", 2, 2), (3, 3));
+        assert_eq!(ordered_selection("héllo", 4, 1), (1, 4));
     }
 }
