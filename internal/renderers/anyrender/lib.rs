@@ -35,7 +35,9 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::Brush;
-use i_slint_core::api::SetRenderingNotifierError;
+use i_slint_core::api::{
+    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
@@ -81,6 +83,10 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     /// out filled with `base_color`; `draw` then paints the window's items on
     /// top of it. Errors from `draw` are propagated to the caller.
     ///
+    /// Backends that provide a graphics API call `notify` with
+    /// [`RenderingState::BeforeRendering`] once the frame's surface is acquired,
+    /// and with [`RenderingState::AfterRendering`] right before presenting it.
+    ///
     /// Returns what happened to the frame. Anything but
     /// [`DrawOutcome::Success`] means nothing was presented and `draw` may not
     /// have run at all, so the caller has to ask for another frame.
@@ -88,6 +94,7 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
         &mut self,
         surface_size: i_slint_core::api::PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
+        notify: &mut dyn FnMut(RenderingState),
         draw: F,
     ) -> Result<DrawOutcome, PlatformError>
     where
@@ -121,6 +128,35 @@ pub trait SlintWindowRenderer: anyrender::WindowRenderer {
     fn winsys_info(&self) -> String {
         "anyrender renderer".into()
     }
+
+    /// Whether [`Self::graphics_api`] can return a graphics API,
+    /// which [`Window::set_rendering_notifier`](i_slint_core::api::Window::set_rendering_notifier) requires.
+    const PROVIDES_GRAPHICS_API: bool = false;
+
+    /// The graphics API passed to rendering notifier callbacks,
+    /// or `None` while there is no surface.
+    fn graphics_api(&self) -> Option<GraphicsAPI<'static>> {
+        None
+    }
+
+    /// Returns the importer for images that wrap a GPU texture,
+    /// or `None` if this backend can't draw them.
+    fn texture_importer(&self) -> Option<Rc<dyn TextureImporter>> {
+        None
+    }
+}
+
+/// Draws images that wrap a GPU texture, such as a WGPU texture.
+/// Only a backend rendering on the same GPU device can draw them.
+pub trait TextureImporter {
+    /// Returns image data that draws `region` of the texture `image` wraps, or the whole
+    /// texture for `None`. It stays valid while it's referenced, and for the frame being
+    /// recorded. Returns `None` if `image` doesn't wrap a texture this backend can draw.
+    fn import_texture(
+        &self,
+        image: &i_slint_core::graphics::Image,
+        region: Option<euclid::default::Rect<u32>>,
+    ) -> Option<SharedImageData>;
 }
 
 /// Created on the first frame after a surface becomes available, so that
@@ -141,6 +177,8 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     /// Set when a surface is created, so the collector is rebuilt against the
     /// device that surface ended up on.
     rendering_first_time: Cell<bool>,
+    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    rendering_set_up: Cell<bool>,
 }
 
 impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
@@ -153,6 +191,25 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
+            rendering_notifier: Default::default(),
+            rendering_set_up: Cell::new(false),
+        }
+    }
+
+    /// Release the window renderer's surface, for example when the windowing system
+    /// takes the window away. Rendering is skipped until a new surface is created.
+    pub fn suspend_window(&self) {
+        self.notify_rendering_teardown();
+        self.window_renderer().suspend();
+    }
+
+    fn notify_rendering_teardown(&self) {
+        if !self.rendering_set_up.take() {
+            return;
+        }
+        let Some(api) = self.window_renderer.borrow().graphics_api() else { return };
+        if let Some(notifier) = self.rendering_notifier.borrow_mut().as_mut() {
+            notifier.notify(RenderingState::RenderingTeardown, &api);
         }
     }
 
@@ -163,6 +220,9 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
     }
 
     /// Borrow the underlying [`anyrender::WindowRenderer`] mutably.
+    ///
+    /// Rendering notifiers only follow surfaces that this renderer's own methods
+    /// create and release, not ones changed through the window renderer directly.
     pub fn window_renderer(&self) -> std::cell::RefMut<'_, W> {
         self.window_renderer.borrow_mut()
     }
@@ -201,6 +261,25 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
 
         let base_color = window_background_color(window_inner);
 
+        let graphics_api = if self.rendering_notifier.borrow().is_some() {
+            self.window_renderer.borrow().graphics_api()
+        } else {
+            None
+        };
+        let mut notify = |state: RenderingState| {
+            let Some(api) = &graphics_api else { return };
+            let mut notifier = self.rendering_notifier.borrow_mut();
+            let Some(notifier) = notifier.as_mut() else { return };
+            if matches!(state, RenderingState::BeforeRendering)
+                && !self.rendering_set_up.replace(true)
+            {
+                notifier.notify(RenderingState::RenderingSetup, api);
+            }
+            notifier.notify(state, api);
+        };
+
+        let texture_importer = self.window_renderer.borrow().texture_importer();
+
         let initial_transform = if rotation_angle_degrees != 0. || translation != (0., 0.) {
             kurbo::Affine::translate((translation.0 as f64, translation.1 as f64))
                 * kurbo::Affine::rotate((rotation_angle_degrees as f64).to_radians())
@@ -208,8 +287,11 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             kurbo::Affine::IDENTITY
         };
 
-        let result =
-            self.window_renderer.borrow_mut().slint_render(surface_size, base_color, |painter| {
+        let result = self.window_renderer.borrow_mut().slint_render(
+            surface_size,
+            base_color,
+            &mut notify,
+            |painter| {
                 window_inner
                     .draw_contents(|components, post_render| -> Result<(), PlatformError> {
                         let mut item_renderer = AnyrenderItemRenderer::new_with_initial_transform(
@@ -221,7 +303,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                             &self.item_image_cache,
                             &self.text_layout_cache,
                             initial_transform,
-                        );
+                        )
+                        .with_texture_importer(texture_importer.as_deref());
 
                         for (component, origin) in components {
                             if let Some(component) = ItemTreeWeak::upgrade(component) {
@@ -248,7 +331,8 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
                         Ok(())
                     })
                     .unwrap_or(Ok(()))
-            });
+            },
+        );
 
         self.image_cache.borrow_mut().drain();
 
@@ -285,9 +369,20 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
 
     fn set_rendering_notifier(
         &self,
-        _callback: Box<dyn i_slint_core::api::RenderingNotifier>,
-    ) -> Result<(), i_slint_core::api::SetRenderingNotifierError> {
-        Err(SetRenderingNotifierError::Unsupported)
+        callback: Box<dyn RenderingNotifier>,
+    ) -> Result<(), SetRenderingNotifierError> {
+        if !W::PROVIDES_GRAPHICS_API {
+            return Err(SetRenderingNotifierError::Unsupported);
+        }
+        // Borrowed while the notifier runs, so a notifier is set.
+        let Ok(mut notifier) = self.rendering_notifier.try_borrow_mut() else {
+            return Err(SetRenderingNotifierError::AlreadySet);
+        };
+        if notifier.is_some() {
+            return Err(SetRenderingNotifierError::AlreadySet);
+        }
+        *notifier = Some(callback);
+        Ok(())
     }
 
     fn free_graphics_resources(
@@ -331,38 +426,40 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         }
         let window_inner = WindowInner::from_pub(window);
         let base_color = window_background_color(window_inner);
+        let mut window_renderer = self
+            .window_renderer
+            .try_borrow_mut()
+            .map_err(|_| "take_snapshot can't be called while the window is rendering")?;
+        let texture_importer = window_renderer.texture_importer();
 
-        let result = self.window_renderer.borrow_mut().slint_take_snapshot(
-            window_size,
-            base_color,
-            |painter| {
-                window_inner
-                    .draw_contents(|components, post_render| -> Result<(), PlatformError> {
-                        let mut item_renderer = AnyrenderItemRenderer::new(
-                            painter,
-                            window_size.width,
-                            window_size.height,
-                            window,
-                            &self.image_cache,
-                            &self.item_image_cache,
-                            &self.text_layout_cache,
-                        );
-                        for (component, origin) in components {
-                            if let Some(component) = ItemTreeWeak::upgrade(component) {
-                                i_slint_core::item_rendering::render_component_items(
-                                    &component,
-                                    &mut item_renderer,
-                                    *origin,
-                                    &window_adapter,
-                                );
-                            }
+        let result = window_renderer.slint_take_snapshot(window_size, base_color, |painter| {
+            window_inner
+                .draw_contents(|components, post_render| -> Result<(), PlatformError> {
+                    let mut item_renderer = AnyrenderItemRenderer::new(
+                        painter,
+                        window_size.width,
+                        window_size.height,
+                        window,
+                        &self.image_cache,
+                        &self.item_image_cache,
+                        &self.text_layout_cache,
+                    )
+                    .with_texture_importer(texture_importer.as_deref());
+                    for (component, origin) in components {
+                        if let Some(component) = ItemTreeWeak::upgrade(component) {
+                            i_slint_core::item_rendering::render_component_items(
+                                &component,
+                                &mut item_renderer,
+                                *origin,
+                                &window_adapter,
+                            );
                         }
-                        post_render(&mut item_renderer);
-                        Ok(())
-                    })
-                    .unwrap_or(Ok(()))
-            },
-        );
+                    }
+                    post_render(&mut item_renderer);
+                    Ok(())
+                })
+                .unwrap_or(Ok(()))
+        });
 
         self.image_cache.borrow_mut().drain();
 
@@ -371,5 +468,11 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
 
     fn supports_transformations(&self) -> bool {
         true
+    }
+}
+
+impl<W: SlintWindowRenderer> Drop for AnyrenderSlintRenderer<W> {
+    fn drop(&mut self) {
+        self.notify_rendering_teardown();
     }
 }
