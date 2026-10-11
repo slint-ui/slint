@@ -136,11 +136,9 @@ impl LayoutAccessibility {
                         prev_style_index = None;
                         finish_span(
                             &mut node,
-                            x_offset,
+                            x_offset + span_x(&run, run_offset, span_offset, span_advance) as f64,
                             y_offset,
                             metrics,
-                            run_offset,
-                            span_offset,
                             span_advance,
                             core::mem::take(&mut span_text),
                             core::mem::take(&mut character_lengths),
@@ -203,11 +201,9 @@ impl LayoutAccessibility {
 
                 finish_span(
                     &mut node,
-                    x_offset,
+                    x_offset + span_x(&run, run_offset, span_offset, span_advance) as f64,
                     y_offset,
                     metrics,
-                    run_offset,
-                    span_offset,
                     span_advance,
                     span_text,
                     character_lengths,
@@ -375,14 +371,21 @@ impl FontFamilies {
     }
 }
 
+/// The left edge of a span that starts `span_offset` into `run` in logical order.
+fn span_x<B: Brush>(run: &Run<'_, B>, run_offset: f32, span_offset: f32, span_advance: f32) -> f32 {
+    if run.is_rtl() {
+        run_offset + run.advance() - span_offset - span_advance
+    } else {
+        run_offset + span_offset
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn finish_span(
     node: &mut Node,
-    x_offset: f64,
+    x: f64,
     y_offset: f64,
     metrics: &LineMetrics,
-    run_offset: f32,
-    span_offset: f32,
     span_advance: f32,
     span_text: String,
     character_lengths: Vec<u8>,
@@ -391,9 +394,9 @@ fn finish_span(
     word_starts: Vec<u8>,
 ) {
     node.set_bounds(Rect {
-        x0: x_offset + (run_offset + span_offset) as f64,
+        x0: x,
         y0: y_offset + metrics.content_block_min_coord as f64,
-        x1: x_offset + (run_offset + span_offset + span_advance) as f64,
+        x1: x + span_advance as f64,
         y1: y_offset + metrics.content_block_max_coord as f64,
     });
     node.set_value(span_text);
@@ -490,5 +493,17 @@ mod tests {
         let cursor = access.cursor_from_access_position(&position, &layout).unwrap();
         assert_eq!(cursor.index(), 4);
         assert_eq!(cursor.affinity(), Affinity::Upstream);
+    }
+
+    #[test]
+    fn rtl_spans_run_from_right_to_left() {
+        let text = "\u{5d0}".repeat(MAX_CHARACTERS_PER_SPAN + 1);
+        let (_, _, text_runs) = build(&text, None);
+        let [(_, first), (_, second)] = &text_runs[..] else { panic!("expected two spans") };
+        assert_eq!(first.text_direction(), Some(TextDirection::RightToLeft));
+        let (first, second) = (first.bounds().unwrap(), second.bounds().unwrap());
+        assert!(second.x1 > second.x0);
+        assert_eq!(second.x0, 0.0);
+        assert_eq!(first.x0, second.x1);
     }
 }
