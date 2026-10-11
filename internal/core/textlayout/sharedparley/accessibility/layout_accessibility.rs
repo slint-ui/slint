@@ -73,6 +73,7 @@ impl LayoutAccessibility {
         let mut runs = Vec::new();
         let alignment = layout.alignment();
         let line_count = layout.len();
+        let mut font_families = FontFamilies::default();
 
         for (line_index, line) in layout.lines().enumerate() {
             let metrics = line.metrics();
@@ -93,11 +94,13 @@ impl LayoutAccessibility {
 
             let last_run_index = runs.len().checked_sub(1);
             for (run_index, (run, run_offset)) in runs.drain(..).enumerate() {
+                let font_family = font_families.get(&run);
                 let mut span_path = run_start_path(line_index, &run);
                 let (mut id, mut node) = self.span_id_and_node(
                     &mut next_node_id,
                     spans_started,
                     &run,
+                    font_family,
                     alignment,
                     span_path,
                 );
@@ -154,6 +157,7 @@ impl LayoutAccessibility {
                                 &mut next_node_id,
                                 spans_started,
                                 &run,
+                                font_family,
                                 alignment,
                                 span_path,
                             );
@@ -279,6 +283,7 @@ impl LayoutAccessibility {
         next_node_id: &mut impl FnMut() -> NodeId,
         span_index: usize,
         run: &Run<'_, B>,
+        font_family: Option<&str>,
         alignment: Option<Alignment>,
         span_path: ClusterPath,
     ) -> (NodeId, Node) {
@@ -298,18 +303,8 @@ impl LayoutAccessibility {
             TextDirection::LeftToRight
         });
 
-        let font = run.font();
-        if let Ok(font_ref) = FontRef::from_index(font.data.as_ref(), font.index)
-            && let Ok(name) = font_ref.name()
-        {
-            for n in name.name_record().iter() {
-                if n.name_id.get() == NameId::FAMILY_NAME {
-                    if let Ok(string) = n.string(name.string_data()) {
-                        node.set_font_family(string.to_string());
-                    }
-                    break;
-                }
-            }
+        if let Some(font_family) = font_family {
+            node.set_font_family(font_family);
         }
         node.set_font_size(run.font_size());
         let attrs = run.font_attrs();
@@ -356,6 +351,28 @@ fn run_start_path<B: Brush>(line_index: usize, run: &Run<'_, B>) -> ClusterPath 
 fn link_spans(prev_id: NodeId, prev: &mut Node, next_id: NodeId, next: &mut Node) {
     prev.set_next_on_line(next_id);
     next.set_previous_on_line(prev_id);
+}
+
+/// Caches the family name of each font, since parsing it is too costly to repeat per span.
+#[derive(Default)]
+struct FontFamilies {
+    names: HashMap<(u64, u32), Option<String>>,
+}
+
+impl FontFamilies {
+    fn get<B: Brush>(&mut self, run: &Run<'_, B>) -> Option<&str> {
+        let font = run.font();
+        self.names
+            .entry((font.data.id(), font.index))
+            .or_insert_with(|| {
+                let font_ref = FontRef::from_index(font.data.as_ref(), font.index).ok()?;
+                let name = font_ref.name().ok()?;
+                let record =
+                    name.name_record().iter().find(|n| n.name_id.get() == NameId::FAMILY_NAME)?;
+                Some(record.string(name.string_data()).ok()?.to_string())
+            })
+            .as_deref()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
