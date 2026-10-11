@@ -1124,3 +1124,87 @@ fn system_tray_uses_its_context() {
     assert_eq!(instance.invoke("open", &[url]).unwrap(), Value::Bool(true));
     assert_eq!(*opened_url.borrow(), Some("https://slint.dev".into()));
 }
+
+#[test]
+#[cfg(feature = "internal")]
+fn hooks_see_the_windows_of_a_sibling_context() {
+    i_slint_backend_testing::init_no_event_loop();
+    use i_slint_core::context::{SlintContext, set_window_event_hook, set_window_shown_hook};
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let sibling = SlintContext::current().unwrap().new_sharing_platform();
+    let shown = Rc::new(Cell::new(0));
+    let shown_ = shown.clone();
+    set_window_shown_hook(Some(Box::new(move |_| {
+        assert!(set_window_shown_hook(None).is_err());
+        shown_.set(shown_.get() + 1)
+    })))
+    .unwrap();
+    let events = Rc::new(Cell::new(0));
+    let events_ = events.clone();
+    set_window_event_hook(Some(Box::new(move |_, _, _| events_.set(events_.get() + 1)))).unwrap();
+
+    let result = spin_on::spin_on(crate::Compiler::default().build_from_source(
+        "export component TestCase inherits Window {}".into(),
+        Default::default(),
+    ));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("TestCase").unwrap().create_with_context(sibling).unwrap();
+    instance.show().unwrap();
+    assert_eq!(shown.get(), 1);
+
+    instance.window().dispatch_event(i_slint_core::platform::WindowEvent::PointerExited);
+    assert_eq!(events.get(), 1);
+}
+
+#[test]
+#[cfg(feature = "internal")]
+fn a_window_shown_twice_keeps_the_event_loop_alive_once() {
+    use i_slint_core::platform::{EventLoopProxy, Platform, PlatformError, WindowAdapter};
+    use std::rc::Rc;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct QuitCounter(Arc<AtomicUsize>);
+    impl EventLoopProxy for QuitCounter {
+        fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+        fn invoke_from_event_loop(
+            &self,
+            _: Box<dyn FnOnce() + Send>,
+        ) -> Result<(), i_slint_core::api::EventLoopError> {
+            Ok(())
+        }
+    }
+
+    struct CountingPlatform(i_slint_backend_testing::TestingBackend, Arc<AtomicUsize>);
+    impl Platform for CountingPlatform {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            self.0.create_window_adapter()
+        }
+        fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+            Some(Box::new(QuitCounter(self.1.clone())))
+        }
+    }
+
+    let quits = Arc::new(AtomicUsize::new(0));
+    let ctx = i_slint_core::SlintContext::new(Box::new(CountingPlatform(
+        i_slint_backend_testing::TestingBackend::new(Default::default()),
+        quits.clone(),
+    )));
+    let result = spin_on::spin_on(crate::Compiler::default().build_from_source(
+        "export component TestCase inherits Window {}".into(),
+        Default::default(),
+    ));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("TestCase").unwrap().create_with_context(ctx).unwrap();
+
+    instance.show().unwrap();
+    instance.show().unwrap();
+    assert_eq!(quits.load(Ordering::SeqCst), 0);
+    instance.hide().unwrap();
+    assert_eq!(quits.load(Ordering::SeqCst), 1);
+}

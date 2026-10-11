@@ -11,6 +11,7 @@ use crate::lengths::LogicalLength;
 use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use core::cell::Cell;
 use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
@@ -26,9 +27,112 @@ crate::thread_local! {
 }
 
 #[pin_project::pin_project]
-pub(crate) struct SlintContextInner {
+pub(crate) struct PlatformContext {
     platform: Box<dyn Platform>,
-    pub(crate) window_count: core::cell::RefCell<isize>,
+    keepalive_count: Cell<isize>,
+
+    #[pin]
+    color_scheme: Property<ColorScheme>,
+    #[pin]
+    accent_color: Property<Color>,
+    #[pin]
+    platform_default_font_size: Property<Option<LogicalLength>>,
+    modifiers: Cell<InternalKeyboardModifierState>,
+    #[cfg(all(unix, not(target_os = "macos")))]
+    xdg_app_id: RefCell<Option<crate::SharedString>>,
+    pub(crate) window_shown_hook:
+        RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    pub(crate) window_event_hook: RefCell<Option<WindowEventHook>>,
+
+    contexts: RefCell<Vec<SlintContextWeak>>,
+}
+
+impl PlatformContext {
+    fn new(platform: Box<dyn Platform>) -> core::pin::Pin<Rc<Self>> {
+        Rc::pin(Self {
+            platform,
+            keepalive_count: Cell::new(0),
+            color_scheme: Property::new_named(
+                ColorScheme::Unknown,
+                "PlatformContext::color_scheme",
+            ),
+            accent_color: Property::new_named(Color::default(), "PlatformContext::accent_color"),
+            platform_default_font_size: Property::new_named(
+                None,
+                "PlatformContext::platform_default_font_size",
+            ),
+            modifiers: Cell::new(Default::default()),
+            #[cfg(all(unix, not(target_os = "macos")))]
+            xdg_app_id: Default::default(),
+            window_shown_hook: Default::default(),
+            window_event_hook: Default::default(),
+            contexts: Default::default(),
+        })
+    }
+
+    fn acquire_keepalive(&self) {
+        self.keepalive_count.set(self.keepalive_count.get() + 1);
+    }
+
+    fn release_keepalive(&self) {
+        let count = self.keepalive_count.get() - 1;
+        self.keepalive_count.set(count);
+        if count <= 0 {
+            let _ = self.platform.new_event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
+        }
+    }
+
+    pub(crate) fn activate_timers(&self, now: crate::animations::Instant) -> bool {
+        let mut activated = false;
+        self.for_each_context(|ctx| activated |= ctx.maybe_activate_timers(now));
+        activated
+    }
+
+    pub(crate) fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
+        let mut next = None;
+        self.for_each_context(|ctx| {
+            if let Some(timeout) = ctx.next_timer_timeout() {
+                next = Some(next.map_or(timeout, |next| timeout.min(next)));
+            }
+        });
+        next
+    }
+
+    fn register(&self, ctx: &SlintContext) {
+        let weak = ctx.downgrade();
+        let mut contexts = self.contexts.borrow_mut();
+        match contexts.iter_mut().find(|slot| slot.upgrade().is_none()) {
+            Some(slot) => *slot = weak,
+            None => contexts.push(weak),
+        }
+    }
+
+    fn for_each_context(&self, mut f: impl FnMut(&SlintContext)) {
+        let mut index = 0;
+        loop {
+            let Some(weak) = self.contexts.borrow().get(index).cloned() else { break };
+            if let Some(ctx) = weak.upgrade() {
+                f(&ctx);
+            }
+            index += 1;
+        }
+    }
+}
+
+#[must_use]
+pub(crate) struct KeepAlive(PinWeak<PlatformContext>);
+
+impl Drop for KeepAlive {
+    fn drop(&mut self) {
+        if let Some(platform_context) = self.0.upgrade() {
+            platform_context.release_keepalive();
+        }
+    }
+}
+
+#[pin_project::pin_project]
+pub(crate) struct SlintContextInner {
+    platform_context: core::pin::Pin<Rc<PlatformContext>>,
 
     /// Read by all translations, and marked dirty when the language changes so every
     /// translated string re-translates. The value is the currently selected language
@@ -43,33 +147,11 @@ pub(crate) struct SlintContextInner {
     #[pin]
     pub(crate) locale_decimal_separator: Property<char>,
 
-    /// Process-wide color scheme. Backends' system-theme observers write here; bindings
-    /// read from it through [`SlintContext::color_scheme`]. Window-less components like
-    /// `SystemTrayIcon` rely on this as their default source.
-    #[pin]
-    pub(crate) color_scheme: Property<ColorScheme>,
-    /// Process-wide system accent color. Backends' system-theme observers write here;
-    /// bindings read from it through [`SlintContext::accent_color`]. Defaults to a
-    /// transparent color when the platform doesn't expose one.
-    #[pin]
-    pub(crate) accent_color: Property<Color>,
-    /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
-    /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
-    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
-    /// doesn't report one.
-    #[pin]
-    pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
-    pub(crate) window_shown_hook:
-        core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
-    pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
     pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
-    #[cfg(all(unix, not(target_os = "macos")))]
-    xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
     pub(crate) font_context: core::cell::RefCell<crate::textlayout::sharedparley::FontContext>,
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
-    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
     /// The timers registered on this context. Shared, so that `Timer` handles can hold a
     /// `Weak` to the list they registered in without knowing which context owns it.
@@ -77,8 +159,7 @@ pub(crate) struct SlintContextInner {
 }
 
 /// This context is meant to hold the state and the backend.
-/// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
-/// See issue #4294
+/// Several contexts can share one platform, see [`Self::new_sharing_platform`].
 #[derive(Clone)]
 pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
@@ -91,12 +172,44 @@ impl SlintContext {
     /// perfectly usable, but are not the thread's current one, so code holding such a
     /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
+        // Timers started before this thread had a context registered in the pending list;
+        // take it over so those timers keep working.
+        let this =
+            Self::on_platform(PlatformContext::new(platform), crate::timers::take_pending_timers());
+        // Claim this thread's context slot if it is still free, so that the ambient APIs
+        // resolve here rather than to a list nothing drives.
+        GLOBAL_CONTEXT.with(|slot| {
+            let _ = slot.set(this.clone());
+        });
+        this.platform().bind_context(this.downgrade(), crate::InternalToken);
+        this
+    }
+
+    /// Creates a context on the same platform as this one.
+    ///
+    /// The two share the event loop, the keepalive count, the window hooks, and the xdg app id.
+    /// They also share what the platform reports about the system,
+    /// such as the color scheme and keyboard modifiers.
+    /// Each keeps its own timers, translations, locale, log handler, and fonts.
+    /// Driving any context on the platform with [`Self::update_timers_and_animations`] drives all of them.
+    ///
+    /// The new context doesn't become this thread's current one.
+    ///
+    /// The platform stays bound to the context that created it.
+    /// Backends reach the siblings through that one only, so it has to outlive them.
+    pub fn new_sharing_platform(&self) -> Self {
+        Self::on_platform(self.0.platform_context.clone(), Default::default())
+    }
+
+    fn on_platform(
+        platform_context: core::pin::Pin<Rc<PlatformContext>>,
+        timers: crate::timers::TimerListRc,
+    ) -> Self {
         #[cfg(feature = "shared-parley")]
         let collection = crate::font_collection::take_or_create();
 
         let this = Self(Rc::pin(SlintContextInner {
-            platform,
-            window_count: 0.into(),
+            platform_context,
 
             translations_dirty: Property::new_named(0, "SlintContext::translations"),
             translations_bundle: Default::default(),
@@ -107,17 +220,7 @@ impl SlintContext {
                 "SlintContext::locale_decimal_separator",
             ),
 
-            color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
-            accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
-            platform_default_font_size: Property::new_named(
-                None,
-                "SlintContext::platform_default_font_size",
-            ),
-            window_shown_hook: Default::default(),
-            window_event_hook: Default::default(),
             log_message_handler: Default::default(),
-            #[cfg(all(unix, not(target_os = "macos")))]
-            xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
             font_context: {
                 let font_context = parley::FontContext {
@@ -130,38 +233,33 @@ impl SlintContext {
             },
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
-            modifiers: Cell::new(Default::default()),
-            // Timers started before this thread had a context registered in the pending
-            // list; take it over so those timers keep working. It is the very list they
-            // hold a `Weak` to, so nothing needs fixing up.
-            timers: crate::timers::take_pending_timers(),
+            timers,
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
         crate::timers::set_owning_context(&this.0.timers, &this);
-        // Claim this thread's context slot if it is still free, so that the ambient APIs
-        // resolve here rather than to a list nothing drives. Fails harmlessly when the
-        // thread already has a context: that one stays current.
-        GLOBAL_CONTEXT.with(|slot| {
-            let _ = slot.set(this.clone());
-        });
-        // Every context tells its platform which context it belongs to, not just the one
-        // that becomes this thread's global: a platform is owned by exactly one context, and
-        // a backend driving a context needs to be able to find it.
-        this.platform().bind_context(this.downgrade(), crate::InternalToken);
+        this.platform_context().register(&this);
         this
     }
 
-    /// This thread's context, or `None` if none was created yet.
+    /// This thread's context, or `None` if none was created yet or the thread is exiting.
     ///
     /// Setting a platform creates the context, and creating a component needs a platform.
     pub fn current() -> Option<Self> {
-        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
+        GLOBAL_CONTEXT.try_with(|slot| slot.get().cloned()).ok().flatten()
     }
 
     /// Return a reference to the platform abstraction
     pub fn platform(&self) -> &dyn Platform {
-        &*self.0.platform
+        &*self.platform_context().get_ref().platform
+    }
+
+    pub(crate) fn modifiers(&self) -> &Cell<InternalKeyboardModifierState> {
+        &self.platform_context().get_ref().modifiers
+    }
+
+    pub(crate) fn platform_context(&self) -> core::pin::Pin<&PlatformContext> {
+        self.0.platform_context.as_ref()
     }
 
     /// Creates a window adapter with this context's platform, and associates its window
@@ -189,7 +287,7 @@ impl SlintContext {
     /// Return an event proxy
     // FIXME: Make EvenLoopProxy cloneable, and maybe wrap in a struct
     pub fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
-        self.0.platform.new_event_loop_proxy()
+        self.platform().new_event_loop_proxy()
     }
 
     #[cfg(target_has_atomic = "ptr")]
@@ -202,16 +300,16 @@ impl SlintContext {
     }
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
-        self.0.platform.run_event_loop()
+        self.platform().run_event_loop()
     }
 
     /// Creates a [`Timer`](crate::timers::Timer) that registers on this context rather than
     /// on whichever one is current when it is started.
     ///
     /// For the context that a thread runs its event loop on this is the same as
-    /// `Timer::default()`, and the event loop activates the timer as usual. A context that
-    /// isn't the current one has no event loop driving it, so its owner is responsible for
-    /// calling [`Self::maybe_activate_timers`].
+    /// `Timer::default()`, and the event loop activates the timer as usual,
+    /// as it does for the contexts sharing that one's platform.
+    /// On any other context, the owner is responsible for calling [`Self::maybe_activate_timers`].
     pub fn new_timer(&self) -> crate::timers::Timer {
         crate::timers::Timer::with_list(&self.0.timers)
     }
@@ -238,26 +336,24 @@ impl SlintContext {
         crate::timers::single_shot_on(&self.0.timers, duration, callback);
     }
 
-    /// Advances this context's animations and timers to its own clock, and runs any change
-    /// handlers that fall out of it.
+    /// Advances the animations and the timers of every context on this context's platform,
+    /// and runs any change handlers that fall out of it.
     ///
-    /// This is what an event loop driving this context should call at the top of each
+    /// This is what an event loop driving the platform should call at the top of each
     /// iteration. [`crate::platform::update_timers_and_animations`] is the same thing for
     /// whichever context is this thread's global one.
     pub fn update_timers_and_animations(&self) {
         let now = crate::animations::Instant::now(self);
         crate::animations::update_animations(now);
-        self.maybe_activate_timers(now);
+        self.platform_context().activate_timers(now);
         crate::properties::ChangeTracker::run_change_handlers();
     }
 
-    /// How long this context can go to sleep before its next timer is due, or `None` when it
-    /// has no active timer.
-    ///
-    /// The deadline and the clock it is measured against both come from this context, so
-    /// they cannot disagree.
+    /// How long the event loop driving this context's platform can go to sleep,
+    /// before the next timer of any context on it is due.
+    /// Returns `None` when none has an active timer.
     pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
-        let timeout = self.next_timer_timeout()?;
+        let timeout = self.platform_context().next_timer_timeout()?;
         let now = crate::animations::Instant::now(self);
         Some(timeout - now)
     }
@@ -289,38 +385,38 @@ impl SlintContext {
                 }
             }
         }
-        self.0.as_ref().project_ref().color_scheme.get()
+        self.platform_context().project_ref().color_scheme.get()
     }
 
     /// Backend-side write path for the process-wide color scheme. Called by each
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_color_scheme(&self, scheme: ColorScheme) {
-        self.0.as_ref().project_ref().color_scheme.set(scheme);
+        self.platform_context().project_ref().color_scheme.set(scheme);
     }
 
     /// Returns the process-wide system accent color. Reads register a property dependency,
     /// so bindings re-evaluate when the platform reports an accent-color change.
     pub fn accent_color(&self) -> Color {
-        self.0.as_ref().project_ref().accent_color.get()
+        self.platform_context().project_ref().accent_color.get()
     }
 
     /// Backend-side write path for the process-wide accent color. Called by each
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
-        self.0.as_ref().project_ref().accent_color.set(color);
+        self.platform_context().project_ref().accent_color.set(color);
     }
 
     /// Returns the platform-reported default font size, or `None` if the backend doesn't
     /// report one. Reads register a property dependency, so bindings re-evaluate when the
     /// platform reports a change (e.g. the user adjusts the system text size).
     pub fn platform_default_font_size(&self) -> Option<LogicalLength> {
-        self.0.as_ref().project_ref().platform_default_font_size.get()
+        self.platform_context().project_ref().platform_default_font_size.get()
     }
 
     /// Backend-side write path for the platform-reported default font size. Called by
     /// backends that track the system setting; `Property::set` short-circuits no-op writes.
     pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
-        self.0.as_ref().project_ref().platform_default_font_size.set(size);
+        self.platform_context().project_ref().platform_default_font_size.set(size);
     }
 
     #[doc(hidden)]
@@ -328,7 +424,7 @@ impl SlintContext {
         if let Some(handler) = self.0.log_message_handler.borrow().as_ref() {
             handler(message);
         } else {
-            self.0.platform.debug_log(message.message_arguments());
+            self.platform().debug_log(message.message_arguments());
         }
     }
 
@@ -341,35 +437,25 @@ impl SlintContext {
         core::mem::replace(&mut *slot, handler)
     }
 
-    /// Add one to the counter of "things keeping the event loop alive".
-    /// Visible windows and visible system tray icons are the canonical
-    /// callers; they pair with [`Self::release_keepalive`].
-    pub(crate) fn acquire_keepalive(&self) {
-        *self.0.window_count.borrow_mut() += 1;
+    pub(crate) fn keep_alive(&self) -> KeepAlive {
+        self.platform_context().acquire_keepalive();
+        KeepAlive(PinWeak::downgrade(self.0.platform_context.clone()))
     }
 
-    /// Subtract one from the keepalive counter and quit the event loop if
-    /// nothing is keeping it alive anymore. Mirrors the post-decrement quit
-    /// that [`crate::window::WindowInner::hide`] used to do inline.
-    pub(crate) fn release_keepalive(&self) {
-        let mut count = self.0.window_count.borrow_mut();
-        *count -= 1;
-        if *count <= 0 {
-            drop(count);
-            let _ = self.event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
-        }
+    pub(crate) fn keep_alive_forever(&self) {
+        self.platform_context().acquire_keepalive();
     }
 
     pub fn set_xdg_app_id(&self, _app_id: crate::SharedString) {
         #[cfg(all(unix, not(target_os = "macos")))]
         {
-            self.0.xdg_app_id.replace(Some(_app_id));
+            self.platform_context().xdg_app_id.replace(Some(_app_id));
         }
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
     pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
-        self.0.xdg_app_id.borrow().clone()
+        self.platform_context().xdg_app_id.borrow().clone()
     }
 
     #[cfg(not(all(unix, not(target_os = "macos"))))]
@@ -500,10 +586,7 @@ fn with_existing_context_never_creates_a_platform() {
 pub fn set_window_shown_hook(
     hook: Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>,
 ) -> Result<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>, PlatformError> {
-    GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => Ok(ctx.0.window_shown_hook.replace(hook)),
-        None => Err(PlatformError::NoPlatform),
-    })
+    replace_hook(hook, |platform_context| &platform_context.window_shown_hook, "shown")
 }
 
 /// Internal function to set a hook that's invoked after a window event was dispatched.
@@ -511,13 +594,211 @@ pub fn set_window_shown_hook(
 pub fn set_window_event_hook(
     hook: Option<WindowEventHook>,
 ) -> Result<Option<WindowEventHook>, PlatformError> {
-    GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => {
-            let mut slot = ctx.0.window_event_hook.try_borrow_mut().map_err(|_| {
-                PlatformError::Other(alloc::string::String::from("event hook is currently in use"))
-            })?;
-            Ok(core::mem::replace(&mut *slot, hook))
-        }
-        None => Err(PlatformError::NoPlatform),
+    replace_hook(hook, |platform_context| &platform_context.window_event_hook, "event")
+}
+
+fn replace_hook<T>(
+    hook: Option<T>,
+    slot: fn(&PlatformContext) -> &RefCell<Option<T>>,
+    name: &str,
+) -> Result<Option<T>, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| {
+        let ctx = p.get().ok_or(PlatformError::NoPlatform)?;
+        let platform_context = ctx.platform_context();
+        let mut slot = slot(platform_context.get_ref())
+            .try_borrow_mut()
+            .map_err(|_| PlatformError::Other(alloc::format!("{name} hook is currently in use")))?;
+        Ok(core::mem::replace(&mut *slot, hook))
     })
+}
+
+#[cfg(all(test, feature = "std"))]
+mod platform_sharing_tests {
+    use super::*;
+    use core::time::Duration;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[derive(Default)]
+    struct Probe {
+        time: Cell<Duration>,
+        bind_count: Cell<usize>,
+        quit: Arc<AtomicBool>,
+    }
+
+    struct TestPlatform(Rc<Probe>);
+
+    impl Platform for TestPlatform {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Err(PlatformError::NoPlatform)
+        }
+        fn duration_since_start(&self) -> Duration {
+            self.0.time.get()
+        }
+        fn bind_context(&self, _ctx: SlintContextWeak, _: crate::InternalToken) {
+            self.0.bind_count.set(self.0.bind_count.get() + 1);
+        }
+        fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+            Some(Box::new(QuitRecorder(self.0.quit.clone())))
+        }
+    }
+
+    struct QuitRecorder(Arc<AtomicBool>);
+
+    impl EventLoopProxy for QuitRecorder {
+        fn quit_event_loop(&self) -> Result<(), crate::api::EventLoopError> {
+            self.0.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+        fn invoke_from_event_loop(
+            &self,
+            _event: Box<dyn FnOnce() + Send>,
+        ) -> Result<(), crate::api::EventLoopError> {
+            Ok(())
+        }
+    }
+
+    fn siblings() -> (Rc<Probe>, SlintContext, SlintContext) {
+        let probe = Rc::new(Probe::default());
+        let a = SlintContext::new(Box::new(TestPlatform(probe.clone())));
+        let b = a.new_sharing_platform();
+        (probe, a, b)
+    }
+
+    #[test]
+    fn sibling_timer_fires_when_the_original_context_is_driven() {
+        let (probe, a, b) = siblings();
+        let fired = Rc::new(Cell::new(false));
+        let fired_ = fired.clone();
+        b.single_shot(Duration::from_millis(10), move || fired_.set(true));
+
+        probe.time.set(Duration::from_millis(20));
+        a.update_timers_and_animations();
+        assert!(fired.get());
+    }
+
+    #[test]
+    fn a_nested_update_from_a_timer_callback_drives_the_siblings() {
+        let (probe, a, b) = siblings();
+        let b_fired = Rc::new(Cell::new(0));
+        let b_fired_ = b_fired.clone();
+        let fired_while_nested = Rc::new(Cell::new(0));
+        let fired_while_nested_ = fired_while_nested.clone();
+        let a_ = a.clone();
+        a.single_shot(Duration::from_millis(10), move || {
+            a_.update_timers_and_animations();
+            fired_while_nested_.set(b_fired_.get());
+        });
+        let b_fired_ = b_fired.clone();
+        b.single_shot(Duration::from_millis(10), move || b_fired_.set(b_fired_.get() + 1));
+
+        probe.time.set(Duration::from_millis(20));
+        a.update_timers_and_animations();
+        assert_eq!(fired_while_nested.get(), 1);
+        assert_eq!(b_fired.get(), 1);
+    }
+
+    #[test]
+    fn a_context_created_after_a_sibling_dropped_is_driven_once() {
+        let (probe, a, b) = siblings();
+        drop(b);
+        let c = a.new_sharing_platform();
+        assert_eq!(a.platform_context().contexts.borrow().len(), 2);
+
+        let a_fired = Rc::new(Cell::new(0));
+        let a_fired_ = a_fired.clone();
+        a.single_shot(Duration::from_millis(10), move || a_fired_.set(a_fired_.get() + 1));
+        let c_fired = Rc::new(Cell::new(0));
+        let c_fired_ = c_fired.clone();
+        c.single_shot(Duration::from_millis(10), move || c_fired_.set(c_fired_.get() + 1));
+
+        probe.time.set(Duration::from_millis(20));
+        a.update_timers_and_animations();
+        assert_eq!((a_fired.get(), c_fired.get()), (1, 1));
+    }
+
+    #[test]
+    fn next_timer_update_is_the_earliest_across_siblings() {
+        let (_probe, a, b) = siblings();
+        a.single_shot(Duration::from_millis(50), || {});
+        b.single_shot(Duration::from_millis(10), || {});
+
+        assert_eq!(a.duration_until_next_timer_update(), Some(Duration::from_millis(10)));
+        assert_eq!(b.duration_until_next_timer_update(), Some(Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn event_loop_quits_when_the_last_keepalive_of_any_sibling_is_released() {
+        let (probe, a, b) = siblings();
+        let a_keepalive = a.keep_alive();
+        let b_keepalive = b.keep_alive();
+
+        drop(a_keepalive);
+        assert!(!probe.quit.load(Ordering::SeqCst));
+        drop(b_keepalive);
+        assert!(probe.quit.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_keepalive_outlives_its_context() {
+        let (probe, a, b) = siblings();
+        let keepalive = b.keep_alive();
+        drop(b);
+        drop(keepalive);
+        assert!(probe.quit.load(Ordering::SeqCst));
+        assert_eq!(a.platform_context().keepalive_count.get(), 0);
+    }
+
+    #[test]
+    fn system_settings_are_shared_between_siblings() {
+        let (_probe, a, b) = siblings();
+
+        let scheme = Property::new(ColorScheme::Unknown);
+        let b_ = b.clone();
+        scheme.set_binding(move || b_.color_scheme(None));
+        let accent = Property::new(Color::default());
+        let b_ = b.clone();
+        accent.set_binding(move || b_.accent_color());
+        let font_size = Property::new(None);
+        let b_ = b.clone();
+        font_size.set_binding(move || b_.platform_default_font_size());
+        let (scheme, accent, font_size) =
+            (core::pin::pin!(scheme), core::pin::pin!(accent), core::pin::pin!(font_size));
+        assert_eq!(scheme.as_ref().get(), ColorScheme::Unknown);
+        assert_eq!(accent.as_ref().get(), Color::default());
+        assert_eq!(font_size.as_ref().get(), None);
+
+        let red = Color::from_rgb_u8(255, 0, 0);
+        let size = Some(LogicalLength::new(17.));
+        a.set_color_scheme(ColorScheme::Dark);
+        a.set_accent_color(red);
+        a.set_platform_default_font_size(size);
+
+        assert_eq!(b.color_scheme(None), ColorScheme::Dark);
+        assert_eq!(scheme.as_ref().get(), ColorScheme::Dark);
+        assert_eq!(accent.as_ref().get(), red);
+        assert_eq!(font_size.as_ref().get(), size);
+    }
+
+    #[test]
+    fn translations_and_locale_stay_per_context() {
+        let (_probe, a, b) = siblings();
+
+        a.set_bundled_languages([("en".into(), '.'), ("de".into(), ',')]);
+        a.select_bundled_translation("de").unwrap();
+        assert_eq!(a.locale_decimal_separator(), ',');
+        assert!(b.0.translations_bundle.borrow().is_none());
+        assert_eq!(b.0.as_ref().project_ref().translations_dirty.get(), 0);
+        assert_eq!(b.locale_decimal_separator(), i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
+
+        b.set_locale("fr");
+        assert_eq!(a.locale_decimal_separator(), ',');
+    }
+
+    #[test]
+    fn sharing_the_platform_does_not_bind_it_again() {
+        let (probe, a, _b) = siblings();
+        let _c = a.new_sharing_platform();
+        assert_eq!(probe.bind_count.get(), 1);
+    }
 }

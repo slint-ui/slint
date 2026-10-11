@@ -82,8 +82,7 @@ pub trait Platform {
     /// This is being phased out, see #1499.
     fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
         assert!(!quit_on_last_window_closed);
-        crate::context::GLOBAL_CONTEXT
-            .with(|ctx| (*ctx.get().unwrap().0.window_count.borrow_mut()) += 1);
+        crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().keep_alive_forever());
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop

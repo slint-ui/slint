@@ -915,7 +915,7 @@ impl Item for TextInput {
                 let clicked_offset = clicked_offset as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
-                if !window_adapter.window().0.context().0.modifiers.get().shift() {
+                if !window_adapter.window().0.context().modifiers().get().shift() {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 

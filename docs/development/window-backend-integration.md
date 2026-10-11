@@ -24,6 +24,7 @@ Slint's window system provides an abstraction layer between the UI framework and
 |------|---------|
 | `internal/core/window.rs` | WindowInner, WindowAdapter trait |
 | `internal/core/platform.rs` | Platform trait, WindowEvent enum |
+| `internal/core/context.rs` | SlintContext, PlatformContext, KeepAlive |
 | `internal/core/window/popup.rs` | Popup placement (`Placement`, `place_popup`) — `PopupWindow` itself is in `window.rs` |
 | `internal/backends/winit/` | Winit-based cross-platform backend |
 | `internal/backends/qt/` | Qt integration backend |
@@ -107,6 +108,25 @@ method. The rest have defaults:
 
 See `Platform` in `internal/core/platform.rs`.
 
+## Contexts and Platforms
+
+A `SlintContext` holds the state of one Slint instance: its timers, translations, locale, log handler, and fonts.
+`SlintContext::new()` creates a `PlatformContext` for the platform it's given,
+and calls `Platform::bind_context()` with a weak handle to the new context.
+A backend uses that handle to reach the context it drives.
+
+`SlintContext::new_sharing_platform()` creates a sibling on the same `PlatformContext`.
+Siblings share the event loop, the window hooks,
+and what the platform reports for the whole process, such as the color scheme and the keyboard modifiers.
+They also share the keepalive count, so the event loop quits when the last window of any sibling closes.
+Visible windows and system tray icons hold a `KeepAlive` guard that releases its count when dropped.
+
+`update_timers_and_animations()` and `duration_until_next_timer_update()` cover every context on the platform.
+A backend that drives its bound context drives the siblings too, with no extra code.
+The platform stays bound to the context that created it, so that context has to outlive its siblings.
+
+See `internal/core/context.rs`.
+
 ## WindowEvent
 
 Events dispatched from platform to Slint. `WindowEvent` has:
@@ -140,7 +160,7 @@ window.dispatch_event(WindowEvent::PointerPressed {
 fields group into:
 
 - The weak adapter it belongs to, the shown component, and a strong reference to it kept only
-  while the window is visible.
+  while the window is visible, together with the `KeepAlive` that keeps the event loop running.
 - **Input state**: the mouse input state, the touch state, and a `ClickState` for double-click
   detection.
 - **Focus**: the focused item and a tracker for its visibility, the text cursor blinker, the last

@@ -644,8 +644,8 @@ pub fn default_window_title() -> SharedString {
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ItemTreeWeak>,
-    /// When the window is visible, keep a strong reference
-    strong_component_ref: RefCell<Option<ItemTreeRc>>,
+    /// When the window is visible, keep a strong reference, and keep the event loop running
+    strong_component_ref: RefCell<Option<(ItemTreeRc, crate::context::KeepAlive)>>,
     mouse_input_state: Cell<MouseInputState>,
     touch_state: RefCell<TouchState>,
     has_active_animations: Cell<bool>,
@@ -921,7 +921,7 @@ impl WindowInner {
                     // Recompute the proposed action from current modifier state so the target's
                     // `can-drop` callback sees an up-to-date `event.proposed-action`.
                     drop_event.proposed_action = crate::items::compute_proposed_action(
-                        self.context().0.modifiers.get().into(),
+                        self.context().modifiers().get().into(),
                         allowed,
                     );
                     // Mirror the position and proposed action into the persistent state so the
@@ -1296,12 +1296,12 @@ impl WindowInner {
             }
         }
 
-        if let Some(updated_modifier) = self.context().0.modifiers.get().state_update(
+        if let Some(updated_modifier) = self.context().modifiers().get().state_update(
             internal_key_event.event_type == KeyEventType::KeyPressed,
             &internal_key_event.key_event.text,
         ) {
             // Updates the key modifiers depending on the key code and pressed state.
-            self.context().0.modifiers.set(updated_modifier);
+            self.context().modifiers().set(updated_modifier);
 
             // If a drag is in flight, synthesize a Moved at the last drag position so
             // the new modifier state flows into `event.proposed-action` and the target's
@@ -1324,7 +1324,7 @@ impl WindowInner {
         }
 
         internal_key_event.key_event.modifiers =
-            self.context().0.modifiers.get().modifiers_for(&internal_key_event);
+            self.context().modifiers().get().modifiers_for(&internal_key_event);
 
         // Emulate macOS menubar behavior: The OS consumes the event before it reaches any
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
@@ -1728,7 +1728,7 @@ impl WindowInner {
         // If we lost focus due to for example a global shortcut, then when we regain focus
         // should not assume that the modifiers are in the same state.
         if !have_focus {
-            self.context().0.modifiers.take();
+            self.context().modifiers().take();
         }
     }
 
@@ -1977,10 +1977,12 @@ impl WindowInner {
     /// to input events once the event loop spins.
     pub fn show(&self) -> Result<(), PlatformError> {
         if let Some(component) = self.try_component() {
-            let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
-            if !was_visible {
-                self.context().acquire_keepalive();
-            }
+            let previous = self.strong_component_ref.take();
+            let keepalive = match previous {
+                Some((_, keepalive)) => keepalive,
+                None => self.context().keep_alive(),
+            };
+            self.strong_component_ref.replace(Some((component, keepalive)));
         }
 
         self.ensure_tree_instantiated();
@@ -1998,7 +2000,9 @@ impl WindowInner {
             .unwrap_or_default();
         self.set_window_item_safe_area(inset.to_logical(scale_factor));
         self.window_adapter().renderer().resize(size).unwrap();
-        if let Some(hook) = self.context().0.window_shown_hook.borrow_mut().as_mut() {
+        if let Some(hook) =
+            self.context().platform_context().window_shown_hook.borrow_mut().as_mut()
+        {
             hook(&self.window_adapter());
         }
         Ok(())
@@ -2007,10 +2011,7 @@ impl WindowInner {
     /// De-registers the window with the windowing system.
     pub fn hide(&self) -> Result<(), PlatformError> {
         let result = self.window_adapter().set_visible(false);
-        let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
-        if was_visible {
-            self.context().release_keepalive();
-        }
+        self.strong_component_ref.take();
         result
     }
 

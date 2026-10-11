@@ -135,29 +135,8 @@ pub struct SystemTrayIconData {
     icon_tracker: crate::properties::ChangeTracker,
     tooltip_tracker: crate::properties::ChangeTracker,
     title_tracker: crate::properties::ChangeTracker,
-    /// Whether this tray currently contributes to the SlintContext keepalive
-    /// counter. Flipped in lockstep with `acquire_keepalive`/`release_keepalive`
-    /// so that a re-fired tracker can't double-increment.
-    keepalive_live: core::cell::Cell<bool>,
+    keepalive: core::cell::RefCell<Option<crate::context::KeepAlive>>,
     menu: core::cell::RefCell<Option<MenuState>>,
-    /// The context of the tray's item tree, for `Drop`, which can't reach the item tree.
-    context: core::cell::OnceCell<crate::SlintContextWeak>,
-}
-
-impl SystemTrayIconData {
-    fn context(&self) -> Option<crate::SlintContext> {
-        self.context.get().and_then(|ctx| ctx.upgrade())
-    }
-}
-
-impl Drop for SystemTrayIconData {
-    fn drop(&mut self) {
-        if self.keepalive_live.get()
-            && let Some(ctx) = self.context()
-        {
-            ctx.release_keepalive();
-        }
-    }
 }
 
 struct MenuState {
@@ -244,26 +223,17 @@ impl SystemTrayIcon {
         Self::FIELD_OFFSETS.color_scheme().apply_pin(self).set(scheme);
     }
 
-    /// Reconcile the SlintContext keepalive counter with this tray's state.
-    /// A tray contributes to the counter only while it has a live platform
-    /// handle and its `visible` property is `true`; everything else is a
-    /// no-op so a re-fired tracker can't double-increment.
-    fn update_keepalive(self: Pin<&Self>) {
+    fn update_keepalive(self: Pin<&Self>, self_rc: &ItemRc) {
         let data = &*self.data;
         let want_live = data.inner.get().is_some() && self.visible();
-        let was_live = data.keepalive_live.get();
+        let was_live = data.keepalive.borrow().is_some();
         if want_live == was_live {
             return;
         }
-        let Some(ctx) = data.context() else {
-            return;
-        };
         if want_live {
-            ctx.acquire_keepalive();
-            data.keepalive_live.set(true);
+            *data.keepalive.borrow_mut() = Some(self_rc.slint_context().keep_alive());
         } else {
-            data.keepalive_live.set(false);
-            ctx.release_keepalive();
+            data.keepalive.take();
         }
     }
 }
@@ -271,8 +241,6 @@ impl SystemTrayIcon {
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         let data = &*self.data;
-        let result = data.context.set(self_rc.slint_context().downgrade());
-        debug_assert!(result.is_ok(), "Item::init is called once");
         data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
@@ -307,7 +275,7 @@ impl Item for SystemTrayIcon {
                 };
 
                 let _ = tray.data.inner.set(handle);
-                tray.update_keepalive();
+                tray.update_keepalive(&tray_rc);
             },
         );
 
@@ -325,7 +293,7 @@ impl Item for SystemTrayIcon {
                 if let Some(handle) = tray.data.inner.get() {
                     handle.set_visible(*visible);
                 }
-                tray.update_keepalive();
+                tray.update_keepalive(&tray_rc);
                 // If the platform handle isn't up yet, the icon-driven init path
                 // will create it later and call update_keepalive itself.
             },
