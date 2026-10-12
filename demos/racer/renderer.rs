@@ -364,7 +364,8 @@ const GLOBAL_FLOATS: usize = 8 * 4 + 16 + MAX_SPOTS * 12;
 /// Half the size of the square around the camera that the sun's shadow map covers, in
 /// meters.
 const SHADOW_REACH: f32 = 80.0;
-const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+const SHADOW_USAGE: wgpu::TextureUsages =
+    wgpu::TextureUsages::RENDER_ATTACHMENT.union(wgpu::TextureUsages::TEXTURE_BINDING);
 
 /// High quality draws the scene in this format, so lights can be brighter than white for
 /// the bloom, and tone-maps it afterwards.
@@ -390,6 +391,7 @@ impl Shadow {
         layout: &wgpu::BindGroupLayout,
         globals: &wgpu::Buffer,
         sampler: &wgpu::Sampler,
+        format: wgpu::TextureFormat,
         size: u32,
     ) -> Self {
         let map = device
@@ -399,9 +401,8 @@ impl Shadow {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: SHADOW_FORMAT,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                format,
+                usage: SHADOW_USAGE,
                 view_formats: &[],
             })
             .create_view(&Default::default());
@@ -640,6 +641,7 @@ pub struct Renderer {
     /// The light map of high quality's lit surfaces without one: no light added or taken.
     no_light: Rc<Texture>,
     depth_format: wgpu::TextureFormat,
+    shadow_format: wgpu::TextureFormat,
     depth: Option<wgpu::Texture>,
     multisampled: Option<wgpu::Texture>,
     /// Made when high quality draws its first frame.
@@ -654,13 +656,17 @@ pub struct Renderer {
 /// frame at 720p on NXP's Vivante GPU.
 const SAMPLES: u32 = 4;
 
-/// The most precise depth format `device` can render to. NXP's Vivante driver only renders
-/// to 16-bit depth.
+/// The first of `formats` that `device` makes textures with `usage` of, else 16-bit depth.
+/// NXP's Vivante driver only renders to 16-bit depth.
 #[cfg(not(target_arch = "wasm32"))]
-fn depth_format(device: &wgpu::Device) -> wgpu::TextureFormat {
-    use wgpu::TextureFormat::*;
-    [Depth24Plus, Depth32Float]
-        .into_iter()
+fn depth_format(
+    device: &wgpu::Device,
+    formats: &[wgpu::TextureFormat],
+    usage: wgpu::TextureUsages,
+) -> wgpu::TextureFormat {
+    formats
+        .iter()
+        .copied()
         .find(|&format| {
             let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
             let _ = device.create_texture(&wgpu::TextureDescriptor {
@@ -670,19 +676,23 @@ fn depth_format(device: &wgpu::Device) -> wgpu::TextureFormat {
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                usage,
                 view_formats: &[],
             });
             pollster::block_on(scope.pop()).is_none()
         })
-        .unwrap_or(Depth16Unorm)
+        .unwrap_or(wgpu::TextureFormat::Depth16Unorm)
 }
 
-/// WebGPU and WebGL 2 both render to 24-bit depth, and a browser can't wait for an error
-/// scope synchronously.
+/// WebGPU and WebGL 2 render to all of these, and a browser can't wait for an error scope
+/// synchronously.
 #[cfg(target_arch = "wasm32")]
-fn depth_format(_device: &wgpu::Device) -> wgpu::TextureFormat {
-    wgpu::TextureFormat::Depth24Plus
+fn depth_format(
+    _device: &wgpu::Device,
+    formats: &[wgpu::TextureFormat],
+    _usage: wgpu::TextureUsages,
+) -> wgpu::TextureFormat {
+    formats[0]
 }
 
 impl Renderer {
@@ -787,11 +797,14 @@ impl Renderer {
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
+        let shadow_format =
+            depth_format(device, &[wgpu::TextureFormat::Depth32Float], SHADOW_USAGE);
         let shadow = Shadow::new(
             device,
             &globals_layout,
             &globals,
             &shadow_sampler,
+            shadow_format,
             shadow_size(Quality::High),
         );
         let shadow_globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -828,8 +841,13 @@ impl Renderer {
         });
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
-        let shadow_pipeline =
-            Self::shadow_pipeline(device, &shader, &shadow_globals_layout, &object_layout);
+        let shadow_pipeline = Self::shadow_pipeline(
+            device,
+            &shader,
+            &shadow_globals_layout,
+            &object_layout,
+            shadow_format,
+        );
         let (light_map_pipeline, light_map_spots, light_map_bind_group) =
             Self::light_map_pipeline(device);
         let white = upload_texture(
@@ -868,7 +886,12 @@ impl Renderer {
             samplers,
             white,
             no_light,
-            depth_format: depth_format(device),
+            depth_format: depth_format(
+                device,
+                &[wgpu::TextureFormat::Depth24Plus, wgpu::TextureFormat::Depth32Float],
+                wgpu::TextureUsages::RENDER_ATTACHMENT,
+            ),
+            shadow_format,
             depth: None,
             multisampled: None,
             bloom: None,
@@ -959,6 +982,7 @@ impl Renderer {
         shader: &wgpu::ShaderModule,
         globals_layout: &wgpu::BindGroupLayout,
         object_layout: &wgpu::BindGroupLayout,
+        shadow_format: wgpu::TextureFormat,
     ) -> wgpu::RenderPipeline {
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("racer shadow"),
@@ -991,7 +1015,7 @@ impl Renderer {
             // Both sides cast shadows, so thin and one-sided surfaces do too.
             primitive: Default::default(),
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: SHADOW_FORMAT,
+                format: shadow_format,
                 depth_write_enabled: Some(true),
                 depth_compare: Some(wgpu::CompareFunction::LessEqual),
                 stencil: Default::default(),
@@ -1274,6 +1298,7 @@ impl Renderer {
                 &self.globals_layout,
                 &self.globals,
                 &self.shadow_sampler,
+                self.shadow_format,
                 shadow_size(quality),
             );
         }
