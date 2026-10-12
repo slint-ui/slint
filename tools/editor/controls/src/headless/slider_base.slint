@@ -1,0 +1,156 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SliderInterface } from "std-widget-interfaces.slint";
+
+export interface SliderSurface {
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    in property <bool> pressed;
+    in property <Orientation> orientation;
+    in property <bool> inverted;
+    out property <bool> hovered;
+    callback started();
+    callback seek(position: float);
+    callback finished();
+    callback canceled();
+}
+
+export component SliderBase {
+    implement SliderInterface <=> self;
+    in property <bool> enabled: true;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    in property <float> page-step: root.keyboard-step * 10;
+    in-out property <float> value: root.minimum;
+    in property <Orientation> orientation: horizontal;
+    in property <bool> inverted: false;
+    out property <bool> has-focus: root.enabled && keys.has-focus;
+    out property <bool> hovered: surface.hovered;
+    out property <bool> pressed: root.enabled && root.interaction-active;
+    out property <float> position: root.upper > root.lower
+        ? clamp((root.value - root.lower) / (root.upper - root.lower), 0, 1) : 0;
+    out property <float> visual-position: root.reversed ? 1 - root.position : root.position;
+    slot <SliderSurface> surface;
+    callback changed(value: float);
+    callback released(value: float);
+
+    private property <float> lower: min(root.minimum, root.maximum);
+    private property <float> upper: max(root.minimum, root.maximum);
+    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
+    private property <bool> vertical: root.orientation == Orientation.vertical;
+    private property <bool> reversed: root.vertical != root.inverted;
+    private property <bool> interaction-active;
+    private property <string> active-key;
+
+    forward-focus: keys;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-value: clamp(root.value, root.lower, root.upper);
+    accessible-value-minimum: root.lower;
+    accessible-value-maximum: root.upper;
+    accessible-value-step: root.keyboard-step;
+    accessible-action-increment => { root.set-value(root.value + root.keyboard-step); root.emit-released(); }
+    accessible-action-decrement => { root.set-value(root.value - root.keyboard-step); root.emit-released(); }
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.set-value(value.to-float()); root.emit-released(); }
+    }
+
+    public function set-value(requested: float) {
+        if !root.enabled { return; }
+        let bounded = clamp(requested, root.lower, root.upper);
+        let snapped = root.step > 0 && bounded > root.lower && bounded < root.upper
+            ? root.lower + round((bounded - root.lower) / root.step) * root.step : bounded;
+        let next = clamp(snapped, root.lower, root.upper);
+        if next != root.value {
+            root.value = next;
+            root.changed(next);
+        }
+    }
+
+    public function set-position(position: float) {
+        root.set-value(root.lower + clamp(position, 0, 1) * (root.upper - root.lower));
+    }
+
+    public function emit-released() {
+        if root.enabled { root.released(root.value); }
+    }
+
+    function begin-interaction() {
+        if !root.enabled { return; }
+        root.interaction-active = true;
+        keys.focus();
+    }
+
+    function end-interaction() {
+        if !root.interaction-active { return; }
+        root.interaction-active = false;
+        root.emit-released();
+    }
+
+    function cancel-interaction() { root.interaction-active = false; }
+
+    changed enabled => {
+        if !root.enabled {
+            root.cancel-interaction();
+            root.active-key = "";
+        }
+    }
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        surface {
+            enabled: root.enabled;
+            position: root.position;
+            focused: root.has-focus;
+            pressed: root.pressed;
+            orientation: root.orientation;
+            inverted: root.inverted;
+            started => { root.begin-interaction(); }
+            seek(position) => { root.set-position(position); }
+            finished => { root.end-interaction(); }
+            canceled => { root.cancel-interaction(); }
+        }
+    }
+
+    keys := FocusScope {
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled;
+        focus-changed-event => { if !self.has-focus { root.active-key = ""; } }
+        key-pressed(event) => {
+            if !root.enabled || event.modifiers.control || event.modifiers.alt { return reject; }
+            if event.text == Key.Escape && root.pressed {
+                root.cancel-interaction();
+                return accept;
+            }
+            if root.pressed { return reject; }
+            let direction = root.inverted ? -1 : 1;
+            if event.text == Key.RightArrow || event.text == Key.UpArrow {
+                root.set-value(root.value + direction * root.keyboard-step);
+            } else if event.text == Key.LeftArrow || event.text == Key.DownArrow {
+                root.set-value(root.value - direction * root.keyboard-step);
+            } else if event.text == Key.PageUp {
+                root.set-value(root.value + max(0, root.page-step));
+            } else if event.text == Key.PageDown {
+                root.set-value(root.value - max(0, root.page-step));
+            } else if event.text == Key.Home {
+                root.set-value(root.lower);
+            } else if event.text == Key.End {
+                root.set-value(root.upper);
+            } else { return reject; }
+            root.active-key = event.text;
+            return accept;
+        }
+        key-released(event) => {
+            if root.active-key == "" || event.text != root.active-key { return reject; }
+            root.active-key = "";
+            root.emit-released();
+            return accept;
+        }
+    }
+}

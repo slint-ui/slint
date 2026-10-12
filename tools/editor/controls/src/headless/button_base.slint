@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonInterface } from "std-widget-interfaces.slint";
+import { PressInteraction } from "internal/press_interaction.slint";
+
+export component ButtonBase {
+    implement ButtonInterface <=> self;
+
+    in property <bool> enabled: true;
+    in property <bool> checkable;
+    in-out property <bool> checked;
+    in property <string> text;
+    in property <image> icon;
+    in property <length> icon-size: 20px;
+    in property <bool> colorize-icon: true;
+    in property <bool> primary;
+    in property <length> content-padding;
+    in property <length> content-padding-left: root.content-padding;
+    in property <length> content-padding-right: root.content-padding;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
+    out property <bool> has-focus: interaction.has-focus;
+    out property <bool> hovered: interaction.hovered;
+    out property <bool> pressed: interaction.pressed;
+    callback clicked();
+    callback toggled(checked: bool);
+
+    slot background;
+    slot content;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    forward-focus: interaction;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
+    public function activate() {
+        if !root.enabled { return; }
+        if root.checkable {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+        root.clicked();
+    }
+
+    background { }
+
+    interaction := PressInteraction {
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        activated => { root.activate(); }
+    }
+
+    HorizontalLayout {
+        padding-left: root.content-padding-left;
+        padding-right: root.content-padding-right;
+        padding-top: root.content-padding-top;
+        padding-bottom: root.content-padding-bottom;
+        content { }
+        @children
+    }
+}
