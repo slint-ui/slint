@@ -20,7 +20,7 @@ cargo run --release -p racer --manifest-path demos/Cargo.toml
 
 Start in low or medium quality with `--low` or `--medium`, and on a fixed track with `RACER_SEED=4242`.
 The web build starts in medium quality.
-The scene's resolution drops when frames take too long, and so does the quality until you pick one.
+The scene's resolution follows the frame rate, and the quality drops when frames take too long, until you pick them in the settings.
 
 ## Running in a Browser
 

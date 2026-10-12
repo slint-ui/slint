@@ -8,8 +8,8 @@
 //! when frames take too long but not how much time is left. The scale drops once frames are
 //! missed for `SLOW_WINDOWS` windows in a row, and rises one step at a time after the frame
 //! rate held the target for `SETTLE`. A step that was too slow isn't tried again for `RETRY`.
-//! The quality only drops, after the scale reached `MIN_LEVEL`, since a change in quality
-//! changes the look and stalls a frame.
+//! The quality only drops, after the scale reached `MIN_LEVEL` or while the player picked
+//! one, since a change in quality changes the look and stalls a frame.
 
 use std::time::Duration;
 use web_time::Instant;
@@ -38,6 +38,7 @@ const MIN_LEVEL: u32 = 10;
 pub struct Adaptive {
     level: u32,
     quality: Quality,
+    auto_scale: bool,
     started: Instant,
     /// The lowest level that was too slow, and when.
     too_slow: Option<(u32, Instant)>,
@@ -73,11 +74,12 @@ impl Window {
 }
 
 impl Adaptive {
-    pub fn new(quality: Quality) -> Self {
+    pub fn new(quality: Quality, auto_scale: bool) -> Self {
         let now = Instant::now();
         Self {
             level: MAX_LEVEL,
             quality,
+            auto_scale,
             started: now,
             too_slow: None,
             slow_windows: 0,
@@ -95,14 +97,15 @@ impl Adaptive {
     pub fn frame(
         &mut self,
         quality: Quality,
-        animating: bool,
         auto_quality: bool,
+        auto_scale: bool,
+        animating: bool,
     ) -> Option<Quality> {
         let now = Instant::now();
         let interval = now - self.last_frame;
         self.last_frame = now;
-        if quality != self.quality {
-            *self = Self::new(quality);
+        if quality != self.quality || auto_scale != self.auto_scale {
+            *self = Self::new(quality, auto_scale);
             return None;
         }
         let window = &mut self.window;
@@ -127,7 +130,7 @@ impl Adaptive {
         let fps = window.fps();
         if fps >= STEADY_FPS {
             self.slow_windows = 0;
-            if now - self.steady_since >= SETTLE && self.level < MAX_LEVEL {
+            if auto_scale && now - self.steady_since >= SETTLE && self.level < MAX_LEVEL {
                 self.steady_since = now;
                 let retry = self
                     .too_slow
@@ -148,7 +151,7 @@ impl Adaptive {
             return None;
         }
         self.slow_windows = 0;
-        if self.level > MIN_LEVEL {
+        if auto_scale && self.level > MIN_LEVEL {
             self.too_slow = Some((self.level, now));
             // The scene's cost grows with its pixels, the square of the scale.
             let fit = self.level as f32 * (fps / TARGET_FPS).sqrt();
@@ -163,7 +166,7 @@ impl Adaptive {
         if !auto_quality {
             return None;
         }
-        *self = Self::new(lower);
+        *self = Self::new(lower, auto_scale);
         Some(lower)
     }
 }

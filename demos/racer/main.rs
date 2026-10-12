@@ -204,6 +204,8 @@ struct State {
     quality: Quality,
     /// Whether the quality follows the frame rate, see `Adaptive`.
     auto_quality: bool,
+    /// The scale the player picked, see `Adaptive`.
+    fixed_scale: Option<f32>,
     /// While set, the race stands still.
     paused: bool,
     start_requested: bool,
@@ -226,6 +228,7 @@ impl State {
             camera: CameraMode::Chase,
             quality: Quality::High,
             auto_quality: true,
+            fixed_scale: None,
             paused: false,
             start_requested: false,
             reset_requested: false,
@@ -652,6 +655,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             state.assist = app.get_assist();
             state.quality = app.get_quality();
             state.auto_quality = app.get_auto_quality();
+            state.fixed_scale = (!app.get_auto_render_scale()).then(|| app.get_render_scale());
             state.camera =
                 if app.get_bumper_camera() { CameraMode::Bumper } else { CameraMode::Chase };
         })
@@ -666,7 +670,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The renderer, the scene, and Slint's device, once Slint set up rendering.
     let mut graphics: Option<(Renderer, World, wgpu::Device)> = None;
     let mut frames = Frames { textures: Vec::new(), next: 0 };
-    let mut adaptive = Adaptive::new(app_window.get_quality());
+    let mut adaptive = Adaptive::new(app_window.get_quality(), true);
     let mut last_frame = web_time::Instant::now();
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
@@ -706,14 +710,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         state.step(dt);
         show_telemetry(&app, &state, &models);
 
-        if let Some(quality) = adaptive.frame(state.quality, state.animating(), state.auto_quality)
-        {
+        if let Some(quality) = adaptive.frame(
+            state.quality,
+            state.auto_quality,
+            state.fixed_scale.is_none(),
+            state.animating(),
+        ) {
             state.quality = quality;
             app.set_quality(quality);
         }
         // The scene's `Image` stretches the frame over the window.
         let window_size = app.window().size();
-        let scale = adaptive.scale();
+        let scale = state.fixed_scale.unwrap_or(adaptive.scale());
+        if app.get_render_scale() != scale {
+            app.set_render_scale(scale);
+        }
         let scaled = |length: u32| ((length as f32 * scale).round() as u32).max(1);
         let size = (scaled(window_size.width), scaled(window_size.height));
         let colors = state.colors();
@@ -741,9 +752,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let elapsed = fps_window_start.elapsed().as_secs_f32();
         if elapsed >= 0.5 {
             let fps = frame_count as f32 / elapsed;
-            let ms = 1000.0 / fps.max(1.0);
-            let percent = scale * 100.0;
-            app.set_fps_text(format!("{fps:.0} fps · {ms:.1} ms · {percent:.0}% size").into());
+            app.set_fps_text(format!("{fps:.0} fps · {:.1} ms", 1000.0 / fps.max(1.0)).into());
             frame_count = 0;
             fps_window_start = now;
         }

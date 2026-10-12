@@ -518,6 +518,8 @@ export component AppWindow inherits Window {
     in-out property <bool> assist: true;
     in-out property <Quality> quality: Quality.high;
     in-out property <bool> auto-quality: true;
+    in-out property <float> render-scale: 1;
+    in-out property <bool> auto-render-scale: true;
     in-out property <bool> bumper-camera;
 
     callback input-changed(x: float, y: float);
@@ -641,6 +643,14 @@ export component AppWindow inherits Window {
     function select-quality(index: int) {
         root.quality = index == 0 ? Quality.low : index == 1 ? Quality.medium : Quality.high;
         root.auto-quality = false;
+        root.settings-changed();
+    }
+    // 0: auto, 1: 50%, 2: 75%, 3: 100%.
+    function select-render-scale(index: int) {
+        root.auto-render-scale = index == 0;
+        if index > 0 {
+            root.render-scale = index == 1 ? 0.5 : index == 2 ? 0.75 : 1.0;
+        }
         root.settings-changed();
     }
     function toggle-assist() {
@@ -1240,6 +1250,19 @@ export component AppWindow inherits Window {
                         current: root.quality == Quality.low ? 0 : root.quality == Quality.medium ? 1 : 2;
                         selected(index) => {
                             root.select-quality(index);
+                        }
+                    }
+
+                    Label {
+                        text: "RESOLUTION · \{round(root.render-scale * 100)}%";
+                    }
+
+                    Segmented {
+                        label: "Resolution";
+                        options: ["Auto", "50%", "75%", "100%"];
+                        current: root.auto-render-scale ? 0 : root.render-scale == 0.5 ? 1 : root.render-scale == 0.75 ? 2 : 3;
+                        selected(index) => {
+                            root.select-render-scale(index);
                         }
                     }
 
