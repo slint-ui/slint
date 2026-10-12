@@ -19,6 +19,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::{ColorScheme, Item, ItemConsts, ItemRc, Orientation, RenderingResult, VoidArg};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
+use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -126,30 +127,6 @@ impl SystemTrayIconHandle {
 // Native `SystemTrayIcon` item, exposed to `.slint`.
 // ---------------------------------------------------------------------------
 
-#[repr(C)]
-/// Wraps the internal data structure for the SystemTrayIcon
-pub struct SystemTrayIconDataBox(core::ptr::NonNull<SystemTrayIconData>);
-
-impl Default for SystemTrayIconDataBox {
-    fn default() -> Self {
-        SystemTrayIconDataBox(Box::leak(Box::<SystemTrayIconData>::default()).into())
-    }
-}
-impl Drop for SystemTrayIconDataBox {
-    fn drop(&mut self) {
-        // Safety: the self.0 was constructed from a Box::leak in SystemTrayIconDataBox::default
-        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
-    }
-}
-
-impl core::ops::Deref for SystemTrayIconDataBox {
-    type Target = SystemTrayIconData;
-    fn deref(&self) -> &Self::Target {
-        // Safety: initialized in SystemTrayIconDataBox::default
-        unsafe { self.0.as_ref() }
-    }
-}
-
 #[derive(Default)]
 pub struct SystemTrayIconData {
     inner: core::cell::OnceCell<SystemTrayIconHandle>,
@@ -216,7 +193,7 @@ pub struct SystemTrayIcon {
     pub color_scheme: Property<ColorScheme>,
     pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
-    data: SystemTrayIconDataBox,
+    data: OnceBox<SystemTrayIconData>,
 }
 
 impl SystemTrayIcon {
@@ -272,19 +249,20 @@ impl SystemTrayIcon {
     /// handle and its `visible` property is `true`; everything else is a
     /// no-op so a re-fired tracker can't double-increment.
     fn update_keepalive(self: Pin<&Self>) {
-        let want_live = self.data.inner.get().is_some() && self.visible();
-        let was_live = self.data.keepalive_live.get();
+        let data = &*self.data;
+        let want_live = data.inner.get().is_some() && self.visible();
+        let was_live = data.keepalive_live.get();
         if want_live == was_live {
             return;
         }
-        let Some(ctx) = self.data.context() else {
+        let Some(ctx) = data.context() else {
             return;
         };
         if want_live {
             ctx.acquire_keepalive();
-            self.data.keepalive_live.set(true);
+            data.keepalive_live.set(true);
         } else {
-            self.data.keepalive_live.set(false);
+            data.keepalive_live.set(false);
             ctx.release_keepalive();
         }
     }
@@ -292,9 +270,10 @@ impl SystemTrayIcon {
 
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        let result = self.data.context.set(self_rc.slint_context().downgrade());
+        let data = &*self.data;
+        let result = data.context.set(self_rc.slint_context().downgrade());
         debug_assert!(result.is_ok(), "Item::init is called once");
-        self.data.change_tracker.init_delayed(
+        data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
             |self_weak, has_icon| {
@@ -332,7 +311,7 @@ impl Item for SystemTrayIcon {
             },
         );
 
-        self.data.visible_tracker.init_delayed(
+        data.visible_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return false };
@@ -356,7 +335,7 @@ impl Item for SystemTrayIcon {
         // initial spawn always uses the latest values (the icon-driven init
         // path reads them at fire time), so these trackers are no-ops until
         // the user mutates the property after the tray is up.
-        self.data.icon_tracker.init_delayed(
+        data.icon_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
@@ -374,7 +353,7 @@ impl Item for SystemTrayIcon {
             },
         );
 
-        self.data.tooltip_tracker.init_delayed(
+        data.tooltip_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -392,7 +371,7 @@ impl Item for SystemTrayIcon {
             },
         );
 
-        self.data.title_tracker.init_delayed(
+        data.title_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -496,23 +475,6 @@ impl Item for SystemTrayIcon {
 impl ItemConsts for SystemTrayIcon {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a SystemTrayIconDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_icon_data_init(data: *mut SystemTrayIconDataBox) {
-    unsafe { core::ptr::write(data, SystemTrayIconDataBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized SystemTrayIconDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_icon_data_free(data: *mut SystemTrayIconDataBox) {
-    unsafe { core::ptr::drop_in_place(data) };
 }
 
 #[cfg(feature = "ffi")]

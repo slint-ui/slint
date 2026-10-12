@@ -640,15 +640,6 @@ inline bool select_bundled_translation(std::string_view language)
 }
 
 #if !defined(DOXYGEN)
-cbindgen_private::SystemTrayIcon::SystemTrayIcon()
-{
-    slint_system_tray_icon_data_init(&data);
-}
-cbindgen_private::SystemTrayIcon::~SystemTrayIcon()
-{
-    slint_system_tray_icon_data_free(&data);
-}
-
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
 {
     slint_native_style_metrics_init(this);
