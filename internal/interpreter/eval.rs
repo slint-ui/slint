@@ -2013,8 +2013,9 @@ macro_rules! declare_call_runtime_builtin_function {
             f: &BuiltinFunction,
             context: Option<&SlintContext>,
             item: Option<&ItemRc>,
-            mut args: impl Iterator<Item = Value>,
+            args: Vec<Value>,
         ) -> Option<Value> {
+            let mut args = args.into_iter();
             match f {
                 $(BuiltinFunction::$Name { .. } => {
                     call_runtime_function!(context, item, args, $($name)? ($($params)*) $($body)?)
@@ -2025,6 +2026,10 @@ macro_rules! declare_call_runtime_builtin_function {
 }
 i_slint_common::for_each_builtin_function!(declare_call_runtime_builtin_function);
 
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
@@ -2036,7 +2041,7 @@ fn call_builtin_function(
     };
 
     match f {
-        i_slint_compiler::runtime_builtin_function!() => {
+        i_slint_compiler::runtime_builtin_function!() => (|| {
             let context = f.runtime_function_takes_context().then(|| component_context(ctx));
             let (element, arguments) = llr::split_element_argument(&f, arguments);
             let item = match element {
@@ -2049,9 +2054,9 @@ fn call_builtin_function(
                 }
                 None => None,
             };
-            let args = arguments.iter().map(|a| eval_expression(ctx, a));
+            let args = arguments.iter().map(|a| eval_expression(ctx, a)).collect();
             call_runtime_builtin_function(&f, context.as_ref(), item.as_ref(), args).unwrap()
-        }
+        })(),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
@@ -2059,7 +2064,7 @@ fn call_builtin_function(
         BuiltinFunction::SetupSystemTrayIcon => {
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }
-        BuiltinFunction::ArrayPush => {
+        BuiltinFunction::ArrayPush => (|| {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ArrayPush")
             }
@@ -2078,8 +2083,8 @@ fn call_builtin_function(
             );
 
             Value::Void
-        }
-        BuiltinFunction::ArrayRemove => {
+        })(),
+        BuiltinFunction::ArrayRemove => (|| {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ArrayRemove")
             }
@@ -2105,9 +2110,9 @@ fn call_builtin_function(
             );
 
             Value::Void
-        }
+        })(),
 
-        BuiltinFunction::ArrayInsert => {
+        BuiltinFunction::ArrayInsert => (|| {
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to ArrayInsert")
             }
@@ -2134,11 +2139,11 @@ fn call_builtin_function(
             );
 
             Value::Void
-        }
+        })(),
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
-        BuiltinFunction::GetWindowScaleFactor => {
+        BuiltinFunction::GetWindowScaleFactor => (|| {
             let factor = root_instance(ctx)
                 .and_then(|inst| inst.window_adapter_or_default())
                 .map(|adapter| {
@@ -2147,8 +2152,8 @@ fn call_builtin_function(
                 })
                 .unwrap_or(1.0);
             Value::Number(factor)
-        }
-        BuiltinFunction::GetWindowDefaultFontSize => {
+        })(),
+        BuiltinFunction::GetWindowDefaultFontSize => (|| {
             // Read `default-font-size` from the nearest enclosing
             // `WindowItem`. The walk crosses popup and embedded-tree
             // boundaries, so `1rem` inside a popup of an embedded component
@@ -2163,19 +2168,19 @@ fn call_builtin_function(
                 })
                 .unwrap_or(12.0);
             Value::Number(size)
-        }
-        BuiltinFunction::ColorScheme => {
+        })(),
+        BuiltinFunction::ColorScheme => (|| {
             let root = root_instance(ctx).map(vtable::VRc::into_dyn);
             component_context(ctx).color_scheme(root.as_ref()).into()
-        }
-        BuiltinFunction::SupportsNativeMenuBar => {
+        })(),
+        BuiltinFunction::SupportsNativeMenuBar => (|| {
             let supports = find_window_adapter(ctx).is_some_and(|a| {
                 a.internal(i_slint_core::InternalToken)
                     .is_some_and(|x| x.supports_native_menu_bar())
             });
             Value::Bool(supports)
-        }
-        BuiltinFunction::TextInputFocused => {
+        })(),
+        BuiltinFunction::TextInputFocused => (|| {
             let focused = ctx
                 .current
                 .as_ref()
@@ -2188,8 +2193,8 @@ fn call_builtin_function(
                 })
                 .unwrap_or(false);
             Value::Bool(focused)
-        }
-        BuiltinFunction::SetTextInputFocused => {
+        })(),
+        BuiltinFunction::SetTextInputFocused => (|| {
             let value = arguments
                 .first()
                 .map(|e| eval_expression(ctx, e))
@@ -2206,13 +2211,13 @@ fn call_builtin_function(
                     .set_text_input_focused(value);
             }
             Value::Void
-        }
+        })(),
         BuiltinFunction::UpdateTimers => {
             // Timers react to property changes through the change trackers
             // installed in `bindings::install_timers`; nothing to do here.
             Value::Void
         }
-        BuiltinFunction::RestartTimer => {
+        BuiltinFunction::RestartTimer => (|| {
             // The timer is referenced through a member reference carrying a
             // `LocalMemberIndex::Timer`, so it resolves in the component that
             // declares it even when the call is made from (or inlined into) a
@@ -2230,8 +2235,8 @@ fn call_builtin_function(
                 timer.restart();
             }
             Value::Void
-        }
-        BuiltinFunction::RegisterCustomFontByPath => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByPath => (|| {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)
             {
@@ -2249,9 +2254,9 @@ fn call_builtin_function(
                 }
             }
             Value::Void
-        }
+        })(),
         BuiltinFunction::SetupMenuBar => crate::popup::setup_menubar(ctx, arguments),
-        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => {
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => (|| {
             let is_all = matches!(f, BuiltinFunction::ArrayAll);
             let model: i_slint_core::model::ModelRc<Value> =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap();
@@ -2265,8 +2270,8 @@ fn call_builtin_function(
             } else {
                 i_slint_core::model::model_any(&model, &mut predicate)
             })
-        }
-        BuiltinFunction::ArrayFindIndex => {
+        })(),
+        BuiltinFunction::ArrayFindIndex => (|| {
             let model: i_slint_core::model::ModelRc<Value> =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap();
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
@@ -2275,8 +2280,8 @@ fn call_builtin_function(
             Value::Number(i_slint_core::model::model_find_index(&model, |row_value| {
                 eval_array_row_predicate(arg_name, expression, ctx, row_value)
             }) as f64)
-        }
-        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+        })(),
+        BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             // The argument is a `PropertyReference` to a `Native { prop_name: "" }`,
             // i.e. the item itself; the optional second argument carries the
             // cross-axis constraint (-1 when unconstrained).
@@ -2302,8 +2307,8 @@ fn call_builtin_function(
                     .into();
             }
             i_slint_core::layout::LayoutInfo::default().into()
-        }
-        BuiltinFunction::Debug => {
+        })(),
+        BuiltinFunction::Debug => (|| {
             use i_slint_core::debug_log::*;
             let msg = to_string(ctx, &arguments[0]);
             component_context(ctx).dispatch_log_message(LogMessage::new(
@@ -2312,7 +2317,7 @@ fn call_builtin_function(
                 format_args!("{msg}"),
             ));
             Value::Void
-        }
+        })(),
         BuiltinFunction::ArrayLength => match eval_expression(ctx, &arguments[0]) {
             // Track the row count so bindings reading `.length` re-evaluate
             // when rows are added or removed.
@@ -2324,7 +2329,7 @@ fn call_builtin_function(
             Value::Number(n) => Value::Number((n.max(0.) as usize) as f64),
             _ => Value::Number(0.),
         },
-        BuiltinFunction::ImageSize => {
+        BuiltinFunction::ImageSize => (|| {
             if let Value::Image(img) = eval_expression(ctx, &arguments[0]) {
                 let size = img.size();
                 let mut s = crate::api::Struct::default();
@@ -2334,8 +2339,8 @@ fn call_builtin_function(
             } else {
                 Value::Void
             }
-        }
-        BuiltinFunction::ParseMarkdown => {
+        })(),
+        BuiltinFunction::ParseMarkdown => (|| {
             let format_string: SharedString =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
             let args = eval_expression(ctx, &arguments[1]);
@@ -2350,8 +2355,8 @@ fn call_builtin_function(
                 Vec::new()
             };
             Value::StyledText(i_slint_core::styled_text::parse_markdown(&format_string, &args))
-        }
-        BuiltinFunction::Translate => {
+        })(),
+        BuiltinFunction::Translate => (|| {
             let original: SharedString = to_string(ctx, &arguments[0]);
             let context: SharedString = to_string(ctx, &arguments[1]);
             let domain: SharedString = to_string(ctx, &arguments[2]);
@@ -2369,10 +2374,10 @@ fn call_builtin_function(
                 n,
                 &plural,
             ))
-        }
+        })(),
         BuiltinFunction::ShowPopupWindow => crate::popup::show_popup_window(ctx, arguments),
         BuiltinFunction::ClosePopupWindow => crate::popup::close_popup_window(ctx, arguments),
-        BuiltinFunction::SetFocusItem => {
+        BuiltinFunction::SetFocusItem => (|| {
             if let Some(Expression::PropertyReference(mr)) = arguments.first()
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
@@ -2386,8 +2391,8 @@ fn call_builtin_function(
                 );
             }
             Value::Void
-        }
-        BuiltinFunction::ClearFocusItem => {
+        })(),
+        BuiltinFunction::ClearFocusItem => (|| {
             if let Some(Expression::PropertyReference(mr)) = arguments.first()
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
@@ -2401,7 +2406,7 @@ fn call_builtin_function(
                 );
             }
             Value::Void
-        }
+        })(),
         BuiltinFunction::DateNow => {
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
                 i_slint_core::date_time::date_now()
@@ -2410,7 +2415,7 @@ fn call_builtin_function(
                     .collect::<Vec<_>>(),
             )))
         }
-        BuiltinFunction::ParseDate => {
+        BuiltinFunction::ParseDate => (|| {
             let d: SharedString = to_string(ctx, &arguments[0]);
             let f: SharedString = to_string(ctx, &arguments[1]);
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
@@ -2418,7 +2423,7 @@ fn call_builtin_function(
                     .map(|v| v.into_iter().map(|x| Value::Number(x as f64)).collect::<Vec<_>>())
                     .unwrap_or_default(),
             )))
-        }
+        })(),
         BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             crate::popup::show_popup_menu(ctx, arguments)
         }
