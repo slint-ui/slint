@@ -595,6 +595,16 @@ pub fn main() {
     run().unwrap();
 }
 
+/// The quality that the automatic quality starts from.
+fn starting_quality() -> Quality {
+    // Phones and browsers often run on mid-range GPUs.
+    if cfg!(any(target_arch = "wasm32", target_os = "android", target_os = "ios")) {
+        Quality::Medium
+    } else {
+        Quality::High
+    }
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The scene renders on Slint's device, so Slint can draw the rendered frames directly.
     slint::BackendSelector::new()
@@ -602,10 +612,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .select()?;
 
     let app_window = AppWindow::new()?;
-    // Phones and browsers often run on mid-range GPUs.
-    if cfg!(any(target_arch = "wasm32", target_os = "android", target_os = "ios")) {
-        app_window.set_quality(Quality::Medium);
-    }
+    app_window.set_quality(starting_quality());
     for arg in std::env::args() {
         let quality = match arg.as_str() {
             "--low" => Quality::Low,
@@ -653,8 +660,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         update(&|state| {
             state.autopilot = app.get_autopilot();
             state.assist = app.get_assist();
+            let auto_quality = app.get_auto_quality();
+            if auto_quality && !state.auto_quality {
+                app.set_quality(starting_quality());
+            }
             state.quality = app.get_quality();
-            state.auto_quality = app.get_auto_quality();
+            state.auto_quality = auto_quality;
             state.fixed_scale = (!app.get_auto_render_scale()).then(|| app.get_render_scale());
             state.camera =
                 if app.get_bumper_camera() { CameraMode::Bumper } else { CameraMode::Chase };

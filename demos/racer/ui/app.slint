@@ -640,9 +640,12 @@ export component AppWindow inherits Window {
         root.auto-quality = false;
         root.settings-changed();
     }
+    // 0: auto, 1: low, 2: medium, 3: high.
     function select-quality(index: int) {
-        root.quality = index == 0 ? Quality.low : index == 1 ? Quality.medium : Quality.high;
-        root.auto-quality = false;
+        root.auto-quality = index == 0;
+        if index > 0 {
+            root.quality = index == 1 ? Quality.low : index == 2 ? Quality.medium : Quality.high;
+        }
         root.settings-changed();
     }
     // 0: auto, 1: 50%, 2: 75%, 3: 100%.
@@ -1241,13 +1244,13 @@ export component AppWindow inherits Window {
                     }
 
                     Label {
-                        text: root.auto-quality ? "QUALITY · AUTO" : "QUALITY";
+                        text: "QUALITY · " + (root.quality == Quality.low ? "LOW" : root.quality == Quality.medium ? "MEDIUM" : "HIGH");
                     }
 
                     Segmented {
                         label: "Quality";
-                        options: ["Low", "Medium", "High"];
-                        current: root.quality == Quality.low ? 0 : root.quality == Quality.medium ? 1 : 2;
+                        options: ["Auto", "Low", "Medium", "High"];
+                        current: root.auto-quality ? 0 : root.quality == Quality.low ? 1 : root.quality == Quality.medium ? 2 : 3;
                         selected(index) => {
                             root.select-quality(index);
                         }
