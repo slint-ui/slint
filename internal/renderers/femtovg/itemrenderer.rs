@@ -634,6 +634,24 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         });
     }
 
+    fn draw_backdrop_blur(
+        &mut self,
+        backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
+        _self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
+        if sigma <= 0. {
+            return;
+        }
+        let path = rect_with_radius_to_path(
+            PhysicalRect::from_size(size * self.scale_factor),
+            backdrop_blur.logical_border_radius() * self.scale_factor,
+        );
+        // Errors leave the target untouched, so the backdrop just stays sharp.
+        let _ = self.canvas.borrow_mut().blur_path(&path, femtovg::FillRule::NonZero, sigma);
+    }
+
     fn visit_opacity(
         &mut self,
         opacity_item: Pin<&Opacity>,
@@ -642,6 +660,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
+            if opacity_item.wraps_backdrop_blur() {
+                self.save_state();
+                self.apply_opacity(opacity);
+                self.draw_wrapped_backdrop_blur(item_rc);
+                self.restore_state();
+            }
             self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
@@ -656,7 +680,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         _size: LogicalSize,
     ) -> RenderingResult {
-        if layer_item.cache_rendering_hint() {
+        // A cached layer would hide the backdrop from the blur, see `draw_wrapped_backdrop_blur`.
+        if layer_item.cache_rendering_hint() && !layer_item.wraps_backdrop_blur() {
             self.render_and_blend_layer(1.0, self_rc)
         } else {
             self.layer_cache.release(self_rc);
@@ -1266,6 +1291,28 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         canvas.reset_transform();
         canvas.set_transform(&Transform2D::new(a, b, c, d, new_x, new_y));
         true
+    }
+
+    /// Draws the `BackdropBlur` under an `Opacity` that wraps it onto the current target.
+    /// The layer the blur sits in starts out transparent, so the blur there sees nothing.
+    /// Under opaque content in the layer, the blur still shows through by `1 - opacity`.
+    fn draw_wrapped_backdrop_blur(&mut self, opacity_rc: &ItemRc) {
+        let mut child = opacity_rc.first_child();
+        while let Some(item_rc) = child {
+            let geometry = item_rc.geometry();
+            self.translate(geometry.origin.to_vector());
+            let item = item_rc.borrow();
+            if let Some(blur) = items::ItemRef::downcast_pin::<items::BackdropBlur>(item) {
+                self.draw_backdrop_blur(blur, &item_rc, geometry.size);
+                return;
+            }
+            if items::ItemRef::downcast_pin::<items::Transform>(item).is_some() {
+                item.as_ref().render(&mut (self as &mut dyn ItemRenderer), &item_rc, geometry.size);
+            } else if items::ItemRef::downcast_pin::<Layer>(item).is_none() {
+                return;
+            }
+            child = item_rc.first_child();
+        }
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
