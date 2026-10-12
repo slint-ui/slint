@@ -74,9 +74,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     texture,
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
-                    Some(&|item_renderer| {
-                        draw_mouse_cursor_callback(item_renderer);
-                    }),
+                    Some(draw_mouse_cursor_callback),
                 )
             })
             .and_then(|()| self.barriers.release(index, texture));
