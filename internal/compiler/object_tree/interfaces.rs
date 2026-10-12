@@ -496,6 +496,16 @@ pub(super) fn validate_interface_implementation(
     let mut errors = Vec::new();
     let mut notes = Vec::new();
     for (member_name, member) in declared_members(interface) {
+        if *binding == ImplementBinding::OnSelf {
+            warn_missing_deprecation(
+                element,
+                &member_name,
+                &member.declaration,
+                interface_name,
+                node,
+                diagnostics,
+            );
+        }
         if let Some(mut conflict) = validate_interface_member_implementation(
             element,
             &member_name,
@@ -525,6 +535,45 @@ pub(super) fn validate_interface_implementation(
         }
     }
     errors.is_empty()
+}
+
+fn warn_missing_deprecation(
+    element: &Element,
+    member_name: &SmolStr,
+    interface_member: &PropertyDeclaration,
+    interface_name: &SmolStr,
+    node: &SyntaxNode,
+    diagnostics: &mut BuildDiagnostics,
+) {
+    let Some(message) = &interface_member.deprecated else { return };
+    let property = element.lookup_property(member_name, PropertyLookupMode::ComponentLocal);
+    if !property.is_valid()
+        || matches!(property.property_type, Type::InferredProperty | Type::InferredCallback)
+        || property.deprecated.is_some()
+    {
+        return;
+    }
+
+    let kind = match interface_member.property_type {
+        Type::Callback(_) => "callback",
+        Type::Function(_) => "function",
+        _ => "property",
+    };
+    let deprecated =
+        format!("The {kind} '{member_name}' has been deprecated in '{interface_name}'");
+    let deprecated =
+        if message.is_empty() { deprecated } else { format!("{deprecated}: {message}") };
+    let source = element
+        .declaration(member_name)
+        .and_then(|(_, declaration)| declaration.node.clone())
+        .map_or_else(
+            || node.to_source_location(),
+            |declaration| DeclarationAnchor::Name.source_location(&declaration),
+        );
+    diagnostics.push_warning_with_span(
+        format!("{deprecated}. Deprecate it here to silence this warning"),
+        source,
+    );
 }
 
 fn validate_interface_member_implementation(
@@ -608,7 +657,7 @@ pub(super) fn apply_child_implement_statements(
 
         let mut conflicts = Vec::new();
         let mut notes = Vec::new();
-        for (name, InterfaceMember { declaration: mut prop_decl, declaring_interface }) in
+        for (name, InterfaceMember { declaration: prop_decl, declaring_interface }) in
             declared_members(interface)
         {
             if let Some(applied) = applied_members.get(&name) {
@@ -642,10 +691,6 @@ pub(super) fn apply_child_implement_statements(
                 continue;
             }
 
-            // Replace the node with the interface name for better diagnostics later, since the declaration won't have a
-            // node in this element.
-            prop_decl.node = Some(node.QualifiedName().into());
-
             // A shadowing declaration also occupies the name, though stored under a different one
             let shadowing = element
                 .borrow()
@@ -655,7 +700,15 @@ pub(super) fn apply_child_implement_statements(
                 element
                     .borrow_mut()
                     .property_declarations
-                    .insert(name.clone(), prop_decl.clone())
+                    .insert(
+                        name.clone(),
+                        // Replace the node with the interface name for better diagnostics later,
+                        // since the declaration won't have a node in this element.
+                        PropertyDeclaration {
+                            node: Some(node.QualifiedName().into()),
+                            ..prop_decl.clone()
+                        },
+                    )
                     .map(|existing| existing.node.clone())
             });
             if let Some(existing_node) = existing_node {
@@ -738,12 +791,65 @@ fn syntax_for(
 }
 
 fn syntax_for_declaration(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
+    let attributes = attributes_syntax(interface_declaration);
+    let declaration = syntax_for_signature(interface_declaration, name);
+    if attributes.is_empty() { declaration } else { format!("{attributes} {declaration}") }
+}
+
+fn syntax_for_signature(interface_declaration: &PropertyDeclaration, name: &SmolStr) -> String {
     syntax_for(
         name,
         &interface_declaration.property_type,
         &interface_declaration.pure,
         &interface_declaration.visibility,
     )
+}
+
+#[derive(Clone, Copy)]
+enum MemberAttribute {
+    Shadowable,
+    Deprecated,
+}
+
+impl MemberAttribute {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Shadowable => "@shadowable",
+            Self::Deprecated => "@deprecated",
+        }
+    }
+
+    fn source_syntax(self, declaration: &PropertyDeclaration) -> String {
+        match self {
+            Self::Shadowable => self.name().into(),
+            Self::Deprecated => {
+                let literal = declaration
+                    .node
+                    .as_ref()
+                    .and_then(|node| node.child_node(SyntaxKind::PropertyDeprecation))
+                    .and_then(|node| node.child_token(SyntaxKind::StringLiteral))
+                    .expect("a '@deprecated' member keeps its message literal");
+                format!("{}({})", self.name(), literal.text())
+            }
+        }
+    }
+}
+
+fn attributes(
+    interface_declaration: &PropertyDeclaration,
+) -> impl Iterator<Item = MemberAttribute> {
+    [
+        (MemberAttribute::Shadowable, interface_declaration.shadowable),
+        (MemberAttribute::Deprecated, interface_declaration.deprecated.is_some()),
+    ]
+    .into_iter()
+    .filter_map(|(attribute, present)| present.then_some(attribute))
+}
+
+fn attributes_syntax(interface_declaration: &PropertyDeclaration) -> String {
+    attributes(interface_declaration)
+        .map(|attribute| attribute.source_syntax(interface_declaration))
+        .join(" ")
 }
 
 fn syntax_for_lookup_result(lookup_result: &PropertyLookupResult, name: &SmolStr) -> String {
@@ -753,10 +859,6 @@ fn syntax_for_lookup_result(lookup_result: &PropertyLookupResult, name: &SmolStr
         &lookup_result.declared_pure,
         &lookup_result.property_visibility,
     )
-}
-
-fn missing_type_error(name: &SmolStr, interface_declaration: &PropertyDeclaration) -> String {
-    format!("- missing '{}'", syntax_for_declaration(interface_declaration, name))
 }
 
 fn declares_as_note(interface_name: &SmolStr, name: &SmolStr, expected_syntax: &String) -> String {
@@ -832,11 +934,14 @@ fn property_matches_interface(
     name: &SmolStr,
     binding: &ImplementBinding,
 ) -> Result<(), Vec<MemberViolation>> {
-    let expected_syntax = syntax_for_declaration(interface_declaration, name);
+    let expected_syntax = match binding {
+        ImplementBinding::OnSelf => syntax_for_declaration(interface_declaration, name),
+        ImplementBinding::OnChild { .. } => syntax_for_signature(interface_declaration, name),
+    };
     if property.property_type == Type::Invalid {
         return if member_is_absent(element, name) {
             Err(vec![MemberViolation {
-                error: missing_type_error(name, interface_declaration),
+                error: format!("- missing '{expected_syntax}'"),
                 expected_syntax,
                 anchor: DeclarationAnchor::Name,
             }])
@@ -874,7 +979,7 @@ fn property_matches_interface(
         let expected = if is_same_type && interface_declaration.property_type.is_property_type() {
             property_description(&interface_declaration.property_type)
         } else {
-            format!("'{}'", syntax_for_declaration(interface_declaration, name))
+            format!("'{}'", syntax_for_signature(interface_declaration, name))
         };
 
         let actual = if property.property_type.is_property_type() {
@@ -920,8 +1025,19 @@ fn property_matches_interface(
     if interface_declaration.pure.unwrap_or(false) && !property.declared_pure.unwrap_or(false) {
         errors.push(MemberViolation {
             error: format!("- '{member_name}' must be 'pure'"),
-            expected_syntax,
+            expected_syntax: expected_syntax.clone(),
             anchor: DeclarationAnchor::Purity,
+        });
+    }
+
+    if *binding == ImplementBinding::OnSelf
+        && interface_declaration.shadowable
+        && !property.is_shadowable
+    {
+        errors.push(MemberViolation {
+            error: format!("- '{member_name}' must be '{}'", MemberAttribute::Shadowable.name()),
+            expected_syntax: expected_syntax.clone(),
+            anchor: DeclarationAnchor::Name,
         });
     }
 

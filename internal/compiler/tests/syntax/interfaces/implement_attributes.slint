@@ -1,0 +1,182 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Attributed {
+    @shadowable in-out property <int> value;
+    @deprecated("Use 'value' instead") callback changed();
+}
+
+interface DerivedAttributed inherits Attributed { }
+
+export component Correct {
+    implement Attributed <=> self;
+
+    @shadowable in-out property <int> value;
+    @deprecated("Use 'value' instead") callback changed();
+}
+
+export component MissingShadowable {
+    implement Attributed <=> self;
+//            >         <error{Cannot implement 'Attributed'.↵- 'value' must be '@shadowable'}
+
+    in-out property <int> value;
+//                        >   <note{'MissingShadowable' declares 'value' here, 'Attributed' expects '@shadowable in-out property <int> value;'}
+    @deprecated("Use 'value' instead") callback changed();
+}
+
+export component MissingDeprecated {
+    implement Attributed <=> self;
+
+    @shadowable in-out property <int> value;
+    callback changed();
+//           >     <warning{The callback 'changed' has been deprecated in 'Attributed': Use 'value' instead. Deprecate it here to silence this warning}
+}
+
+export component DifferentDeprecationMessage {
+    implement Attributed <=> self;
+
+    @shadowable in-out property <int> value;
+    @deprecated("") callback changed();
+}
+
+interface Plain {
+    in-out property <int> value;
+    callback changed();
+}
+
+export component ExtraAttributes {
+    implement Plain <=> self;
+
+    @shadowable in-out property <int> value;
+    @deprecated("") callback changed();
+}
+
+component AttributedBase {
+    @shadowable in-out property <int> value;
+    @deprecated("") callback changed();
+    @children
+}
+
+export component InheritsAttributes inherits AttributedBase {
+    implement Attributed <=> self;
+}
+
+component PlainChild {
+    in-out property <int> value;
+    callback changed();
+}
+
+export component ForwardsToChild {
+    implement Attributed <=> inner;
+
+    inner := PlainChild { }
+}
+
+component ShadowsForwardedMember inherits ForwardsToChild {
+    in-out property <int> value;
+//                        >   <warning{'value' shadows the inherited property of the same name}
+}
+
+export component UsesForwardedDeprecatedMember {
+    ForwardsToChild {
+        changed => {}
+//      >     <warning{The callback 'changed' has been deprecated: Use 'value' instead}
+    }
+    ShadowsForwardedMember { }
+}
+
+export component MissingInheritedInterfaceAttributes {
+    implement DerivedAttributed <=> self;
+//            >                <error{Cannot implement 'DerivedAttributed'.↵- 'value' must be '@shadowable'}
+
+    in-out property <int> value;
+//                        >   <note{'MissingInheritedInterfaceAttributes' declares 'value' here, 'DerivedAttributed' expects '@shadowable in-out property <int> value;'}
+    callback changed();
+//           >     <warning{The callback 'changed' has been deprecated in 'DerivedAttributed': Use 'value' instead. Deprecate it here to silence this warning}
+}
+
+export component MissingMember {
+    implement Attributed <=> self;
+//            >         <error{Cannot implement 'Attributed'.↵- missing '@deprecated("Use 'value' instead") callback changed();'↵- missing '@shadowable in-out property <int> value;'}
+}
+
+export component OverridesForwardedMember {
+    implement Attributed <=> inner;
+//            >         <note{'Attributed' declares 'changed' as '@deprecated("Use 'value' instead") callback changed();'}
+
+    callback changed();
+//           >     <error{Cannot override 'changed' from 'Attributed'}
+
+    inner := PlainChild { }
+}
+
+component MismatchedChild {
+    in-out property <string> value;
+//                   >    <note{'MismatchedChild' declares 'value' here, 'Attributed' expects 'in-out property <int> value;'}
+    callback changed();
+}
+
+export component ForwardsToMismatchedChild {
+    implement Attributed <=> inner;
+//                           >   <error{Cannot implement 'Attributed' based on 'inner'.↵- 'inner.value' must be a 'int' property (found a 'string' property)}
+
+    inner := MismatchedChild { }
+}
+
+component EmptyChild { }
+
+export component ForwardsToChildMissingMembers {
+    implement Attributed <=> inner;
+//                           >   <error{Cannot implement 'Attributed' based on 'inner'.↵- missing 'callback changed();'↵- missing 'in-out property <int> value;'}
+
+    inner := EmptyChild { }
+}
+
+interface AttributedFunctions {
+    @shadowable public function shadowable-function();
+    @deprecated("Use 'shadowable-function' instead") public function deprecated-function();
+}
+
+export component CorrectFunctions {
+    implement AttributedFunctions <=> self;
+
+    @shadowable public function shadowable-function() {}
+    @deprecated("") public function deprecated-function() {}
+}
+
+export component MissingFunctionAttributes {
+    implement AttributedFunctions <=> self;
+//            >                  <error{Cannot implement 'AttributedFunctions'.↵- 'shadowable-function' must be '@shadowable'}
+
+    public function shadowable-function() {}
+//                  >                 <note{'MissingFunctionAttributes' declares 'shadowable-function' here, 'AttributedFunctions' expects '@shadowable public function shadowable-function() { }'}
+    public function deprecated-function() {}
+//                  >                 <warning{The function 'deprecated-function' has been deprecated in 'AttributedFunctions': Use 'shadowable-function' instead. Deprecate it here to silence this warning}
+}
+
+component PlainBase {
+    @shadowable in-out property <int> value;
+    callback changed();
+    @children
+}
+
+export component InheritsMissingDeprecated inherits PlainBase {
+    implement Attributed <=> self;
+//            >         <warning{The callback 'changed' has been deprecated in 'Attributed': Use 'value' instead. Deprecate it here to silence this warning}
+}
+
+interface EmptyDeprecationMessage {
+    @deprecated("") in-out property <int> value;
+}
+
+export component MissingEmptyDeprecation {
+    implement EmptyDeprecationMessage <=> self;
+
+    in-out property <int> value;
+//                        >   <warning{The property 'value' has been deprecated in 'EmptyDeprecationMessage'. Deprecate it here to silence this warning}
+}
+
+export component UsesMissingDeprecationWithoutDiagnostics {
+    out property <int> value: child.value;
+    child := MissingEmptyDeprecation { }
+}
