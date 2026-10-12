@@ -329,7 +329,6 @@ num-traits = { version = "0.2", default-features = false }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
-unicode-segmentation = { workspace = true }
 
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }

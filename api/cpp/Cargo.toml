@@ -92,7 +92,6 @@ raw-window-handle = { version = "0.6", optional = true }
 
 esp-backtrace = { version = "0.20.0", features = ["panic-handler", "println"], optional = true }
 esp-println = { version = "0.18.0", default-features = false, features = ["auto", "log-04"], optional = true }
-unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }

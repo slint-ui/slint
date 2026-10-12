@@ -19,7 +19,7 @@ use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
-use i_slint_core::{Color, SharedString, SharedVector};
+use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -1975,218 +1975,60 @@ fn eval_translation_reference(
     ))
 }
 
-/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
+macro_rules! call_runtime_function {
+    ($context:ident, $args:ident, ($($params:tt)*)) => { None };
+    ($context:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) $body:block) => {{
+        $(let Some($ctx) = $context else { return Some(Value::Void) };)?
+        $(let $param = $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default();)*
+        Some(Value::from(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*)))
+    }};
+}
+
+macro_rules! declare_call_runtime_builtin_function {
+    ($(
+        $(#[$attr:meta])*
+        $Name:ident $(($Payload:ident))? :
+            $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+    )*) => {
+        /// Calls the function that implements `f`, if it has one, with the arguments converted
+        /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
+        pub fn call_runtime_builtin_function(
+            f: &BuiltinFunction,
+            context: Option<&SlintContext>,
+            mut args: impl Iterator<Item = Value>,
+        ) -> Option<Value> {
+            match f {
+                $(BuiltinFunction::$Name { .. } => {
+                    call_runtime_function!(context, args, $($name)? ($($params)*) $($body)?)
+                })*
+            }
+        }
+    };
+}
+i_slint_common::for_each_builtin_function!(declare_call_runtime_builtin_function);
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
     source_location: &Option<SourceLocation>,
 ) -> Value {
-    let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
-        eval_expression(ctx, e).try_into().unwrap_or_default()
-    };
     let to_string = |ctx: &mut EvalContext, e: &Expression| -> SharedString {
         eval_expression(ctx, e).try_into().unwrap_or_default()
     };
 
     match f {
-        BuiltinFunction::Mod => {
-            Value::Number(to_num(ctx, &arguments[0]).rem_euclid(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Round => Value::Number(to_num(ctx, &arguments[0]).round()),
-        BuiltinFunction::Ceil => Value::Number(to_num(ctx, &arguments[0]).ceil()),
-        BuiltinFunction::Floor => Value::Number(to_num(ctx, &arguments[0]).floor()),
-        BuiltinFunction::Sqrt => Value::Number(to_num(ctx, &arguments[0]).sqrt()),
-        BuiltinFunction::Abs => Value::Number(to_num(ctx, &arguments[0]).abs()),
-        BuiltinFunction::Sin => Value::Number(to_num(ctx, &arguments[0]).to_radians().sin()),
-        BuiltinFunction::Cos => Value::Number(to_num(ctx, &arguments[0]).to_radians().cos()),
-        BuiltinFunction::Tan => Value::Number(to_num(ctx, &arguments[0]).to_radians().tan()),
-        BuiltinFunction::ASin => Value::Number(to_num(ctx, &arguments[0]).asin().to_degrees()),
-        BuiltinFunction::ACos => Value::Number(to_num(ctx, &arguments[0]).acos().to_degrees()),
-        BuiltinFunction::ATan => Value::Number(to_num(ctx, &arguments[0]).atan().to_degrees()),
-        BuiltinFunction::ATan2 => {
-            Value::Number(to_num(ctx, &arguments[0]).atan2(to_num(ctx, &arguments[1])).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            Value::Number(to_num(ctx, &arguments[0]).log(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Ln => Value::Number(to_num(ctx, &arguments[0]).ln()),
-        BuiltinFunction::Pow => {
-            Value::Number(to_num(ctx, &arguments[0]).powf(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Exp => Value::Number(to_num(ctx, &arguments[0]).exp()),
-        BuiltinFunction::ToFixed => {
-            let n = to_num(ctx, &arguments[0]);
-            let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(component_context(ctx).format_number_fixed(n, digits.max(0) as usize))
-        }
-        BuiltinFunction::ToPrecision => {
-            let n = to_num(ctx, &arguments[0]);
-            let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(component_context(ctx).format_number_precision(n, p.max(0) as usize))
-        }
-        BuiltinFunction::StringStartsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .starts_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::StringEndsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .ends_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::ToStringUnlocalized => {
-            let n = to_num(ctx, &arguments[0]);
-            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
-        }
-        BuiltinFunction::DefaultWindowTitle => {
-            Value::String(i_slint_core::window::default_window_title())
-        }
-        BuiltinFunction::DecimalSeparator => {
-            Value::String(component_context(ctx).locale_decimal_separator().into())
+        i_slint_compiler::runtime_builtin_function!() => {
+            let context = f.runtime_function_takes_context().then(|| component_context(ctx));
+            let args = arguments.iter().map(|a| eval_expression(ctx, a));
+            call_runtime_builtin_function(&f, context.as_ref(), args).unwrap()
         }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
         }
-        BuiltinFunction::ColorToStyledText => {
-            let color: i_slint_core::Color =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::color_to_styled_text(color))
-        }
         BuiltinFunction::SetupSystemTrayIcon => {
             crate::popup::setup_system_tray_icon(ctx, arguments)
-        }
-        BuiltinFunction::StringIsFloat => Value::Bool(
-            component_context(ctx).parse_number(to_string(ctx, &arguments[0]).as_str()).is_some(),
-        ),
-        BuiltinFunction::StringToFloat => Value::Number(
-            component_context(ctx)
-                .parse_number(to_string(ctx, &arguments[0]).as_str())
-                .unwrap_or_default() as f64,
-        ),
-        BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
-        BuiltinFunction::StringCharacterCount => Value::Number(
-            unicode_segmentation::UnicodeSegmentation::graphemes(
-                to_string(ctx, &arguments[0]).as_str(),
-                true,
-            )
-            .count() as f64,
-        ),
-        BuiltinFunction::StringToLowercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_lowercase().into())
-        }
-        BuiltinFunction::StringToUppercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
-        }
-        BuiltinFunction::StringReplaceAll => {
-            if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to StringReplaceAll")
-            }
-
-            if let (Value::String(s), Value::String(from), Value::String(to)) = (
-                eval_expression(ctx, &arguments[0]),
-                eval_expression(ctx, &arguments[1]),
-                eval_expression(ctx, &arguments[2]),
-            ) {
-                Value::String(i_slint_core::string::shared_string_replace_all(
-                    &s,
-                    from.as_str(),
-                    to.as_str(),
-                ))
-            } else {
-                panic!("Not all arguments are strings");
-            }
-        }
-        BuiltinFunction::ColorRgbaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color();
-                let values = [
-                    ("red".to_string(), Value::Number(color.red().into())),
-                    ("green".to_string(), Value::Number(color.green().into())),
-                    ("blue".to_string(), Value::Number(color.blue().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorHsvaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_hsva();
-                let values = [
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("saturation".to_string(), Value::Number(color.saturation.into())),
-                    ("value".to_string(), Value::Number(color.value.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorOklchStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_oklch();
-                let values = [
-                    ("lightness".to_string(), Value::Number(color.lightness.into())),
-                    ("chroma".to_string(), Value::Number(color.chroma.into())),
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorBrighter => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.brighter(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorDarker => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.darker(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorTransparentize => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.transparentize(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.with_alpha(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorMix => {
-            let a = eval_expression(ctx, &arguments[0]);
-            let b = eval_expression(ctx, &arguments[1]);
-            let factor = to_num(ctx, &arguments[2]) as f32;
-            if let (
-                Value::Brush(i_slint_core::Brush::SolidColor(ca)),
-                Value::Brush(i_slint_core::Brush::SolidColor(cb)),
-            ) = (a, b)
-            {
-                ca.mix(&cb, factor).into()
-            } else {
-                Value::Void
-            }
         }
         BuiltinFunction::ArrayPush => {
             if arguments.len() != 2 {
@@ -2264,41 +2106,6 @@ fn call_builtin_function(
 
             Value::Void
         }
-        BuiltinFunction::Rgb => {
-            let r: i32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let g: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let b: i32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let r: u8 = r.clamp(0, 255) as u8;
-            let g: u8 = g.clamp(0, 255) as u8;
-            let b: u8 = b.clamp(0, 255) as u8;
-            let a: u8 = (255. * a).clamp(0., 255.) as u8;
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_argb_u8(
-                a, r, g, b,
-            )))
-        }
-        BuiltinFunction::Hsv => {
-            let h: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let s: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let v: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let a = a.clamp(0., 1.);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_hsva(
-                h, s, v, a,
-            )))
-        }
-        BuiltinFunction::Oklch => {
-            let l: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let c: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let h: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_oklch(
-                l.clamp(0.0, 1.0),
-                c,
-                h,
-                a.clamp(0.0, 1.0),
-            )))
-        }
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
@@ -2328,16 +2135,9 @@ fn call_builtin_function(
                 .unwrap_or(12.0);
             Value::Number(size)
         }
-        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
-        BuiltinFunction::Use24HourFormat => {
-            Value::Bool(i_slint_core::date_time::use_24_hour_format())
-        }
         BuiltinFunction::ColorScheme => {
             let root = root_instance(ctx).map(vtable::VRc::into_dyn);
             component_context(ctx).color_scheme(root.as_ref()).into()
-        }
-        BuiltinFunction::AccentColor => {
-            Value::Brush(i_slint_core::Brush::SolidColor(component_context(ctx).accent_color()))
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let supports = find_window_adapter(ctx).is_some_and(|a| {
@@ -2401,14 +2201,6 @@ fn call_builtin_function(
                 timer.restart();
             }
             Value::Void
-        }
-        BuiltinFunction::KeysToString => {
-            let v = arguments.first().map(|e| eval_expression(ctx, e));
-            if let Some(Value::Keys(keys)) = v {
-                Value::String(keys.to_string().into())
-            } else {
-                Value::String(Default::default())
-            }
         }
         BuiltinFunction::SetSelectionOffsets => {
             // (item_ref, anchor, focus) -> applied to a TextInput.
@@ -2629,11 +2421,6 @@ fn call_builtin_function(
             };
             Value::StyledText(i_slint_core::styled_text::parse_markdown(&format_string, &args))
         }
-        BuiltinFunction::StringToStyledText => {
-            let string: SharedString =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::string_to_styled_text(string.to_string()))
-        }
         BuiltinFunction::Translate => {
             let original: SharedString = to_string(ctx, &arguments[0]);
             let context: SharedString = to_string(ctx, &arguments[1]);
@@ -2685,23 +2472,6 @@ fn call_builtin_function(
             }
             Value::Void
         }
-        BuiltinFunction::MonthDayCount => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
-        }
-        BuiltinFunction::MonthOffset => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
-        }
-        BuiltinFunction::FormatDate => {
-            let f: SharedString = to_string(ctx, &arguments[0]);
-            let d: u32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let m: u32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(0);
-            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
-        }
         BuiltinFunction::DateNow => {
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
                 i_slint_core::date_time::date_now()
@@ -2709,11 +2479,6 @@ fn call_builtin_function(
                     .map(|x| Value::Number(x as f64))
                     .collect::<Vec<_>>(),
             )))
-        }
-        BuiltinFunction::ValidDate => {
-            let d: SharedString = to_string(ctx, &arguments[0]);
-            let f: SharedString = to_string(ctx, &arguments[1]);
-            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
         }
         BuiltinFunction::ParseDate => {
             let d: SharedString = to_string(ctx, &arguments[0]);
@@ -2726,10 +2491,6 @@ fn call_builtin_function(
         }
         BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             crate::popup::show_popup_menu(ctx, arguments)
-        }
-        BuiltinFunction::OpenUrl => {
-            let url = to_string(ctx, &arguments[0]);
-            Value::Bool(i_slint_core::open_url(&url, &component_context(ctx)).is_ok())
         }
         BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
             // Bitmap font registration is generated by build.rs, not callable from .slint.

@@ -18,6 +18,7 @@ use num_traits::Float;
 /// is 0 to 255.
 /// This is merely a helper class for use with [`Color`].
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[repr(C)]
 pub struct RgbaColor<T> {
     /// The alpha component.
     pub alpha: T,
@@ -28,6 +29,10 @@ pub struct RgbaColor<T> {
     /// The blue channel.
     pub blue: T,
 }
+
+/// `RgbaColor<u8>` in a single token, for macros
+#[doc(hidden)]
+pub type RgbaColorU8 = RgbaColor<u8>;
 
 #[cfg(feature = "32-bit-color")]
 type Channel = f32;
@@ -440,6 +445,7 @@ impl core::fmt::Display for Color {
 /// This is merely a helper struct for use with [`Color`].
 #[derive(Copy, Clone, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct HsvaColor {
     /// The hue component in degrees between 0 and 360.
     pub hue: f32,
@@ -538,6 +544,7 @@ impl From<Color> for HsvaColor {
 /// Reference: <https://bottosson.github.io/posts/oklab/>
 #[derive(Copy, Clone, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct OklchColor {
     /// The lightness component, between 0 (black) and 1 (white).
     pub lightness: f32,

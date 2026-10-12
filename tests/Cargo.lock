@@ -4778,7 +4778,6 @@ dependencies = [
  "once_cell",
  "pin-weak",
  "slint-macros",
- "unicode-segmentation",
  "vtable",
 ]
 
@@ -4809,7 +4808,6 @@ dependencies = [
  "lyon_path",
  "smol_str 0.3.6",
  "typed-index-collections",
- "unicode-segmentation",
  "vtable",
  "web-sys",
 ]

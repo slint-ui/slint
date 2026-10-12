@@ -106,7 +106,9 @@ pub use api::*;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
-pub use eval::{default_value_for_struct_field, default_value_for_type};
+pub use eval::{
+    call_runtime_builtin_function, default_value_for_struct_field, default_value_for_type,
+};
 
 #[cfg(test)]
 mod tests;

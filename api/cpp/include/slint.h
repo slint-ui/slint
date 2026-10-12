@@ -12,6 +12,7 @@
 #include "private/slint_item_tree.h"
 #include "private/slint_keys.h"
 #include "private/slint_data_transfer.h"
+#include "private/slint_builtin_functions.h"
 
 #include <vector>
 #include <chrono>
@@ -424,45 +425,12 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
-inline SharedString decimal_separator()
-{
-    SharedString out;
-    cbindgen_private::slint_decimal_separator(&out);
-    return out;
-}
-
-inline SharedString default_window_title()
-{
-    SharedString out;
-    cbindgen_private::slint_default_window_title(&out);
-    return out;
-}
-
 inline StyledText parse_markdown(const SharedString &format_string,
                                  cbindgen_private::Slice<StyledText> args)
 {
     StyledText result;
     cbindgen_private::slint_parse_markdown(&format_string, args, &result);
     return result;
-}
-
-inline StyledText string_to_styled_text(const SharedString &text)
-{
-    StyledText result;
-    cbindgen_private::slint_string_to_styled_text(&text, &result);
-    return result;
-}
-
-inline StyledText color_to_styled_text(const Color &color)
-{
-    StyledText result;
-    cbindgen_private::slint_color_to_styled_text(&color, &result);
-    return result;
-}
-
-inline bool open_url(const SharedString &url, const WindowAdapterRc &window_adapter)
-{
-    return cbindgen_private::slint_open_url(&url, &window_adapter.handle());
 }
 
 inline void macos_bring_all_windows_to_front()

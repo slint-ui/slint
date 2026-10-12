@@ -5078,7 +5078,6 @@ dependencies = [
  "once_cell",
  "pin-weak",
  "slint-macros",
- "unicode-segmentation",
  "vtable",
 ]
 

@@ -622,12 +622,6 @@ mod ffi {
         crate::SlintContext::current().map_or(0, |ctx| ctx.language_index())
     }
 
-    /// return the current decimal-separator for the `Platform.decimal-separator` property
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
-        *out = crate::SharedString::from(crate::string::current_decimal_separator())
-    }
-
     /// Perform the translation and formatting.
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_translate(

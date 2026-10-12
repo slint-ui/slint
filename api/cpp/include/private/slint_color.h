@@ -68,13 +68,16 @@ template<typename T>
 struct RgbaColor
 {
     /// The alpha component.
-    T alpha;
+    T alpha {};
     /// The red component.
-    T red;
+    T red {};
     /// The green component.
-    T green;
+    T green {};
     /// The blue component.
-    T blue;
+    T blue {};
+
+    /// Creates a new RgbaColor instance with all components set to zero.
+    RgbaColor() = default;
 
     /// Creates a new RgbaColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
