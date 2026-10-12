@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inlines namedreference pathutils
+// cSpell: ignore inlines namedreference
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -18,6 +18,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 mod builtin_elements;
+#[macro_use]
+pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
@@ -34,7 +36,8 @@ pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
-pub mod pathutils;
+pub mod project_file;
+pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
@@ -44,7 +47,7 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
-use std::path::Path;
+use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -113,12 +116,12 @@ pub enum ComponentSelection {
 /// This is a dyn-compatible version of:
 ///
 /// ```ignore
-/// async fn(String) -> Option<std::io::Result<String>>
+/// async fn(SourcePath) -> Option<std::io::Result<String>>
 /// ```
 ///
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
-    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+    Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
 pub type ResourceUrlMapper =
     Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
@@ -206,6 +209,11 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+
+    /// The project file that a tool was given as input, whose entry is being compiled.
+    /// Generated Python code loads it at run time instead of the entry,
+    /// so that run time applies the same project file.
+    pub input_project_file: Option<std::path::PathBuf>,
 
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
@@ -337,6 +345,7 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            input_project_file: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
@@ -404,47 +413,34 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
+/// `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, _) =
-        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
-
-    (path, diagnostics, loader)
+    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
+    (diagnostics, loader)
 }
 
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes, just like `load_root_file`.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
-/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and another `TypeLoader` with a minimal
+/// set of passes applied to it.
 pub async fn load_root_file_with_raw_type_loader(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (
-    std::path::PathBuf,
-    diagnostics::BuildDiagnostics,
-    typeloader::TypeLoader,
-    Option<typeloader::TypeLoader>,
-) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, raw_type_loader) =
-        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
-
-    (path, diagnostics, loader, raw_type_loader)
+    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    (diagnostics, loader, raw_type_loader)
 }
 
 /// Returns true and emits an error if experimental features should be disabled.

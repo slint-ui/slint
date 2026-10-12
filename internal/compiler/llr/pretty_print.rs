@@ -239,20 +239,17 @@ impl PrettyPrinter<'_> {
             writeln!(self.writer, "{} := {} {{}};", ssc.name, root.sub_components[ssc.ty].name)?;
         }
         for ((item_idx, item), geom) in std::iter::zip(sc.items.iter_enumerated(), &sc.geometries) {
-            if let Some(item_debug) =
+            if let Some(item_debug_entries) =
                 sc.debug_info.as_ref().and_then(|debug| debug.items.get(item_idx))
             {
-                let ItemDebugInfo {
-                    source_location,
-                    qualified_id,
-                    element_hash,
-                    is_injected_wrapper_element,
-                } = item_debug;
-
-                let id = qualified_id.as_ref().map(|id| format!(" ({id})")).unwrap_or_default();
-                self.indent()?;
-                writeln!(self.writer, "// {element_hash}{id} @ {source_location}",)?;
-                if *is_injected_wrapper_element {
+                for ItemDebugInfo { source_location, qualified_id, element_hash } in
+                    item_debug_entries
+                {
+                    let id = qualified_id.as_ref().map(|id| format!(" ({id})")).unwrap_or_default();
+                    self.indent()?;
+                    writeln!(self.writer, "// {element_hash}{id} @ {source_location}",)?;
+                }
+                if item_debug_entries.is_empty() {
                     self.indent()?;
                     writeln!(self.writer, "// injected wrapper element!",)?;
                 }
@@ -762,6 +759,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
                 write!(f, "({}) => {}", display_name, e(expression))
             }
+            Expression::DashArray(dash_array) => write!(f, "dash-array({dash_array:?})"),
             Expression::DebugHook { expression, id } => {
                 write!(f, "debug-hook({id:?}, {})", DisplayExpression(expression, ctx))
             }

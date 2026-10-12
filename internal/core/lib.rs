@@ -32,6 +32,7 @@ pub use std::thread_local;
 pub mod accessibility;
 pub mod animations;
 pub mod api;
+pub mod builtin_functions;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
@@ -206,8 +207,8 @@ pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
 
-pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
-    crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
+pub fn open_url(url: &str, ctx: &SlintContext) -> Result<(), crate::api::PlatformError> {
+    ctx.platform().open_url(url)
 }
 
 #[cfg(target_os = "macos")]

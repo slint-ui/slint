@@ -51,9 +51,11 @@ export default defineConfig({
                 "@slint/common-files/src/styles/sls-ids.css",
             ],
             components: {
-                Footer: "@slint/common-files/src/components/Footer.astro",
+                Footer: "./src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent: "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 slintStarlightLinksValidatorPlugin({
@@ -244,23 +246,44 @@ export default defineConfig({
                         ],
                     },
                     {
-                        label: "Qualification Plan",
-                        link: "/qualification-plan/",
+                        label: "Safety Plan",
+                        link: "/safety-plan/",
                         items: [
                             {
                                 label: "Overview",
-                                slug: "qualification-plan",
+                                slug: "safety-plan",
                             },
                             {
                                 label: "Scope",
                                 items: [
                                     {
                                         label: "Standards Compliance",
-                                        slug: "qualification-plan/standards-compliance",
+                                        slug: "safety-plan/standards-compliance",
                                     },
                                     {
-                                        label: "Safety Policy",
-                                        slug: "qualification-plan/safety-policy",
+                                        label: "Safety Management",
+                                        slug: "safety-plan/safety-management",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Lifecycle",
+                                items: [
+                                    {
+                                        label: "Lifecycle",
+                                        slug: "safety-plan/lifecycle",
+                                    },
+                                    {
+                                        label: "Development Phases",
+                                        slug: "safety-plan/development-phases",
+                                    },
+                                    {
+                                        label: "Release and Field Monitoring",
+                                        slug: "safety-plan/release",
+                                    },
+                                    {
+                                        label: "Deliverables",
+                                        slug: "safety-plan/deliverables",
                                     },
                                 ],
                             },
@@ -269,7 +292,7 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Architecture Design",
-                                        slug: "qualification-plan/architecture",
+                                        slug: "safety-plan/architecture",
                                     },
                                 ],
                             },
@@ -278,15 +301,11 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Development Process",
-                                        slug: "qualification-plan/development-process",
-                                    },
-                                    {
-                                        label: "Development Phases",
-                                        slug: "qualification-plan/development-phases",
+                                        slug: "safety-plan/development-process",
                                     },
                                     {
                                         label: "Coding Standards",
-                                        slug: "qualification-plan/coding-standards",
+                                        slug: "safety-plan/coding-standards",
                                     },
                                 ],
                             },
@@ -295,28 +314,19 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Verification",
-                                        slug: "qualification-plan/verification",
+                                        slug: "safety-plan/verification",
                                     },
                                     {
                                         label: "Test Suites",
-                                        slug: "qualification-plan/test-suites",
+                                        slug: "safety-plan/test-suites",
                                     },
                                     {
                                         label: "Coverage Criteria",
-                                        slug: "qualification-plan/test-coverage",
+                                        slug: "safety-plan/test-coverage",
                                     },
                                     {
                                         label: "Coverage Tool Verification",
-                                        slug: "qualification-plan/slint-coverage",
-                                    },
-                                ],
-                            },
-                            {
-                                label: "Qualification",
-                                items: [
-                                    {
-                                        label: "Component Qualification Plan",
-                                        slug: "qualification-plan/component-qualification",
+                                        slug: "safety-plan/slint-coverage",
                                     },
                                 ],
                             },
@@ -349,16 +359,20 @@ export default defineConfig({
                         ],
                     },
                     {
-                        label: "Component Documentation",
-                        link: "/component-documentation/",
+                        label: "Runtime Safety Documentation",
+                        link: "/runtime/",
                         items: [
                             {
                                 label: "Overview",
-                                slug: "component-documentation",
+                                slug: "runtime",
+                            },
+                            {
+                                label: "Assumed Safety Requirements",
+                                slug: "runtime/assumed-safety-requirements",
                             },
                             {
                                 label: "Safety Analysis",
-                                slug: "component-documentation/safety-analysis",
+                                slug: "runtime/safety-analysis",
                             },
                         ],
                     },
@@ -373,10 +387,6 @@ export default defineConfig({
                             {
                                 label: "Tool Qualification",
                                 slug: "qualification-report/tool-qualification",
-                            },
-                            {
-                                label: "Component Qualification",
-                                slug: "qualification-report/component-qualification",
                             },
                             {
                                 label: "Evidence",
@@ -394,6 +404,29 @@ export default defineConfig({
                                         slug: "qualification-report/test-coverage",
                                     },
                                 ],
+                            },
+                        ],
+                    },
+                    {
+                        label: "Norm Mapping",
+                        link: "/norm-mapping/",
+                        items: [
+                            { label: "Overview", slug: "norm-mapping" },
+                            {
+                                label: "ISO 26262-2",
+                                slug: "norm-mapping/iso-26262-2",
+                            },
+                            {
+                                label: "ISO 26262-6",
+                                slug: "norm-mapping/iso-26262-6",
+                            },
+                            {
+                                label: "ISO 26262-6 Method Tables",
+                                slug: "norm-mapping/iso-26262-6-methods",
+                            },
+                            {
+                                label: "ISO 26262-8",
+                                slug: "norm-mapping/iso-26262-8",
                             },
                         ],
                     },

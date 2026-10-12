@@ -4,7 +4,7 @@
 //! Install property bindings, callback handlers, two-way bindings, change
 //! callbacks and `init_code` on an already-allocated [`Instance`].
 //!
-//! Called from [`Instance::new`] right after the `SubComponentInstance` tree
+//! Called from the [`Instance`] constructors right after the `SubComponentInstance` tree
 //! has been wired up. Walks the tree recursively, visiting each sub-component
 //! (including nested ones) and copying its LLR entries onto the runtime
 //! allocations.
@@ -133,11 +133,16 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                 }
                 let weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
                 let expr = triggered_expr.clone();
-                timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {
-                    let Some(owner) = weak.upgrade() else { return };
-                    let mut ctx = EvalContext::new(Pin::new(owner));
-                    eval_expression(&mut ctx, &expr);
-                });
+                crate::eval::component_context(&ctx).start_timer(
+                    timer,
+                    i_slint_core::timers::TimerMode::Repeated,
+                    interval,
+                    move || {
+                        let Some(owner) = weak.upgrade() else { return };
+                        let mut ctx = EvalContext::new(Pin::new(owner));
+                        eval_expression(&mut ctx, &expr);
+                    },
+                );
             }
         }
     };

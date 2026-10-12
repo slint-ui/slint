@@ -1,0 +1,61 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface A {
+    in-out property <string> text;
+    out property <bool> enabled;
+    public pure function length(text: string) -> int;
+}
+
+interface B inherits A {
+    in property <int> precision;
+}
+
+component Base {
+    in-out property <string> text: "Hello";
+    out property <bool> enabled: true;
+    in property <int> precision;
+
+    public pure function length(text: string) -> int {
+        text.character-count
+    }
+}
+
+export component TestCase {
+    implement B <=> child;
+
+    child := Base {
+        // Base does not explicitly implement B, but satisfies the API.
+        precision: 3;
+    }
+
+    // We expect the child values for both the inherited and the derived members.
+    out property <bool> test: self.text == "Hello" && self.enabled && self.precision == 3 && self.length("abc") == 3;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_text(), "Hello");
+assert!(instance.get_enabled());
+assert_eq!(instance.get_precision(), 3);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text(), "Hello");
+assert_eq(instance.get_enabled(), true);
+assert_eq(instance.get_precision(), 3);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text, "Hello");
+assert.equal(instance.enabled, true);
+assert.equal(instance.precision, 3);
+assert(instance.test);
+```
+*/

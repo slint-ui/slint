@@ -129,5 +129,6 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::EmptyDataTransfer => false,
         // A closure that is not called has no side effect, regardless of what its body does.
         Expression::Closure { .. } => true,
+        Expression::DashArray(_) => true,
     }
 }

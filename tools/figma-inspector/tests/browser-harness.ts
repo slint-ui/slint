@@ -70,6 +70,13 @@ export async function canvasPixels(preview: Preview) {
     preview.iframe.style.width = `${width}px`;
     preview.iframe.style.height = `${height}px`;
     try {
+        // Resizing the iframe can invalidate its composited WebGL frame after
+        // the preview reports ready. Wait for presentation at the new size.
+        await new Promise<void>((resolve) =>
+            preview.win.requestAnimationFrame(() =>
+                preview.win.requestAnimationFrame(() => resolve()),
+            ),
+        );
         const base64 = await page
             .elementLocator(preview.iframe)
             .screenshot({ save: false });

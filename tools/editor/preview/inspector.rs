@@ -110,7 +110,7 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: url.to_file_path().ok()?,
+                path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
             },
@@ -121,7 +121,7 @@ fn target_with_root(
     };
     let node = selected.as_element_node()?;
     let (path, offset) = node.path_and_offset();
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE
         .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;
@@ -144,7 +144,7 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" => Some(vec![name]),
+        "transform-rotation" | "border-width" => Some(vec![name]),
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -391,6 +391,8 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
         send_workspace_edit(
             if name == "transform-rotation" {
                 "Rotating element"
+            } else if name == "border-width" {
+                "Changing border width"
             } else {
                 "Changing border radius"
             }
@@ -414,8 +416,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let geometry =
-            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let (path, offset) = node.path_and_offset();
+        let geometry = instance
+            .component_positions(&path, offset.into())
+            .get(selected.instance_index)
+            .copied()?;
         let radii = geometry.corner_radii;
         Some(vec![
             geometry.transform_rotation,

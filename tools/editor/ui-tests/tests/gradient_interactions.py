@@ -66,3 +66,26 @@ def gradient_document(directory: Path, expression: str) -> Path:
 }}
 """)
     return file
+
+
+def picker_panel(window, name):
+    return element(window, id=f"InspectorFillPicker::{name}-panel")
+
+
+def move_picker_to_files(window, name):
+    panel = picker_panel(window, name)
+    title = "Custom" if name == "main" else "Stop color"
+    handle = control(window, f"Move {title} picker")
+    files = control(window, "Files", slint_testing.AccessibleRole.Tree)
+    point = center(handle)
+    gesture(
+        window,
+        point,
+        shifted(
+            point,
+            x=files.absolute_position.x - panel.absolute_position.x,
+            y=files.absolute_position.y - panel.absolute_position.y,
+        ),
+    )
+    canvas = element(window, "Editor canvas")
+    assert panel.absolute_position.x + panel.size.width <= canvas.absolute_position.x

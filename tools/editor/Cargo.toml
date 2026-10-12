@@ -37,7 +37,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-core = { workspace = true, features = ["std"] }
-i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process"] }
+i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process", "springboard"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
@@ -60,7 +60,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [build-dependencies]
-slint-build = { workspace = true }
+slint-build = { workspace = true, features = ["experimental-module-builds"] }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
@@ -89,7 +89,10 @@ raw-window-handle = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }
-reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
+# Use the ring rustls provider instead of the default aws-lc-rs, whose C build
+# needs CFLAGS without optimization flags, which the flatpak SDK sets.
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 mdns-sd = { version = "0.20.0", default-features = false, optional = true }

@@ -3,6 +3,8 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_compiler::source_path::SourcePath;
+use i_slint_core::Coord;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -127,7 +129,7 @@ pub enum Value {
     /// FIXME: consider representing that with a number?
     EnumerationValue(String, String) = 10,
     #[doc(hidden)]
-    LayoutCache(SharedVector<f32>) = 11,
+    ArrayOfCoord(SharedVector<Coord>) = 11,
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
@@ -186,7 +188,7 @@ impl PartialEq for Value {
             Value::EnumerationValue(lhs_name, lhs_value) => {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
-            Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
+            Value::ArrayOfCoord(lhs) => matches!(other, Value::ArrayOfCoord(rhs) if lhs == rhs),
             Value::ArrayOfU16(lhs) => matches!(other, Value::ArrayOfU16(rhs) if lhs == rhs),
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
@@ -225,7 +227,7 @@ impl std::fmt::Debug for Value {
             Value::PathData(e) => write!(f, "Value::PathElements({e:?})"),
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({c:?})"),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
-            Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
+            Value::ArrayOfCoord(v) => write!(f, "Value::ArrayOfCoord({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
             Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
             Value::ArrayOfU16(data) => {
@@ -266,7 +268,7 @@ macro_rules! declare_value_conversion {
         )*
     };
 }
-declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
+declare_value_conversion!(Number => [u8, u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Image => [Image] );
@@ -274,7 +276,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
-declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
+declare_value_conversion!(ArrayOfCoord => [SharedVector<Coord>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
@@ -351,6 +353,10 @@ declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalSize { width, height });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct i_slint_core::graphics::HsvaColor { hue, saturation, value, alpha });
+declare_value_struct_conversion!(struct i_slint_core::graphics::OklchColor { lightness, chroma, hue, alpha });
+use i_slint_core::graphics::RgbaColorU8;
+declare_value_struct_conversion!(struct RgbaColorU8 { red, green, blue, alpha });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 
@@ -443,114 +449,6 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalLength, Self::Error> {
         match v {
             Value::Number(n) => Ok(i_slint_core::lengths::LogicalLength::new(n as _)),
-            _ => Err(v),
-        }
-    }
-}
-
-impl From<i_slint_core::lengths::LogicalPoint> for Value {
-    #[inline]
-    fn from(pt: i_slint_core::lengths::LogicalPoint) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("x".to_owned(), Value::Number(pt.x as _)),
-            ("y".to_owned(), Value::Number(pt.y as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalPoint, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let x = s
-                    .get_field("x")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let y = s
-                    .get_field("y")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalPoint::new(x, y))
-            }
-            _ => Err(v),
-        }
-    }
-}
-
-impl From<i_slint_core::lengths::LogicalSize> for Value {
-    #[inline]
-    fn from(s: i_slint_core::lengths::LogicalSize) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("width".to_owned(), Value::Number(s.width as _)),
-            ("height".to_owned(), Value::Number(s.height as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalSize, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let width = s
-                    .get_field("width")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let height = s
-                    .get_field("height")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalSize::new(width, height))
-            }
-            _ => Err(v),
-        }
-    }
-}
-
-impl From<i_slint_core::lengths::LogicalEdges> for Value {
-    #[inline]
-    fn from(s: i_slint_core::lengths::LogicalEdges) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("left".to_owned(), Value::Number(s.left as _)),
-            ("right".to_owned(), Value::Number(s.right as _)),
-            ("top".to_owned(), Value::Number(s.top as _)),
-            ("bottom".to_owned(), Value::Number(s.bottom as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalEdges {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalEdges, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let left = s
-                    .get_field("left")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let right = s
-                    .get_field("right")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let top = s
-                    .get_field("top")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let bottom = s
-                    .get_field("bottom")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalEdges::new(left, right, top, bottom))
-            }
             _ => Err(v),
         }
     }
@@ -705,6 +603,7 @@ fn struct_field_name_normalization() {
 #[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
     config: i_slint_compiler::CompilerConfiguration,
+    overrides: i_slint_compiler::project_file::Overrides,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -715,7 +614,7 @@ impl Default for ComponentCompiler {
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
         config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
-        Self { config, diagnostics: Vec::new() }
+        Self { config, overrides: Default::default(), diagnostics: Vec::new() }
     }
 }
 
@@ -739,7 +638,10 @@ impl ComponentCompiler {
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+    ///
+    /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
+        self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
     }
 
@@ -749,7 +651,10 @@ impl ComponentCompiler {
     }
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    ///
+    /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
+        self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
     }
 
@@ -769,7 +674,10 @@ impl ComponentCompiler {
     /// let definition =
     ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
+    ///
+    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
+        self.overrides.project.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -798,8 +706,10 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -819,6 +729,7 @@ impl ComponentCompiler {
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// If the path is `"-"`, the file will be read from stdin.
+    /// If the path is a `slint-project.json`, its `entry` is compiled with its settings.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
     /// This function is `async` but in practice, this is only asynchronous if
@@ -829,22 +740,27 @@ impl ComponentCompiler {
         &mut self,
         path: P,
     ) -> Option<ComponentDefinition> {
-        let path = path.as_ref();
-        let source = match i_slint_compiler::diagnostics::load_from_path(path) {
-            Ok(s) => s,
-            Err(d) => {
-                self.diagnostics = vec![d];
-                return None;
+        let r = match i_slint_compiler::project_file::resolve_input(path.as_ref()) {
+            Err(message) => project_file_error(message, path.as_ref()),
+            Ok((path, project_file)) => {
+                match i_slint_compiler::diagnostics::load_from_path(&path) {
+                    Ok(source) => {
+                        build_with_project_file(
+                            source,
+                            path,
+                            project_file.as_ref(),
+                            &self.config,
+                            &self.overrides,
+                        )
+                        .await
+                    }
+                    Err(d) => {
+                        self.diagnostics = vec![d];
+                        return None;
+                    }
+                }
             }
         };
-
-        let r = build_compilation_result(
-            source,
-            path.into(),
-            self.config.clone(),
-            AnimationMode::Running,
-        )
-        .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -870,15 +786,25 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        let r = build_compilation_result(
-            source_code,
-            path,
-            self.config.clone(),
-            AnimationMode::Running,
-        )
-        .await;
+        let r =
+            build_with_found_project_file(source_code, path, &self.config, &self.overrides).await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
+    }
+
+    /// Replaces the diagnostics with a single error about the file at `path`.
+    #[cfg(feature = "ffi")]
+    pub(crate) fn set_error(&mut self, message: &str, path: PathBuf) {
+        use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFileInner, SourceLocation};
+        let mut diagnostics = BuildDiagnostics::default();
+        diagnostics.push_error_with_span(
+            message.into(),
+            SourceLocation {
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
+                span: Default::default(),
+            },
+        );
+        self.diagnostics = diagnostics.into_iter().collect();
     }
 }
 
@@ -886,6 +812,8 @@ impl ComponentCompiler {
 /// compile it into a [`CompilationResult`].
 pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
+    overrides: i_slint_compiler::project_file::Overrides,
+    reads_project_file: bool,
 }
 
 impl Default for Compiler {
@@ -893,7 +821,7 @@ impl Default for Compiler {
         let config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
-        Self { config }
+        Self { config, overrides: Default::default(), reads_project_file: true }
     }
 }
 
@@ -901,6 +829,14 @@ impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Sets whether this compiler looks for a `slint-project.json` for the files it compiles.
+    /// The live preview turns this off, since the editor sends it the project's settings.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_reads_project_file(&mut self, reads_project_file: bool) {
+        self.reads_project_file = reads_project_file;
     }
 
     #[doc(hidden)]
@@ -922,7 +858,10 @@ impl Compiler {
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+    ///
+    /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
+        self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
     }
 
@@ -932,7 +871,10 @@ impl Compiler {
     }
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
+    ///
+    /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
+        self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
     }
 
@@ -951,7 +893,10 @@ impl Compiler {
     /// compiler.set_style("material".into());
     /// let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
+    ///
+    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
+        self.overrides.project.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -1003,8 +948,10 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Compile a .slint file
@@ -1019,15 +966,27 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
+    /// If the path is a `slint-project.json`, its `entry` is compiled with its settings.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
+    ///
+    /// A `slint-project.json` in the directory of `path`, or in a directory above it,
+    /// provides the settings that were not set on this compiler.
     ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
-        let path = path.as_ref();
-        let source = match i_slint_compiler::diagnostics::load_from_path(path) {
+        let resolved = if self.reads_project_file {
+            i_slint_compiler::project_file::resolve_input(path.as_ref())
+        } else {
+            Ok((path.as_ref().to_path_buf(), None))
+        };
+        let (path, project_file) = match resolved {
+            Ok(resolved) => resolved,
+            Err(message) => return project_file_error(message, path.as_ref()),
+        };
+        let source = match i_slint_compiler::diagnostics::load_from_path(&path) {
             Ok(s) => s,
             Err(d) => {
                 let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
@@ -1036,21 +995,21 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    watch_paths: vec![SourcePath::new(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                 };
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
+        build_with_project_file(source, path, project_file.as_ref(), &self.config, &self.overrides)
             .await
     }
 
     /// Compile some .slint code
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
-    /// paths while importing.
+    /// paths while importing. The search for a `slint-project.json` starts there too.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
@@ -1060,8 +1019,30 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
-            .await
+        if self.reads_project_file {
+            build_with_found_project_file(source_code, path, &self.config, &self.overrides).await
+        } else {
+            build_with_project_file(source_code, path, None, &self.config, &self.overrides).await
+        }
+    }
+
+    /// [`Self::build_from_source`] for a file that may only be reachable by URL.
+    ///
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_from_source_path(
+        &self,
+        source_code: String,
+        path: SourcePath,
+        _: i_slint_core::InternalToken,
+    ) -> CompilationResult {
+        if let Some(native_path) = path.as_native_path() {
+            return self.build_from_source(source_code, native_path.to_path_buf()).await;
+        }
+        let mut config = self.config.clone();
+        self.overrides.apply(None, &mut config);
+        build_compilation_result(source_code, path, config, AnimationMode::Running).await
     }
 
     /// Compile Slint code without timers or animations.
@@ -1070,11 +1051,12 @@ impl Compiler {
     pub async fn build_static_from_source(
         &self,
         source_code: String,
-        path: PathBuf,
+        path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
-            .await
+        let mut config = self.config.clone();
+        self.overrides.apply(None, &mut config);
+        build_compilation_result(source_code, path, config, AnimationMode::Static).await
     }
 }
 
@@ -1086,9 +1068,55 @@ pub(crate) enum AnimationMode {
     Running,
 }
 
-async fn build_compilation_result(
+/// Compiles `source_code` with `project_file` applied to `config`, and `overrides` on top.
+async fn build_with_project_file(
     source_code: String,
     path: PathBuf,
+    project_file: Option<&i_slint_compiler::project_file::ProjectFile>,
+    config: &i_slint_compiler::CompilerConfiguration,
+    overrides: &i_slint_compiler::project_file::Overrides,
+) -> CompilationResult {
+    let mut config = config.clone();
+    overrides.apply(project_file, &mut config);
+    build_compilation_result(source_code, SourcePath::new(path), config, AnimationMode::Running)
+        .await
+}
+
+/// Like [`build_with_project_file`], with the project file found for the directory of `path`.
+async fn build_with_found_project_file(
+    source_code: String,
+    path: PathBuf,
+    config: &i_slint_compiler::CompilerConfiguration,
+    overrides: &i_slint_compiler::project_file::Overrides,
+) -> CompilationResult {
+    let directory = SourcePath::new(&path).parent().into_native_path().unwrap_or_default();
+    match i_slint_compiler::project_file::ProjectFile::find(&directory) {
+        Ok(project_file) => {
+            build_with_project_file(source_code, path, project_file.as_ref(), config, overrides)
+                .await
+        }
+        Err(message) => project_file_error(message, &path),
+    }
+}
+
+/// The result of a compilation that failed because the project file couldn't be read.
+#[cfg_attr(not(feature = "internal"), allow(unused_variables))]
+fn project_file_error(message: String, path: &Path) -> CompilationResult {
+    let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    diagnostics.push_error_with_span(message, Default::default());
+    CompilationResult {
+        components: HashMap::new(),
+        diagnostics: diagnostics.into_iter().collect(),
+        #[cfg(feature = "internal")]
+        watch_paths: vec![SourcePath::new(path)],
+        #[cfg(feature = "internal")]
+        structs_and_enums: Vec::new(),
+    }
+}
+
+async fn build_compilation_result(
+    source_code: String,
+    path: SourcePath,
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> CompilationResult {
@@ -1138,7 +1166,7 @@ pub struct CompilationResultSend {
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    watch_paths: Vec<PathBuf>,
+    watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     structs_and_enums: Vec<LangType>,
 }
@@ -1211,7 +1239,7 @@ pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    pub(crate) watch_paths: Vec<PathBuf>,
+    pub(crate) watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
@@ -1309,7 +1337,7 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[SourcePath] {
         &self.watch_paths
     }
 
@@ -1389,13 +1417,27 @@ impl ComponentDefinition {
         ))
     }
 
+    /// Instantiate the component using an existing window without replacing its component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn create_detached_with_existing_window(
+        &self,
+        window: &Window,
+        _: i_slint_core::InternalToken,
+    ) -> Result<ComponentInstance, PlatformError> {
+        let adapter = WindowInner::from_pub(window).window_adapter();
+        Ok(ComponentInstance { inner: self.inner.create_detached_with_existing_window(adapter) })
+    }
+
     /// Private implementation of create
     pub(crate) fn create_with_options(
         &self,
         options: WindowOptions,
     ) -> Result<ComponentInstance, PlatformError> {
         let instance = match options {
-            WindowOptions::CreateNewWindow => self.inner.create(),
+            WindowOptions::CreateNewWindow => self
+                .inner
+                .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone)?),
             WindowOptions::UseExistingWindow(adapter) => {
                 self.inner.create_with_existing_window(adapter)
             }
@@ -1637,6 +1679,16 @@ impl ComponentInstance {
         Ok(())
     }
 
+    /// Return the item tree without attaching it as the window's component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn as_item_tree(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> i_slint_core::item_tree::ItemTreeRc {
+        vtable::VRc::into_dyn(self.inner.vrc().clone())
+    }
+
     fn is_system_tray_rooted(&self) -> bool {
         self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::SystemTrayIcon
     }
@@ -1837,25 +1889,21 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
-    /// Find the position of the `element`.
+    /// Find source elements rendered under `position`, in selection order.
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
-    pub fn element_positions(
+    pub fn element_candidates_at(
         &self,
-        element: &i_slint_compiler::object_tree::ElementRc,
-    ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::element_positions(
-            self.inner.vrc(),
-            element,
-            crate::highlight::ElementPositionFilter::IncludeClipped,
-        )
+        position: i_slint_core::lengths::LogicalPoint,
+    ) -> Vec<crate::highlight::ElementCandidate> {
+        crate::highlight::element_candidates_at(self.inner.vrc(), position)
     }
 
     /// Find the `element` that was defined at the text position.
@@ -1864,7 +1912,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
@@ -2496,14 +2544,17 @@ fn test_multi_components() {
 }
 
 #[cfg(all(test, feature = "internal-highlight"))]
-fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let path = PathBuf::from("/tmp/test.slint");
+    let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+        code.to_string(),
+        path.clone(),
+        i_slint_core::InternalToken,
+    ));
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");
@@ -2547,12 +2598,12 @@ export component Foo2 inherits Window  {
     }
 }
 
-/// `element_positions` must return one rect per *instantiation*: a component
+/// `component_positions` must return one rect per *instantiation*: a component
 /// used twice yields only the queried use site's rect, and elements inside a
 /// `for` yield one rect per row.
 #[cfg(feature = "internal-highlight")]
 #[test]
-fn test_element_positions_instances_and_repeaters() {
+fn test_component_positions_instances_and_repeaters() {
     use i_slint_core::graphics::euclid;
     let code = r#"
 component MyBox inherits Rectangle {
@@ -2575,29 +2626,24 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let element_at = |pattern: &str| {
-        let offset = code.find(pattern).unwrap() as u32;
-        let elements = handle.element_node_at_source_code_position(&path, offset);
-        assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
-        elements.into_iter().next().unwrap().0
-    };
+    let positions_at =
+        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
 
     // Each MyBox use highlights only its own instance.
-    let b1_rects = handle.element_positions(&element_at("MyBox { x: 0px"));
+    let b1_rects = positions_at("MyBox { x: 0px");
     assert_eq!(b1_rects.len(), 1, "{b1_rects:?}");
     assert_eq!(b1_rects[0].rect.origin, euclid::point2(0., 0.));
 
-    let b2_rects = handle.element_positions(&element_at("MyBox { x: 200px"));
+    let b2_rects = positions_at("MyBox { x: 200px");
     assert_eq!(b2_rects.len(), 1, "{b2_rects:?}");
     assert_eq!(b2_rects[0].rect.origin, euclid::point2(200., 200.));
 
     // An element inside the component's definition maps to both uses.
-    let def_rects = handle.element_positions(&element_at("Rectangle {\n    width: 50px"));
+    let def_rects = positions_at("Rectangle {\n    width: 50px");
     assert_eq!(def_rects.len(), 2, "{def_rects:?}");
 
     // A repeated element yields one rect per row, in root coordinates.
-    let repeated = element_at("Rectangle {\n        x: xo");
-    let mut row_rects = handle.element_positions(&repeated);
+    let mut row_rects = positions_at("Rectangle {\n        x: xo");
     row_rects.sort_by(|a, b| a.rect.origin.x.total_cmp(&b.rect.origin.x));
     assert_eq!(row_rects.len(), 3, "{row_rects:?}");
     for (i, r) in row_rects.iter().enumerate() {
@@ -2610,4 +2656,502 @@ export component Foo3 inherits Window {
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
     assert_eq!(handle.component_positions(&path, offset).len(), 3);
     assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_survive_compilation_result_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component Base inherits Rectangle {
+    width: 50px;
+    height: 40px;
+}
+
+component Derived inherits Base { }
+
+export component App inherits Window {
+    width: 400px;
+    height: 300px;
+    in property <bool> show-conditional: true;
+    first := Derived { x: 10px; y: 20px; }
+    second := Derived { x: 200px; y: 100px; }
+    if root.show-conditional: conditional := Rectangle {
+        x: 100px;
+        y: 200px;
+        width: 20px;
+        height: 30px;
+    }
+    optimized := Rectangle {
+        x: 300px;
+        y: 10px;
+        width: 30px;
+        height: 20px;
+        background: red;
+        redundant := Rectangle { }
+    }
+    for column in [0, 1]: Derived {
+        x: column * 60px;
+        y: 250px;
+    }
+    for column in [0, 1]: Derived {
+        x: 150px + column * 60px;
+        y: 250px;
+    }
+}
+"#;
+    let path = PathBuf::from("/virtual/round-trip.slint");
+    let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    let positions_at = |pattern: &str, inside_pattern: usize| {
+        let offset = code.find(pattern).unwrap() + inside_pattern;
+        instance.component_positions(&SourcePath::new(&path), offset as u32)
+    };
+
+    let first = positions_at("Derived { x: 10px", 2);
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert_eq!(first[0].rect.origin, euclid::point2(10., 20.));
+    let second = positions_at("Derived { x: 200px", 2);
+    assert_eq!(second.len(), 1, "{second:?}");
+    assert_eq!(second[0].rect.origin, euclid::point2(200., 100.));
+
+    let definition = positions_at("Rectangle {\n    width: 50px", 3);
+    assert_eq!(definition.len(), 6, "{definition:?}");
+
+    let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
+    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
+    assert_eq!(conditional.len(), 1, "{conditional:?}");
+    assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
+
+    let optimized = positions_at("Rectangle {\n        x: 300px", 3);
+    let redundant = positions_at("Rectangle { }", 3);
+    assert_eq!(optimized.len(), 1, "{optimized:?}");
+    assert_eq!(redundant.len(), 1, "{redundant:?}");
+    assert_eq!(redundant[0].rect, optimized[0].rect);
+
+    let assert_repeated_positions = |mut positions: Vec<crate::highlight::HighlightedRect>,
+                                     expected_x_positions| {
+        positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+        assert_eq!(positions.len(), 2, "{positions:?}");
+        for (geometry, expected_x) in positions.iter().zip(expected_x_positions) {
+            assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 250.));
+        }
+    };
+    for (pattern, expected_x_positions) in
+        [("Derived {\n        x: column", [0., 60.]), ("Derived {\n        x: 150px", [150., 210.])]
+    {
+        assert_repeated_positions(positions_at(pattern, 2), expected_x_positions);
+    }
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_resolve_imported_sources_after_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let imported_code = r#"
+export component Imported inherits Rectangle {
+    width: 40px;
+    height: 30px;
+}
+"#;
+    let main_code = r#"
+import { Imported } from "lib.slint";
+
+export component App inherits Window {
+    width: 200px;
+    height: 200px;
+    Imported { x: 25px; y: 35px; }
+}
+"#;
+    let main_path = PathBuf::from("/virtual/main.slint");
+    let imported_path = PathBuf::from("/virtual/lib.slint");
+    let mut compiler = Compiler::default();
+    compiler.set_file_loader({
+        let imported_path = imported_path.clone();
+        move |path| {
+            let source = (path == imported_path).then(|| Ok(imported_code.to_owned()));
+            Box::pin(std::future::ready(source))
+        }
+    });
+    let result = spin_on::spin_on(compiler.build_from_source(main_code.into(), main_path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    for (path, code, pattern) in [
+        (&main_path, main_code, "Imported { x: 25px"),
+        (&imported_path, imported_code, "Rectangle"),
+    ] {
+        let offset = code.find(pattern).unwrap() as u32;
+        let positions = instance.component_positions(&SourcePath::new(path), offset);
+        assert_eq!(positions.len(), 1, "{positions:?}");
+        assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
+        assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
+    }
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn inlined_repeated_source_resolves_each_repeater_once() {
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::generator::OutputFormat;
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component RepeatedBox inherits Rectangle {
+    width: 60px;
+    height: 20px;
+    for value in [0, 1]: Rectangle {
+        x: value * 20px;
+        y: 0px;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+export component App inherits Window {
+    width: 200px;
+    height: 100px;
+    first := RepeatedBox { x: 10px; y: 20px; }
+    second := RepeatedBox { x: 100px; y: 20px; }
+}
+"#;
+    let path = SourcePath::new("/virtual/inlined-repeaters.slint");
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node =
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
+    let mut compiler_configuration =
+        i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
+    compiler_configuration.debug_info = true;
+    compiler_configuration.inline_all_elements = true;
+    let (document, diagnostics, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diagnostics,
+        compiler_configuration.clone(),
+    ));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let definition = crate::component::build_from_document(
+        &document,
+        &compiler_configuration,
+        Default::default(),
+        AnimationMode::Running,
+    )
+    .into_iter()
+    .next()
+    .expect("component definition");
+    let definition = ComponentDefinition { inner: std::rc::Rc::new(definition) };
+
+    let repeated_offset = code.find("Rectangle {\n        x: value").unwrap();
+    let matching_repeated_elements = definition
+        .inner
+        .compilation_unit
+        .sub_components
+        .iter()
+        .flat_map(|sub_component| sub_component.debug_info.iter())
+        .flat_map(|debug_info| debug_info.repeated_elements.iter())
+        .filter(|source_location| {
+            source_location
+                .source_file
+                .as_ref()
+                .is_some_and(|source_file| source_file.path() == &path)
+                && source_location.span.offset == repeated_offset
+        })
+        .count();
+    assert_eq!(matching_repeated_elements, 2);
+
+    let instance = definition.create().unwrap();
+    let mut positions = instance.component_positions(&path, repeated_offset as u32 + 3);
+    positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+    assert_eq!(positions.len(), 4, "{positions:?}");
+    for (geometry, expected_x) in positions.iter().zip([10., 30., 100., 120.]) {
+        assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 20.));
+    }
+}
+
+#[cfg(test)]
+mod project_file_tests {
+
+    use super::Compiler;
+    use i_slint_compiler::project_file::FILE_NAME;
+    use std::path::Path;
+
+    fn with_project(project: &str, f: impl FnOnce(&Path)) {
+        let directory = tempfile::TempDir::new().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        std::fs::write(root.join(FILE_NAME), project).unwrap();
+        f(&root);
+    }
+
+    fn compile(root: &Path, source: &str) -> super::CompilationResult {
+        let main = root.join("main.slint");
+        std::fs::write(&main, source).unwrap();
+        spin_on::spin_on(Compiler::default().build_from_path(&main))
+    }
+
+    // A style name the compiler rejects proves which style actually reached it.
+    const REJECTED_STYLE: &str = r#"{ "style": "no-such-style" }"#;
+
+    #[test]
+    fn the_project_file_style_is_used() {
+        with_project(REJECTED_STYLE, |root| {
+            let result = compile(root, "export component Main inherits Window { }");
+            let messages =
+                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|message| message.contains("no-such-style")),
+                "expected the project file style to reach the compiler: {messages:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn an_explicit_style_wins_over_the_project_file() {
+        with_project(REJECTED_STYLE, |root| {
+            let mut compiler = Compiler::default();
+            compiler.set_style("fluent".into());
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        });
+    }
+
+    #[test]
+    fn the_project_file_include_paths_are_used() {
+        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
+            let include = root.join("include");
+            std::fs::create_dir_all(&include).unwrap();
+            std::fs::write(include.join("shared.slint"), "export component Shared { }").unwrap();
+
+            let result = compile(
+                root,
+                r#"import { Shared } from "shared.slint";
+                   export component Main inherits Window { Shared { } }"#,
+            );
+            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        });
+    }
+
+    #[test]
+    fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
+        with_project(r#"{"include-paths":["include"]}"#, |root| {
+            let include = root.join("include");
+            std::fs::create_dir_all(&include).unwrap();
+            std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
+            let source = r#"import { Shared } from "shared.slint";
+                export component Main inherits Window { Shared {} }"#;
+            let main = root.join("main.slint");
+            std::fs::write(&main, source).unwrap();
+            let mut compiler = Compiler::default();
+            compiler.set_include_paths(vec![]);
+            assert!(compiler.include_paths().is_empty());
+            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(result.has_errors());
+            assert!(
+                result
+                    .diagnostics()
+                    .any(|diagnostic| diagnostic.message().contains("shared.slint"))
+            );
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            compiler.set_include_paths(vec![]);
+            #[allow(deprecated)]
+            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(result.is_none());
+            #[allow(deprecated)]
+            let missing_import = compiler
+                .diagnostics()
+                .iter()
+                .any(|diagnostic| diagnostic.message().contains("shared.slint"));
+            assert!(missing_import);
+        });
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
+    fn explicit_empty_include_paths_apply_to_source_path_compilation() {
+        with_project("{}", |root| {
+            let include_directory = root.join("include");
+            std::fs::create_dir(&include_directory).unwrap();
+            std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
+                .unwrap();
+            let source =
+                "import { Shared } from \"shared.slint\"; export component Main inherits Shared {}";
+            for path in [
+                super::SourcePath::new(root.join("main.slint")),
+                super::SourcePath::new("https://example.invalid/main.slint"),
+            ] {
+                for static_compilation in [false, true] {
+                    let mut compiler = Compiler::default();
+                    compiler.set_reads_project_file(false);
+                    compiler.compiler_configuration(i_slint_core::InternalToken).include_paths =
+                        vec![include_directory.clone()];
+                    compiler.set_include_paths(Vec::new());
+                    let result = if static_compilation {
+                        spin_on::spin_on(compiler.build_static_from_source(
+                            source.into(),
+                            path.clone(),
+                            i_slint_core::InternalToken,
+                        ))
+                    } else {
+                        spin_on::spin_on(compiler.build_from_source_path(
+                            source.into(),
+                            path.clone(),
+                            i_slint_core::InternalToken,
+                        ))
+                    };
+                    assert!(result.has_errors());
+                    assert!(
+                        result
+                            .diagnostics()
+                            .any(|diagnostic| diagnostic.message().contains("shared.slint"))
+                    );
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn an_invalid_project_file_is_reported() {
+        with_project("{", |root| {
+            let result = compile(root, "export component Main inherits Window { }");
+            assert!(result.has_errors());
+            let messages =
+                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|message| message.contains(FILE_NAME)),
+                "expected the project file to be named: {messages:?}"
+            );
+        });
+    }
+
+    // The C++ interpreter API goes through the deprecated ComponentCompiler.
+    #[test]
+    fn the_deprecated_compiler_reads_the_project_file() {
+        with_project(REJECTED_STYLE, |root| {
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            let definition = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(definition.is_none());
+            #[allow(deprecated)]
+            let messages = compiler
+                .diagnostics()
+                .iter()
+                .map(|diagnostic| diagnostic.message().to_string())
+                .collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|message| message.contains("no-such-style")),
+                "expected the project file style to reach the compiler: {messages:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn an_explicit_style_wins_for_the_deprecated_compiler() {
+        with_project(REJECTED_STYLE, |root| {
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            compiler.set_style("fluent".into());
+            #[allow(deprecated)]
+            let definition = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(definition.is_some());
+        });
+    }
+
+    #[test]
+    fn a_project_file_path_compiles_its_entry() {
+        with_project(r#"{ "entry": "ui/main.slint", "style": "no-such-style" }"#, |root| {
+            std::fs::create_dir_all(root.join("ui")).unwrap();
+            std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
+                .unwrap();
+
+            let result =
+                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            let messages =
+                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|message| message.contains("no-such-style")),
+                "expected the entry to compile with the project file style: {messages:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn a_project_file_path_without_an_entry_is_reported() {
+        with_project(r#"{ "style": "fluent" }"#, |root| {
+            let result =
+                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            assert!(result.has_errors());
+            let messages =
+                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(messages.iter().any(|message| message.contains("'entry'")), "{messages:?}");
+        });
+    }
+
+    #[test]
+    fn the_deprecated_compiler_compiles_the_entry_of_a_project_file() {
+        with_project(r#"{ "entry": "main.slint" }"#, |root| {
+            std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
+                .unwrap();
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            let definition = spin_on::spin_on(compiler.build_from_path(root.join(FILE_NAME)));
+            assert_eq!(
+                definition.map(|definition| definition.name().to_string()),
+                Some("Main".into())
+            );
+        });
+    }
+
+    #[test]
+    #[cfg(feature = "internal")]
+    fn a_compiler_can_ignore_the_project_file() {
+        with_project(REJECTED_STYLE, |root| {
+            let mut compiler = Compiler::default();
+            compiler.set_reads_project_file(false);
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            let from_path = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(!from_path.has_errors(), "{:?}", from_path.diagnostics().collect::<Vec<_>>());
+            let from_source = spin_on::spin_on(
+                compiler
+                    .build_from_source("export component Main inherits Window { }".into(), main),
+            );
+            assert!(
+                !from_source.has_errors(),
+                "{:?}",
+                from_source.diagnostics().collect::<Vec<_>>()
+            );
+        });
+    }
+
+    #[test]
+    fn no_project_file_keeps_the_defaults() {
+        let directory = tempfile::TempDir::new().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let result = compile(&root, "export component Main inherits Window { }");
+        assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    }
 }

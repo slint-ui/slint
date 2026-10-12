@@ -115,15 +115,14 @@ fn color_value_data(color: slint::Color) -> ui::ColorValueData {
 }
 
 pub fn color_field_data(property: ui::PropertyValue) -> ui::ColorFieldData {
-    let explicit_resolved_value = !property.code.is_empty()
-        && property.value_resolved
+    let literal_resolved_value = property.value_resolved
         && property.kind != ui::PropertyValueKind::Code
         && property.value_string.is_empty();
     let allow_gradient = property.kind == ui::PropertyValueKind::Brush
         || property.value_kind == ui::PropertyValueKind::Brush;
-    let mode = if explicit_resolved_value && property.fill.kind == ui::BrushKind::Solid {
+    let mode = if literal_resolved_value && property.fill.kind == ui::BrushKind::Solid {
         ui::ColorFieldMode::Solid
-    } else if explicit_resolved_value && allow_gradient {
+    } else if literal_resolved_value && allow_gradient {
         ui::ColorFieldMode::Gradient
     } else {
         ui::ColorFieldMode::Source
@@ -528,6 +527,13 @@ mod tests {
             assert_eq!(data.label, label);
             assert!(data.allow_gradient);
         }
+
+        let default_color = super::color_field_data(ui::PropertyValue {
+            code: "".into(),
+            ..color_property(slint::Color::from_argb_u8(0, 0, 0, 0))
+        });
+        assert_eq!(default_color.mode, ui::ColorFieldMode::Solid);
+        assert_eq!(default_color.fill.color, slint::Color::default());
 
         let source = super::color_field_data(ui::PropertyValue {
             code: "Colors.primary".into(),

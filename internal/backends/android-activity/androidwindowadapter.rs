@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
+// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan luma Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
 
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
@@ -40,6 +40,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
     pub(crate) fullscreen: Cell<bool>,
+    light_system_bars: Cell<Option<bool>>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
 
@@ -77,6 +78,21 @@ impl WindowAdapter for AndroidWindowAdapter {
         let f = properties.is_fullscreen();
         if self.fullscreen.replace(f) != f {
             self.resize().unwrap();
+        }
+
+        // The system bars are drawn over the window, so give their icons a color that
+        // contrasts with the window background.
+        let background = properties.background().color();
+        // The perceived brightness (luma) as defined by ITU-R BT.601:
+        // https://en.wikipedia.org/wiki/Luma_(video)
+        let luma = 0.299 * background.red() as f32
+            + 0.587 * background.green() as f32
+            + 0.114 * background.blue() as f32;
+        let light = luma > 127.5;
+        if self.light_system_bars.replace(Some(light)) != Some(light) {
+            self.java_helper
+                .set_light_system_bars(light)
+                .unwrap_or_else(|e| print_jni_error(&self.app, e));
         }
     }
 
@@ -194,6 +210,7 @@ impl AndroidWindowAdapter {
             pending_redraw: Default::default(),
             java_helper,
             fullscreen: Cell::new(false),
+            light_system_bars: Cell::new(None),
             offset: Default::default(),
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),

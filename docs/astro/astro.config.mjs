@@ -84,6 +84,9 @@ export default defineConfig({
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/HeaderSlintDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 starlightSidebarTopics([
@@ -114,6 +117,7 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/tooling/live-preview",
+                                    "guide/tooling/project-file",
                                     "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
                                     "guide/tooling/ai-coding-assistants",

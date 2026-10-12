@@ -153,7 +153,7 @@ export component InspectorColorValueField inherits Rectangle {
         height: parent.height;
         enabled: root.enabled && root.swatch-enabled;
         key-pressed(event) => {
-            if event.text == Key.Return || event.text == " " {
+            if event.text == Key.Return || event.text == Key.Space {
                 root.swatch-activated();
                 return accept;
             }

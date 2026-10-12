@@ -3,6 +3,7 @@
 
 use super::ui;
 use core::hash::{Hash as _, Hasher as _};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview::editing::text_edit;
 use i_slint_live_preview::protocol::PreviewToLspMessage;
 
@@ -35,7 +36,7 @@ fn prepare_history_edit(
     for (url, expected) in &item.file_hashes {
         let document = document_cache.get_document(url)?;
         let cached = document.node.as_ref()?.source_file.source()?;
-        let disk = std::fs::read_to_string(url.to_file_path().ok()?).ok()?;
+        let disk = SourcePath::from_url(url).read_to_string().ok()?;
         if content_hash(cached) != *expected || content_hash(&disk) != *expected {
             return None;
         }

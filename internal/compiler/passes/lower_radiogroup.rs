@@ -28,6 +28,7 @@ pub async fn lower_radiogroup(
     let mut seen = HashSet::new();
     let mut radio_groups = Vec::new();
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["RadioGroup"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup")
                 && seen.insert(Rc::as_ptr(elem))

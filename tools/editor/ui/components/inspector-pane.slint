@@ -3,6 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
@@ -29,7 +30,9 @@ export component InspectorPane inherits Rectangle {
     background: Colors.surface;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
+    accessible-enabled: Diagnostics.preview-editable;
     property <length> content-x: Metrics.border-width;
+    private property <length> field-width: root.width - root.content-x - 2 * root.style.padding;
     in property <length> outline-pane-height: 0px;
     property <length> split-height: Style.panes.splitter-size;
     property <length> default-outline-height: (root.height - root.split-height) / 2;
@@ -75,6 +78,20 @@ export component InspectorPane inherits Rectangle {
         { value: "inner", label: "Inner Shadow" },
     ];
 
+    property <[InspectorComboOption]> text-horizontal-alignment-options: [
+        { value: "start", label: @tr("Start") },
+        { value: "end", label: @tr("End") },
+        { value: "left", label: @tr("Left") },
+        { value: "center", label: @tr("Center") },
+        { value: "right", label: @tr("Right") },
+    ];
+
+    property <[InspectorComboOption]> text-vertical-alignment-options: [
+        { value: "top", label: @tr("Top") },
+        { value: "center", label: @tr("Center") },
+        { value: "bottom", label: @tr("Bottom") },
+    ];
+
     property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
     property <string> inspector-key: root.element-information.source-uri + ":" + root.element-information.source-version + ":" + root.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     property <[float]> control-values: Api.inspector-values(root.inspector-key);
@@ -94,15 +111,15 @@ export component InspectorPane inherits Rectangle {
         return root.has-backend-rect() && root.element-information.type-name == "Rectangle";
     }
 
+    function is-touch-area-selection() -> bool {
+        return root.has-backend-rect() && root.element-information.type-name == "TouchArea";
+    }
+
     function is-text-selection() -> bool {
         return root.has-backend-rect() && root.element-information.type-name == "Text";
     }
 
     function is-image-selection() -> bool {
-        return root.has-backend-rect() && root.element-information.type-name == "Image";
-    }
-
-    function has-backend-image-selection() -> bool {
         return root.has-backend-rect() && root.element-information.type-name == "Image";
     }
 
@@ -401,35 +418,11 @@ export component InspectorPane inherits Rectangle {
         return "\"" + value + "\"";
     }
 
-    function image-source-value() -> string {
-        return Api.current-property-value("source", "");
-    }
-
     function choose-image-source() {
         let expression = Api.choose-image-file(root.element-information.source-uri);
         if expression != "" {
             root.commit-code("source", expression);
         }
-    }
-
-    function rectangle-background-code() -> string {
-        return Api.current-property-value("background", "");
-    }
-
-    function rectangle-background-swatch() -> brush {
-        return root.property-brush("background");
-    }
-
-    function text-color-code() -> string {
-        return Api.current-property-value("color", "");
-    }
-
-    function text-color-swatch() -> brush {
-        return root.property-brush("color");
-    }
-
-    function text-content-code() -> string {
-        return Api.current-property-value("text", "\"\"");
     }
 
     function text-font-family-value() -> string {
@@ -440,18 +433,52 @@ export component InspectorPane inherits Rectangle {
         return root.property-length-label("font-size", "Default size");
     }
 
-    function image-fit-index() -> int {
-        let value = Api.current-property-value("image-fit", "fill");
-        if value == "fill" {
+    function text-horizontal-alignment-index() -> int {
+        let value = Api.current-property-value("horizontal-alignment", "start");
+        if value == "start" {
             return 0;
         }
-        if value == "preserve" {
+        if value == "end" {
             return 1;
         }
-        if value == "contain" {
+        if value == "left" {
             return 2;
         }
-        if value == "cover" {
+        if value == "center" {
+            return 3;
+        }
+        if value == "right" {
+            return 4;
+        }
+        return -1;
+    }
+
+    function text-vertical-alignment-index() -> int {
+        let value = Api.current-property-value("vertical-alignment", "top");
+        if value == "top" {
+            return 0;
+        }
+        if value == "center" {
+            return 1;
+        }
+        if value == "bottom" {
+            return 2;
+        }
+        return -1;
+    }
+
+    function image-fit-index() -> int {
+        let value = Api.current-property-value("image-fit", "fill");
+        if value == "fill" || value == "ImageFit.fill" {
+            return 0;
+        }
+        if value == "preserve" || value == "ImageFit.preserve" {
+            return 1;
+        }
+        if value == "contain" || value == "ImageFit.contain" {
+            return 2;
+        }
+        if value == "cover" || value == "ImageFit.cover" {
             return 3;
         }
         return -1;
@@ -464,13 +491,13 @@ export component InspectorPane inherits Rectangle {
 
     function image-horizontal-alignment-index() -> int {
         let value = Api.current-property-value("horizontal-alignment", "center");
-        if value == "left" {
+        if value == "left" || value == "ImageHorizontalAlignment.left" {
             return 0;
         }
-        if value == "center" {
+        if value == "center" || value == "ImageHorizontalAlignment.center" {
             return 1;
         }
-        if value == "right" {
+        if value == "right" || value == "ImageHorizontalAlignment.right" {
             return 2;
         }
         return -1;
@@ -478,13 +505,13 @@ export component InspectorPane inherits Rectangle {
 
     function image-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "center");
-        if value == "top" {
+        if value == "top" || value == "ImageVerticalAlignment.top" {
             return 0;
         }
-        if value == "center" {
+        if value == "center" || value == "ImageVerticalAlignment.center" {
             return 1;
         }
-        if value == "bottom" {
+        if value == "bottom" || value == "ImageVerticalAlignment.bottom" {
             return 2;
         }
         return -1;
@@ -540,6 +567,16 @@ export component InspectorPane inherits Rectangle {
         return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
     }
 
+    function text-horizontal-alignment-label() -> string {
+        let index = root.text-horizontal-alignment-index();
+        return index >= 0 ? root.text-horizontal-alignment-options[index].label : @tr("Start");
+    }
+
+    function text-vertical-alignment-label() -> string {
+        let index = root.text-vertical-alignment-index();
+        return index >= 0 ? root.text-vertical-alignment-options[index].label : @tr("Top");
+    }
+
     EdgeDivider {
         x: 0px;
         background: root.style.divider;
@@ -565,7 +602,7 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection() || root.is-touch-area-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";
@@ -665,8 +702,6 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
-                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -676,14 +711,12 @@ export component InspectorPane inherits Rectangle {
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.rectangle-background-code();
-                            swatch: root.rectangle-background-swatch();
+                            value: Api.current-property-value("background", "");
+                            swatch: root.property-brush("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
-                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -693,14 +726,12 @@ export component InspectorPane inherits Rectangle {
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: "Text color";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.text-color-code();
-                            swatch: root.text-color-swatch();
+                            value: Api.current-property-value("color", "");
+                            swatch: root.property-brush("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
                             session-key: root.fill-session-key("color");
                             property-name: "color";
-                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
-                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("color", text);
@@ -726,6 +757,58 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-rectangle-selection(): InspectorSection {
+                    title: "Border";
+
+                    InspectorPropertyRow {
+                        label: "Width";
+                        InspectorValueField {
+                            property <PropertyValue> border-value: Api.current-property-value-data("border-width");
+                            accessible-name: "Border width";
+                            value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : root.property-length-label("border-width", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.inspector-key;
+                            scrubbable: true;
+                            scrub-on-suffix: true;
+                            scrub-value: self.border-value.value-float;
+                            scrub-has-minimum: true;
+                            scrub-minimum: 0;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "border-width", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("border-width", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
+                            accepted(text) => { return text.is-float() && root.commit-inspector("border-width", text.to-float()); }
+                        }
+                    }
+
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-small;
+
+                        Text {
+                            height: Metrics.icon-small;
+                            text: @tr("Color");
+                            color: Colors.muted;
+                            font-size: Typography.control.size;
+                            vertical-alignment: center;
+                        }
+
+                        InspectorColorField {
+                            accessible-name: "Border color";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
+                            value: Api.current-property-value("border-color", "");
+                            swatch: root.property-brush("border-color");
+                            commit-key: root.field-key("border-color");
+                            preview-key: root.field-key("border-color");
+                            session-key: root.fill-session-key("border-color");
+                            property-name: "border-color";
+                            width: root.width - 2 * root.style.padding;
+                            accepted(text) => { return root.commit-code("border-color", text); }
+                        }
+                    }
+                }
+
+                if root.is-rectangle-selection(): InspectorSection {
                     title: "Effects";
 
                     VerticalLayout {
@@ -739,6 +822,7 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
+                            width: root.field-width;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
@@ -763,6 +847,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.shadow-color-code();
                                 swatch: root.shadow-color-swatch();
                                 wide: true;
+                                width: root.field-width;
                                 commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                 preview-key: root.field-key(root.current-shadow-prefix() + "color");
                                 session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
@@ -787,6 +872,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
@@ -809,6 +895,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
@@ -825,6 +912,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow spread";
                             label: "Spread";
                             value: root.shadow-spread();
@@ -842,7 +930,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if root.has-backend-image-selection(): InspectorSection {
+                if root.is-image-selection(): InspectorSection {
                     title: "Image";
 
                     VerticalLayout {
@@ -861,7 +949,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorImageSourceField {
-                                value: Api.image-source-file-name(root.image-source-value());
+                                value: Api.image-source-file-name(Api.current-property-value("source", ""));
                                 browse => { root.choose-image-source(); }
                             }
                         }
@@ -894,6 +982,7 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
+                                width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
@@ -905,7 +994,6 @@ export component InspectorPane inherits Rectangle {
                             spacing: Metrics.space-compact;
 
                             HorizontalLayout {
-                                width: root.style.content-width;
                                 spacing: Metrics.space-compact;
 
                                 Text {
@@ -943,7 +1031,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorCodeField {
                             accessible-name: "Text content";
                             prefix: "Text";
-                            value: root.text-content-code();
+                            value: Api.current-property-value("text", "\"\"");
                             commit-key: root.field-key("text");
                             accepted(text) => {
                                 return root.commit-code("text", text);
@@ -964,6 +1052,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
+                            width: root.field-width;
                             accepted(text) => {
                                 return text != "" && root.commit-code("font-family", root.quote(text));
                             }
@@ -974,6 +1063,7 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: "Font weight";
+                                fit-options: true;
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
@@ -994,7 +1084,62 @@ export component InspectorPane inherits Rectangle {
                                 }
                             }
                         }
+                    }
+                }
+                if root.is-text-selection(): InspectorSection {
+                    title: @tr("Alignment");
 
+                    GridLayout {
+                        padding-left: root.style.padding;
+                        spacing: Metrics.space-compact;
+
+                        Row {
+                            Text {
+                                text: @tr("Horizontal");
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
+                                horizontal-stretch: 0;
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Horizontal Alignment");
+                                value: root.text-horizontal-alignment-label();
+                                selected-index: root.text-horizontal-alignment-index();
+                                options: root.text-horizontal-alignment-options;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                                }
+                            }
+
+                            Rectangle { }
+                        }
+
+                        Row {
+                            Text {
+                                text: @tr("Vertical");
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
+                                horizontal-stretch: 0;
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Vertical Alignment");
+                                value: root.text-vertical-alignment-label();
+                                selected-index: root.text-vertical-alignment-index();
+                                options: root.text-vertical-alignment-options;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("vertical-alignment", text);
+                                }
+                            }
+
+                            Rectangle { }
+                        }
                     }
                 }
             }
@@ -1008,7 +1153,6 @@ export component InspectorPane inherits Rectangle {
         x: root.content-x;
         y: root.inspector-height;
         width: root.width - root.content-x;
-        height: root.split-height;
         drag-started => {
             root.drag-start-height = root.outline-height;
         }
@@ -1040,5 +1184,18 @@ export component InspectorPane inherits Rectangle {
         width: root.width - root.content-x;
         height: root.outline-height;
         drag-started => { root.outline-drag-started(); }
+    }
+    if !Diagnostics.preview-editable: Rectangle {
+        background: Colors.surface.with-alpha(0.75);
+        TouchArea { }
+        Text {
+            width: parent.width - 2 * root.style.padding;
+            text: "Editing paused until the preview is available";
+            color: Colors.muted;
+            font-size: Typography.body.size;
+            wrap: word-wrap;
+            accessible-role: AccessibleRole.text;
+            accessible-label: self.text;
+        }
     }
 }

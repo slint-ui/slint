@@ -37,22 +37,22 @@ of them whole numbers from 0 to 255, the value written back is
 That's `src * alpha / 255 + dst * (255 - alpha) / 255` rounded to the nearest
 whole number. \{#sls.paint.blend.formula}
 
-A background whose alpha channel is 0 paints nothing, and the pixels it covers
-keep the value they had. \{#sls.paint.blend.transparent}
+A background whose alpha channel is 0 paints nothing, and the pixels the
+background covers keep the value they had. \{#sls.paint.blend.transparent}
 
-A background whose alpha channel is 255 replaces the pixels it covers.
+A background whose alpha channel is 255 replaces the pixels the background covers.
 \{#sls.paint.blend.opaque}
 
 An element blends with the frame buffer on its own, and an element and its
 children don't share an intermediate layer that would blend as a group.
-Nested translucent elements accumulate: each blends with the result the ones
-before it left behind. \{#sls.paint.no-group-opacity}
+Nested translucent elements accumulate: each nested element blends with the
+result that the elements painted before it left behind. \{#sls.paint.no-group-opacity}
 
 The background of the window is opaque, so that rendering writes every pixel
 of the frame buffer and a rendered frame doesn't depend on what the buffer
 held beforehand.
-A window background that the compiler can't see to be opaque, because it isn't
-a color literal or because its alpha channel isn't 255, is an error.
+A window background that the compiler can't see to be opaque, because the
+background isn't a color literal or because its alpha channel isn't 255, is an error.
 \{#sls.paint.window-opaque}
 
 ```slint
@@ -88,8 +88,8 @@ no scaling. \{#sls.paint.image}
 
 Each image pixel is composited over the frame-buffer pixel it covers, with
 the [blending formula](#sls.paint.blend.formula) applied per pixel: a fully
-transparent pixel leaves the frame-buffer pixel as it was, and a fully opaque
-one replaces it. \{#sls.paint.image.blend}
+transparent image pixel leaves the frame-buffer pixel as it was, and a fully
+opaque image pixel replaces the frame-buffer pixel. \{#sls.paint.image.blend}
 
 An element whose `source` holds no image paints nothing. \{#sls.paint.image.none}
 
@@ -109,7 +109,7 @@ export component Example inherits Window {
 
 Painting is clipped to the frame buffer. \{#sls.paint.clip}
 
-An element is not clipped to its parent: it may paint outside of its parent's
+An element is not clipped to its parent: the element may paint outside of its parent's
 geometry. \{#sls.paint.no-parent-clip}
 
 ```slint

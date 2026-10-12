@@ -4,8 +4,8 @@ description: Run the Slint SC compiler from the command line or from a Cargo bui
 ---
 
 The Slint SC compiler translates a `.slint` file into one Rust source file.
-It defines the component and the types the `.slint` file declares, and embeds the images it uses.
-It depends only on the `slint-sc` crate.
+The Rust file defines the component and the types the `.slint` file declares, and embeds the images the `.slint` file uses.
+The generated code depends only on the `slint-sc` crate.
 
 The examples on this page compile `ui/indicator.slint`:
 
@@ -75,7 +75,7 @@ fn main() {
 ```
 
 The script runs `slint-compiler` from your `PATH`.
-Set `SLINT_COMPILER` to the path of the binary to use a specific one instead.
+To use a specific binary instead, set `SLINT_COMPILER` to the path of that binary.
 Keep the `.slint` files and the images they use in `ui/`, since Cargo only watches that directory.
 
 ## Including the Generated Code
@@ -86,4 +86,4 @@ Include the generated file in the module of your crate that uses the component:
 include!(concat!(env!("OUT_DIR"), "/indicator.rs"));
 ```
 
-This declares the `Indicator` struct and the `IndicatorCallbacks` trait in the current module.
+The `include!` declares the `Indicator` struct and the `IndicatorCallbacks` trait in the current module.

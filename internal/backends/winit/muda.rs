@@ -544,11 +544,11 @@ fn refresh_map_entry(
 }
 
 fn key_string_to_key(string: &str) -> muda::accelerator::Key {
-    use muda::accelerator::Key;
+    use muda::accelerator::{Key, NamedKey};
     macro_rules! key_string_to_code_impl {
         ($($char:literal # $_name:ident # $($_shifted:ident)? $(=> $($muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
             match string.chars().next() {
-                $($($(Some($char) => Key::$muda,)?)?)*
+                $($($(Some($char) => Key::Named(NamedKey::$muda),)?)?)*
                 _ => Key::Character(string.to_owned()),
             }
         };
@@ -570,7 +570,7 @@ fn keys_to_accelerator(
     let mut modifiers = Modifiers::empty();
     if shortcut.modifiers.control {
         if i_slint_core::is_apple_platform() {
-            modifiers |= Modifiers::SUPER;
+            modifiers |= Modifiers::META;
         } else {
             modifiers |= Modifiers::CONTROL;
         }
@@ -585,12 +585,12 @@ fn keys_to_accelerator(
         if i_slint_core::is_apple_platform() {
             modifiers |= Modifiers::CONTROL;
         } else {
-            modifiers |= Modifiers::SUPER;
+            modifiers |= Modifiers::META;
         }
     }
     let key = key_string_to_key(&shortcut.key);
 
-    Some(KeyAccelerator::new(Some(modifiers), key))
+    Some(KeyAccelerator::new(modifiers, key))
 }
 
 fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {

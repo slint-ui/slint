@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Styles } from "../styles.slint";
+
+export component Header inherits Rectangle {
+    width: 100%;
+    height: 50px;
+    background: white;
+
+    @children
+
+    Image {
+        x: parent.width - self.width - Styles.side-margin;
+        width: 54px;
+        source: @image-url("../../../../logo/slint-logo-simple-whitebg.png");
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        width: 100%;
+        height: 1phx;
+        background: #E5E5E5;
+    }
+}

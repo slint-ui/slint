@@ -1,0 +1,81 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface A {
+    out property <int> speed;
+    in-out property <string> greeting;
+    pure callback callback-a() -> int;
+    public pure function function-a() -> int;
+}
+
+interface B inherits A {
+    out property <float> direction;
+    pure callback callback-b() -> int;
+    public pure function function-b() -> int;
+}
+
+export component TestCase {
+    implement B <=> self;
+
+    out property <int> speed: 42;
+    in-out property <string> greeting: "hello";
+    pure callback callback-a() -> int;
+    callback-a() => { 1 }
+    public pure function function-a() -> int {
+        2
+    }
+
+    out property <float> direction: 1.5;
+    pure callback callback-b() -> int;
+    callback-b() => { 3 }
+    public pure function function-b() -> int {
+        4
+    }
+
+    out property <bool> test: self.speed == 42
+        && self.greeting == "hello"
+        && self.callback-a() == 1
+        && self.function-a() == 2
+        && self.direction == 1.5
+        && self.callback-b() == 3
+        && self.function-b() == 4;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_speed(), 42);
+assert_eq!(instance.get_greeting(), "hello");
+assert_eq!(instance.invoke_callback_a(), 1);
+assert_eq!(instance.invoke_function_a(), 2);
+assert_eq!(instance.get_direction(), 1.5);
+assert_eq!(instance.invoke_callback_b(), 3);
+assert_eq!(instance.invoke_function_b(), 4);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_speed(), 42);
+assert_eq(instance.get_greeting(), "hello");
+assert_eq(instance.invoke_callback_a(), 1);
+assert_eq(instance.invoke_function_a(), 2);
+assert_eq(instance.get_direction(), 1.5);
+assert_eq(instance.invoke_callback_b(), 3);
+assert_eq(instance.invoke_function_b(), 4);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.speed, 42);
+assert.equal(instance.greeting, "hello");
+assert.equal(instance.callback_a(), 1);
+assert.equal(instance.function_a(), 2);
+assert.equal(instance.direction, 1.5);
+assert.equal(instance.callback_b(), 3);
+assert.equal(instance.function_b(), 4);
+assert(instance.test);
+```
+*/

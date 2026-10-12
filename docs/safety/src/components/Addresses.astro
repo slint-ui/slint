@@ -1,0 +1,19 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+const normMapping = `${import.meta.env.BASE_URL.replace(/\/?$/, "/")}norm-mapping/`;
+---
+
+<p class="addresses">
+  Addresses <slot /> (<a href={normMapping}>Norm Mapping</a>)
+</p>
+
+<style>
+  .addresses {
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+  .addresses a {
+    color: inherit;
+  }
+</style>

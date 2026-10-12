@@ -1,0 +1,20 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import CommonFooter from "@slint/common-files/src/components/Footer.astro";
+import { BUILD_COMMIT } from "../build-commit.mjs";
+---
+
+<CommonFooter />
+
+<p>
+  Built from commit <a href={`https://github.com/slint-ui/slint/commit/${BUILD_COMMIT}`}><code>{BUILD_COMMIT}</code></a>
+</p>
+
+<style>
+  p {
+    text-align: center;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+</style>

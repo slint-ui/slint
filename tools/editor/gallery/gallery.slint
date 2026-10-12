@@ -73,7 +73,7 @@ export component GalleryWindow inherits Window {
                             background: Api.fill-brush(FillSession.open ? FillSession.working-fill : Gallery.fill);
                             accessible-role: AccessibleRole.region; accessible-label: "Sample fill";
                         }
-                        Button { width: 240px; text: "Open color picker"; clicked => { Gallery.open-picker(self.absolute-position); } }
+                        Button { width: 240px; text: "Open color picker"; clicked => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); } }
                     }
                 }
             }

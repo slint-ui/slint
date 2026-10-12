@@ -5,11 +5,7 @@
 # job belong in the group gating that job instead.
 ci_config: &ci_config
  - '.github/workflows/ci.yaml'
- # autofix.yaml computes the changed groups that gate all ci.yaml jobs
- - '.github/workflows/autofix.yaml'
- - '.github/ci_path_filters.yaml'
  - '.github/actions/**'
- - '.mise/**'
  # We count changes to Cargo.lock as a "CI config" level change, as we need to ensure that all CI jobs will work correctly with the updated lock file.
  # Otherwise, later job runs may run into issues that have nothing to do with their changes.
  - 'Cargo.lock'
@@ -32,27 +28,40 @@ pnpm_manifests:
  - 'pnpm-workspace.yaml'
 
 # The compiler library and i-slint-common, without the language-specific
-# generator backends and the compiler's own test data.
+# generator backends, the widget styles, and the compiler's own test data.
 compiler: &compiler
  - 'internal/common/**'
- - 'internal/compiler/!({tests,generator}/**)'
+ - 'internal/compiler/!({tests,generator,widgets}/**)'
  - 'internal/compiler/generator/!(cpp*|python*|rust*|slint_sc*){,/**}'
  - 'Cargo.toml' # the root Cargo.toml
  - '.cargo/**'
  - *ci_config
 
-# Compiler and runtime shared by all language APIs; they need the Qt widgets
-# and the testing backend, but no renderer.
+# Compiler and runtime shared by all language APIs, without backends and renderers.
 internal: &internal
  - *compiler
  - 'internal/!({compiler,renderers,backends}/**)'
- - 'internal/backends/qt/**'
- - 'internal/backends/testing/**'
  - 'helper_crates/**'
+
+# The widget styles, which every generator has to compile.
+widgets: &widgets
+ - 'internal/compiler/widgets/**'
+
+linuxkms_backend:
+ - 'Cargo.toml'
+ - 'internal/backends/linuxkms/**'
+ - *ci_config
+
+# What the code that the Rust generator emits depends on.
+rust_generator:
+ - *compiler
+ - 'internal/compiler/generator/rust*{,/**}'
 
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
  - *internal
+ - *widgets
+ - 'internal/backends/{qt,testing}/**'
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'
@@ -111,7 +120,6 @@ tree_sitter:
 figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
- - *ci_config
 
 material_components:
  - '.github/workflows/material.yaml'
@@ -128,18 +136,33 @@ api_cpp:
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
+# The CMake setup of the C++ API, which the package test checks.
+cpp_cmake_config:
+ - 'api/cpp/{CMakeLists.txt,Cargo.toml}'
+ - 'api/cpp/cmake/**'
+ - 'cmake/**'
+
 android_backend:
  - 'internal/backends/android-activity/**'
 
-api_python:
+api_python: &api_python
  - 'api/python/**'
  - 'internal/compiler/generator/python*{,/**}'
  - '.github/workflows/python_test_reusable.yaml'
 
-api_node:
+api_node: &api_node
  - 'api/node/**'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
+
+node_python_docs:
+ - *api_node
+ - *api_python
+ - '.github/workflows/build_docs.yaml'
+ - 'docs/common/**'
+ - 'docs/nodejs/**'
+ - 'docs/python/**'
+ - *ci_config
 
 api_rs:
  - 'api/rs/**'
@@ -147,11 +170,16 @@ api_rs:
  # The slint crate re-exports i-slint-core as its api
  - 'internal/core{,-macros}/**'
 
-# The test drivers (doctests are run by the docs build) and the testing
+# What every test driver runs: the test cases, and the drivers with the testing
 # backend they use.
 tests:
- - 'tests/!(doctests/**)'
+ - 'tests/{cases,helper_components,driver}/**'
+ - 'tests/Cargo.{toml,lock}'
  - 'internal/backends/testing/**'
+
+# The other members of the tests/ workspace, which only the integration tests build.
+integration_tests:
+ - 'tests/{screenshots,manual,backends,issues}/**'
 
 examples:
  # Some examples are tested separately and can be excluded from here
@@ -163,12 +191,12 @@ examples_mcu:
  - 'examples/*mcu*/**'
  - 'internal/renderers/software/**'
 
+# The extension embeds the wasm build of the LSP, which the slintpad job also
+# builds, so changes to the LSP and its dependencies don't need this job.
 vsce:
- - *internal
  - *js_config
- - 'api/rs/**'
+ - *ci_config
  - 'editors/vscode/**'
- - 'tools/lsp/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
 
 slintpad:
@@ -201,6 +229,13 @@ slint_sc:
  - 'api/slint-sc/**'
  - 'tools/compiler/**'
  - *ci_config
+
+# The slint-sc test driver, which gates its runs on the other hosts and the
+# targets. Other slint-sc changes that pass on Linux rarely fail there, and the
+# full CI runs them anyway.
+slint_sc_driver:
+ - 'api/slint-sc/tests/driver.rs'
+ - 'api/slint-sc/tests/driver/**'
 
 # Safety manual and the generator that produces it, incl. the coverage chapter
 safety_docs:

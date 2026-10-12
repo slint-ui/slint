@@ -1732,6 +1732,8 @@ async function normalizeValidatedSource(
             name: node.name,
             type: node.type,
             sourceSvgOmitted: node.exports?.svgOmitted === "png",
+            sourcePngOmitted: node.exports?.pngOmitted === "svg",
+            sourceSvgBounds: node.exports?.svgBounds,
             sourceRasterBounds: node.exports?.rasterBounds,
             ...(node.children === undefined
                 ? {}

@@ -307,12 +307,7 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Released {
-                position,
-                button: PointerEventButton::Left,
-                click_count: _,
-                touch_finger_id: _,
-            } => {
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
@@ -661,9 +656,11 @@ fn text_layout_info(
     width: Pin<&Property<LogicalLength>>,
     cross_axis_constraint: Coord,
 ) -> LayoutInfo {
-    let implicit_size = |max_width, text_wrap| {
-        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
-    };
+    // The text layout cache holds one wrap mode per item, and an unconstrained measurement
+    // doesn't need `NoWrap`: with no width to break at, the mode can't change the width.
+    let wrap = text.wrap();
+    let implicit_size =
+        |max_width| window_adapter.renderer().text_size(text, self_rc, max_width, wrap);
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
     // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
@@ -674,18 +671,18 @@ fn text_layout_info(
             // content-widths measurement gives both that minimum and the single-line
             // preferred width, so this replaces the plain measurement below.
             let word_wrap_widths =
-                matches!((text.overflow(), text.wrap()), (TextOverflow::Clip, TextWrap::WordWrap))
+                matches!((text.overflow(), wrap), (TextOverflow::Clip, TextWrap::WordWrap))
                     .then(|| window_adapter.renderer().text_content_widths(text, self_rc))
                     .flatten();
 
             let (min, preferred) = match word_wrap_widths {
                 Some(widths) => (widths.min.get(), widths.max.get()),
                 None => {
-                    let unwrapped_width = implicit_size(None, TextWrap::NoWrap).width;
+                    let unwrapped_width = implicit_size(None).width;
                     let min = match text.overflow() {
                         TextOverflow::Elide => unwrapped_width
                             .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
-                        TextOverflow::Clip => match text.wrap() {
+                        TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
                             // char-wrap can break anywhere, so it keeps no lower bound.
                             TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
@@ -697,16 +694,16 @@ fn text_layout_info(
             LayoutInfo { min: min.ceil(), preferred: preferred.ceil(), ..LayoutInfo::default() }
         }
         Orientation::Vertical => {
-            let h = match text.wrap() {
+            let h = match wrap {
                 TextWrap::NoWrap => single_line_height(window_adapter, text, self_rc)
-                    .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height),
-                wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                    .unwrap_or_else(|| implicit_size(None).height),
+                TextWrap::WordWrap | TextWrap::CharWrap => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
                         width.get()
                     };
-                    implicit_size(Some(w), wrap).height
+                    implicit_size(Some(w)).height
                 }
             }
             .ceil();
@@ -846,17 +843,18 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
-        let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
-        };
+        // See `text_layout_info` for why the wrap mode is the item's own.
+        let wrap = self.wrap();
+        let implicit_size =
+            |max_width| window_adapter.renderer().text_size(self, self_rc, max_width, wrap);
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
         // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None, TextWrap::NoWrap);
-                let min = match self.wrap() {
+                let implicit_size = implicit_size(None);
+                let min = match wrap {
                     TextWrap::NoWrap => implicit_size.width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
@@ -867,16 +865,16 @@ impl Item for TextInput {
                 }
             }
             Orientation::Vertical => {
-                let h = match self.wrap() {
+                let h = match wrap {
                     TextWrap::NoWrap => single_line_height(window_adapter, self, self_rc)
-                        .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height),
-                    wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                        .unwrap_or_else(|| implicit_size(None).height),
+                    TextWrap::WordWrap | TextWrap::CharWrap => {
                         let w = if cross_axis_constraint >= 0 as Coord {
                             LogicalLength::new(cross_axis_constraint)
                         } else {
                             self.width()
                         };
-                        implicit_size(Some(w), wrap).height
+                        implicit_size(Some(w)).height
                     }
                 }
                 .ceil();
@@ -1092,7 +1090,7 @@ impl Item for TextInput {
                             self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy => {
+                        StandardShortcut::Copy if !self.is_password() => {
                             self.copy(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
@@ -1100,11 +1098,13 @@ impl Item for TextInput {
                             self.paste(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut if !self.read_only() => {
+                        StandardShortcut::Cut if !self.read_only() && !self.is_password() => {
                             self.cut(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste | StandardShortcut::Cut => {
+                        StandardShortcut::Copy
+                        | StandardShortcut::Paste
+                        | StandardShortcut::Cut => {
                             return KeyEventResult::EventIgnored;
                         }
                         StandardShortcut::Undo if !self.read_only() => {
@@ -1990,6 +1990,9 @@ impl TextInput {
     }
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        if self.is_password() {
+            return;
+        }
         self.copy(window_adapter, self_rc);
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
@@ -2087,6 +2090,9 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         clipboard: Clipboard,
     ) {
+        if self.is_password() {
+            return;
+        }
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
@@ -2297,6 +2303,8 @@ impl TextInput {
     }
 
     pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // The change tracker runs delayed, so `text` may have been assigned since (#13814).
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2342,6 +2350,8 @@ impl TextInput {
     }
 
     pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // See `undo`.
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2487,6 +2497,12 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         text_input.set_selection_offsets(window_adapter, &self_rc, anchor, focus);
     }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_textinput_has_selection(text_input: Pin<&TextInput>) -> bool {
+    text_input.has_selection()
 }
 
 #[cfg(feature = "ffi")]

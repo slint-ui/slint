@@ -679,6 +679,26 @@ describe("converter", () => {
         }
     });
 
+    test("rejects SVG paint bounds when a raster supplies the visual", async () => {
+        const snapshot = JSON.parse(
+            await readFile("tests/font-icon.snapshot.json", "utf8"),
+        );
+        snapshot.root.svgBounds = { x: -2, y: -2, width: 28, height: 28 };
+        expect(validateSnapshot(snapshot).ok).toBe(true);
+        snapshot.root.raster = {
+            data: await readFile("fixtures/authored/square.png", "base64"),
+            exportScale: 1,
+            pixelWidth: 24,
+            pixelHeight: 24,
+        };
+        expect(validateSnapshot(snapshot)).toMatchObject({
+            ok: false,
+            diagnostics: [
+                expect.objectContaining({ propertyPath: "root.svgBounds" }),
+            ],
+        });
+    });
+
     test("rejects malformed SVG snapshot content with stable diagnostics", async () => {
         const json = JSON.parse(
             await readFile("fixtures/svg-multi-path.snapshot.json", "utf8"),
@@ -769,7 +789,7 @@ describe("converter", () => {
         });
     });
 
-    test("maps finite root and nested rotations to center-origin Slint transforms", async () => {
+    test("maps Figma rotation direction and origin to Slint transforms", async () => {
         const base = JSON.parse(
             await readFile("fixtures/auto-layout.snapshot.json", "utf8"),
         ) as {
@@ -792,10 +812,10 @@ describe("converter", () => {
         });
         expect(rotated.ok).toBe(true);
         if (!rotated.ok) return;
-        expect(rotated.source).toContain("transform-rotation: 17deg;");
-        expect(rotated.source).toContain("transform-rotation: -8deg;");
+        expect(rotated.source).toContain("transform-rotation: -17deg;");
+        expect(rotated.source).toContain("transform-rotation: 8deg;");
         expect(rotated.source).toContain(
-            "transform-origin: { x: self.width / 2, y: self.height / 2 };",
+            "transform-origin: { x: 0px, y: 0px };",
         );
     });
 

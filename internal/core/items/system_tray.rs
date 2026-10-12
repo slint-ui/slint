@@ -163,20 +163,13 @@ pub struct SystemTrayIconData {
     /// so that a re-fired tracker can't double-increment.
     keepalive_live: core::cell::Cell<bool>,
     menu: core::cell::RefCell<Option<MenuState>>,
-    /// The context of the component this tray belongs to, handed over by the generated
-    /// code. A tray has no window, so this is the only way it can tell which context it
-    /// is part of. Empty for a component built with `new()`, which uses the thread's.
+    /// The context of the tray's item tree, for `Drop`, which can't reach the item tree.
     context: core::cell::OnceCell<crate::SlintContextWeak>,
 }
 
 impl SystemTrayIconData {
-    /// The context this tray belongs to: the one its component was built with, falling
-    /// back to the thread's for a component built with `new()`.
     fn context(&self) -> Option<crate::SlintContext> {
-        match self.context.get() {
-            Some(ctx) => ctx.upgrade(),
-            None => crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned()),
-        }
+        self.context.get().and_then(|ctx| ctx.upgrade())
     }
 }
 
@@ -204,9 +197,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
     fn notify(self: Pin<&Self>) {
         let self_weak = self.self_weak.clone();
         let Some(item_rc) = self_weak.upgrade() else { return };
-        let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };
-        let Some(ctx) = tray.as_pin_ref().data.context() else { return };
-        ctx.single_shot(Default::default(), move || {
+        item_rc.slint_context().single_shot(Default::default(), move || {
             let Some(item_rc) = self_weak.upgrade() else { return };
             let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };
             tray.as_pin_ref().rebuild_menu();
@@ -229,13 +220,6 @@ pub struct SystemTrayIcon {
 }
 
 impl SystemTrayIcon {
-    /// Called from a tray-rooted component's `new_with_context` to tell the item which
-    /// context it belongs to. Without it the item would fall back to the thread's context,
-    /// which is the wrong one when the component was built on another.
-    pub fn set_context(self: Pin<&Self>, ctx: &crate::SlintContext) {
-        let _ = self.data.context.set(ctx.downgrade());
-    }
-
     /// Called from generated code (via the `SetupSystemTrayIcon` builtin) to hand off the
     /// lowered menu's `VRc<MenuVTable>` to the native item. The item walks the menu via
     /// this vtable inside its own `PropertyTracker`, so property changes inside the menu
@@ -308,6 +292,8 @@ impl SystemTrayIcon {
 
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        let result = self.data.context.set(self_rc.slint_context().downgrade());
+        debug_assert!(result.is_ok(), "Item::init is called once");
         self.data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
@@ -321,9 +307,7 @@ impl Item for SystemTrayIcon {
                 if !*has_icon {
                     return;
                 }
-                let Some(ctx) = tray.as_pin_ref().data.context() else {
-                    return;
-                };
+                let ctx = tray_rc.slint_context();
                 let tray = tray.as_pin_ref();
                 // Read outside the menu's tracker, which must only depend on the menu.
                 let (icon, tooltip, title) = (tray.icon(), tray.tooltip(), tray.title());

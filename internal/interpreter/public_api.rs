@@ -131,7 +131,7 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
         Type::Keys => matches!(value, Value::Keys(_)),
-        Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+        Type::ArrayOfCoord => matches!(value, Value::ArrayOfCoord(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),

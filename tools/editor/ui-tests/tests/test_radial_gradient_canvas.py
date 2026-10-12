@@ -9,7 +9,15 @@ import pytest
 import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
-from gradient_interactions import center, click, control, gesture, open_radial, shifted
+from gradient_interactions import (
+    center,
+    click,
+    control,
+    gesture,
+    move_picker_to_files,
+    open_radial,
+    shifted,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_assertions import expect
@@ -102,6 +110,7 @@ def test_radial_radius_save_reopen_and_history(
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_radial(window)
+        move_picker_to_files(window, "main")
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         gesture(window, r, shifted(c, x=percent))

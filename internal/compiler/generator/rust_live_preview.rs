@@ -32,10 +32,9 @@ pub fn generate(
     let main_file = doc
         .node
         .as_ref()
-        .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
-        .source_file
-        .path();
-    let main_file = std::path::absolute(main_file).unwrap_or_else(|_| main_file.to_path_buf());
+        .and_then(|node| node.source_file.path().as_native_path())
+        .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?;
+    let main_file = std::path::absolute(main_file).unwrap_or_else(|_| main_file.to_owned());
     let main_file = main_file.to_string_lossy();
 
     let public_components = llr

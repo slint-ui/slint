@@ -174,6 +174,7 @@ const LOCATION_OUTER_INNER: LogicalPoint = LogicalPoint::new(175., 175.);
 // Overlapping location of the Outer and the nested Flickable
 const LOCATION_OUTER_NESTED: LogicalPoint = LogicalPoint::new(445., 445.);
 
+// Scrolling the outer, because the inner cannot scroll vertically
 wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Started);
 wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
 wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
@@ -182,14 +183,15 @@ assert_eq!(instance.get_outer_y(), 40. - DISTANCE_THRESHOLD, "The outer follows 
 wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Ended);
 slint_testing::mock_elapsed_time(3000);
 
-// The inner one didn't get the end of that gesture: a mouse wheel is still animated
+// The inner Flickable hasn't seen this gesture, so the event is a wheel notch, animated over `WHEEL_SCROLL_DURATION`
 instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LOCATION_OUTER_INNER, delta_x: -30., delta_y: 0., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(16);
 assert!(instance.get_inner_x() > 0. && instance.get_inner_x() < 30., "Mouse wheel is animated: {}", instance.get_inner_x());
-slint_testing::mock_elapsed_time(3000);
-assert!((instance.get_inner_x() - 30.).abs() < 0.01, "{}", instance.get_inner_x());
+slint_testing::mock_elapsed_time(30000);
+assert!((instance.get_inner_x()-  30.).abs() < 1e-3, "Animation is finished: {}", instance.get_inner_x());
 let inner_x = instance.get_inner_x();
 
+// Scrolling again the outer because the inner cannot scroll vertically
 gesture(LOCATION_OUTER_INNER, -300.);
 assert_eq!(instance.get_inner_x(), inner_x);
 assert_eq!(instance.get_outer_y(), 500.);
@@ -208,6 +210,81 @@ let nested_y = instance.get_nested_y();
 gesture(LOCATION_OUTER_INNER, 20.);
 assert!(instance.get_outer_y() < 500., "Scrolling the outer again: {}", instance.get_outer_y());
 assert_eq!(instance.get_nested_y(), nested_y);
+```
+
+```rust
+// Touch pad gestures scroll the inner horizontally (The animation of the inner shall also be executed)
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+const DISTANCE_THRESHOLD: f32 = 8.;
+const NUMBER_MOVES: usize = 10;
+let instance = TestCase::new().unwrap();
+let wheel = |pos: LogicalPoint, delta_x: f32, phase| {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pos, delta_x, delta_y: 0., phase }));
+};
+let gesture = |pos: LogicalPoint, delta_x: f32| {
+    wheel(pos, 0., TouchPhase::Started);
+    slint_testing::mock_elapsed_time(10);
+    for _ in 0..NUMBER_MOVES {
+        wheel(pos, delta_x / NUMBER_MOVES as f32, TouchPhase::Moved);
+        slint_testing::mock_elapsed_time(10);
+    }
+    wheel(pos, 0., TouchPhase::Ended);
+};
+
+// Overlapping location of the Outer and inner Flickable
+const LOCATION_OUTER_INNER: LogicalPoint = LogicalPoint::new(175., 175.);
+
+gesture(LOCATION_OUTER_INNER, -100.);
+assert_eq!(instance.get_inner_x(), 100. - DISTANCE_THRESHOLD);
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_inner_x() > 100. - DISTANCE_THRESHOLD, "The simulation must be ongoing: {:?}", instance.get_inner_x());
+```
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+let scroll_vertical = |inner_bounce| {
+    let instance = TestCase::new().unwrap();
+    for (id, bounce) in [("TestCase::outer", AutoBool::Off), ("TestCase::inner", inner_bounce)] {
+        let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, id)
+            .next()
+            .unwrap();
+        slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    }
+
+    let position = LogicalPoint::new(175., 175.);
+    for (phase, delta_y) in [
+        (TouchPhase::Started, 0.),
+        (TouchPhase::Moved, -20.),
+        (TouchPhase::Moved, -20.),
+    ] {
+        instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+            position,
+            delta_x: 0.,
+            delta_y,
+            phase,
+        }));
+        slint_testing::mock_elapsed_time(16);
+    }
+
+    assert_eq!(instance.get_inner_x(), 0., "A vertical gesture must not scroll the horizontal inner Flickable");
+    assert!(instance.get_test());
+    let outer_y = instance.get_outer_y();
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Ended,
+    }));
+    outer_y
+};
+
+let without_bounce = scroll_vertical(AutoBool::Off);
+assert!(without_bounce > 0., "The outer Flickable must follow the vertical gesture");
+let with_bounce = scroll_vertical(AutoBool::On);
+assert_eq!(with_bounce, without_bounce, "Inner bounce must not consume the outer Flickable's vertical gesture");
 ```
 
 */

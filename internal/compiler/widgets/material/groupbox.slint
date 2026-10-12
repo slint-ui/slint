@@ -3,8 +3,12 @@
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
 
+import { GroupBoxInterface } from "../common/std-widget-interfaces.slint";
+
 // A container widget with a title.
 export component GroupBox {
+    implement GroupBoxInterface <=> self;
+
     in property <string> title;
     in property <bool> enabled: true;
     in property <length> content-padding: 16px;

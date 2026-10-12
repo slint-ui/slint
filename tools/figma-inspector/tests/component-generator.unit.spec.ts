@@ -419,6 +419,27 @@ describe("generator", () => {
         );
     });
 
+    test("ancestor visibility removes only the same descendant condition", async () => {
+        const source = JSON.parse(
+            await readFile("fixtures/source/inherited-visibility.json", "utf8"),
+        ) as SourceCapture;
+        const definition = source.components!.definitions[0];
+        const { result } = await convert(source);
+        expect(result.source).toContain("if root.show-icon: Rectangle");
+        expect(result.source).not.toContain("if root.show-icon: Text");
+        definition.contract!.properties["Show text#2"] = {
+            type: "BOOLEAN",
+            defaultValue: true,
+        };
+        definition.contract!.bindings["visibility:icon-text"].visible =
+            "Show text#2";
+        const independent = await convert(source);
+        expect(independent.result.source).toContain(
+            "if root.show-icon: Rectangle",
+        );
+        expect(independent.result.source).toContain("if root.show-text: Text");
+    });
+
     test("variant output keeps the public contract without axis-name-specific selectors", async () => {
         const { result } = await convert(await fixture());
         const [library, demo] = result.source.split("export component Demo");

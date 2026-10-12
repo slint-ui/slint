@@ -2,7 +2,7 @@
 
 - Follow [the writing style guide](docs/internal/writing-style-guide.md) for new comments, documentation, Markdown, and commit messages.
   Don't reformat unrelated prose.
-- Don't edit `CHANGELOG.md`; use a `ChangeLog:` commit trailer for noteworthy changes.
+- Don't edit `CHANGELOG.md`; use a `ChangeLog:` commit trailer for noteworthy changes only as explained in the writing style guide
 - The default branch is `master`.
   During review, add follow-up commits; squash or rebase when review is complete.
 - For new visual or layout syntax, prefer CSS naming unless Slint's types or existing names require divergence; document the reason.

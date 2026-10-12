@@ -307,8 +307,8 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
-unstable-fontique-011 = ["i-slint-common/shared-fontique"]
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.12.0/fontique/) related APIs.
+unstable-fontique-012 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -325,11 +325,9 @@ vtable = { workspace = true }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
-num-traits = { version = "0.2", default-features = false }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
-unicode-segmentation = { workspace = true }
 
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }
@@ -382,6 +380,6 @@ features = [
   "unstable-wgpu-30",
   "unstable-winit-030",
   "unstable-libinput-09",
-  "unstable-fontique-011",
+  "unstable-fontique-012",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

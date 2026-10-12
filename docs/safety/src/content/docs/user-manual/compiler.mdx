@@ -47,7 +47,7 @@ The generated code only compiles with the `slint-sc` crate of the same release (
 ### Coverage Map
 
 With `--coverage`, the compiler also writes the map of the coverage points of the `.slint` source.
-It has the name of the output file, with the extension `.slintcov`: `-o indicator.rs` writes `indicator.slintcov`.
+The map has the name of the output file, with the extension `.slintcov`: `-o indicator.rs` writes `indicator.slintcov`.
 
 The generated code is the same with and without `--coverage`.
 To turn the map into a coverage report, see [Coverage of Slint Code](/user-manual/slint-coverage/).
@@ -60,13 +60,13 @@ With `--depfile`, the compiler writes one line in the format of `gcc -M`:
 indicator.rs: ui/indicator.slint /path/to/ui/lamp.slint /path/to/ui/lamp.png
 ```
 
-It lists the output file, then the input file as given on the command line.
-Then it lists every imported `.slint` file and every embedded image, with absolute paths.
+The line lists the output file, then the input file as given on the command line.
+Then the line lists every imported `.slint` file and every embedded image, with absolute paths.
 
 ## Rejected Options
 
 `slint-compiler` accepts more options than the ones above, for the full Slint runtime.
-With `--slint-sc`, it rejects each of them with an error:
+With `--slint-sc`, `slint-compiler` rejects each of these options with an error:
 
 - `-f`, `--format`
 - `--style`
@@ -82,12 +82,12 @@ With `--slint-sc`, it rejects each of them with an error:
 ## Diagnostics and Exit Status
 
 The compiler prints errors and warnings to standard error, each with the file, line, and column it's about.
-An error names the construct at fault, for example one outside the Slint SC subset:
+An error names the construct at fault, for example a construct outside the Slint SC subset:
 
 ```text
 error: The builtin element 'Text' is not supported in Slint SC
 ```
 
 The exit status is zero when the compilation succeeds, warnings or not.
-It's non-zero on any error, and the compiler then leaves the output file untouched.
+The exit status is non-zero on any error, and the compiler then leaves the output file untouched.
 Check the exit status, rather than the presence of the output file, to tell whether the compilation succeeded.

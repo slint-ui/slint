@@ -17,6 +17,12 @@ export TestCase := Text {
         self.horizontal_alignment =
             TextHorizontalAlignment.lefti;
 //                                  >   <error{'lefti' is not a member of the enum TextHorizontalAlignment}
+
+        // wrong case
+        self.horizontal_alignment = TextHorizontalAlignment.Left;
+//                                                          >  <error{'Left' is not a member of the enum TextHorizontalAlignment. Did you mean 'left'?}
+        self.wrap = TextWrap.WordWrap;
+//                           >      <error{'WordWrap' is not a member of the enum TextWrap. Did you mean 'word-wrap'?}
     }
 
     vertical_alignment: TextVerticalAlignment.top.right;

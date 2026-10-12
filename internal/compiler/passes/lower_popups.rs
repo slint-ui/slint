@@ -205,7 +205,10 @@ fn lower_popup_window(
     {
         let mut popup_mut = popup_comp.root_element.borrow_mut();
         let name = format_smolstr!("popup-{}-dummy", popup_mut.id);
-        popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
+        popup_mut.property_declarations.insert(
+            name.clone(),
+            PropertyDeclaration { synthesized: true, ..Type::LogicalLength.into() },
+        );
         drop(popup_mut);
         let dummy1 = NamedReference::new(&popup_comp.root_element, name.clone());
         let dummy2 = NamedReference::new(&popup_comp.root_element, name.clone());

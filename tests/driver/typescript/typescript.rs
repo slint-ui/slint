@@ -18,7 +18,11 @@ fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
     compiler_config.debug_info = true;
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source, Some(path), &mut diag);
+    let syntax_node = parser::parse(
+        source,
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut diag,
+    );
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 

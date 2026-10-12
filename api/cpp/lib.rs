@@ -9,10 +9,8 @@ extern crate alloc;
 extern crate std;
 
 use alloc::rc::Rc;
-use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
-use i_slint_core::items::OperatingSystemType;
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
@@ -41,6 +39,10 @@ pub fn with_platform<R>(
 ) -> Result<R, i_slint_core::platform::PlatformError> {
     with_global_context(|ctx| f(ctx.platform()))?
 }
+
+// Without the selector, the application installs the platform itself.
+#[cfg(not(feature = "i-slint-backend-selector"))]
+use i_slint_core::with_existing_context as with_global_context;
 
 #[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
@@ -80,19 +82,10 @@ mod android {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_context_accent_color(
-    root: &i_slint_core::item_tree::ItemTreeRc,
-    out: &mut i_slint_core::graphics::Color,
-) {
-    *out = i_slint_core::window::accent_color(root);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_context_color_scheme(
     root: &i_slint_core::item_tree::ItemTreeRc,
 ) -> i_slint_core::items::ColorScheme {
-    i_slint_core::window::context_for_root(root)
-        .map_or(i_slint_core::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(root)))
+    i_slint_core::window::context_for_root(root).color_scheme(Some(root))
 }
 
 #[unsafe(no_mangle)]
@@ -101,7 +94,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }
@@ -221,11 +214,6 @@ pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_string_character_count(string: &SharedString) -> usize {
-    unicode_segmentation::UnicodeSegmentation::graphemes(string.as_str(), true).count()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_usize(string: &SharedString, value: &mut usize) -> bool {
     match string.as_str().parse::<usize>() {
         Ok(v) => {
@@ -301,11 +289,6 @@ pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
-    i_slint_core::detect_operating_system()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(
     format_string: &SharedString,
     args: Slice<StyledText>,
@@ -315,27 +298,8 @@ pub extern "C" fn slint_parse_markdown(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_open_url(
-    url: &SharedString,
-    win: *const WindowAdapterRcOpaque,
-) -> bool {
-    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
-    i_slint_core::open_url(url, window_adapter.window()).is_ok()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_macos_bring_all_windows_to_front() {
     i_slint_core::macos_bring_all_windows_to_front()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_color_to_styled_text(color: &i_slint_core::Color, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::color_to_styled_text(*color);
 }
 
 // Translator API is currently considered experimental due to discussions

@@ -56,7 +56,8 @@ def inspector_field(
         fields = elements(pane, label, role=role)
         if len(fields) == 1 and (
             pane.absolute_position.y
-            <= fields[0].absolute_position.y + fields[0].size.height / 2
+            <= fields[0].absolute_position.y
+            <= fields[0].absolute_position.y + fields[0].size.height
             <= divider.absolute_position.y
         ):
             return element(pane, label, role=role)

@@ -254,6 +254,8 @@ fn mod_macro(
         lhs_ty
     } else if matches!(rhs_ty, Type::UnitProduct(_)) {
         rhs_ty
+    } else if lhs_ty == Type::Int32 && rhs_ty == Type::Int32 {
+        Type::Int32
     } else {
         Type::Float32
     };
@@ -640,7 +642,7 @@ fn to_debug_string(
         | Type::ComponentFactory
         | Type::Function { .. }
         | Type::ElementReference
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::ArrayOfU16
         | Type::Model
         | Type::PathData

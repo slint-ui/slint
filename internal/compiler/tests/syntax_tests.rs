@@ -278,7 +278,8 @@ fn process_diagnostics(
         .iter()
         .filter(|d| {
             canonical(
-                d.source_file()
+                i_slint_compiler::diagnostics::Spanned::source_file(*d)
+                    .and_then(|f| f.path().as_native_path())
                     .unwrap_or_else(|| panic!("{path:?}: Error without a source file {d:?}",)),
             ) == path
         })
@@ -479,8 +480,11 @@ fn process_file_source(
     update: bool,
 ) -> std::io::Result<bool> {
     let mut parse_diagnostics = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+    let syntax_node = i_slint_compiler::parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut parse_diagnostics,
+    );
 
     let has_parse_error = parse_diagnostics.has_errors();
     // Only the tests in the `slint-sc` directory are Slint SC tests; don't
@@ -541,7 +545,7 @@ fn process_file_source(
     let mut success = true;
     success &= process_diagnostics(&compile_diagnostics, path, &source, silent, update)?;
 
-    for p in &compile_diagnostics.all_loaded_files {
+    for p in compile_diagnostics.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         let source = if p.is_absolute() {
             std::fs::read_to_string(p)?
         } else {

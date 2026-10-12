@@ -607,7 +607,7 @@ impl Window {
         size: LogicalSize,
         _: crate::InternalToken,
     ) {
-        self.0.set_window_item_virtual_keyboard(origin.to_euclid(), size.to_euclid());
+        self.0.set_window_item_virtual_keyboard(origin, size);
     }
 
     #[doc(hidden)]
@@ -615,9 +615,7 @@ impl Window {
         &self,
         _: crate::InternalToken,
     ) -> Option<(LogicalPosition, LogicalSize)> {
-        self.0.window_item_virtual_keyboard().map(|(origin, size)| {
-            (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
-        })
+        self.0.window_item_virtual_keyboard()
     }
 
     /// Dispatch a window event to the scene.
@@ -689,6 +687,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerMoved { position } => self
@@ -795,10 +794,9 @@ impl Window {
         Ok(dispatch_result)
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
+    /// Returns true if an active animation may change what this window renders.
     pub fn has_active_animations(&self) -> bool {
-        // TODO make it really per window.
-        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
+        self.0.has_active_animations()
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()

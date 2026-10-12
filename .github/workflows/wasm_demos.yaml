@@ -50,7 +50,7 @@ jobs:
             - name: Remaining wasm demos
               if: ${{ inputs.build_artifacts }}
               run: |
-                  for demo in demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust examples/speedometer/rust; do
+                  for demo in demos/usecases/rust examples/todo/rust examples/todo-mvc/rust examples/carousel/rust examples/slide_puzzle examples/memory examples/dnd-kanban examples/imagefilter/rust examples/plotter examples/opengl_underlay demos/home-automation/rust demos/food-processor/rust examples/speedometer/rust; do
                       pushd $demo
                       sed -i "s/#wasm# //" Cargo.toml
                       wasm-pack build ${{ inputs.build_artifacts && '--release' || '--dev' }} --target web --no-default-features --features $WASM_SLINT_FEATURES
@@ -87,6 +87,7 @@ jobs:
                       examples/opengl_underlay/
                       demos/energy-monitor/
                       demos/home-automation/rust
+                      demos/food-processor/rust
                       demos/weather-demo/
                       demos/usecases/rust
                       !/**/.gitignore

@@ -164,6 +164,14 @@ impl SlintContext {
         &*self.0.platform
     }
 
+    /// Creates a window adapter with this context's platform, and associates its window
+    /// with this context.
+    pub fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        let adapter = self.platform().create_window_adapter()?;
+        crate::window::WindowInner::from_pub(adapter.window()).set_context(self.clone());
+        Ok(adapter)
+    }
+
     /// Return a reference to the font context
     #[cfg(feature = "shared-parley")]
     pub fn font_context(
@@ -206,6 +214,20 @@ impl SlintContext {
     /// calling [`Self::maybe_activate_timers`].
     pub fn new_timer(&self) -> crate::timers::Timer {
         crate::timers::Timer::with_list(&self.0.timers)
+    }
+
+    /// Starts `timer` like [`Timer::start`](crate::timers::Timer::start), but registers it on
+    /// this context if it hasn't been started yet.
+    ///
+    /// A timer that already belongs to a live context keeps firing on that one.
+    pub fn start_timer(
+        &self,
+        timer: &crate::timers::Timer,
+        mode: crate::timers::TimerMode,
+        interval: core::time::Duration,
+        callback: impl FnMut() + 'static,
+    ) {
+        timer.start_on(self, mode, interval, callback);
     }
 
     /// Runs `callback` once, `duration` from now, on this context.

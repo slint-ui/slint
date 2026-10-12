@@ -10,6 +10,8 @@ use crate::expression_tree::*;
 use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
+#[cfg(test)]
+use crate::source_path::SourcePath;
 use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
@@ -576,7 +578,7 @@ export component Foo {
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -630,7 +632,7 @@ export component Foo {
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -762,11 +764,8 @@ export component Foo inherits Window {{
 
         let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
 
-        let doc_node = crate::parser::parse(
-            source.clone(),
-            Some(std::path::Path::new("HELLO")),
-            &mut test_diags,
-        );
+        let doc_node =
+            crate::parser::parse(source.clone(), Some(SourcePath::new("HELLO")), &mut test_diags);
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
@@ -788,11 +787,8 @@ export component Foo inherits Window {
 }"#;
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(
-        source.to_string(),
-        Some(std::path::Path::new("HELLO")),
-        &mut test_diags,
-    );
+    let doc_node =
+        crate::parser::parse(source.to_string(), Some(SourcePath::new("HELLO")), &mut test_diags);
     let mut compiler_config =
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
@@ -822,7 +818,7 @@ fn test_unit_normalization() {
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
-            Some(std::path::Path::new("HELLO")),
+            Some(SourcePath::new("HELLO")),
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

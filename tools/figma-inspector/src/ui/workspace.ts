@@ -32,16 +32,9 @@ export function mountWorkspace(): void {
         });
     });
     const diagnostics = element("diagnostics");
-    const badge = element("diagnostic-count");
     const empty = element("diagnostics-empty");
     const refresh = (): void => {
-        const count = diagnostics.hidden
-            ? 0
-            : diagnostics.querySelectorAll("details > p").length || 1;
-        badge.hidden = count === 0;
-        badge.textContent = String(count);
-        badge.dataset.severity = diagnostics.dataset.severity ?? "error";
-        empty.hidden = count !== 0;
+        empty.hidden = !diagnostics.hidden;
     };
     const observer = new MutationObserver(refresh);
     for (const target of [diagnostics]) {

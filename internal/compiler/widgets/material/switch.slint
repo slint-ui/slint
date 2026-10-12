@@ -3,7 +3,11 @@
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
 
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
+
 export component Switch {
+    implement SwitchInterface <=> self;
+
     in property <string> text <=> i-label.text;
     in property <bool> enabled: true;
     out property <bool> has-focus: i-focus-scope.has-focus;

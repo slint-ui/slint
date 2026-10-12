@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{
-    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, PropertyLookupMode, Struct,
-    Type,
-};
-use crate::layout::Orientation;
+use crate::langtype::{BuiltinElement, EnumerationValue, Keys, PropertyLookupMode, Struct, Type};
 use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
@@ -16,346 +12,16 @@ use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
 use std::collections::BTreeMap;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 use std::sync::Arc;
 
 // FIXME remove the pub
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-#[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
-/// A function built into the run-time.
-/// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
-pub enum BuiltinFunction {
-    GetWindowScaleFactor,
-    GetWindowDefaultFontSize,
-    AnimationTick,
-    Debug,
-    Mod,
-    Round,
-    Ceil,
-    Floor,
-    Abs,
-    Sqrt,
-    Cos,
-    Sin,
-    Tan,
-    ACos,
-    ASin,
-    ATan,
-    ATan2,
-    Log,
-    Ln,
-    Pow,
-    Exp,
-    ToFixed,
-    ToPrecision,
-    ToStringUnlocalized,
-    SetFocusItem,
-    ClearFocusItem,
-    ShowPopupWindow,
-    ClosePopupWindow,
-    /// Show a context popup menu.
-    /// Arguments are `(parent, menu_tree, position)`
-    ///
-    /// The first argument (parent) is a reference to the `ContextMenu` native item
-    /// The second argument (menu_tree) is a ElementReference to the root of the tree,
-    /// and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
-    ShowPopupMenu,
-    /// Show a context popup menu from a list of entries.
-    /// Arguments are `(parent, entries, position)`
-    /// The entries argument is an array of MenuEntry
-    ShowPopupMenuInternal,
-    SetSelectionOffsets,
-    ItemFontMetrics,
-    /// the "42".to_float()
-    StringToFloat,
-    /// the "42".is_float()
-    StringIsFloat,
-    /// the "42".is_empty
-    StringIsEmpty,
-    /// the "42".length
-    StringCharacterCount,
-    StringToLowercase,
-    StringToUppercase,
-    StringStartsWith,
-    StringEndsWith,
-    StringReplaceAll,
-    KeysToString,
-    ColorRgbaStruct,
-    ColorHsvaStruct,
-    ColorOklchStruct,
-    ColorBrighter,
-    ColorDarker,
-    ColorTransparentize,
-    ColorMix,
-    ColorWithAlpha,
-    ImageSize,
-    ArrayLength,
-    ArrayPush,
-    ArrayRemove,
-    ArrayInsert,
-    ArrayAny,
-    ArrayAll,
-    ArrayFindIndex,
-    Rgb,
-    Hsv,
-    Oklch,
-    ColorScheme,
-    AccentColor,
-    SupportsNativeMenuBar,
-    /// Setup the menu bar
-    ///
-    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root, no_native_menu_bar, <condition>)`
-    /// `item_tree_root` is a reference to the MenuItem tree root (just like in the [`Self::ShowPopupMenu`] call).
-    /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
-    /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
-    SetupMenuBar,
-    /// Setup the menu of a `SystemTrayIcon`.
-    ///
-    /// Arguments are `(system_tray_ref, menu_tree_root)` where `menu_tree_root` is an ElementReference to the root of
-    /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
-    SetupSystemTrayIcon,
-    Use24HourFormat,
-    MonthDayCount,
-    MonthOffset,
-    FormatDate,
-    DateNow,
-    ValidDate,
-    ParseDate,
-    TextInputFocused,
-    SetTextInputFocused,
-    #[strum(disabled)]
-    ImplicitLayoutInfo(Orientation),
-    ItemAbsolutePosition,
-    RegisterCustomFontByPath,
-    RegisterCustomFontByMemory,
-    RegisterBitmapFont,
-    Translate,
-    UpdateTimers,
-    DetectOperatingSystem,
-    StartTimer,
-    StopTimer,
-    RestartTimer,
-    OpenUrl,
-    MacosBringAllWindowsToFront,
-    ParseMarkdown,
-    StringToStyledText,
-    /// Converts a color to a hex string wrapped in StyledText.
-    /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
-    /// because `parse_interpolated` takes `StyledText` arguments.
-    ColorToStyledText,
-    DecimalSeparator,
-    /// The window title when the application doesn't set one, see
-    /// `i_slint_core::window::default_window_title`
-    DefaultWindowTitle,
-    PathPointAt,
-    PathAngleAt,
-}
-
-#[derive(Debug, Clone)]
-/// A builtin function which is handled by the compiler pass
-///
-/// Builtin function expect their arguments in one and a specific type, so that's easier
-/// for the generator. Macro however can do some transformation on their argument.
-///
-pub enum BuiltinMacroFunction {
-    /// Transform `min(a, b, c, ..., z)` into a series of conditional expression and comparisons
-    Min,
-    /// Transform `max(a, b, c, ..., z)` into  a series of conditional expression and comparisons
-    Max,
-    /// Transforms `clamp(v, min, max)` into a series of min/max calls
-    Clamp,
-    /// Add the right conversion operations so that the return type is the same as the argument type
-    Mod,
-    /// Add the right conversion operations so that the return type is the same as the argument type
-    Abs,
-    /// Equivalent to `x < 0 ? -1 : 1`
-    Sign,
-    CubicBezier,
-    /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
-    /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
-    Rgb,
-    Hsv,
-    Oklch,
-    /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
-    Debug,
-    ArrayPush,
-    ArrayRemove,
-    ArrayInsert,
-    /// Transforms `array.index-of(value)` into `array.find-index((x) => x == value)`
-    ArrayIndexOf,
-    CustomMouseCursor,
-    Spring,
-}
-
-macro_rules! declare_builtin_function_types {
-    ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
-        #[allow(non_snake_case)]
-        pub struct BuiltinFunctionTypes {
-            $(pub $Name : Arc<Function>),*
-        }
-        impl BuiltinFunctionTypes {
-            pub fn new() -> Self {
-                Self {
-                    $($Name : Arc::new(Function{
-                        args: vec![$($Arg),*],
-                        return_type: $ReturnType,
-                        arg_names: Vec::new(),
-                    })),*
-                }
-            }
-
-            pub fn ty(&self, function: &BuiltinFunction) -> Arc<Function> {
-                match function {
-                    $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
-                }
-            }
-        }
-    };
-}
-
-declare_builtin_function_types!(
-    GetWindowScaleFactor: () -> Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)]),
-    GetWindowDefaultFontSize: () -> Type::LogicalLength,
-    AnimationTick: () -> Type::Duration,
-    Debug: (Type::String) -> Type::Void,
-    Mod: (Type::Int32, Type::Int32) -> Type::Int32,
-    Round: (Type::Float32) -> Type::Int32,
-    Ceil: (Type::Float32) -> Type::Int32,
-    Floor: (Type::Float32) -> Type::Int32,
-    Sqrt: (Type::Float32) -> Type::Float32,
-    Abs: (Type::Float32) -> Type::Float32,
-    Cos: (Type::Angle) -> Type::Float32,
-    Sin: (Type::Angle) -> Type::Float32,
-    Tan: (Type::Angle) -> Type::Float32,
-    ACos: (Type::Float32) -> Type::Angle,
-    ASin: (Type::Float32) -> Type::Angle,
-    ATan: (Type::Float32) -> Type::Angle,
-    ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
-    DecimalSeparator: () -> Type::String,
-    DefaultWindowTitle: () -> Type::String,
-    Log: (Type::Float32, Type::Float32) -> Type::Float32,
-    Ln: (Type::Float32) -> Type::Float32,
-    Pow: (Type::Float32, Type::Float32) -> Type::Float32,
-    Exp: (Type::Float32) -> Type::Float32,
-    ToFixed: (Type::Float32, Type::Int32) -> Type::String,
-    ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
-    ToStringUnlocalized: (Type::Float32) -> Type::String,
-    SetFocusItem: (Type::ElementReference) -> Type::Void,
-    ClearFocusItem: (Type::ElementReference) -> Type::Void,
-    ShowPopupWindow: (Type::ElementReference) -> Type::Void,
-    ClosePopupWindow: (Type::ElementReference) -> Type::Void,
-    ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type().into()) -> Type::Void,
-    ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type().into()) -> Type::Void,
-    SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
-    ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
-    StringToFloat: (Type::String) -> Type::Float32,
-    StringIsFloat: (Type::String) -> Type::Bool,
-    StringIsEmpty: (Type::String) -> Type::Bool,
-    StringCharacterCount: (Type::String) -> Type::Int32,
-    StringToLowercase: (Type::String) -> Type::String,
-    StringToUppercase: (Type::String) -> Type::String,
-    StringStartsWith: (Type::String, Type::String) -> Type::Bool,
-    StringEndsWith: (Type::String, Type::String) -> Type::Bool,
-    StringReplaceAll: (Type::String, Type::String, Type::String) -> Type::String,
-    KeysToString: (Type::Keys) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
-    ColorRgbaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("red"), Type::Int32),
-            (SmolStr::new_static("green"), Type::Int32),
-            (SmolStr::new_static("blue"), Type::Int32),
-            (SmolStr::new_static("alpha"), Type::Int32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorHsvaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("saturation"), Type::Float32),
-            (SmolStr::new_static("value"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorOklchStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("lightness"), Type::Float32),
-            (SmolStr::new_static("chroma"), Type::Float32),
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
-    ImageSize: (Type::Image) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("width"), Type::Int32),
-            (SmolStr::new_static("height"), Type::Int32),
-        ])
-        .collect(), crate::langtype::BuiltinStruct::Size))),
-    ArrayLength: (Type::Model) -> Type::Int32,
-    // Using Type::InferredProperty as there is currently no valid type for the data argument.
-    ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
-    ArrayRemove: (Type::Model, Type::Int32) -> Type::Void,
-    ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
-    ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
-    ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
-    ArrayFindIndex: (Type::Model, Type::Closure) -> Type::Int32,
-    Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
-    Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
-    Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
-    ColorScheme: () -> Type::Enumeration(
-        typeregister::BUILTIN.enums.ColorScheme.clone(),
-    ),
-    AccentColor: () -> Type::Color,
-    SupportsNativeMenuBar: () -> Type::Bool,
-    // entries, sub-menu, activate. But the types here are not accurate.
-    SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
-    // (system_tray_ref, menu_tree_ref) — types not accurate (menu_tree becomes an index in LLR)
-    SetupSystemTrayIcon: (Type::ElementReference, Type::ElementReference) -> Type::Void,
-    MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
-    MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
-    FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
-    TextInputFocused: () -> Type::Bool,
-    DateNow: () -> Type::Array(Arc::new(Type::Int32)),
-    ValidDate: (Type::String, Type::String) -> Type::Bool,
-    ParseDate: (Type::String, Type::String) -> Type::Array(Arc::new(Type::Int32)),
-    SetTextInputFocused: (Type::Bool) -> Type::Void,
-    ItemAbsolutePosition: (Type::ElementReference) -> typeregister::logical_point_type().into(),
-    RegisterCustomFontByPath: (Type::String) -> Type::Void,
-    RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
-    RegisterBitmapFont: (Type::Int32) -> Type::Void,
-    // original, context, domain, args
-    Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
-    Use24HourFormat: () -> Type::Bool,
-    UpdateTimers: () -> Type::Void,
-    DetectOperatingSystem: () -> Type::Enumeration(
-        typeregister::BUILTIN.enums.OperatingSystemType.clone(),
-    ),
-    StartTimer: (Type::ElementReference) -> Type::Void,
-    StopTimer: (Type::ElementReference) -> Type::Void,
-    RestartTimer: (Type::ElementReference) -> Type::Void,
-    ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
-    StringToStyledText: (Type::String) -> Type::StyledText,
-    ColorToStyledText: (Type::Color) -> Type::StyledText
-    OpenUrl: (Type::String) -> Type::Bool,
-    MacosBringAllWindowsToFront: () -> Type::Void,
-    PathPointAt: (Type::ElementReference, Type::Float32) -> typeregister::logical_point_type().into(),
-    PathAngleAt: (Type::ElementReference, Type::Float32) -> Type::Angle,
-);
-
-impl Default for BuiltinFunctionTypes {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub use crate::builtin_functions::BuiltinFunction;
 
 impl BuiltinFunction {
-    pub fn ty(&self) -> Arc<Function> {
-        static TYPES: std::sync::LazyLock<BuiltinFunctionTypes> =
-            std::sync::LazyLock::new(BuiltinFunctionTypes::new);
-        TYPES.ty(self)
-    }
-
     /// It is const if the return value only depends on its argument and has no side effect
     fn is_const(&self, global_analysis: Option<&crate::passes::GlobalAnalysis>) -> bool {
         match self {
@@ -412,6 +78,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenu
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
+            BuiltinFunction::HasSelection => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
@@ -466,107 +133,42 @@ impl BuiltinFunction {
             | BuiltinFunction::ArrayFindIndex => true,
         }
     }
+}
 
-    // It is pure if it has no side effect
-    pub fn is_pure(&self) -> bool {
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => true,
-            BuiltinFunction::GetWindowDefaultFontSize => true,
-            BuiltinFunction::AnimationTick => true,
-            BuiltinFunction::ColorScheme => true,
-            BuiltinFunction::AccentColor => true,
-            BuiltinFunction::SupportsNativeMenuBar => true,
-            BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTrayIcon => false,
-            BuiltinFunction::MonthDayCount => true,
-            BuiltinFunction::MonthOffset => true,
-            BuiltinFunction::FormatDate => true,
-            BuiltinFunction::DateNow => true,
-            BuiltinFunction::ValidDate => true,
-            BuiltinFunction::ParseDate => true,
-            BuiltinFunction::DecimalSeparator => true,
-            BuiltinFunction::DefaultWindowTitle => true,
-            // Even if it has technically side effect, we still consider it as pure for our purpose
-            BuiltinFunction::Debug => true,
-            BuiltinFunction::Mod
-            | BuiltinFunction::Round
-            | BuiltinFunction::Ceil
-            | BuiltinFunction::Floor
-            | BuiltinFunction::Abs
-            | BuiltinFunction::Sqrt
-            | BuiltinFunction::Cos
-            | BuiltinFunction::Sin
-            | BuiltinFunction::Tan
-            | BuiltinFunction::ACos
-            | BuiltinFunction::ASin
-            | BuiltinFunction::Log
-            | BuiltinFunction::Ln
-            | BuiltinFunction::Pow
-            | BuiltinFunction::Exp
-            | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision
-            | BuiltinFunction::ToStringUnlocalized => true,
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow
-            | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu
-            | BuiltinFunction::ShowPopupMenuInternal => false,
-            BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::ItemFontMetrics => true,
-            BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat
-            | BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount
-            | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase
-            | BuiltinFunction::StringStartsWith
-            | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplaceAll
-            | BuiltinFunction::KeysToString => true,
-            BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHsvaStruct
-            | BuiltinFunction::ColorOklchStruct
-            | BuiltinFunction::ColorBrighter
-            | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorMix
-            | BuiltinFunction::ColorWithAlpha => true,
-            BuiltinFunction::ImageSize => true,
-            BuiltinFunction::ArrayLength => true,
-            BuiltinFunction::ArrayPush
-            | BuiltinFunction::ArrayRemove
-            | BuiltinFunction::ArrayInsert => false,
-            BuiltinFunction::Rgb => true,
-            BuiltinFunction::Hsv => true,
-            BuiltinFunction::Oklch => true,
-            BuiltinFunction::ImplicitLayoutInfo(_) => true,
-            BuiltinFunction::ItemAbsolutePosition => true,
-            BuiltinFunction::SetTextInputFocused => false,
-            BuiltinFunction::TextInputFocused => true,
-            BuiltinFunction::RegisterCustomFontByPath
-            | BuiltinFunction::RegisterCustomFontByMemory
-            | BuiltinFunction::RegisterBitmapFont => false,
-            BuiltinFunction::Translate => true,
-            BuiltinFunction::Use24HourFormat => true,
-            BuiltinFunction::UpdateTimers => false,
-            BuiltinFunction::DetectOperatingSystem => true,
-            BuiltinFunction::StartTimer => false,
-            BuiltinFunction::StopTimer => false,
-            BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown => true,
-            BuiltinFunction::StringToStyledText => true,
-            BuiltinFunction::ColorToStyledText => true,
-            BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PathPointAt => true,
-            BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny
-            | BuiltinFunction::ArrayAll
-            | BuiltinFunction::ArrayFindIndex => true,
-        }
-    }
+#[derive(Debug, Clone)]
+/// A builtin function which is handled by the compiler pass
+///
+/// Builtin function expect their arguments in one and a specific type, so that's easier
+/// for the generator. Macro however can do some transformation on their argument.
+///
+pub enum BuiltinMacroFunction {
+    /// Transform `min(a, b, c, ..., z)` into a series of conditional expression and comparisons
+    Min,
+    /// Transform `max(a, b, c, ..., z)` into  a series of conditional expression and comparisons
+    Max,
+    /// Transforms `clamp(v, min, max)` into a series of min/max calls
+    Clamp,
+    /// Add the right conversion operations so that the return type is the same as the argument type
+    Mod,
+    /// Add the right conversion operations so that the return type is the same as the argument type
+    Abs,
+    /// Equivalent to `x < 0 ? -1 : 1`
+    Sign,
+    CubicBezier,
+    /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
+    /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
+    Rgb,
+    Hsv,
+    Oklch,
+    /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
+    Debug,
+    ArrayPush,
+    ArrayRemove,
+    ArrayInsert,
+    /// Transforms `array.index-of(value)` into `array.find-index((x) => x == value)`
+    ArrayIndexOf,
+    CustomMouseCursor,
+    Spring,
 }
 
 /// The base of a Expression::FunctionCall
@@ -1037,6 +639,9 @@ pub enum Expression {
         arg_name: SmolStr,
         expression: Box<Expression>,
     },
+
+    /// A pre-parsed `Path.stroke-dash-array`, packed for `Type::ArrayOfCoord`.
+    DashArray(Vec<f32>),
 }
 
 impl Expression {
@@ -1157,14 +762,15 @@ impl Expression {
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
             Expression::ComputeBoxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
-            Expression::SolveBoxLayout(..) => Type::LayoutCache,
-            Expression::SolveGridLayout { .. } => Type::LayoutCache,
-            Expression::SolveFlexboxLayout(..) => Type::LayoutCache,
+            Expression::SolveBoxLayout(..) => Type::ArrayOfCoord,
+            Expression::SolveGridLayout { .. } => Type::ArrayOfCoord,
+            Expression::SolveFlexboxLayout(..) => Type::ArrayOfCoord,
             Expression::ComputeFlexboxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
             Expression::Closure { .. } => Type::Closure,
+            Expression::DashArray(_) => Type::ArrayOfCoord,
         }
     }
 
@@ -1312,6 +918,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1461,6 +1068,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1585,6 +1193,7 @@ impl Expression {
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
             Expression::Closure { expression, .. } => expression.is_constant(ga),
+            Expression::DashArray(_) => true,
         }
     }
 
@@ -1890,7 +1499,7 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache
+            | Type::ArrayOfCoord
             | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::DataTransfer => Expression::EmptyDataTransfer,
@@ -2358,7 +1967,7 @@ pub enum Path {
 
 #[derive(Debug, Clone)]
 pub struct PathElement {
-    pub element_type: Rc<BuiltinElement>,
+    pub element_type: Arc<BuiltinElement>,
     pub bindings: BindingsMap,
 }
 
@@ -2392,16 +2001,13 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
-// The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
+// The compiler resolves every `@image-url("foo.png")` into a `Source` or
 // `DataUri` reference; the resource lowering pass may then replace it with
 // `EmbeddedData`/`EmbeddedTexture` if configured.
 #[derive(Clone, Debug)]
 pub enum ImageReference {
     None,
-    /// An absolute path to a local image file on disk.
-    Path(SmolStr),
-    /// A non-`data:` URL, e.g. `builtin:/`, `http(s):`, or `user://`.
-    Url(url::Url),
+    Source(crate::source_path::SourcePath),
     /// An inline `data:` URI carrying the image content.
     DataUri(SmolStr),
     EmbeddedData {
@@ -2414,35 +2020,14 @@ pub enum ImageReference {
 }
 
 impl ImageReference {
-    /// Classify a resolved `@image-url` string (an absolute path, a URL, or a
-    /// `data:` URI) into the matching reference kind.
-    pub fn from_resolved(reference: SmolStr) -> Self {
-        if reference.starts_with("data:") {
-            return Self::DataUri(reference);
-        }
-        // A single-character scheme is a Windows drive letter (`c:\...`), i.e. a
-        // path rather than a URL.
-        match url::Url::parse(&reference) {
-            Ok(url) if url.scheme().len() > 1 => Self::Url(url),
-            _ => Self::Path(reference),
-        }
-    }
-
     /// Classify a URL returned by the resource mapper. It is already a URL, so
     /// the only distinction is a `data:` URI (kept as a string, see
     /// [`Self::DataUri`]) from any other URL.
     pub fn from_mapped_url(url: url::Url) -> Self {
-        if url.scheme() == "data" { Self::DataUri(url.as_str().into()) } else { Self::Url(url) }
-    }
-
-    /// The image source loaded at run-time for a non-embedded reference: the
-    /// path, the URL, or the `data:` URI, as the string handed to
-    /// `Image::load_from_path`. `None` for embedded references.
-    pub fn source(&self) -> Option<&str> {
-        match self {
-            Self::Path(source) | Self::DataUri(source) => Some(source),
-            Self::Url(url) => Some(url.as_str()),
-            Self::None | Self::EmbeddedData { .. } | Self::EmbeddedTexture { .. } => None,
+        if url.scheme() == "data" {
+            Self::DataUri(url.as_str().into())
+        } else {
+            Self::Source(url.into())
         }
     }
 }
@@ -2684,5 +2269,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "({display_name}) => ")?;
             pretty_print(f, expression)
         }
+        Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
     }
 }

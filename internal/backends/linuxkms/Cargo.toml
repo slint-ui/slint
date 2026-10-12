@@ -35,8 +35,8 @@ image-pixel-format-rgb565 = [
 ]
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["unstable-wgpu-30", "i-slint-renderer-skia/vulkan"]
-unstable-wgpu-29 = ["i-slint-renderer-skia/wgpu-29", "drm", "dep:memmap2"]
-unstable-wgpu-30 = ["i-slint-renderer-skia/wgpu-30", "drm", "dep:memmap2", "dep:wgpu-30"]
+unstable-wgpu-29 = ["i-slint-renderer-skia/unstable-wgpu-29", "drm", "dep:memmap2"]
+unstable-wgpu-30 = ["i-slint-renderer-skia/unstable-wgpu-30", "drm", "dep:memmap2", "dep:wgpu-30"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
 renderer-skia-software = ["i-slint-renderer-skia", "drm", "dep:memmap2"]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
@@ -45,9 +45,10 @@ renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "de
 renderer-vello = [
   "dep:i-slint-renderer-anyrender",
   "i-slint-renderer-anyrender/vello",
-  "i-slint-core/unstable-wgpu-29",
+  "i-slint-core/unstable-wgpu-30",
   "drm",
   "dep:memmap2",
+  "dep:wgpu-30",
 ]
 libseat = ["dep:libseat"]
 ## Handle mouse, touch and keyboard input via libinput. Without this feature the
@@ -85,6 +86,9 @@ memmap2 = { version = "0.9.4", optional = true }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

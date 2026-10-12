@@ -86,7 +86,11 @@ fn do_test_sc(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error
     };
 
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let node = i_slint_compiler::parser::parse(code, Some(std::path::Path::new(path)), &mut diag);
+    let node = i_slint_compiler::parser::parse(
+        code,
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut diag,
+    );
     let config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::SlintSc,
     );

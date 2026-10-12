@@ -149,7 +149,7 @@ def test_palette_preview_switches_between_canvas_and_outline_and_cancels(
         window.dispatch_event(slint_testing.PointerMoveEvent(outline))
         ghost = element(window, "Outline drag preview")
         assert not elements(window, f"{kind} drag preview")
-        assert ghost.size.height == 32
+        assert ghost.size.height == 26
         window.dispatch_event(slint_testing.PointerMoveEvent(canvas))
         element(window, f"{kind} drag preview")
         assert not elements(window, "Outline drag preview")

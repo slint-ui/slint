@@ -27,7 +27,7 @@ From crates.io, which builds it from source and needs
 [Rust](https://www.rust-lang.org/learn/get-started):
 
 ```bash
-cargo install slint-compiler
+cargo install --locked slint-compiler
 ```
 
 Or from PyPI, which ships a pre-built binary and needs no Rust toolchain:

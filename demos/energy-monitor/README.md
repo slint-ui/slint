@@ -33,7 +33,7 @@ First, [set up your Android environment](https://slint.dev/snapshots/master/docs
 Then, you can run the demo on an Android device with the following command:
 
 ```sh
-cargo apk run --manifest-path demos/energy-monitor/Cargo.toml --target aarch64-linux-android --lib
+cargo apk2 run --manifest-path demos/energy-monitor/Cargo.toml --target aarch64-linux-android --lib
 ```
 
 ### Node.js

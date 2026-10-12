@@ -287,6 +287,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             // it, and destructive compose modes must not use an unbounded layer (see
             // the doc comment on the `UNCLIPPED` constant at the top of this file).
             self.scene.push_layer(
+                peniko::Fill::NonZero,
                 peniko::BlendMode::default(),
                 1.0,
                 self.current_state.transform,
@@ -388,6 +389,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             let src_in_blend = peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn);
             if let Some((brush, brush_transform)) = self.brush(colorize_brush, dest_size) {
                 self.scene.push_layer(
+                    peniko::Fill::NonZero,
                     src_in_blend,
                     1.0,
                     self.current_state.transform,
@@ -495,7 +497,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 items::LineJoin::Bevel => kurbo::Join::Bevel,
                 _ => kurbo::Join::Miter,
             };
-            let stroke = kurbo::Stroke::new(stroke_width).with_caps(cap).with_join(join);
+            let dash_array: Vec<f64> = path
+                .stroke_dash_array()
+                .iter()
+                .map(|x| (x * self.scale_factor.get() + 0.01) as _)
+                .collect();
+            let dash_offset = (path.stroke_dash_offset().get() * self.scale_factor.get()) as f64;
+            let stroke = kurbo::Stroke::new(stroke_width)
+                .with_caps(cap)
+                .with_join(join)
+                .with_dashes(dash_offset, &dash_array);
             self.stroke_with_brush(stroke_brush, brush_size, transform, &stroke, &bezpath);
         }
     }
@@ -503,7 +514,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
-        _item_rc: &ItemRc,
+        item_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let color = box_shadow.color();
@@ -537,39 +548,107 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
 
-        let radius = base_radius + spread;
-
-        let rect = kurbo::Rect::new(
-            offset.x as f64 - spread,
-            offset.y as f64 - spread,
-            offset.x as f64 + phys_size.width as f64 + spread,
-            offset.y as f64 + phys_size.height as f64 + spread,
-        );
-        if rect.is_zero_area() {
+        let Some(options) =
+            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(item_rc, box_shadow, sf)
+        else {
+            return;
+        };
+        if options.shape_size().is_empty() {
             return;
         }
-
-        if blur == 0. {
-            // No blur: a plain rounded rectangle fill matches exactly.
-            let shape = RectShape::uniform(rect, radius);
-            self.scene.fill(
-                peniko::Fill::default(),
-                self.current_state.transform,
-                peniko::BrushRef::Solid(to_peniko_color(color)),
-                None,
-                &shape,
+        if let Some(radius) = options.opaque_source_radius() {
+            let radius =
+                (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left)
+                    as f64
+                    / 4.
+                    + spread;
+            let rect = kurbo::Rect::new(
+                offset.x as f64 - spread,
+                offset.y as f64 - spread,
+                offset.x as f64 + phys_size.width as f64 + spread,
+                offset.y as f64 + phys_size.height as f64 + spread,
             );
-        } else {
-            // The CSS drop-shadow convention Slint follows: the Gaussian's
-            // standard deviation is half the blur radius.
-            self.scene.draw_box_shadow(
-                self.current_state.transform,
-                rect,
-                to_peniko_color(color),
-                radius,
-                blur / 2.,
+            if blur == 0. {
+                self.scene.fill(
+                    peniko::Fill::default(),
+                    self.current_state.transform,
+                    peniko::BrushRef::Solid(to_peniko_color(color)),
+                    None,
+                    &RectShape::uniform(rect, radius),
+                );
+            } else {
+                self.scene.draw_box_shadow(
+                    self.current_state.transform,
+                    rect,
+                    to_peniko_color(color),
+                    radius,
+                    blur / 2.,
+                );
+            }
+            return;
+        }
+        let Some((background, layout)) = options.source else { return };
+        let transform = self.current_state.transform
+            * kurbo::Affine::translate((offset.x as f64, offset.y as f64));
+        let extent = kurbo::Rect::new(
+            -spread,
+            -spread,
+            phys_size.width as f64 + spread,
+            phys_size.height as f64 + spread,
+        )
+        .inflate(2. * blur + 1., 2. * blur + 1.);
+        let filter = (blur > 0.).then(|| {
+            Arc::new(anyrender::Filter::single(anyrender::filters::FilterEffect::blur(
+                (blur / 2.) as f32,
+            )))
+        });
+        self.scene.push_layer(
+            peniko::Fill::NonZero,
+            peniko::BlendMode::default(),
+            1.,
+            transform,
+            &extent,
+            filter,
+            None,
+        );
+        if !layout.background_rect.is_empty() {
+            self.fill_with_brush(
+                background,
+                layout.brush_size,
+                transform,
+                peniko::Fill::default(),
+                &phys_rect_shape(layout.background_rect, layout.background_radius),
             );
         }
+        if layout.border_width.get() > 0. {
+            self.stroke_with_brush(
+                layout.border_color,
+                layout.brush_size,
+                transform,
+                &kurbo::Stroke::new(layout.border_width.get() as f64).with_join(kurbo::Join::Miter),
+                &phys_rect_shape(layout.border_rect, layout.border_radius),
+            );
+        }
+        // Color the combined source alpha before blurring it, preserving overlap between
+        // partially transparent fill and border paint.
+        self.scene.push_layer(
+            peniko::Fill::NonZero,
+            peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn),
+            1.,
+            transform,
+            &extent,
+            None,
+            None,
+        );
+        self.scene.fill(
+            peniko::Fill::default(),
+            transform,
+            peniko::BrushRef::Solid(to_peniko_color(color)),
+            None,
+            &extent,
+        );
+        self.scene.pop_layer();
+        self.scene.pop_layer();
     }
 
     fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
@@ -587,7 +666,11 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
         let clip_shape = phys_rect_shape(clip_rect * self.scale_factor, radius * self.scale_factor);
 
-        self.scene.push_clip_layer(self.current_state.transform, &clip_shape);
+        self.scene.push_clip_layer(
+            peniko::Fill::NonZero,
+            self.current_state.transform,
+            &clip_shape,
+        );
         self.current_state.layer_count += 1;
 
         clip_region_valid
@@ -839,7 +922,11 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         let border_shape = RectShape::uniform(border_rect, base_radius);
 
         // The shadow must not paint outside the item.
-        self.scene.push_clip_layer(self.current_state.transform, &border_shape);
+        self.scene.push_clip_layer(
+            peniko::Fill::NonZero,
+            self.current_state.transform,
+            &border_shape,
+        );
         self.scene.fill(
             peniko::Fill::default(),
             self.current_state.transform,
@@ -860,6 +947,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             // destructive compose modes mustn't use an unbounded layer,
             // see the `UNCLIPPED` constant at the top of this file.
             self.scene.push_layer(
+                peniko::Fill::NonZero,
                 peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::DestOut),
                 1.0,
                 self.current_state.transform,
@@ -895,7 +983,15 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
 
     /// Push a compositing layer that does not clip its content.
     fn push_unclipped_layer(&mut self, blend: peniko::BlendMode, alpha: f32) {
-        self.scene.push_layer(blend, alpha, kurbo::Affine::IDENTITY, &UNCLIPPED, None, None);
+        self.scene.push_layer(
+            peniko::Fill::NonZero,
+            blend,
+            alpha,
+            kurbo::Affine::IDENTITY,
+            &UNCLIPPED,
+            None,
+            None,
+        );
     }
 
     /// Resolve the Slint `brush` (sized against `brush_size`) and fill

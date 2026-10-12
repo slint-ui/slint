@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The results of `to-hsv()` and `to-oklch()` in arrays, models, structs and local variables
+
+struct Hsv { hue: float, saturation: float, value: float, alpha: float }
+
+export component TestCase inherits Window {
+    in property <color> c: #ff0000;
+
+    out property <float> hue: { let list = [c.to-hsv(), #00ff00.to-hsv()]; list[1].hue };
+    out property <float> lightness: { let o = c.to-oklch(); o.lightness };
+    out property <float> chroma: { let list = [c.to-oklch()]; list[0].chroma };
+    out property <float> saturation: { let list = [{ color: c.to-hsv() }]; list[0].color.saturation };
+
+    // A local variable read several times, copied, and put in a struct and an array
+    out property <float> reused: {
+        let hsv = #0000ff.to-hsv();
+        let copy = hsv;
+        let wrapped = { first: hsv, second: copy };
+        let list = [hsv, copy, wrapped.second];
+        hsv.hue + copy.value + wrapped.first.saturation + list[2].hue
+    };
+    out property <bool> same: c.to-hsv() == c.to-hsv() && c.to-oklch() != #00ff00.to-oklch();
+    out property <float> chosen: (c.red > 100 ? c.to-hsv() : #00ff00.to-hsv()).hue;
+    out property <float> nested: { let list = [[c.to-oklch()], [#0000ff.to-oklch()]]; list[1][0].hue };
+
+    // Converted to an anonymous struct type and to a declared one
+    out property <{hue: float, saturation: float, value: float, alpha: float}> declared: c.to-hsv();
+    out property <[Hsv]> declared-list: [c.to-hsv(), #00ff00.to-hsv()];
+    function hue-of(color: Hsv) -> float {
+        color.hue
+    }
+    out property <float> passed: hue-of(#00ff00.to-hsv());
+
+    property <length> width-sum;
+    for color in [c.to-oklch(), #0000ff.to-oklch()]: Rectangle {
+        init => { root.width-sum += color.lightness * 1px; }
+    }
+    property <int> repeated-hues;
+    for color[index] in [c.to-hsv(), #00ff00.to-hsv()]: Rectangle {
+        init => { root.repeated-hues += color.hue + index; }
+    }
+
+    out property <bool> test: hue == 120 && lightness > 0.6 && lightness < 0.7 && chroma > 0.2
+        && saturation == 1 && reused == 482 && same && chosen == 0 && nested > 260 && nested < 270
+        && declared.saturation == 1 && declared-list[1].hue == 120 && passed == 120
+        && width-sum > 1px && repeated-hues == 121;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

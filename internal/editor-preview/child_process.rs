@@ -35,13 +35,14 @@ impl ChildProcessLspToPreview {
     }
 
     fn preview_is_running(&self) -> bool {
-        self.inner.borrow().as_ref().map(|i| !i.communication_handle.is_finished()).unwrap_or(false)
+        self.inner.borrow().as_ref().is_some_and(|inner| !inner.communication_handle.is_finished())
     }
 
-    fn start_preview(&self) -> crate::Result<()> {
-        if let Some(inner) = self.inner.borrow_mut().take() {
-            inner.communication_handle.abort();
+    pub fn start_preview(&self) -> crate::Result<()> {
+        if self.preview_is_running() {
+            return Ok(());
         }
+        self.inner.borrow_mut().take();
 
         let mut child = tokio::process::Command::new(&self.executable)
             .args(&self.arguments)
@@ -62,13 +63,13 @@ impl ChildProcessLspToPreview {
             });
             let reader = tokio::io::BufReader::new(from_child);
             let mut lines = reader.lines();
-            while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+            while let Some(line) = lines.next_line().await.map_err(|error| error.to_string())? {
                 if let Ok(message) = serde_json::from_str(&line) {
-                    channel.send(message).map_err(|e| e.to_string())?;
+                    let _ = channel.send(message);
                 }
             }
 
-            let exit_status = child.wait().await.map_err(|e| e.to_string());
+            let exit_status = child.wait().await.map_err(|error| error.to_string());
 
             if exit_status.map(|exit_status| !exit_status.success()).unwrap_or(true) {
                 let message =
@@ -88,10 +89,10 @@ impl ChildProcessLspToPreview {
 
         let (to_child_sender, mut to_child_receiver) = mpsc::unbounded_channel::<String>();
         tokio::spawn(async move {
-            while let Some(mut msg) = to_child_receiver.recv().await {
-                msg.push('\n');
-                if let Err(err) = to_child.write_all(msg.as_bytes()).await {
-                    tracing::error!("Failed writing to preview child process: {err}");
+            while let Some(mut message) = to_child_receiver.recv().await {
+                message.push('\n');
+                if let Err(error) = to_child.write_all(message.as_bytes()).await {
+                    tracing::error!("Failed writing to preview child process: {error}");
                     break;
                 }
             }
@@ -101,6 +102,14 @@ impl ChildProcessLspToPreview {
             Some(ChildProcessLspToPreviewInner { communication_handle, to_child_sender });
 
         Ok(())
+    }
+
+    pub(crate) fn send_running(&self, message: &LspToPreviewMessage) {
+        if let Some(inner) = self.inner.borrow().as_ref()
+            && let Ok(message) = serde_json::to_string(message)
+        {
+            let _ = inner.to_child_sender.send(message);
+        }
     }
 }
 
@@ -116,18 +125,11 @@ impl Drop for ChildProcessLspToPreview {
 impl crate::LspToPreview for ChildProcessLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         if self.preview_is_running() {
-            let mut inner = self.inner.borrow_mut();
-            let inner = inner.as_mut().unwrap();
-            let Ok(message) = serde_json::to_string(message) else {
-                tracing::debug!("Failed to serialize message to preview");
-                return;
-            };
-            let _ = inner.to_child_sender.send(message);
-        } else if let LspToPreviewMessage::ShowPreview(_) = message {
-            tracing::debug!("Starting preview process");
-            self.start_preview().unwrap();
-        } else {
-            tracing::debug!("Preview not running, dropping message: {:?}", message);
+            self.send_running(message);
+        } else if matches!(message, LspToPreviewMessage::ShowPreview(_))
+            && let Err(error) = self.start_preview()
+        {
+            tracing::error!("Failed starting preview: {error}");
         }
     }
 
@@ -226,4 +228,168 @@ pub fn run() -> crate::Result<()> {
     }))?;
     slint_interpreter::run_event_loop()?;
     Ok(())
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::LspToPreview;
+    use std::io::{BufRead, Write};
+
+    pub(crate) fn fixture_config(name: &str) -> (PathBuf, Vec<OsString>) {
+        (
+            std::env::current_exe().unwrap(),
+            vec![
+                "--exact".into(),
+                format!("child_process::tests::{name}").into(),
+                "--ignored".into(),
+                "--nocapture".into(),
+                "--skip".into(),
+                "preview-transport-child-fixture".into(),
+            ],
+        )
+    }
+
+    pub(crate) fn component() -> i_slint_live_preview::protocol::PreviewComponent {
+        i_slint_live_preview::protocol::PreviewComponent {
+            url: lsp_types::Url::parse("file:///fixture.slint").unwrap(),
+            component: Some("Fixture".into()),
+        }
+    }
+
+    fn fixture_started() -> bool {
+        if !std::env::args().any(|argument| argument == "preview-transport-child-fixture") {
+            return false;
+        }
+        println!();
+        println!(
+            "{}",
+            serde_json::to_string(&PreviewToLspMessage::DebugMessage {
+                location: None,
+                message: std::process::id().to_string(),
+            })
+            .unwrap()
+        );
+        println!(
+            "{}",
+            serde_json::to_string(&PreviewToLspMessage::RequestState {
+                files: Vec::new(),
+                settings: Vec::new(),
+            })
+            .unwrap()
+        );
+        std::io::stdout().flush().unwrap();
+        true
+    }
+
+    #[test]
+    #[ignore]
+    fn echo_child() {
+        if !fixture_started() {
+            return;
+        }
+        for line in std::io::stdin().lock().lines() {
+            let line = line.unwrap();
+            if matches!(serde_json::from_str(&line), Ok(LspToPreviewMessage::Quit)) {
+                std::process::exit(0);
+            }
+            println!(
+                "{}",
+                serde_json::to_string(&PreviewToLspMessage::DebugMessage {
+                    location: None,
+                    message: line,
+                })
+                .unwrap()
+            );
+            std::io::stdout().flush().unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn crashing_child() {
+        if !fixture_started() {
+            return;
+        }
+        std::process::exit(23);
+    }
+
+    pub(crate) async fn receive(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) -> PreviewToLspMessage {
+        tokio::time::timeout(std::time::Duration::from_secs(5), receiver.recv())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    pub(crate) async fn started(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) -> u32 {
+        let PreviewToLspMessage::DebugMessage { message, .. } = receive(receiver).await else {
+            panic!("Expected process ID");
+        };
+        let process_id = message.parse().unwrap();
+        assert!(matches!(receive(receiver).await, PreviewToLspMessage::RequestState { .. }));
+        process_id
+    }
+
+    pub(crate) fn assert_reaped(process_id: u32) {
+        #[cfg(target_os = "linux")]
+        assert!(!std::path::Path::new(&format!("/proc/{process_id}")).exists());
+        #[cfg(not(target_os = "linux"))]
+        let _ = process_id;
+    }
+
+    #[tokio::test]
+    async fn explicit_start_forwards_without_automatic_restart() {
+        let (executable, arguments) = fixture_config("echo_child");
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let transport = ChildProcessLspToPreview::new(executable, arguments, sender);
+        assert!(receiver.try_recv().is_err());
+        transport.start_preview().unwrap();
+        let process_id = started(&mut receiver).await;
+        transport.start_preview().unwrap();
+        transport.send_running(&LspToPreviewMessage::ShowPreview(component()));
+        let PreviewToLspMessage::DebugMessage { message, .. } = receive(&mut receiver).await else {
+            panic!("Expected forwarded preview request");
+        };
+        assert!(
+            matches!(serde_json::from_str(&message), Ok(LspToPreviewMessage::ShowPreview(current)) if current == component())
+        );
+        transport.send(&LspToPreviewMessage::Quit);
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
+        assert_reaped(process_id);
+        transport.send_running(&LspToPreviewMessage::ShowPreview(component()));
+        assert!(receiver.try_recv().is_err());
+        assert!(!transport.preview_is_running());
+    }
+
+    #[tokio::test]
+    async fn unexpected_exit_reports_crash_and_reaps_child() {
+        let (executable, arguments) = fixture_config("crashing_child");
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let transport = ChildProcessLspToPreview::new(executable, arguments, sender);
+        transport.start_preview().unwrap();
+        let process_id = started(&mut receiver).await;
+        let PreviewToLspMessage::SendShowMessage { message } = receive(&mut receiver).await else {
+            panic!("Expected crash report");
+        };
+        assert_eq!(message.typ, lsp_types::MessageType::ERROR);
+        assert!(message.message.contains("https://github.com/slint-ui/slint/issues"));
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
+        assert_reaped(process_id);
+    }
+
+    #[tokio::test]
+    async fn automatic_start_and_quit_on_drop() {
+        let (executable, arguments) = fixture_config("echo_child");
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let transport = ChildProcessLspToPreview::new(executable, arguments, sender);
+        transport.send(&LspToPreviewMessage::ShowPreview(component()));
+        let process_id = started(&mut receiver).await;
+        drop(transport);
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
+        assert_reaped(process_id);
+    }
 }

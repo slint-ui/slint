@@ -285,6 +285,7 @@ export component MainWindow inherits Window {
                 + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2;
             width: root.pieces-size;
             height: root.pieces-size;
+            background: i >= 8 ? root.current-theme.piece-background-2 : root.current-theme.piece-background-1;
             drop-shadow-offset-x: 1px;
             drop-shadow-offset-y: 1px;
             drop-shadow-blur: 3px;

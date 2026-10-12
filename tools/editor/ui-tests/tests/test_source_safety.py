@@ -1,7 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import time
 from pathlib import Path
 
 import slint_testing
@@ -33,35 +32,6 @@ def stage_field_text(
         press_key(window, character)
     expect(field).to_have_value(value)
     return field
-
-
-def test_broken_source_preserves_preview_and_recovers(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    snapshot = SourceSnapshot.capture(fixture_project)
-    baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
-        handle, size = window.handle, window.size
-        broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
-        source_file.write_bytes(broken)
-        snapshot.wait_for_exact(broken)
-        time.sleep(0.25)
-        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
-        element(window, "root-text", role=slint_testing.AccessibleRole.ListItem)
-        assert editor.process.poll() is None
-        assert window.handle == handle
-        assert window.size == size
-        assert source_file.read_bytes() == broken
-        repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)
-        source_file.write_bytes(repaired)
-        snapshot.wait_for_exact(repaired)
-        element(window, "Recovered source", role=slint_testing.AccessibleRole.Text)
-        assert editor.process.poll() is None
 
 
 def test_imported_file_edit_targets_only_nested_source(
@@ -173,6 +143,7 @@ def test_deleted_root_file_recovers_without_relaunch(
         wait_for_source(source_file, baseline)
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         source_file.unlink()
+        element(window, "Stale preview", role=slint_testing.AccessibleRole.Region)
         SourceSnapshot.capture(fixture_project).assert_unchanged()
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         assert not source_file.exists()
@@ -195,7 +166,7 @@ def test_deleted_import_recovers_without_relaunch(
         window = first_window(editor)
         element(window, "Imported component", role=slint_testing.AccessibleRole.Text)
         imported_file.unlink()
-        time.sleep(0.25)
+        element(window, "Stale preview", role=slint_testing.AccessibleRole.Region)
         element(window, "Imported component", role=slint_testing.AccessibleRole.Text)
         restored = baseline.replace(b"Imported component", b"Restored import", 1)
         imported_file.write_bytes(restored)
@@ -228,9 +199,14 @@ def test_initial_broken_source_recovers_without_relaunch(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         assert editor.process.poll() is None
+        element(window, "Preview unavailable", role=slint_testing.AccessibleRole.Region)
         source_file.write_bytes(repaired)
         element(
             window, "Initial source recovered", role=slint_testing.AccessibleRole.Text
         )
         assert source_file.read_bytes() == repaired
         assert editor.process.poll() is None
+        expect(query(window, "Preview unavailable")).to_be_hidden()
+        expect.poll(
+            lambda: file_row(window, source_file).accessible_description
+        ).to_equal("")

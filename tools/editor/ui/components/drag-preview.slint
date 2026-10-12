@@ -51,7 +51,7 @@ export component OutlineDragRow inherits Rectangle {
     Rectangle {
         x: root.style.hit-size;
         width: parent.width - self.x;
-        height: root.style.height - 4px;
+        height: Metrics.outline-row-height - 4px;
         border-radius: root.style.radius;
         background: root.row-background;
     }

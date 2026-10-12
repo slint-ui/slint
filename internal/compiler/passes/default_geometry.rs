@@ -10,6 +10,7 @@
 */
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
 use crate::expression_tree::{
@@ -688,7 +689,7 @@ fn maybe_center_in_parent(
     });
 }
 
-fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
+fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Arc<BuiltinElement>) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
     if builtin.native_class.properties.keys().any(|p| {
@@ -752,7 +753,7 @@ fn test_no_property_for_100pc() {
         }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(crate::source_path::SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =

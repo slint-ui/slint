@@ -52,7 +52,7 @@ env:
 
 jobs:
     build_and_test:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
         strategy:
             matrix:
                 include:
@@ -73,11 +73,13 @@ jobs:
             extra_args: ${{ matrix.extra_args }}
             run_qt: ${{ inputs.full || contains(fromJSON(inputs.changes), 'qt') }}
             test_workspace: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') }}
-            test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') }}
+            test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
             # macOS only runs the rust driver when its inputs changed;
             # Windows always does, for the live-preview test.
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
-            build_examples: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples') }}
+            # Windows is the slower of the two.
+            check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
+            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     visual_editor:
@@ -101,10 +103,6 @@ jobs:
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
-            # The UI tests need a private package that GitHub doesn't hand the
-            # token for to pull requests from forks. Build and test the editor
-            # there anyway, and skip only the steps that need the token.
-            UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
@@ -122,16 +120,20 @@ jobs:
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
             - name: Install UI test dependencies
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
-                  UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
-              run: uv sync --locked
+                  SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
+              # GitHub withholds secrets from pull requests from forks.
+              # Until the OIDC setup is ready, those fetch a throwaway token instead.
+              run: |
+                  token="${SLINT_TESTING_TOKEN:-$(curl -fsSL https://gist.githubusercontent.com/ogoffart/2404d9d20e3c3edc38f33645987a52bb/raw/slint-testing-token)}"
+                  UV_INDEX_SLINT_PRIVATE_PASSWORD="$token" uv sync --locked
             # ty needs slint-testing installed, so this also needs the private package.
             - name: Check visual editor UI tests
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               run: |
                   uv run --no-sync ty check
@@ -141,7 +143,7 @@ jobs:
               if: matrix.run_ui_tests
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
-              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
@@ -150,16 +152,16 @@ jobs:
 
             - name: Upload Cargo timing reports
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: visual-editor-${{ matrix.os }}-timings
                   path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: warn
                   retention-days: 7
 
-    # For changes to Slint internals, do a quick test on Linux for Node.js only.
+    # For changes to the test cases, do a quick test on Linux for Node.js only.
     node_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
@@ -200,7 +202,7 @@ jobs:
           os: "windows-2022"
 
     cpp_test_driver:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
             QT_QPA_PLATFORM: offscreen
@@ -235,7 +237,7 @@ jobs:
               run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features backend-qt
 
     cpp_test_driver_32bit:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'widgets') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
         runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
@@ -264,30 +266,17 @@ jobs:
                   SLINT_LIVE_PREVIEW: 1
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
-    cpp_cmake_matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        runs-on: ubuntu-latest
-        outputs:
-          matrix: ${{ steps.set.outputs.matrix }}
-        steps:
-          - id: set
-            run: |
-              # Windows runs for internal, api_cpp, or examples changes
-              # macOS and Ubuntu only run when api_cpp changed
-              entries='[{"os":"windows-2022","rust_version":"nightly"}]'
-              if [ "${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}" = "true" ]; then
-                entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
-              fi
-              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
-
     cpp_cmake:
-        needs: cpp_cmake_matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
-            matrix: ${{ fromJSON(needs.cpp_cmake_matrix.outputs.matrix) }}
+            matrix:
+                include: ${{ fromJSON((inputs.full || contains(fromJSON(inputs.changes), 'api_cpp'))
+                    && '[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
+                    || '[{"os":"windows-2022","rust_version":"nightly"}]') }}
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v7
@@ -305,7 +294,10 @@ jobs:
                   # Corrosion runs cargo with a target directory inside the
                   # CMake build tree, which the default cache misses
                   cache-directories: ${{ runner.workspace }}/cppbuild/cargo
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
+              if: runner.os == 'Windows'
+              with:
+                  arch: x64
             - name: Select MSVC (windows)
               if: runner.os == 'Windows'
               run: |
@@ -336,8 +328,9 @@ jobs:
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
     cpp_package_test:
-        needs: [cpp_cmake_matrix, cpp_cmake]
-        if: ${{ always() && !cancelled() && needs.cpp_cmake.result == 'success' && contains(fromJSON(needs.cpp_cmake_matrix.outputs.matrix).include.*.os, 'ubuntu-22.04') }}
+        needs: cpp_cmake
+        # cpp_cmake_config is part of api_cpp, which adds ubuntu-22.04 to the cpp_cmake matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'cpp_cmake_config') }}
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
@@ -375,7 +368,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -469,6 +462,70 @@ jobs:
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') }}
               run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
+    # The slint-sc test programs on the targets of Ferrocene other than
+    # x86_64-unknown-linux-gnu, which the docs job runs with the coverage.
+    # The targets are the `TARGETS` of api/slint-sc/tests/driver.rs, run in
+    # QEMU. Debian has a QEMU with the Cortex-R52 machine, which Ubuntu 24.04
+    # lacks.
+    slint_sc_targets:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
+        runs-on: ubuntu-24.04
+        container: debian:trixie
+        steps:
+            - name: Install QEMU and the cross compilers
+              run: |
+                  apt-get update
+                  apt-get install -y --no-install-recommends ca-certificates curl git gcc libc6-dev \
+                      qemu-user qemu-system-arm \
+                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross \
+                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross \
+                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
+            - uses: actions/checkout@v7
+            - name: List the targets
+              id: targets
+              shell: bash
+              run: |
+                  targets=$(grep -oP 'triple: "\K[^"]+' api/slint-sc/tests/driver.rs | paste -sd,)
+                  echo "list=$targets" >> "$GITHUB_OUTPUT"
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ steps.targets.outputs.list }}
+            - name: Run the slint-sc test driver on each target
+              shell: bash
+              env:
+                  SLINT_SC_TARGETS: ${{ steps.targets.outputs.list }}
+              run: |
+                  failed=""
+                  for target in ${SLINT_SC_TARGETS//,/ }; do
+                      echo "::group::$target"
+                      SLINT_SC_TARGET=$target cargo test --locked -p slint-sc --test driver || failed="$failed $target"
+                      echo "::endgroup::"
+                  done
+                  if [ -n "$failed" ]; then
+                      echo "::error::slint-sc test driver failed on:$failed"
+                      exit 1
+                  fi
+
+    # The slint-sc tests on the host targets of Ferrocene other than
+    # x86_64-unknown-linux-gnu
+    slint_sc_hosts:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
+        strategy:
+            matrix:
+                os: [macos-14, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: clippy, llvm-tools-preview
+            - name: Run the slint-sc tests
+              shell: bash
+              run: |
+                  cargo test --locked -p i-slint-compiler --features slint-sc --no-default-features
+                  cargo test --locked -p slint-compiler --features slint-sc --no-default-features
+                  cargo test --locked -p slint-sc
+
     docs:
         if: ${{ !inputs.full && (contains(fromJSON(inputs.changes), 'docs_build') || contains(fromJSON(inputs.changes), 'slint_sc')) }}
         uses: ./.github/workflows/build_docs.yaml
@@ -478,6 +535,7 @@ jobs:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') || contains(fromJSON(inputs.changes), 'safety_docs') }}
+          node-python-docs: ${{ contains(fromJSON(inputs.changes), 'node_python_docs') }}
 
     slintpad:
         if: ${{ !inputs.full && contains(fromJSON(inputs.changes), 'slintpad') }}
@@ -528,25 +586,12 @@ jobs:
                   cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
                   git diff --exit-code
 
-    esp-idf-matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        runs-on: ubuntu-latest
-        outputs:
-          matrix: ${{ steps.set.outputs.matrix }}
-        steps:
-          - id: set
-            run: |
-              # v5.3 (minimum supported) always runs; v6.0 (latest) only in full mode (home-automation needs IDF 6)
-              entries='[{"esp-idf-version":"release-v5.3"}]'
-              if [ "${{ inputs.full }}" = "true" ]; then
-                entries='[{"esp-idf-version":"release-v5.3"},{"esp-idf-version":"release-v6.0"}]'
-              fi
-              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
-
     esp-idf:
-        needs: esp-idf-matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         strategy:
-          matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
+            matrix:
+                # v5.3 is the minimum supported version; home-automation needs IDF 6
+                esp-idf-version: ${{ fromJSON(inputs.full && '["release-v5.3","release-v6.0"]' || '["release-v5.3"]') }}
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-version }}
         env:
@@ -598,46 +643,46 @@ jobs:
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
-            # cargo-apk does not honor the repository's relative `build.target-dir`
+            # cargo-apk2 does not honor the repository's relative `build.target-dir`
             # (.cargo/config.toml), so point it at an absolute path that matches
             # where cargo actually writes the artifacts.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Android API level 30
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+            - name: Install Android API level 36
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+            - name: Cache cargo-apk2
+              id: cargo-apk2-cache
               uses: actions/cache@v6
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
-            # Only build cargo-apk if not cached
+                  path: ~/.cargo/bin/cargo-apk2
+                  key: cargo-apk2-1.4.2
+            # Only build cargo-apk2 if not cached
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk2
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk2@1.4.2
 
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
 
             - name: Build todo demo
-              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
+              run: cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib
 
             - name: Build energy-monitor example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib
 
             - name: Build printerdemo example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p printerdemo --target aarch64-linux-android --lib
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p printerdemo --target aarch64-linux-android --lib
 
             - name: Build usecases demo
-              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib
 
             - name: Build slint-viewer for Android
-              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+              run: cargo apk2 build -p slint-viewer --target aarch64-linux-android --lib --features remote
 
     android_reproducible:
         if: ${{ inputs.full }}
@@ -652,11 +697,17 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
-            - uses: actions/setup-java@v5
+            - uses: actions/setup-java@v6
               with:
                   distribution: temurin
                   java-version: '17'
-            - uses: gradle/actions/setup-gradle@v6.3.0
+            - uses: gradle/actions/setup-gradle@v6.4.0
+            # The Android Gradle plugin installs the NDK and CMake versions it needs
+            # itself, without retrying a failed download.
+            - name: Install the Android NDK and CMake
+              run: |
+                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"; }
+                  install_android_sdk_parts || { sleep 10 && install_android_sdk_parts; }
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
               env:
@@ -694,6 +745,20 @@ jobs:
               if: ${{ inputs.full }}
               run: cmake --build build --target todo
 
+    ios_cpp:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios-sim
+            - run: brew install ninja
+            - name: Configure for the iOS simulator
+              run: cmake -S . -B build -GNinja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
+            - name: Build todo example app bundle
+              run: cmake --build build --target todo
+
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest
@@ -703,7 +768,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown
@@ -842,7 +907,7 @@ jobs:
     # resolution itself, from the CMake options down. `cargo tree` and CMake only, no
     # compilation and no system libraries.
     linuxkms_features:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'api_cpp') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v7
@@ -1127,22 +1192,22 @@ jobs:
         if: ${{ inputs.full }}
         runs-on: ubuntu-latest
         env:
-            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            # cargo-apk2 does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
             - uses: actions/checkout@v7
-            - name: Install Android API level 30
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Install Android API level 36
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
             - uses: dtolnay/rust-toolchain@stable
-            - name: Install cargo-apk
-              run: cargo install cargo-apk
+            - name: Install cargo-apk2
+              run: cargo install --locked cargo-apk2@1.4.2
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - name: Build wgpu_texture demo
-              run: cargo apk build --manifest-path examples/Cargo.toml -p wgpu_texture --target aarch64-linux-android --lib
+              run: cargo apk2 build --manifest-path examples/Cargo.toml -p wgpu_texture --target aarch64-linux-android --lib
 
     miri:
         if: ${{ inputs.full }}

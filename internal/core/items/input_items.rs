@@ -156,7 +156,7 @@ impl Item for TouchArea {
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, click_count, touch_finger_id } => {
+            MouseEvent::Released { button, position, click_count, touch_finger_id, .. } => {
                 let geometry = self_rc.geometry();
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)

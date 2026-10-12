@@ -9,7 +9,15 @@ import pytest
 import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
-from gradient_interactions import around, center, click, control, gesture, shifted
+from gradient_interactions import (
+    around,
+    center,
+    click,
+    control,
+    gesture,
+    move_picker_to_files,
+    shifted,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_assertions import expect
@@ -105,6 +113,7 @@ def test_conic_keyboard_and_seam_neighbor(
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_conic(window)
+        move_picker_to_files(window, "main")
         c = center(control(window, "Gradient center handle"), 130)
         gesture(window, c, c)
         press_key(window, keys.RightArrow)
@@ -121,6 +130,8 @@ def test_conic_keyboard_and_seam_neighbor(
         assert r.x == pytest.approx(expected.x, abs=0.001)
         assert r.y == pytest.approx(expected.y, abs=0.001)
         p = stop_center(window, 2, 198, start=211)
+        gesture(window, p, p)
+        move_picker_to_files(window, "stop")
         gesture(window, p, p)
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.LeftArrow)

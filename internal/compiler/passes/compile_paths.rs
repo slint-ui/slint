@@ -11,7 +11,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinElement, BuiltinStruct, ElementType, Struct, Type};
+use crate::langtype::{BuiltinElement, BuiltinStruct, ElementType, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -29,6 +29,8 @@ pub fn compile_paths(
         if elem_.borrow().builtin_type().is_none_or(|bt| bt.name != "Path") {
             return;
         }
+
+        compile_dash_array(elem_, diag);
 
         let commands_binding = elem_.borrow_mut().take_binding("commands");
 
@@ -175,7 +177,7 @@ fn declares_path_elements(elem: &Element, path_type: &BuiltinElement) -> bool {
 fn path_element_type<'a>(
     child: &ElementRc,
     path_type: &'a BuiltinElement,
-) -> Option<&'a Rc<BuiltinElement>> {
+) -> Option<&'a Arc<BuiltinElement>> {
     let builtin = child.borrow().builtin_type()?;
     path_type.additional_accepted_child_types.get(&builtin.native_class.class_name)
 }
@@ -193,14 +195,7 @@ fn compile_path_from_string_literal(
     let path = builder.build();
 
     let event_enum = crate::typeregister::BUILTIN.enums.PathEvent.clone();
-    let point_type = Arc::new(Struct::new(
-        IntoIterator::into_iter([
-            (SmolStr::new_static("x"), Type::Float32),
-            (SmolStr::new_static("y"), Type::Float32),
-        ])
-        .collect(),
-        BuiltinStruct::Point,
-    ));
+    let point_type = crate::typeregister::builtin_structs::get(&BuiltinStruct::Point);
 
     let mut points = Vec::new();
     let events = path
@@ -255,4 +250,31 @@ fn compile_path_from_string_literal(
         .collect();
 
     Ok(Expression::PathData(Path::Events(events, points)).into())
+}
+
+/// Rewrite `Path`'s `stroke-dash-array` into a `Expression::DashArray`, resolved at compile time.
+fn compile_dash_array(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+    let Some(binding) = elem.borrow_mut().take_binding("stroke-dash-array") else { return };
+
+    let Expression::Array { values, .. } = binding.expression.ignore_debug_hooks() else {
+        if matches!(binding.expression.ty(), Type::Array(_)) {
+            diag.push_error("`stroke-dash-array` must be an array literal".into(), &binding);
+        }
+        return;
+    };
+
+    let mut dash_array: Vec<f32> = values
+        .iter()
+        .filter_map(|value| match value {
+            Expression::NumberLiteral(v, Unit::Px) => Some(*v as f32),
+            _ => None,
+        })
+        .collect();
+    if dash_array.len() % 2 == 1 {
+        dash_array = dash_array.repeat(2);
+    }
+    elem.borrow_mut().set_binding(
+        SmolStr::new_static("stroke-dash-array"),
+        Expression::DashArray(dash_array).into(),
+    );
 }

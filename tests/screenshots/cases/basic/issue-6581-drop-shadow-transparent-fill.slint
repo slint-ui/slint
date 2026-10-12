@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A transparent rectangle casts a shadow of its border, including the part visible
+// through its interior. See https://github.com/slint-ui/slint/issues/6581.
+//
+// SIZE=64x64
+// BASE_THRESHOLD=3
+// The software renderer doesn't implement box shadows yet.
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: 48px;
+        height: 48px;
+        border-width: 4px;
+        border-color: green;
+
+        drop-shadow-blur: 2px;
+        drop-shadow-offset-x: 4px;
+        drop-shadow-offset-y: 4px;
+        drop-shadow-color: red;
+    }
+}

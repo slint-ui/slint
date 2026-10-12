@@ -44,8 +44,9 @@ export component App inherits Rectangle {
 }
 ```
 
-Assigning a slot is optional.
-An unassigned slot renders nothing.
+Assigning an untyped slot is optional.
+An unassigned untyped slot renders nothing.
+[Typed slots](#typed-slots) require a supplied component.
 
 ## Referencing a slot
 
@@ -105,6 +106,65 @@ export component App inherits Window {
     }
 }
 ```
+
+## Typed Slots
+
+Declare `slot <InterfaceName> name;` when a component needs to interact with supplied content through an [interface](./interface).
+
+The host can bind interface inputs, read outputs, modify `in-out` properties, call public functions, and connect callbacks.
+Members outside the interface aren't available through the host's slot reference.
+
+```slint
+interface Action {
+    in property <bool> enabled;
+    callback activated();
+}
+
+component ActionHost inherits Rectangle {
+    in property <bool> enabled: true;
+    callback activated();
+
+    slot <Action> action;
+    action {
+        enabled: root.enabled;
+        activated => { root.activated(); }
+    }
+}
+
+component PointerAction {
+    in property <bool> enabled;
+    callback activated();
+
+    Text { text: "Click me"; }
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.activated(); }
+    }
+}
+
+export component App inherits Window {
+    width: 200px;
+    height: 80px;
+
+    ActionHost {
+        action << PointerAction { }
+        activated => { debug("Activated"); }
+    }
+}
+```
+
+The supplied component must provide the interface's members with matching types, visibility, and function signatures.
+Pure interface functions require pure implementations.
+An explicit `implement` declaration isn't required.
+Members can be declared directly, inherited, or delegated with `implement Action <=> child`.
+
+A typed slot requires exactly one component when its host is instantiated.
+A derived component can leave the slot open for its caller.
+When forwarding between two typed slots, both must declare the same interface.
+
+Typed placeholders accept property bindings, callback connections, and property change handlers, but not child elements or new declarations.
+Defining handlers for the same callback in both the placeholder and supplied component is an error.
+Property bindings follow the existing priorities; more local bindings take precedence.
 
 ## Current limitations
 
