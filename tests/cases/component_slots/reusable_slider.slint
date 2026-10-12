@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    SliderBase,
+    LinearSliderSurface,
+} from "../../../tools/editor/controls/src/headless.slint";
+
+export component TestCase inherits Window {
+    width: 260px;
+    height: 80px;
+    in-out property <float> minimum: 10;
+    in-out property <float> maximum: 90;
+    in-out property <float> step: 7;
+    in-out property <float> value: 50;
+    in-out property <bool> enabled: true;
+    in-out property <bool> inverted;
+    out property <float> position: slider.position;
+    out property <int> changes;
+    out property <int> releases;
+    out property <float> last-released;
+    out property <bool> test: slider.position == 0.5;
+    public function request(value: float) { slider.set-value(value); }
+    public function seek(position: float) { slider.set-position(position); }
+    public function focus-slider() { slider.focus(); }
+    public function focus-other() { other.focus(); }
+    slider := SliderBase {
+        accessible-label: "Range slider";
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: root.step;
+        value <=> root.value;
+        enabled: root.enabled;
+        inverted: root.inverted;
+        surface << LinearSliderSurface { }
+        changed(value) => { root.changes += 1; }
+        released(value) => { root.releases += 1; root.last-released = value; }
+    }
+
+    other := FocusScope {
+        x: 220px;
+        y: 20px;
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let slider = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Range slider").next().unwrap();
+assert_eq!(slider.accessible_role(), Some(slint_testing::AccessibleRole::Slider));
+let key = |key: Key| {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+};
+for (minimum, maximum) in [(10., 90.), (90., 10.)] {
+    instance.set_minimum(minimum);
+    instance.set_maximum(maximum);
+    instance.set_step(7.);
+    instance.set_value(50.);
+    assert_eq!(slider.accessible_value_minimum(), Some(10.));
+    assert_eq!(slider.accessible_value_maximum(), Some(90.));
+    instance.invoke_request(46.);
+    assert_eq!(instance.get_value(), 45.);
+    instance.invoke_request(90.);
+    assert_eq!(instance.get_value(), 90.);
+    instance.invoke_request(-20.);
+    assert_eq!(instance.get_value(), 10.);
+    instance.invoke_seek(0.5);
+    assert_eq!(instance.get_value(), 52.);
+    assert!((instance.get_position() - 0.525).abs() < 0.0001);
+    let count = instance.get_changes();
+    instance.invoke_request(52.);
+    assert_eq!(instance.get_changes(), count);
+    instance.invoke_focus_slider();
+    key(Key::Home);
+    assert_eq!(instance.get_value(), 10.);
+    key(Key::End);
+    assert_eq!(instance.get_value(), 90.);
+    instance.set_step(1.);
+    instance.set_value(40.);
+    let releases = instance.get_releases();
+    key(Key::RightArrow);
+    assert_eq!(instance.get_value(), 41.);
+    assert_eq!(instance.get_releases(), releases + 1);
+    assert_eq!(instance.get_last_released(), 41.);
+    key(Key::LeftArrow);
+    assert_eq!(instance.get_value(), 40.);
+    key(Key::PageUp);
+    assert_eq!(instance.get_value(), 50.);
+    key(Key::PageDown);
+    assert_eq!(instance.get_value(), 40.);
+    instance.set_inverted(true);
+    key(Key::UpArrow);
+    assert_eq!(instance.get_value(), 39.);
+    key(Key::DownArrow);
+    assert_eq!(instance.get_value(), 40.);
+    instance.set_inverted(false);
+    let releases = instance.get_releases();
+    slider.invoke_accessible_increment_action();
+    assert_eq!(instance.get_value(), 41.);
+    slider.invoke_accessible_decrement_action();
+    assert_eq!(instance.get_value(), 40.);
+    slider.set_accessible_value("66");
+    assert_eq!(instance.get_value(), 66.);
+    assert_eq!(instance.get_releases(), releases + 3);
+    assert_eq!(instance.get_last_released(), 66.);
+    slider.set_accessible_value("invalid");
+    assert_eq!(instance.get_value(), 66.);
+    assert_eq!(instance.get_releases(), releases + 3);
+    let count = instance.get_changes();
+    instance.set_value(200.);
+    assert_eq!(instance.get_position(), 1.);
+    assert_eq!(slider.accessible_value().unwrap().as_str(), "90");
+    instance.set_value(-20.);
+    assert_eq!(instance.get_position(), 0.);
+    assert_eq!(instance.get_changes(), count);
+    for step in [0., -1.] {
+        instance.set_step(step);
+        instance.invoke_request(36.5);
+        assert_eq!(instance.get_value(), 36.5);
+        key(Key::RightArrow);
+        assert!((instance.get_value() - 37.3).abs() < 0.0001);
+    }
+}
+instance.set_step(1.);
+instance.set_value(50.);
+instance.invoke_focus_slider();
+let releases = instance.get_releases();
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+assert_eq!(instance.get_value(), 52.);
+assert_eq!(instance.get_releases(), releases);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+assert_eq!(instance.get_releases(), releases + 1);
+assert_eq!(instance.get_last_released(), 52.);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+instance.invoke_focus_other();
+instance.invoke_focus_slider();
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+assert_eq!(instance.get_releases(), releases + 1);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+instance.set_enabled(true);
+slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), false);
+assert_eq!(instance.get_releases(), releases + 1);
+instance.set_enabled(false);
+let value = instance.get_value();
+let count = instance.get_changes();
+let releases = instance.get_releases();
+instance.invoke_request(70.);
+instance.invoke_seek(0.);
+key(Key::End);
+slider.invoke_accessible_increment_action();
+slider.set_accessible_value("20");
+assert_eq!(instance.get_value(), value);
+assert_eq!(instance.get_changes(), count);
+assert_eq!(slider.accessible_enabled(), Some(false));
+assert_eq!(instance.get_releases(), releases);
+instance.set_enabled(true);
+instance.set_minimum(30.);
+instance.set_maximum(30.);
+instance.invoke_seek(0.5);
+assert_eq!(instance.get_value(), 30.);
+assert_eq!(instance.get_position(), 0.);
+instance.invoke_request(200.);
+assert_eq!(instance.get_value(), 30.);
+```
+*/

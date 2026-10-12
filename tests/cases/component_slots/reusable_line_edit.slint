@@ -1,0 +1,277 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+import {
+    LineEditBase,
+} from "../../../tools/editor/controls/src/headless.slint";
+import { LineEditInterface } from "std-widget-interfaces.slint";
+
+component LineEditHost {
+    slot <LineEditInterface> field;
+    out property <string> text: field.text;
+    out property <bool> selected: field.has-selection;
+    out property <int> edits;
+    public function select-all() { field.select-all(); }
+    field {
+        enabled: true;
+        placeholder-text: "Contract placeholder";
+        edited(value) => { root.edits += 1; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 320px;
+    in-out property <string> text <=> basic.text;
+    in-out property <bool> enabled <=> basic.enabled;
+    in-out property <bool> read-only <=> basic.read-only;
+    out property <bool> focused: basic.has-focus;
+    out property <bool> hovered: basic.hovered;
+    out property <bool> selected: basic.has-selection;
+    out property <bool> read-only-focused: immutable.has-focus;
+    out property <int> edits;
+    out property <int> submissions;
+    out property <string> last-edit;
+    out property <string> last-submission;
+    out property <int> key-presses;
+    out property <int> key-releases;
+    out property <string> password: secret.text;
+    out property <string> contract-text: host.text;
+    out property <int> contract-edits: host.edits;
+    out property <bool> contract-selected: host.selected;
+    out property <bool> test: root.text == "initial" && !root.read-only;
+
+    public function focus-basic() { basic.focus(); }
+    public function focus-other() { other.focus(); }
+    public function select-all() { basic.select-all(); }
+    public function clear-selection() { basic.clear-selection(); }
+    public function set-selection-offsets(anchor: int, focus: int) { basic.set-selection-offsets(anchor, focus); }
+    public function copy() { basic.copy(); }
+    public function cut() { basic.cut(); }
+    public function paste() { basic.paste(); }
+    public function undo() { basic.undo(); }
+    public function redo() { basic.redo(); }
+    public function copy-read-only() { immutable.select-all(); immutable.copy(); }
+    public function copy-password() { secret.select-all(); secret.copy(); secret.cut(); }
+    public function focus-contract() { supplied.focus(); }
+    public function select-contract() { host.select-all(); }
+
+    basic := LineEdit {
+        x: 20px;
+        y: 20px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Basic field";
+        text: "initial";
+        placeholder-text: "Type here";
+        edited(value) => { root.edits += 1; root.last-edit = value; }
+        accepted(value) => { root.submissions += 1; root.last-submission = value; }
+        key-pressed(event) => {
+            root.key-presses += 1;
+            return event.text == "x" ? accept : reject;
+        }
+        key-released(event) => { root.key-releases += 1; return reject; }
+    }
+
+    immutable := LineEdit {
+        x: 20px;
+        y: 80px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Read-only field";
+        text: "Read only";
+        read-only: true;
+    }
+
+    LineEdit {
+        x: 20px;
+        y: 140px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Disabled field";
+        text: "Disabled";
+        enabled: false;
+    }
+
+    secret := LineEdit {
+        x: 20px;
+        y: 200px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Password field";
+        text: "secret";
+        input-type: InputType.password;
+    }
+
+    other := FocusScope {
+        x: 20px;
+        y: 260px;
+        width: 40px;
+        height: 40px;
+    }
+
+    host := LineEditHost {
+        x: 300px;
+        y: 20px;
+        width: 220px;
+        height: 40px;
+        field << supplied := LineEditBase {
+            accessible-label: "Headless contract";
+            text: "contract";
+        }
+    }
+
+    LineEditHost {
+        x: 300px;
+        y: 80px;
+        width: 220px;
+        height: 40px;
+        field << LineEdit {
+            accessible-label: "Styled contract";
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+use slint_testing::AccessibleRole;
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let find = |label: &str| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|element| element.accessible_role() == Some(AccessibleRole::TextInput)).unwrap()
+};
+let basic = find("Basic field");
+let key = |key: Key| {
+    let text: slint::SharedString = key.into();
+    slint_testing::send_keyboard_string_sequence(&instance, &text);
+};
+let type_text = |text: &str| { slint_testing::send_keyboard_string_sequence(&instance, text); };
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Basic field")
+    .filter(|element| element.accessible_role() == Some(AccessibleRole::TextInput)).count(), 1);
+instance.invoke_focus_other();
+basic.mock_single_click(PointerEventButton::Left);
+assert!(instance.get_focused());
+assert!(instance.get_hovered());
+instance.invoke_select_all();
+assert!(instance.get_selected());
+type_text("Q");
+assert_eq!(instance.get_text(), "Q");
+assert_eq!(instance.get_edits(), 1);
+assert_eq!(instance.get_last_edit(), "Q");
+key(Key::Return);
+assert_eq!(instance.get_submissions(), 1);
+assert_eq!(instance.get_last_submission(), "Q");
+let presses = instance.get_key_presses();
+let releases = instance.get_key_releases();
+type_text("x");
+assert_eq!(instance.get_text(), "Q");
+assert_eq!(instance.get_edits(), 1);
+assert_eq!(instance.get_key_presses(), presses + 1);
+assert_eq!(instance.get_key_releases(), releases + 1);
+
+instance.set_text("abcdef".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_edits(), 1);
+instance.invoke_set_selection_offsets(0, 3);
+assert!(instance.get_selected());
+instance.invoke_copy();
+instance.invoke_clear_selection();
+assert!(!instance.get_selected());
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "abc");
+assert_eq!(instance.get_edits(), 2);
+instance.invoke_undo();
+assert_eq!(instance.get_text(), "");
+instance.invoke_undo();
+assert_eq!(instance.get_text(), "abcdef");
+instance.invoke_redo();
+assert_eq!(instance.get_text(), "");
+instance.invoke_redo();
+assert_eq!(instance.get_text(), "abc");
+instance.invoke_select_all();
+instance.invoke_cut();
+assert_eq!(instance.get_text(), "");
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "abc");
+instance.invoke_copy_password();
+assert_eq!(instance.get_password(), "secret");
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "abc");
+instance.invoke_copy_read_only();
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "Read only");
+
+instance.set_read_only(true);
+let edits = instance.get_edits();
+instance.invoke_select_all();
+type_text("Z");
+instance.invoke_cut();
+instance.invoke_paste();
+instance.invoke_undo();
+instance.invoke_redo();
+basic.set_accessible_value("blocked");
+assert_eq!(instance.get_text(), "Read only");
+assert_eq!(instance.get_edits(), edits);
+assert_eq!(basic.accessible_read_only(), Some(true));
+instance.set_read_only(false);
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+instance.invoke_cut();
+instance.invoke_paste();
+instance.invoke_undo();
+instance.invoke_redo();
+basic.set_accessible_value("blocked");
+basic.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_text(), "Read only");
+assert_eq!(instance.get_edits(), edits);
+assert_eq!(basic.accessible_enabled(), Some(false));
+instance.set_enabled(true);
+basic.set_accessible_value("accessible edit");
+assert_eq!(instance.get_text(), "accessible edit");
+assert_eq!(instance.get_edits(), edits + 1);
+basic.set_accessible_selection_offsets(0, 10);
+assert!(instance.get_selected());
+instance.invoke_clear_selection();
+
+instance.invoke_focus_basic();
+key(Key::Tab);
+assert!(instance.get_read_only_focused());
+instance.invoke_focus_contract();
+instance.invoke_select_contract();
+assert!(instance.get_contract_selected());
+type_text("é");
+assert_eq!(instance.get_contract_text(), "é");
+assert_eq!(instance.get_contract_edits(), 1);
+let styled = find("Styled contract");
+styled.set_accessible_value("styled edit");
+assert_eq!(styled.accessible_value().as_deref(), Some("styled edit"));
+
+let long_text = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+instance.set_text(long_text.into());
+instance.invoke_focus_basic();
+key(Key::End);
+let input = basic.query_descendants().match_id("LineEditBase::input").find_first().unwrap();
+assert!(input.size().width > basic.size().width);
+assert!(input.absolute_position().x < basic.absolute_position().x);
+assert_eq!(basic.size().width, 220.);
+key(Key::Home);
+assert!(input.absolute_position().x >= basic.absolute_position().x);
+instance.set_text("".into());
+slint::platform::update_timers_and_animations();
+let viewport = basic.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
+let placeholder = basic.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
+assert!((viewport.absolute_position().x - basic.absolute_position().x - 12.).abs() < 0.01);
+assert!((placeholder.absolute_position().x - viewport.absolute_position().x).abs() < 0.01);
+assert!((placeholder.size().width - viewport.size().width).abs() < 0.01);
+assert!((placeholder.size().height - viewport.size().height).abs() < 0.01);
+instance.window().dispatch_event(WindowEvent::PointerExited);
+assert!(!instance.get_hovered());
+```
+*/
