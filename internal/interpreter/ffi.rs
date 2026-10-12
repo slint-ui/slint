@@ -842,7 +842,7 @@ pub enum FileLoaderResult {
     Error = 2,
 }
 
-pub struct FileLoaderUserData {
+struct FileLoaderUserData {
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
     callback: extern "C" fn(
@@ -857,20 +857,6 @@ impl Drop for FileLoaderUserData {
         if let Some(x) = self.drop_user_data {
             x(self.user_data)
         }
-    }
-}
-
-impl FileLoaderUserData {
-    pub unsafe fn new(
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        callback: extern "C" fn(
-            user_data: *mut c_void,
-            path: Slice<PathValueType>,
-            out: *mut SharedString,
-        ) -> FileLoaderResult,
-    ) -> Self {
-        Self { user_data, drop_user_data, callback }
     }
 }
 
@@ -891,7 +877,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) {
-    let ud = unsafe { FileLoaderUserData::new(user_data, drop_user_data, callback) };
+    let ud = FileLoaderUserData { user_data, drop_user_data, callback };
     compiler.as_component_compiler_mut().set_file_loader(move |path| {
         let path_units = path_to_units(path);
         let path_slice = Slice::from_slice(&path_units);

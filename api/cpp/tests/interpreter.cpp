@@ -307,6 +307,35 @@ SCENARIO("Component Compiler")
         compiler.set_translation_domain("cpptests");
     }
 
+    SECTION("configure file loader")
+    {
+        compiler.set_file_loader([](const std::filesystem::path &path) -> std::optional<std::string> {
+            if (path.string() == "/loader/foo.slint") {
+                return "export component Foo {}";
+            } else if (path.string() == "/loader/error.slint") {
+                throw std::runtime_error("This will fail");
+            }
+            return std::nullopt;
+        });
+
+        auto result = compiler.build_from_source(
+            R"(
+                import { Foo } from "/loader/foo.slint";
+                export component Dummy {}
+            )",
+            "loader_test_1.slint"
+        );
+        REQUIRE(result.has_value());
+        auto result2 = compiler.build_from_source(
+            R"(
+                import { Foo } from "/loader/error.slint";
+                export component Dummy {}
+            )",
+            "loader_test_2.slint"
+        );
+        REQUIRE_FALSE(result2.has_value());
+    }
+
     SECTION("Compile failure from source")
     {
         auto result = compiler.build_from_source("Syntax Error!!", "");
