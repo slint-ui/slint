@@ -300,7 +300,7 @@ impl DrmOutput {
         refresh_rate_millihertz(&self.mode)
     }
 
-    #[cfg(wgpu_29_surface_target)]
+    #[cfg(skia_wgpu_29)]
     /// Creates a wgpu-29 DRM surface target from this output.
     pub fn wgpu_29_surface_target(
         &self,
@@ -324,7 +324,7 @@ impl DrmOutput {
         Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
     }
 
-    #[cfg(any(feature = "unstable-wgpu-30", feature = "renderer-femtovg-wgpu"))]
+    #[cfg(wgpu_30_surface_target)]
     /// Creates a wgpu-30 DRM surface target from this output.
     pub fn wgpu_30_surface_target(
         &self,

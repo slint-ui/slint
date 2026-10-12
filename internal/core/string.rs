@@ -606,17 +606,6 @@ pub(crate) mod ffi {
         unsafe { core::ptr::write(out, SharedString::from(&*str)) };
     }
 
-    /// Create a string from a number but unlocalized.
-    /// The resulting structure must be passed to slint_shared_string_drop
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_shared_string_from_number_unlocalized(
-        out: *mut SharedString,
-        n: f64,
-    ) {
-        let str = shared_string_from_number_unlocalized(n);
-        unsafe { core::ptr::write(out, str) };
-    }
-
     /// Create a string from a number.
     /// The resulting structure must be passed to slint_shared_string_drop
     #[unsafe(no_mangle)]
@@ -653,127 +642,58 @@ pub(crate) mod ffi {
         }
     }
 
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_shared_string_from_number_fixed(
-        out: &mut SharedString,
-        n: f64,
-        digits: usize,
-    ) {
-        *out = format_number_fixed(current_decimal_separator(), n, digits);
-    }
-
     #[test]
-    fn test_slint_shared_string_from_number_fixed() {
-        let mut s = SharedString::default();
-
+    fn test_format_number_fixed() {
         let num = 12345.6789;
 
-        slint_shared_string_from_number_fixed(&mut s, num, 0);
-        assert_eq!(s.as_str(), "12346");
-
-        slint_shared_string_from_number_fixed(&mut s, num, 1);
-        assert_eq!(s.as_str(), "12345.7");
-
-        slint_shared_string_from_number_fixed(&mut s, num, 6);
-        assert_eq!(s.as_str(), "12345.678900");
+        assert_eq!(format_number_fixed('.', num, 0), "12346");
+        assert_eq!(format_number_fixed('.', num, 1), "12345.7");
+        assert_eq!(format_number_fixed('.', num, 6), "12345.678900");
 
         let num = -12345.6789;
 
-        slint_shared_string_from_number_fixed(&mut s, num, 0);
-        assert_eq!(s.as_str(), "-12346");
-
-        slint_shared_string_from_number_fixed(&mut s, num, 1);
-        assert_eq!(s.as_str(), "-12345.7");
-
-        slint_shared_string_from_number_fixed(&mut s, num, 6);
-        assert_eq!(s.as_str(), "-12345.678900");
-
-        slint_shared_string_from_number_fixed(&mut s, 1.23E+20_f64, 2);
-        assert_eq!(s.as_str(), "123000000000000000000.00");
-
-        slint_shared_string_from_number_fixed(&mut s, 1.23E-10_f64, 2);
-        assert_eq!(s.as_str(), "0.00");
-
-        slint_shared_string_from_number_fixed(&mut s, 2.34, 1);
-        assert_eq!(s.as_str(), "2.3");
-
-        slint_shared_string_from_number_fixed(&mut s, 2.35, 1);
-        assert_eq!(s.as_str(), "2.4");
-
-        slint_shared_string_from_number_fixed(&mut s, 2.55, 1);
-        assert_eq!(s.as_str(), "2.5");
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_shared_string_from_number_precision(
-        out: &mut SharedString,
-        n: f64,
-        precision: usize,
-    ) {
-        *out = format_number_precision(current_decimal_separator(), n, precision);
+        assert_eq!(format_number_fixed('.', num, 0), "-12346");
+        assert_eq!(format_number_fixed('.', num, 1), "-12345.7");
+        assert_eq!(format_number_fixed('.', num, 6), "-12345.678900");
+        assert_eq!(format_number_fixed('.', 1.23E+20_f64, 2), "123000000000000000000.00");
+        assert_eq!(format_number_fixed('.', 1.23E-10_f64, 2), "0.00");
+        assert_eq!(format_number_fixed('.', 2.34, 1), "2.3");
+        assert_eq!(format_number_fixed('.', 2.35, 1), "2.4");
+        assert_eq!(format_number_fixed('.', 2.55, 1), "2.5");
     }
 
     #[test]
-    fn test_slint_shared_string_from_number_precision() {
-        let mut s = SharedString::default();
-
+    fn test_format_number_precision() {
         let num = 5.123456;
 
-        slint_shared_string_from_number_precision(&mut s, num, 0);
-        assert_eq!(s.as_str(), "5.123456");
-
-        slint_shared_string_from_number_precision(&mut s, num, 5);
-        assert_eq!(s.as_str(), "5.1235");
-
-        slint_shared_string_from_number_precision(&mut s, num, 2);
-        assert_eq!(s.as_str(), "5.1");
-
-        slint_shared_string_from_number_precision(&mut s, num, 1);
-        assert_eq!(s.as_str(), "5");
+        assert_eq!(format_number_precision('.', num, 0), "5.123456");
+        assert_eq!(format_number_precision('.', num, 5), "5.1235");
+        assert_eq!(format_number_precision('.', num, 2), "5.1");
+        assert_eq!(format_number_precision('.', num, 1), "5");
 
         let num = 0.000123;
 
-        slint_shared_string_from_number_precision(&mut s, num, 0);
-        assert_eq!(s.as_str(), "0.000123");
-
-        slint_shared_string_from_number_precision(&mut s, num, 5);
-        assert_eq!(s.as_str(), "0.00012300");
-
-        slint_shared_string_from_number_precision(&mut s, num, 2);
-        assert_eq!(s.as_str(), "0.00012");
-
-        slint_shared_string_from_number_precision(&mut s, num, 1);
-        assert_eq!(s.as_str(), "0.0001");
+        assert_eq!(format_number_precision('.', num, 0), "0.000123");
+        assert_eq!(format_number_precision('.', num, 5), "0.00012300");
+        assert_eq!(format_number_precision('.', num, 2), "0.00012");
+        assert_eq!(format_number_precision('.', num, 1), "0.0001");
 
         let num = 1234.5;
 
-        slint_shared_string_from_number_precision(&mut s, num, 1);
-        assert_eq!(s.as_str(), "1e3");
-
-        slint_shared_string_from_number_precision(&mut s, num, 2);
-        assert_eq!(s.as_str(), "1.2e3");
-
-        slint_shared_string_from_number_precision(&mut s, num, 6);
-        assert_eq!(s.as_str(), "1234.50");
+        assert_eq!(format_number_precision('.', num, 1), "1e3");
+        assert_eq!(format_number_precision('.', num, 2), "1.2e3");
+        assert_eq!(format_number_precision('.', num, 6), "1234.50");
 
         let num = -1234.5;
 
-        slint_shared_string_from_number_precision(&mut s, num, 1);
-        assert_eq!(s.as_str(), "-1e3");
-
-        slint_shared_string_from_number_precision(&mut s, num, 2);
-        assert_eq!(s.as_str(), "-1.2e3");
-
-        slint_shared_string_from_number_precision(&mut s, num, 6);
-        assert_eq!(s.as_str(), "-1234.50");
+        assert_eq!(format_number_precision('.', num, 1), "-1e3");
+        assert_eq!(format_number_precision('.', num, 2), "-1.2e3");
+        assert_eq!(format_number_precision('.', num, 6), "-1234.50");
 
         let num = 0.00000012345;
 
-        slint_shared_string_from_number_precision(&mut s, num, 1);
-        assert_eq!(s.as_str(), "1e-7");
-
-        slint_shared_string_from_number_precision(&mut s, num, 10);
-        assert_eq!(s.as_str(), "1.234500000e-7");
+        assert_eq!(format_number_precision('.', num, 1), "1e-7");
+        assert_eq!(format_number_precision('.', num, 10), "1.234500000e-7");
     }
 
     /// Append some bytes to an existing shared string
@@ -802,70 +722,6 @@ pub(crate) mod ffi {
         assert_eq!(s.as_str(), "Hello, world!");
         slint_shared_string_append(&mut s, crate::slice::Slice::from_slice(b"\xff"));
         assert_eq!(s.strip_suffix(char::REPLACEMENT_CHARACTER), Some("Hello, world!"));
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_shared_string_to_lowercase(
-        out: &mut SharedString,
-        ss: &SharedString,
-    ) {
-        *out = SharedString::from(ss.to_lowercase());
-    }
-    #[test]
-    fn test_slint_shared_string_to_lowercase() {
-        let s = SharedString::from("Hello");
-        let mut out = SharedString::default();
-
-        unsafe {
-            slint_shared_string_to_lowercase(&mut out, &s);
-        }
-        assert_eq!(out.as_str(), "hello");
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_shared_string_to_uppercase(
-        out: &mut SharedString,
-        ss: &SharedString,
-    ) {
-        *out = SharedString::from(ss.to_uppercase());
-    }
-    #[test]
-    fn test_slint_shared_string_to_uppercase() {
-        let s = SharedString::from("Hello");
-        let mut out = SharedString::default();
-
-        unsafe {
-            slint_shared_string_to_uppercase(&mut out, &s);
-        }
-        assert_eq!(out.as_str(), "HELLO");
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_shared_string_replace_all(
-        out: &mut SharedString,
-        ss: &SharedString,
-        from: crate::slice::Slice<u8>,
-        to: crate::slice::Slice<u8>,
-    ) {
-        // Safety: the caller must pass valid utf-8 slices.
-        let from = unsafe { core::str::from_utf8_unchecked(from.as_slice()) };
-        let to = unsafe { core::str::from_utf8_unchecked(to.as_slice()) };
-        *out = super::shared_string_replace_all(ss, from, to);
-    }
-    #[test]
-    fn test_slint_shared_string_replace_all() {
-        let s = SharedString::from("Hello");
-        let from = SharedString::from("l");
-        let to = SharedString::from("L");
-        let mut out = SharedString::default();
-
-        slint_shared_string_replace_all(
-            &mut out,
-            &s,
-            crate::slice::Slice::from_slice(from.as_bytes()),
-            crate::slice::Slice::from_slice(to.as_bytes()),
-        );
-        assert_eq!(out.as_str(), "HeLLo");
     }
 }
 

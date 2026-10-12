@@ -9,22 +9,22 @@
 //!
 //! ## Architecture Overview
 //!
-//! The integration uses Slint's `SkiaWGPU29Renderer` to render UI directly to a WGPU texture:
+//! The integration uses Slint's `SkiaWGPU30Renderer` to render UI directly to a WGPU texture:
 //!
 //! 1. Bevy creates a texture in its asset system
 //! 2. The texture handle is extracted to Bevy's render world via `ExtractResourcePlugin`
 //! 3. A channel passes the underlying WGPU texture from render world back to main world
-//! 4. `SkiaWGPU29Renderer::render_to_texture()` renders the UI directly to the GPU texture
+//! 4. `SkiaWGPU30Renderer::render_to_texture()` renders the UI directly to the GPU texture
 //! 5. Mouse input is handled by raycasting against the 3D quad and converting to Slint coordinates
 //!
 //! ## Key Difference from bevy-hosts-slint
 //!
 //! - **bevy-hosts-slint**: Uses `SoftwareRenderer` to CPU-render UI to a pixel buffer, then uploads to GPU
-//! - **bevy-hosts-slint-gpu**: Uses `SkiaWGPU29Renderer` for direct GPU rendering (better performance and font quality)
+//! - **bevy-hosts-slint-gpu**: Uses `SkiaWGPU30Renderer` for direct GPU rendering (better performance and font quality)
 //!
 //! ## Key Components
 //!
-//! - [`BevyWindowAdapter`]: Implements `slint::platform::WindowAdapter` using `SkiaWGPU29Renderer`
+//! - [`BevyWindowAdapter`]: Implements `slint::platform::WindowAdapter` using `SkiaWGPU30Renderer`
 //! - [`SlintBevyPlatform`]: Implements `slint::platform::Platform` to create window adapters
 //! - [`SlintSharedTexture`]: Manages texture sharing between Bevy's main and render worlds
 //! - [`render_slint`]: Bevy system that renders the Slint UI to the shared texture each frame
@@ -33,7 +33,7 @@
 //! ## Usage Pattern
 //!
 //! This example can serve as a template for GPU-accelerated Slint integration:
-//! 1. Implement the `Platform` and `WindowAdapter` traits with `SkiaWGPU29Renderer`
+//! 1. Implement the `Platform` and `WindowAdapter` traits with `SkiaWGPU30Renderer`
 //! 2. Share the WGPU texture between Bevy's render world and your Slint renderer
 //! 3. Call `render_to_texture()` each frame to render the UI directly on the GPU
 //! 4. Handle input by converting your coordinate system to Slint's logical coordinates
@@ -61,14 +61,14 @@ use bevy::{
         texture::GpuImage,
     },
 };
-use slint::platform::skia_renderer::SkiaWGPU29Renderer;
+use slint::platform::skia_renderer::SkiaWGPU30Renderer;
 use slint::{LogicalPosition, PhysicalSize, platform::WindowEvent};
 use std::{
     cell::{Cell, RefCell},
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
-use wgpu_29 as wgpu;
+use wgpu_30 as wgpu;
 
 const UI_WIDTH: u32 = 800;
 const UI_HEIGHT: u32 = 600;
@@ -119,13 +119,13 @@ slint::slint! {
 
 /// Window adapter that bridges Slint to Bevy using GPU rendering.
 ///
-/// Instead of rendering to a native OS window, this adapter uses `SkiaWGPU29Renderer`
+/// Instead of rendering to a native OS window, this adapter uses `SkiaWGPU30Renderer`
 /// to render directly to a WGPU texture that Bevy displays on 3D geometry.
 struct BevyWindowAdapter {
     size: Cell<slint::PhysicalSize>,
     scale_factor: Cell<f32>,
     slint_window: slint::Window,
-    renderer: SkiaWGPU29Renderer,
+    renderer: SkiaWGPU30Renderer,
 }
 
 impl slint::platform::WindowAdapter for BevyWindowAdapter {
@@ -156,7 +156,7 @@ impl BevyWindowAdapter {
         queue: wgpu::Queue,
     ) -> Rc<Self> {
         // Create renderer using the new helper
-        let renderer = SkiaWGPU29Renderer::new(instance, adapter, device, queue)
+        let renderer = SkiaWGPU30Renderer::new(instance, adapter, device, queue)
             .expect("Failed to create renderer");
 
         Rc::new_cyclic(|self_weak: &Weak<Self>| Self {
@@ -181,7 +181,7 @@ impl BevyWindowAdapter {
 /// Slint platform implementation that creates GPU-rendered window adapters.
 ///
 /// Registered via `slint::platform::set_platform()` before creating Slint components.
-/// Stores the WGPU device and queue needed to create `SkiaWGPU29Renderer` instances.
+/// Stores the WGPU device and queue needed to create `SkiaWGPU30Renderer` instances.
 struct SlintBevyPlatform {
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
@@ -232,6 +232,7 @@ struct TextureSender(std::sync::mpsc::Sender<wgpu::Texture>);
 /// Bevy image handle that gets extracted to the render world.
 /// Used to look up the underlying GPU texture.
 #[derive(Resource, Clone, ExtractResource)]
+#[extract_app(RenderApp)]
 struct SlintImageHandle(Handle<Image>);
 
 /// Manages the shared WGPU texture between Bevy's render world and the Slint renderer.
@@ -467,10 +468,10 @@ fn initialize_slint(
     render_device: &RenderDevice,
     render_queue: &bevy::render::renderer::RenderQueue,
 ) -> impl Fn(&mut World) + use<> {
-    let instance = (**render_instance.0).clone();
+    let instance = (**render_instance).clone();
     let adapter = render_adapter.clone();
     let device = render_device.wgpu_device().clone();
-    let queue = (**render_queue.0).clone();
+    let queue = (**render_queue).clone();
     move |world: &mut World| {
         let platform = SlintBevyPlatform {
             instance: instance.clone(),

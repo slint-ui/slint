@@ -111,6 +111,10 @@ export component InspectorPane inherits Rectangle {
         return root.has-backend-rect() && root.element-information.type-name == "Rectangle";
     }
 
+    function is-touch-area-selection() -> bool {
+        return root.has-backend-rect() && root.element-information.type-name == "TouchArea";
+    }
+
     function is-text-selection() -> bool {
         return root.has-backend-rect() && root.element-information.type-name == "Text";
     }
@@ -598,7 +602,7 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection() || root.is-touch-area-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";

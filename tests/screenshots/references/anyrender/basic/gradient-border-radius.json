@@ -484,6 +484,7 @@
   {
     "PushClipLayer": {
       "clip": "M0,0 L40,0 L40,22 L0,22 Z",
+      "fill": "NonZero",
       "transform": [
         1.0,
         0.0,

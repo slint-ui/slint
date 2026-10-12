@@ -23,6 +23,7 @@ from ui_driver import (
     launch_editor,
     press_key,
     select_outline_row,
+    wait_until,
 )
 
 
@@ -135,13 +136,17 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
         handle = control(window, "Move Custom picker")
         gesture(window, center(handle), shifted(center(handle), x=-50, y=30))
         click_picker_button(window, "Edit stop 1 color")
-        assert stop.absolute_position.x + stop.size.width < main.absolute_position.x
-        assert stop.absolute_position.y == pytest.approx(main.absolute_position.y)
+        wait_until(
+            lambda: (
+                stop.absolute_position.x + stop.size.width < main.absolute_position.x
+                and stop.absolute_position.y == pytest.approx(main.absolute_position.y)
+            )
+        )
         press_key(window, keys.Escape)
         assert not elements(window, "Close Custom")
         original.assert_unchanged()
         open_gradient(window)
-        assert picker_panel(window, "main").absolute_position == origin
+        wait_until(lambda: picker_panel(window, "main").absolute_position == origin)
         click_picker_button(window, "Close Custom")
         original.assert_unchanged()
 

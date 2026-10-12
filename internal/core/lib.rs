@@ -32,6 +32,7 @@ pub use std::thread_local;
 pub mod accessibility;
 pub mod animations;
 pub mod api;
+pub mod builtin_functions;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;

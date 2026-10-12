@@ -6,6 +6,7 @@
 #include <string_view>
 #include <span>
 #include "private/slint_string_internal.h"
+#include "private/slint_builtin_functions.h"
 
 namespace slint {
 
@@ -177,9 +178,8 @@ struct SharedString
     /// \endcode
     SharedString to_lowercase() const
     {
-        auto out = SharedString();
-        cbindgen_private::slint_shared_string_to_lowercase(&out, this);
-        return out;
+        return private_api::call_builtin(cbindgen_private::slint_builtin_string_to_lowercase,
+                                         *this);
     }
 
     /// Returns the uppercase equivalent of this string, as a new SharedString.
@@ -191,9 +191,8 @@ struct SharedString
     /// \endcode
     SharedString to_uppercase() const
     {
-        auto out = SharedString();
-        cbindgen_private::slint_shared_string_to_uppercase(&out, this);
-        return out;
+        return private_api::call_builtin(cbindgen_private::slint_builtin_string_to_uppercase,
+                                         *this);
     }
 
     /// Returns true if \a a is equal to \a b; otherwise returns false.

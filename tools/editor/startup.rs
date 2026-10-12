@@ -35,14 +35,11 @@ pub fn setup(
     editor_ui: &EditorUi,
     settings: &VisualEditorSettings,
     start_project: Rc<dyn Fn(Project) -> bool>,
+    close_project: Rc<dyn Fn()>,
 ) {
-    let api = editor_ui.global::<Api>();
-    api.set_startup_wizard_visible(true);
+    show_startup_wizard(editor_ui, settings);
 
     let project = editor_ui.global::<ProjectGlobal>();
-    project.set_file_tree(Default::default());
-    project.set_selected_project_file(Default::default());
-    preview::apply_visible_recent_projects(editor_ui, settings);
 
     let editor_ui_weak = editor_ui.as_weak();
     let start_existing_project = start_project.clone();
@@ -105,6 +102,15 @@ pub fn setup(
     });
 
     let editor_ui_weak = editor_ui.as_weak();
+    project.on_close_project(move || {
+        close_project();
+        if let Some(editor_ui) = editor_ui_weak.upgrade() {
+            let settings = preview::session_settings().unwrap_or_else(load_settings);
+            show_startup_wizard(&editor_ui, &settings);
+        }
+    });
+
+    let editor_ui_weak = editor_ui.as_weak();
     project.on_clear_recent_projects(move || {
         if preview::clear_recent_projects() {
             return;
@@ -123,6 +129,15 @@ pub fn setup(
             preview::apply_visible_recent_projects(&editor_ui, &settings);
         }
     });
+}
+
+fn show_startup_wizard(editor_ui: &EditorUi, settings: &VisualEditorSettings) {
+    editor_ui.global::<Api>().set_startup_wizard_visible(true);
+
+    let project = editor_ui.global::<ProjectGlobal>();
+    project.set_file_tree(Default::default());
+    project.set_selected_project_file(Default::default());
+    preview::apply_visible_recent_projects(editor_ui, settings);
 }
 
 #[cfg(not(target_arch = "wasm32"))]

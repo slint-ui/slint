@@ -101,7 +101,9 @@ pub enum RemoteConnectionState {
     Reconnecting,
     /// The viewer is showing a pairing code and is waiting for the user to
     /// type it into the editor.
-    PairingRequired,
+    PairingRequired {
+        code_digits: u8,
+    },
     /// The viewer has pairing disabled, so the session would be neither
     /// authenticated nor encrypted. Waiting for the user to accept that or
     /// cancel.

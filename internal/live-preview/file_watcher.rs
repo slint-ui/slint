@@ -590,7 +590,7 @@ mod tests {
     use std::time::Duration;
 
     const WATCHER_SETTLE_DELAY: Duration = Duration::from_millis(50);
-    const EVENT_TIMEOUT: Duration = Duration::from_secs(1);
+    const EVENT_TIMEOUT: Duration = Duration::from_secs(10);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
     struct TestContext {

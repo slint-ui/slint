@@ -5,6 +5,7 @@
 
 #include "private/slint_color_internal.h"
 #include "private/slint_generated_public.h"
+#include "private/slint_builtin_functions.h"
 
 namespace slint {
 
@@ -68,17 +69,23 @@ template<typename T>
 struct RgbaColor
 {
     /// The alpha component.
-    T alpha;
+    T alpha {};
     /// The red component.
-    T red;
+    T red {};
     /// The green component.
-    T green;
+    T green {};
     /// The blue component.
-    T blue;
+    T blue {};
+
+    /// Creates a new RgbaColor instance with all components set to zero.
+    RgbaColor() = default;
 
     /// Creates a new RgbaColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
     RgbaColor(const Color &col);
+
+    /// Compares two RgbaColor values component-wise.
+    friend bool operator==(const RgbaColor &lhs, const RgbaColor &rhs) = default;
 };
 
 /// HsvaColor stores the hue, saturation, value, and alpha components of a color in the HSV color
@@ -93,6 +100,9 @@ struct HsvaColor
     float value;
     /// The alpha component, between 0 and 1.
     float alpha;
+
+    /// Compares two HsvaColor values component-wise.
+    friend bool operator==(const HsvaColor &lhs, const HsvaColor &rhs) = default;
 };
 
 /// OklchColor stores the lightness, chroma, hue, and alpha components of a color in the Oklch
@@ -107,6 +117,9 @@ struct OklchColor
     float hue;
     /// The alpha component, between 0 and 1.
     float alpha;
+
+    /// Compares two OklchColor values component-wise.
+    friend bool operator==(const OklchColor &lhs, const OklchColor &rhs) = default;
 };
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
@@ -208,10 +221,7 @@ public:
     /// @returns a new HsvaColor.
     [[nodiscard]] HsvaColor to_hsva() const
     {
-        HsvaColor hsv {};
-        cbindgen_private::types::slint_color_to_hsva(&inner, &hsv.hue, &hsv.saturation, &hsv.value,
-                                                     &hsv.alpha);
-        return hsv;
+        return private_api::call_builtin(cbindgen_private::slint_builtin_color_hsva, *this);
     }
 
     /// Construct a color from the Oklch color space components.
@@ -230,10 +240,7 @@ public:
     /// @returns a new OklchColor.
     [[nodiscard]] OklchColor to_oklch() const
     {
-        OklchColor oklch {};
-        cbindgen_private::types::slint_color_to_oklch(&inner, &oklch.lightness, &oklch.chroma,
-                                                      &oklch.hue, &oklch.alpha);
-        return oklch;
+        return private_api::call_builtin(cbindgen_private::slint_builtin_color_oklch, *this);
     }
 
     /// Returns the red channel of the color as u8 in the range 0..255.
@@ -325,9 +332,8 @@ inline Color Color::transparentize(float factor) const
 
 inline Color Color::mix(const Color &other, float factor) const
 {
-    Color result;
-    cbindgen_private::types::slint_color_mix(&inner, &other.inner, factor, &result.inner);
-    return result;
+    return private_api::call_builtin(cbindgen_private::slint_builtin_color_mix, *this, other,
+                                     factor);
 }
 
 inline Color Color::with_alpha(float alpha) const

@@ -426,6 +426,7 @@ if (SLINT_BUILD_RUNTIME)
 
     set(generated_headers
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_brush_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_functions_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_builtin_structs_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_color_internal.h

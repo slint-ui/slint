@@ -18,6 +18,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 mod builtin_elements;
+#[macro_use]
+pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;

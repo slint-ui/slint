@@ -188,7 +188,6 @@ raw-window-handle-06 = { workspace = true, optional = true }
 itertools = { workspace = true }
 smol_str = { workspace = true }
 typed-index-collections = { workspace = true }
-unicode-segmentation = { workspace = true }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

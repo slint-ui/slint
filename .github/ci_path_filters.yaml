@@ -47,6 +47,16 @@ internal: &internal
 widgets: &widgets
  - 'internal/compiler/widgets/**'
 
+linuxkms_backend:
+ - 'Cargo.toml'
+ - 'internal/backends/linuxkms/**'
+ - *ci_config
+
+# What the code that the Rust generator emits depends on.
+rust_generator:
+ - *compiler
+ - 'internal/compiler/generator/rust*{,/**}'
+
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
  - *internal
@@ -110,7 +120,6 @@ tree_sitter:
 figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
- - *ci_config
 
 material_components:
  - '.github/workflows/material.yaml'
@@ -126,6 +135,12 @@ api_cpp:
  - 'internal/compiler/generator/cpp*{,/**}'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
+
+# The CMake setup of the C++ API, which the package test checks.
+cpp_cmake_config:
+ - 'api/cpp/{CMakeLists.txt,Cargo.toml}'
+ - 'api/cpp/cmake/**'
+ - 'cmake/**'
 
 android_backend:
  - 'internal/backends/android-activity/**'

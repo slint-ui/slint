@@ -216,6 +216,20 @@ impl SlintContext {
         crate::timers::Timer::with_list(&self.0.timers)
     }
 
+    /// Starts `timer` like [`Timer::start`](crate::timers::Timer::start), but registers it on
+    /// this context if it hasn't been started yet.
+    ///
+    /// A timer that already belongs to a live context keeps firing on that one.
+    pub fn start_timer(
+        &self,
+        timer: &crate::timers::Timer,
+        mode: crate::timers::TimerMode,
+        interval: core::time::Duration,
+        callback: impl FnMut() + 'static,
+    ) {
+        timer.start_on(self, mode, interval, callback);
+    }
+
     /// Runs `callback` once, `duration` from now, on this context.
     ///
     /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),

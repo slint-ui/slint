@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+pub mod builtin_functions;
 pub mod builtin_structs;
 #[cfg(feature = "color-parsing")]
 pub mod color_parsing;

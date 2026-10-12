@@ -11,7 +11,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinElement, BuiltinStruct, ElementType, Struct, Type};
+use crate::langtype::{BuiltinElement, BuiltinStruct, ElementType, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -195,14 +195,7 @@ fn compile_path_from_string_literal(
     let path = builder.build();
 
     let event_enum = crate::typeregister::BUILTIN.enums.PathEvent.clone();
-    let point_type = Arc::new(Struct::new(
-        IntoIterator::into_iter([
-            (SmolStr::new_static("x"), Type::Float32),
-            (SmolStr::new_static("y"), Type::Float32),
-        ])
-        .collect(),
-        BuiltinStruct::Point,
-    ));
+    let point_type = crate::typeregister::builtin_structs::get(&BuiltinStruct::Point);
 
     let mut points = Vec::new();
     let events = path

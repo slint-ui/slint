@@ -251,7 +251,7 @@ export component Abc {
             sh,
             SignatureHelp {
                 signatures: vec![
-                    make_signature_info("Pow", vec!["float".into()], Some(0),),
+                    make_signature_info("Pow", vec!["y: float".into()], Some(0),),
                     make_signature_info(
                         "abc",
                         vec![
@@ -261,7 +261,7 @@ export component Abc {
                         ],
                         Some(1)
                     ),
-                    make_signature_info("Pow", vec!["float".into(), "float".into()], Some(1)),
+                    make_signature_info("Pow", vec!["x: float".into(), "y: float".into()], Some(1)),
                 ],
                 active_signature: None,
                 active_parameter: None
