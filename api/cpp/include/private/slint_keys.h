@@ -5,6 +5,7 @@
 #include "private/slint_keys_internal.h"
 #include "private/slint_sharedvector.h"
 #include "private/slint_string.h"
+#include "private/slint_builtin_functions.h"
 
 #include <concepts>
 #include <optional>
@@ -114,9 +115,7 @@ public:
     /// do not rely on this output to be stable!
     inline SharedString to_string() const
     {
-        SharedString out;
-        cbindgen_private::types::slint_keys_to_string(&data, &out);
-        return out;
+        return private_api::call_builtin(cbindgen_private::slint_builtin_keys_to_string, *this);
     }
 
 private:

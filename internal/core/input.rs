@@ -658,8 +658,6 @@ pub fn make_keys(
 #[cfg(feature = "ffi")]
 #[allow(unsafe_code)]
 pub(crate) mod ffi {
-    use crate::api::ToSharedString as _;
-
     use super::*;
 
     #[unsafe(no_mangle)]
@@ -684,11 +682,6 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_keys_debug_string(shortcut: &Keys, out: &mut SharedString) {
         *out = crate::format!("{shortcut:?}");
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
-        *out = shortcut.to_shared_string();
     }
 
     #[unsafe(no_mangle)]

@@ -12,7 +12,6 @@
 #include "private/slint_item_tree.h"
 #include "private/slint_keys.h"
 #include "private/slint_data_transfer.h"
-#include "private/slint_builtin_functions.h"
 
 #include <vector>
 #include <chrono>

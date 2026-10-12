@@ -723,42 +723,6 @@ pub(crate) mod ffi {
         slint_shared_string_append(&mut s, crate::slice::Slice::from_slice(b"\xff"));
         assert_eq!(s.strip_suffix(char::REPLACEMENT_CHARACTER), Some("Hello, world!"));
     }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_shared_string_to_lowercase(
-        out: &mut SharedString,
-        ss: &SharedString,
-    ) {
-        *out = SharedString::from(ss.to_lowercase());
-    }
-    #[test]
-    fn test_slint_shared_string_to_lowercase() {
-        let s = SharedString::from("Hello");
-        let mut out = SharedString::default();
-
-        unsafe {
-            slint_shared_string_to_lowercase(&mut out, &s);
-        }
-        assert_eq!(out.as_str(), "hello");
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_shared_string_to_uppercase(
-        out: &mut SharedString,
-        ss: &SharedString,
-    ) {
-        *out = SharedString::from(ss.to_uppercase());
-    }
-    #[test]
-    fn test_slint_shared_string_to_uppercase() {
-        let s = SharedString::from("Hello");
-        let mut out = SharedString::default();
-
-        unsafe {
-            slint_shared_string_to_uppercase(&mut out, &s);
-        }
-        assert_eq!(out.as_str(), "HELLO");
-    }
 }
 
 #[cfg(feature = "serde")]

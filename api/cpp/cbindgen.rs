@@ -729,12 +729,9 @@ fn gen_corelib(
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
             "slint_color_transparentize",
-            "slint_color_mix",
             "slint_color_with_alpha",
-            "slint_color_to_hsva",
             "slint_color_from_hsva",
-            "slint_color_from_oklch",
-            "slint_color_to_oklch",],
+            "slint_color_from_oklch",],
             "slint_color_internal.h",
             "",
         ),
@@ -804,7 +801,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
+            vec!["Keys", "KeysInner", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
@@ -819,7 +816,6 @@ fn gen_corelib(
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
             "slint_keys_debug_string",
-            "slint_keys_to_string",
             "slint_keys",
             "slint_keys_from_parts",
             "slint_keys_to_parts",
