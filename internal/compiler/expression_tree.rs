@@ -131,6 +131,7 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayAny
             | BuiltinFunction::ArrayAll
             | BuiltinFunction::ArrayFindIndex => true,
+            BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
         }
     }
 }

@@ -195,6 +195,8 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
             isize::MAX
         }
+        BuiltinFunction::ScrollTo => isize::MAX,
+        BuiltinFunction::EnsureVisible => isize::MAX,
     }
 }
 

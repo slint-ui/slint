@@ -679,6 +679,15 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
+
+            /// This enum describes the mode used for scrolling to a specific position
+            #[non_exhaustive]
+            pub enum ScrollMode {
+                /// Instant jump to the scroll position
+                Instant,
+                /// Smooth scroll animation to the scroll position
+                Smooth,
+            }
         }
     };
 }

@@ -1566,6 +1566,9 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+
+        /// Scroll that `pos` is at the top left corner of the flickable
+        function scroll-to(pos: Point, mode: ScrollMode) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }

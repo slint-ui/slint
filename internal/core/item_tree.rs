@@ -10,7 +10,7 @@ use crate::SlintContext;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use crate::items::{AccessibleRole, ItemRef, ItemVTable};
+use crate::items::{AccessibleRole, ItemRef, ItemVTable, ScrollMode};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
 use crate::slice::Slice;
@@ -1099,7 +1099,9 @@ impl ItemRc {
             .and_then(|child_transform| child_transform.inverse())
     }
 
-    pub(crate) fn try_scroll_into_visible(&self) {
+    /// Tries to scroll `self` into the visible. This is only possible if the parent
+    /// is a flickable
+    pub fn try_scroll_into_visible(&self, scroll_mode: ScrollMode) {
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(item_rc) = parent.as_ref() {
             let item_ref = item_rc.borrow();
@@ -1125,6 +1127,7 @@ impl ItemRc {
                             item_rc,
                         ),
                     ],
+                    scroll_mode,
                 );
             }
 

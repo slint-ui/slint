@@ -5,13 +5,16 @@
 //!
 //! `android` decelerates a fling that stops hard at its scroll limit.
 //! `bounce` decelerates a fling that may run past its scroll limit, and springs content past the limit back to it.
+//! `ease_in_out_sine` moves the position by a fixed distance in a fixed duration.
 //! `rubber_band` maps between the drag distance past a limit and the displayed overscroll.
 //! `spring` holds the spring math `bounce` builds on.
 
 pub mod android;
 pub mod bounce;
+pub mod ease_in_out_sine;
 pub mod rubber_band;
 pub mod spring;
+pub mod spring_flick;
 
 use crate::animations::Instant;
 
