@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -45,21 +46,83 @@ fn report_glue_error(env: Env, message: core::fmt::Arguments<'_>) {
     crate::print_to_console(env, "error", message);
 }
 
-/// Runs `f`, which reads or writes a native adapter for the run-time, and
-/// reports a panic in it instead of letting it unwind into the run-time.
-/// A panic usually means a user callback broke the adapter's contract,
-/// such as a comparator that isn't a total order.
-fn catch_adapter_panic<R>(env: Env, fallback: R, f: impl FnOnce() -> R) -> R {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|panic| {
-        let message = panic
-            .downcast_ref::<&str>()
-            .copied()
-            .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
-            .unwrap_or("unknown panic");
-        report_glue_error(env, format_args!("Node.js: model adapter panicked: {message}"));
-        fallback
-    })
+/// An exception raised by the JavaScript code an adapter called,
+/// or a glue-level error in calling it.
+struct PendingError {
+    message: String,
+    exception: Option<napi::Error>,
 }
+
+impl PendingError {
+    fn report(self, env: Env) {
+        match self.exception {
+            Some(exception) => {
+                report_glue_error(env, format_args!("{}: {}", self.message, exception.reason))
+            }
+            None => report_glue_error(env, format_args!("{}", self.message)),
+        }
+    }
+
+    fn into_error(self) -> napi::Error {
+        self.exception.unwrap_or_else(|| napi::Error::from_reason(self.message))
+    }
+}
+
+/// Errors raised by the JavaScript code an adapter chain calls.
+#[derive(Default)]
+struct Errors {
+    active_calls: Cell<usize>,
+    /// The first error raised during a call, thrown again to the JavaScript caller of the adapter.
+    pending: RefCell<Option<PendingError>>,
+}
+
+impl Errors {
+    /// Records an error for the active call, or reports it right away when it was
+    /// raised outside a call, while the adapter handled a change notification.
+    /// `exception` is the JavaScript exception, if the error is one.
+    fn record(&self, env: Env, message: core::fmt::Arguments<'_>, exception: Option<napi::Error>) {
+        // A failed napi call can leave its exception pending, which would make later napi calls fail.
+        take_exception(&env);
+        let error = PendingError { message: message.to_string(), exception };
+        if self.active_calls.get() > 0 {
+            self.pending.borrow_mut().get_or_insert(error);
+        } else {
+            error.report(env);
+        }
+    }
+
+    /// Runs `f` as a call of the adapter,
+    /// returning the first error the JavaScript code raised during it.
+    fn call<R>(&self, f: impl FnOnce() -> R) -> CoreResult<R, PendingError> {
+        struct ActiveCall<'a>(&'a Cell<usize>);
+        impl Drop for ActiveCall<'_> {
+            fn drop(&mut self) {
+                self.0.set(self.0.get() - 1);
+            }
+        }
+
+        self.active_calls.set(self.active_calls.get() + 1);
+        let result = {
+            let _active_call = ActiveCall(&self.active_calls);
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
+        };
+        // A panic, such as Rust's sort rejecting an inconsistent order, usually
+        // follows an error of the JavaScript code: report that one instead.
+        match (self.pending.borrow_mut().take(), result) {
+            (Some(err), _) => Err(err),
+            (None, Ok(result)) => Ok(result),
+            (None, Err(panic)) => std::panic::resume_unwind(panic),
+        }
+    }
+
+    /// Runs `f` as a call of the adapter for a JavaScript caller,
+    /// throwing the first error the JavaScript code raised during it.
+    fn call_from_js<R>(&self, f: impl FnOnce() -> R) -> Result<R> {
+        self.call(f).map_err(PendingError::into_error)
+    }
+}
+
+type ErrorSlot = Rc<Errors>;
 
 /// An unsupported ModelError naming the JavaScript class of the model, falling
 /// back to the name of the RawJsModel wrapper. Clears the exception thrown to signal
@@ -102,21 +165,25 @@ fn native_model_of<'a>(source: &Object<'a>) -> Option<ClassInstance<'a, NativeMo
 
 /// Resolves an arbitrary JS `Model<T>`-shaped object to a `ModelRc<JsRawValue>`,
 /// reusing its native backing when there is one instead of wrapping it again.
-fn resolve_source(env: &Env, source: &Object) -> Result<ModelRc<JsRawValue>> {
+/// Returns the error slot along with it, shared by every adapter of the chain,
+/// as an adapter calls the callbacks of the adapters it reuses.
+fn resolve_source(env: &Env, source: &Object) -> Result<(ModelRc<JsRawValue>, ErrorSlot)> {
     if let Some(native) = native_model_of(source) {
-        return Ok((*native).inner.clone());
+        return Ok((native.inner.clone(), native.errors.clone()));
     }
 
     let shared_model_notify: ExternalRef<SharedModelNotify> =
         source.get_named_property("modelNotify")?;
     let shared_model_notify: SharedModelNotify = (*shared_model_notify).clone();
 
-    Ok(Rc::new(RawJsModel {
+    let errors = ErrorSlot::default();
+    let model = RawJsModel {
         shared_model_notify,
         env: *env,
         js_impl: WeakValueRef::new(env, source)?,
-    })
-    .into())
+        errors: errors.clone(),
+    };
+    Ok((Rc::new(model).into(), errors))
 }
 
 /// Bridges an arbitrary JS `Model<T>` as a `Model<Data = JsRawValue>`, without
@@ -128,11 +195,12 @@ struct RawJsModel {
     shared_model_notify: SharedModelNotify,
     env: Env,
     js_impl: WeakValueRef,
+    errors: ErrorSlot,
 }
 
 impl RawJsModel {
     fn report_error(&self, message: core::fmt::Arguments<'_>) {
-        report_glue_error(self.env, message);
+        self.errors.record(self.env, message, None);
     }
 }
 
@@ -159,11 +227,18 @@ impl Model for RawJsModel {
                 return 0;
             }
         };
-        let Ok(row_count_result) = row_count_fn.apply(model, ()) else {
-            self.report_error(format_args!(
-                "Node.js: JavaScript Model<T>'s rowCount implementation call failed"
-            ));
-            return 0;
+        let row_count_result = match row_count_fn.apply(model, ()) {
+            Ok(result) => result,
+            Err(err) => {
+                self.errors.record(
+                    self.env,
+                    format_args!(
+                        "Node.js: JavaScript Model<T>'s rowCount implementation call failed"
+                    ),
+                    Some(err),
+                );
+                return 0;
+            }
         };
         let Ok(row_count_number) = row_count_result.coerce_to_number() else {
             self.report_error(format_args!(
@@ -200,11 +275,18 @@ impl Model for RawJsModel {
                 return None;
             }
         };
-        let Ok(row_data) = row_data_fn.apply(model, row as f64) else {
-            self.report_error(format_args!(
-                "Node.js: JavaScript Model<T>'s rowData function threw an exception"
-            ));
-            return None;
+        let row_data = match row_data_fn.apply(model, row as f64) {
+            Ok(row_data) => row_data,
+            Err(err) => {
+                self.errors.record(
+                    self.env,
+                    format_args!(
+                        "Node.js: JavaScript Model<T>'s rowData function threw an exception"
+                    ),
+                    Some(err),
+                );
+                return None;
+            }
         };
         (row_data.get_type().ok()? != ValueType::Undefined)
             .then(|| JsRawValue { env: self.env.raw(), value: row_data.raw() })
@@ -418,6 +500,7 @@ impl Model for NotifyingAdapter {
 /// `inner` is a `RawJsModel` or a native adapter chain.
 struct TerminalTypedModel {
     inner: ModelRc<JsRawValue>,
+    errors: ErrorSlot,
     js_impl: WeakValueRef,
     env: Env,
     row_data_type: Type,
@@ -431,15 +514,23 @@ impl Drop for TerminalTypedModel {
     }
 }
 
+impl TerminalTypedModel {
+    /// Runs `f` as a call of the run-time, which has no JavaScript caller to
+    /// throw to, so an error the JavaScript code raised is reported instead.
+    fn call<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+        self.errors.call(f).map_err(|err| err.report(self.env)).ok()
+    }
+}
+
 impl Model for TerminalTypedModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        catch_adapter_panic(self.env, 0, || self.inner.row_count())
+        self.call(|| self.inner.row_count()).unwrap_or(0)
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let raw = catch_adapter_panic(self.env, None, || self.inner.row_data(row))?;
+        let raw = self.call(|| self.inner.row_data(row)).flatten()?;
         let unknown = unsafe { Unknown::from_raw_unchecked(raw.env, raw.value) };
         let Ok(value) = to_value(&self.env, unknown, &self.row_data_type, &self.owner) else {
             report_glue_error(
@@ -464,23 +555,28 @@ impl Model for TerminalTypedModel {
             return;
         };
         let data = JsRawValue { env: self.env.raw(), value: js_unknown.raw() };
-        catch_adapter_panic(self.env, (), || self.inner.set_row_data(row, data));
+        self.call(|| self.inner.set_row_data(row, data));
     }
 
     fn push_row(&self, data: Self::Data) -> CoreResult<(), ModelError> {
         let js_unknown =
             to_js_unknown(&self.env, &data).map_err(|_| ModelError::unsupported(self))?;
-        self.inner.push_row(JsRawValue { env: self.env.raw(), value: js_unknown.raw() })
+        let data = JsRawValue { env: self.env.raw(), value: js_unknown.raw() };
+        self.call(|| self.inner.push_row(data))
+            .unwrap_or_else(|| Err(ModelError::unsupported(self)))
     }
 
     fn remove_row(&self, row: usize) -> CoreResult<(), ModelError> {
-        self.inner.remove_row(row)
+        self.call(|| self.inner.remove_row(row))
+            .unwrap_or_else(|| Err(ModelError::unsupported(self)))
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) -> CoreResult<(), ModelError> {
         let js_unknown =
             to_js_unknown(&self.env, &data).map_err(|_| ModelError::unsupported(self))?;
-        self.inner.insert_row(row, JsRawValue { env: self.env.raw(), value: js_unknown.raw() })
+        let data = JsRawValue { env: self.env.raw(), value: js_unknown.raw() };
+        self.call(|| self.inner.insert_row(row, data))
+            .unwrap_or_else(|| Err(ModelError::unsupported(self)))
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -499,6 +595,7 @@ impl Model for TerminalTypedModel {
 #[napi]
 pub struct NativeModel {
     inner: ModelRc<JsRawValue>,
+    errors: ErrorSlot,
     // FilterModel/SortModel support re-applying their function; ReverseModel doesn't.
     reset_fn: Option<Box<dyn Fn()>>,
     // FilterModel/SortModel can map a row back to the source model's row index
@@ -509,39 +606,43 @@ pub struct NativeModel {
 #[napi]
 impl NativeModel {
     #[napi(catch_unwind)]
-    pub fn row_count(&self) -> u32 {
-        self.inner.row_count() as u32
+    pub fn row_count(&self) -> Result<u32> {
+        self.errors.call_from_js(|| self.inner.row_count() as u32)
     }
 
     #[napi(catch_unwind)]
     pub fn row_data<'a>(&self, env: &'a Env, row: u32) -> Result<Unknown<'a>> {
-        match self.inner.row_data(row as usize) {
+        match self.errors.call_from_js(|| self.inner.row_data(row as usize))? {
             Some(raw) => Ok(unsafe { Unknown::from_raw_unchecked(raw.env, raw.value) }),
             None => ().into_unknown(env),
         }
     }
 
     #[napi(catch_unwind)]
-    pub fn set_row_data(&self, env: &Env, row: u32, data: Unknown<'_>) {
-        // Some adapters (e.g. FilterModel/SortModel's row-mapping lookup)
-        // index directly and panic on an out-of-range row, unlike the JS
-        // `array[row]` this replaces, which just yields `undefined`.
-        if row as usize >= self.inner.row_count() {
-            return;
-        }
-        self.inner.set_row_data(row as usize, JsRawValue { env: env.raw(), value: data.raw() });
+    pub fn set_row_data(&self, env: &Env, row: u32, data: Unknown<'_>) -> Result<()> {
+        self.errors.call_from_js(|| {
+            // Some adapters (e.g. FilterModel/SortModel's row-mapping lookup)
+            // index directly and panic on an out-of-range row, unlike the JS
+            // `array[row]` this replaces, which just yields `undefined`.
+            if row as usize >= self.inner.row_count() {
+                return;
+            }
+            self.inner.set_row_data(row as usize, JsRawValue { env: env.raw(), value: data.raw() });
+        })
     }
 
     #[napi(catch_unwind)]
-    pub fn reset(&self) {
-        if let Some(reset_fn) = &self.reset_fn {
-            reset_fn();
+    pub fn reset(&self) -> Result<()> {
+        match &self.reset_fn {
+            Some(reset_fn) => self.errors.call_from_js(reset_fn),
+            None => Ok(()),
         }
     }
 
     #[napi(catch_unwind)]
-    pub fn unmapped_row(&self, row: u32) -> Option<u32> {
-        self.unmap_fn.as_ref().and_then(|f| f(row as usize)).map(|r| r as u32)
+    pub fn unmapped_row(&self, row: u32) -> Result<Option<u32>> {
+        let Some(unmap_fn) = &self.unmap_fn else { return Ok(None) };
+        Ok(self.errors.call_from_js(|| unmap_fn(row as usize))?.map(|r| r as u32))
     }
 }
 
@@ -549,11 +650,12 @@ impl NativeModel {
     fn new(
         adapter: ModelRc<JsRawValue>,
         notify: &SharedModelNotify,
+        errors: ErrorSlot,
         reset_fn: Option<Box<dyn Fn()>>,
         unmap_fn: Option<Box<dyn Fn(usize) -> Option<usize>>>,
     ) -> Self {
         let inner = Rc::new(NotifyingAdapter::new(adapter, notify.clone())).into();
-        Self { inner, reset_fn, unmap_fn }
+        Self { inner, errors, reset_fn, unmap_fn }
     }
 }
 
@@ -563,9 +665,9 @@ pub fn native_reverse_model_new(
     source: Object,
     notify: ExternalRef<SharedModelNotify>,
 ) -> Result<NativeModel> {
-    let wrapped = resolve_source(&env, &source)?;
+    let (wrapped, errors) = resolve_source(&env, &source)?;
     let native = Rc::new(ReverseModel::new(wrapped));
-    Ok(NativeModel::new(native.into(), &notify, None, None))
+    Ok(NativeModel::new(native.into(), &notify, errors, None, None))
 }
 
 #[napi(catch_unwind)]
@@ -575,31 +677,43 @@ pub fn native_filter_model_new(
     predicate: Function<Unknown, Unknown>,
     notify: ExternalRef<SharedModelNotify>,
 ) -> Result<NativeModel> {
-    let wrapped = resolve_source(&env, &source)?;
+    let (wrapped, errors) = resolve_source(&env, &source)?;
     let predicate_weak = WeakValueRef::new(&env, &predicate)?;
-    let native = Rc::new(FilterModel::new(wrapped, move |data: &JsRawValue| -> bool {
+    let callback_errors = errors.clone();
+    let filter = move |data: &JsRawValue| -> bool {
         let Some(func_unknown) = predicate_weak.get_unknown() else {
-            report_glue_error(
+            callback_errors.record(
                 env,
                 format_args!("Node.js: FilterModel predicate function has been garbage collected"),
+                None,
             );
             return false;
         };
         let Ok(predicate_fn) = (unsafe { func_unknown.cast::<Function<Unknown, Unknown>>() })
         else {
-            report_glue_error(env, format_args!("Node.js: FilterModel predicate is not callable"));
-            return false;
-        };
-        let js_data = unsafe { Unknown::from_raw_unchecked(data.env, data.value) };
-        let Ok(result) = predicate_fn.call(js_data) else {
-            report_glue_error(
+            callback_errors.record(
                 env,
-                format_args!("Node.js: FilterModel predicate threw an exception"),
+                format_args!("Node.js: FilterModel predicate is not callable"),
+                None,
             );
             return false;
         };
+        let js_data = unsafe { Unknown::from_raw_unchecked(data.env, data.value) };
+        let result = match predicate_fn.call(js_data) {
+            Ok(result) => result,
+            Err(err) => {
+                callback_errors.record(
+                    env,
+                    format_args!("Node.js: FilterModel predicate threw an exception"),
+                    Some(err),
+                );
+                return false;
+            }
+        };
         result.coerce_to_bool().unwrap_or(false)
-    }));
+    };
+    // FilterModel applies the filter function right away.
+    let native = Rc::new(errors.call_from_js(|| FilterModel::new(wrapped, filter))?);
 
     let reset_native = native.clone();
     let reset_fn: Box<dyn Fn()> = Box::new(move || reset_native.reset());
@@ -609,7 +723,7 @@ pub fn native_filter_model_new(
         (row < unmap_native.row_count()).then(|| unmap_native.unfiltered_row(row))
     });
 
-    Ok(NativeModel::new(native.into(), &notify, Some(reset_fn), Some(unmap_fn)))
+    Ok(NativeModel::new(native.into(), &notify, errors, Some(reset_fn), Some(unmap_fn)))
 }
 
 #[napi(catch_unwind)]
@@ -619,41 +733,49 @@ pub fn native_sort_model_new(
     compare: Function<FnArgs<(Unknown, Unknown)>, Unknown>,
     notify: ExternalRef<SharedModelNotify>,
 ) -> Result<NativeModel> {
-    let wrapped = resolve_source(&env, &source)?;
+    let (wrapped, errors) = resolve_source(&env, &source)?;
     let compare_weak = WeakValueRef::new(&env, &compare)?;
+    let callback_errors = errors.clone();
     let native = Rc::new(SortModel::new(
         wrapped,
         move |a: &JsRawValue, b: &JsRawValue| -> core::cmp::Ordering {
             use core::cmp::Ordering;
             let Some(func_unknown) = compare_weak.get_unknown() else {
-                report_glue_error(
+                callback_errors.record(
                     env,
                     format_args!("Node.js: SortModel compare function has been garbage collected"),
+                    None,
                 );
                 return Ordering::Equal;
             };
             let Ok(compare_fn) =
                 (unsafe { func_unknown.cast::<Function<FnArgs<(Unknown, Unknown)>, Unknown>>() })
             else {
-                report_glue_error(
+                callback_errors.record(
                     env,
                     format_args!("Node.js: SortModel compare function is not callable"),
+                    None,
                 );
                 return Ordering::Equal;
             };
             let js_a = unsafe { Unknown::from_raw_unchecked(a.env, a.value) };
             let js_b = unsafe { Unknown::from_raw_unchecked(b.env, b.value) };
-            let Ok(result) = compare_fn.call(FnArgs::from((js_a, js_b))) else {
-                report_glue_error(
-                    env,
-                    format_args!("Node.js: SortModel compare function threw an exception"),
-                );
-                return Ordering::Equal;
+            let result = match compare_fn.call(FnArgs::from((js_a, js_b))) {
+                Ok(result) => result,
+                Err(err) => {
+                    callback_errors.record(
+                        env,
+                        format_args!("Node.js: SortModel compare function threw an exception"),
+                        Some(err),
+                    );
+                    return Ordering::Equal;
+                }
             };
             let Ok(n) = result.coerce_to_number().and_then(|num| num.get_double()) else {
-                report_glue_error(
+                callback_errors.record(
                     env,
                     format_args!("Node.js: SortModel compare function returned a non-number"),
+                    None,
                 );
                 return Ordering::Equal;
             };
@@ -669,7 +791,7 @@ pub fn native_sort_model_new(
         (row < unmap_native.row_count()).then(|| unmap_native.unsorted_row(row))
     });
 
-    Ok(NativeModel::new(native.into(), &notify, Some(reset_fn), Some(unmap_fn)))
+    Ok(NativeModel::new(native.into(), &notify, errors, Some(reset_fn), Some(unmap_fn)))
 }
 
 #[napi(catch_unwind)]
@@ -679,31 +801,41 @@ pub fn native_map_model_new(
     map_function: Function<Unknown, Unknown>,
     notify: ExternalRef<SharedModelNotify>,
 ) -> Result<NativeModel> {
-    let wrapped = resolve_source(&env, &source)?;
+    let (wrapped, errors) = resolve_source(&env, &source)?;
     let map_fn_weak = WeakValueRef::new(&env, &map_function)?;
+    let callback_errors = errors.clone();
     let native = Rc::new(MapModel::new(wrapped, move |data: JsRawValue| -> JsRawValue {
         let Some(func_unknown) = map_fn_weak.get_unknown() else {
-            report_glue_error(
+            callback_errors.record(
                 env,
                 format_args!("Node.js: MapModel map function has been garbage collected"),
+                None,
             );
             return data;
         };
         let Ok(map_fn) = (unsafe { func_unknown.cast::<Function<Unknown, Unknown>>() }) else {
-            report_glue_error(env, format_args!("Node.js: MapModel map function is not callable"));
-            return data;
-        };
-        let js_data = unsafe { Unknown::from_raw_unchecked(data.env, data.value) };
-        let Ok(result) = map_fn.call(js_data) else {
-            report_glue_error(
+            callback_errors.record(
                 env,
-                format_args!("Node.js: MapModel map function threw an exception"),
+                format_args!("Node.js: MapModel map function is not callable"),
+                None,
             );
             return data;
         };
+        let js_data = unsafe { Unknown::from_raw_unchecked(data.env, data.value) };
+        let result = match map_fn.call(js_data) {
+            Ok(result) => result,
+            Err(err) => {
+                callback_errors.record(
+                    env,
+                    format_args!("Node.js: MapModel map function threw an exception"),
+                    Some(err),
+                );
+                return data;
+            }
+        };
         JsRawValue { env: data.env, value: result.raw() }
     }));
-    Ok(NativeModel::new(native.into(), &notify, None, None))
+    Ok(NativeModel::new(native.into(), &notify, errors, None, None))
 }
 
 pub(crate) fn js_into_rust_model(
@@ -716,11 +848,12 @@ pub(crate) fn js_into_rust_model(
     // native adapter and reuses its native backing directly, instead of
     // wrapping it as an opaque RawJsModel: same behavior, without per-row JS
     // callbacks for row mapping.
-    let inner = resolve_source(env, maybe_js_impl)?;
+    let (inner, errors) = resolve_source(env, maybe_js_impl)?;
     let prop_key = register_hidden_model_prop(env, anchor_owner, maybe_js_impl)?;
 
     Ok(Rc::new(TerminalTypedModel {
         inner,
+        errors,
         js_impl: WeakValueRef::new(env, maybe_js_impl)?,
         env: *env,
         row_data_type: row_data_type.clone(),

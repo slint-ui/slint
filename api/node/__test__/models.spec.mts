@@ -685,3 +685,94 @@ test("ReverseModel notifies the run-time", () => {
     sourceModel.push(4);
     expect(instance.first).toBe(4);
 });
+
+function thrownBy(f: () => unknown): unknown {
+    try {
+        f();
+    } catch (error) {
+        return error;
+    }
+    throw new Error("expected an exception");
+}
+
+test("FilterModel throws the exception its filter function raised", () => {
+    const error = new Error("filter failed");
+    const source = new ArrayModel([1, 2, 3]);
+    expect(
+        thrownBy(
+            () =>
+                new FilterModel(source, (x) => {
+                    if (x === 2) {
+                        throw error;
+                    }
+                    return true;
+                }),
+        ),
+    ).toBe(error);
+});
+
+test("SortModel throws the exception its compare function raised", () => {
+    const error = new Error("compare failed");
+    const sorted = new SortModel(new ArrayModel([3, 1, 2]), () => {
+        throw error;
+    });
+    expect(thrownBy(() => sorted.rowData(0))).toBe(error);
+});
+
+test("MapModel throws the exception its map function raised", () => {
+    const error = new Error("map failed");
+    const mapped = new MapModel(new ArrayModel([1]), () => {
+        throw error;
+    });
+    expect(thrownBy(() => mapped.rowData(0))).toBe(error);
+});
+
+test("An adapter throws the exception raised in an adapter it builds on", () => {
+    const error = new Error("compare failed");
+    const sorted = new SortModel(new ArrayModel([3, 1, 2]), () => {
+        throw error;
+    });
+    expect(thrownBy(() => new FilterModel(sorted, () => true))).toBe(error);
+});
+
+test("An adapter reports an exception raised while the run-time reads it", () => {
+    const mapped = new MapModel(new ArrayModel([1]), (): number => {
+        throw new Error("map failed");
+    });
+    const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+    try {
+        bindRows(mapped).row0;
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining("MapModel map function threw an exception"),
+        );
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining("map failed"),
+        );
+    } finally {
+        consoleError.mockRestore();
+    }
+});
+
+test("An adapter reports an exception raised while it handles a change notification", () => {
+    const source = new ArrayModel([1, 2]);
+    const filtered = new FilterModel(source, (x) => {
+        if (x === 3) {
+            throw new Error("filter failed");
+        }
+        return true;
+    });
+    const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+    try {
+        source.push(3);
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining("filter failed"),
+        );
+        expect(Array.from(filtered)).toEqual([1, 2]);
+    } finally {
+        consoleError.mockRestore();
+    }
+});
