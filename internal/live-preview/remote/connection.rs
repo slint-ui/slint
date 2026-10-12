@@ -945,10 +945,11 @@ fn local_ips_for(local_addr: SocketAddr) -> Vec<IpAddr> {
         SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
     };
     if unspecified {
-        let mut ips: Vec<IpAddr> = getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
+        let mut ips: Vec<IpAddr> = if_addrs::get_if_addrs()
             .unwrap_or_default()
             .into_iter()
-            .map(|net| net.addr())
+            .filter(|interface| !interface.is_loopback())
+            .map(|interface| interface.ip())
             .collect();
         if ips.is_empty() {
             // Fallback: open a UDP socket to a public address (nothing is

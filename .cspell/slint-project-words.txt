@@ -259,7 +259,6 @@ fwasm
 Fwww
 genhtml
 getattr
-getifs
 getpid
 getrandom
 globalfun
