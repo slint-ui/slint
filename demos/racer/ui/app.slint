@@ -517,6 +517,7 @@ export component AppWindow inherits Window {
     in-out property <bool> autopilot: true;
     in-out property <bool> assist: true;
     in-out property <Quality> quality: Quality.high;
+    in-out property <bool> auto-quality: true;
     in-out property <bool> bumper-camera;
 
     callback input-changed(x: float, y: float);
@@ -634,10 +635,12 @@ export component AppWindow inherits Window {
     }
     function next-quality() {
         root.quality = root.quality == Quality.low ? Quality.medium : root.quality == Quality.medium ? Quality.high : Quality.low;
+        root.auto-quality = false;
         root.settings-changed();
     }
     function select-quality(index: int) {
         root.quality = index == 0 ? Quality.low : index == 1 ? Quality.medium : Quality.high;
+        root.auto-quality = false;
         root.settings-changed();
     }
     function toggle-assist() {
@@ -1228,7 +1231,7 @@ export component AppWindow inherits Window {
                     }
 
                     Label {
-                        text: "QUALITY";
+                        text: root.auto-quality ? "QUALITY · AUTO" : "QUALITY";
                     }
 
                     Segmented {

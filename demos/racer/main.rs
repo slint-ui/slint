@@ -8,11 +8,13 @@ use std::rc::Rc;
 use glam::{Quat, Vec2, Vec3, Vec3Swizzles};
 use slint::wgpu_30::{WGPUConfiguration, WGPUSettings, wgpu};
 
+use adaptive::Adaptive;
 use cars::{Car, Controls, Style};
 use renderer::Renderer;
 use track::{SAMPLES, Track};
 use world::{CameraMode, FrameInput, StartLights, World, hex};
 
+mod adaptive;
 mod camera;
 mod car_model;
 mod cars;
@@ -200,6 +202,8 @@ struct State {
     assist: bool,
     camera: CameraMode,
     quality: Quality,
+    /// Whether the quality follows the frame rate, see `Adaptive`.
+    auto_quality: bool,
     /// While set, the race stands still.
     paused: bool,
     start_requested: bool,
@@ -221,6 +225,7 @@ impl State {
             assist: true,
             camera: CameraMode::Chase,
             quality: Quality::High,
+            auto_quality: true,
             paused: false,
             start_requested: false,
             reset_requested: false,
@@ -545,12 +550,6 @@ fn show_telemetry(app: &AppWindow, state: &State, models: &HudModels) {
     update_rows(&models.cars, dots);
 }
 
-/// The share of the window's width and height that `quality` renders the scene at. The
-/// scene's `Image` stretches the frame over the window.
-fn render_scale(quality: Quality) -> f32 {
-    if quality == Quality::Low { 0.75 } else { 1.0 }
-}
-
 /// Renders the scene into one of two textures, so Slint can show the previous one meanwhile.
 struct Frames {
     textures: Vec<wgpu::Texture>,
@@ -605,11 +604,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         app_window.set_quality(Quality::Medium);
     }
     for arg in std::env::args() {
-        match arg.as_str() {
-            "--low" => app_window.set_quality(Quality::Low),
-            "--medium" => app_window.set_quality(Quality::Medium),
-            _ => {}
-        }
+        let quality = match arg.as_str() {
+            "--low" => Quality::Low,
+            "--medium" => Quality::Medium,
+            _ => continue,
+        };
+        app_window.set_quality(quality);
+        app_window.set_auto_quality(false);
     }
 
     let state = Rc::new(RefCell::new(State::new()));
@@ -650,6 +651,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             state.autopilot = app.get_autopilot();
             state.assist = app.get_assist();
             state.quality = app.get_quality();
+            state.auto_quality = app.get_auto_quality();
             state.camera =
                 if app.get_bumper_camera() { CameraMode::Bumper } else { CameraMode::Chase };
         })
@@ -664,6 +666,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The renderer, the scene, and Slint's device, once Slint set up rendering.
     let mut graphics: Option<(Renderer, World, wgpu::Device)> = None;
     let mut frames = Frames { textures: Vec::new(), next: 0 };
+    let mut adaptive = Adaptive::new(app_window.get_quality());
     let mut last_frame = web_time::Instant::now();
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
@@ -703,8 +706,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         state.step(dt);
         show_telemetry(&app, &state, &models);
 
+        if let Some(quality) = adaptive.frame(state.quality, state.animating(), state.auto_quality)
+        {
+            state.quality = quality;
+            app.set_quality(quality);
+        }
+        // The scene's `Image` stretches the frame over the window.
         let window_size = app.window().size();
-        let scale = render_scale(state.quality);
+        let scale = adaptive.scale();
         let scaled = |length: u32| ((length as f32 * scale).round() as u32).max(1);
         let size = (scaled(window_size.width), scaled(window_size.height));
         let colors = state.colors();
@@ -732,7 +741,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let elapsed = fps_window_start.elapsed().as_secs_f32();
         if elapsed >= 0.5 {
             let fps = frame_count as f32 / elapsed;
-            app.set_fps_text(format!("{fps:.0} fps · {:.1} ms", 1000.0 / fps.max(1.0)).into());
+            let ms = 1000.0 / fps.max(1.0);
+            let percent = scale * 100.0;
+            app.set_fps_text(format!("{fps:.0} fps · {ms:.1} ms · {percent:.0}% size").into());
             frame_count = 0;
             fps_window_start = now;
         }
