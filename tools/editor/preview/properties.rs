@@ -5,7 +5,8 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::element_type::ElementType;
 use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
 use i_slint_compiler::langtype::Type;
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::native_class::PropertyVisibility;
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };

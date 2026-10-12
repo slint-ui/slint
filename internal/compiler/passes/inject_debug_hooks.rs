@@ -21,10 +21,11 @@
 
 use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::Expression;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
 };
-use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc, PropertyVisibility};
+use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use std::rc::Rc;
 

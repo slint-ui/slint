@@ -5,7 +5,7 @@
 
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{Function, Type};
-use i_slint_compiler::object_tree::PropertyVisibility;
+use i_slint_compiler::native_class::PropertyVisibility;
 use i_slint_compiler::typeloader::TypeLoader;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;

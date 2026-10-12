@@ -17,6 +17,7 @@ use crate::element_type::ElementType;
 use crate::expression_tree::{BuiltinFunction, Callable, Expression};
 use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;

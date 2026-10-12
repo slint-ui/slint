@@ -65,11 +65,11 @@
 
 use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementDocEntry, ElementType};
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
-use crate::langtype::{
-    BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ConstantExpression, Function,
-    NativeClass, Type,
+use crate::langtype::{BuiltinStruct, ConstantExpression, Function, Type};
+use crate::native_class::{
+    BuiltinPropertyDefault, BuiltinPropertyInfo, NativeClass, PropertyVisibility,
 };
-use crate::object_tree::{Component, Element, PropertyVisibility};
+use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::cell::RefCell;

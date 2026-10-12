@@ -9,6 +9,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::Type;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;

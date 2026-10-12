@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use crate::element_type::BuiltinElement;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinPropertyDefault, NativeClass};
+use crate::native_class::{BuiltinPropertyDefault, NativeClass};
 use crate::object_tree::Element;
 
 pub fn select_native_class(elem: &Element, builtin: &BuiltinElement) -> Arc<NativeClass> {
@@ -120,7 +120,8 @@ fn select_minimal_class_based_on_property_usage<'a>(
 
 #[test]
 fn test_select_minimal_class_based_on_property_usage() {
-    use crate::langtype::{BuiltinPropertyInfo, Type};
+    use crate::langtype::Type;
+    use crate::native_class::BuiltinPropertyInfo;
     use smol_str::ToSmolStr;
     let first = Arc::new(NativeClass::new_with_properties(
         "first_class",

@@ -12,7 +12,8 @@ use std::sync::Arc;
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
-use crate::object_tree::{Component, PropertyVisibility};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::Component;
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -474,7 +475,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: false,
-                        property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                        property_visibility: crate::native_class::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
                         is_slint_sc: false,

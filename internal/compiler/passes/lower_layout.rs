@@ -11,6 +11,7 @@ use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::{TypeRegister, layout_info_type};
@@ -40,7 +41,7 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
         prop_name.clone(),
         PropertyDeclaration {
             property_type: function_ty,
-            visibility: crate::object_tree::PropertyVisibility::Private,
+            visibility: PropertyVisibility::Private,
             pure: Some(true),
             synthesized: true,
             ..Default::default()
