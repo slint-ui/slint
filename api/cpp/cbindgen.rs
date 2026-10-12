@@ -1009,14 +1009,6 @@ fn gen_corelib(
     ~WindowEvent() {}"
             .into(),
     );
-    config.export.body.insert(
-        "SystemTrayIcon".to_owned(),
-        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
-    );
-    config
-        .export
-        .pre_body
-        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
     // cbindgen only derives the special member functions and equality for tagged enums in the
     // separate special-config pass, not for the types generated here, so they are provided by
     // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
