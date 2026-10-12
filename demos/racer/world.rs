@@ -27,6 +27,9 @@ use crate::track::{
 use crate::trees;
 use crate::yaw_towards;
 
+/// The size of the squares on the ground that the track's meshes are split by, in meters.
+const TRACK_CHUNK: f32 = 100.0;
+
 const GROUND_SIZE: f32 = 1100.0;
 /// How far the camera sees. The sky and the mountains move with the camera, just inside.
 const FAR: f32 = 520.0;
@@ -793,10 +796,33 @@ impl World {
         }
     }
 
+    /// Adds `geometry` along the track, in chunks the renderer can skip when out of view,
+    /// under a group that it returns.
+    fn add_chunks(
+        &mut self,
+        renderer: &Renderer,
+        geometry: &Geometry,
+        material: &Material,
+        render_order: i32,
+    ) -> Node {
+        let group = self.scene.group(Some(self.track_group));
+        for chunk in geometry.chunks(TRACK_CHUNK) {
+            let mesh = renderer.create_mesh(&chunk);
+            let node = self.scene.add_mesh(
+                Some(group),
+                &mesh,
+                material,
+                Vec3::ZERO,
+                Quat::IDENTITY,
+                Vec3::ONE,
+            );
+            self.scene.object(node).render_order = render_order;
+        }
+        group
+    }
+
     fn add_mesh(&mut self, renderer: &Renderer, geometry: &Geometry, material: &Material) -> Node {
-        let mesh = renderer.create_mesh(geometry);
-        let group = Some(self.track_group);
-        self.scene.add_mesh(group, &mesh, material, Vec3::ZERO, Quat::IDENTITY, Vec3::ONE)
+        self.add_chunks(renderer, geometry, material, 0)
     }
 
     fn add_flat(
@@ -806,9 +832,7 @@ impl World {
         material: &Material,
         layer: FlatLayer,
     ) -> Node {
-        let node = self.add_mesh(renderer, geometry, material);
-        self.scene.object(node).render_order = layer as i32;
-        node
+        self.add_chunks(renderer, geometry, material, layer as i32)
     }
 
     /// Replaces the track and everything along it.

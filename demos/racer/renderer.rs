@@ -33,6 +33,51 @@ pub struct Geometry {
 const VERTEX_FLOATS: usize = 11;
 
 impl Geometry {
+    /// The center and radius of a sphere around the vertices.
+    fn bounds(&self) -> (Vec3, f32) {
+        let (min, max) = self
+            .positions
+            .iter()
+            .fold((Vec3::splat(f32::MAX), Vec3::splat(f32::MIN)), |(min, max), &p| {
+                (min.min(Vec3::from(p)), max.max(Vec3::from(p)))
+            });
+        let center = (min + max) / 2.0;
+        let radius =
+            self.positions.iter().map(|&p| center.distance(Vec3::from(p))).fold(0.0, f32::max);
+        (center, radius)
+    }
+
+    /// The triangles split by the square of `size` meters on the ground that their center
+    /// is in, so that the renderer can skip the squares out of view.
+    pub fn chunks(&self, size: f32) -> Vec<Geometry> {
+        let mut chunks: HashMap<(i32, i32), (Geometry, HashMap<u32, u32>)> = HashMap::new();
+        for triangle in self.indices.chunks_exact(3) {
+            let center =
+                triangle.iter().map(|&i| Vec3::from(self.positions[i as usize])).sum::<Vec3>()
+                    / 3.0;
+            let cell = ((center.x / size).floor() as i32, (center.z / size).floor() as i32);
+            let (chunk, remap) = chunks.entry(cell).or_default();
+            for &index in triangle {
+                let new = *remap.entry(index).or_insert_with(|| {
+                    let i = index as usize;
+                    chunk.positions.push(self.positions[i]);
+                    if let Some(&normal) = self.normals.get(i) {
+                        chunk.normals.push(normal);
+                    }
+                    if let Some(&uv) = self.uvs.get(i) {
+                        chunk.uvs.push(uv);
+                    }
+                    if let Some(&color) = self.colors.get(i) {
+                        chunk.colors.push(color);
+                    }
+                    chunk.positions.len() as u32 - 1
+                });
+                chunk.indices.push(new);
+            }
+        }
+        chunks.into_values().map(|(chunk, _)| chunk).collect()
+    }
+
     fn vertex_data(&self) -> Vec<f32> {
         let mut data = Vec::with_capacity(self.positions.len() * VERTEX_FLOATS);
         for (i, position) in self.positions.iter().enumerate() {
@@ -49,6 +94,8 @@ pub struct Mesh {
     vertices: wgpu::Buffer,
     indices: wgpu::Buffer,
     index_count: u32,
+    /// The center and radius of a sphere around the vertices.
+    bounds: (Vec3, f32),
 }
 
 /// RGBA8 texels in sRGB, with all mipmaps from the largest down to 1x1.
@@ -1099,6 +1146,7 @@ impl Renderer {
                 wgpu::BufferUsages::INDEX,
             ),
             index_count: geometry.indices.len() as u32,
+            bounds: geometry.bounds(),
         })
     }
 
@@ -1309,6 +1357,27 @@ impl Renderer {
         let depth_scale = camera.far / (camera.near - camera.far);
         let projection = [focal / camera.aspect, focal, depth_scale, depth_scale * camera.near];
 
+        // Low quality skips what's out of view. The other qualities draw it, since it may
+        // cast a shadow into view.
+        let cull = !high;
+        let planes = frustum_planes(
+            Mat4::perspective_rh(
+                camera.fov_degrees.to_radians(),
+                camera.aspect,
+                camera.near,
+                camera.far,
+            ) * view,
+        );
+        let visible = |(center, radius): (Vec3, f32), transform: Mat4| {
+            let center = transform.transform_point3(center);
+            let scale = transform
+                .x_axis
+                .length()
+                .max(transform.y_axis.length())
+                .max(transform.z_axis.length());
+            !cull || planes.iter().all(|plane| plane.dot(center.extend(1.0)) >= -radius * scale)
+        };
+
         let mut cache = vec![None; scene.objects.len()];
         let mut opaque = Vec::new();
         let mut transparent = Vec::new();
@@ -1321,16 +1390,23 @@ impl Renderer {
             }
             let Some(world) = scene.world_transform(index, &mut cache) else { continue };
             // Instances sort by their mean position.
-            let center = match &object.instances {
-                None => world.w_axis.truncate(),
-                Some(instances) if instances.is_empty() => continue,
+            let (center, instances) = match &object.instances {
+                None if !visible(mesh.bounds, world) => continue,
+                None => (world.w_axis.truncate(), None),
                 Some(instances) => {
+                    let instances: Vec<_> = instances
+                        .iter()
+                        .filter(|i| visible(mesh.bounds, world * i.transform))
+                        .collect();
+                    if instances.is_empty() {
+                        continue;
+                    }
                     let sum: Vec3 = instances.iter().map(|i| i.transform.w_axis.truncate()).sum();
-                    world.transform_point3(sum / instances.len() as f32)
+                    (world.transform_point3(sum / instances.len() as f32), Some(instances))
                 }
             };
             let depth = (center - camera.translation).dot(forward);
-            let draw = (object, mesh, world, depth);
+            let draw = (object, mesh, world, depth, instances);
             if object.material.blend == Blend::Opaque || object.render_order < 0 {
                 opaque.push(draw);
             } else {
@@ -1386,10 +1462,10 @@ impl Renderer {
         // numbers small near it.
         let at_camera = Mat4::from_translation(camera.translation);
         let from_camera = Mat4::from_translation(-camera.translation);
-        for (i, (object, _, world, _)) in draws.iter().enumerate() {
+        for (i, (object, _, world, _, visible_instances)) in draws.iter().enumerate() {
             let material = &object.material;
             let (roughness, metalness) = material.lit.unwrap_or((1.0, 0.0));
-            let model = match &object.instances {
+            let model = match visible_instances {
                 Some(list) => {
                     ranges.push((instances.len() / INSTANCE_FLOATS, list.len() as u32));
                     for instance in list {
@@ -1614,6 +1690,15 @@ impl Renderer {
         }
         self.queue.submit([encoder.finish()]);
     }
+}
+
+/// The planes around what `view_projection` shows, each with its normal pointing inwards
+/// and normalized, so that a point's dot product with one is its distance from it.
+fn frustum_planes(view_projection: Mat4) -> [Vec4; 6] {
+    let row = |i| view_projection.row(i);
+    // wgpu's depth runs from 0 to 1, so the near plane is the third row alone.
+    [row(3) + row(0), row(3) - row(0), row(3) + row(1), row(3) - row(1), row(2), row(3) - row(2)]
+        .map(|plane| plane / plane.truncate().length())
 }
 
 fn upload_texture(
