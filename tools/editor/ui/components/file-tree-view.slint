@@ -3,6 +3,7 @@
 
 import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
+import { Icons } from "icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
@@ -146,7 +147,7 @@ component FileTreeRow inherits Rectangle {
                     height: Metrics.icon-small;
                     x: 0px;
                     y: (parent.height - self.height) / 2;
-                    source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                    source: root.node.is-expanded ? Icons.chevron-down : Icons.chevron-right;
                     colorize: root.style.row.muted;
                 }
             }
@@ -168,7 +169,7 @@ component FileTreeRow inherits Rectangle {
                         height: parent.height;
                         source: root.folder
                             ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
-                            : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
+                            : root.node.kind == FileTreeNodeKind.image ? Icons.image
                             : FileTreeIcons.file-code;
                         colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
                     }
@@ -180,7 +181,7 @@ component FileTreeRow inherits Rectangle {
                         border-radius: self.width / 2;
                         background: root.style.row.selected-background;
                         Image {
-                            source: FileTreeIcons.alert;
+                            source: Icons.alert;
                             width: parent.width;
                             height: parent.height;
                             colorize: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
