@@ -545,6 +545,12 @@ fn show_telemetry(app: &AppWindow, state: &State, models: &HudModels) {
     update_rows(&models.cars, dots);
 }
 
+/// The share of the window's width and height that `quality` renders the scene at. The
+/// scene's `Image` stretches the frame over the window.
+fn render_scale(quality: Quality) -> f32 {
+    if quality == Quality::Low { 0.75 } else { 1.0 }
+}
+
 /// Renders the scene into one of two textures, so Slint can show the previous one meanwhile.
 struct Frames {
     textures: Vec<wgpu::Texture>,
@@ -698,7 +704,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         show_telemetry(&app, &state, &models);
 
         let window_size = app.window().size();
-        let size = (window_size.width.max(1), window_size.height.max(1));
+        let scale = render_scale(state.quality);
+        let scaled = |length: u32| ((length as f32 * scale).round() as u32).max(1);
+        let size = (scaled(window_size.width), scaled(window_size.height));
         let colors = state.colors();
         let frame = FrameInput {
             track: &state.track,
