@@ -4774,7 +4774,6 @@ dependencies = [
  "i-slint-live-preview",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-software",
- "num-traits",
  "once_cell",
  "pin-weak",
  "slint-macros",

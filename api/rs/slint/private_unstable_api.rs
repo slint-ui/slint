@@ -195,7 +195,6 @@ pub mod re_exports {
     };
     pub use i_slint_core::{Color, Coord, SharedString, SharedVector, format};
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
-    pub use num_traits::float::Float;
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;

@@ -364,7 +364,7 @@ pub(super) fn generate_module_header() -> TokenStream {
 
         use slint::private_unstable_api::re_exports as sp;
         #[allow(unused_imports)]
-        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
+        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _};
     }
 }
 
