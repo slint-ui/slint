@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Column inherits VerticalLayout {
+    private property <int> count: 3;
+    callback created();
+    for i in count: Rectangle {
+        preferred-height: 10px;
+        init => {
+            root.created();
+        }
+    }
+    for i in 2: Rectangle {
+        preferred-height: 1px;
+        init => {
+            root.created();
+        }
+    }
+    if true: Rectangle {
+        preferred-height: 100px;
+        init => {
+            root.created();
+        }
+    }
+    if false: Rectangle {
+        preferred-height: 1000px;
+        init => {
+            root.created();
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 500phx;
+
+    in-out property <int> creation-count: 0;
+    out property <length> height1: c1.preferred-height;
+    out property <length> height2: c2.preferred-height;
+    out property <bool> test: height1 == 132px && height2 == 132px && creation-count == 12;
+
+    HorizontalLayout {
+        c1 := Column {
+            created => {
+                creation-count += 1;
+            }
+        }
+        c2 := Column {
+            created => {
+                creation-count += 1;
+            }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_height1(), 132.);
+assert_eq(instance.get_height2(), 132.);
+assert_eq(instance.get_creation_count(), 12);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_height1(), 132.);
+assert_eq!(instance.get_height2(), 132.);
+assert_eq!(instance.get_creation_count(), 12);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.height1, 132.);
+assert.equal(instance.height2, 132.);
+assert.equal(instance.creation_count, 12);
+assert(instance.test);
+```
+*/

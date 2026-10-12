@@ -350,6 +350,7 @@ mod visitor {
         }
         for RepeatedElement {
             model,
+            model_is_constant: _,
             index_prop,
             data_prop,
             dynamic_z,

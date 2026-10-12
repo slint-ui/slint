@@ -77,6 +77,13 @@ fn simplify_expression(
         }
         Expression::FunctionCall { .. } => simplify_function_call(expr, ga, cache),
         Expression::ElementReference { .. } => false,
+        // Each copy of an array literal is a separate model (#5249)
+        Expression::Array { .. } => {
+            expr.visit_mut(|expr| {
+                simplify_expression(expr, ga, cache);
+            });
+            false
+        }
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,
         Expression::SolveBoxLayout { .. } => false,
@@ -925,4 +932,50 @@ fn test_fold_layout_info_merge() {
     };
     fold_const_expression(&mut expr);
     assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
+}
+
+#[test]
+fn test_constant_array() {
+    let source = r#"
+export global Settings {
+    in-out property <[string]> similar-videos-visual-preset-names: ["Custom", "Near-identical", "Similar"];
+}
+global GuiState {
+    in-out property <[int]> similar-videos-data-idx: [3, 2, 10, -1];
+}
+export component MainWindow {
+    in property <string> name;
+    out property <[string]> preset-names: Settings.similar-videos-visual-preset-names;
+    out property <int> file-name-idx: GuiState.similar-videos-data-idx[1];
+    out property <[string]> with-input: ["Custom", name];
+}
+"#;
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(source.to_string(), None, &mut test_diags);
+    let compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let binding = |name: &str| root_element.borrow().binding(name).unwrap().clone();
+    let is_const = |nr: &NamedReference| {
+        nr.element().borrow().binding(nr.name()).unwrap().analysis.as_ref().unwrap().is_const
+    };
+
+    // Readers keep referencing the array property, so they share one model
+    let Expression::PropertyReference(preset_names) = &binding("preset-names").expression else {
+        panic!("{:?}", binding("preset-names").expression)
+    };
+    assert!(is_const(preset_names));
+
+    let Expression::ArrayIndex { array, .. } = &binding("file-name-idx").expression else {
+        panic!("{:?}", binding("file-name-idx").expression)
+    };
+    let Expression::PropertyReference(data_idx) = &**array else { panic!("{array:?}") };
+    assert!(is_const(data_idx));
+    assert!(!binding("file-name-idx").analysis.as_ref().unwrap().is_const);
+
+    assert!(!binding("with-input").analysis.as_ref().unwrap().is_const);
 }

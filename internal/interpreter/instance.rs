@@ -132,6 +132,22 @@ impl RepeaterOrConditional {
         }
     }
 
+    /// Set a model that never changes, for `for` repeaters.
+    pub fn set_constant_model(&self, model: i_slint_core::model::ModelRc<crate::Value>) {
+        match self {
+            Self::Repeater(r) => Pin::as_ref(r).set_constant_model(model),
+            Self::Conditional(_) => unreachable!("set_constant_model on conditional"),
+        }
+    }
+
+    /// Set a condition that never changes, for conditional elements.
+    pub fn set_constant_condition(&self, condition: bool) {
+        match self {
+            Self::Conditional(c) => c.set_constant_model(condition),
+            Self::Repeater(_) => unreachable!("set_constant_condition on repeater"),
+        }
+    }
+
     /// Set the condition binding for conditional elements.
     pub fn set_condition_binding(&self, binding: impl Fn() -> bool + 'static) {
         match self {
