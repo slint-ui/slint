@@ -3,6 +3,9 @@
 
 use std::sync::LazyLock;
 
+#[cfg(feature = "fork-harness")]
+pub mod fork_harness;
+
 use regex::Regex;
 
 pub struct TestCase {
@@ -48,7 +51,13 @@ pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     if let Ok(styles) = std::env::var("SLINT_TEST_STYLES")
         && !styles.is_empty()
     {
-        all_styles.retain(|style| styles.split(',').any(|requested| requested.trim() == *style));
+        let requested: Vec<&str> = styles.split(',').map(str::trim).collect();
+        if let Some(missing) = requested.iter().find(|style| !all_styles.contains(style)) {
+            panic!(
+                "Style '{missing}' in SLINT_TEST_STYLES isn't available, expected some of {all_styles:?}"
+            );
+        }
+        all_styles.retain(|style| requested.contains(style));
     }
 
     let case_root_dir: std::path::PathBuf =

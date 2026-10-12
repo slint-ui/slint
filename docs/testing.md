@@ -103,6 +103,7 @@ tests/run_tests.sh rust layout
 
 The test cases in `tests/cases/widgets` run once per widget style.
 Set `SLINT_TEST_STYLES` to a comma-separated list of styles to only run them with these styles.
+The build fails for a style that isn't available, such as `qt` without Qt.
 This works for every driver.
 Example: to run the widget tests with the Fluent style only:
 
