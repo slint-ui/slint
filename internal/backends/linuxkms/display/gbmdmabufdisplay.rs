@@ -289,7 +289,7 @@ impl GbmDmabufDisplay {
     /// The caller must have waited for the GPU work writing it to complete.
     ///
     /// This needs three buffers: one being drawn into, one mid-flip, and one on screen.
-    #[cfg_attr(not(feature = "renderer-femtovg-wgpu"), allow(dead_code))]
+    #[cfg(feature = "renderer-femtovg-wgpu")]
     pub fn present(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug_assert!(self.buffers.len() >= 3, "see the buffers this needs");
         let index = self.next.get();
