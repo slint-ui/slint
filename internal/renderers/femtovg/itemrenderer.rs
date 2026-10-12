@@ -205,8 +205,8 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
-        let blurred_image = shadow_image
-            .filter(femtovg::ImageFilter::GaussianBlur { sigma: shadow_options.blur_sigma() });
+        let blurred_image =
+            shadow_image.filter(femtovg::ImageFilter::gaussian_blur(shadow_options.blur_sigma()));
         textures_to_delete_after_flush.borrow_mut().push(shadow_image);
         blurred_image
     } else {
@@ -227,6 +227,50 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     canvas.set_render_target(current_render_target);
 
     Some(shadow_image)
+}
+
+fn transformed_bounds(rect: PhysicalRect, transform: &Transform2D) -> PhysicalRect {
+    let corners = [
+        transform.transform_point(rect.min_x(), rect.min_y()),
+        transform.transform_point(rect.max_x(), rect.min_y()),
+        transform.transform_point(rect.max_x(), rect.max_y()),
+        transform.transform_point(rect.min_x(), rect.max_y()),
+    ];
+    let min_x = corners.iter().map(|p| p.0).fold(f32::INFINITY, f32::min);
+    let min_y = corners.iter().map(|p| p.1).fold(f32::INFINITY, f32::min);
+    let max_x = corners.iter().map(|p| p.0).fold(f32::NEG_INFINITY, f32::max);
+    let max_y = corners.iter().map(|p| p.1).fold(f32::NEG_INFINITY, f32::max);
+    PhysicalRect::new(
+        PhysicalPoint::new(min_x, min_y),
+        PhysicalSize::new(max_x - min_x, max_y - min_y),
+    )
+}
+
+fn transform_path(path: &femtovg::Path, transform: &Transform2D) -> femtovg::Path {
+    let point = |x, y| transform.transform_point(x, y);
+    let mut result = femtovg::Path::new();
+    for verb in path.verbs() {
+        match verb {
+            femtovg::Verb::MoveTo(x, y) => {
+                let (x, y) = point(x, y);
+                result.move_to(x, y);
+            }
+            femtovg::Verb::LineTo(x, y) => {
+                let (x, y) = point(x, y);
+                result.line_to(x, y);
+            }
+            femtovg::Verb::BezierTo(c1x, c1y, c2x, c2y, x, y) => {
+                let (c1x, c1y) = point(c1x, c1y);
+                let (c2x, c2y) = point(c2x, c2y);
+                let (x, y) = point(x, y);
+                result.bezier_to(c1x, c1y, c2x, c2y, x, y);
+            }
+            femtovg::Verb::Solid => result.solidity(femtovg::Solidity::Solid),
+            femtovg::Verb::Hole => result.solidity(femtovg::Solidity::Hole),
+            femtovg::Verb::Close => result.close(),
+        }
+    }
+    result
 }
 
 fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
@@ -634,6 +678,102 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         });
     }
 
+    fn draw_backdrop_blur(
+        &mut self,
+        backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
+        _self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
+        if sigma <= 0. {
+            return;
+        }
+
+        let transform = self.canvas.borrow().transform();
+        let [a, b, c, d, _, _] = transform.0;
+        let determinant = a * d - b * c;
+        if !determinant.is_finite() || determinant.abs() < f32::EPSILON {
+            return;
+        }
+
+        let bounds = PhysicalRect::from_size(size * self.scale_factor);
+        let device_bounds = transformed_bounds(bounds, &transform);
+        let device_sigma = sigma * determinant.abs().sqrt();
+
+        // Gaussian blurs sample up to three standard deviations away, see `BackdropBlur::bounding_rect`.
+        let margin = (device_sigma * 3.).ceil();
+        let (target_width, target_height) = {
+            let canvas = self.canvas.borrow();
+            (canvas.width(), canvas.height())
+        };
+        let left = (device_bounds.min_x() - margin).floor().max(0.) as u32;
+        let top = (device_bounds.min_y() - margin).floor().max(0.) as u32;
+        let right = ((device_bounds.max_x() + margin).ceil().max(0.) as u32).min(target_width);
+        let bottom = ((device_bounds.max_y() + margin).ceil().max(0.) as u32).min(target_height);
+        if right <= left || bottom <= top {
+            return;
+        }
+        let (width, height) = (right - left, bottom - top);
+
+        let Some(backdrop) = Texture::new_empty_on_gpu(&self.canvas, width, height) else {
+            return;
+        };
+        let copied = self.canvas.borrow_mut().copy_render_target(
+            left,
+            top,
+            width,
+            height,
+            backdrop.id,
+            0,
+            0,
+        );
+        if copied.is_err() {
+            return;
+        }
+
+        // `filter_image` clamps sigma to 8 device pixels, the chain doesn't.
+        let Some(blurred) = Texture::new_empty_on_gpu(&self.canvas, width, height) else {
+            return;
+        };
+        let filter = femtovg::ImageFilter::gaussian_blur(device_sigma);
+        let filtered = self.canvas.borrow_mut().filter_image_chain(
+            blurred.id,
+            std::slice::from_ref(&filter),
+            backdrop.id,
+        );
+        if filtered.is_err() {
+            self.textures_to_delete_after_flush.borrow_mut().push(backdrop);
+            return;
+        }
+        let paint = femtovg::Paint::image(
+            blurred.id,
+            left as f32,
+            top as f32,
+            width as f32,
+            height as f32,
+            0.,
+            1.,
+        );
+        // The copy is in device pixels, so the clip shape is mapped there too.
+        let path = transform_path(
+            &rect_with_radius_to_path(
+                bounds,
+                backdrop_blur.logical_border_radius() * self.scale_factor,
+            ),
+            &transform,
+        );
+        self.canvas.borrow_mut().save_with(|canvas| {
+            // The path and the paint are in device pixels, matching the copy.
+            canvas.reset_transform();
+            canvas.fill_path(&path, &paint);
+        });
+
+        // The commands above run on the next flush, which must come before the images go away.
+        let mut to_delete = self.textures_to_delete_after_flush.borrow_mut();
+        to_delete.push(backdrop);
+        to_delete.push(blurred);
+    }
+
     fn visit_opacity(
         &mut self,
         opacity_item: Pin<&Opacity>,
@@ -642,6 +782,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
+            if opacity_item.wraps_backdrop_blur()
+                && let Some(result) = self.render_and_blend_backdrop_layer(opacity, item_rc)
+            {
+                return result;
+            }
             self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
@@ -1262,6 +1407,93 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             });
         }
         RenderingResult::ContinueRenderingWithoutChildren
+    }
+
+    /// Like `render_and_blend_layer`, but the layer starts as a copy of what's already drawn,
+    /// so a backdrop blur inside sees the content behind the layer.
+    /// The result depends on that content, so it isn't cached.
+    /// Returns `None` if the layer can't be set up, e.g. under a rotation.
+    fn render_and_blend_backdrop_layer(
+        &mut self,
+        alpha_tint: f32,
+        item_rc: &ItemRc,
+    ) -> Option<RenderingResult> {
+        let transform = self.canvas.borrow().transform();
+        let [a, b, c, d, e, f] = transform.0;
+
+        let window_adapter = self.window().window_adapter();
+        let bounds = i_slint_core::properties::evaluate_no_tracking(|| {
+            i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
+                .intersection(
+                    &self
+                        .get_current_clip()
+                        .union(&LogicalRect::from_size(item_rc.geometry().size)),
+                )
+                .unwrap_or_default()
+        }) * self.scale_factor;
+        let (target_width, target_height) = {
+            let canvas = self.canvas.borrow();
+            (canvas.width(), canvas.height())
+        };
+        let device_bounds = transformed_bounds(bounds, &transform);
+        let left = device_bounds.min_x().floor().max(0.) as u32;
+        let top = device_bounds.min_y().floor().max(0.) as u32;
+        let right = (device_bounds.max_x().ceil().max(0.) as u32).min(target_width);
+        let bottom = (device_bounds.max_y().ceil().max(0.) as u32).min(target_height);
+        if right <= left || bottom <= top {
+            return None;
+        }
+        let (width, height) = (right - left, bottom - top);
+
+        let layer = Texture::new_empty_on_gpu(&self.canvas, width, height)?;
+        self.canvas
+            .borrow_mut()
+            .copy_render_target(left, top, width, height, layer.id, 0, 0)
+            .ok()?;
+
+        self.layer_cache.release(item_rc);
+
+        let previous_render_target = self.current_render_target();
+        let render_target = layer.as_render_target();
+        self.save_state();
+        self.state.last_mut().unwrap().global_alpha = 1.;
+        self.state.last_mut().unwrap().current_render_target = render_target;
+        {
+            let mut canvas = self.canvas.borrow_mut();
+            canvas.set_render_target(render_target);
+            canvas.reset_scissor();
+            canvas.set_global_alpha(1.);
+            canvas.reset_transform();
+            canvas.set_transform(&Transform2D::new(a, b, c, d, e - left as f32, f - top as f32));
+        }
+        i_slint_core::item_rendering::render_item_children(
+            self,
+            item_rc.item_tree(),
+            item_rc.index() as isize,
+            &window_adapter,
+        );
+        self.canvas.borrow_mut().set_render_target(previous_render_target);
+        self.restore_state();
+
+        let paint = femtovg::Paint::image(
+            layer.id,
+            left as f32,
+            top as f32,
+            width as f32,
+            height as f32,
+            0.,
+            alpha_tint,
+        )
+        .with_anti_alias(false);
+        let mut path = femtovg::Path::new();
+        path.rect(left as f32, top as f32, width as f32, height as f32);
+        self.canvas.borrow_mut().save_with(|canvas| {
+            // The layer is in device pixels, like the copy.
+            canvas.reset_transform();
+            canvas.fill_path(&path, &paint);
+        });
+        self.textures_to_delete_after_flush.borrow_mut().push(layer);
+        Some(RenderingResult::ContinueRenderingWithoutChildren)
     }
 
     fn colorize_image(
