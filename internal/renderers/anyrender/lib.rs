@@ -179,6 +179,8 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     rendering_first_time: Cell<bool>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     rendering_set_up: Cell<bool>,
+    /// A size that `resize()` received during a frame, for example from a rendering notifier.
+    pending_size: Cell<Option<(u32, u32)>>,
 }
 
 impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
@@ -193,6 +195,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             rendering_first_time: Cell::new(true),
             rendering_notifier: Default::default(),
             rendering_set_up: Cell::new(false),
+            pending_size: Cell::new(None),
         }
     }
 
@@ -250,6 +253,10 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
         }
 
         let window_inner = WindowInner::from_pub(window);
+
+        if let Some((width, height)) = self.pending_size.take() {
+            self.window_renderer.borrow_mut().slint_set_size(width, height)?;
+        }
 
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() =
@@ -414,7 +421,12 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         else {
             return Ok(());
         };
-        self.window_renderer.borrow_mut().slint_set_size(width.get(), height.get())
+        let Ok(mut window_renderer) = self.window_renderer.try_borrow_mut() else {
+            self.pending_size.set(Some((width.get(), height.get())));
+            return Ok(());
+        };
+        self.pending_size.set(None);
+        window_renderer.slint_set_size(width.get(), height.get())
     }
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
