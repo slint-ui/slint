@@ -798,13 +798,8 @@ pub fn enum_or_color_suggestions(ctx: &LookupCtx, name: &str) -> Vec<SmolStr> {
     result
 }
 
-/// Format the hint appended to a diagnostic for the result of [`closest_name`].
-pub fn did_you_mean(suggestion: Option<SmolStr>) -> String {
-    suggestion.map(|s| format!(". Did you mean '{s}'?")).unwrap_or_default()
-}
-
-/// See [`closest_name`].
-pub fn closest_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &str) -> Option<SmolStr> {
+/// [`did_you_mean`] among the entries of `lookup` that aren't deprecated.
+pub fn did_you_mean_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &str) -> String {
     let mut candidates = Vec::new();
     lookup.for_each_entry(ctx, &mut |entry, result| {
         if result.deprecated().is_none() {
@@ -812,33 +807,59 @@ pub fn closest_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &str) ->
         }
         None::<()>
     });
-    closest_name(name, candidates)
+    did_you_mean(name, candidates)
 }
 
-/// Return the candidate that is close enough to `name` to be what a typo meant, for a "did you
-/// mean" hint. Names are compared in kebab case, so `WordWrap` matches `word-wrap` exactly.
-pub fn closest_name(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -> Option<SmolStr> {
-    let key = crate::generator::to_kebab_case(name);
-    let max_distance = key.chars().count() / 3;
-    candidates
-        .into_iter()
-        .filter(|candidate| candidate != name)
-        .filter_map(|candidate| {
-            let distance = edit_distance(&key, &crate::generator::to_kebab_case(&candidate));
-            (distance <= max_distance).then_some((distance, candidate))
-        })
-        .min()
-        .map(|(_, candidate)| candidate)
+/// Return a hint such as ". Did you mean 'width'?" for a diagnostic, naming the candidate close
+/// enough to `name` to be what a typo meant, or an empty string if there is none.
+/// Names are compared in kebab case, so `WordWrap` matches `word-wrap` exactly.
+pub fn did_you_mean(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -> String {
+    let kebab_case = |s: &str, out: &mut Vec<char>| {
+        out.clear();
+        for c in s.chars() {
+            if c.is_ascii_uppercase() {
+                if !out.is_empty() {
+                    out.push('-');
+                }
+                out.push(c.to_ascii_lowercase());
+            } else {
+                out.push(c);
+            }
+        }
+    };
+    let (mut key, mut candidate_key, mut rows) = (Vec::new(), Vec::new(), Default::default());
+    kebab_case(name, &mut key);
+    let max_distance = (key.len() / 3).min(3);
+
+    let mut best: Option<(usize, SmolStr)> = None;
+    for candidate in candidates {
+        if candidate == name {
+            continue;
+        }
+        kebab_case(&candidate, &mut candidate_key);
+        let max = best.as_ref().map_or(max_distance, |(distance, _)| *distance);
+        if let Some(distance) = edit_distance(&key, &candidate_key, max, &mut rows)
+            && best.as_ref().is_none_or(|best| (distance, &candidate) < (best.0, &best.1))
+        {
+            best = Some((distance, candidate));
+        }
+    }
+    best.map(|(_, candidate)| format!(". Did you mean '{candidate}'?")).unwrap_or_default()
 }
 
-/// The Levenshtein distance, where swapping two adjacent characters also counts as one edit.
-fn edit_distance(a: &str, b: &str) -> usize {
-    let a = a.chars().collect::<Vec<_>>();
-    let b = b.chars().collect::<Vec<_>>();
-    let mut before_previous = vec![0; b.len() + 1];
-    let mut previous = (0..=b.len()).collect::<Vec<_>>();
+/// The Levenshtein distance, where swapping two adjacent characters also counts as one edit,
+/// or `None` if it's over `max`. `rows` is scratch space that's reused between calls.
+fn edit_distance(a: &[char], b: &[char], max: usize, rows: &mut [Vec<usize>; 3]) -> Option<usize> {
+    if a.len().abs_diff(b.len()) > max {
+        return None;
+    }
+    let [before_previous, previous, current] = rows;
+    before_previous.resize(b.len() + 1, 0);
+    current.resize(b.len() + 1, 0);
+    previous.clear();
+    previous.extend(0..=b.len());
     for i in 1..=a.len() {
-        let mut current = vec![i; b.len() + 1];
+        current[0] = i;
         for j in 1..=b.len() {
             let substitution = previous[j - 1] + usize::from(a[i - 1] != b[j - 1]);
             current[j] = substitution.min(previous[j] + 1).min(current[j - 1] + 1);
@@ -846,31 +867,42 @@ fn edit_distance(a: &str, b: &str) -> usize {
                 current[j] = current[j].min(before_previous[j - 2] + 1);
             }
         }
-        before_previous = std::mem::replace(&mut previous, current);
+        if current[..=b.len()].iter().all(|&distance| distance > max) {
+            return None;
+        }
+        std::mem::swap(before_previous, previous);
+        std::mem::swap(previous, current);
     }
-    previous[b.len()]
+    Some(previous[b.len()]).filter(|&distance| distance <= max)
 }
 
 #[test]
 fn test_edit_distance() {
-    assert_eq!(edit_distance("", ""), 0);
-    assert_eq!(edit_distance("", "abc"), 3);
-    assert_eq!(edit_distance("width", "width"), 0);
-    assert_eq!(edit_distance("with", "width"), 1);
-    assert_eq!(edit_distance("widthh", "width"), 1);
-    assert_eq!(edit_distance("wodth", "width"), 1);
-    assert_eq!(edit_distance("widht", "width"), 1);
-    assert_eq!(edit_distance("kitten", "sitting"), 3);
+    let distance = |a: &str, b: &str, max| {
+        let [a, b] = [a, b].map(|s| s.chars().collect::<Vec<_>>());
+        edit_distance(&a, &b, max, &mut Default::default())
+    };
+    assert_eq!(distance("", "", 3), Some(0));
+    assert_eq!(distance("", "abc", 3), Some(3));
+    assert_eq!(distance("width", "width", 3), Some(0));
+    assert_eq!(distance("with", "width", 3), Some(1));
+    assert_eq!(distance("widthh", "width", 3), Some(1));
+    assert_eq!(distance("wodth", "width", 3), Some(1));
+    assert_eq!(distance("widht", "width", 3), Some(1));
+    assert_eq!(distance("kitten", "sitting", 3), Some(3));
+    assert_eq!(distance("kitten", "sitting", 2), None);
+    assert_eq!(distance("width", "height", 2), None);
 }
 
 #[test]
-fn test_closest_name() {
-    let candidates = || ["width", "height", "word-wrap", "x"].map(SmolStr::new_static);
-    assert_eq!(closest_name("widht", candidates()).as_deref(), Some("width"));
-    assert_eq!(closest_name("WordWrap", candidates()).as_deref(), Some("word-wrap"));
-    assert_eq!(closest_name("y", candidates()), None);
-    assert_eq!(closest_name("width", candidates()), None);
-    assert_eq!(closest_name("xyzzy", candidates()), None);
+fn test_did_you_mean() {
+    let candidates = || ["width", "height", "word-wrap", "x", "se-resize"].map(SmolStr::new_static);
+    assert_eq!(did_you_mean("widht", candidates()), ". Did you mean 'width'?");
+    assert_eq!(did_you_mean("WordWrap", candidates()), ". Did you mean 'word-wrap'?");
+    assert_eq!(did_you_mean("y", candidates()), "");
+    assert_eq!(did_you_mean("width", candidates()), "");
+    assert_eq!(did_you_mean("xyzzy", candidates()), "");
+    assert_eq!(did_you_mean("square-resize", candidates()), "");
 }
 
 pub struct KeysLookup;

@@ -2614,11 +2614,7 @@ fn lookup_qualified_name_node(
                     .map(|s| format!("'{s}'"))
                     .collect::<Vec<_>>();
                 let hint = match parts.pop() {
-                    None => crate::lookup::did_you_mean(crate::lookup::closest_entry(
-                        ctx,
-                        &global_lookup,
-                        &first_str,
-                    )),
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
                     Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
                 };
@@ -2859,8 +2855,7 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
-        let suggestion =
-            crate::lookup::did_you_mean(crate::lookup::closest_entry(ctx, elem, &prop_name));
+        let suggestion = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
                 ElementType::Global | ElementType::Interface(_) => {
@@ -2920,9 +2915,7 @@ fn maybe_lookup_object(
                     return None;
                 }
 
-                let suggestion = crate::lookup::did_you_mean(crate::lookup::closest_entry(
-                    ctx, &base, &next_str,
-                ));
+                let suggestion = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,

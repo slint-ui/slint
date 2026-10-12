@@ -3293,9 +3293,8 @@ impl Element {
         }
     }
 
-    /// The property that a binding can set whose name is the closest to `name`.
-    /// See [`crate::lookup::closest_name`].
-    fn closest_property(&self, name: &str) -> Option<SmolStr> {
+    /// [`crate::lookup::did_you_mean`] among the properties that a binding can set.
+    fn did_you_mean_property(&self, name: &str) -> String {
         let declared = self.property_declarations.iter().map(|(k, d)| d.declared_name(k).clone());
         let inherited = self.base_type.property_list().into_iter().map(|(name, _)| name);
         let reserved =
@@ -3305,7 +3304,7 @@ impl Element {
                 .property_type
                 .is_property_type()
         });
-        crate::lookup::closest_name(name, candidates)
+        crate::lookup::did_you_mean(name, candidates)
     }
 
     fn lookup_result_for_declaration<'a>(
@@ -3351,7 +3350,7 @@ impl Element {
                                 let msg = if let Some(suggestion) = css_property_suggestion(&unresolved_name, &self.base_type) {
                                     suggestion
                                 } else {
-                                    let hint = crate::lookup::did_you_mean(self.closest_property(&unresolved_name));
+                                    let hint = self.did_you_mean_property(&unresolved_name);
                                     if self.base_type.to_smolstr() == "Empty" {
                                         format!( "Unknown property {unresolved_name}{hint}")
                                     } else {
