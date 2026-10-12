@@ -2032,7 +2032,7 @@ fn previewed_component_changed() {
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
 
@@ -2599,7 +2599,7 @@ pub fn set_remote_connection_state(
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
                 R::Reconnecting => ui::RemoteConnectionState::Reconnecting,
-                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
+                R::PairingRequired { .. } => ui::RemoteConnectionState::PairingRequired,
                 R::UnpairedWarning => ui::RemoteConnectionState::UnpairedWarning,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,

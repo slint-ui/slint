@@ -4,9 +4,9 @@
 //! [`SlintWindowRenderer`] implementation rendering through [`vello`] on WGPU.
 //!
 //! The WGPU instance, adapter, device and surface come from
-//! [`i_slint_core::graphics::wgpu_29`], the same initialization the FemtoVG
+//! [`i_slint_core::graphics::wgpu_30`], the same initialization the FemtoVG
 //! and Skia renderers use, so a device requested through
-//! `BackendSelector::require_wgpu_29()` is honored here too. Only the scene
+//! `BackendSelector::require_wgpu_30()` is honored here too. Only the scene
 //! recording is taken from [`anyrender_vello`]; its window renderer, which
 //! sets WGPU up on its own, is not used.
 //!
@@ -22,7 +22,7 @@ use std::sync::Arc;
 use anyrender::{WindowHandle, WindowRenderer};
 use anyrender_vello::VelloScenePainter;
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::graphics::wgpu_29::wgpu;
+use i_slint_core::graphics::wgpu_30::wgpu;
 use i_slint_core::graphics::{RequestedGraphicsAPI, Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
@@ -152,7 +152,7 @@ impl VelloWindowRenderer {
     /// [`AnyrenderSlintRenderer::set_surface`].
     pub(crate) fn set_state_from_surface_target(
         &mut self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
         width: u32,
         height: u32,
     ) -> Result<(), PlatformError> {
@@ -164,15 +164,15 @@ impl VelloWindowRenderer {
 
     fn create_state(
         &self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
         width: u32,
         height: u32,
     ) -> Result<ActiveState, String> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
                 self.requested_graphics_api.clone(),
-                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )
             .map_err(|e| format!("Error initializing WGPU for vello rendering: {e}"))?;
 
@@ -296,7 +296,7 @@ impl WindowRenderer for VelloWindowRenderer {
         height: u32,
         on_ready: F,
     ) {
-        let surface_target: i_slint_core::graphics::wgpu_29::SurfaceTarget =
+        let surface_target: i_slint_core::graphics::wgpu_30::SurfaceTarget =
             (Box::new(window) as Box<dyn wgpu::DisplayAndWindowHandle>).into();
 
         match self.create_state(surface_target, width, height) {
@@ -444,7 +444,7 @@ impl SlintWindowRenderer for VelloWindowRenderer {
         if let Some(callback) = pre_present_callback {
             callback();
         }
-        surface_texture.present();
+        queue.present(surface_texture);
 
         Ok(DrawOutcome::Success)
     }
@@ -527,7 +527,9 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             .map_err(|e| format!("take_snapshot: map_async callback was not delivered: {e}"))?
             .map_err(|e| format!("take_snapshot: map_async failed: {e}"))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|e| format!("take_snapshot: mapping the readback buffer failed: {e}"))?;
         let mut pixels = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
         let destination = pixels.make_mut_bytes();
         for (row_index, source_row) in mapped.chunks(bytes_per_row as usize).enumerate() {
@@ -605,7 +607,7 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     /// renders to a DRM plane.
     pub fn set_surface(
         &self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
         width: u32,
         height: u32,
         requested_graphics_api: Option<RequestedGraphicsAPI>,

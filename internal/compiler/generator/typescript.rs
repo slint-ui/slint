@@ -393,25 +393,25 @@ fn ts_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model<{}>", ts_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            // `is_public` also covers three structs that are not in `for_each_builtin_structs`,
-            // so they are not under `slint.language`; the Node API spells two of them itself.
+            // `is_public` also covers two structs that are not in `for_each_builtin_structs`,
+            // so they are not under `slint.language`; the Node API spells them itself.
             StructName::Builtin(BuiltinStruct::LogicalPosition) => {
                 SmolStr::new_static("slint.Point")
             }
             StructName::Builtin(BuiltinStruct::LogicalSize) => SmolStr::new_static("slint.Size"),
-            StructName::Builtin(builtin_struct)
-                if builtin_struct.is_public() && *builtin_struct != BuiltinStruct::Color =>
-            {
-                let name: &'static str = builtin_struct.into();
-                format_smolstr!("slint.language.{}", name)
-            }
-            StructName::Builtin(BuiltinStruct::Color) => {
+            StructName::Builtin(
+                BuiltinStruct::ColorRgba | BuiltinStruct::ColorHsva | BuiltinStruct::ColorOklch,
+            ) => {
                 let fields = s
                     .fields
                     .iter()
                     .map(|(name, ty)| format!("{}: {}", member(name), ts_type_name(ty)))
                     .join("; ");
                 format_smolstr!("{{ {} }}", fields)
+            }
+            StructName::Builtin(builtin_struct) if builtin_struct.is_public() => {
+                let name: &'static str = builtin_struct.into();
+                format_smolstr!("slint.language.{}", name)
             }
             StructName::Builtin(_) => SmolStr::new_static("void"),
             StructName::None => {

@@ -68,7 +68,7 @@ pub fn add_code_actions(
     token: &SyntaxToken,
     result: &mut Vec<CodeActionOrCommand>,
 ) -> Option<()> {
-    if !document_cache.compiler_configuration().enable_experimental {
+    if !document_cache.compiler_configuration().compiler_config.enable_experimental {
         return None;
     }
     let match_element = enclosing_match_element(token)?;

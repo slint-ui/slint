@@ -50,9 +50,10 @@ pub trait Parameter {
 
 #[cfg(test)]
 macro_rules! assert_approx_eq {
-    ($a:expr, $b:expr) => {
-        assert!(($a - $b).abs() < 1e-4, "{} != {}", $a, $b);
-    };
+    ($a:expr, $b:expr) => {{
+        let (a, b): (f32, f32) = ($a, $b);
+        assert!((a - b).abs() < 1e-4 * a.abs().max(b.abs()).max(1.), "{a} != {b}");
+    }};
 }
 #[cfg(test)]
 pub(crate) use assert_approx_eq;

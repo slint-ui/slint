@@ -206,16 +206,8 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         }
         Type::Keys => Some(quote!(sp::Keys)),
         Type::Brush => Some(quote!(slint::Brush)),
-        Type::LayoutCache => Some(quote!(
-            sp::SharedVector<
-                sp::Coord,
-            >
-        )),
-        Type::ArrayOfU16 => Some(quote!(
-            sp::SharedVector<
-                u16,
-            >
-        )),
+        Type::ArrayOfCoord => Some(quote!(sp::SharedVector<sp::Coord>)),
+        Type::ArrayOfU16 => Some(quote!(sp::SharedVector<u16>)),
         _ => None,
     }
 }
@@ -1857,13 +1849,14 @@ fn generate_sub_component(
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            let context = access_context(&ctx);
             quote!(
                 let millis = if #running { (#interval) as i64 } else { -1 };
                 if millis >= 0 {
                     let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
-                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                        #context.start_timer(&self.#ident, sp::TimerMode::Repeated, interval, move || {
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
                                 #callback
@@ -3601,7 +3594,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::RadialGradient { .. }
             | Expression::ConicGradient { .. }
             | Expression::EnumerationValue(..)
-            | Expression::Closure { .. } => true,
+            | Expression::Closure { .. }
+            | Expression::DashArray(..) => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3906,6 +3900,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 |#arg_name| {#expression}
             }
         }
+        Expression::DashArray(dash_array) => {
+            quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*]))
+        }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),
     }
@@ -3985,6 +3982,14 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
                     // Convert from a named struct to an anonymous one
                     let fields = lhs.fields.keys().map(|name| ident(name));
                     quote!({ let obj = #f; (#(obj.#fields,)*) })
+                }
+                (sourcestruct, targetstruct) if sourcestruct != targetstruct => {
+                    let fields = lhs.fields.keys().map(|name| {
+                        let name = ident(name);
+                        quote!(the_struct.#name = obj.#name.clone() as _;)
+                    });
+                    let id = struct_name_to_tokens(targetstruct).unwrap();
+                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                 }
                 _ => f,
             }
@@ -5514,10 +5519,12 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
         StructName::Builtin(builtin_struct) => {
             let name: &'static str = builtin_struct.into();
             let name = format_ident!("{}", name);
+            use crate::langtype::BuiltinStruct as BS;
             match builtin_struct {
-                crate::langtype::BuiltinStruct::Color
-                | crate::langtype::BuiltinStruct::LogicalPosition
-                | crate::langtype::BuiltinStruct::LogicalSize => Some(quote!(slint::#name)),
+                BS::ColorRgba => Some(quote!(sp::RgbaColor<u8>)),
+                BS::ColorHsva => Some(quote!(sp::HsvaColor)),
+                BS::ColorOklch => Some(quote!(sp::OklchColor)),
+                BS::LogicalPosition | BS::LogicalSize => Some(quote!(slint::#name)),
                 s if s.is_public() => Some(quote!(slint::language::#name)),
                 _ => Some(quote!(sp::#name)),
             }

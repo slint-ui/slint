@@ -46,6 +46,22 @@
     /* Tweak the table so the first column is wider */
 }
 
+starlight-tabs {
+    --slint-tabs-inset: 0.75rem;
+    border: 1px solid var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+    margin-inline: calc(-1 * var(--slint-tabs-inset));
+    padding: 0 var(--slint-tabs-inset) var(--slint-tabs-inset);
+}
+
+starlight-tabs .tablist-wrapper {
+    margin-inline: calc(-1 * var(--slint-tabs-inset));
+}
+
+starlight-tabs [role="tablist"] {
+    padding-inline: var(--slint-tabs-inset);
+}
+
 /* Dark mode colors. */
 :root {
     --sl-hue-blue: 222;

@@ -48,8 +48,11 @@ impl JsComponentCompiler {
             None => HashMap::new(),
         };
 
-        compiler.set_include_paths(include_paths);
-        compiler.set_library_paths(library_paths);
+        // Environment variables rank below the project file, so they bypass the setters.
+        let config = compiler.compiler_configuration(i_slint_core::InternalToken);
+        config.include_paths = include_paths;
+        config.library_paths = library_paths;
+
         Self { internal: compiler, diagnostics: Vec::new(), structs_and_enums: vec![] }
     }
 

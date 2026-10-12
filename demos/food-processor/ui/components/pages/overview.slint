@@ -1,0 +1,124 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../../recipe-adapter.slint";
+import { Styles } from "../../styles.slint";
+import { Bubble } from "../bubble.slint";
+
+export component OverviewPage inherits HorizontalLayout {
+    in property <Recipe> recipe;
+
+    callback start-clicked();
+
+    spacing: Styles.side-margin;
+
+    Rectangle {
+        width: 228px;
+        Image {
+            x: -17px;
+            y: 10px;
+            width: 266px;
+            source: recipe.photo-detail;
+        }
+    }
+
+    VerticalLayout {
+        alignment: space-around;
+        padding-top: Styles.side-margin / 2 ;
+        padding-bottom: Styles.side-margin / 2;
+        title := Text {
+            x: 0px;
+            overflow: elide;
+            font-size: 18px;
+            font-weight: FontWeight.semi-bold;
+            color: #171717;
+            text: recipe.title;
+        }
+
+        rating := HorizontalLayout {
+            x: 0;
+            // y: title.y + title.height + 5px;
+            height: 14px;
+            spacing: 6px;
+            alignment: start;
+            Rectangle {
+                width: stars.preferred-width;
+                stars := HorizontalLayout {
+                    for i[index] in recipe.rating.to-float().ceil(): Image {
+                        source: @image-url("../../images/star.jpg");
+                        width: 10px;
+                    }
+                }
+            }
+
+            Text {
+                text: recipe.rating;
+                font-size: 12px;
+                font-weight: FontWeight.bold;
+                color: #171717;
+            }
+
+            Text {
+                text: recipe.reviews + " ratings";
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.normal;
+                color: #737373;
+                vertical-alignment: center;
+            }
+        }
+
+        info := Rectangle {
+            // y: rating.y + rating.height + 10px;
+            height: bubbles.preferred-height;
+            bubbles := HorizontalLayout {
+                alignment: LayoutAlignment.space-between;
+                Bubble {
+                    icon: @image-url("../../images/prep.jpg");
+                    title: "PREP";
+                    time: recipe.prep-time;
+                }
+
+                Bubble {
+                    icon: @image-url("../../images/duration.jpg");
+                    title: "TOTAL";
+                    time: recipe.total-time + " Min.";
+                }
+
+                Bubble {
+                    icon: @image-url("../../images/portions.jpg");
+                    title: "PORTIONS";
+                    time: recipe.portions;
+                }
+            }
+        }
+
+        about := Rectangle {
+            // y: info.y + info.height + 10px;
+            // height: parent.height - self.y - Styles.side-margin;
+            background: white;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: #E5E5E5;
+
+            VerticalLayout {
+                spacing: 10px;
+                padding: 10px;
+
+                Text {
+                    text: "About This Recipe";
+                    font-size: 9px;
+                    font-weight: FontWeight.bold;
+                    color: #171717;
+                }
+
+                Text {
+                    text: "Start your day with this vibrant and nutritious berry smoothie bowl. Packed with antioxidants, vitamins, and natural sweetness, this recipe is perfect for a quick breakfast or post-workout snack. The creamy texture comes from frozen berries blended to perfection.";
+                    font-size: 8px;
+                    color: #525252;
+                    font-weight: FontWeight.normal;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

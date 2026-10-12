@@ -1250,7 +1250,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
 
@@ -1548,6 +1548,7 @@ async fn parse_source(
     Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
+    builder.set_reads_project_file(false);
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = if let Some(name) = component {
@@ -1742,7 +1743,13 @@ pub fn set_remote_connection_state(
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
                 R::Reconnecting => ui::RemoteConnectionState::Reconnecting,
-                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
+                R::PairingRequired { code_digits } => {
+                    api.set_remote_pairing_code_length(u32::from(code_digits).clamp(
+                        i_slint_live_preview::protocol::pairing::CODE_DIGITS,
+                        i_slint_live_preview::protocol::pairing::MAX_CODE_DIGITS,
+                    ) as i32);
+                    ui::RemoteConnectionState::PairingRequired
+                }
                 R::UnpairedWarning => ui::RemoteConnectionState::UnpairedWarning,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,

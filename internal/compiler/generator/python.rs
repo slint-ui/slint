@@ -592,13 +592,16 @@ pub fn generate(
         struct_or_enum.generate_aliases(&mut file);
     }
 
-    let main_file = std::path::absolute(
-        doc.node
-            .as_ref()
-            .and_then(|node| node.source_file.path().as_native_path())
-            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?,
-    )
-    .unwrap();
+    let main_file = match &compiler_config.input_project_file {
+        Some(project_file) => std::path::absolute(project_file).unwrap(),
+        None => std::path::absolute(
+            doc.node
+                .as_ref()
+                .and_then(|node| node.source_file.path().as_native_path())
+                .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?,
+        )
+        .unwrap(),
+    };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
         std::fs::canonicalize(maybe_relative_destination_path)
@@ -635,6 +638,7 @@ pub fn generate(
 }
 
 fn python_type_name(ty: &Type) -> SmolStr {
+    use crate::langtype::BuiltinStruct as BS;
     match ty {
         Type::Invalid => panic!("Invalid type encountered in llr output"),
         Type::Void => SmolStr::new_static("None"),
@@ -656,13 +660,12 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalPosition) => {
+            StructName::Builtin(BS::LogicalPosition) => {
                 SmolStr::new_static("slint.LogicalPosition")
             }
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalSize) => {
-                SmolStr::new_static("slint.LogicalSize")
-            }
-            StructName::Builtin(crate::langtype::BuiltinStruct::Color) | StructName::None => {
+            StructName::Builtin(BS::LogicalSize) => SmolStr::new_static("slint.LogicalSize"),
+            StructName::Builtin(BS::ColorRgba | BS::ColorHsva | BS::ColorOklch)
+            | StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }

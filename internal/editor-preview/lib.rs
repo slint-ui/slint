@@ -30,7 +30,9 @@ pub mod token_info;
 pub mod util;
 
 pub use document_cache::DocumentCache;
-pub use editor_session::{EditorSession, PreviewConnection, VersionedDiagnostics};
+pub use editor_session::{
+    EditorSession, PreviewConnection, SessionConfigOverrides, VersionedDiagnostics,
+};
 pub use element::{ElementRcNode, NODE_IGNORE_COMMENT, extract_element, is_element_node_ignored};
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub use i_slint_live_preview::protocol::{LspToPreview, PreviewToLsp, Result};

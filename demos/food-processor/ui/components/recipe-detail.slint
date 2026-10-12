@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../recipe-adapter.slint";
+import { Header } from "header.slint";
+import { Styles } from "../styles.slint";
+import { TabBar } from "tab-bar.slint";
+import { OverviewPage } from "pages/overview.slint";
+import { IngredientsPage } from "pages/ingredients.slint";
+import { PreparationPage } from "pages/preparation.slint";
+import { TipsPage } from "pages/tips.slint";
+import { MoreInfoPage } from "pages/more_info.slint";
+
+
+export component RecipeDetail inherits Rectangle {
+    in property <Recipe> recipe;
+    property <int> active-tab: 0;
+
+    callback back-clicked();
+    callback portions-changed(int);
+
+    Rectangle {
+        background: white;
+    }
+
+    header := Header {
+        x: 0px;
+        y: 0px;
+        height: 35px;
+        TouchArea {
+            x: 0px;
+            width: 100px;
+            height: 100%;
+            clicked => {
+                root.back-clicked();
+            }
+        }
+
+        back-button := HorizontalLayout {
+            x: Styles.side-margin;
+            spacing: 4px;
+            height: self.preferred-height;
+            Image {
+                source: @image-url("../images/back.svg");
+                width: 10px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                vertical-alignment: center;
+                text: "Back to Recipes";
+                font-size: Styles.small-font-size;
+                color: #525252;
+                font-weight: FontWeight.medium;
+            }
+        }
+    }
+
+    details := Rectangle {
+        width: root.width - (Styles.side-margin * 2);
+        height: root.height - header.height - tabs.height - (15px * 2);
+        x: Styles.side-margin;
+        y: header.height + 15px;
+
+        if active-tab == 0: overview-page := OverviewPage {
+            recipe: root.recipe;
+        }
+
+        if active-tab == 1: ingredients-page := IngredientsPage {
+            recipe: root.recipe;
+
+            portions-changed(portions) => {
+                root.portions-changed(portions);
+            }
+        }
+
+        if active-tab == 2: preparation-page := PreparationPage {}
+
+        if active-tab == 3: tips-page := TipsPage {}
+
+        if active-tab == 4: more-info-page := MoreInfoPage {}
+    }
+
+    tabs := TabBar {
+        y: parent.height - self.height;
+        tabs: ["Overview", "Ingredients", "Preparation", "Tips", "More"];
+        active-tab: root.active-tab;
+        tab-changed(index) => {
+            root.active-tab = index;
+        }
+    }
+}

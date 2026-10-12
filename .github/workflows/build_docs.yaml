@@ -28,6 +28,11 @@ on:
           default: false
           required: false
           description: "Run the slint-sc tests and include the measured coverage in the Safety Manual"
+        node-python-docs:
+          type: boolean
+          default: true
+          required: false
+          description: "Build the Node.js and Python API documentation"
 
 jobs:
     # Job 1: Build Rust and C++ documentation
@@ -42,6 +47,8 @@ jobs:
             CARGO_INCREMENTAL: false
             RELEASE_INPUT: ${{ inputs.release }}
             BRANCH_NAME: ${{ github.ref_name }}
+            # The cppreference-doc release that the Doxygen tag file comes from, also the cache key.
+            CPPREFERENCE_DOC_VERSION: "20250209"
         steps:
             - uses: actions/checkout@v7
             - name: Set up crate rustdoc link
@@ -64,17 +71,24 @@ jobs:
               run: pnpm i --frozen-lockfile
             - name: Test Cpp docs converter
               run: pnpm -C docs/cpp test
+            - name: Cache cppreference Doxygen tag file
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/cppreference
+                  key: cppreference-doxygen-tag-${{ env.CPPREFERENCE_DOC_VERSION }}
             - name: Download cppreference Doxygen tag file
               run: |
                 # Lets Doxygen link std:: types to cppreference.com. The tag file
                 # is bundled in the cppreference-doc html-book release; pin a known
                 # version for reproducibility. The build degrades gracefully (std
                 # types stay plain) if this variable is unset.
-                tag_file="$PWD/target/cppreference-doxygen-web.tag.xml"
-                mkdir -p "$(dirname "$tag_file")"
-                curl -fsSL --retry 3 -o /tmp/cppreference-html-book.tar.xz \
-                  "https://github.com/PeterFeicht/cppreference-doc/releases/download/v20250209/html-book-20250209.tar.xz"
-                tar -xJf /tmp/cppreference-html-book.tar.xz -C "$(dirname "$tag_file")" cppreference-doxygen-web.tag.xml
+                tag_file="$HOME/.cache/cppreference/cppreference-doxygen-web.tag.xml"
+                if [ ! -f "$tag_file" ]; then
+                  mkdir -p "$(dirname "$tag_file")"
+                  curl -fsSL --retry 3 -o /tmp/cppreference-html-book.tar.xz \
+                    "https://github.com/PeterFeicht/cppreference-doc/releases/download/v${CPPREFERENCE_DOC_VERSION}/html-book-${CPPREFERENCE_DOC_VERSION}.tar.xz"
+                  tar -xJf /tmp/cppreference-html-book.tar.xz -C "$(dirname "$tag_file")" cppreference-doxygen-web.tag.xml
+                fi
                 echo "SLINT_CPPREFERENCE_TAGFILE=$tag_file" >> "$GITHUB_ENV"
             - name: Build Cpp docs
               run: |
@@ -229,6 +243,16 @@ jobs:
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build
+            - name: "Package Safety Manual for offline reading"
+              working-directory: docs/safety
+              run: node scripts/package-offline.mjs
+            - name: "Upload offline Safety Manual"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-offline-docs
+                  path: |
+                      docs/safety/dist-offline/
+                      !docs/safety/dist-offline/*.zip
             - name: Install Playwright
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps
@@ -244,6 +268,7 @@ jobs:
               with:
                 name: playwright-test-report
                 path: docs/astro/playwright-report/
+                if-no-files-found: ignore
                 retention-days: 30
             - name: Debug - Verify dist exists before upload
               run: |
@@ -272,6 +297,7 @@ jobs:
 
     # Job 3: Build Node and Python documentation
     node-python-docs:
+        if: ${{ inputs['node-python-docs'] }}
         runs-on: ubuntu-24.04
         env:
             RELEASE_INPUT: ${{ inputs.release }}

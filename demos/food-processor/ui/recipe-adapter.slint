@@ -1,0 +1,169 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cspell:ignore Pancit Palabok
+
+export struct Ingredient {
+    image: image,
+    name: string,
+    description: string,
+    amount: float,
+    unit: string,
+    substitute: string
+}
+
+export struct Recipe {
+    photo-grid: image,
+    photo-detail: image,
+    title: string,
+    rating: string,
+    reviews: int,
+    prep-time: string,
+    total-time: int,
+    portions: int,
+    ingredients: [Ingredient]
+}
+
+export global CommonIngredients {
+    out property <[Ingredient]> default-ingredients: [
+        {
+            image: @image-url("images/ingredients/oil.png"),
+            name: "light sesame oil",
+            description: "",
+            amount: 10,
+            unit: "g",
+            substitute: "groundnut oil"
+        },
+        {
+            image: @image-url("images/ingredients/onion.png"),
+            name: "onions",
+            description: "quartered",
+            amount: 50,
+            unit: "g",
+            substitute: ""
+        },
+        {
+            image: @image-url("images/ingredients/carrots.png"),
+            name: "carrots",
+            description: "cut in large pieces (4 cm)",
+            amount: 75,
+            unit: "g",
+            substitute: ""
+        },
+        {
+            image: @image-url("images/ingredients/bacon.png"),
+            name: "bacon cubes",
+            description: "",
+            amount: 75,
+            unit: "g",
+            substitute: ""
+        },
+        {
+            image: @image-url("images/ingredients/soy.png"),
+            name: "soy sauce",
+            description: "",
+            amount: 15,
+            unit: "g",
+            substitute: ""
+        },
+    ];
+}
+
+export global RecipesAdapter {
+    in-out property <[Recipe]> recipes: [
+        {
+            photo-grid: @image-url("images/grid/1.jpg"),
+            photo-detail: @image-url("images/detail/1.jpg"),
+            title: "Twice-Cooked Pork",
+            rating: "4.9",
+            reviews: 1247,
+            prep-time: "5 Min.",
+            total-time: 10,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/2.jpg"),
+            photo-detail: @image-url("images/detail/2.jpg"),
+            title: "Slint Burger",
+            rating: "5",
+            reviews: 2156,
+            prep-time: "5 Min.",
+            total-time: 10,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/3.jpg"),
+            photo-detail: @image-url("images/detail/3.jpg"),
+            title: "Fruit Tea",
+            rating: "4.9",
+            reviews: 1834,
+            prep-time: "5 Min.",
+            total-time: 10,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/4.jpg"),
+            photo-detail: @image-url("images/detail/4.jpg"),
+            title: "Linguine with Prawns",
+            rating: "4.7",
+            reviews: 892,
+            prep-time: "15 Min.",
+            total-time: 30,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/5.jpg"),
+            photo-detail: @image-url("images/detail/5.jpg"),
+            title: "Mothers Orange Juice",
+            rating: "4.8",
+            reviews: 1523,
+            prep-time: "10 Min.",
+            total-time: 45,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/6.jpg"),
+            photo-detail: @image-url("images/detail/6.jpg"),
+            title: "Choc Chip Cookies",
+            rating: "4.9",
+            reviews: 2341,
+            prep-time: "10 Min.",
+            total-time: 20,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/7.jpg"),
+            photo-detail: @image-url("images/detail/7.jpg"),
+            title: "Berry Porridge",
+            rating: "4.7",
+            reviews: 678,
+            prep-time: "5 Min.",
+            total-time: 15,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        },
+        {
+            photo-grid: @image-url("images/grid/8.jpg"),
+            photo-detail: @image-url("images/detail/8.jpg"),
+            title: "Pancit Palabok,",
+            rating: "4.8",
+            reviews: 1456,
+            prep-time: "5 Min.",
+            total-time: 10,
+            portions: 3,
+            ingredients: CommonIngredients.default-ingredients
+        }
+    ];
+
+    public function update-recipe-portions(index: int, portions: int) {
+        if (index >= 0 && index < recipes.length) {
+            recipes[index].portions = portions;
+        }
+    }
+}

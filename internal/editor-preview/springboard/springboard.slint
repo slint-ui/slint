@@ -36,6 +36,7 @@ export global Springboard {
     out property <PreviewEndpoint> selected-endpoint: endpoints[selected-endpoint-index];
     in property <SpringboardState> state;
     in property <ConnectionState> connection-state;
+    in property <int> pairing-code-digits;
     in property <string> error-message;
 
     callback close();
@@ -100,7 +101,7 @@ export component SpringboardView inherits Rectangle {
 
         if Springboard.connection-state == ConnectionState.PairingRequired: HorizontalBox {
             padding: 0px;
-            code := LineEdit { placeholder-text: "4-digit code"; }
+            code := LineEdit { placeholder-text: "\{Springboard.pairing-code-digits}-digit code"; }
             Button {
                 text: "Submit";
                 clicked => { Springboard.submit-pairing-code(code.text); code.text = ""; }

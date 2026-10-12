@@ -17,15 +17,16 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::editor_preview::EditorSession;
+use crate::editor_preview::{EditorSession, SessionConfigOverrides};
 use crate::{editor_preview, util};
 
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 use i_slint_compiler::source_path::SourcePath;
-use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 #[cfg(all(
@@ -33,7 +34,7 @@ use i_slint_live_preview::protocol::PreviewComponent;
     any(feature = "preview-external", feature = "preview-engine")
 ))]
 use i_slint_live_preview::protocol::VersionedUrl;
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, SourceFileVersion};
 
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
@@ -1694,38 +1695,36 @@ pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     load_configuration(ctx).await
 }
 
-#[derive(Debug)]
-struct WorkspaceConfig {
-    hide_ui: Option<bool>,
-    include_paths: Option<Vec<PathBuf>>,
-    library_paths: Option<HashMap<String, PathBuf>>,
-    style: Option<String>,
-    experimental: bool,
-}
-
-fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceConfig {
+fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfigOverrides {
     let mut hide_ui = None;
     let mut include_paths = None;
     let mut library_paths = None;
     let mut style = None;
-    let mut experimental = false;
+    let mut experimental = None;
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
-            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array())
-                && !ip.is_empty()
+            if let Some(include_path_values) =
+                config_object.get("includePaths").and_then(|value| value.as_array())
+                && !include_path_values.is_empty()
             {
                 include_paths = Some(
-                    ip.iter().filter_map(serde_json::Value::as_str).map(PathBuf::from).collect(),
+                    include_path_values
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(PathBuf::from)
+                        .collect(),
                 );
             }
-            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object())
-                && !lp.is_empty()
+            if let Some(library_path_values) =
+                config_object.get("libraryPaths").and_then(|value| value.as_object())
+                && !library_path_values.is_empty()
             {
                 library_paths = Some(
-                    lp.iter()
+                    library_path_values
+                        .iter()
                         .filter_map(|(key, value)| {
-                            value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
+                            value.as_str().map(|path| (key.to_string(), PathBuf::from(path)))
                         })
                         .collect(),
                 );
@@ -1738,12 +1737,24 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-            if config_object.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
-                experimental = true;
+            if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
+                experimental = Some(value);
             }
         }
     }
-    WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
+    SessionConfigOverrides {
+        hide_ui,
+        compiler: i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths,
+                library_paths,
+                style,
+                enable_experimental_features: experimental,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    }
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
@@ -1772,37 +1783,10 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
         )?
         .await?;
 
-    let workspace_config = parse_configuration(workspace_config);
-    tracing::debug!("Loaded configuration: {workspace_config:?}");
-    let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
-        workspace_config;
-
-    let mut diag = BuildDiagnostics::default();
-    let (cc, all_files) = ctx
-        .session
-        .document_cache
-        .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
-        .await;
-
-    let diagnostics = editor_preview::editor_session::collect_diagnostics(
-        &ctx.session.document_cache,
-        &all_files.iter().map(SourcePath::from_url).collect(),
-        diag,
-    );
+    let config_overrides = parse_configuration(workspace_config);
+    tracing::debug!("Loaded configuration: {config_overrides:?}");
+    let diagnostics = ctx.session.set_workspace_config_overrides(config_overrides).await?;
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
-
-    let config = PreviewConfig {
-        hide_ui,
-        style: cc.style.clone().unwrap_or_default(),
-        include_paths: cc.include_paths.clone(),
-        library_paths: cc.library_paths.clone(),
-        format_utf8: cc.format == editor_preview::ByteFormat::Utf8,
-        enable_experimental: cc.enable_experimental,
-    };
-    {
-        ctx.session.preview_config = config.clone();
-        ctx.session.send_to_previews(&LspToPreviewMessage::SetConfiguration { config });
-    }
 
     tracing::debug!("Loaded configuration from client");
 
@@ -1818,6 +1802,7 @@ pub mod tests {
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
         preview_capture,
     };
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
     use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
@@ -1871,6 +1856,53 @@ pub mod tests {
         let waker = std::task::Waker::noop();
         let mut context = std::task::Context::from_waker(waker);
         future.poll(&mut context)
+    }
+
+    #[test]
+    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+        for configuration in [
+            serde_json::json!({"experimental": false}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, None);
+            assert_eq!(overrides.compiler.project.library_paths, None);
+            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            for paths in ["startup", "project"] {
+                let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
+                    i_slint_compiler::generator::OutputFormat::Interpreter,
+                );
+                compiler_configuration.include_paths = vec![PathBuf::from(paths)];
+                compiler_configuration.library_paths =
+                    HashMap::from([(paths.into(), PathBuf::from(paths))]);
+                overrides.compiler.apply(None, &mut compiler_configuration);
+                assert_eq!(compiler_configuration.include_paths, vec![PathBuf::from(paths)]);
+                assert_eq!(
+                    compiler_configuration.library_paths,
+                    HashMap::from([(paths.into(), PathBuf::from(paths))])
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn configuration_parser_filters_nonempty_collections_before_replacement() {
+        for (configuration, expected_paths, expected_libraries) in [
+            (
+                serde_json::json!({"includePaths": ["workspace", 1], "libraryPaths": {"workspace": "lib", "invalid": 1}}),
+                vec![PathBuf::from("workspace")],
+                HashMap::from([("workspace".into(), PathBuf::from("lib"))]),
+            ),
+            (
+                serde_json::json!({"includePaths": [1], "libraryPaths": {"invalid": 1}}),
+                vec![],
+                HashMap::new(),
+            ),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, Some(expected_paths));
+            assert_eq!(overrides.compiler.project.library_paths, Some(expected_libraries));
+        }
     }
 
     #[test]

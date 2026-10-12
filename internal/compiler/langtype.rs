@@ -68,8 +68,8 @@ pub enum Type {
 
     ElementReference,
 
-    /// This is a `SharedArray<f32>`
-    LayoutCache,
+    /// This is a `SharedVector<Coord>`
+    ArrayOfCoord,
     /// This is used by GridLayoutOrganizedData
     ArrayOfU16,
 
@@ -117,7 +117,7 @@ impl core::cmp::PartialEq for Type {
             Type::Keys => matches!(other, Type::Keys),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
-            Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfCoord => matches!(other, Type::ArrayOfCoord),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
@@ -179,7 +179,7 @@ impl Display for Type {
                 write!(f, "({})", x.join("×"))
             }
             Type::ElementReference => write!(f, "element ref"),
-            Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfCoord => write!(f, "[coord]"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
             Type::Closure => write!(f, "closure"),
@@ -353,7 +353,7 @@ impl Type {
             Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
-            Type::LayoutCache => None,
+            Type::ArrayOfCoord => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
             Type::Closure => None,
@@ -738,15 +738,20 @@ macro_rules! define_builtin_struct_enum {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
-        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr)]
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
 
             // Public structs not in the macro (registered in typeregister.rs)
-            Color,
             LogicalPosition,
             LogicalSize,
+
+            // The results of a color's `to-hsv()` and `to-oklch()`, and the struct that its
+            // `red`, `green`, `blue` and `alpha` come from. They have no name in Slint.
+            ColorRgba,
+            ColorHsva,
+            ColorOklch,
 
             // Path element types, set via the `builtin_struct` flag of the
             // builtin element declaration and read through NativeClass.builtin_struct
@@ -786,7 +791,7 @@ macro_rules! define_builtin_struct_enum {
                     // Macro-defined structs: derived from the `pub` visibility keyword
                     $(Self::$Name => stringify!($vis) == "pub",)*
                     // Non-macro public structs
-                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
+                    Self::LogicalPosition | Self::LogicalSize => true,
                     _ => false,
                 }
             }
@@ -800,7 +805,6 @@ macro_rules! define_builtin_struct_enum {
                         Some(SmolStr::new_static(stringify!($Name)))
                     })*
                     // Non-macro structs with custom slint names
-                    Self::Color => Some(SmolStr::new_static("color")),
                     Self::LogicalPosition => Some(SmolStr::new_static("Point")),
                     Self::LogicalSize => Some(SmolStr::new_static("Size")),
                     _ => None,

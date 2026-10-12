@@ -3,6 +3,7 @@ ABGR
 accentify
 accum
 actionchip
+addrs
 adipiscing
 Adressliste
 aiohttp
@@ -259,7 +260,6 @@ fwasm
 Fwww
 genhtml
 getattr
-getifs
 getpid
 getrandom
 globalfun

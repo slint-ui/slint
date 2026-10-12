@@ -83,7 +83,8 @@ pub(crate) fn completion_at(
         .and_then(|caps| caps.snippet_support)
         .unwrap_or(false);
 
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+    let enable_experimental =
+        document_cache.compiler_configuration().compiler_config.enable_experimental;
 
     if enable_experimental
         && let Some(match_element) = match_element::case_value_position(&token, offset)
@@ -91,21 +92,25 @@ pub(crate) fn completion_at(
         return match_element::case_value_completions(document_cache, &match_element, offset);
     } else if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
-            return complete_path_in_string(
-                token.source_file()?.path().as_native_path()?,
-                token.text(),
-                offset.checked_sub(token.text_range().start())?,
-            )
-            .map(|mut r| {
-                if node.kind() == SyntaxKind::ImportSpecifier && !token.text().contains('/') {
-                    let mut c =
-                        CompletionItem::new_simple("std-widgets.slint".into(), String::new());
-
-                    c.kind = Some(CompletionItemKind::FILE);
-                    r.push(c)
-                }
-                r
+            let mut result = offset.checked_sub(token.text_range().start()).and_then(|offset| {
+                complete_path_in_string(
+                    token.source_file()?.path().as_native_path()?,
+                    token.text(),
+                    offset,
+                )
             });
+            if node.kind() == SyntaxKind::ImportSpecifier && !token.text().contains('/') {
+                let mut files = vec!["std-widgets.slint"];
+                if enable_experimental {
+                    files.push("std-widget-interfaces.slint");
+                }
+                result.get_or_insert_with(Vec::new).extend(files.into_iter().map(|file| {
+                    let mut c = CompletionItem::new_simple(file.into(), String::new());
+                    c.kind = Some(CompletionItemKind::FILE);
+                    c
+                }));
+            }
+            return result;
         }
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         if token.kind() == SyntaxKind::At
@@ -2800,6 +2805,63 @@ mod tests {
     }
 
     #[test]
+    fn project_entry_import_graph_supplies_completion_suggestions() {
+        let directory = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            directory.path().join(i_slint_compiler::project_file::FILE_NAME),
+            r#"{ "entry": "entry.slint" }"#,
+        )
+        .unwrap();
+        std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();
+        std::fs::write(directory.path().join("widgets.slint"), "export component EntryWidget {}")
+            .unwrap();
+        std::fs::write(
+            directory.path().join("unrelated.slint"),
+            "export component UnrelatedWidget {}",
+        )
+        .unwrap();
+        let source = "export component Editing { Entry }";
+        let cursor_offset = (source.find("Entry }").unwrap() + "Entry".len()) as u32;
+        let document_url =
+            lsp_types::Url::from_file_path(directory.path().join("editing.slint")).unwrap();
+        let mut session = editor_preview::EditorSession::new(
+            crate::language::test::empty_document_cache(),
+            editor_preview::LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+        );
+        spin_on::spin_on(session.open_document(source.into(), document_url.clone(), Some(1)))
+            .unwrap();
+        let document = session.document_cache.get_document(&document_url).unwrap();
+        let token =
+            crate::language::token_at_offset(document.node.as_ref().unwrap(), cursor_offset.into())
+                .unwrap();
+        let capabilities = CompletionClientCapabilities {
+            completion_item: Some(lsp_types::CompletionItemCapability {
+                snippet_support: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let results = completion_at(
+            &mut session.document_cache,
+            token,
+            cursor_offset.into(),
+            Some(&capabilities),
+        )
+        .unwrap();
+        for name in ["Entry", "EntryWidget"] {
+            let suggestion = results
+                .iter()
+                .find(|item| item.label.starts_with(&format!("{name} (import from")))
+                .unwrap_or_else(|| panic!("Missing {name}: {results:?}"));
+            assert!(
+                suggestion.additional_text_edits.as_ref().is_some_and(|edits| !edits.is_empty())
+            );
+        }
+        assert!(!results.iter().any(|item| item.label.contains("UnrelatedWidget")));
+        assert_eq!(session.open_urls, [document_url].into_iter().collect());
+    }
+
+    #[test]
     fn type_completion_suggests_import_for_unimported_struct() {
         // types.slint exports MyPoint (struct) and MyDirection (enum).
         // main.slint does not import them.  Completing `<My` should surface
@@ -3075,6 +3137,53 @@ export component TestWindow inherits Window {
     }
 
     #[test]
+    fn implement_interface_name_suggests_std_widget_interfaces_import() {
+        let results = get_completions_experimental("component Foo { implement Button🔺 }").unwrap();
+
+        assert_completion_found(
+            &CompletionItem {
+                label: "ButtonInterface (import from \"std-widget-interfaces.slint\")".into(),
+                insert_text: Some("ButtonInterface".into()),
+                filter_text: Some("ButtonInterface".into()),
+                kind: Some(CompletionItemKind::INTERFACE),
+                detail: Some("(import from \"std-widget-interfaces.slint\")".into()),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    new_text: "import { ButtonInterface } from \"std-widget-interfaces.slint\";\n"
+                        .into(),
+                }]),
+                ..Default::default()
+            },
+            &results,
+        );
+    }
+
+    #[test]
+    fn import_file_name_completion() {
+        let source = r#"import { Foo } from "std🔺";"#;
+
+        let results = get_completions(source).unwrap();
+        assert!(results.iter().any(|ci| ci.label == "std-widgets.slint"));
+        assert!(!results.iter().any(|ci| ci.label == "std-widget-interfaces.slint"));
+
+        let results = get_completions_experimental(source).unwrap();
+        assert!(results.iter().any(|ci| ci.label == "std-widgets.slint"));
+        assert!(results.iter().any(|ci| ci.label == "std-widget-interfaces.slint"));
+    }
+
+    #[test]
+    fn import_name_completion_from_std_widget_interfaces() {
+        let source = r#"import { 🔺} from "std-widget-interfaces.slint""#;
+
+        let results = get_completions_experimental(source).unwrap();
+        assert!(results.iter().any(|ci| ci.label == "ButtonInterface"));
+        assert!(results.iter().any(|ci| ci.label == "TimePickerPopupInterface"));
+
+        assert!(get_completions(source).is_none());
+    }
+
+    #[test]
     fn implement_interface_name_no_import_suggestion_when_already_imported() {
         let types_content = r#"export interface MyInterface { property <int> x; }
 "#;
@@ -3222,7 +3331,10 @@ component Foo {
         for source in ["component Foo { implement MyInterface🔺", "component Foo { implement My🔺"]
         {
             let results = get_completions_experimental(source).unwrap();
-            assert!(results.is_empty(), "expected no completions for {source:?}, got {results:?}");
+            assert!(
+                results.iter().all(|completion| completion.additional_text_edits.is_some()),
+                "expected only import suggestions for {source:?}, got {results:?}"
+            );
         }
 
         // Nothing typed after `implement` at all, cut off at EOF.

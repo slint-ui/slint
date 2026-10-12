@@ -14,7 +14,7 @@ See [Status](/norm-mapping/#status) for how to read the Applied column.
 | 1a | Enforcement of low complexity | ++ | Partly applied | The runtime is about 700 lines. No complexity limit is set or checked yet. |
 | 1b | Use of language subsets | ++ | Partly applied | No unsafe code, no standard library, and no `alloc`; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). Panicking operations and lossy casts aren't excluded yet. |
 | 1c | Enforcement of strong typing | ++ | Applied | Rust is strongly typed, with no implicit conversions. |
-| 1d | Use of defensive implementation techniques | + | Partly applied | [`slint.runtime.avd.buffer-size-check`](/component-documentation/safety-analysis/#slint.runtime.avd.buffer-size-check). Whether arithmetic overflow panics or wraps depends on the integrator's build profile. |
+| 1d | Use of defensive implementation techniques | + | Partly applied | [`slint.runtime.avd.buffer-size-check`](/runtime/safety-analysis/#slint.runtime.avd.buffer-size-check). Whether arithmetic overflow panics or wraps depends on the integrator's build profile. |
 | 1e | Use of well-trusted design principles | + | Applied | The principles of Table 6; see [Design Principles](/safety-plan/coding-standards/#design-principles). |
 | 1f | Use of unambiguous graphical representation | ++ | Not applied | Slint SC uses no graphical modelling. |
 | 1g | Use of style guides | ++ | Partly applied | CI runs clippy with warnings as errors; see [Coding Standards](/safety-plan/coding-standards/#slint-sc-runtime). Coding Standards doesn't name the formatting rules yet. |

@@ -41,6 +41,7 @@
         "mix": "Normal"
       },
       "clip": "M0,0 L3012,0 L3012,1000 L0,1000 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,
@@ -94,6 +95,7 @@
         "mix": "Normal"
       },
       "clip": "M0,0 L3012,0 L3012,1000 L0,1000 Z",
+      "fill": "NonZero",
       "filter": null,
       "transform": [
         1.0,

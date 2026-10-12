@@ -35,45 +35,20 @@ pub type OpenImportCallback = Rc<
         -> Pin<Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>>,
 >;
 
+#[derive(Clone)]
 pub struct CompilerConfiguration {
-    pub include_paths: Vec<std::path::PathBuf>,
-    pub library_paths: HashMap<String, std::path::PathBuf>,
-    pub style: Option<String>,
+    pub compiler_config: i_slint_compiler::CompilerConfiguration,
     pub open_import_callback: Option<OpenImportCallback>,
-    pub resource_url_mapper: Option<i_slint_compiler::ResourceUrlMapper>,
     pub format: crate::ByteFormat,
-    /// Whether to enable experimental features.
-    /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
-    /// in native build, so this is used to transmit the value when compiled to WASM.
-    pub enable_experimental: bool,
 }
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
-        let mut cc = default_cc();
-
         Self {
-            include_paths: std::mem::take(&mut cc.include_paths),
-            library_paths: std::mem::take(&mut cc.library_paths),
-            style: std::mem::take(&mut cc.style),
+            compiler_config: default_cc(),
             open_import_callback: None,
-            resource_url_mapper: std::mem::take(&mut cc.resource_url_mapper),
             format: crate::ByteFormat::Utf8,
-            enable_experimental: cc.enable_experimental,
         }
-    }
-}
-
-impl CompilerConfiguration {
-    fn build(mut self) -> (i_slint_compiler::CompilerConfiguration, Option<OpenImportCallback>) {
-        let mut result = default_cc();
-        result.include_paths = std::mem::take(&mut self.include_paths);
-        result.library_paths = std::mem::take(&mut self.library_paths);
-        result.style = std::mem::take(&mut self.style);
-        result.resource_url_mapper = std::mem::take(&mut self.resource_url_mapper);
-        result.enable_experimental |= self.enable_experimental;
-
-        (result, self.open_import_callback)
     }
 }
 
@@ -83,6 +58,7 @@ pub struct DocumentCache {
     open_import_callback: Option<OpenImportCallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     pub format: crate::ByteFormat,
+    config: CompilerConfiguration,
 }
 
 #[cfg(feature = "preview-engine")]
@@ -130,7 +106,8 @@ impl DocumentCache {
 
     pub fn new(config: CompilerConfiguration) -> Self {
         let format = config.format;
-        let (mut compiler_config, open_import_callback) = config.build();
+        let mut compiler_config = config.compiler_config.clone();
+        let open_import_callback = config.open_import_callback.clone();
 
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
             &mut compiler_config,
@@ -143,6 +120,7 @@ impl DocumentCache {
             open_import_callback,
             source_file_versions,
             format,
+            config,
         }
     }
 
@@ -152,13 +130,22 @@ impl DocumentCache {
         source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
         format: super::ByteFormat,
     ) -> Self {
+        let mut compiler_config = type_loader.compiler_config.clone();
+        if open_import_callback.is_some() {
+            compiler_config.open_import_callback = None;
+        }
+        let config = CompilerConfiguration {
+            compiler_config,
+            open_import_callback: open_import_callback.clone(),
+            format,
+        };
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
             &mut type_loader.compiler_config,
             open_import_callback,
             source_file_versions,
         );
 
-        Self { type_loader, open_import_callback, source_file_versions, format }
+        Self { type_loader, open_import_callback, source_file_versions, format, config }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
@@ -274,51 +261,53 @@ impl DocumentCache {
         }
     }
 
-    /// Apply a new configuration to the document cache
-    ///
-    /// This will invalidate and reload all loaded documents.
+    /// Re-apply a complete configuration to the document cache
     ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
     pub async fn reconfigure(
         &mut self,
-        style: Option<String>,
-        include_paths: Option<Vec<PathBuf>>,
-        library_paths: Option<HashMap<String, PathBuf>>,
-        enable_experimental: bool,
+        config: CompilerConfiguration,
+        roots: &HashSet<Url>,
         diag: &mut BuildDiagnostics,
     ) -> (CompilerConfiguration, HashSet<lsp_types::Url>) {
-        if let Some(s) = style {
-            if s.is_empty() {
-                self.type_loader.compiler_config.style = None;
-            } else {
-                self.type_loader.compiler_config.style = Some(s);
-            }
-        }
+        let mut compiler_config = config.compiler_config.clone();
+        let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
+            &mut compiler_config,
+            config.open_import_callback.clone(),
+            self.source_file_versions.clone(),
+        );
 
-        if let Some(ip) = include_paths {
-            self.type_loader.compiler_config.include_paths = ip;
-        }
-
-        if let Some(lp) = library_paths {
-            self.type_loader.compiler_config.library_paths = lp;
-        }
-
-        if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
-            self.type_loader.compiler_config.enable_experimental = true;
+        if self.type_loader.compiler_config.enable_experimental
+            != compiler_config.enable_experimental
+        {
             *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(TypeRegister::builtin_experimental()).unwrap().into_inner();
+                Rc::into_inner(if compiler_config.enable_experimental {
+                    TypeRegister::builtin_experimental()
+                } else {
+                    TypeRegister::builtin()
+                })
+                .unwrap()
+                .into_inner();
         }
+
+        self.config = config.clone();
+        self.open_import_callback = open_import_callback;
+        self.source_file_versions = source_file_versions;
+        self.format = config.format;
+        self.type_loader.compiler_config = compiler_config;
 
         self.invalidate_everything();
 
         self.preload_builtins().await;
 
-        let all_urls = self.all_urls().collect::<HashSet<_>>();
+        let all_urls = self.all_urls().filter(|url| roots.contains(url)).collect::<HashSet<_>>();
         for url in &all_urls {
             self.reload_cached_file(url, diag).await;
         }
 
-        (self.compiler_configuration(), all_urls)
+        let mut config = config;
+        config.open_import_callback = None;
+        (config, all_urls)
     }
 
     pub async fn preload_builtins(&mut self) {
@@ -352,6 +341,7 @@ impl DocumentCache {
     /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let path = SourcePath::from_url(url);
+        self.source_file_versions.borrow_mut().remove(&path);
         Ok(self.type_loader.drop_document(&path)?.iter().filter_map(|path| path.to_url()).collect())
     }
 
@@ -368,16 +358,39 @@ impl DocumentCache {
             .collect()
     }
 
-    pub fn compiler_configuration(&self) -> CompilerConfiguration {
-        CompilerConfiguration {
-            include_paths: self.type_loader.compiler_config.include_paths.clone(),
-            library_paths: self.type_loader.compiler_config.library_paths.clone(),
-            style: self.type_loader.compiler_config.style.clone(),
-            open_import_callback: None, // We need to re-generate this anyway
-            resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
-            format: self.format,
-            enable_experimental: self.type_loader.compiler_config.enable_experimental,
+    pub(crate) fn retain_documents(&mut self, roots: &HashSet<Url>) -> Result<HashSet<Url>> {
+        let mut retained = roots.clone();
+        let mut pending = roots.iter().cloned().collect::<Vec<_>>();
+        while let Some(url) = pending.pop() {
+            if let Some(document) = self.get_document(&url) {
+                for import in &document.imports {
+                    if let Some(import_url) = import.resolved.as_ref().and_then(SourcePath::to_url)
+                        && retained.insert(import_url.clone())
+                    {
+                        pending.push(import_url);
+                    }
+                }
+            }
         }
+        let removed = self
+            .all_urls()
+            .filter(|url| url.scheme() != "builtin" && !retained.contains(url))
+            .collect::<HashSet<_>>();
+        for url in &removed {
+            self.drop_document(url)?;
+        }
+        Ok(removed)
+    }
+
+    pub fn compiler_configuration(&self) -> CompilerConfiguration {
+        let mut config = self.config.clone();
+        config.open_import_callback = None;
+        config.compiler_config.open_import_callback = None;
+        config
+    }
+
+    pub(crate) fn configuration_with_import_callback(&self) -> CompilerConfiguration {
+        self.config.clone()
     }
 
     fn element_at_document_and_offset(
@@ -487,6 +500,76 @@ mod tests {
     fn test_document_version() {
         let (dc, url, _) = complex_document_cache();
         assert_eq!(dc.document_version(&url), Some(42));
+    }
+
+    #[test]
+    fn test_snapshot_preserves_editor_configuration() {
+        let config = CompilerConfiguration {
+            compiler_config: {
+                let mut compiler_config =
+                    crate::document_cache::CompilerConfiguration::default().compiler_config;
+                compiler_config.style = Some("fluent".into());
+                compiler_config.resource_url_mapper = Some(Rc::new(|_| Box::pin(async { None })));
+                compiler_config.translation_domain = Some("test-domain".into());
+                compiler_config.const_scale_factor = Some(2.0);
+                compiler_config
+            },
+            format: crate::ByteFormat::Utf16,
+            ..Default::default()
+        };
+
+        let snapshot = DocumentCache::new(config).snapshot().expect("snapshot");
+        let config = snapshot.compiler_configuration();
+
+        assert_eq!(config.compiler_config.style.as_deref(), Some("fluent"));
+        assert!(config.compiler_config.resource_url_mapper.is_some());
+        assert_eq!(config.compiler_config.translation_domain.as_deref(), Some("test-domain"));
+        assert_eq!(config.compiler_config.const_scale_factor, Some(2.0));
+        assert!(config.open_import_callback.is_none());
+        assert_eq!(config.format, crate::ByteFormat::Utf16);
+    }
+
+    #[test]
+    fn versioned_import_callback_survives_snapshot_and_reconfiguration() {
+        let fail_import = Rc::new(std::cell::Cell::new(false));
+        let fail_import_for_callback = fail_import.clone();
+        let config = CompilerConfiguration {
+            open_import_callback: Some(Rc::new(move |_| {
+                let fail_import = fail_import_for_callback.get();
+                Box::pin(async move {
+                    Some(if fail_import {
+                        Err(std::io::Error::other("test import failure"))
+                    } else {
+                        Ok((Some(42), "export component Imported {}".into()))
+                    })
+                })
+            })),
+            ..Default::default()
+        };
+        let cache = DocumentCache::new(config);
+        let snapshot = cache.snapshot().unwrap();
+        let path = SourcePath::new("callback-import.slint");
+
+        for mut cache in [cache, snapshot] {
+            fail_import.set(false);
+            let config = cache.configuration_with_import_callback();
+            assert!(config.open_import_callback.is_some());
+            assert!(config.compiler_config.open_import_callback.is_none());
+            assert!(cache.compiler_configuration().open_import_callback.is_none());
+            spin_on::spin_on(cache.reconfigure(
+                config,
+                &HashSet::new(),
+                &mut BuildDiagnostics::default(),
+            ));
+            let import_callback =
+                cache.type_loader.compiler_config.open_import_callback.as_ref().unwrap();
+            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_ok());
+            assert_eq!(cache.document_version_by_path(&path), Some(42));
+
+            fail_import.set(true);
+            assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_err());
+            assert_eq!(cache.document_version_by_path(&path), None);
+        }
     }
 
     #[test]

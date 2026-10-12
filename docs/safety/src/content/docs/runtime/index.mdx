@@ -1,5 +1,5 @@
 ---
-title: Component Documentation
+title: Runtime Safety Documentation
 description: The specification of the slint-sc runtime, and what integrating it needs.
 ---
 
@@ -8,8 +8,8 @@ The runtime is developed under ISO 26262-6; see [How Slint SC Is Developed](/saf
 This document is the specification of the runtime.
 The document also lists what an integrator needs to integrate the runtime.
 
-* [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/): the safety requirements Slint SC is developed to, derived from its assumed use.
-* [Safety Analysis](/component-documentation/safety-analysis/): what can go wrong in the runtime, and the measure or constraint that covers each error.
+* [Assumed Safety Requirements](/runtime/assumed-safety-requirements/): the safety requirements Slint SC is developed to, derived from its assumed use.
+* [Safety Analysis](/runtime/safety-analysis/): what can go wrong in the runtime, and the measure or constraint that covers each error.
 
 ## Specification
 
@@ -27,5 +27,5 @@ ISO 26262-8 12.4.2.1 is about reusing existing components, but its list covers w
 | g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/safety-plan/architecture/#properties) |
 | h) Application manual | [User Manual](/user-manual/) |
 | i) Integration instructions | [Add the Runtime](/user-manual/get-started/installation/#add-the-runtime) in the User Manual |
-| j) Reactions under anomalous operating conditions | [Safety Analysis](/component-documentation/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |
+| j) Reactions under anomalous operating conditions | [Safety Analysis](/runtime/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |
 | k) Known anomalies and workarounds | [Known Problems](/user-manual/known-problems/) |

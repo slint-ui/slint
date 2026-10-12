@@ -62,6 +62,8 @@ endif()
 if(SLINT_FEATURE_COMPILER OR SLINT_COMPILER)
     add_subdirectory(multiple-includes)
     add_subdirectory(libraries)
+    add_subdirectory(project-file)
+    add_subdirectory(project-file-entry)
 endif()
 
 slint_test(platform_eventloop)

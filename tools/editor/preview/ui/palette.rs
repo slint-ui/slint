@@ -633,7 +633,13 @@ export component Main { }
 
         for (style, border) in cases {
             let config = i_slint_editor_preview::document_cache::CompilerConfiguration {
-                style: Some(style.to_string()),
+                compiler_config: {
+                    let mut compiler_config =
+                        i_slint_editor_preview::document_cache::CompilerConfiguration::default()
+                            .compiler_config;
+                    compiler_config.style = Some(style.to_string());
+                    compiler_config
+                },
                 ..Default::default()
             };
             let mut session = i_slint_editor_preview::test::session_with(

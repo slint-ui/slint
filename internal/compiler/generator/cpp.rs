@@ -524,9 +524,10 @@ impl CppType for BuiltinStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
         match self {
-            Self::Color | Self::LogicalPosition | Self::LogicalSize => {
-                Some(format_smolstr!("slint::{}", name))
-            }
+            Self::ColorRgba => Some("slint::RgbaColor<uint8_t>".into()),
+            Self::ColorHsva => Some("slint::HsvaColor".into()),
+            Self::ColorOklch => Some("slint::OklchColor".into()),
+            Self::LogicalPosition | Self::LogicalSize => Some(format_smolstr!("slint::{}", name)),
             Self::PathMoveTo
             | Self::PathLineTo
             | Self::PathArcTo
@@ -573,7 +574,7 @@ impl CppType for Type {
                 }
             }
             Type::Brush => Some("slint::Brush".into()),
-            Type::LayoutCache => Some("slint::SharedVector<float>".into()),
+            Type::ArrayOfCoord => Some("slint::SharedVector<float>".into()),
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
@@ -4369,6 +4370,17 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                 rhs.fields.keys().map(|n| format!("o.{}", ident(n))).join(", ")
                             )
                         }
+                        (sourcestruct, targetstruct) if sourcestruct != targetstruct => {
+                            format!(
+                                "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({f})",
+                                struct_name = to.cpp_type().unwrap(),
+                                fields = lhs
+                                    .fields
+                                    .keys()
+                                    .map(|n| format!("s.{0} = o.{0}; ", ident(n)))
+                                    .join(""),
+                            )
+                        }
                         _ => f,
                     }
                 }
@@ -4950,6 +4962,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let expr = compile_expression(expression, ctx);
 
             format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
+        }
+        Expression::DashArray(dash_array) => {
+            if dash_array.is_empty() {
+                "slint::SharedVector<float>()".into()
+            } else {
+                format!(
+                    "slint::SharedVector<float>({{ {} }})",
+                    dash_array.iter().map(|v| format!("float({v})")).collect::<Vec<_>>().join(", ")
+                )
+            }
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),

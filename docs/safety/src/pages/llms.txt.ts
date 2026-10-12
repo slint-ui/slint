@@ -9,7 +9,7 @@ export const GET: APIRoute = async ({ site }) =>
     renderLlmsTxt(await getCollection("docs"), {
         title: "Slint SC Safety Manual",
         summary:
-            "The Safety Manual for Slint SC, the ISO 26262 compliant subset of Slint.",
+            "The Safety Manual for Slint SC, the subset of Slint developed for safety-related software under ISO 26262.",
         basePath: import.meta.env.BASE_URL,
         site,
     });

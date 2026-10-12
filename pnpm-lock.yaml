@@ -365,6 +365,9 @@ importers:
       astro-mermaid:
         specifier: 2.1.0
         version: 2.1.0(astro@7.3.5(@astrojs/markdown-remark@7.3.1)(@types/node@24.12.0)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(mermaid@12.0.0)
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       mermaid:
         specifier: 12.0.0
         version: 12.0.0

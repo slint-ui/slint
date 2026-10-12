@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A struct converted to another struct type with the same fields
+
+struct MyPoint { x: length, y: length }
+struct First { number: int, text: string }
+struct Second { number: int, text: string }
+
+export component TestCase inherits Window {
+    r := Rectangle { x: 3px; y: 4px; }
+    out property <MyPoint> point: r.absolute-position;
+    in property <First> first: { number: 1, text: "one" };
+    out property <Second> second: first;
+    out property <[Second]> list: [first, { number: 2, text: "two" }];
+    function text-of(value: Second) -> string {
+        value.text
+    }
+    out property <string> passed: text-of(first);
+    out property <Point> back: point;
+
+    out property <bool> test: point.x == 3px && point.y == 4px && second.number == 1
+        && list[0].text == "one" && list[1].number == 2 && passed == "one" && back.y == 4px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let second = instance.get_second();
+assert_eq!(second.number, 1);
+assert_eq!(second.text, "one");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_second().number, 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
