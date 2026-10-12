@@ -2763,7 +2763,7 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: true,
+                is_moveable: !is_in_layout,
                 is_resizable: !is_in_layout && !is_layout,
             });
 
