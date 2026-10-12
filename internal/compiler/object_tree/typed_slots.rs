@@ -22,11 +22,18 @@ pub(super) fn declaration(
             }
         }
     });
+    let mut default = node.SubElement();
+    if node.QualifiedName().is_some()
+        && let Some(sub_element) = default.take()
+    {
+        diag.push_error("Typed slots don't support default content yet".into(), &sub_element);
+    }
     let name_node = node.DeclaredIdentifier();
     DeclaredSlot {
         name: parser::identifier_text(&name_node).unwrap_or_default(),
         name_node,
         interface,
+        default,
         has_rejected_placeholder: false,
     }
 }
@@ -474,7 +481,7 @@ impl Element {
         component_child_insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
         diagnostics: &mut BuildDiagnostics,
         type_register: &TypeRegister,
-    ) {
+    ) -> bool {
         Self::assert_experimental_slots(diagnostics, node, "named slots");
         if let Some(existing) = component_child_insertion_points.get(slot_name.as_str()) {
             if matches!(existing.node, ChildInsertionPointNode::SlotForwarding(_)) {
@@ -493,7 +500,7 @@ impl Element {
                     node,
                 );
             }
-            return;
+            return false;
         }
         if type_register.lookup_element(slot_name.as_str()).is_ok() {
             diagnostics.push_warning(
@@ -513,6 +520,43 @@ impl Element {
                 node: ChildInsertionPointNode::SlotPlaceholder(node.clone().into()),
             },
         );
+        true
+    }
+
+    pub(super) fn place_slot_default(
+        slot_name: &SmolStr,
+        parent: &ElementRc,
+        declared_slots: &mut Vec<DeclaredSlot>,
+        is_legacy_syntax: bool,
+        diagnostics: &mut BuildDiagnostics,
+        type_register: &TypeRegister,
+    ) {
+        let Some(default) = declared_slots
+            .iter()
+            .find(|slot| &slot.name == slot_name)
+            .and_then(|slot| slot.default.clone())
+        else {
+            return;
+        };
+        let mut nested_insertion_points = BTreeMap::new();
+        let parent_type = parent.borrow().base_type.clone();
+        let element = Element::from_sub_element_node(
+            default,
+            parent_type,
+            &mut nested_insertion_points,
+            declared_slots,
+            is_legacy_syntax,
+            diagnostics,
+            type_register,
+        );
+        Self::reject_slot_placeholders(
+            diagnostics,
+            declared_slots,
+            nested_insertion_points,
+            &format!("the default content of slot '{slot_name}'"),
+        );
+        element.borrow_mut().slot_default = Some(slot_name.clone());
+        parent.borrow_mut().children.push(element);
     }
 
     pub(super) fn slot_forwarding_expr_identifier(expression: &SyntaxNode) -> Option<SmolStr> {

@@ -629,6 +629,9 @@ fn find_root_menu(
             menu_elem = Some(x.clone());
         }
     }
+    if let Some(menu_elem) = &menu_elem {
+        error_on_slot_default(menu_elem, &owner.borrow().base_type.as_builtin().name, diag);
+    }
     menu_elem
 }
 

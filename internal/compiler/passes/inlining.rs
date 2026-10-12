@@ -18,6 +18,8 @@ use std::collections::btree_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
+mod named_slots;
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum InlineSelection {
     InlineAllComponents,
@@ -303,6 +305,7 @@ fn inline_element(
         }
     }
 
+    let mut removed_defaults = named_slots::RemovedDefaults::default();
     for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
         insertions.sort_by(|a, b| {
             a.insertion_index
@@ -317,11 +320,20 @@ fn inline_element(
         } else {
             &mut new_children
         };
-        let mut offset = 0usize;
+        let mut offset = 0isize;
         for insertion in insertions {
-            let adjusted_index = insertion.insertion_index + offset;
+            let adjusted_index = insertion.insertion_index.checked_add_signed(offset).unwrap();
             let inserted_len = insertion.children.len();
-            destination.splice(adjusted_index..adjusted_index, insertion.children);
+            let removed_len = named_slots::take_defaults(
+                &destination[adjusted_index..],
+                &insertion.slot_name,
+                inserted_len > 0,
+                forwarded_sources_by_target
+                    .get(insertion.slot_name.as_str())
+                    .and_then(|sources| sources.first()),
+                &mut removed_defaults,
+            );
+            destination.splice(adjusted_index..adjusted_index + removed_len, insertion.children);
             let mut root_points = root_component.child_insertion_points.borrow_mut();
             for (name, cip) in root_points.iter_mut() {
                 if Rc::ptr_eq(&cip.parent, elem)
@@ -350,7 +362,7 @@ fn inline_element(
                     },
                 );
             }
-            offset += inserted_len;
+            offset += inserted_len as isize - removed_len as isize;
         }
     }
 
@@ -364,33 +376,46 @@ fn inline_element(
         *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
     };
 
-    root_component.optimized_elements.borrow_mut().extend(duplicate_optimized_elements(
+    let optimized_elements = duplicate_optimized_elements(
         &inlined_component.optimized_elements.borrow(),
         &mut mapping,
         root_component,
         priority_delta,
-    ));
+    );
+    root_component
+        .optimized_elements
+        .borrow_mut()
+        .extend(removed_defaults.retain_optimized(optimized_elements));
     root_component.popup_windows.borrow_mut().extend(
-        inlined_component
-            .popup_windows
-            .borrow()
-            .iter()
-            .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
+        inlined_component.popup_windows.borrow().iter().filter_map(|p| {
+            if removed_defaults.contains_original(&mapping, &p.parent_element) {
+                return None;
+            }
+            Some(duplicate_popup(p, &mut mapping, priority_delta))
+        }),
     );
 
     root_component.menu_item_tree.borrow_mut().extend(
-        inlined_component
-            .menu_item_tree
-            .borrow()
-            .iter()
-            .map(|it| duplicate_sub_component(it, elem, &mut mapping, priority_delta)),
+        inlined_component.menu_item_tree.borrow().iter().filter_map(|it| {
+            let parent = it.parent_element().unwrap();
+            if removed_defaults.contains_original(&mapping, &parent) {
+                return None;
+            }
+            let new_parent = mapping.get(&element_key(parent)).unwrap_or(elem).clone();
+            Some(duplicate_sub_component(it, &new_parent, &mut mapping, priority_delta))
+        }),
     );
 
-    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().map(|t| {
-        let inlined_element = mapping.get(&element_key(t.element.upgrade().unwrap())).unwrap();
-
-        Timer { element: Rc::downgrade(inlined_element), ..t.clone() }
-    }));
+    root_component.timers.borrow_mut().extend(inlined_component.timers.borrow().iter().filter_map(
+        |t| {
+            let element = t.element.upgrade().unwrap();
+            if removed_defaults.contains_original(&mapping, &element) {
+                return None;
+            }
+            let inlined_element = mapping.get(&element_key(element)).unwrap();
+            Some(Timer { element: Rc::downgrade(inlined_element), ..t.clone() })
+        },
+    ));
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
@@ -510,6 +535,12 @@ fn inline_element(
         .values()
         .flatten()
         .chain(inlined_component.init_code.borrow().constructor_code.iter())
+        .filter(|entry| {
+            !entry
+                .owner
+                .upgrade()
+                .is_some_and(|owner| removed_defaults.contains_original(&mapping, &owner))
+        })
         .map(fixup_init_entry)
         .collect();
 
@@ -616,6 +647,7 @@ fn duplicate_element_with_mapping(
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
+        slot_default: elem.slot_default.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.

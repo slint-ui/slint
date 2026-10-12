@@ -1,0 +1,33 @@
+================================================================================
+slot_declaration_with_default
+================================================================================
+
+component Host {
+    slot header;
+    slot content << label := Text {
+        text: "Default";
+    }
+    content { }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (slot_declaration
+        (simple_identifier))
+      (slot_declaration
+        (simple_identifier)
+        (component
+          (simple_identifier)
+          (user_type_identifier)
+          (block
+            (property_assignment
+              (simple_identifier)
+              (expression
+                (value
+                  (string_value)))))))
+      (component
+        (user_type_identifier)
+        (block)))))
