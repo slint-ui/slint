@@ -8,7 +8,7 @@
 //! where one was given.
 //! See [`crate::display::gbmdmabufdisplay`] for the buffers that device renders into.
 
-// cSpell: ignore dmabuf
+// cSpell: ignore dmabuf lavapipe
 
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
@@ -100,6 +100,17 @@ pub fn init_wgpu(
 
     let adapter = request_adapter(&instance)
         .map_err(|e| format!("Error finding a Vulkan adapter for dma-buf rendering: {e}"))?;
+    // A software Vulkan driver such as lavapipe is installed alongside GPUs whose only
+    // driver is OpenGL. Rendering through it would be slower than the OpenGL and
+    // software renderers that come next.
+    let info = adapter.get_info();
+    if info.device_type == wgpu::DeviceType::Cpu && std::env::var_os("SLINT_WGPU_CPU").is_none() {
+        return Err(PlatformError::Other(format!(
+            "The Vulkan adapter for dma-buf rendering, {}, renders on the CPU. \
+             Set SLINT_WGPU_CPU to use it anyway",
+            info.name
+        )));
+    }
 
     // The features and limits an application asked for, or everything the adapter
     // offers when it asked for nothing. i-slint-core reads them from the WGPU
