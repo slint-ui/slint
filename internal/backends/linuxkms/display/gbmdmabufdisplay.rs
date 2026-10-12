@@ -203,12 +203,13 @@ impl GbmDmabufDisplay {
 
         // A gbm backend without modifier support fails that, or ignores the list and
         // answers `Invalid`: a layout of the driver's choosing, which Vulkan can't name.
-        // Asking for `LINEAR` instead gives a layout Vulkan can name.
+        // One that ignores the list may also answer a modifier outside it, which Vulkan
+        // can't import. Asking for `LINEAR` instead gives a layout Vulkan can name.
         let (bo, fallback_reason) = match with_modifiers {
-            Ok(bo) if bo.modifier() != gbm::Modifier::Invalid => (bo, None),
+            Ok(bo) if modifiers.contains(&bo.modifier()) => (bo, None),
             with_modifiers if linear_import.is_possible() => {
                 let reason = match with_modifiers {
-                    Ok(_) => "gbm reported no DRM format modifier".to_string(),
+                    Ok(bo) => unlisted_modifier(bo.modifier()),
                     Err(e) => format!("allocating with a DRM format modifier failed: {e}"),
                 };
                 let bo = gbm_device
@@ -228,11 +229,12 @@ impl GbmDmabufDisplay {
                     })?;
                 (bo, Some(reason))
             }
-            Ok(_) => {
+            Ok(bo) => {
                 return Err(PlatformError::Other(format!(
-                    "The gbm driver reports no DRM format modifier for the scanout buffer, and \
-                     Vulkan can't render into a linear one: {}. By DRM format modifier, it \
-                     imports the scanout format only with {modifiers:?}",
+                    "For the scanout buffer, {}, and Vulkan can't render into a linear one: {}. \
+                     By DRM format modifier, it imports the scanout format only with \
+                     {modifiers:?}",
+                    unlisted_modifier(bo.modifier()),
                     linear_import.tiling_failure().unwrap_or_default()
                 )));
             }
@@ -352,6 +354,15 @@ impl GbmDmabufDisplay {
         // the frame before last off screen, whose buffer is drawn into next.
         self.drm_output.wait_for_page_flip();
         self.drm_output.present_framebuffer(self.buffers[*index].framebuffer.handle)
+    }
+}
+
+/// Why gbm's `modifier` for a buffer allocated from a list of modifiers is unusable.
+fn unlisted_modifier(modifier: gbm::Modifier) -> String {
+    if modifier == gbm::Modifier::Invalid {
+        "gbm reported no DRM format modifier".into()
+    } else {
+        format!("gbm chose DRM format modifier {modifier:?}, which isn't among those offered")
     }
 }
 
