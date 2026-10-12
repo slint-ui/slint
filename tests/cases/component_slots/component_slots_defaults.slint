@@ -1,0 +1,174 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host inherits Rectangle {
+    slot header << Rectangle {
+        min-width: 300px;
+        height: 11px;
+    }
+    slot footer << Rectangle {
+        height: 17px;
+    }
+    min-width: layout.min-width;
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        header { }
+
+        Rectangle {
+            height: 7px;
+        }
+
+        footer { }
+    }
+}
+
+component AdjacentHost inherits Rectangle {
+    slot first << Rectangle {
+        height: 1px;
+    }
+    slot second << Rectangle {
+        height: 2px;
+    }
+    slot third;
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        first { }
+
+        second { }
+
+        third { }
+    }
+}
+
+component Forwarded inherits Rectangle {
+    slot heading;
+    min-width: inner.min-width;
+    min-height: inner.min-height;
+    inner := Host {
+        header << heading;
+    }
+}
+
+component Counting inherits Rectangle {
+    out property <int> inits;
+    out property <int> ticks;
+    slot content << Rectangle {
+        init => {
+            root.inits += 1;
+        }
+        Timer {
+            interval: 1ms;
+            triggered => {
+                root.ticks += 1;
+            }
+        }
+    }
+    VerticalLayout {
+        content { }
+    }
+}
+
+component ForwardedCounting inherits Rectangle {
+    out property <int> inits: inner.inits;
+    out property <int> ticks: inner.ticks;
+    slot outer;
+    inner := Counting {
+        content << outer;
+    }
+}
+
+export component TestCase inherits Window {
+    out property <bool> test: defaults.min-height == 35px && defaults.min-width == 300px
+        && replaced-header.min-height == 29px && replaced-header.min-width == 20px
+        && replaced-both.min-height == 15px
+        && adjacent-defaults.min-height == 3px && adjacent-first.min-height == 6px
+        && adjacent-second.min-height == 9px && adjacent-third.min-height == 11px
+        && forwarded-defaults.min-height == 35px && forwarded-defaults.min-width == 300px
+        && forwarded-replacement.min-height == 27px
+        && replaced-counting.inits == 0 && kept-counting.inits == 1
+        && forwarded-counting.inits == 0;
+    out property <int> replaced-ticks: replaced-counting.ticks;
+    out property <int> kept-ticks: kept-counting.ticks;
+    out property <int> forwarded-ticks: forwarded-counting.ticks;
+
+    defaults := Host { }
+
+    replaced-header := Host {
+        header << Rectangle {
+            min-width: 20px;
+            height: 5px;
+        }
+    }
+
+    replaced-both := Host {
+        header << Rectangle {
+            height: 3px;
+        }
+        footer << Rectangle {
+            height: 5px;
+        }
+    }
+
+    adjacent-defaults := AdjacentHost { }
+
+    adjacent-first := AdjacentHost {
+        first << Rectangle {
+            height: 4px;
+        }
+    }
+
+    adjacent-second := AdjacentHost {
+        second << Rectangle {
+            height: 8px;
+        }
+    }
+
+    adjacent-third := AdjacentHost {
+        third << Rectangle {
+            height: 8px;
+        }
+    }
+
+    forwarded-defaults := Forwarded { }
+
+    forwarded-replacement := Forwarded {
+        heading << Rectangle {
+            height: 3px;
+        }
+    }
+
+    replaced-counting := Counting {
+        content << Rectangle { }
+    }
+
+    kept-counting := Counting { }
+
+    forwarded-counting := ForwardedCounting {
+        outer << Rectangle { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+slint_testing::mock_elapsed_time(10);
+assert_eq!(instance.get_replaced_ticks(), 0);
+assert!(instance.get_kept_ticks() > 0);
+assert_eq!(instance.get_forwarded_ticks(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+slint_testing::mock_elapsed_time(10);
+assert_eq(instance.get_replaced_ticks(), 0);
+assert(instance.get_kept_ticks() > 0);
+assert_eq(instance.get_forwarded_ticks(), 0);
+```
+*/

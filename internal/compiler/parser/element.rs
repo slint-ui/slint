@@ -60,6 +60,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// match bar.property { 1: Elem { } }
 /// slot header;
 /// slot <HeaderInterface> header;
+/// slot header << Text {}
 /// header {}
 /// header << HeaderComponent {}
 /// header << parentHeader;
@@ -249,20 +250,42 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 /// ```test,SlotDeclaration
 /// slot header;
 /// slot <ContentInterface> content;
+/// slot header << Text { text: "Default"; }
+/// slot header << label := Text {}
 /// ```
 fn parse_slot_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "slot");
-    let mut p = p.start_node(SyntaxKind::SlotDeclaration);
-    p.expect(SyntaxKind::Identifier); // "slot"
-    if p.test(SyntaxKind::LAngle) {
-        parse_qualified_name(&mut *p);
-        p.expect(SyntaxKind::RAngle);
-    }
     {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        p.expect(SyntaxKind::Identifier);
+        let mut p = p.start_node(SyntaxKind::SlotDeclaration);
+        p.expect(SyntaxKind::Identifier); // "slot"
+        if p.test(SyntaxKind::LAngle) {
+            parse_qualified_name(&mut *p);
+            p.expect(SyntaxKind::RAngle);
+        }
+        {
+            let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+            p.expect(SyntaxKind::Identifier);
+        }
+        if !p.test(SyntaxKind::DoubleLess) {
+            p.expect(SyntaxKind::Semicolon);
+            return;
+        }
+        match p.peek().as_str() {
+            keyword @ ("if" | "for")
+                if !matches!(p.nth(1).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual) =>
+            {
+                p.error(format!(
+                    "Wrap the '{keyword}' in an element to use it as slot default content"
+                ));
+                p.until(SyntaxKind::Colon);
+                parse_sub_element(&mut *p);
+            }
+            _ => {
+                parse_sub_element(&mut *p);
+            }
+        }
     }
-    p.expect(SyntaxKind::Semicolon);
+    report_stray_semicolon(p);
 }
 
 #[cfg_attr(test, parser_test)]
@@ -309,7 +332,14 @@ fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
     let is_slot_assignment = rhs_first == SyntaxKind::Identifier
         && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual);
 
-    if is_slot_assignment { parse_slot_assignment(p) } else { parse_slot_forwarding(p) }
+    if !is_slot_assignment {
+        return parse_slot_forwarding(p);
+    }
+    if !parse_slot_assignment(&mut *p) {
+        return false;
+    }
+    report_stray_semicolon(p);
+    true
 }
 
 #[cfg_attr(test, parser_test)]
@@ -447,6 +477,13 @@ fn parse_case_inner(p: &mut impl Parser, after: &str) {
         return;
     }
     parse_sub_element(&mut *p);
+}
+
+fn report_stray_semicolon(p: &mut impl Parser) {
+    if p.peek().kind() == SyntaxKind::Semicolon {
+        p.error("Remove the ';' after the slot content");
+        p.consume();
+    }
 }
 
 #[cfg_attr(test, parser_test)]
@@ -1010,5 +1047,25 @@ fn parse_function<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
         parse_code_block(&mut *p);
     } else if !p.test(SyntaxKind::Semicolon) {
         p.error("Expected function body or semicolon");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_default_wrapped_in_if_or_for_recovers() {
+        for source in ["slot x << if true: Text {}", "slot x << for i in 2: Text {}"] {
+            let mut diag = Default::default();
+            let mut p = DefaultParser::new(source, &mut diag);
+            parse_slot_declaration(&mut p);
+            assert!(p.diags.has_errors(), "{source}");
+            assert_eq!(p.cursor, p.tokens.len(), "{source}");
+            syntax_nodes::SlotDeclaration::verify(SyntaxNode {
+                node: rowan::SyntaxNode::new_root(p.builder.finish()),
+                source_file: Default::default(),
+            });
+        }
     }
 }

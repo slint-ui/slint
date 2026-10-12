@@ -442,6 +442,19 @@ pub fn base_chain_declares_children(
     }
 }
 
+pub fn error_on_slot_default(element: &ElementRc, container: &str, diag: &mut BuildDiagnostics) {
+    let element = element.borrow();
+    if let Some(slot) = &element.slot_default {
+        diag.push_error(
+            format!(
+                "Declare the '{}' directly in the '{container}'; it can't be the default content of slot '{slot}'",
+                element.base_type
+            ),
+            &*element,
+        );
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),
@@ -483,6 +496,7 @@ pub struct DeclaredSlot {
     pub interface: Option<Rc<Component>>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
+    pub default: Option<syntax_nodes::SubElement>,
     has_rejected_placeholder: bool,
 }
 
@@ -732,6 +746,22 @@ impl Component {
             if !declared_slot_nodes.contains_key(name.as_str()) {
                 diagnostics
                     .push_error(format!("The slot '{name}' is used but not declared"), &cip.node);
+            }
+        }
+        for slot in self.declared_slots.borrow().iter() {
+            if let Some(default) = &slot.default
+                && let Some(cip) = self.child_insertion_points.borrow().get(slot.name.as_str())
+                && matches!(cip.node, ChildInsertionPointNode::SlotForwarding(_))
+                && let Some(forwarding) =
+                    cip.parent.borrow().forwarded_slots.iter().find(|f| f.source == slot.name)
+            {
+                diagnostics.push_error(
+                    format!(
+                        "Remove the default content of the forwarded slot '{}'; set it on the target slot '{}' instead",
+                        slot.name, forwarding.target
+                    ),
+                    default,
+                );
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
@@ -1315,6 +1345,9 @@ pub struct Element {
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
     pub slot_target: Option<SmolStr>,
 
+    /// If this element is the default content of a slot (e.g., `slot name << ...`), which callers can replace
+    pub slot_default: Option<SmolStr>,
+
     pub typed_slot_interface: Option<Rc<Component>>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
@@ -1615,14 +1648,23 @@ impl Element {
                     ) {
                         continue;
                     }
-                    Self::register_slot_placeholder(
+                    if Self::register_slot_placeholder(
                         &se,
-                        slot_name,
+                        slot_name.clone(),
                         &r,
                         component_child_insertion_points,
                         diag,
                         tr,
-                    );
+                    ) {
+                        Self::place_slot_default(
+                            &slot_name,
+                            &r,
+                            declared_slots,
+                            is_legacy_syntax,
+                            diag,
+                            tr,
+                        );
+                    }
                     continue;
                 }
                 let parent_type = r.borrow().base_type.clone();

@@ -79,6 +79,7 @@ pub fn ensure_window(
         inline_depth: 0,
         is_legacy_syntax: false,
         slot_target: None,
+        slot_default: None,
         typed_slot_interface: None,
         forwarded_slots: Vec::new(),
     };

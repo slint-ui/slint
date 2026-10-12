@@ -500,6 +500,7 @@ impl Snapshotter {
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
         target_element.slot_target = elem.slot_target.clone();
+        target_element.slot_default = elem.slot_default.clone();
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
