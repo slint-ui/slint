@@ -493,10 +493,16 @@ pub struct UsedSubTypes {
     pub collision_renamed_names: std::collections::BTreeSet<SmolStr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct InitCodeEntry {
+    pub owner: ElementWeak,
+    pub code: Expression,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct InitCode {
     // Code from init callbacks collected from elements
-    pub constructor_code: Vec<Expression>,
+    pub constructor_code: Vec<InitCodeEntry>,
     /// Code to set the initial focus via forward-focus on the Window
     pub focus_setting_code: Vec<Expression>,
     /// Code to register embedded fonts.
@@ -504,7 +510,7 @@ pub struct InitCode {
 
     /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
     /// we can preserve the order across multiple inlining passes.
-    pub inlined_init_code: BTreeMap<usize, Expression>,
+    pub inlined_init_code: BTreeMap<usize, Vec<InitCodeEntry>>,
 }
 
 impl InitCode {
@@ -515,15 +521,15 @@ impl InitCode {
     pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
         self.focus_setting_code
             .iter()
-            .chain(self.constructor_code.iter())
-            .chain(self.inlined_init_code.values())
+            .chain(self.constructor_code.iter().map(|entry| &entry.code))
+            .chain(self.inlined_init_code.values().flatten().map(|entry| &entry.code))
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
         self.font_registration_code
             .iter_mut()
             .chain(self.focus_setting_code.iter_mut())
-            .chain(self.constructor_code.iter_mut())
-            .chain(self.inlined_init_code.values_mut())
+            .chain(self.constructor_code.iter_mut().map(|entry| &mut entry.code))
+            .chain(self.inlined_init_code.values_mut().flatten().map(|entry| &mut entry.code))
     }
 }
 
