@@ -773,18 +773,9 @@ pub mod builtin_structs {
 
     #[rustfmt::skip]
     macro_rules! map_type {
-        ($pub_type:ident, bool) => { Type::Bool };
-        ($pub_type:ident, i32) => { Type::Int32 };
-        ($pub_type:ident, f32) => { Type::Float32 };
-        ($pub_type:ident, SharedString) => { Type::String };
-        ($pub_type:ident, Image) => { Type::Image };
-        ($pub_type:ident, Coord) => { Type::LogicalLength };
-        ($pub_type:ident, Keys) => { Type::Keys };
-        ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
-        ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
         ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
-        ($pub_type:ident, $enum:ident) => { Type::Enumeration(BUILTIN.enums.$enum.clone()) };
+        ($pub_type:ident, $ty:ident) => { builtin_type!($ty) };
     }
 
     #[rustfmt::skip]

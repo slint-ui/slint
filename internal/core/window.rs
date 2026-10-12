@@ -2708,12 +2708,6 @@ pub mod ffi {
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
 
-    /// The title a window shows when the application doesn't set one
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_default_window_title(out: &mut SharedString) {
-        *out = super::default_window_title();
-    }
-
     /// Releases the reference to the windowrc held by handle.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowAdapterRcOpaque) {

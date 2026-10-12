@@ -7344,7 +7344,6 @@ dependencies = [
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
- "num-traits",
  "once_cell",
  "pin-weak",
  "raw-window-handle",
@@ -7353,7 +7352,6 @@ dependencies = [
  "slint-build",
  "slint-macros",
  "tokio",
- "unicode-segmentation",
  "vtable",
  "wgpu 29.0.4",
  "wgpu 30.0.1",
@@ -7406,7 +7404,6 @@ dependencies = [
  "proc-macro2",
  "raw-window-handle",
  "slint-interpreter",
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -7500,7 +7497,6 @@ dependencies = [
  "spin_on",
  "tempfile",
  "typed-index-collections",
- "unicode-segmentation",
  "vtable",
  "web-sys",
 ]

@@ -254,6 +254,8 @@ fn mod_macro(
         lhs_ty
     } else if matches!(rhs_ty, Type::UnitProduct(_)) {
         rhs_ty
+    } else if lhs_ty == Type::Int32 && rhs_ty == Type::Int32 {
+        Type::Int32
     } else {
         Type::Float32
     };
