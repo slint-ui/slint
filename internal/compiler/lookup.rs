@@ -396,19 +396,23 @@ impl LookupObject for IdLookup {
             root: &ElementRc,
             f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
         ) -> Option<R> {
-            if !root.borrow().id.is_empty()
-                && let Some(r) =
-                    f(&root.borrow().id, Expression::ElementReference(Rc::downgrade(root)).into())
-            {
-                return Some(r);
-            }
-            for x in &root.borrow().children {
-                if x.borrow().repeated.is_some() {
-                    continue;
-                }
-                if let Some(r) = visit(x, f) {
+            let mut stack = vec![root.clone()];
+            while let Some(elem) = stack.pop() {
+                let elem_ref = elem.borrow();
+                if !elem_ref.id.is_empty()
+                    && let Some(r) =
+                        f(&elem_ref.id, Expression::ElementReference(Rc::downgrade(&elem)).into())
+                {
                     return Some(r);
                 }
+                stack.extend(
+                    elem_ref
+                        .children
+                        .iter()
+                        .rev()
+                        .filter(|x| x.borrow().repeated.is_none())
+                        .cloned(),
+                );
             }
             None
         }
