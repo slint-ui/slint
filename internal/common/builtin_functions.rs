@@ -15,15 +15,15 @@
 ///   such as `ElementReference`.
 ///   `[T]` is an array, and `()` is no value.
 /// - `RustType => SlintType` when the Slint type isn't the one of the Rust type,
-///   such as `f64 => Angle`.
+///   such as `f32 => Angle`.
 /// - Optionally, a name, parameter names, and a body that implement the builtin,
 ///   when its result only depends on its arguments.
 ///   The body is compiled in `i_slint_core::builtin_functions`.
 ///   A first parameter `&context` gives it the component's `SlintContext`.
 ///
 /// ```text
-/// Round: pure fn round(x: f64) -> f64 => Int32 { x.round() }
-/// ToFixed: pure fn to_fixed(&context, n: f64, digits: f64 => Int32) -> SharedString { … }
+/// Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
+/// ToFixed: pure fn to_fixed(&context, n: f64, digits: i32) -> SharedString { … }
 /// ShowPopupWindow: impure fn(ElementReference) -> ()
 /// ```
 // The `runtime` functions refer to `i_slint_core` with `crate`
@@ -37,28 +37,28 @@ macro_rules! for_each_builtin_function {
             AnimationTick: pure fn() -> i64 => Duration
             // Has a side effect, but is still considered pure
             Debug: pure fn(SharedString) -> ()
-            Mod: pure fn modulo(a: f64 => Int32, b: f64 => Int32) -> f64 => Int32 { Euclid::rem_euclid(&a, &b) }
-            Round: pure fn round(x: f64) -> f64 => Int32 { x.round() }
-            Ceil: pure fn ceil(x: f64) -> f64 => Int32 { x.ceil() }
-            Floor: pure fn floor(x: f64) -> f64 => Int32 { x.floor() }
-            Abs: pure fn abs(x: f64) -> f64 { x.abs() }
-            Sqrt: pure fn sqrt(x: f64) -> f64 { x.sqrt() }
-            Cos: pure fn cos(degrees: f64 => Angle) -> f64 { degrees.to_radians().cos() }
-            Sin: pure fn sin(degrees: f64 => Angle) -> f64 { degrees.to_radians().sin() }
-            Tan: pure fn tan(degrees: f64 => Angle) -> f64 { degrees.to_radians().tan() }
-            ACos: pure fn acos(x: f64) -> f64 => Angle { x.acos().to_degrees() }
-            ASin: pure fn asin(x: f64) -> f64 => Angle { x.asin().to_degrees() }
-            ATan: pure fn atan(x: f64) -> f64 => Angle { x.atan().to_degrees() }
-            ATan2: pure fn atan2(y: f64, x: f64) -> f64 => Angle { y.atan2(x).to_degrees() }
-            Log: pure fn log(x: f64, base: f64) -> f64 { x.log(base) }
-            Ln: pure fn ln(x: f64) -> f64 { x.ln() }
-            Pow: pure fn pow(x: f64, y: f64) -> f64 { x.powf(y) }
-            Exp: pure fn exp(x: f64) -> f64 { x.exp() }
-            ToFixed: pure fn to_fixed(&context, n: f64, digits: f64 => Int32) -> SharedString {
-                context.format_number_fixed(n, digits.max(0.) as usize)
+            Mod: pure fn modulo(a: f32 => Int32, b: f32 => Int32) -> f32 => Int32 { Euclid::rem_euclid(&a, &b) }
+            Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
+            Ceil: pure fn ceil(x: f32) -> i32 { x.ceil() as i32 }
+            Floor: pure fn floor(x: f32) -> i32 { x.floor() as i32 }
+            Abs: pure fn abs(x: f32) -> f32 { x.abs() }
+            Sqrt: pure fn sqrt(x: f32) -> f32 { x.sqrt() }
+            Cos: pure fn cos(degrees: f32 => Angle) -> f32 { degrees.to_radians().cos() }
+            Sin: pure fn sin(degrees: f32 => Angle) -> f32 { degrees.to_radians().sin() }
+            Tan: pure fn tan(degrees: f32 => Angle) -> f32 { degrees.to_radians().tan() }
+            ACos: pure fn acos(x: f32) -> f32 => Angle { x.acos().to_degrees() }
+            ASin: pure fn asin(x: f32) -> f32 => Angle { x.asin().to_degrees() }
+            ATan: pure fn atan(x: f32) -> f32 => Angle { x.atan().to_degrees() }
+            ATan2: pure fn atan2(y: f32, x: f32) -> f32 => Angle { y.atan2(x).to_degrees() }
+            Log: pure fn log(x: f32, base: f32) -> f32 { x.log(base) }
+            Ln: pure fn ln(x: f32) -> f32 { x.ln() }
+            Pow: pure fn pow(x: f32, y: f32) -> f32 { x.powf(y) }
+            Exp: pure fn exp(x: f32) -> f32 { x.exp() }
+            ToFixed: pure fn to_fixed(&context, n: f64, digits: i32) -> SharedString {
+                context.format_number_fixed(n, digits.max(0) as usize)
             }
-            ToPrecision: pure fn to_precision(&context, n: f64, precision: f64 => Int32) -> SharedString {
-                context.format_number_precision(n, precision.max(0.) as usize)
+            ToPrecision: pure fn to_precision(&context, n: f64, precision: i32) -> SharedString {
+                context.format_number_precision(n, precision.max(0) as usize)
             }
             ToStringUnlocalized: pure fn to_string_unlocalized(n: f64) -> SharedString { crate::string::shared_string_from_number_unlocalized(n) }
             SetFocusItem: impure fn(ElementReference) -> ()
@@ -80,16 +80,16 @@ macro_rules! for_each_builtin_function {
             HasSelection: pure fn(ElementReference) -> bool
             ItemFontMetrics: pure fn(ElementReference) -> FontMetrics
             /// the "42".to_float()
-            StringToFloat: pure fn string_to_float(&context, s: SharedString) -> f64 {
-                context.parse_number(&s).unwrap_or_default() as f64
+            StringToFloat: pure fn string_to_float(&context, s: SharedString) -> f32 {
+                context.parse_number(&s).unwrap_or_default()
             }
             /// the "42".is_float()
             StringIsFloat: pure fn string_is_float(&context, s: SharedString) -> bool { context.parse_number(&s).is_some() }
             /// the "42".is_empty
             StringIsEmpty: pure fn string_is_empty(s: SharedString) -> bool { s.is_empty() }
             /// the "42".length
-            StringCharacterCount: pure fn string_character_count(s: SharedString) -> f64 => Int32 {
-                unicode_segmentation::UnicodeSegmentation::graphemes(s.as_str(), true).count() as f64
+            StringCharacterCount: pure fn string_character_count(s: SharedString) -> i32 {
+                unicode_segmentation::UnicodeSegmentation::graphemes(s.as_str(), true).count() as i32
             }
             StringToLowercase: pure fn string_to_lowercase(s: SharedString) -> SharedString { s.to_lowercase().into() }
             StringToUppercase: pure fn string_to_uppercase(s: SharedString) -> SharedString { s.to_uppercase().into() }
@@ -102,11 +102,11 @@ macro_rules! for_each_builtin_function {
             ColorRgbaStruct: pure fn color_rgba(color: Color) -> RgbaColorU8 { color.to_argb_u8() }
             ColorHsvaStruct: pure fn color_hsva(color: Color) -> HsvaColor { color.to_hsva() }
             ColorOklchStruct: pure fn color_oklch(color: Color) -> OklchColor { color.to_oklch() }
-            ColorBrighter: pure fn color_brighter(brush: Brush, factor: f64) -> Brush { brush.brighter(factor as f32) }
-            ColorDarker: pure fn color_darker(brush: Brush, factor: f64) -> Brush { brush.darker(factor as f32) }
-            ColorTransparentize: pure fn color_transparentize(brush: Brush, factor: f64) -> Brush { brush.transparentize(factor as f32) }
-            ColorMix: pure fn color_mix(a: Color, b: Color, factor: f64) -> Color { a.mix(&b, factor as f32) }
-            ColorWithAlpha: pure fn color_with_alpha(brush: Brush, alpha: f64) -> Brush { brush.with_alpha(alpha as f32) }
+            ColorBrighter: pure fn color_brighter(brush: Brush, factor: f32) -> Brush { brush.brighter(factor) }
+            ColorDarker: pure fn color_darker(brush: Brush, factor: f32) -> Brush { brush.darker(factor) }
+            ColorTransparentize: pure fn color_transparentize(brush: Brush, factor: f32) -> Brush { brush.transparentize(factor) }
+            ColorMix: pure fn color_mix(a: Color, b: Color, factor: f32) -> Color { a.mix(&b, factor) }
+            ColorWithAlpha: pure fn color_with_alpha(brush: Brush, alpha: f32) -> Brush { brush.with_alpha(alpha) }
             ImageSize: pure fn(Image) -> Size
             ArrayLength: pure fn(Model) -> i32
             // Using Type::InferredProperty as there is currently no valid type for the data argument.
@@ -116,15 +116,16 @@ macro_rules! for_each_builtin_function {
             ArrayAny: pure fn(Model, Closure) -> bool
             ArrayAll: pure fn(Model, Closure) -> bool
             ArrayFindIndex: pure fn(Model, Closure) -> i32
-            Rgb: pure fn rgb(r: f64 => Int32, g: f64 => Int32, b: f64 => Int32, a: f64) -> Color {
-                // `as u8` saturates
-                Color::from_argb_u8((255. * a) as u8, r as u8, g as u8, b as u8)
+            Rgb: pure fn rgb(r: i32, g: i32, b: i32, a: f32) -> Color {
+                let channel = |c: i32| c.clamp(0, 255) as u8;
+                // `as u8` saturates the alpha
+                Color::from_argb_u8((255. * a) as u8, channel(r), channel(g), channel(b))
             }
-            Hsv: pure fn hsv(h: f64, s: f64, v: f64, a: f64) -> Color {
-                Color::from_hsva(h as f32, s.clamp(0., 1.) as f32, v.clamp(0., 1.) as f32, a.clamp(0., 1.) as f32)
+            Hsv: pure fn hsv(h: f32, s: f32, v: f32, a: f32) -> Color {
+                Color::from_hsva(h, s.clamp(0., 1.), v.clamp(0., 1.), a.clamp(0., 1.))
             }
-            Oklch: pure fn oklch(l: f64, c: f64, h: f64, a: f64) -> Color {
-                Color::from_oklch(l.clamp(0., 1.) as f32, c.max(0.) as f32, h as f32, a.clamp(0., 1.) as f32)
+            Oklch: pure fn oklch(l: f32, c: f32, h: f32, a: f32) -> Color {
+                Color::from_oklch(l.clamp(0., 1.), c.max(0.), h, a.clamp(0., 1.))
             }
             ColorScheme: pure fn() -> ColorScheme
             AccentColor: pure fn accent_color(&context) -> Color { context.accent_color() }
@@ -143,12 +144,12 @@ macro_rules! for_each_builtin_function {
             /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
             SetupSystemTrayIcon: impure fn(ElementReference, ElementReference) -> ()
             Use24HourFormat: pure fn use_24_hour_format() -> bool { date_time::use_24_hour_format() }
-            MonthDayCount: pure fn month_day_count(month: f64 => Int32, year: f64 => Int32) -> f64 => Int32 {
-                date_time::month_day_count(month as u32, year as i32).unwrap_or(0) as f64
+            MonthDayCount: pure fn month_day_count(month: i32, year: i32) -> i32 {
+                date_time::month_day_count(month as u32, year).unwrap_or(0)
             }
-            MonthOffset: pure fn month_offset(month: f64 => Int32, year: f64 => Int32) -> f64 => Int32 { date_time::month_offset(month as u32, year as i32) as f64 }
-            FormatDate: pure fn format_date(format: SharedString, day: f64 => Int32, month: f64 => Int32, year: f64 => Int32) -> SharedString {
-                date_time::format_date(&format, day as u32, month as u32, year as i32)
+            MonthOffset: pure fn month_offset(month: i32, year: i32) -> i32 { date_time::month_offset(month as u32, year) }
+            FormatDate: pure fn format_date(format: SharedString, day: i32, month: i32, year: i32) -> SharedString {
+                date_time::format_date(&format, day as u32, month as u32, year)
             }
             DateNow: pure fn() -> [i32]
             ValidDate: pure fn valid_date(date: SharedString, format: SharedString) -> bool { date_time::parse_date(&date, &format).is_some() }

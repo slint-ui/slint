@@ -4223,19 +4223,7 @@ fn compile_binary_operator(
                 Type::Struct { .. } => (None, None),
                 _ => (Some(quote!(as f64)), Some(quote!(as f64))),
             },
-            OperatorClass::ComparisonOp
-                if matches!(
-                    lhs_ty,
-                    Type::Int32
-                        | Type::Float32
-                        | Type::Duration
-                        | Type::PhysicalLength
-                        | Type::LogicalLength
-                        | Type::Angle
-                        | Type::Percent
-                        | Type::Rem
-                ) =>
-            {
+            OperatorClass::ComparisonOp if lhs_ty.as_unit_product().is_some() => {
                 (Some(quote!(as f64)), Some(quote!(as f64)))
             }
             _ => (None, None),
