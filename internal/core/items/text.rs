@@ -2763,8 +2763,8 @@ mod selection_tests {
 
     #[test]
     fn ordered_selection_clamps_and_orders() {
-        assert_eq!(ordered_selection("héllo", 9, -1), (0, 6));
-        assert_eq!(ordered_selection("héllo", 2, 2), (3, 3));
-        assert_eq!(ordered_selection("héllo", 4, 1), (1, 4));
+        assert_eq!(ordered_selection("café", 9, -1), (0, 5));
+        assert_eq!(ordered_selection("café", 4, 4), (5, 5));
+        assert_eq!(ordered_selection("café", 2, 1), (1, 2));
     }
 }

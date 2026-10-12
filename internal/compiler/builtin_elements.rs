@@ -1271,7 +1271,6 @@ fn build(l: &mut Loader) {
         /// A click that doesn't drag still follows a link.
         /// Read the selection from `selected-text`.
         /// A change of `text` clears the selection.
-        /// \default false
         in property <bool> selectable;
         /// The background color of the selection.
         in property <color> selection-background-color; // Palette.selection-background set in apply_default_properties_from_style
