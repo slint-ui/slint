@@ -3684,8 +3684,8 @@ impl quote::ToTokens for crate::expression_types::ImageReference {
 
 /// Compile `expr` to a Rust expression which may potentially return a reference.
 ///
-/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
-/// helper function or closure: this function recurses for nested expressions,
+/// The body of every non-trivial match arm lives in its own helper
+/// function or closure: this function recurses for nested expressions,
 /// and with all arm bodies inlined, its stack frame in unoptimized builds becomes
 /// so large that deeply nested expressions overflow the stack.
 #[allow(
@@ -3951,7 +3951,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
     }
 }
 
-#[inline(never)]
 fn compile_keys_literal(expr: &Expression) -> TokenStream {
     let Expression::KeysLiteral(keys) = expr else { unreachable!() };
     let key = &*keys.key;
@@ -4098,7 +4097,6 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-#[inline(never)]
 fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
     let f = access_member(callback, ctx);
@@ -4112,7 +4110,6 @@ fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
     }
 }
 
-#[inline(never)]
 fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
@@ -4138,7 +4135,6 @@ fn compile_builtin_arguments(
         .collect()
 }
 
-#[inline(never)]
 fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } = expr else {
         unreachable!()
@@ -4148,7 +4144,6 @@ fn compile_extra_builtin_function_call(expr: &Expression, ctx: &EvaluationContex
     quote! { sp::#f(#(#a as _),*) }
 }
 
-#[inline(never)]
 fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ArrayIndex { array, index } = expr else { unreachable!() };
     debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -4160,7 +4155,6 @@ fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStrea
     }})
 }
 
-#[inline(never)]
 fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::CodeBlock(sub) = expr else { unreachable!() };
     let mut body = TokenStream::new();
@@ -4173,7 +4167,6 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
     quote!({ #body })
 }
 
-#[inline(never)]
 fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
     let value = compile_expression(value, ctx);
@@ -4207,7 +4200,6 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
     })
 }
 
-#[inline(never)]
 fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ArrayIndexAssignment { array, index, value } = expr else { unreachable!() };
     debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -4217,7 +4209,6 @@ fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) ->
     quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
 }
 
-#[inline(never)]
 fn compile_binary_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     // Long chains of binary operators, such as `a && b && c && ...`, nest on the
     // left side. Iterate that spine instead of recursing into it, so that the
@@ -4279,7 +4270,6 @@ fn compile_binary_operator(
     }
 }
 
-#[inline(never)]
 fn compile_image_reference(expr: &Expression) -> TokenStream {
     let Expression::ImageReference { resource_ref, nine_slice } = expr else { unreachable!() };
     match &nine_slice {
@@ -4290,7 +4280,6 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
     }
 }
 
-#[inline(never)]
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
     let condition_code = compile_expression_no_parenthesis(condition, ctx);
@@ -4311,7 +4300,6 @@ fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream 
 /// the build time is flat up to 64 elements per chunk and explodes at 128.
 const ARRAY_CHUNK_SIZE: usize = 32;
 
-#[inline(never)]
 fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Array { values, element_ty, output } = expr else { unreachable!() };
     let val = values.iter().map(|e| compile_expression_to_value(e, ctx));
@@ -4362,7 +4350,6 @@ fn is_plain_value(ty: &Type) -> bool {
     )
 }
 
-#[inline(never)]
 fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Struct { ty, values } = expr else { unreachable!() };
     if ty.name.is_some() {
@@ -4425,7 +4412,6 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-#[inline(never)]
 fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::LinearGradient { angle, stops } = expr else { unreachable!() };
     let angle = compile_expression(angle, ctx);
@@ -4439,7 +4425,6 @@ fn compile_linear_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
     ))
 }
 
-#[inline(never)]
 fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::RadialGradient { center, radius, stops } = expr else { unreachable!() };
     let stops = stops.iter().map(|(color, stop)| {
@@ -4464,7 +4449,6 @@ fn compile_radial_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenS
     quote!(slint::Brush::RadialGradient(#brush_expr))
 }
 
-#[inline(never)]
 fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ConicGradient { from_angle, center, stops } = expr else { unreachable!() };
     let from_angle = compile_expression(from_angle, ctx);
@@ -4484,7 +4468,6 @@ fn compile_conic_gradient(expr: &Expression, ctx: &EvaluationContext) -> TokenSt
     quote!(slint::Brush::ConicGradient(#brush_expr))
 }
 
-#[inline(never)]
 fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::LayoutCacheAccess {
         layout_cache_prop,
@@ -4508,7 +4491,6 @@ fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> To
     })
 }
 
-#[inline(never)]
 fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::GridRepeaterCacheAccess {
         layout_cache_prop,
@@ -4540,7 +4522,6 @@ fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext
     })
 }
 
-#[inline(never)]
 fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::MinMax { ty, op, lhs, rhs } = expr else { unreachable!() };
     let lhs = compile_expression(lhs, ctx);
@@ -4565,7 +4546,6 @@ fn compile_min_max(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-#[inline(never)]
 fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::TranslationReference { format_args, string_index, plural } = expr else {
         unreachable!()

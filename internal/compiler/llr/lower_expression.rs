@@ -102,8 +102,8 @@ pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Express
     }
 }
 
-/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
-/// helper function: this function recurses for nested expressions, and with all
+/// The body of every non-trivial match arm lives in its own helper
+/// function: this function recurses for nested expressions, and with all
 /// arm bodies inlined, its stack frame in unoptimized builds becomes so large
 /// that deeply nested expressions overflow the stack.
 pub fn lower_expression(
@@ -238,7 +238,6 @@ pub fn lower_expression(
     }
 }
 
-#[inline(never)]
 fn lower_binary_expression(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -263,7 +262,6 @@ fn lower_binary_expression(
     result
 }
 
-#[inline(never)]
 fn lower_element_reference(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -285,7 +283,6 @@ fn lower_element_reference(
     )
 }
 
-#[inline(never)]
 fn lower_function_call(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -337,7 +334,6 @@ fn lower_function_call(
     }
 }
 
-#[inline(never)]
 fn lower_condition(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -361,7 +357,6 @@ fn lower_condition(
     }
 }
 
-#[inline(never)]
 fn lower_mouse_cursor(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -381,7 +376,6 @@ fn lower_mouse_cursor(
     })
 }
 
-#[inline(never)]
 fn lower_linear_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -396,7 +390,6 @@ fn lower_linear_gradient(
     }
 }
 
-#[inline(never)]
 fn lower_radial_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -416,7 +409,6 @@ fn lower_radial_gradient(
     }
 }
 
-#[inline(never)]
 fn lower_conic_gradient(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -436,7 +428,6 @@ fn lower_conic_gradient(
     }
 }
 
-#[inline(never)]
 fn lower_layout_cache_access(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
@@ -458,7 +449,6 @@ fn lower_layout_cache_access(
     }
 }
 
-#[inline(never)]
 fn lower_grid_repeater_cache_access(
     expression: &tree_Expression,
     ctx: &mut ExpressionLoweringCtx<'_>,
