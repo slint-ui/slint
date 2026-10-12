@@ -346,13 +346,19 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.set_include_paths(args.include_paths.clone());
-    compiler.set_library_paths(
-        args.library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-    );
+    if !args.include_paths.is_empty() {
+        compiler.set_include_paths(args.include_paths.clone());
+    }
+    if !args.library_paths.is_empty() {
+        compiler.set_library_paths(
+            args.library_paths
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }
