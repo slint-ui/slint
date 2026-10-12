@@ -193,6 +193,14 @@ Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
 
 Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
 
+To select a resolution without depending on its index, set `SLINT_DRM_MODE` to
+`WIDTHxHEIGHT`, for example `1920x1080`.
+The resolution must match a mode advertised by the selected output; this doesn't create a custom mode.
+When several modes match, preferred modes take precedence, then the highest refresh rate wins.
+Use an index from `list` to select a specific refresh rate instead.
+An unavailable resolution or invalid value fails DRM initialization.
+Software renderers may then fall back to the legacy Linux framebuffer, where this setting has no effect.
+
 ## Configuring the Keyboard
 
 By default the keyboard layout and model is assumed to be a US model and layout. Set the following

@@ -181,7 +181,7 @@ impl DrmOutput {
                     .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
-                let mut modes_and_index = connector.modes().iter().cloned().enumerate();
+                let modes_and_index = connector.modes().iter().cloned().enumerate();
 
                 if mode_str.to_lowercase() == "list" {
                     let mode_names: Vec<String> = modes_and_index
@@ -198,16 +198,7 @@ impl DrmOutput {
                     eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode with the SLINT_DRM_MODE environment variable and re-run the program.", mode_names.join("\n"));
                     std::process::exit(1);
                 }
-                let mode_index: usize =
-                    mode_str.parse().map_err(|_| {
-                        format!(
-                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
-                        )
-                    })?;
-                modes_and_index.nth(mode_index).map_or_else(
-                    || Err(format!("Mode index is out of bounds: {mode_index}")),
-                    |(_, mode)| Ok(mode),
-                )
+                select_requested_mode(connector.modes(), &mode_str)
             },
         )?;
 
@@ -583,3 +574,46 @@ fn refresh_rate_millihertz(mode: &drm::control::Mode) -> u32 {
     // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
     ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
 }
+
+fn select_requested_mode(
+    modes: &[drm::control::Mode],
+    mode_str: &str,
+) -> Result<drm::control::Mode, String> {
+    if let Ok(mode_index) = mode_str.parse::<usize>() {
+        return modes
+            .get(mode_index)
+            .copied()
+            .map_or_else(|| Err(format!("Mode index is out of bounds: {mode_index}")), Ok);
+    }
+
+    let (width, height) = mode_str.split_once('x').ok_or_else(|| {
+        format!(
+            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index, WIDTHxHEIGHT, or 'list'"
+        )
+    })?;
+    let requested_size = (
+        width
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid width in SLINT_DRM_MODE value '{mode_str}'"))?,
+        height
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid height in SLINT_DRM_MODE value '{mode_str}'"))?,
+    );
+
+    modes
+        .iter()
+        .filter(|mode| mode.size() == requested_size)
+        .max_by_key(|mode| {
+            (
+                mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
+                refresh_rate_millihertz(mode),
+            )
+        })
+        .cloned()
+        .ok_or_else(|| {
+            format!("Requested DRM mode {}x{} is not available", requested_size.0, requested_size.1)
+        })
+}
+
+#[cfg(test)]
+mod mode_tests;

@@ -3207,6 +3207,7 @@ dependencies = [
  "calloop 0.14.5",
  "cfg_aliases",
  "drm 0.14.1",
+ "drm-ffi",
  "gbm",
  "gbm-sys",
  "glutin",
