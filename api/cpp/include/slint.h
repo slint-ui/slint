@@ -616,15 +616,6 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
-cbindgen_private::Path::Path()
-{
-    slint_path_fitted_cache_init(&fitted_path);
-}
-cbindgen_private::Path::~Path()
-{
-    slint_path_fitted_cache_free(&fitted_path);
-}
-
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
     slint_system_tray_icon_data_init(&data);
@@ -632,15 +623,6 @@ cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 cbindgen_private::SystemTrayIcon::~SystemTrayIcon()
 {
     slint_system_tray_icon_data_free(&data);
-}
-
-cbindgen_private::FocusScope::FocusScope()
-{
-    slint_maybe_key_binding_list_init(&key_bindings);
-}
-cbindgen_private::FocusScope::~FocusScope()
-{
-    slint_maybe_key_binding_list_free(&key_bindings);
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
