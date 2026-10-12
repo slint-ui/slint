@@ -3,10 +3,9 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, PropertyLookupMode};
-use crate::langtype::{
-    BuiltinPropertyDefault, ConstantExpression, EnumerationValue, Keys, Struct, Type,
-};
+use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
 use crate::lookup::LookupCtx;
+use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use crate::symbol_counters::SymbolCounters;

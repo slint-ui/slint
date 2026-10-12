@@ -12,8 +12,11 @@ use std::sync::Arc;
 use smol_str::SmolStr;
 
 use crate::expression_tree::BuiltinFunction;
-use crate::langtype::{BuiltinPropertyDefault, BuiltinPropertyInfo, NativeClass, Type};
-use crate::object_tree::{Component, DEFAULT_SLOT_NAME, PropertyVisibility};
+use crate::langtype::Type;
+use crate::native_class::{
+    BuiltinPropertyDefault, BuiltinPropertyInfo, NativeClass, PropertyVisibility,
+};
+use crate::object_tree::{Component, DEFAULT_SLOT_NAME};
 use crate::parser::SyntaxNode;
 use crate::typeregister::TypeRegister;
 

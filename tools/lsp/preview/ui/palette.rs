@@ -10,7 +10,7 @@ use crate::{
 
 use lsp_types::Url;
 
-use i_slint_compiler::{element_type, expression_tree, langtype, object_tree};
+use i_slint_compiler::{element_type, expression_tree, langtype, native_class, object_tree};
 use slint::{Model, ModelRc, SharedString};
 
 pub fn setup(api: &ui::Api<'_>) {
@@ -232,9 +232,9 @@ fn collect_palette_from_globals(
         for property in properties.iter().filter(|p| {
             matches!(
                 p.visibility,
-                object_tree::PropertyVisibility::Output
-                    | object_tree::PropertyVisibility::InOut
-                    | object_tree::PropertyVisibility::Public
+                native_class::PropertyVisibility::Output
+                    | native_class::PropertyVisibility::InOut
+                    | native_class::PropertyVisibility::Public
             )
         }) {
             handle_type(name, &global, &property.name, &property.ty, &mut values, window_adapter);

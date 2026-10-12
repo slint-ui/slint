@@ -15,9 +15,9 @@ use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult}
 use crate::expression_tree::{BindingExpression, Callable, Expression};
 use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,
-    find_element_by_id,
+    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
 };
 use crate::parser::{self, SyntaxNode, SyntaxToken};
 use crate::parser::{SyntaxKind, syntax_nodes};

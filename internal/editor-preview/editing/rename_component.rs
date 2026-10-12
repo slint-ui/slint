@@ -675,7 +675,7 @@ fn matching_decl_in_inheritance_chain(
             && node.text_range() == declaration_node.text_range()
             && Arc::ptr_eq(&node.source_file, source_file)
         {
-            if decl.visibility == object_tree::PropertyVisibility::Private {
+            if decl.visibility == i_slint_compiler::native_class::PropertyVisibility::Private {
                 return false;
             }
             if !decl.property_type.ok_for_public_api() {

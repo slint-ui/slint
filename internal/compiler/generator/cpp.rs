@@ -474,9 +474,7 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
-use crate::langtype::{
-    BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
-};
+use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
@@ -487,6 +485,7 @@ use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
 };
+use crate::native_class::NativeClass;
 use crate::object_tree::Document;
 use cpp_ast::*;
 use itertools::{Either, Itertools};

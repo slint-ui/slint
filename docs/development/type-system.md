@@ -209,7 +209,7 @@ visibility is not uniform: most are `Input`, but the last group covers `Output` 
 
 Properties have visibility levels that control access:
 
-`PropertyVisibility` (`internal/compiler/object_tree.rs`) is `Private`, `Input`, `Output` or
+`PropertyVisibility` (`internal/compiler/native_class.rs`) is `Private`, `Input`, `Output` or
 `InOut` for ordinary properties, `Public` or `Protected` for functions, `Constexpr` for built-in
 properties that must be known at compile time, and `Fake` for built-in properties that only ever
 take a binding and can neither be read nor written (such as `Path`'s `commands`).

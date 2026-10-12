@@ -14,7 +14,8 @@ use crate::expression_tree::{
 };
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{ElementRc, PropertyVisibility};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::ElementRc;
 use crate::parser::{NodeOrToken, TextRange, TextSize};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;

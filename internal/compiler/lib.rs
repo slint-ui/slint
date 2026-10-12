@@ -36,6 +36,7 @@ pub mod llr;
 pub mod lookup;
 pub mod namedreference;
 pub mod names;
+pub mod native_class;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;

@@ -7,8 +7,10 @@
 
 use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::{BuiltinPropertyDefault, BuiltinPropertyInfo, Type};
-use i_slint_compiler::object_tree::PropertyVisibility;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::native_class::{
+    BuiltinPropertyDefault, BuiltinPropertyInfo, PropertyVisibility,
+};
 
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;

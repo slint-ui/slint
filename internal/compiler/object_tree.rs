@@ -18,6 +18,7 @@ use crate::langtype::{
 };
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
+use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -773,38 +774,6 @@ impl Component {
     /// Panics if the Self::parent_element member is currently mutably borrowed
     pub fn parent_element(&self) -> Option<ElementRc> {
         self.parent_element.borrow().upgrade()
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
-pub enum PropertyVisibility {
-    #[default]
-    Private,
-    Input,
-    Output,
-    InOut,
-    /// for builtin properties that must be known at compile time and cannot be changed at runtime
-    Constexpr,
-    /// For builtin properties that are meant to just be bindings but cannot be read or written
-    /// (eg, Path's `commands`)
-    Fake,
-    /// For functions, not properties
-    Public,
-    Protected,
-}
-
-impl Display for PropertyVisibility {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PropertyVisibility::Private => f.write_str("private"),
-            PropertyVisibility::Input => f.write_str("in"),
-            PropertyVisibility::Output => f.write_str("out"),
-            PropertyVisibility::InOut => f.write_str("in-out"),
-            PropertyVisibility::Constexpr => f.write_str("constexpr"),
-            PropertyVisibility::Public => f.write_str("public"),
-            PropertyVisibility::Protected => f.write_str("protected"),
-            PropertyVisibility::Fake => f.write_str("fake"),
-        }
     }
 }
 

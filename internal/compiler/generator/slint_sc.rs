@@ -14,9 +14,8 @@ use crate::expression_tree::{
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
 use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{
-    Document, Element, ElementRc, GeometryProps, PropertyDeclaration, PropertyVisibility,
-};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Document, Element, ElementRc, GeometryProps, PropertyDeclaration};
 use itertools::Either;
 use proc_macro2::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};

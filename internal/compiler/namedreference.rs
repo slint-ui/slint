@@ -14,7 +14,8 @@ use std::rc::{Rc, Weak};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
-use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Element, ElementRc, PropertyAnalysis};
 
 /// Reference to a property or callback of a given name within an element.
 #[derive(Clone)]
