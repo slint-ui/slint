@@ -73,7 +73,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
         inline_components_recursively(&component, &roots, inline_selection, diag);
         let mut init_code = component.init_code.borrow_mut();
         let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
-        init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
+        init_code.constructor_code.splice(0..0, inlined_init_code.into_values().flatten());
     }
 }
 
@@ -490,29 +490,33 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
-    let fixup_init_expression = |mut init_code: Expression| {
+    let fixup_init_entry = |entry: &InitCodeEntry| {
+        let mut code = entry.code.clone();
         // Fix up any property references from within already collected init code.
-        visit_named_references_in_expression(&mut init_code, &mut |nr| {
-            fixup_reference(nr, &mapping)
-        });
-        fixup_element_references(&mut init_code, &mapping);
-        init_code
+        visit_named_references_in_expression(&mut code, &mut |nr| fixup_reference(nr, &mapping));
+        fixup_element_references(&mut code, &mapping);
+        let owner = entry
+            .owner
+            .upgrade()
+            .and_then(|owner| mapping.get(&element_key(owner)))
+            .unwrap_or(elem);
+        InitCodeEntry { owner: Rc::downgrade(owner), code }
     };
     let inlined_init_code = inlined_component
         .init_code
         .borrow()
         .inlined_init_code
         .values()
-        .cloned()
-        .chain(inlined_component.init_code.borrow().constructor_code.iter().cloned())
-        .map(fixup_init_expression)
+        .flatten()
+        .chain(inlined_component.init_code.borrow().constructor_code.iter())
+        .map(fixup_init_entry)
         .collect();
 
     root_component
         .init_code
         .borrow_mut()
         .inlined_init_code
-        .insert(elem.borrow().span().offset, Expression::CodeBlock(inlined_init_code));
+        .insert(elem.borrow().span().offset, inlined_init_code);
 
     // Now fixup all bindings and references
     for e in mapping.values() {
