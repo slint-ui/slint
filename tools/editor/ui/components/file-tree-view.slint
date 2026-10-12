@@ -272,6 +272,9 @@ component FileTreeRow inherits Rectangle {
             root.focus-row();
             root.activate();
         }
+        double-clicked => {
+            root.begin-rename();
+        }
     }
     if root.diagnostic-description != "": Tooltip {
         text: @markdown("\{root.diagnostic-description}");
