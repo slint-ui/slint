@@ -62,14 +62,14 @@ catalog:
   '@biomejs/biome': 2.5.15
   '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
-  '@playwright/test': 1.63.0
+  '@playwright/test': 1.64.0
   '@vitest/browser-playwright': 5.0.3
   '@types/node': 24.12.0
   astro: 7.3.5
   astro-embed: 0.14.0
   cspell: 10.3.6
-  playwright: 1.63.0
-  playwright-ctrf-json-reporter: 0.0.29
+  playwright: 1.64.0
+  playwright-ctrf-json-reporter: 0.1.0
   rehype-external-links: 3.0.0
   sharp: 0.35.5
   starlight-links-validator: 0.26.0
