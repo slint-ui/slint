@@ -1851,7 +1851,7 @@ pub mod tests {
 
     use crate::language::test::{
         CodeActionRequest, complex_document_cache, loaded_document_cache,
-        loaded_document_cache_with_file_name,
+        loaded_document_cache_with_experimental, loaded_document_cache_with_file_name,
     };
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
@@ -2783,6 +2783,50 @@ export component TestCase {
 "#,
         )
         .compiles();
+    }
+
+    #[test]
+    fn test_implement_missing_members_includes_attributes() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(
+            r#"interface Attributed {
+    @shadowable in-out property <int> value;
+    @deprecated("Use 'value' instead") callback changed();
+}
+export component TestCase {
+    implement Attributed <=> self;
+}
+"#
+            .into(),
+        );
+        let action = token_descr(&dc, &url, &Position::new(5, 14)).and_then(|(token, _)| {
+            get_code_actions(&mut dc, token, &ClientCapabilities::default())
+        });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Attributed'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(
+                                    Position::new(5, 34),
+                                    Position::new(5, 34)
+                                ),
+                                "\n    @deprecated(\"Use 'value' instead\") callback changed();\n    @shadowable in-out property <int> value;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
     }
 
     #[test]
