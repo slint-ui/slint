@@ -36,7 +36,7 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
         if Rc::ptr_eq(elem, &enclosing.root_element) {
             for o in enclosing.optimized_elements.borrow().iter() {
                 *count += 1;
-                let mut elem_mut = o.borrow_mut();
+                let mut elem_mut = o.element.borrow_mut();
                 elem_mut.id = format_smolstr!("optimized-{}-{}", elem_mut.id, count);
             }
         }

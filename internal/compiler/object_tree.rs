@@ -494,6 +494,12 @@ pub struct UsedSubTypes {
 }
 
 #[derive(Debug, Clone)]
+pub struct OptimizedElement {
+    pub element: ElementRc,
+    pub former_parent: ElementWeak,
+}
+
+#[derive(Debug, Clone)]
 pub struct InitCodeEntry {
     pub owner: ElementWeak,
     pub code: Expression,
@@ -546,7 +552,7 @@ pub struct Component {
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
-    pub optimized_elements: RefCell<Vec<ElementRc>>,
+    pub optimized_elements: RefCell<Vec<OptimizedElement>>,
 
     /// The layout constraints of the root item
     pub root_constraints: RefCell<LayoutConstraints>,
@@ -3740,7 +3746,10 @@ pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Componen
 }
 
 pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
-    remove_child_element(elem, parent).optimized_elements.borrow_mut().push(elem.clone());
+    remove_child_element(elem, parent)
+        .optimized_elements
+        .borrow_mut()
+        .push(OptimizedElement { element: elem.clone(), former_parent: Rc::downgrade(parent) });
 }
 
 /// Visit all named reference in this component and sub component
@@ -3774,7 +3783,7 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
                     vis(&mut t.running);
                 });
                 for o in compo.optimized_elements.borrow().iter() {
-                    visit_element_expressions(o, |expr, _, _| {
+                    visit_element_expressions(&o.element, |expr, _, _| {
                         visit_named_references_in_expression_dyn(expr, vis)
                     });
                 }
@@ -3804,7 +3813,7 @@ fn visit_all_expressions_dyn(
         if !Weak::ptr_eq(parent_compo, &compo) {
             let compo = compo.upgrade().unwrap();
             for o in compo.optimized_elements.borrow().iter() {
-                visit_element_expressions(o, |expr, _, ty| vis(expr, ty));
+                visit_element_expressions(&o.element, |expr, _, ty| vis(expr, ty));
             }
         }
         compo
@@ -4138,7 +4147,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         }
     });
     elements_with_enclosing_component_reference
-        .extend_from_slice(component.optimized_elements.borrow().as_slice());
+        .extend(component.optimized_elements.borrow().iter().map(|o| o.element.clone()));
     elements_with_enclosing_component_reference.push(new_root.clone());
 
     new_root.borrow_mut().child_of_layout =
