@@ -638,6 +638,7 @@ pub fn generate(
 }
 
 fn python_type_name(ty: &Type) -> SmolStr {
+    use crate::langtype::BuiltinStruct as BS;
     match ty {
         Type::Invalid => panic!("Invalid type encountered in llr output"),
         Type::Void => SmolStr::new_static("None"),
@@ -659,13 +660,12 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalPosition) => {
+            StructName::Builtin(BS::LogicalPosition) => {
                 SmolStr::new_static("slint.LogicalPosition")
             }
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalSize) => {
-                SmolStr::new_static("slint.LogicalSize")
-            }
-            StructName::Builtin(crate::langtype::BuiltinStruct::Color) | StructName::None => {
+            StructName::Builtin(BS::LogicalSize) => SmolStr::new_static("slint.LogicalSize"),
+            StructName::Builtin(BS::ColorRgba | BS::ColorHsva | BS::ColorOklch)
+            | StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }

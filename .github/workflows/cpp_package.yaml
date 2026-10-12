@@ -59,7 +59,7 @@ jobs:
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
               with:
                 arch: ${{ matrix.msvc_arch }}
               if: runner.os == 'Windows'
@@ -237,7 +237,7 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
               with:
                 arch: ${{ matrix.msvc_arch }}
               if: runner.os == 'Windows'

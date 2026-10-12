@@ -20,15 +20,14 @@
 //!
 //! Shadows of opaque backgrounds use the backend's analytic box shadow primitive.
 //! Translucent and border-only shadows require Gaussian blur filters on compositing layers.
-//! `anyrender_vello` 0.14 ignores these filters, rendering those shadows without blur.
-//! For `anyrender_vello_cpu` 0.16, enable its `filters` feature and leave
+//! `anyrender_vello` 0.15 ignores these filters, rendering those shadows without blur.
+//! For `anyrender_vello_cpu` 0.18, enable its `filters` feature and leave
 //! `multithreading` disabled, because that configuration ignores filters.
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
-// anyrender doesn't compile on 32-bit targets, so this crate is empty there. The upstream
-// fix is https://github.com/DioxusLabs/anyrender/pull/74; drop this once it's released and
-// we've updated. See also the target dependency in Cargo.toml.
-#![cfg(any(target_pointer_width = "64", target_arch = "wasm32"))]
+// anyrender doesn't compile on 32-bit x86, so this crate is empty there.
+// See the target dependency in Cargo.toml.
+#![cfg(not(target_arch = "x86"))]
 
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;

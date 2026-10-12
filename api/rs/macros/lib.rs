@@ -392,6 +392,19 @@ fn project_file_search_directory(
         .unwrap_or(source_directory)
 }
 
+fn apply_project_file(
+    search_directory: &std::path::Path,
+    compiler_config: &mut CompilerConfiguration,
+    diag: &mut BuildDiagnostics,
+) -> Result<(), String> {
+    if let Some(project_file) = project_file::ProjectFile::find(search_directory)? {
+        project_file.apply_to(compiler_config);
+        diag.all_loaded_files
+            .insert(i_slint_compiler::source_path::SourcePath::new(project_file.source_path()));
+    }
+    Ok(())
+}
+
 /// The external files whose changes should invalidate this expansion: the loaded
 /// files that are absolute and not the `Cargo.toml`. This is the set that both the
 /// `include_bytes!` recompile markers and the output cache key off of.
@@ -490,13 +503,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     // Before the cache key is taken, since the project file changes the generated output.
     let document = parser::syntax_nodes::Document::from(syntax_node.clone());
     let search_directory = project_file_search_directory(&document, &source_path);
-    match project_file::ProjectFile::find(&search_directory) {
-        Ok(Some(project_file)) => project_file.apply_to(&mut compiler_config),
-        Ok(None) => {}
-        Err(message) => {
-            diag.push_error_with_span(message, Default::default());
-            return diag.report_macro_diagnostic(&tokens);
-        }
+    if let Err(message) = apply_project_file(&search_directory, &mut compiler_config, &mut diag) {
+        diag.push_error_with_span(message, Default::default());
+        return diag.report_macro_diagnostic(&tokens);
     }
 
     // Consult the output cache before doing any (expensive) compilation. The key
@@ -570,7 +579,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
-    use super::project_file_search_directory;
+    use super::{apply_project_file, loaded_files, project_file_search_directory};
     use i_slint_compiler::diagnostics::BuildDiagnostics;
     use i_slint_compiler::parser;
     use std::path::{Path, PathBuf};
@@ -683,6 +692,31 @@ mod tests {
                 search_directory_for(r#"export { App } from "@widgets/main.slint";"#, &source_path),
                 *root
             );
+        });
+    }
+
+    #[test]
+    fn the_project_file_is_a_loaded_file() {
+        with_test_directory(|root| {
+            let project_file = root.join(i_slint_compiler::project_file::FILE_NAME);
+            std::fs::write(&project_file, "{}").unwrap();
+            let source_path = root.join("src/main.rs");
+
+            let mut diag = BuildDiagnostics::default();
+            let node = parser::parse(
+                "export component App inherits Rectangle {}".into(),
+                Some(i_slint_compiler::source_path::SourcePath::new(&source_path)),
+                &mut diag,
+            );
+            let mut config = i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Rust,
+            );
+            apply_project_file(&root.join("src"), &mut config, &mut diag).unwrap();
+            let (_, diag, _) =
+                spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diag, config));
+            assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+
+            assert!(loaded_files(&diag).contains(&project_file));
         });
     }
 

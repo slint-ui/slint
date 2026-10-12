@@ -190,7 +190,7 @@ pub struct SlintServer {
     ///
     /// Every exported `async` method must therefore take `&self`, not `&mut self`:
     /// wasm-bindgen holds a `&mut self` borrow across the future's `.await` points,
-    /// which re-entrant messages would trip (see tests/wasm_export_reentrancy.rs).
+    /// which re-entrant messages would trip.
     ctx: ReentryGuard<Context>,
     rh: Rc<RequestHandler>,
 }

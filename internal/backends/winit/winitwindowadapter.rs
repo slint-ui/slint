@@ -1948,9 +1948,7 @@ impl WindowAdapter for WinitWindowAdapter {
             ));
         }
         winit_window_or_none.set_title(&properties.title());
-        winit_window_or_none.set_decorations(
-            !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
-        );
+        winit_window_or_none.set_decorations(!window_item.no_frame());
 
         // Follow a background brush that changes while the window is up. The renderer has to
         // come along: its surface keeps or discards the scene's alpha to match the window.

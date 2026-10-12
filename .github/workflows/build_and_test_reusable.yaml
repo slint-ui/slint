@@ -63,6 +63,11 @@ on:
                 required: false
                 type: string
                 default: ""
+            check_deterministic_output:
+                description: 'Check that the Rust driver compiles each test case to the same code twice'
+                required: false
+                type: boolean
+                default: true
             build_examples:
                 description: 'Build the examples and demos workspaces'
                 required: false
@@ -89,6 +94,7 @@ jobs:
             SLINT_EMIT_DEBUG_INFO: 1
             SLINT_TEST_STYLES: ${{ inputs.test_styles }}
             CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
+            SLINT_TEST_DETERMINISTIC_OUTPUT: ${{ inputs.check_deterministic_output && '1' || '' }}
 
         runs-on: ${{ inputs.os }}
 
@@ -108,7 +114,10 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
+              if: runner.os == 'Windows'
+              with:
+                  arch: x64
             - uses: actions/setup-python@v7
               with:
                 python-version: '3.10'

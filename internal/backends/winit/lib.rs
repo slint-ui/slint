@@ -1337,13 +1337,13 @@ fn create_renderer(
         }
         #[cfg(feature = "renderer-vello")]
         (Some("vello"), maybe_graphics_api) => {
-            // vello renders through WGPU 29; anything else was not created by
+            // vello renders through WGPU 30; anything else was not created by
             // this renderer and cannot be adopted.
             if let Some(api) = maybe_graphics_api
-                && !matches!(api, RequestedGraphicsAPI::WGPU29(..))
+                && !matches!(api, RequestedGraphicsAPI::WGPU30(..))
             {
                 return Err(
-                    "The vello renderer only supports the WGPU29 graphics API selection".into()
+                    "The vello renderer only supports the WGPU30 graphics API selection".into()
                 );
             }
             renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
@@ -1365,11 +1365,8 @@ fn create_renderer(
                 enable_skia_wgpu => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
                 }
-                feature = "renderer-vello" => {
-                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
-                }
                 _ => {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
@@ -1382,8 +1379,11 @@ fn create_renderer(
                 feature = "renderer-femtovg-wgpu" => {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 }
+                feature = "renderer-vello" => {
+                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
+                }
                 _ => {
-                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select renderer-skia*, renderer-femtovg-wgpu, or renderer-vello".into())
                 }
             }
         }

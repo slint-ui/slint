@@ -648,8 +648,8 @@ export global Api {
     callback remote-cancel-pairing();
     /// Connect to the pairing-disabled viewer the warning is about.
     callback remote-accept-unpaired();
-    /// Digits in a pairing code, from `pairing::CODE_DIGITS`.
-    in-out property <int> remote-pairing-code-length;
+    /// Digits in the code the viewer is asking for.
+    in property <int> remote-pairing-code-length;
 
     // ## SlintPad related APIs
     in-out property <bool> runs-in-slintpad;

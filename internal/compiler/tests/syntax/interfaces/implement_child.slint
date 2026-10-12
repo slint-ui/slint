@@ -87,7 +87,7 @@ interface ImpureFunctionInterface {
 
 component IncorrectPurity {
     public function foo(i: int, s: string) -> bool {
-//                  > <note{'IncorrectPurity' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
+//                  > <note{'IncorrectPurity' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(i: int, s: string) -> bool { }'}
         return false;
     }
 
@@ -107,14 +107,14 @@ export component ChildWrongPurity {
 
 component IncorrectArguments {
     pure public function foo(i: int, s: int) -> bool {
-//                                      > <note{'IncorrectArguments' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(int, string) -> bool { }'}
+//                                      > <note{'IncorrectArguments' declares 'foo' here, 'FunctionInterface' expects 'pure public function foo(i: int, s: string) -> bool { }'}
         return false;
     }
 }
 
 export component ChildWrongArguments {
     implement FunctionInterface <=> base;
-//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be 'pure public function foo(int, string) -> bool { }' (found 'pure public function foo(int, int) -> bool { }')}
+//                                  >  <error{Cannot implement 'FunctionInterface' based on 'base'.↵- 'base.foo' must be 'pure public function foo(i: int, s: string) -> bool { }' (found 'pure public function foo(i: int, s: int) -> bool { }')}
     base := IncorrectArguments { }
 }
 

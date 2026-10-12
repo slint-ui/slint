@@ -5,7 +5,7 @@ import { Button } from "std-widgets.slint";
 import { Diagnostics, Diagnostic, PreviewAvailability } from "../diagnostics.slint";
 import { Project } from "../project.slint";
 import { Style, Colors, Metrics, Typography, PreviewDiagnosticsStyle } from "../style.slint";
-import { FileTreeIcons } from "file-tree-icons.slint";
+import { Icons } from "icons.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component PreviewDiagnostics inherits Rectangle {
@@ -40,7 +40,7 @@ export component PreviewDiagnostics inherits Rectangle {
                     spacing: Metrics.space-small;
                     cross-axis-alignment: center;
                     if !root.empty: Image {
-                        source: FileTreeIcons.alert;
+                        source: Icons.alert;
                         width: Metrics.icon-small;
                         height: Metrics.icon-small;
                         colorize: Colors.danger;

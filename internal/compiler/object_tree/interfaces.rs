@@ -518,7 +518,7 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name, PropertyLookupMode::ComponentLocal);
     let Err(violations) =
-        property_matches_interface(&lookup_result, interface_member, member_name, binding)
+        property_matches_interface(element, &lookup_result, interface_member, member_name, binding)
     else {
         return None;
     };
@@ -794,7 +794,14 @@ fn property_type_matches_for_interface(lhs: &Type, rhs: &Type) -> bool {
     }
 }
 
+fn member_is_absent(element: &Element, name: &SmolStr) -> bool {
+    element.declaration(name).is_none()
+        && element.lookup_property(name, PropertyLookupMode::ComponentLocal).property_type
+            == Type::Invalid
+}
+
 fn property_matches_interface(
+    element: &Element,
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
     name: &SmolStr,
@@ -802,11 +809,15 @@ fn property_matches_interface(
 ) -> Result<(), Vec<MemberViolation>> {
     let expected_syntax = syntax_for_declaration(interface_declaration, name);
     if property.property_type == Type::Invalid {
-        return Err(vec![MemberViolation {
-            error: missing_type_error(name, interface_declaration),
-            expected_syntax,
-            anchor: DeclarationAnchor::Name,
-        }]);
+        return if member_is_absent(element, name) {
+            Err(vec![MemberViolation {
+                error: missing_type_error(name, interface_declaration),
+                expected_syntax,
+                anchor: DeclarationAnchor::Name,
+            }])
+        } else {
+            Ok(())
+        };
     }
 
     // Checked in `validate_implement_statements` once the type has been resolved by `infer_aliases_types`.

@@ -287,6 +287,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             // it, and destructive compose modes must not use an unbounded layer (see
             // the doc comment on the `UNCLIPPED` constant at the top of this file).
             self.scene.push_layer(
+                peniko::Fill::NonZero,
                 peniko::BlendMode::default(),
                 1.0,
                 self.current_state.transform,
@@ -388,6 +389,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             let src_in_blend = peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn);
             if let Some((brush, brush_transform)) = self.brush(colorize_brush, dest_size) {
                 self.scene.push_layer(
+                    peniko::Fill::NonZero,
                     src_in_blend,
                     1.0,
                     self.current_state.transform,
@@ -600,7 +602,15 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 (blur / 2.) as f32,
             )))
         });
-        self.scene.push_layer(peniko::BlendMode::default(), 1., transform, &extent, filter, None);
+        self.scene.push_layer(
+            peniko::Fill::NonZero,
+            peniko::BlendMode::default(),
+            1.,
+            transform,
+            &extent,
+            filter,
+            None,
+        );
         if !layout.background_rect.is_empty() {
             self.fill_with_brush(
                 background,
@@ -622,6 +632,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         // Color the combined source alpha before blurring it, preserving overlap between
         // partially transparent fill and border paint.
         self.scene.push_layer(
+            peniko::Fill::NonZero,
             peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn),
             1.,
             transform,
@@ -655,7 +666,11 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
 
         let clip_shape = phys_rect_shape(clip_rect * self.scale_factor, radius * self.scale_factor);
 
-        self.scene.push_clip_layer(self.current_state.transform, &clip_shape);
+        self.scene.push_clip_layer(
+            peniko::Fill::NonZero,
+            self.current_state.transform,
+            &clip_shape,
+        );
         self.current_state.layer_count += 1;
 
         clip_region_valid
@@ -907,7 +922,11 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         let border_shape = RectShape::uniform(border_rect, base_radius);
 
         // The shadow must not paint outside the item.
-        self.scene.push_clip_layer(self.current_state.transform, &border_shape);
+        self.scene.push_clip_layer(
+            peniko::Fill::NonZero,
+            self.current_state.transform,
+            &border_shape,
+        );
         self.scene.fill(
             peniko::Fill::default(),
             self.current_state.transform,
@@ -928,6 +947,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             // destructive compose modes mustn't use an unbounded layer,
             // see the `UNCLIPPED` constant at the top of this file.
             self.scene.push_layer(
+                peniko::Fill::NonZero,
                 peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::DestOut),
                 1.0,
                 self.current_state.transform,
@@ -963,7 +983,15 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
 
     /// Push a compositing layer that does not clip its content.
     fn push_unclipped_layer(&mut self, blend: peniko::BlendMode, alpha: f32) {
-        self.scene.push_layer(blend, alpha, kurbo::Affine::IDENTITY, &UNCLIPPED, None, None);
+        self.scene.push_layer(
+            peniko::Fill::NonZero,
+            blend,
+            alpha,
+            kurbo::Affine::IDENTITY,
+            &UNCLIPPED,
+            None,
+            None,
+        );
     }
 
     /// Resolve the Slint `brush` (sized against `brush_size`) and fill

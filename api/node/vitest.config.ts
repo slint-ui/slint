@@ -8,6 +8,7 @@ export default defineConfig({
         include: ["**/*.spec.mts"],
         globals: true, // Enable global test/expect/describe
         pool: "forks", // Use process forks (required for native modules that need main thread)
+        testTimeout: 30000, // Showing the first window of a process took up to 9s on the Windows CI runner
         teardownTimeout: 5000, // Force teardown after 5s to prevent hanging processes
         reporters: ["verbose"], // Show individual test names
         execArgv: ["--expose-gc"], // Enable global.gc() for GC tests

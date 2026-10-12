@@ -45,9 +45,10 @@ renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "de
 renderer-vello = [
   "dep:i-slint-renderer-anyrender",
   "i-slint-renderer-anyrender/vello",
-  "i-slint-core/unstable-wgpu-29",
+  "i-slint-core/unstable-wgpu-30",
   "drm",
   "dep:memmap2",
+  "dep:wgpu-30",
 ]
 libseat = ["dep:libseat"]
 ## Handle mouse, touch and keyboard input via libinput. Without this feature the

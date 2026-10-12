@@ -427,7 +427,7 @@ fn remote_commit(instance: &Instance) -> Option<String> {
         instance.app_id, instance.arch, instance.branch
     );
 
-    let client = reqwest::blocking::Client::builder().timeout(CHECK_TIMEOUT).build().ok()?;
+    let client = client()?;
     let body = client.get(&url).send().and_then(|response| response.error_for_status()?.bytes());
 
     let body = match body {
@@ -447,6 +447,13 @@ fn remote_commit(instance: &Instance) -> Option<String> {
     }
 
     Some(commit)
+}
+
+/// reqwest panics when it builds a client without a rustls crypto provider.
+fn client() -> Option<reqwest::blocking::Client> {
+    // Fails when a provider is already installed, which is just as good.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    reqwest::blocking::Client::builder().timeout(CHECK_TIMEOUT).build().ok()
 }
 
 /// One request at startup, off the UI thread. The monitor takes over from here.
@@ -597,5 +604,10 @@ ALSA_CONFIG_DIR=/usr/share/alsa
     fn rejects_anything_that_is_not_a_flatpak() {
         assert!(parse_instance("").is_none());
         assert!(parse_instance("[Application]\nname=dev.slint.VisualEditor\n").is_none());
+    }
+
+    #[test]
+    fn builds_the_update_check_client() {
+        assert!(client().is_some());
     }
 }

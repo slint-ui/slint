@@ -80,9 +80,9 @@ struct Cli {
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
 
-    /// Always require this pairing code, given as four digits, instead of showing a
+    /// Always require this pairing code, given as 4 to 12 digits, instead of showing a
     /// freshly generated one. For devices without a usable display, and for scripted
-    /// clients.
+    /// clients. Longer codes take longer to guess.
     #[arg(long, value_name = "code", requires = "remote", conflicts_with = "no_pairing")]
     pairing_code: Option<String>,
 
@@ -211,7 +211,11 @@ fn main() -> Result<()> {
             let pairing_policy = match (args.no_pairing, args.pairing_code) {
                 (true, _) => i_slint_live_preview::remote::PairingPolicy::Disabled,
                 (false, Some(code)) if !pairing::is_valid_code(&code) => {
-                    eprintln!("--pairing-code must be exactly {} digits", pairing::CODE_DIGITS);
+                    eprintln!(
+                        "--pairing-code must be {} to {} digits",
+                        pairing::CODE_DIGITS,
+                        pairing::MAX_CODE_DIGITS
+                    );
                     std::process::exit(2);
                 }
                 (false, Some(code)) => i_slint_live_preview::remote::PairingPolicy::Fixed(code),
