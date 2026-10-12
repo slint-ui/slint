@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { SliderSurface } from "../src/headless.slint";
+import { BasicTheme } from "../src/basic.slint";
+
+export component CircularSurface {
+    implement SliderSurface <=> self;
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    in property <bool> pressed;
+    in property <Orientation> orientation;
+    in property <bool> inverted;
+    out property <float> visual-position: (root.orientation == Orientation.vertical) != root.inverted
+        ? 1 - root.position : root.position;
+    callback started();
+    callback seek(position: float);
+    callback finished();
+    callback canceled();
+    in property <brush> accent: BasicTheme.accent;
+    out property <bool> hovered: root.enabled && pointer.has-hover;
+    preferred-width: 220px;
+    preferred-height: 180px;
+    min-width: 60px;
+    min-height: 60px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    private property <length> radius: max(1px, min(root.width, root.height) / 2 - 14px);
+    private property <angle> thumb-angle: 135deg + root.visual-position * 270deg;
+
+    for dot in 55: Rectangle {
+        x: root.width / 2 + cos(135deg + dot * 5deg) * root.radius - 3px;
+        y: root.height / 2 + sin(135deg + dot * 5deg) * root.radius - 3px;
+        width: 6px;
+        height: 6px;
+        border-radius: 3px;
+        background: !root.enabled ? BasicTheme.disabled-foreground
+            : dot / 54 <= root.visual-position ? root.accent : BasicTheme.hover-background;
+    }
+
+    Rectangle {
+        x: root.width / 2 + cos(root.thumb-angle) * root.radius - self.width / 2;
+        y: root.height / 2 + sin(root.thumb-angle) * root.radius - self.height / 2;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: root.enabled ? root.accent : BasicTheme.disabled-foreground;
+        border-width: root.focused ? 3px : 0px;
+        border-color: BasicTheme.focus;
+    }
+
+    function seek-pointer() {
+        let dx = (pointer.mouse-x - root.width / 2) / 1px;
+        let dy = (pointer.mouse-y - root.height / 2) / 1px;
+        if dx * dx + dy * dy < 16 { return; }
+        let angle = atan2(dy, dx);
+        let around = angle < 90deg ? angle + 360deg : angle;
+        let visual = clamp((around - 135deg) / 270deg, 0, 1);
+        root.seek((root.orientation == Orientation.vertical) != root.inverted ? 1 - visual : visual);
+    }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.started();
+                root.seek-pointer();
+            } else if event.kind == PointerEventKind.move && root.pressed {
+                root.seek-pointer();
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.pressed {
+                root.seek-pointer();
+                root.finished();
+            } else if event.kind == PointerEventKind.cancel {
+                root.canceled();
+            }
+        }
+    }
+}
