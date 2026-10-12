@@ -640,15 +640,6 @@ inline bool select_bundled_translation(std::string_view language)
 }
 
 #if !defined(DOXYGEN)
-cbindgen_private::Flickable::Flickable()
-{
-    slint_flickable_data_init(&data);
-}
-cbindgen_private::Flickable::~Flickable()
-{
-    slint_flickable_data_free(&data);
-}
-
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
     slint_system_tray_icon_data_init(&data);
