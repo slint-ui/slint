@@ -5,13 +5,16 @@
 
 use crate::langtype::Function;
 use crate::layout::Orientation;
+use smol_str::{SmolStr, StrExt};
 use std::sync::Arc;
 
 macro_rules! declare_builtin_functions {
     ($(
         $(#[$attr:meta])*
         $Name:ident $(($Payload:ident))? :
-            $purity:ident fn $($runtime:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+            $purity:ident fn $($runtime:ident)?
+                ($(& $context:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*)
+                -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
     )*) => {
         /// A function built into the run-time.
         /// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
@@ -37,9 +40,9 @@ macro_rules! declare_builtin_functions {
                 static TYPES: std::sync::LazyLock<BuiltinFunctionTypes> =
                     std::sync::LazyLock::new(|| BuiltinFunctionTypes {
                         $($Name: Arc::new(Function {
-                            args: builtin_argument_types!($($params)*),
+                            args: vec![$(builtin_type!($ty $(=> $as)?)),*],
                             return_type: builtin_type!($Ret $(=> $RetType)?),
-                            arg_names: Vec::new(),
+                            arg_names: arg_names(&[$(stringify!($param)),*]),
                         }),)*
                     });
                 match self {
@@ -59,7 +62,7 @@ macro_rules! declare_builtin_functions {
             /// see [`i_slint_common::for_each_builtin_function`]
             pub fn runtime_function_takes_context(&self) -> bool {
                 match self {
-                    $(Self::$Name { .. } => builtin_takes_context!($($params)*),)*
+                    $(Self::$Name { .. } => false $(|| first!(true, $context))?,)*
                 }
             }
 
@@ -73,27 +76,19 @@ macro_rules! declare_builtin_functions {
     };
 }
 
+fn arg_names(names: &[&str]) -> Vec<SmolStr> {
+    names.iter().map(|name| name.replace_smolstr("_", "-")).collect()
+}
+
 /// Expands to its first argument, for a repetition driven by the second.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! first {
-    ($first:path, $_:tt) => {
+    ($first:literal, $_:tt) => {
         $first
     };
-}
-
-/// The `Type`s of the parameters of a function in [`i_slint_common::for_each_builtin_function`]
-macro_rules! builtin_argument_types {
-    ($(& context $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) => { vec![$(builtin_type!($ty $(=> $as)?)),*] };
-    ($($ty:tt $(=> $as:tt)?),*) => { vec![$(builtin_type!($ty $(=> $as)?)),*] };
-}
-
-macro_rules! builtin_takes_context {
-    (& $($rest:tt)*) => {
-        true
-    };
-    ($($rest:tt)*) => {
-        false
+    ($first:path, $_:tt) => {
+        $first
     };
 }
 

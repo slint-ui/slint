@@ -10,13 +10,14 @@
 /// - The `BuiltinFunction` variant, and its payload if any: `Name:` or `Name(Orientation):`.
 ///   Doc comments and attributes before it go to the variant.
 /// - `pure fn` or `impure fn`, depending on whether the call has side effects.
-/// - The parameter types and the return type.
+/// - The named parameters and the return type.
+///   The LSP shows these names.
 /// - Types that are Rust types, or the name of a Slint type without a Rust equivalent,
 ///   such as `ElementReference`.
 ///   `[T]` is an array, and `()` is no value.
 /// - `RustType => SlintType` when the Slint type isn't the one of the Rust type,
 ///   such as `f32 => Angle`.
-/// - Optionally, a name, parameter names, and a body that implement the builtin,
+/// - Optionally, a name and a body that implement the builtin,
 ///   when its result only depends on its arguments.
 ///   The body is compiled in `i_slint_core::builtin_functions`.
 ///   A first parameter `&context` gives it the component's `SlintContext`.
@@ -24,7 +25,7 @@
 /// ```text
 /// Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
 /// ToFixed: pure fn to_fixed(&context, n: f64, digits: i32) -> SharedString { … }
-/// ShowPopupWindow: impure fn(ElementReference) -> ()
+/// ShowPopupWindow: impure fn(popup: ElementReference) -> ()
 /// ```
 // The `runtime` functions refer to `i_slint_core` with `crate`
 #[allow(clippy::crate_in_macro_def)]
@@ -36,7 +37,7 @@ macro_rules! for_each_builtin_function {
             GetWindowDefaultFontSize: pure fn() -> Coord
             AnimationTick: pure fn() -> i64 => Duration
             // Has a side effect, but is still considered pure
-            Debug: pure fn(SharedString) -> ()
+            Debug: pure fn(message: SharedString) -> ()
             Mod: pure fn modulo(a: f32 => Int32, b: f32 => Int32) -> f32 => Int32 { Euclid::rem_euclid(&a, &b) }
             Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
             Ceil: pure fn ceil(x: f32) -> i32 { x.ceil() as i32 }
@@ -57,28 +58,28 @@ macro_rules! for_each_builtin_function {
             ToFixed: pure fn to_fixed(&context, n: f64, digits: i32) -> SharedString {
                 context.format_number_fixed(n, digits.max(0) as usize)
             }
-            ToPrecision: pure fn to_precision(&context, n: f64, precision: i32) -> SharedString {
-                context.format_number_precision(n, precision.max(0) as usize)
+            ToPrecision: pure fn to_precision(&context, n: f64, digits: i32) -> SharedString {
+                context.format_number_precision(n, digits.max(0) as usize)
             }
             ToStringUnlocalized: pure fn to_string_unlocalized(n: f64) -> SharedString { crate::string::shared_string_from_number_unlocalized(n) }
-            SetFocusItem: impure fn(ElementReference) -> ()
-            ClearFocusItem: impure fn(ElementReference) -> ()
-            ShowPopupWindow: impure fn(ElementReference) -> ()
-            ClosePopupWindow: impure fn(ElementReference) -> ()
+            SetFocusItem: impure fn(element: ElementReference) -> ()
+            ClearFocusItem: impure fn(element: ElementReference) -> ()
+            ShowPopupWindow: impure fn(popup: ElementReference) -> ()
+            ClosePopupWindow: impure fn(popup: ElementReference) -> ()
             /// Show a context popup menu.
             /// Arguments are `(parent, menu_tree, position)`
             ///
             /// The first argument (parent) is a reference to the `ContextMenu` native item
             /// The second argument (menu_tree) is a ElementReference to the root of the tree,
             /// and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
-            ShowPopupMenu: impure fn(ElementReference, ElementReference, LogicalPosition) -> ()
+            ShowPopupMenu: impure fn(parent: ElementReference, menu: ElementReference, position: LogicalPosition) -> ()
             /// Show a context popup menu from a list of entries.
             /// Arguments are `(parent, entries, position)`
             /// The entries argument is an array of MenuEntry
-            ShowPopupMenuInternal: impure fn(ElementReference, Model, LogicalPosition) -> ()
-            SetSelectionOffsets: impure fn(ElementReference, i32, i32) -> ()
-            HasSelection: pure fn(ElementReference) -> bool
-            ItemFontMetrics: pure fn(ElementReference) -> FontMetrics
+            ShowPopupMenuInternal: impure fn(parent: ElementReference, entries: Model, position: LogicalPosition) -> ()
+            SetSelectionOffsets: impure fn(text_input: ElementReference, anchor: i32, focus: i32) -> ()
+            HasSelection: pure fn(text_input: ElementReference) -> bool
+            ItemFontMetrics: pure fn(element: ElementReference) -> FontMetrics
             /// the "42".to_float()
             StringToFloat: pure fn string_to_float(&context, s: SharedString) -> f32 {
                 context.parse_number(&s).unwrap_or_default()
@@ -105,17 +106,17 @@ macro_rules! for_each_builtin_function {
             ColorBrighter: pure fn color_brighter(brush: Brush, factor: f32) -> Brush { brush.brighter(factor) }
             ColorDarker: pure fn color_darker(brush: Brush, factor: f32) -> Brush { brush.darker(factor) }
             ColorTransparentize: pure fn color_transparentize(brush: Brush, factor: f32) -> Brush { brush.transparentize(factor) }
-            ColorMix: pure fn color_mix(a: Color, b: Color, factor: f32) -> Color { a.mix(&b, factor) }
+            ColorMix: pure fn color_mix(color: Color, other: Color, factor: f32) -> Color { color.mix(&other, factor) }
             ColorWithAlpha: pure fn color_with_alpha(brush: Brush, alpha: f32) -> Brush { brush.with_alpha(alpha) }
-            ImageSize: pure fn(Image) -> Size
-            ArrayLength: pure fn(Model) -> i32
+            ImageSize: pure fn(image: Image) -> Size
+            ArrayLength: pure fn(array: Model) -> i32
             // Using Type::InferredProperty as there is currently no valid type for the data argument.
-            ArrayPush: impure fn(Model, InferredProperty) -> ()
-            ArrayRemove: impure fn(Model, i32) -> ()
-            ArrayInsert: impure fn(Model, i32, InferredProperty) -> ()
-            ArrayAny: pure fn(Model, Closure) -> bool
-            ArrayAll: pure fn(Model, Closure) -> bool
-            ArrayFindIndex: pure fn(Model, Closure) -> i32
+            ArrayPush: impure fn(array: Model, value: InferredProperty) -> ()
+            ArrayRemove: impure fn(array: Model, index: i32) -> ()
+            ArrayInsert: impure fn(array: Model, index: i32, value: InferredProperty) -> ()
+            ArrayAny: pure fn(array: Model, predicate: Closure) -> bool
+            ArrayAll: pure fn(array: Model, predicate: Closure) -> bool
+            ArrayFindIndex: pure fn(array: Model, predicate: Closure) -> i32
             Rgb: pure fn rgb(r: i32, g: i32, b: i32, a: f32) -> Color {
                 let channel = |c: i32| c.clamp(0, 255) as u8;
                 // `as u8` saturates the alpha
@@ -137,12 +138,12 @@ macro_rules! for_each_builtin_function {
             /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
             /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
             // The types are not accurate.
-            SetupMenuBar: impure fn(Model, NoArgCallback, NoArgCallback) -> ()
+            SetupMenuBar: impure fn(entries: Model, sub_menu: NoArgCallback, activated: NoArgCallback) -> ()
             /// Setup the menu of a `SystemTrayIcon`.
             ///
             /// Arguments are `(system_tray_ref, menu_tree_root)` where `menu_tree_root` is an ElementReference to the root of
             /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
-            SetupSystemTrayIcon: impure fn(ElementReference, ElementReference) -> ()
+            SetupSystemTrayIcon: impure fn(system_tray: ElementReference, menu: ElementReference) -> ()
             Use24HourFormat: pure fn use_24_hour_format() -> bool { date_time::use_24_hour_format() }
             MonthDayCount: pure fn month_day_count(month: i32, year: i32) -> i32 {
                 date_time::month_day_count(month as u32, year).unwrap_or(0)
@@ -153,25 +154,24 @@ macro_rules! for_each_builtin_function {
             }
             DateNow: pure fn() -> [i32]
             ValidDate: pure fn valid_date(date: SharedString, format: SharedString) -> bool { date_time::parse_date(&date, &format).is_some() }
-            ParseDate: pure fn(SharedString, SharedString) -> [i32]
+            ParseDate: pure fn(date: SharedString, format: SharedString) -> [i32]
             TextInputFocused: pure fn() -> bool
-            SetTextInputFocused: impure fn(bool) -> ()
+            SetTextInputFocused: impure fn(focused: bool) -> ()
             #[strum(disabled)]
-            ImplicitLayoutInfo(Orientation): pure fn(ElementReference, f32) -> LayoutInfo
-            ItemAbsolutePosition: pure fn(ElementReference) -> LogicalPosition
-            RegisterCustomFontByPath: impure fn(SharedString) -> ()
-            RegisterCustomFontByMemory: impure fn(i32) -> ()
-            RegisterBitmapFont: impure fn(i32) -> ()
-            // original, context, domain, args
-            Translate: pure fn(SharedString, SharedString, SharedString, [SharedString]) -> SharedString
+            ImplicitLayoutInfo(Orientation): pure fn(element: ElementReference, constraint: f32) -> LayoutInfo
+            ItemAbsolutePosition: pure fn(element: ElementReference) -> LogicalPosition
+            RegisterCustomFontByPath: impure fn(path: SharedString) -> ()
+            RegisterCustomFontByMemory: impure fn(resource: i32) -> ()
+            RegisterBitmapFont: impure fn(resource: i32) -> ()
+            Translate: pure fn(original: SharedString, context: SharedString, domain: SharedString, arguments: [SharedString]) -> SharedString
             UpdateTimers: impure fn() -> ()
             DetectOperatingSystem: pure fn detect_operating_system() -> OperatingSystemType { crate::detect_operating_system() }
-            StartTimer: impure fn(ElementReference) -> ()
-            StopTimer: impure fn(ElementReference) -> ()
-            RestartTimer: impure fn(ElementReference) -> ()
+            StartTimer: impure fn(timer: ElementReference) -> ()
+            StopTimer: impure fn(timer: ElementReference) -> ()
+            RestartTimer: impure fn(timer: ElementReference) -> ()
             OpenUrl: impure fn open_url(&context, url: SharedString) -> bool { crate::open_url(&url, context).is_ok() }
             MacosBringAllWindowsToFront: impure fn() -> ()
-            ParseMarkdown: pure fn(SharedString, [StyledText]) -> StyledText
+            ParseMarkdown: pure fn(format: SharedString, arguments: [StyledText]) -> StyledText
             StringToStyledText: pure fn string_to_styled_text(s: SharedString) -> StyledText { crate::styled_text::string_to_styled_text(s.into()) }
             /// Converts a color to a hex string wrapped in StyledText.
             /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
@@ -181,8 +181,8 @@ macro_rules! for_each_builtin_function {
             /// The window title when the application doesn't set one, see
             /// `i_slint_core::window::default_window_title`
             DefaultWindowTitle: pure fn default_window_title() -> SharedString { crate::window::default_window_title() }
-            PathPointAt: pure fn(ElementReference, f32) -> LogicalPosition
-            PathAngleAt: pure fn(ElementReference, f32) -> f32 => Angle
+            PathPointAt: pure fn(path: ElementReference, t: f32) -> LogicalPosition
+            PathAngleAt: pure fn(path: ElementReference, t: f32) -> f32 => Angle
         }
     };
 }
