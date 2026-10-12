@@ -3177,7 +3177,9 @@ impl Element {
         if let Some(internal_name) = self.shadowing_members.get(name) {
             return self.property_declarations.get_key_value(internal_name);
         }
-        self.property_declarations.get_key_value(name).filter(|(_, d)| d.shadowed_name.is_none())
+        self.property_declarations
+            .get_key_value(name)
+            .filter(|(_, d)| d.shadowed_name.is_none() && !d.synthesized)
     }
 
     /// Source names of shadowing declarations that are visible from outside the component, so they
