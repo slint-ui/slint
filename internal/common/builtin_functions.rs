@@ -38,7 +38,7 @@ macro_rules! for_each_builtin_function {
             AnimationTick: pure fn() -> i64 => Duration
             // Has a side effect, but is still considered pure
             Debug: pure fn(message: SharedString) -> ()
-            Mod: pure fn modulo(a: f32 => Int32, b: f32 => Int32) -> f32 => Int32 { Euclid::rem_euclid(&a, &b) }
+            Mod: pure fn modulo(a: f32, b: f32) -> f32 { Euclid::rem_euclid(&a, &b) }
             Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
             Ceil: pure fn ceil(x: f32) -> i32 { x.ceil() as i32 }
             Floor: pure fn floor(x: f32) -> i32 { x.floor() as i32 }
