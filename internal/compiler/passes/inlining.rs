@@ -16,7 +16,7 @@ use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum InlineSelection {
@@ -364,11 +364,12 @@ fn inline_element(
         *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
     };
 
-    root_component.optimized_elements.borrow_mut().extend(
-        inlined_component.optimized_elements.borrow().iter().map(|x| {
-            duplicate_element_with_mapping(x, &mut mapping, root_component, priority_delta)
-        }),
-    );
+    root_component.optimized_elements.borrow_mut().extend(duplicate_optimized_elements(
+        &inlined_component.optimized_elements.borrow(),
+        &mut mapping,
+        root_component,
+        priority_delta,
+    ));
     root_component.popup_windows.borrow_mut().extend(
         inlined_component
             .popup_windows
@@ -636,6 +637,32 @@ fn duplicate_element_with_mapping(
     new
 }
 
+fn duplicate_optimized_elements(
+    optimized: &[OptimizedElement],
+    mapping: &mut Mapping,
+    root_component: &Rc<Component>,
+    priority_delta: i32,
+) -> Vec<OptimizedElement> {
+    let elements = optimized
+        .iter()
+        .map(|o| {
+            duplicate_element_with_mapping(&o.element, mapping, root_component, priority_delta)
+        })
+        .collect::<Vec<_>>();
+    optimized
+        .iter()
+        .zip(elements)
+        .map(|(o, element)| OptimizedElement {
+            element,
+            former_parent: o
+                .former_parent
+                .upgrade()
+                .and_then(|parent| mapping.get(&element_key(parent)))
+                .map_or_else(Weak::new, Rc::downgrade),
+        })
+        .collect()
+}
+
 /// Duplicate Component for repeated element or popup window that have a parent_element
 fn duplicate_sub_component(
     component_to_duplicate: &Rc<Component>,
@@ -654,21 +681,12 @@ fn duplicate_sub_component(
             priority_delta,
         ),
         parent_element: RefCell::new(Rc::downgrade(new_parent)),
-        optimized_elements: RefCell::new(
-            component_to_duplicate
-                .optimized_elements
-                .borrow()
-                .iter()
-                .map(|e| {
-                    duplicate_element_with_mapping(
-                        e,
-                        mapping,
-                        component_to_duplicate,
-                        priority_delta,
-                    )
-                })
-                .collect(),
-        ),
+        optimized_elements: RefCell::new(duplicate_optimized_elements(
+            &component_to_duplicate.optimized_elements.borrow(),
+            mapping,
+            component_to_duplicate,
+            priority_delta,
+        )),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
         declared_slots: component_to_duplicate.declared_slots.clone(),
@@ -689,7 +707,7 @@ fn duplicate_sub_component(
         e.borrow_mut().enclosing_component = weak.clone()
     });
     for o in new_component.optimized_elements.borrow().iter() {
-        o.borrow_mut().enclosing_component = weak.clone()
+        o.element.borrow_mut().enclosing_component = weak.clone()
     }
     *new_component.popup_windows.borrow_mut() = component_to_duplicate
         .popup_windows
