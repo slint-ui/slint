@@ -19,7 +19,7 @@ export component TextEditBase inherits Rectangle {
     in property <bool> font-italic <=> text-input.font-italic;
     in property <bool> enabled <=> text-input.enabled;
     out property <bool> has-focus: text-input.has-focus;
-    out property <bool> has-selection: text-input.has-selection;
+    @shadowable out property <bool> has-selection: text-input.has-selection;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     in-out property <string> text <=> text-input.text;
