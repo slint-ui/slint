@@ -1,0 +1,27 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ConditionalDefault {
+    slot content << if true: Text { }
+//                  ><error{Wrap the 'if' in an element to use it as slot default content}
+    content { }
+}
+
+export component RepeatedDefault {
+    slot content << for i in 2: Text { }
+//                  > <error{Wrap the 'for' in an element to use it as slot default content}
+    content { }
+}
+
+export component StrayDefaultSemicolon {
+    slot content << Text { };
+//                          ^error{Remove the ';' after the slot content}
+    content { }
+}
+
+export component StrayAssignmentSemicolon {
+    StrayDefaultSemicolon {
+        content << Text { };
+//                         ^error{Remove the ';' after the slot content}
+    }
+}

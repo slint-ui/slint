@@ -1260,9 +1260,17 @@ fn format_slot_declaration(
         whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
     }
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
-    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    let has_default = node.child_node(SyntaxKind::SubElement).is_some();
+    if has_default {
+        whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, " ")?;
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    }
     finish_node(sub, writer, state)?;
-    state.new_line();
+    if !has_default {
+        state.new_line();
+    }
     Ok(())
 }
 
@@ -2458,6 +2466,18 @@ mod tests {
         assert_formatting(
             "component Host { inner := Child { control << input; // comment\n } }",
             "component Host {\n    inner := Child {\n        control << input; // comment\n    }\n}\n",
+        );
+    }
+
+    #[test]
+    fn slot_declaration_default() {
+        assert_formatting(
+            "component Host { slot content<<Text{text:\"Default\";} content{} }",
+            "component Host {\n    slot content << Text {\n        text: \"Default\";\n    }\n    content { }\n}\n",
+        );
+        assert_formatting(
+            "component Host { slot header << label:=Text{}\nslot footer; header{} footer{} }",
+            "component Host {\n    slot header << label := Text { }\n    slot footer;\n    header { }\n\n    footer { }\n}\n",
         );
     }
 
