@@ -28,6 +28,7 @@ If a wildcard case `*` is present, it renders when none of the explicit cases ma
 ### Matching on an integer
 
 Every value an `int` can take cannot be listed, so a wildcard `*` case is required.
+Case values must be integers: a fractional value such as `1.5` never matches, so it's an error.
 
 ```slint
 export component StatusIndicator {

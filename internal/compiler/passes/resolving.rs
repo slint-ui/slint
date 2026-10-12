@@ -221,7 +221,15 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         diag.push_warning("Floating point comparison is not recommended".into(), node);
     }
 
-    if is_literal || is_valid_cast {
+    if let Expression::Cast { from, to: Type::Int32, .. } = value
+        && let Some((number, _)) = as_number_literal(from)
+        && number.fract() != 0.0
+    {
+        diag.push_error(
+            format!("'{number}' is not an integer, so it never matches an 'int' subject"),
+            node,
+        );
+    } else if is_literal || is_valid_cast {
         // pass
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
