@@ -280,6 +280,11 @@ export component EditorUi inherits Window {
                     activated => { Project.clear-recent-projects(); }
                 }
             }
+            MenuItem {
+                title: @tr("Close Project");
+                enabled: !Api.startup-wizard-visible;
+                activated => { Project.close-project(); }
+            }
             // The macOS application menu already provides Quit.
             if Platform.os != OperatingSystemType.macos: MenuSeparator { }
             if Platform.os != OperatingSystemType.macos: MenuItem {
