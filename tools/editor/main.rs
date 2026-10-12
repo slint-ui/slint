@@ -43,6 +43,7 @@ const RUN_PREVIEW_INDEX: usize = 1;
 enum EditorToSessionMessage {
     RunPreview,
     SwitchProject(Project),
+    CloseProject,
 }
 
 fn main() -> Result<()> {
@@ -73,7 +74,14 @@ fn main() -> Result<()> {
     let _updater = windows::connect(&editor_ui);
 
     let settings = startup::load_settings();
-    let active_session = RefCell::new(None::<crossbeam_channel::Sender<EditorToSessionMessage>>);
+    let active_session =
+        Rc::new(RefCell::new(None::<crossbeam_channel::Sender<EditorToSessionMessage>>));
+    let close_session = active_session.clone();
+    let close_project = Rc::new(move || {
+        if let Some(session_sender) = close_session.borrow().as_ref() {
+            session_sender.send(EditorToSessionMessage::CloseProject).ok();
+        }
+    });
     let editor_ui_weak = editor_ui.as_weak();
     let start_project = Rc::new(move |project| {
         let mut session_slot = active_session.borrow_mut();
@@ -86,7 +94,7 @@ fn main() -> Result<()> {
         *session_slot = Some(start_editor_session(&editor_ui, project, startup::load_settings()));
         true
     });
-    startup::setup(&editor_ui, &settings, start_project.clone());
+    startup::setup(&editor_ui, &settings, start_project.clone(), close_project);
     if let Some(file) = cli.file {
         let project = Project::from_file(file, cli.component)?;
         start_project(project);
@@ -341,6 +349,9 @@ async fn lsp_main(
                         ).await {
                             tracing::warn!("Failed to switch project: {error}");
                         }
+                    }
+                    Some(EditorToSessionMessage::CloseProject) => {
+                        stop_run_preview(&mut session).await;
                     }
                     None => break Ok(()),
                 }
@@ -629,16 +640,20 @@ async fn switch_project(
         .await?;
     publish_imports.set(true);
 
-    session.previews[RUN_PREVIEW_INDEX].to_preview.shutdown().await;
-    session.send_to_preview(
-        RUN_PREVIEW_INDEX,
-        &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
-    );
+    stop_run_preview(session).await;
     *session = next_session;
     *project_root = next_project_root;
     open_project(session, PRIMARY_PREVIEW_INDEX, project_root)?;
     session.send_state_to_preview(PRIMARY_PREVIEW_INDEX);
     Ok(())
+}
+
+async fn stop_run_preview(session: &mut editor_preview::EditorSession) {
+    session.previews[RUN_PREVIEW_INDEX].to_preview.shutdown().await;
+    session.send_to_preview(
+        RUN_PREVIEW_INDEX,
+        &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+    );
 }
 
 async fn open_preview(
