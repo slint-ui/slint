@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@figma/plugin-typings": "1.140.0",
+    "@figma/plugin-typings": "1.141.0",
     "@noble/hashes": "2.4.0",
     "@shikijs/types": "4.5.0",
     "@types/node": "catalog:",
