@@ -54,7 +54,7 @@ component FileTreeRow inherits Rectangle {
     height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
     horizontal-stretch: 1;
     border-radius: root.style.row.radius;
-    background: node.is-selected || row-focus.has-focus ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
+    background: node.is-selected || row-focus.has-focus || root.keyboard-current ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
     accessible-description: root.diagnostic-description;
@@ -266,12 +266,32 @@ component FileTreeRow inherits Rectangle {
         wrap: no-wrap;
     }
 
-    touch := TouchArea {
-        enabled: !root.editing;
-        mouse-cursor: pointer;
-        clicked => {
-            root.focus-row();
-            root.activate();
+    context-menu := ContextMenuArea {
+        enabled: false;
+
+        Menu {
+            MenuItem {
+                title: @tr("Rename");
+                activated => {
+                    root.focus-row();
+                    root.begin-rename();
+                }
+            }
+        }
+
+        touch := TouchArea {
+            enabled: !root.editing;
+            mouse-cursor: pointer;
+            clicked => {
+                root.focus-row();
+                root.activate();
+            }
+            pointer-event(event) => {
+                if !root.folder && event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
+                    root.focus-row();
+                    context-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
         }
     }
     if root.diagnostic-description != "": Tooltip {
