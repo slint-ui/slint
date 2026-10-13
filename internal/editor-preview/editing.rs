@@ -11,7 +11,7 @@ use std::collections::HashMap;
 pub mod import_edit;
 pub mod rename_component;
 pub mod rename_element_id;
-#[cfg(any(test, feature = "preview-engine"))]
+#[cfg(any(test, feature = "testing", feature = "preview-engine"))]
 pub mod text_edit;
 
 pub struct SingleTextEdit {
