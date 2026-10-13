@@ -434,6 +434,24 @@ export component EditorUi inherits Window {
                 reject
             }
 
+            KeyBinding {
+                keys: @keys(Control + C);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-copy();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + X);
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0;
+                activated => Api.selected-element-cut();
+            }
+
+            KeyBinding {
+                keys: @keys(Control + V);
+                enabled: Diagnostics.preview-editable && (CanvasView.pointer-inside || Api.selection.highlight-index >= 0);
+                activated => Api.paste-element(CanvasView.pointer-inside, CanvasView.pointer.x, CanvasView.pointer.y);
+            }
+
             focus-lost => {
                 self.nudge-key-held = false;
                 self.write-nudge();
