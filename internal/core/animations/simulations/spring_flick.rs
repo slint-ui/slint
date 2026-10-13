@@ -122,8 +122,7 @@ impl Simulation for SpringFlick {
 
 impl PositionSimulation for SpringFlick {
     fn remaining_distance(&self, now: Instant) -> f32 {
-        let elapsed = now.duration_since(self.start_time);
-        self.sample(elapsed).0 - self.initial_deflection
+        -self.sample(now.duration_since(self.start_time)).0
     }
 
     fn remaining_velocity(&self, now: Instant) -> f32 {
