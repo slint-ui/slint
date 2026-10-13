@@ -259,9 +259,13 @@ function isDiagnostic(value: unknown): value is Diagnostic {
                 typeof candidate[key] === "string",
         ) &&
         (candidate.category === undefined ||
-            ["approximation", "image", "omission", "geometry"].includes(
-                String(candidate.category),
-            )) &&
+            [
+                "approximation",
+                "image",
+                "omission",
+                "geometry",
+                "export",
+            ].includes(String(candidate.category))) &&
         (candidate.propertyPath === undefined ||
             typeof candidate.propertyPath === "string")
     );

@@ -14,6 +14,7 @@ import type { Diagnostic, FigmaSnapshot } from "../plugin/snapshot";
 import type { SourceBytes, SourceCapture } from "../plugin/source";
 import { packPreviewAssets } from "../asset-transport";
 import { convertSnapshot } from "./converter";
+import { exportFailure } from "./export-diagnostic";
 
 export type CaptureMessage = Extract<
     PluginToUiMessage,
@@ -122,8 +123,7 @@ export async function convertCapture(
                           ]
                 ).map((diagnostic) => ({
                     ...diagnostic,
-                    severity: "warning" as const,
-                    message: `Export unavailable: ${diagnostic.message}`,
+                    ...exportFailure(diagnostic.message, diagnostic.code),
                 }));
             } else {
                 const exportStarted = defaultClock.monotonicNow();
@@ -142,13 +142,7 @@ export async function convertCapture(
                 }
             }
         } catch (error) {
-            exportWarnings = [
-                {
-                    severity: "warning",
-                    code: "EXPORT_UNAVAILABLE",
-                    message: `Export unavailable: ${error instanceof Error ? error.message : String(error)}`,
-                },
-            ];
+            exportWarnings = [exportFailure(error)];
         }
         const packed = measure("assetPacking", () =>
             packPreviewAssets(render.source),
