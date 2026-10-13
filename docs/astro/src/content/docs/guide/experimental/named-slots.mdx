@@ -76,6 +76,14 @@ export component App inherits Window {
 }
 ```
 
+Assign `{ }` to remove the default content without replacing it:
+
+```slint no-test
+Panel {
+    heading << { }
+}
+```
+
 The default content is a single element.
 Wrap an `if` or `for` in an element to use it as default content.
 Default content can't contain slot placeholders or `@children`.
@@ -103,6 +111,7 @@ Typed slots don't support default content yet.
 
 A derived component fills an inherited untyped slot with `<<` at its root.
 The assignment becomes the slot's default content: the slot stays open, and callers of the derived component can replace it.
+Assigning `{ }` removes the inherited default and also leaves the slot open.
 
 ```slint
 component Base inherits Rectangle {

@@ -392,7 +392,7 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
-        SlotAssignment -> [ DeclaredIdentifier, SubElement ],
+        SlotAssignment -> [ DeclaredIdentifier, ?SubElement ],
         SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`

@@ -13,6 +13,18 @@ export component RepeatedDefault {
     content { }
 }
 
+export component EmptyDefault {
+    slot content << { }
+//                  ^error{Use 'slot content;' for a slot without default content}
+    content { }
+}
+
+export component BracedDefault {
+    slot content << { Text { } }
+//                    >  <error{Remove '{ }' around slot element}
+    content { }
+}
+
 export component StrayDefaultSemicolon {
     slot content << Text { };
 //                          ^error{Remove the ';' after the slot content}

@@ -395,10 +395,11 @@ impl Element {
         if name == "children" {
             diag.push_error(
                 format!(
-                    "The name '{name}' is reserved for the default slot. Use @children instead"
+                    "The name '{name}' is reserved for the default slot; add the element as a direct child instead"
                 ),
                 &name_node,
             );
+            return;
         }
         if !assigned_slots.insert(name.clone()) {
             diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
@@ -406,7 +407,6 @@ impl Element {
         if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
             diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
         }
-        let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
         let parent_type = r.borrow().base_type.clone();
         let slot = match &parent_type {
             ElementType::Component(component) => {
@@ -423,6 +423,20 @@ impl Element {
                 diag.push_error("Slot assignments can only be used on components".to_string(), &se);
                 None
             }
+        };
+        let Some(sub_element_node) = se.child_node(SyntaxKind::SubElement) else {
+            match slot.map(|slot| slot.interface) {
+                Some(Some(interface)) => diag.push_error(
+                    format!(
+                        "Typed slot '{name}' requires a component that provides '{}'",
+                        interface.id
+                    ),
+                    &se,
+                ),
+                Some(None) => r.borrow_mut().cleared_slots.push(name),
+                None => {}
+            }
+            return;
         };
         let is_typed = slot.as_ref().is_some_and(|slot| slot.interface.is_some());
         let parent_type = if is_typed { tr.empty_type() } else { parent_type };
