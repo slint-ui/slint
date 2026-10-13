@@ -97,7 +97,7 @@ export component PreviewDiagnostics inherits Rectangle {
                         }
                     }
                 }
-                if Diagnostics.errors.length > 3: Text {
+                if !root.empty && Diagnostics.errors.length > 3: Text {
                     text: "\{Diagnostics.errors.length - 3} more errors. Copy diagnostics to see all messages.";
                     color: root.style.muted;
                     font-size: Typography.body.size;
