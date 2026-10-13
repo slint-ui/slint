@@ -46,4 +46,26 @@ assert_eq!(instance.get_content_y(), -40.);
 assert_eq!(instance.get_clicked_count(), 0);
 ```
 
+// Test with a delay between press and move to trigger the delay forwarding
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+// Past the dead zone horizontally, but the content is exactly as wide as the Flickable
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(62.0, 50.0) });
+assert_eq!(instance.get_content_x(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
+// The vertical move pans the content
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(62.0, 10.0) });
+assert_eq!(instance.get_content_x(), 0.);
+assert_eq!(instance.get_content_y(), -40.);
+slint_testing::mock_elapsed_time(1000);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(62.0, 10.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_content_y(), -40.);
+assert_eq!(instance.get_clicked_count(), 0);
+```
+
 */
