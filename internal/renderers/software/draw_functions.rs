@@ -43,6 +43,36 @@ pub(super) fn draw_texture_line(
     let dy = Fixed::<i32, 8>::from_fixed(dy);
     let off_x = Fixed::<i32, 8>::from_fixed(off_x);
 
+    if format == TexturePixelFormat::AlphaMap
+        && rotation == super::RenderingRotation::NoRotation
+        && dx == Fixed::from_integer(1)
+        && dy == Fixed::from_integer(1)
+    {
+        let source_y = off_y.truncate() + y;
+        let source_x = off_x.truncate() + extra_clip_begin as i32;
+        if source_y >= 0
+            && source_y < source_size.height
+            && source_x >= 0
+            && source_x as usize + len <= source_size.width as usize
+        {
+            let mut position = source_y as usize * pixel_stride as usize + source_x as usize;
+            fetch_blend_pixel(
+                line_buffer,
+                format,
+                data,
+                alpha,
+                colorize,
+                (pixel_stride as usize, dy),
+                |_| {
+                    let result = (position, 0, 0);
+                    position += 1;
+                    result
+                },
+            );
+            return;
+        }
+    }
+
     if !rotation.is_transpose() {
         let mut delta = dx;
         let row = off_y + dy * y;
@@ -1403,7 +1433,8 @@ fn atan2_turns_accuracy() {
 fn alpha_map_matches_scalar_blending() {
     fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
         let coverage: [u8; 256] = core::array::from_fn(|i| i as u8);
-        let span = PhysicalRect::new(super::PhysicalPoint::new(0, 0), super::PhysicalSize::new(256, 1));
+        let span =
+            PhysicalRect::new(super::PhysicalPoint::new(0, 0), super::PhysicalSize::new(256, 1));
         for color in [
             Color::from_rgb_u8(0, 0, 0),
             Color::from_rgb_u8(255, 255, 255),
@@ -1441,6 +1472,78 @@ fn alpha_map_matches_scalar_blending() {
                     bytemuck::cast_slice::<Pixel, u8>(&expected),
                     "global alpha {alpha}, color {color:?}",
                 );
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
+}
+
+#[test]
+fn unit_alpha_map_matches_scalar_sampling_with_clipping_and_tiling() {
+    fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
+        let data: [u8; 64] = core::array::from_fn(|i| (i as u8).wrapping_mul(37));
+        let color = Color::from_rgb_u8(237, 119, 53);
+        let span = super::PhysicalRect::new(
+            super::PhysicalPoint::new(2, 3),
+            super::PhysicalSize::new(20, 12),
+        );
+        for alpha in [0, 91, 254, 255] {
+            for source_x in [0, 1, 8, 10] {
+                for source_y in [0, 1, 5, 7] {
+                    for fraction in 0..16 {
+                        for clip in [0, 1, 4] {
+                            for line in [0, 1, 5] {
+                                for len in [0, 1, 4, 9, 20] {
+                                    let texture = super::SceneTexture {
+                                        data: &data,
+                                        format: TexturePixelFormat::AlphaMap,
+                                        pixel_stride: 11,
+                                        extra: super::SceneTextureExtra {
+                                            dx: Fixed::from_integer(1),
+                                            dy: Fixed::from_integer(1),
+                                            off_x: Fixed(source_x * 16 + fraction),
+                                            off_y: Fixed(source_y * 16 + fraction),
+                                            colorize: color,
+                                            alpha,
+                                            rotation: super::RenderingRotation::NoRotation,
+                                        },
+                                    };
+                                    let mut actual = alloc::vec![initial; len];
+                                    draw_texture_line(
+                                        &span,
+                                        PhysicalLength::new(3 + line),
+                                        &texture,
+                                        &mut actual,
+                                        clip,
+                                        0,
+                                    );
+                                    let mut expected = alloc::vec![initial; len];
+                                    for (column, pixel) in expected.iter_mut().enumerate() {
+                                        let x = (source_x as usize + clip as usize + column) % 9;
+                                        let y = (source_y as usize + line as usize) % 6;
+                                        pixel.blend(PremultipliedRgbaColor::premultiply(
+                                            Color::from_argb_u8(
+                                                (data[y * 11 + x] as u16 * alpha as u16 / 255)
+                                                    as u8,
+                                                color.red(),
+                                                color.green(),
+                                                color.blue(),
+                                            ),
+                                        ));
+                                    }
+                                    assert_eq!(
+                                        bytemuck::cast_slice::<Pixel, u8>(&actual),
+                                        bytemuck::cast_slice::<Pixel, u8>(&expected),
+                                        "offset ({source_x}, {source_y}), fraction {fraction}, clip {clip}, line {line}, len {len}, alpha {alpha}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
