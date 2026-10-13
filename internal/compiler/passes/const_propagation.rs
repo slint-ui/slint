@@ -464,10 +464,11 @@ fn extract_constant_property_reference_impl(
             continue;
         }
 
-        // There is no binding for this property, return the default value
+        // There is no binding for this property, return the default value.
+        // A function without a binding, such as one of a native item, has no body to inline.
         let ty = nr.ty();
         debug_assert!(!matches!(ty, Type::Invalid));
-        return Some(Expression::default_value_for_type(&ty));
+        return (!matches!(ty, Type::Function(_))).then(|| Expression::default_value_for_type(&ty));
     };
     if !(simplify_expression(&mut expression, ga, cache)) {
         return None;
