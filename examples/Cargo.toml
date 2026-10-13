@@ -29,6 +29,7 @@ members = [
   'slide_puzzle',
   'speedometer/rust',
   'system-tray',
+  'text-selection',
   'todo/rust',
   'todo-mvc/rust',
   'virtual_keyboard/rust',

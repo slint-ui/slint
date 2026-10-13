@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import {
+    Button,
+    HorizontalBox,
+    LineEdit,
+    Palette,
+    ScrollView,
+    StyleMetrics,
+    VerticalBox,
+} from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    title: @tr("Selectable Text");
+    preferred-width: 720px;
+    preferred-height: 560px;
+    background: Palette.background;
+
+    in-out property <string> status: @tr("Select text with the mouse, or search above.");
+    // The document without markup, with its paragraphs joined by '\n'. The selection's byte
+    // offsets index this text, so `search()` in main.rs finds the exact range to select.
+    out property <string> document-text: "Drag across this paragraph to select it, double click a word, or triple click a paragraph. Selections can span bold, italic, code and links.\nThe search box above selects a byte range with set-selection-offsets, and the buttons below copy, select all or clear the selection.";
+
+    callback search(query: string);
+
+    public function select-range(anchor: int, focus: int) {
+        document.set-selection-offsets(anchor, focus);
+    }
+
+    public function clear-selection() {
+        document.clear-selection();
+    }
+
+    VerticalBox {
+        padding: StyleMetrics.layout-padding;
+        spacing: StyleMetrics.layout-spacing;
+
+        HorizontalBox {
+            LineEdit {
+                placeholder-text: @tr("Find in the text");
+                edited => {
+                    root.search(self.text);
+                }
+            }
+        }
+
+        ScrollView {
+            VerticalBox {
+                document := StyledText {
+                    text: @markdown(
+                        "Drag across this paragraph to select it, double click a word, or triple click a paragraph. "
+                        "Selections can span **bold**, *italic*, `code` and [links](https://slint.dev).\n\n"
+                        "The search box above selects a byte range with `set-selection-offsets`, and the buttons "
+                        "below copy, select all or clear the selection."
+                    );
+                    text-selectable: true;
+                    link-clicked(link) => {
+                        root.status = link;
+                    }
+                }
+            }
+        }
+
+        HorizontalBox {
+            alignment: space-between;
+
+            Text {
+                text: root.status;
+                color: Palette.foreground;
+                opacity: 0.7;
+                vertical-alignment: center;
+            }
+
+            HorizontalBox {
+                alignment: end;
+
+                Button {
+                    text: @tr("Select all");
+                    clicked => {
+                        document.select-all();
+                    }
+                }
+
+                Button {
+                    text: @tr("Copy");
+                    enabled: document.has-selection;
+                    clicked => {
+                        document.copy();
+                    }
+                }
+
+                Button {
+                    text: @tr("Clear");
+                    enabled: document.has-selection;
+                    clicked => {
+                        document.clear-selection();
+                    }
+                }
+            }
+        }
+    }
+}
