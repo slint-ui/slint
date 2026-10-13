@@ -43,7 +43,13 @@ pub(super) fn draw_texture_line(
     let dy = Fixed::<i32, 8>::from_fixed(dy);
     let off_x = Fixed::<i32, 8>::from_fixed(off_x);
 
-    if format == TexturePixelFormat::AlphaMap
+    let unit_sampling = match format {
+        TexturePixelFormat::AlphaMap => true,
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        TexturePixelFormat::Rgb565 => true,
+        _ => false,
+    };
+    if unit_sampling
         && rotation == super::RenderingRotation::NoRotation
         && dx == Fixed::from_integer(1)
         && dy == Fixed::from_integer(1)
@@ -55,7 +61,9 @@ pub(super) fn draw_texture_line(
             && source_x >= 0
             && source_x as usize + len <= source_size.width as usize
         {
-            let mut position = source_y as usize * pixel_stride as usize + source_x as usize;
+            let bpp = format.bpp();
+            let mut position =
+                (source_y as usize * pixel_stride as usize + source_x as usize) * bpp;
             fetch_blend_pixel(
                 line_buffer,
                 format,
@@ -65,7 +73,7 @@ pub(super) fn draw_texture_line(
                 (pixel_stride as usize, dy),
                 |_| {
                     let result = (position, 0, 0);
-                    position += 1;
+                    position += bpp;
                     result
                 },
             );
@@ -474,6 +482,79 @@ fn arc_crossing(r: Shifted, circle: Shifted, y: Shifted) -> (Shifted, Shifted) {
 /// This interpolates linearly, which isn't exact, but good enough.
 fn edge_coverage(x: u32, x1: Shifted, x2: Shifted) -> u32 {
     ((Shifted::ONE + Shifted::new(x) - x1).0 << 8) / (Shifted::ONE + x2 - x1).0
+}
+
+#[cfg(all(test, feature = "image-pixel-format-rgb565"))]
+#[test]
+fn unit_rgb565_sampling_preserves_offsets_clipping_and_alpha() {
+    fn check<P: TargetPixel + bytemuck::Pod>(initial: P) {
+        let mut storage = [0u8; 49];
+        for (i, bytes) in storage[1..].chunks_exact_mut(2).enumerate() {
+            bytes.copy_from_slice(&((i as u16).wrapping_mul(2707)).to_ne_bytes());
+        }
+        let data = &storage[1..];
+        let span =
+            PhysicalRect::new(super::PhysicalPoint::new(3, 7), super::PhysicalSize::new(6, 4));
+        for off_y in 0..3 {
+            for off_x in 0..4 {
+                for extra in 0..3 {
+                    let source_x = off_x + extra;
+                    let count = 6 - source_x;
+                    for alpha in [0, 1, 63, 127, 254, 255] {
+                        let texture = super::SceneTexture {
+                            data,
+                            pixel_stride: 6,
+                            format: TexturePixelFormat::Rgb565,
+                            extra: super::SceneTextureExtra {
+                                dx: Fixed::from_integer(1),
+                                dy: Fixed::from_integer(1),
+                                off_x: Fixed::from_integer(off_x),
+                                off_y: Fixed::from_integer(off_y),
+                                alpha,
+                                colorize: Color::default(),
+                                rotation: super::RenderingRotation::NoRotation,
+                            },
+                        };
+                        let mut actual = [initial; 6];
+                        draw_texture_line(
+                            &span,
+                            PhysicalLength::new(8),
+                            &texture,
+                            &mut actual[..count as usize],
+                            extra as i16,
+                            0,
+                        );
+                        let mut expected = [initial; 6];
+                        for (i, pixel) in expected[..count as usize].iter_mut().enumerate() {
+                            let value =
+                                (((off_y + 1) * 6 + source_x) as u16 + i as u16).wrapping_mul(2707);
+                            if alpha == 255 {
+                                *pixel = P::from_rgb565(value);
+                            } else {
+                                let color = Rgb565Pixel(value);
+                                pixel.blend(PremultipliedRgbaColor::premultiply(
+                                    Color::from_argb_u8(
+                                        alpha,
+                                        color.red(),
+                                        color.green(),
+                                        color.blue(),
+                                    ),
+                                ));
+                            }
+                        }
+                        assert_eq!(
+                            bytemuck::cast_slice::<P, u8>(&actual),
+                            bytemuck::cast_slice::<P, u8>(&expected)
+                        );
+                    }
+                }
+            }
+        }
+    }
+    check(Rgb565Pixel(0x52db));
+    check(Rgb565BigEndianPixel(0x52dbu16.to_be()));
+    check(Rgb8Pixel::new(83, 123, 217));
+    check(PremultipliedRgbaColor { red: 17, green: 41, blue: 53, alpha: 100 });
 }
 
 /// draw one line of the rounded rectangle in the line buffer
