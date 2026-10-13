@@ -23,7 +23,7 @@ export component TestCase inherits Window {
         y: 0;
         width: 400px;
         height: 300px;
-        selectable: true;
+        text-selectable: true;
         max-lines: 2;
         text: @markdown("one\n\ntwo\n\nthree\n\nfour\n\nfive");
     }
@@ -34,7 +34,7 @@ export component TestCase inherits Window {
         y: 100px;
         width: 400px;
         height: 80px;
-        selectable: true;
+        text-selectable: true;
         text: @markdown("<u></u>\n\nSecond paragraph");
     }
 
@@ -45,7 +45,7 @@ export component TestCase inherits Window {
         width: 400px;
         height: 100px;
         vertical-alignment: TextVerticalAlignment.bottom;
-        selectable: true;
+        text-selectable: true;
         text: @markdown("[link](https://slint.dev/bottom)");
         link-clicked(url) => {
             clicked_link_url = url;
@@ -57,7 +57,7 @@ export component TestCase inherits Window {
         y: 450px;
         width: 400px;
         height: 80px;
-        selectable: true;
+        text-selectable: true;
         text: root.st-text;
         link-clicked(url) => {
             clicked_link_url = url;
@@ -65,20 +65,36 @@ export component TestCase inherits Window {
         }
     }
 
+    // `copy()` puts the selection on the clipboard; paste it here to read it back.
+    pasted := TextInput {
+        x: 600px;
+        y: 560px;
+        width: 180px;
+        height: 30px;
+        single-line: false;
+    }
+
     in-out property <styled-text> st-text: @markdown("[Select this](https://slint.dev/sel) **text**\n\nand more");
-    out property <bool> test: st.selectable && !plain.selectable && st.selected-text == "";
+    out property <bool> test: st.text-selectable && !plain.text-selectable && !st.has-selection;
     in-out property <string> clicked_link_url: "";
     out property <int> link_clicks: 0;
-    out property <string> selected <=> st.selected-text;
-    in-out property <int> sel_anchor <=> st.anchor-position-byte-offset;
-    in-out property <int> sel_cursor <=> st.cursor-position-byte-offset;
-    out property <string> plain_selected <=> plain.selected-text;
-    out property <int> plain_cursor <=> plain.cursor-position-byte-offset;
-    out property <string> cut_selected <=> cut.selected-text;
-    out property <int> cut_cursor <=> cut.cursor-position-byte-offset;
-    out property <string> blank_selected <=> blank.selected-text;
-    out property <int> blank_anchor <=> blank.anchor-position-byte-offset;
-    out property <int> blank_cursor <=> blank.cursor-position-byte-offset;
+    out property <bool> st_has_selection: st.has-selection;
+    out property <int> sel_anchor: st.anchor-position-byte-offset;
+    out property <int> sel_cursor: st.cursor-position-byte-offset;
+    out property <bool> plain_has_selection: plain.has-selection;
+    out property <int> plain_cursor: plain.cursor-position-byte-offset;
+    out property <bool> cut_has_selection: cut.has-selection;
+    out property <int> cut_cursor: cut.cursor-position-byte-offset;
+    out property <int> blank_anchor: blank.anchor-position-byte-offset;
+    out property <int> blank_cursor: blank.cursor-position-byte-offset;
+
+    // Copies the current selection and returns what reaches the clipboard.
+    public function copy-selection() -> string {
+        pasted.text = "";
+        st.copy();
+        pasted.paste();
+        return pasted.text;
+    }
 }
 
 /*
@@ -102,7 +118,7 @@ assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
 pressed(2.0, 10.0);
 moved(395.0, 10.0);
 released(395.0, 10.0);
-assert_eq!(instance.get_plain_selected(), "");
+assert!(!instance.get_plain_has_selection());
 assert_eq!(instance.get_plain_cursor(), 0);
 
 // Selectable: an I-beam over the text, a pointer over its link.
@@ -111,12 +127,13 @@ assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
 moved(5.0, 460.0);
 assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
 
-// Dragging from the link selects instead of following it; the selection is the raw text.
+// Dragging from the link selects instead of following it; `copy()` is the raw text.
 pressed(2.0, 460.0);
 moved(395.0, 460.0);
-assert_eq!(instance.get_selected(), "Select this text");
+assert!(instance.get_st_has_selection());
+assert_eq!(instance.invoke_copy_selection(), "Select this text");
 released(395.0, 460.0);
-assert_eq!(instance.get_selected(), "Select this text");
+assert_eq!(instance.invoke_copy_selection(), "Select this text");
 assert_eq!(instance.get_clicked_link_url(), "");
 assert_eq!(instance.get_sel_anchor(), 0);
 assert_eq!(instance.get_sel_cursor(), 16);
@@ -127,18 +144,13 @@ slint_testing::mock_elapsed_time(1000);
 pressed(2.0, 460.0);
 moved(8.0, 520.0);
 released(8.0, 520.0);
-assert_eq!(instance.get_selected(), "Select this text\na");
+assert_eq!(instance.invoke_copy_selection(), "Select this text\na");
 
-// Clearing from the outside.
-instance.set_sel_anchor(3);
-instance.set_sel_cursor(3);
-assert_eq!(instance.get_selected(), "");
-
-// A click without a drag follows the link under it, and keeps nothing selected.
+// A click without a drag follows the link under it, and clears the selection.
 slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 5.0, 460.0);
 assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/sel");
-assert_eq!(instance.get_selected(), "");
+assert!(!instance.get_st_has_selection());
 
 // A drag that comes back to where it started is still a drag, not a click.
 instance.set_clicked_link_url("".into());
@@ -156,13 +168,13 @@ pressed(5.0, 460.0);
 released(5.0, 460.0);
 pressed(5.0, 460.0);
 released(5.0, 460.0);
-assert_eq!(instance.get_selected(), "Select");
+assert_eq!(instance.invoke_copy_selection(), "Select");
 assert_eq!(instance.get_link_clicks(), link_clicks + 1);
 
 // A new text drops the selection, whose offsets meant the old one.
 instance.set_st_text(slint::StyledText::from_markdown("Something else entirely").unwrap());
 slint_testing::mock_elapsed_time(0);
-assert_eq!(instance.get_selected(), "");
+assert!(!instance.get_st_has_selection());
 assert_eq!(instance.get_sel_anchor(), 0);
 assert_eq!(instance.get_sel_cursor(), 0);
 
@@ -171,7 +183,7 @@ slint_testing::mock_elapsed_time(1000);
 pressed(402.0, 10.0);
 moved(600.0, 250.0);
 released(600.0, 250.0);
-assert_eq!(instance.get_cut_selected(), "one\ntwo");
+assert!(instance.get_cut_has_selection());
 assert_eq!(instance.get_cut_cursor(), 7);
 
 // An empty first paragraph still takes its line break.
@@ -179,7 +191,6 @@ slint_testing::mock_elapsed_time(1000);
 pressed(2.0, 140.0);
 moved(395.0, 140.0);
 released(395.0, 140.0);
-assert_eq!(instance.get_blank_selected(), "Second paragraph");
 assert_eq!(instance.get_blank_anchor(), 1);
 assert_eq!(instance.get_blank_cursor(), 17);
 
@@ -204,14 +215,15 @@ auto released = [&](float x, float y) { instance.window().dispatch_pointer_relea
 pressed(2.0, 10.0);
 moved(395.0, 10.0);
 released(395.0, 10.0);
-assert_eq(instance.get_plain_selected(), "");
+assert(!instance.get_plain_has_selection());
 assert_eq(instance.get_plain_cursor(), 0);
 
-// Dragging from the link selects instead of following it; the selection is the raw text.
+// Dragging from the link selects instead of following it; `copy()` is the raw text.
 pressed(2.0, 460.0);
 moved(395.0, 460.0);
 released(395.0, 460.0);
-assert_eq(instance.get_selected(), "Select this text");
+assert(instance.get_st_has_selection());
+assert_eq(instance.invoke_copy_selection(), slint::SharedString("Select this text"));
 assert_eq(instance.get_clicked_link_url(), "");
 assert_eq(instance.get_sel_anchor(), 0);
 assert_eq(instance.get_sel_cursor(), 16);
@@ -221,18 +233,13 @@ slint_testing::mock_elapsed_time(1000);
 pressed(2.0, 460.0);
 moved(8.0, 520.0);
 released(8.0, 520.0);
-assert_eq(instance.get_selected(), "Select this text\na");
+assert_eq(instance.invoke_copy_selection(), slint::SharedString("Select this text\na"));
 
-// Clearing from the outside.
-instance.set_sel_anchor(3);
-instance.set_sel_cursor(3);
-assert_eq(instance.get_selected(), "");
-
-// A click without a drag follows the link under it, and keeps nothing selected.
+// A click without a drag follows the link under it, and clears the selection.
 slint_testing::mock_elapsed_time(1000);
 slint_testing::send_mouse_click(&instance, 5.0, 460.0);
-assert_eq(instance.get_clicked_link_url(), "https://slint.dev/sel");
-assert_eq(instance.get_selected(), "");
+assert_eq(instance.get_clicked_link_url(), slint::SharedString("https://slint.dev/sel"));
+assert(!instance.get_st_has_selection());
 
 // A double click selects a word; only its first click, a plain one, follows the link.
 slint_testing::mock_elapsed_time(1000);
@@ -241,7 +248,7 @@ pressed(5.0, 460.0);
 released(5.0, 460.0);
 pressed(5.0, 460.0);
 released(5.0, 460.0);
-assert_eq(instance.get_selected(), "Select");
+assert_eq(instance.invoke_copy_selection(), slint::SharedString("Select"));
 assert_eq(instance.get_link_clicks(), link_clicks + 1);
 
 // Below the lines `max-lines` keeps, the drag reaches the end of the last kept line.
@@ -249,14 +256,14 @@ slint_testing::mock_elapsed_time(1000);
 pressed(402.0, 10.0);
 moved(600.0, 250.0);
 released(600.0, 250.0);
-assert_eq(instance.get_cut_selected(), "one\ntwo");
+assert(instance.get_cut_has_selection());
+assert_eq(instance.get_cut_cursor(), 7);
 
 // An empty first paragraph still takes its line break.
 slint_testing::mock_elapsed_time(1000);
 pressed(2.0, 140.0);
 moved(395.0, 140.0);
 released(395.0, 140.0);
-assert_eq(instance.get_blank_selected(), "Second paragraph");
 assert_eq(instance.get_blank_anchor(), 1);
 assert_eq(instance.get_blank_cursor(), 17);
 ```

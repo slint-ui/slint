@@ -248,13 +248,12 @@ pub struct StyledTextItem {
     pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
-    pub selectable: Property<bool>,
+    pub text_selectable: Property<bool>,
     pub selection_background_color: Property<Color>,
     pub selection_foreground_color: Property<Color>,
     /// Byte offsets into the text as `styled_text::get_raw_text` joins it.
     pub anchor_position_byte_offset: Property<i32>,
     pub cursor_position_byte_offset: Property<i32>,
-    pub selected_text: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
     /// The mouse selection under way, if any.
     #[cfg_attr(not(feature = "shared-parley"), allow(dead_code))]
@@ -279,24 +278,6 @@ struct MouseSelection {
 
 impl Item for StyledTextItem {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        let self_weak = self_rc.downgrade();
-        Self::FIELD_OFFSETS.selected_text().apply_pin(self).set_binding(move || {
-            let Some(item) = self_weak.upgrade().and_then(|rc| rc.downcast::<StyledTextItem>())
-            else {
-                return SharedString::default();
-            };
-            let item = item.as_pin_ref();
-            let (anchor, cursor) =
-                (item.anchor_position_byte_offset(), item.cursor_position_byte_offset());
-            if anchor == cursor {
-                return SharedString::default();
-            }
-            let styled = item.text();
-            let text = crate::styled_text::get_raw_text(&styled);
-            let (start, end) = ordered_selection(&text, anchor, cursor);
-            text[start..end].into()
-        });
-
         // Seeded so that the tracker's first evaluation doesn't count as a change.
         self.tracked_text.set(self.text());
         self.text_change_tracker.init_delayed(
@@ -380,7 +361,7 @@ impl Item for StyledTextItem {
         #[cfg(feature = "shared-parley")]
         // The offsets come from the parley layout, so a renderer drawing another one (the
         // software renderer with a bitmap font) gets no mouse selection.
-        if self.selectable() && renderer.text_has_parley_layout(self, self_rc) {
+        if self.text_selectable() && renderer.text_has_parley_layout(self, self_rc) {
             let offset_at = |position: &LogicalPoint| {
                 crate::textlayout::sharedparley::byte_offset_under_cursor(
                     scale_factor,
@@ -398,7 +379,7 @@ impl Item for StyledTextItem {
                 return result;
             }
         } else {
-            // A selection under way ends when `selectable` goes.
+            // A selection under way ends when `text-selectable` goes.
             self.mouse_selection.take();
         }
         match event {
@@ -563,8 +544,31 @@ impl StyledTextItem {
         window_adapter.renderer().font_metrics(font_request)
     }
 
+    /// Whether text is selected, for the `has-selection` property.
+    pub fn has_selection(self: Pin<&Self>) -> bool {
+        self.anchor_position_byte_offset() != self.cursor_position_byte_offset()
+    }
+
+    /// Copies the selected text to the clipboard, without markup.
+    pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _self_rc: &ItemRc) {
+        let (anchor, cursor) =
+            (self.anchor_position_byte_offset(), self.cursor_position_byte_offset());
+        if anchor == cursor {
+            return;
+        }
+        let styled = self.text();
+        let text = crate::styled_text::get_raw_text(&styled);
+        let (start, end) = ordered_selection(&text, anchor, cursor);
+        if start < end {
+            WindowInner::from_pub(window_adapter.window())
+                .context()
+                .platform()
+                .set_clipboard_text(&text[start..end], Clipboard::DefaultClipboard);
+        }
+    }
+
     /// Pressing and dragging selects; a double click selects a word, a triple click a paragraph.
-    /// A click that doesn't drag follows a link under it, as without `selectable`.
+    /// A click that doesn't drag follows a link under it, as without `text-selectable`.
     /// `None` for the events the selection doesn't handle.
     #[cfg(feature = "shared-parley")]
     fn selection_mouse_event(

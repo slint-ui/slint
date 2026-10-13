@@ -1269,22 +1269,20 @@ fn build(l: &mut Loader) {
         /// Whether the text can be selected with the mouse.
         /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
         /// A click that doesn't drag still follows a link.
-        /// Read the selection from `selected-text`.
         /// A change of `text` clears the selection.
-        in property <bool> selectable;
+        in property <bool> text-selectable;
         /// The background color of the selection.
         in property <color> selection-background-color; // Palette.selection-background set in apply_default_properties_from_style
         /// The foreground color of the selection.
         in property <color> selection-foreground-color; // Palette.selection-foreground set in apply_default_properties_from_style
-        /// The end of the selection that stays put, as a UTF-8 byte offset into the text without its markup,
-        /// with its paragraphs joined by `\n`.
-        /// Set both offsets to the same value to clear the selection.
-        /// A selection set here shows whether or not the text is `selectable`.
-        in-out property <int> anchor-position-byte-offset;
-        /// The end of the selection the pointer moved to; see `anchor-position-byte-offset`.
-        in-out property <int> cursor-position-byte-offset;
-        /// The selected text, without markup; empty when nothing is selected.
-        out property <string> selected-text;
+        /// `true` when text is selected.
+        out property <bool> has-selection { BuiltinFunction.HasSelection }
+        // Internal, undocumented properties, only exposed for tests.
+        out property <int> anchor-position-byte-offset;
+        out property <int> cursor-position-byte-offset;
+
+        /// Copies the selected text to the clipboard.
+        function copy() { }
     } }
 
     element! {
