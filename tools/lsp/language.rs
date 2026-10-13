@@ -1850,10 +1850,9 @@ pub mod tests {
     use super::*;
 
     use crate::language::test::{
-        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+        CodeActionRequest, complex_document_cache, loaded_document_cache,
         loaded_document_cache_with_file_name,
     };
-    use i_slint_compiler::diagnostics::BuildDiagnostics;
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
         ApplyWorkspaceEditResponse, MessageActionItem, WorkspaceEdit, WorkspaceFolder,
@@ -2412,424 +2411,273 @@ enum {}
     }
 
     #[test]
-    fn test_code_actions() {
-        let (mut dc, url, _) = loaded_document_cache(
-            r#"import { Button, VerticalBox, HorizontalBox} from "std-widgets.slint";
+    fn test_code_action_wrap_string_in_tr() {
+        CodeActionRequest::at(r#"export component Test inherits Text { text: 🔺"Hello"; }"#)
+            .load()
+            .assert(
+                "Wrap in `@tr()`",
+                None,
+                r#"export component Test inherits Text { text: @tr("Hello"); }"#,
+            );
+    }
 
-export component TestWindow inherits Window {
-    VerticalBox {
-        alignment: start;
-
+    const SUB_ELEMENT: &str = r#"export component Test {
+    Rectangle {
         Text {
-            text: "Hello World!";
-            font-size: 20px;
-        }
-
-        input := LineEdit {
-            placeholder-text: "Enter your name";
-        }
-
-        if (true): HorizontalBox {
-            alignment: end;
-
-            Button { text: "Cancel"; }
-
-            Button {
-                text: "OK";
-                primary: true;
-            }
+            text: "Hello";
         }
     }
 }
-export struct NoPreviewForStruct { x: int }
-export global NoPreviewForGlobal {}
-"#
-            .into(),
-        );
-        let mut capabilities = ClientCapabilities::default();
+"#;
 
-        let text_literal = lsp_types::Range::new(Position::new(7, 18), Position::new(7, 32));
-        assert_eq!(
-            token_descr(&dc, &url, &text_literal.start).and_then(|(token, _)| get_code_actions(
-                &mut dc,
-                token,
-                &capabilities
-            )),
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Wrap in `@tr()`".into(),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![
-                                lsp_types::OneOf::Left(TextEdit::new(
-                                    lsp_types::Range::new(text_literal.start, text_literal.start),
-                                    "@tr(".into()
-                                )),
-                                lsp_types::OneOf::Left(TextEdit::new(
-                                    lsp_types::Range::new(text_literal.end, text_literal.end),
-                                    ")".into()
-                                )),
-                            ],
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })]),
-        );
+    const CONDITIONAL_ELEMENT: &str = r#"export component Test {
+    if true: Rectangle {
+        background: red;
 
-        let text_element = lsp_types::Range::new(Position::new(6, 8), Position::new(9, 9));
-        for offset in 0..=4 {
-            let pos = Position::new(text_element.start.line, text_element.start.character + offset);
+        Text { text: "A"; }
 
-            capabilities.experimental = None;
+        Text {
+            text: "B";
+        }
+    }
+}
+"#;
+
+    #[test]
+    fn test_code_action_element_needs_snippet_support() {
+        for column in 0..=4 {
+            CodeActionRequest::at_offset(SUB_ELEMENT, SUB_ELEMENT.find("Text").unwrap() + column)
+                .load()
+                .assert_empty();
+        }
+        CodeActionRequest::at_offset(
+            CONDITIONAL_ELEMENT,
+            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
+        )
+        .load()
+        .assert_empty();
+    }
+
+    #[test]
+    fn test_code_action_sub_element() {
+        for column in 0..=4 {
+            let actions = CodeActionRequest::at_offset(
+                SUB_ELEMENT,
+                SUB_ELEMENT.find("Text").unwrap() + column,
+            )
+            .snippets()
+            .load();
             assert_eq!(
-                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                    &mut dc,
-                    token,
-                    &capabilities
-                )),
-                None
+                actions.titles(),
+                ["Wrap in element", "Repeat element", "Make conditional"],
+                "column {column}"
             );
-
-            capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
-            assert_eq!(
-                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                    &mut dc,
-                    token,
-                    &capabilities
-                )),
-                Some(vec![
-                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: "Wrap in element".into(),
-                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                        edit: Some(WorkspaceEdit {
-                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                lsp_types::TextDocumentEdit {
-                                    text_document:
-                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                            version: Some(42),
-                                            uri: url.clone(),
-                                        },
-                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                        text_element,
-                                        r#"${0:element} {
+            actions.assert(
+                "Wrap in element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                r#"export component Test {
+    Rectangle {
+        ${0:element} {
             Text {
-                text: "Hello World!";
-                font-size: 20px;
+                text: "Hello";
             }
-}"#
-                                        .into()
-                                    ))],
-                                },
-                            ])),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    }),
-                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: "Repeat element".into(),
-                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                        edit: Some(WorkspaceEdit {
-                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                lsp_types::TextDocumentEdit {
-                                    text_document:
-                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                            version: Some(42),
-                                            uri: url.clone(),
-                                        },
-                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                        lsp_types::Range::new(
-                                            text_element.start,
-                                            text_element.start
-                                        ),
-                                        r#"for ${1:name}[index] in ${0:model} : "#.into()
-                                    ))],
-                                }
-                            ])),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    }),
-                    CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: "Make conditional".into(),
-                        kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                        edit: Some(WorkspaceEdit {
-                            document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                                lsp_types::TextDocumentEdit {
-                                    text_document:
-                                        lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                            version: Some(42),
-                                            uri: url.clone(),
-                                        },
-                                    edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                        lsp_types::Range::new(
-                                            text_element.start,
-                                            text_element.start
-                                        ),
-                                        r#"if ${0:condition} : "#.into()
-                                    ))],
-                                }
-                            ])),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    }),
-                ])
+}
+    }
+}
+"#,
             );
+            actions.assert(
+                "Repeat element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                r#"export component Test {
+    Rectangle {
+        for ${1:name}[index] in ${0:model} : Text {
+            text: "Hello";
         }
-
-        let horizontal_box = lsp_types::Range::new(Position::new(15, 19), Position::new(24, 9));
-
-        capabilities.experimental = None;
-        assert_eq!(
-            token_descr(&dc, &url, &horizontal_box.start).and_then(|(token, _)| get_code_actions(
-                &mut dc,
-                token,
-                &capabilities
-            )),
-            None
-        );
-
-        capabilities.experimental = Some(serde_json::json!({"snippetTextEdit": true}));
-        assert_eq!(
-            token_descr(&dc, &url, &horizontal_box.start).and_then(|(token, _)| get_code_actions(
-                &mut dc,
-                token,
-                &capabilities
-            )),
-            Some(vec![
-                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Wrap in element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: Some(WorkspaceEdit {
-                        document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                            lsp_types::TextDocumentEdit {
-                                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                    version: Some(42),
-                                    uri: url.clone(),
-                                },
-                                edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                    horizontal_box,
-                                    r#"${0:element} {
-            HorizontalBox {
-                alignment: end;
-
-                Button { text: "Cancel"; }
-
-                Button {
-                    text: "OK";
-                    primary: true;
-                }
-            }
-}"#
-                                    .into()
-                                ))]
-                            }
-                        ])),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-                CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Remove element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: Some(WorkspaceEdit {
-                        document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                            lsp_types::TextDocumentEdit {
-                                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                    version: Some(42),
-                                    uri: url.clone(),
-                                },
-                                edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                    horizontal_box,
-                                    r#"Button { text: "Cancel"; }
-
-        Button {
-            text: "OK";
-            primary: true;
-        }"#
-                                    .into()
-                                ))]
-                            }
-                        ])),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-            ])
-        );
-
-        let line_edit = Position::new(11, 20);
-        let import_pos = lsp_types::Position::new(0, 43);
-        capabilities.experimental = None;
-        assert_eq!(
-            token_descr(&dc, &url, &line_edit).and_then(|(token, _)| get_code_actions(
-                &mut dc,
-                token,
-                &capabilities
-            )),
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "import { LineEdit } from \"std-widgets.slint\"".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(import_pos, import_pos),
-                                ", LineEdit".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),])
-        );
-
-        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-        for col in [
-            0,  // "export"
-            8,  // "component"
-            22, // "TestWindow"
-            42, // "Window"
-        ] {
-            let pos = Position::new(2, col);
-            assert_eq!(
-                token_descr(&dc, &url, &pos).and_then(|(token, _)| get_code_actions(
-                    &mut dc,
-                    token,
-                    &capabilities
-                )),
-                Some(vec![CodeActionOrCommand::Command(Command::new(
-                    "Show Preview".into(),
-                    SHOW_PREVIEW_COMMAND.into(),
-                    Some(vec![url.as_str().into(), "TestWindow".into()]),
-                ))]),
-                "show preview missing {pos:?}"
+    }
+}
+"#,
             );
+            actions.assert(
+                "Make conditional",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                r#"export component Test {
+    Rectangle {
+        if ${0:condition} : Text {
+            text: "Hello";
         }
-
-        // Test that we don't get a show preview action for struct and globals
-        for line in [27, 28] {
-            let pos = Position::new(line, 15);
-            let token = token_descr(&dc, &url, &pos).unwrap().0;
-            assert!(token.text().starts_with("NoPreviewFor"));
-            assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
+    }
+}
+"#,
+            );
         }
     }
 
     #[test]
-    fn test_add_import_for_type_annotation() {
-        // Document that uses a user-defined exported struct from a separate file as a
-        // property type, but doesn't import it yet.  The code action should be offered
-        // on the unresolved type identifier, and should NOT be offered once imported.
-        //
-        // We load the "types" file first so the DocumentCache knows about it, then
-        // load the main file that references the struct without importing it.
-        let types_content = r#"export struct MyPoint { x: int, y: int }
-export enum MyDirection { Up, Down, Left, Right }
-"#;
-        let main_content_without_import = r#"export component TestWindow inherits Window {
-    property <MyPoint> position;
-}
-"#;
-        let main_content_with_import = r#"import { MyPoint } from "types.slint";
+    fn test_code_action_remove_element_of_conditional() {
+        let actions = CodeActionRequest::at_offset(
+            CONDITIONAL_ELEMENT,
+            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
+        )
+        .snippets()
+        .load();
+        assert_eq!(actions.titles(), ["Wrap in element", "Remove element"]);
+        actions.assert(
+            "Wrap in element",
+            Some(lsp_types::CodeActionKind::REFACTOR),
+            r#"export component Test {
+    if true: ${0:element} {
+        Rectangle {
+            background: red;
 
+            Text { text: "A"; }
+
+            Text {
+                text: "B";
+            }
+        }
+}
+}
+"#,
+        );
+        actions.assert(
+            "Remove element",
+            Some(lsp_types::CodeActionKind::REFACTOR),
+            r#"export component Test {
+    if true: Text { text: "A"; }
+
+    Text {
+        text: "B";
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn test_code_action_import_unresolved_component() {
+        let actions = CodeActionRequest::at(
+            r#"import { Button } from "std-widgets.slint";
+
+export component Test {
+    input := 🔺LineEdit { }
+}
+"#,
+        )
+        .load();
+        assert_eq!(actions.titles(), ["import { LineEdit } from \"std-widgets.slint\""]);
+        actions.assert(
+            "import { LineEdit } from \"std-widgets.slint\"",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            r#"import { Button, LineEdit } from "std-widgets.slint";
+
+export component Test {
+    input := LineEdit { }
+}
+"#,
+        );
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn test_code_action_show_preview() {
+        const SOURCE: &str = "export component TestWindow inherits Window { }\n";
+        let url = editor_preview::test::main_test_file_name().to_url().unwrap();
+        for offset in [
+            SOURCE.find("export").unwrap(),
+            SOURCE.find("component").unwrap(),
+            SOURCE.find("TestWindow").unwrap(),
+            SOURCE.rfind("Window").unwrap(),
+        ] {
+            let actions = CodeActionRequest::at_offset(SOURCE, offset).load();
+            assert_eq!(actions.titles(), ["Show Preview"], "offset {offset}");
+            assert_eq!(
+                actions.command("Show Preview"),
+                &Command::new(
+                    "Show Preview".into(),
+                    SHOW_PREVIEW_COMMAND.into(),
+                    Some(vec![url.as_str().into(), "TestWindow".into()]),
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_code_action_no_show_preview_for_struct_or_global() {
+        CodeActionRequest::at("export struct 🔺NoPreviewForStruct { x: int }")
+            .load()
+            .assert_empty();
+        CodeActionRequest::at("export global 🔺NoPreviewForGlobal {}").load().assert_empty();
+    }
+
+    const MY_POINT_TYPES: &str = "export struct MyPoint { x: int, y: int }\n";
+
+    #[test]
+    fn test_add_import_for_type_annotation() {
+        CodeActionRequest::at(
+            r#"export component TestWindow inherits Window {
+    property <🔺MyPoint> position;
+}
+"#,
+        )
+        .with_file("types.slint", MY_POINT_TYPES)
+        .load()
+        .assert(
+            "import { MyPoint } from \"types.slint\"",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            r#"import { MyPoint } from "types.slint";
 export component TestWindow inherits Window {
     property <MyPoint> position;
 }
-"#;
-
-        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
-        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
-
-        // Load the types file first so the cache knows about it
-        let mut dc = test::empty_document_cache();
-        let mut diagnostics = BuildDiagnostics::default();
-        let _ = spin_on::spin_on(dc.load_url(
-            &types_url,
-            Some(1),
-            types_content.to_string(),
-            &mut diagnostics,
-        ));
-
-        // Load the main file (no import for MyPoint yet) with version 42 for test assertions
-        let _ = spin_on::spin_on(dc.load_url(
-            &main_url,
-            Some(42),
-            main_content_without_import.to_string(),
-            &mut diagnostics,
-        ));
-
-        let capabilities = ClientCapabilities::default();
-
-        // Cursor on "MyPoint" in `property <MyPoint> position;` (line 1, col 14)
-        // Line 1: `    property <MyPoint> position;`
-        // Col 13: `<`, col 14: `M`
-        let type_pos = Position::new(1, 14);
-        let action = token_descr(&dc, &main_url, &type_pos)
-            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
-
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "import { MyPoint } from \"types.slint\"".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: main_url.clone(),
-                            },
-                            // New import line at the top (no existing imports to merge into)
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(Position::new(0, 0), Position::new(0, 0)),
-                                "import { MyPoint } from \"types.slint\";\n".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
+"#,
         );
-
-        // Now load the version WITH the import — action should no longer appear
-        let mut document_cache_with_import = test::empty_document_cache();
-        spin_on::spin_on(document_cache_with_import.preload_builtins());
-        let mut diagnostics = BuildDiagnostics::default();
-        let _ = spin_on::spin_on(document_cache_with_import.load_url(
-            &types_url,
-            Some(1),
-            types_content.to_string(),
-            &mut diagnostics,
-        ));
-        let _ = spin_on::spin_on(document_cache_with_import.load_url(
-            &main_url,
-            Some(42),
-            main_content_with_import.to_string(),
-            &mut diagnostics,
-        ));
-
-        // Cursor on "MyPoint" — now on line 3 col 14 (because the import line is added)
-        let action2 = token_descr(&document_cache_with_import, &main_url, &Position::new(3, 14))
-            .and_then(|(token, _)| {
-                get_code_actions(&mut document_cache_with_import, token, &capabilities)
-            });
-        assert_eq!(action2, None, "import action should not appear when type is already imported");
     }
 
-    const IMPLEMENT_LINE: u32 = 8;
+    #[test]
+    fn test_no_import_for_imported_type_annotation() {
+        CodeActionRequest::at(
+            r#"import { MyPoint } from "types.slint";
+
+export component TestWindow inherits Window {
+    property <🔺MyPoint> position;
+}
+"#,
+        )
+        .with_file("types.slint", MY_POINT_TYPES)
+        .load()
+        .assert_empty();
+    }
+
+    #[test]
+    fn test_add_import_for_name_with_a_separator() {
+        const TYPES: &str =
+            "export struct My_Struct { x: int }\nexport component My_Component { }\n";
+        const MAIN: &str = r#"export component TestWindow inherits Window {
+    property <My_Struct> position;
+    My_Component { }
+}
+"#;
+        let actions = CodeActionRequest::at_offset(MAIN, MAIN.find("My_Struct").unwrap())
+            .with_file("types.slint", TYPES)
+            .load();
+        assert_eq!(actions.titles(), ["import { My-Struct } from \"types.slint\""]);
+        actions.assert(
+            "import { My-Struct } from \"types.slint\"",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            &format!("import {{ My-Struct }} from \"types.slint\";\n{MAIN}"),
+        );
+
+        let actions = CodeActionRequest::at_offset(MAIN, MAIN.find("My_Component").unwrap())
+            .with_file("types.slint", TYPES)
+            .load();
+        assert_eq!(actions.titles(), ["import { My-Component } from \"types.slint\""]);
+        actions.assert(
+            "import { My-Component } from \"types.slint\"",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            &format!("import {{ My-Component }} from \"types.slint\";\n{MAIN}"),
+        );
+    }
+
     const SIGNATURE_INTERFACE: &str = r#"interface Signature {
     in property <bool> checkable;
     in property <string> text;
@@ -2841,42 +2689,45 @@ export component TestWindow inherits Window {
 
     #[test]
     fn test_implement_missing_members_inserts_all_declarations() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n}}\n"
-        ));
-        let statement_end = Position::new(IMPLEMENT_LINE, 33);
-        let action =
-            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
-                get_code_actions(&mut dc, token, &ClientCapabilities::default())
-            });
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add the missing declarations for 'Signature'".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(statement_end, statement_end),
-                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();\n    in property <string> text;".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
+        CodeActionRequest::at(&format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n}}\n"
+        ))
+        .experimental().load()
+        .assert(
+            "Add the missing declarations for 'Signature'",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            &format!(
+                r#"{SIGNATURE_INTERFACE}export component TestCase {{
+    implement Signature <=> self;
+    public function add(a: int, b: int) -> int {{ }}
+    in property <bool> checkable;
+    callback clicked();
+    in property <string> text;
+}}
+"#
+            ),
         );
     }
 
     #[test]
     fn test_implement_missing_members_includes_inherited_members() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(
+        CodeActionRequest::at(
+            r#"interface A {
+    out property <int> speed;
+}
+interface B inherits A {
+    out property <float> direction;
+}
+export component TestCase {
+    implement 🔺B <=> self;
+}
+"#,
+        )
+        .experimental()
+        .load()
+        .assert(
+            "Add the missing declarations for 'B'",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
             r#"interface A {
     out property <int> speed;
 }
@@ -2885,46 +2736,18 @@ interface B inherits A {
 }
 export component TestCase {
     implement B <=> self;
+    out property <float> direction;
+    out property <int> speed;
 }
-"#
-            .into(),
-        );
-        let action = token_descr(&dc, &url, &Position::new(7, 14)).and_then(|(token, _)| {
-            get_code_actions(&mut dc, token, &ClientCapabilities::default())
-        });
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add the missing declarations for 'B'".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(
-                                    Position::new(7, 25),
-                                    Position::new(7, 25)
-                                ),
-                                "\n    out property <float> direction;\n    out property <int> speed;".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
+"#,
         );
     }
 
     #[test]
     fn test_implement_missing_members_offers_nothing_when_satisfied() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+        CodeActionRequest::at(&format!(
             r#"{SIGNATURE_INTERFACE}export component TestCase {{
-    implement Signature <=> self;
+    implement 🔺Signature <=> self;
 
     in property <bool> checkable;
     in property <string> text;
@@ -2932,135 +2755,56 @@ export component TestCase {
     public function add(a: int, b: int) -> int {{ 0 }}
 }}
 "#
-        ));
-        let action =
-            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
-                get_code_actions(&mut dc, token, &ClientCapabilities::default())
-            });
-        assert_eq!(action, None, "no action once every member is declared");
+        ))
+        .experimental()
+        .load()
+        .assert_empty();
     }
 
     #[test]
     fn test_implement_missing_members_skips_members_with_wrong_type() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <int> checkable;\n}}\n"
-        ));
-        let statement_end = Position::new(IMPLEMENT_LINE, 33);
-        let action =
-            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
-                get_code_actions(&mut dc, token, &ClientCapabilities::default())
-            });
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add the missing declarations for 'Signature'".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(statement_end, statement_end),
-                                "\n    public function add(a: int, b: int) -> int { }\n    callback clicked();\n    in property <string> text;".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
+        CodeActionRequest::at(&format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n\n    in property <int> checkable;\n}}\n"
+        ))
+        .experimental().load()
+        .assert(
+            "Add the missing declarations for 'Signature'",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            &format!(
+                r#"{SIGNATURE_INTERFACE}export component TestCase {{
+    implement Signature <=> self;
+    public function add(a: int, b: int) -> int {{ }}
+    callback clicked();
+    in property <string> text;
+
+    in property <int> checkable;
+}}
+"#
+            ),
         );
     }
 
     #[test]
     fn test_implement_missing_members_skips_members_with_invalid_type() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <Nonexistent> text;\n}}\n"
-        ));
-        let statement_end = Position::new(IMPLEMENT_LINE, 33);
-        let action =
-            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
-                get_code_actions(&mut dc, token, &ClientCapabilities::default())
-            });
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add the missing declarations for 'Signature'".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(statement_end, statement_end),
-                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
+        CodeActionRequest::at(&format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n\n    in property <Nonexistent> text;\n}}\n"
+        ))
+        .experimental().load()
+        .assert(
+            "Add the missing declarations for 'Signature'",
+            Some(lsp_types::CodeActionKind::QUICKFIX),
+            &format!(
+                r#"{SIGNATURE_INTERFACE}export component TestCase {{
+    implement Signature <=> self;
+    public function add(a: int, b: int) -> int {{ }}
+    in property <bool> checkable;
+    callback clicked();
+
+    in property <Nonexistent> text;
+}}
+"#
+            ),
         );
-    }
-
-    #[test]
-    fn test_add_import_for_name_with_a_separator() {
-        // The catalog holds the normalized name while the token holds the spelling the file
-        // used, so an underscore used to mean no quick fix was offered at all (#7492).
-        let types_content = r#"export struct My_Struct { x: int }
-export component My_Component { }
-"#;
-        let main_content = r#"export component TestWindow inherits Window {
-    property <My_Struct> position;
-    My_Component { }
-}
-"#;
-        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
-        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
-
-        let mut dc = test::empty_document_cache();
-        let mut diagnostics = BuildDiagnostics::default();
-        let _ = spin_on::spin_on(dc.load_url(
-            &types_url,
-            Some(1),
-            types_content.to_string(),
-            &mut diagnostics,
-        ));
-        let _ = spin_on::spin_on(dc.load_url(
-            &main_url,
-            Some(42),
-            main_content.to_string(),
-            &mut diagnostics,
-        ));
-
-        let capabilities = ClientCapabilities::default();
-        let mut titles = |name: &str| {
-            let offset = main_content.find(name).unwrap();
-            let before = &main_content[..offset];
-            let position = Position::new(
-                before.matches('\n').count() as _,
-                (offset - before.rfind('\n').map_or(0, |nl| nl + 1)) as _,
-            );
-            token_descr(&dc, &main_url, &position)
-                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities))
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|action| match action {
-                    CodeActionOrCommand::CodeAction(action) => Some(action.title),
-                    CodeActionOrCommand::Command(_) => None,
-                })
-                .collect::<Vec<_>>()
-        };
-
-        assert_eq!(titles("My_Struct"), ["import { My-Struct } from \"types.slint\""]);
-        assert_eq!(titles("My_Component"), ["import { My-Component } from \"types.slint\""]);
     }
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -3089,89 +2833,44 @@ export component My_Component { }
     }
 
     #[test]
-    fn test_qualify_enum_or_color() {
-        // Build the expected "Qualify as ..." quick-fix that replaces `range` with `new_text`.
-        let expect_qualify = |new_text: &str, range: lsp_types::Range, uri: &Url| {
-            CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: format!("Qualify as '{new_text}'"),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: uri.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                range,
-                                new_text.into(),
-                            ))],
-                        },
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })
-        };
+    fn test_qualify_named_color() {
+        CodeActionRequest::at("export component TestCase {\n    property <string> s: 🔺red;\n}\n")
+            .load()
+            .assert(
+                "Qualify as 'Colors.red'",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                "export component TestCase {\n    property <string> s: Colors.red;\n}\n",
+            );
+    }
 
-        let capabilities = ClientCapabilities::default();
+    #[test]
+    fn test_no_qualify_for_resolved_color() {
+        CodeActionRequest::at("export component TestCase {\n    property <color> c: 🔺red;\n}\n")
+            .load()
+            .assert_empty();
+    }
 
-        // A named color used where no color type is expected does not resolve, so the code action
-        // offers to qualify `red` as `Colors.red`.
-        let (mut dc, url, _) = test::loaded_document_cache(
-            r#"export component TestCase {
-    property <string> s: red;
-}
-"#
-            .into(),
-        );
-
-        // Cursor on `red` in `    property <string> s: red;` (line 1, col 25)
-        let pos = Position::new(1, 25);
-        let range = lsp_types::Range::new(Position::new(1, 25), Position::new(1, 28));
-
-        let action = token_descr(&dc, &url, &pos)
-            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
-        assert_eq!(action, Some(vec![expect_qualify("Colors.red", range, &url)]));
-
-        // The same `red` bound to a `color` property resolves, so no action is offered.
-        let (mut dc, url, _) = test::loaded_document_cache(
-            r#"export component TestCase {
-    property <color> c: red;
-}
-"#
-            .into(),
-        );
-        // Cursor on `red` in `    property <color> c: red;` (line 1, col 24)
-        let action = token_descr(&dc, &url, &Position::new(1, 24))
-            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
-        assert_eq!(action, None);
-
-        // A value shared by several enums: one quick-fix per match (the menu is not capped),
-        // sorted by the qualified name.
-        let (mut dc, url, _) = test::loaded_document_cache(
-            r#"enum EA { shared_value }
+    #[test]
+    fn test_qualify_value_shared_by_enums() {
+        const SOURCE: &str = r#"enum EA { shared_value }
 enum EB { shared_value }
 export component TestCase {
     property <int> foo: shared_value;
 }
-"#
-            .into(),
-        );
-
-        // Cursor on `shared_value` in `    property <int> foo: shared_value;` (line 3, col 24)
-        let pos = Position::new(3, 24);
-        let range = lsp_types::Range::new(Position::new(3, 24), Position::new(3, 36));
-
-        let action = token_descr(&dc, &url, &pos)
-            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
+"#;
+        let actions =
+            CodeActionRequest::at_offset(SOURCE, SOURCE.rfind("shared_value").unwrap()).load();
         assert_eq!(
-            action,
-            Some(vec![
-                expect_qualify("EA.shared-value", range, &url),
-                expect_qualify("EB.shared-value", range, &url),
-            ])
+            actions.titles(),
+            ["Qualify as 'EA.shared-value'", "Qualify as 'EB.shared-value'"]
         );
+        for qualified in ["EA.shared-value", "EB.shared-value"] {
+            actions.assert(
+                &format!("Qualify as '{qualified}'"),
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &SOURCE.replace(": shared_value;", &format!(": {qualified};")),
+            );
+        }
     }
 
     #[test]
