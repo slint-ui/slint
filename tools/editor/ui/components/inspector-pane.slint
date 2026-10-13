@@ -127,6 +127,13 @@ export component InspectorPane inherits Rectangle {
         return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
 
+    function is-layout-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (root.element-information.type-name == "GridLayout"
+                || root.element-information.type-name == "HorizontalLayout"
+                || root.element-information.type-name == "VerticalLayout");
+    }
+
     function selected-x() -> length {
         return root.has-backend-rect()
             ? root.selection-rects[Api.selection.highlight-index].x
@@ -752,6 +759,34 @@ export component InspectorPane inherits Rectangle {
                                 return root.commit-inspector(index < 0 ? "all-corners" : index == 0 ? "border-top-left-radius" : index == 1 ? "border-top-right-radius" : index == 2 ? "border-bottom-left-radius" : "border-bottom-right-radius", value);
                             }
                             canceled => { Api.inspector-cancel(); }
+                        }
+                    }
+                }
+
+                if root.is-layout-selection(): InspectorSection {
+                    title: @tr("Layout");
+
+                    InspectorPropertyRow {
+                        label: @tr("Padding");
+                        InspectorValueField {
+                            accessible-name: @tr("Layout padding");
+                            value: root.property-length-label("padding", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.field-key("padding");
+                            accepted(text) => { return root.commit-px-code("padding", text); }
+                        }
+                    }
+
+                    InspectorPropertyRow {
+                        label: @tr("Spacing");
+                        InspectorValueField {
+                            accessible-name: @tr("Layout spacing");
+                            value: root.property-length-label("spacing", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.field-key("spacing");
+                            accepted(text) => { return root.commit-px-code("spacing", text); }
                         }
                     }
                 }
