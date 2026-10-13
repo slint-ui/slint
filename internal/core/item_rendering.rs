@@ -360,6 +360,8 @@ pub trait RenderBorderRectangle {
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the border box, before adjusting for the border width.
+    pub radius: PhysicalBorderRadius,
     /// The corner radii of the outer border box, adjusted for the border width.
     pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
@@ -370,8 +372,9 @@ pub struct BorderRectLayout {
     pub border_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `border_rect`.
     pub border_radius: PhysicalBorderRadius,
-    /// The shape of each corner, shared by `background_rect` and `border_rect`: a shape
-    /// doesn't change as the radius is adjusted for the border inset.
+    /// The shape of each corner. Corners that don't draw as a rounded rectangle, see
+    /// [`CornerShapes::rounded_rect_radius`], are drawn with [`Self::shaped_paths`] instead
+    /// of `background_rect` and `border_rect`.
     pub corner_shape: CornerShapes,
     /// The stroke width of the border; zero for transparent borders.
     pub border_width: euclid::Length<f32, PhysicalPx>,
@@ -388,27 +391,41 @@ impl BorderRectLayout {
         scale_factor: ScaleFactor,
     ) -> Option<Self> {
         // `cast()`: the logical Coord type can be i32, the physical geometry is f32.
-        let mut geometry = euclid::Rect::from_size(size.cast() * scale_factor);
+        Self::from_parts(
+            size.cast() * scale_factor,
+            rect.border_radius().cast() * scale_factor,
+            rect.border_corner_shape(),
+            rect.border_width().cast() * scale_factor,
+            rect.border_color(),
+        )
+    }
+
+    /// Computes the layout for a rectangle of `size` with the given corners and border, or
+    /// `None` when the geometry is empty.
+    pub fn from_parts(
+        size: euclid::Size2D<f32, PhysicalPx>,
+        radius: PhysicalBorderRadius,
+        corner_shape: CornerShapes,
+        border_width: euclid::Length<f32, PhysicalPx>,
+        border_color: Brush,
+    ) -> Option<Self> {
+        let mut geometry = euclid::Rect::from_size(size);
         if geometry.is_empty() {
             return None;
         }
         let brush_size = geometry.size;
+        let radius = corner_shape.rounded_rect_radius(radius).unwrap_or(radius);
 
-        let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            euclid::Length::new(0.)
-        } else {
-            rect.border_width().cast() * scale_factor
-        };
+        let mut border_width =
+            if border_color.is_transparent() { euclid::Length::new(0.) } else { border_width };
 
         // The stroke is centered on the path (50% inside, 50% outside), while in CSS the
         // border is entirely inside the geometry. Ensure positive corner radii are at
         // least half the border width, so that the outer edge keeps a radius at all;
         // this is incorrect when the radius is smaller than that, but that can't be
         // helped - better a radius a bit too big than no radius.
-        let fill_radius = (rect.border_radius().cast() * scale_factor)
-            .outer(border_width / 2. + euclid::Length::new(0.01));
+        let fill_radius = radius.outer(border_width / 2. + euclid::Length::new(0.01));
         let border_radius = fill_radius.inner(border_width / 2.);
 
         let (background_rect, background_radius) = if opaque_border {
@@ -426,15 +443,43 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            radius,
             outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
             border_radius,
-            corner_shape: rect.border_corner_shape(),
+            corner_shape,
             border_width,
             border_color,
         })
+    }
+
+    /// The background and border paths, for a layout whose corners don't draw as a rounded
+    /// rectangle, grown by `spread` as for a box shadow's
+    /// [`source`](crate::graphics::boxshadowcache::BoxShadowOptions::source).
+    /// Fill both with the nonzero rule; the border path is `None` without a border.
+    #[cfg(feature = "path")]
+    pub fn shaped_paths(&self, spread: f32) -> (lyon_path::Path, Option<lyon_path::Path>) {
+        use crate::graphics::corner_geometry::{border_contours, offset_outline};
+        use crate::graphics::corner_path::{border_path, contour_path};
+        let rect = euclid::Rect::from_size(self.brush_size).to_untyped();
+        let outline = |distance: f32| {
+            contour_path(&offset_outline(rect, self.radius, self.corner_shape, distance))
+        };
+        let border_width = self.border_width.get();
+        if border_width <= 0. {
+            return (outline(spread), None);
+        }
+        let contours = border_contours(rect, self.radius, self.corner_shape, border_width, spread);
+        let background = if self.background_rect == self.border_rect {
+            // Under an opaque border, the background ends in the middle of the border, where
+            // neither antialiased edge shows the other.
+            outline(spread - border_width / 2.)
+        } else {
+            contour_path(&contours.outer)
+        };
+        (background, Some(border_path(&contours)))
     }
 }
 
