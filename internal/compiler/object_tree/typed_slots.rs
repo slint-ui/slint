@@ -216,7 +216,21 @@ impl Element {
     ) {
         for declaration in node.SlotDeclaration() {
             Self::assert_experimental_slots(diag, &declaration, "named slots");
-            declared_slots.push(self::declaration(declaration, tr, diag));
+            let slot = self::declaration(declaration, tr, diag);
+            if is_component_root(node)
+                && let ElementType::Component(base) = &r.borrow().base_type
+                && lookup_slot(base, &slot.name).is_some()
+            {
+                diag.push_error(
+                    format!(
+                        "Remove the declaration of slot '{0}' inherited from '{1}'; assign with '{0} << ...' to replace its content",
+                        slot.name, base.id
+                    ),
+                    &slot.name_node,
+                );
+                continue;
+            }
+            declared_slots.push(slot);
         }
 
         for se in node.children() {
@@ -369,6 +383,7 @@ impl Element {
         component_child_insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
         declared_slots: &mut Vec<DeclaredSlot>,
         is_legacy_syntax: bool,
+        is_component_root: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) {
@@ -393,23 +408,24 @@ impl Element {
         }
         let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
         let parent_type = r.borrow().base_type.clone();
-        match &parent_type {
-            ElementType::Component(component) if lookup_slot(component, &name).is_none() => {
-                diag.push_error(format!("Unknown slot '{name}' in '{}'", component.id), &name_node);
+        let slot = match &parent_type {
+            ElementType::Component(component) => {
+                let slot = lookup_slot(component, &name);
+                if slot.is_none() {
+                    diag.push_error(
+                        format!("Unknown slot '{name}' in '{}'", component.id),
+                        &name_node,
+                    );
+                }
+                slot
             }
-            ElementType::Component(_) => {}
             _ => {
                 diag.push_error("Slot assignments can only be used on components".to_string(), &se);
+                None
             }
-        }
-        let parent_type = match &parent_type {
-            ElementType::Component(component)
-                if lookup_slot(component, &name).is_some_and(|slot| slot.interface.is_some()) =>
-            {
-                tr.empty_type()
-            }
-            _ => parent_type,
         };
+        let is_typed = slot.as_ref().is_some_and(|slot| slot.interface.is_some());
+        let parent_type = if is_typed { tr.empty_type() } else { parent_type };
         let element = Element::from_sub_element_node(
             sub_element_node.into(),
             parent_type,
@@ -419,6 +435,8 @@ impl Element {
             diag,
             tr,
         );
+        element.borrow_mut().slot_default =
+            (slot.is_some() && !is_typed && is_component_root).then(|| name.clone());
         element.borrow_mut().slot_target = Some(name);
         r.borrow_mut().children.push(element);
     }
@@ -433,6 +451,27 @@ impl Element {
         }
         diagnostics.push_error(format!("'{what}' is an experimental feature"), node);
         false
+    }
+
+    pub(super) fn component_slot_placeholder(
+        node: &SyntaxNode,
+        parent: &ElementRc,
+        tr: &TypeRegister,
+    ) -> Option<(SmolStr, SyntaxNode, Rc<Component>)> {
+        if node.child_token(SyntaxKind::ColonEqual).is_some() {
+            return None;
+        }
+        let qualified_name =
+            node.child_node(SyntaxKind::Element)?.child_node(SyntaxKind::QualifiedName)?;
+        if qualified_name.child_token(SyntaxKind::Dot).is_some() {
+            return None;
+        }
+        let name = parser::identifier_text(&qualified_name)?;
+        let parent_type = parent.borrow().base_type.clone();
+        let ElementType::Component(base) = &parent_type else { return None };
+        (parent_type.lookup_type_for_child_element(&name, tr).is_err()
+            && lookup_slot(base, &name).is_some())
+        .then(|| (name, qualified_name, base.clone()))
     }
 
     pub(super) fn sub_element_slot_placeholder_name(

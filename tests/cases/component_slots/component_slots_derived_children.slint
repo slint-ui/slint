@@ -1,0 +1,135 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host inherits Rectangle {
+    slot header << Rectangle {
+        height: 1px;
+    }
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        header { }
+
+        @children
+    }
+}
+
+component Derived inherits Host { }
+
+component DerivedOwnSlot inherits Host {
+    slot extra;
+    Rectangle {
+        height: 2px;
+        extra { }
+    }
+}
+
+component HeaderOverride inherits Host {
+    header << Rectangle {
+        height: 2px;
+    }
+}
+
+component SecondLevel inherits HeaderOverride { }
+
+interface I {
+    in-out property <int> value;
+}
+
+component Impl inherits Rectangle {
+    in-out property <int> value;
+    height: 5px;
+}
+
+component TypedHost inherits Rectangle {
+    slot <I> control;
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        control { }
+
+        @children
+    }
+}
+
+component TypedDerived inherits TypedHost { }
+
+component TypedFilled inherits TypedHost {
+    control << Impl { }
+}
+
+export component TestCase inherits Window {
+    out property <bool> test: derived.min-height == 11px && derived-child.y == 1px
+        && override.min-height == 12px && override-child.y == 2px
+        && replaced.min-height == 14px && replaced-child.y == 4px
+        && second-level.min-height == 12px && second-level-child.y == 2px
+        && typed-derived.min-height == 15px && typed-derived-child.y == 5px
+        && typed-filled.min-height == 15px && typed-filled-child.y == 5px
+        && own-slot.min-height == 13px && own-slot-child.y == 3px;
+
+    derived := Derived {
+        derived-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    override := HeaderOverride {
+        override-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    replaced := Derived {
+        header << Rectangle {
+            height: 4px;
+        }
+        replaced-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    second-level := SecondLevel {
+        second-level-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    typed-derived := TypedDerived {
+        control << Impl { }
+        typed-derived-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    typed-filled := TypedFilled {
+        typed-filled-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    own-slot := DerivedOwnSlot {
+        own-slot-child := Rectangle {
+            height: 10px;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
