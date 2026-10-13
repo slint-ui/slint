@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore dialable undialable
+// cSpell:ignore dialable undialable usbmodem COMX
 
-//! Remote-preview discovery, run inside the preview process.
+//! Remote-preview discovery, run inside the preview process: viewers on the
+//! network, and microcontrollers connected over USB.
 //!
 //! The mDNS daemon is created on first use, so the OS firewall prompt only
 //! fires when the user opens the Remote Preview dialog.
@@ -68,8 +69,14 @@ pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn editor_preview::PreviewToLs
     });
 
     let lsp = to_lsp.clone();
+    api.on_remote_connect_serial(move |port| connect_serial(&lsp, port.into()));
+
+    let lsp = to_lsp.clone();
     let api_weak_for_validate = app_window.api_weak();
     api.on_remote_connect_manual(move |host_port| match parse_host_port(host_port.as_str()) {
+        _ if is_serial_port_name(host_port.as_str()) => {
+            connect_serial(&lsp, host_port.trim().into())
+        }
         Ok((host, port)) => {
             if let Err(err) =
                 lsp.send(&PreviewToLspMessage::ConnectRemote { addresses: vec![host], port })
@@ -118,6 +125,21 @@ pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn editor_preview::PreviewToLs
             tracing::error!("Failed sending AcceptUnpairedConnection to LSP: {err}");
         }
     });
+}
+
+fn connect_serial(lsp: &Rc<dyn editor_preview::PreviewToLsp>, port: String) {
+    if let Err(err) = lsp.send(&PreviewToLspMessage::ConnectSerial { port }) {
+        tracing::error!("Failed sending ConnectSerial to LSP: {err}");
+    }
+}
+
+/// Whether the manual entry names a serial port rather than a `host:port`.
+fn is_serial_port_name(input: &str) -> bool {
+    let input = input.trim();
+    let is_com_port = input.get(..3).is_some_and(|com| com.eq_ignore_ascii_case("COM"))
+        && input.len() > 3
+        && input[3..].bytes().all(|b| b.is_ascii_digit());
+    input.starts_with("/dev/") || input.starts_with(r"\\.\") || is_com_port
 }
 
 /// Surface a manual-entry / discovery error in the dialog. Skipped when
@@ -224,6 +246,9 @@ const EXPIRY_AGE: std::time::Duration = std::time::Duration::from_secs(60);
 const EXPIRY_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 /// Short enough to close the dialog promptly, long enough to avoid busy-looping.
 const STOP_FLAG_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+/// How often the list of USB serial ports is refreshed while the dialog is open.
+#[cfg(feature = "preview-serial")]
+const SERIAL_SCAN_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl RemoteDiscovery {
     pub fn start(&self, api: slint::Weak<Api<'static>>) {
@@ -265,9 +290,16 @@ impl RemoteDiscovery {
         let api_for_timer = api.clone();
         // Detached: joining from the UI thread would freeze the preview
         // window if mdns-sd's stop_browse stalled.
+        #[cfg(feature = "preview-serial")]
+        let api_for_serial = api.clone();
         std::thread::spawn(move || {
             browse_loop(receiver, api, stop_flag_clone);
         });
+        #[cfg(feature = "preview-serial")]
+        {
+            let stop_flag_clone = stop_flag.clone();
+            std::thread::spawn(move || serial_scan_loop(api_for_serial, stop_flag_clone));
+        }
 
         let timer = slint::Timer::default();
         timer.start(slint::TimerMode::Repeated, EXPIRY_CHECK_INTERVAL, move || {
@@ -350,6 +382,64 @@ fn browse_loop(
     }
 }
 
+/// Lists the USB serial ports every [`SERIAL_SCAN_INTERVAL`] until `stop_flag` is set.
+/// Each one may be a microcontroller running the Slint viewer firmware: which one is
+/// only known once connected.
+#[cfg(feature = "preview-serial")]
+fn serial_scan_loop(api: slint::Weak<Api<'static>>, stop_flag: Arc<AtomicBool>) {
+    while !stop_flag.load(Ordering::Relaxed) {
+        let ports = serialport::available_ports()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|port| match port.port_type {
+                serialport::SerialPortType::UsbPort(usb) => {
+                    let product = usb.product.or(usb.manufacturer);
+                    Some((port.port_name, product.unwrap_or_else(|| "USB serial device".into())))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let api = api.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(api) = api.upgrade() {
+                sync_serial_ports(&api, ports);
+            }
+        });
+        let next_scan = std::time::Instant::now() + SERIAL_SCAN_INTERVAL;
+        while std::time::Instant::now() < next_scan && !stop_flag.load(Ordering::Relaxed) {
+            std::thread::sleep(STOP_FLAG_POLL_INTERVAL);
+        }
+    }
+}
+
+/// Make the serial ports in the list the `ports`, given as their name and product.
+#[cfg(feature = "preview-serial")]
+fn sync_serial_ports(api: &Api, ports: Vec<(String, String)>) {
+    with_viewers(api, |viewers| {
+        for i in (0..viewers.row_count()).rev() {
+            let Some(row) = viewers.row_data(i) else { continue };
+            if !row.serial_port.is_empty()
+                && !ports.iter().any(|(name, _)| row.serial_port == name.as_str())
+            {
+                viewers.remove(i);
+            }
+        }
+        for (name, product) in ports {
+            let info = RemoteViewerInfo {
+                name: format!("USB: {product} ({name})").into(),
+                fullname: format!("serial:{name}").into(),
+                compatible: true,
+                last_seen_secs: now_secs(),
+                serial_port: name.into(),
+                ..Default::default()
+            };
+            if !viewers.iter().any(|existing| existing.fullname == info.fullname) {
+                viewers.push(info);
+            }
+        }
+    });
+}
+
 /// Run `f` against the discovered-viewers `VecModel`, or warn and skip if
 /// the model has been swapped for a non-`VecModel` type.
 fn with_viewers<R>(api: &Api, f: impl FnOnce(&VecModel<RemoteViewerInfo>) -> R) -> Option<R> {
@@ -391,7 +481,8 @@ fn prune_stale(api: &Api) {
         // Walk backwards: removals don't shift indices we haven't visited yet.
         for i in (0..viewers.row_count()).rev() {
             let Some(row) = viewers.row_data(i) else { continue };
-            if row.last_seen_secs < cutoff {
+            // A serial port stays listed as long as it exists, see `sync_serial_ports`
+            if row.serial_port.is_empty() && row.last_seen_secs < cutoff {
                 tracing::debug!("Pruning stale discovered viewer {:?}", row.fullname);
                 viewers.remove(i);
             }
@@ -426,6 +517,7 @@ fn to_remote_viewer_info(resolved: mdns_sd::ResolvedService) -> RemoteViewerInfo
         compatible,
         incompatible_reason: incompatible_reason.into(),
         last_seen_secs: now_secs(),
+        serial_port: SharedString::default(),
     }
 }
 
@@ -585,5 +677,15 @@ mod parse_host_port_tests {
     fn accepts_bracketed_ipv6() {
         assert_eq!(parse_host_port("[::1]:1234"), Ok(("[::1]".to_owned(), 1234)));
         assert_eq!(parse_host_port("[fe80::1]:9000"), Ok(("[fe80::1]".to_owned(), 9000)));
+    }
+
+    #[test]
+    fn recognizes_serial_port_names() {
+        for name in ["/dev/ttyACM0", " /dev/cu.usbmodem1101 ", "COM3", "com12", r"\\.\COM10"] {
+            assert!(is_serial_port_name(name), "{name}");
+        }
+        for name in ["192.168.1.42:9000", "phone.local:1234", "COM", "COMX", "computer:80"] {
+            assert!(!is_serial_port_name(name), "{name}");
+        }
     }
 }

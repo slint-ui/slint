@@ -346,6 +346,7 @@ impl SlintServer {
                 log(&editor_preview::preview_log_message_to_string(&location, &message));
             }
             M::ConnectRemote { .. }
+            | M::ConnectSerial { .. }
             | M::DisconnectRemote
             | M::SubmitPairingCode { .. }
             | M::CancelPairing

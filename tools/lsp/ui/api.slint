@@ -33,7 +33,7 @@ export enum DiagnosticSummary {
 export struct RemoteViewerInfo {
     /// User-facing name, e.g. "Simon's iPhone".
     name: string,
-    /// mDNS `instance.service-type.`; the model's unique key.
+    /// mDNS `instance.service-type.`, or `serial:` and the port name; the model's unique key.
     fullname: string,
     /// Sanitized mDNS `.local` hostname.
     host: string,
@@ -47,6 +47,9 @@ export struct RemoteViewerInfo {
     /// Monotonic seconds-since-process-start at the last mDNS ServiceResolved.
     /// The prune timer drops entries older than 60 s.
     last-seen-secs: int,
+    /// For a microcontroller connected over USB, the name of its serial port.
+    /// Empty for a viewer on the network.
+    serial-port: string,
 }
 
 export enum RemoteConnectionState {
@@ -644,6 +647,7 @@ export global Api {
     callback remote-stop-discovery();
     callback remote-connect(addresses: [string], port: int);
     callback remote-connect-manual(host-port: string);
+    callback remote-connect-serial(port: string);
     callback remote-disconnect();
     callback remote-submit-pairing-code(code: string);
     callback remote-cancel-pairing();

@@ -63,7 +63,8 @@ pub enum LspToPreviewMessage {
         state: RemoteConnectionState,
         /// Human-readable `address:port` of the attempted target.
         target: String,
-        /// Set on `Failed` to describe the cause.
+        /// On `Failed`, the cause. On `Connected`, why the device doesn't show the
+        /// current design, if it doesn't.
         error: Option<String>,
     },
     Quit,
