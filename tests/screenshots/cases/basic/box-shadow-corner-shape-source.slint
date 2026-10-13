@@ -1,0 +1,84 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=224x124
+//ignore: software, anyrender, vello_cpu
+
+// A drop shadow of a shaped rectangle that isn't opaque follows what it paints, like one
+// with round corners.
+// The first row has a border on a transparent background, without and with a spread.
+// The second has a semi-transparent background, with a negative spread and a blur.
+
+export component TestCase inherits Window {
+    width: 224px;
+    height: 124px;
+
+    background: #f3f5f8;
+
+    GridLayout {
+        padding: 12px;
+        spacing: 20px;
+
+        Row {
+            Rectangle {
+                border-width: 5px;
+                border-color: #203060;
+                border-radius: 14px;
+                border-corner-shape: bevel;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                border-width: 5px;
+                border-color: #203060;
+                border-radius: 14px;
+                border-corner-shape: scoop;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+                drop-shadow-spread: 2px;
+            }
+            Rectangle {
+                border-width: 5px;
+                border-color: #20306080;
+                border-radius: 14px;
+                border-corner-shape: squircle;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+        }
+
+        Row {
+            Rectangle {
+                background: #4f8cff80;
+                border-radius: 14px;
+                border-corner-shape: notch;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                background: #4f8cff80;
+                border-width: 3px;
+                border-color: #203060;
+                border-radius: 14px;
+                border-corner-shape: bevel;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+                drop-shadow-spread: -2px;
+            }
+            Rectangle {
+                background: #4f8cff80;
+                border-radius: 14px;
+                border-corner-shape: squircle;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+                drop-shadow-blur: 6px;
+            }
+        }
+    }
+}

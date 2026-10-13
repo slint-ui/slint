@@ -182,6 +182,7 @@ TouchArea {
 A `corner-shape` is the shape of a <Link type="Rectangle" /> corner.
 The corner's border radius sets its size, so a corner with no radius stays sharp whatever its shape.
 Slint follows CSS `corner-shape`, where every shape is a superellipse of exponent `k`.
+Only the Skia renderer draws corner shapes; the other renderers draw every corner round.
 
 Set one of the named shapes, or `superellipse(k)` for any other exponent:
 
