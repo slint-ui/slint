@@ -14,6 +14,8 @@ Figma Desktop's Plugins > Development > Import plugin from manifest.
 Select a node and run the plugin to preview it. Use Copy Slint for the generated
 source or Export ZIP for a project. Pin keeps the current selection in view.
 Diagnostics explains unsupported features and approximations.
+Export failures keep a successful preview and its generated source available.
+Export ZIP stays disabled when the reusable project cannot be generated or compiled.
 
 In Dev Mode, choose Slint to generate a snippet for the selected node only.
 Enable Use Variables to reference existing Slint variable globals; it is off by

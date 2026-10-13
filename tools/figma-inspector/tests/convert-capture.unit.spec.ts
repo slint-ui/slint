@@ -89,7 +89,7 @@ test("worker pipeline reports invalid captured JSON as a recoverable conversion 
         });
 });
 
-test("a failing unselected native variant rejects an otherwise valid specialized preview", async () => {
+test("a failing unselected native variant preserves the specialized preview", async () => {
     const capture = JSON.parse(
         await readFile("fixtures/source/component-tokens.json", "utf8"),
     );
@@ -111,13 +111,13 @@ test("a failing unselected native variant rejects an otherwise valid specialized
         captureJson: JSON.stringify(capture),
     });
     expect(result).toMatchObject({
-        type: "preview-diagnostics",
-        trace: { outcome: "conversion-error" },
-        diagnostics: [
+        type: "preview-source",
+        warnings: expect.arrayContaining([
             expect.objectContaining({
+                code: "EXPORT_UNAVAILABLE",
                 message: expect.stringContaining("Cyclic variable alias"),
             }),
-        ],
+        ]),
     });
     expect(result).not.toHaveProperty("exportPackage");
 });
