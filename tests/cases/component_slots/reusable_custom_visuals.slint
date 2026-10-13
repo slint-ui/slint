@@ -1,0 +1,114 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase, CheckBoxBase, SwitchBase, ComboBoxBase, LineEditBase } from "../../../tools/editor/controls/src/headless.slint";
+import { ComboBoxPopup } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 640px;
+    height: 320px;
+    out property <bool> test: button.width == 80px && button.height == 20px
+        && empty.width == 0px && empty.height == 0px;
+
+    button := ButtonBase {
+        x: 20px;
+        y: 20px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        content-padding: 0px;
+        content-padding-left: 0px;
+        content-padding-right: 0px;
+        text: "A deliberately long default label that must not size custom content";
+        accessible-label: "Custom button";
+        background << Rectangle { background: #123456; }
+        content << Text {
+            text: "Run";
+            preferred-width: 80px;
+            preferred-height: 20px;
+        }
+    }
+
+    empty := ButtonBase {
+        content-padding: 0px;
+        content-padding-left: 0px;
+        content-padding-right: 0px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        text: "This default must contribute no size";
+    }
+
+    CheckBoxBase {
+        x: 20px;
+        y: 80px;
+        width: 200px;
+        height: 40px;
+        text: "Default checkbox label";
+        accessible-label: "Custom checkbox";
+        checked: true;
+        background << Rectangle { background: #234567; }
+        indicator << Rectangle { background: #345678; }
+        content << Text { text: "Choice"; }
+    }
+
+    SwitchBase {
+        x: 20px;
+        y: 140px;
+        width: 200px;
+        height: 40px;
+        text: "Default switch label";
+        accessible-label: "Custom switch";
+        background << Rectangle { background: #234567; }
+        indicator << Rectangle { background: #345678; }
+        content << Text { text: "Toggle"; }
+    }
+
+    ComboBoxBase {
+        x: 260px;
+        y: 80px;
+        width: 200px;
+        height: 40px;
+        accessible-label: "Custom combo";
+        model: ["Alpha", "Beta"];
+        popup << ComboBoxPopup { }
+        background << Rectangle { background: #234567; }
+        indicator << Rectangle { background: #345678; }
+        content << Text { text: "Selection"; }
+    }
+
+    LineEditBase {
+        x: 260px;
+        y: 140px;
+        width: 200px;
+        height: 40px;
+        accessible-label: "Custom field";
+        placeholder-text: "Default placeholder";
+        background << Rectangle { background: #234567; }
+        placeholder << Text { text: "Custom placeholder"; }
+        leading << Text { text: "L"; }
+        trailing << Text { text: "R"; }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let find = |label: &str| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap()
+};
+let text_count = |label: &str| {
+    find(label).query_descendants().match_type_name("Text").find_all().len()
+};
+let path_count = |label: &str| {
+    find(label).query_descendants().match_type_name("Path").find_all().len()
+};
+for label in ["Custom button", "Custom checkbox", "Custom switch", "Custom combo"] {
+    assert_eq!(text_count(label), 1, "{label}");
+}
+assert_eq!(text_count("Custom field"), 3);
+for label in ["Custom checkbox", "Custom combo"] {
+    assert_eq!(path_count(label), 0, "{label}");
+}
+assert!(instance.get_test());
+```
+*/

@@ -92,6 +92,12 @@ export component InspectorPane inherits Rectangle {
         { value: "bottom", label: @tr("Bottom") },
     ];
 
+    property <[InspectorComboOption]> text-word-wrap-options: [
+        { value: "no-wrap", label: @tr("No wrap") },
+        { value: "word-wrap", label: @tr("Word wrap") },
+        { value: "char-wrap", label: @tr("Character wrap") },
+    ];
+
     property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
     property <string> inspector-key: root.element-information.source-uri + ":" + root.element-information.source-version + ":" + root.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     property <[float]> control-values: Api.inspector-values(root.inspector-key);
@@ -125,6 +131,13 @@ export component InspectorPane inherits Rectangle {
 
     function is-root-selection() -> bool {
         return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
+    }
+
+    function is-layout-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (root.element-information.type-name == "GridLayout"
+                || root.element-information.type-name == "HorizontalLayout"
+                || root.element-information.type-name == "VerticalLayout");
     }
 
     function selected-x() -> length {
@@ -453,6 +466,20 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
+    function text-word-wrap-index() -> int {
+        let value = Api.current-property-value("wrap", "no-wrap");
+        if value == "no-wrap" || value == "TextWrap.no-wrap" {
+            return 0;
+        }
+        if value == "word-wrap" || value == "TextWrap.word-wrap" {
+            return 1;
+        }
+        if value == "char-wrap" || value == "TextWrap.char-wrap" {
+            return 2;
+        }
+        return -1;
+    }
+
     function text-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "top");
         if value == "top" || value == "TextVerticalAlignment.top" {
@@ -575,6 +602,11 @@ export component InspectorPane inherits Rectangle {
     function text-vertical-alignment-label() -> string {
         let index = root.text-vertical-alignment-index();
         return index >= 0 ? root.text-vertical-alignment-options[index].label : @tr("Top");
+    }
+
+    function text-word-wrap-label() -> string {
+        let index = root.text-word-wrap-index();
+        return index >= 0 ? root.text-word-wrap-options[index].label : @tr("No wrap");
     }
 
     EdgeDivider {
@@ -752,6 +784,34 @@ export component InspectorPane inherits Rectangle {
                                 return root.commit-inspector(index < 0 ? "all-corners" : index == 0 ? "border-top-left-radius" : index == 1 ? "border-top-right-radius" : index == 2 ? "border-bottom-left-radius" : "border-bottom-right-radius", value);
                             }
                             canceled => { Api.inspector-cancel(); }
+                        }
+                    }
+                }
+
+                if root.is-layout-selection(): InspectorSection {
+                    title: @tr("Layout");
+
+                    InspectorPropertyRow {
+                        label: @tr("Padding");
+                        InspectorValueField {
+                            accessible-name: @tr("Layout padding");
+                            value: root.property-length-label("padding", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.field-key("padding");
+                            accepted(text) => { return root.commit-px-code("padding", text); }
+                        }
+                    }
+
+                    InspectorPropertyRow {
+                        label: @tr("Spacing");
+                        InspectorValueField {
+                            accessible-name: @tr("Layout spacing");
+                            value: root.property-length-label("spacing", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.field-key("spacing");
+                            accepted(text) => { return root.commit-px-code("spacing", text); }
                         }
                     }
                 }
@@ -1139,6 +1199,25 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             Rectangle { }
+                        }
+                    }
+                }
+                if root.is-text-selection(): InspectorSection {
+                    title: @tr("Text Wrap");
+
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        spacing: Metrics.space-compact;
+
+                        InspectorComboBox {
+                            accessible-name: @tr("Text Wrap");
+                            value: root.text-word-wrap-label();
+                            selected-index: root.text-word-wrap-index();
+                            options: root.text-word-wrap-options;
+                            popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                            accepted(text) => {
+                                return text != "" && root.commit-code("wrap", text);
+                            }
                         }
                     }
                 }

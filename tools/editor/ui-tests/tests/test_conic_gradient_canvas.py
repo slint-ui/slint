@@ -347,12 +347,9 @@ def test_conic_seam_handles_and_stop_crossing(
             ) == pytest.approx(degrees, abs=0.01)
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
-        assert (
-            control(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "264052"
-        )
+        expect(
+            control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("264052")
         click(window, "Close Stop color")
         press_key(window, keys.Escape)
         original.assert_unchanged()
@@ -399,13 +396,24 @@ def test_conic_insertion_samples_straight_alpha(
         gesture(window, p, p)
         gesture(window, p, p)
         click(window, "Edit stop 2 color")
-        value = control(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
-        ).accessible_value
-        assert value in ("800080", "7F0080", "80007F")
-        assert control(
-            window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
-        ).accessible_value in ("50", "49")
+        expect.poll(
+            lambda: (
+                control(
+                    window, "Hex color", slint_testing.AccessibleRole.TextInput
+                ).accessible_value
+                in ("800080", "7F0080", "80007F")
+            ),
+            message="inserted stop color",
+        ).to_equal(True)
+        expect.poll(
+            lambda: (
+                control(
+                    window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
+                ).accessible_value
+                in ("50", "49")
+            ),
+            message="inserted stop opacity",
+        ).to_equal(True)
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -474,18 +482,12 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         assert actual.x == pytest.approx(expected.x, abs=0.001)
         assert actual.y == pytest.approx(expected.y, abs=0.001)
         click(window, "Edit stop 2 color")
-        assert (
-            control(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "ABCDEF"
-        )
-        assert (
-            control(
-                window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "50"
-        )
+        expect(
+            control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("ABCDEF")
+        expect(
+            control(window, "Hex color opacity", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("50")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 

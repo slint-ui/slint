@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider } from "../../../tools/editor/controls/src/basic.slint";
+import {
+    SliderBase,
+    LinearSliderSurface,
+} from "../../../tools/editor/controls/src/headless.slint";
+import { SliderInterface } from "std-widget-interfaces.slint";
+
+component RangeHost {
+    slot <SliderInterface> control;
+    out property <float> value: control.value;
+    in-out property <int> changes;
+    in-out property <int> releases;
+    in-out property <float> last-change;
+    in-out property <float> last-release;
+    control {
+        enabled: true;
+        minimum: 10;
+        maximum: 90;
+        step: 5;
+        orientation: horizontal;
+        changed(value) => { root.changes += 1; root.last-change = value; }
+        released(value) => { root.releases += 1; root.last-release = value; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 360px;
+    height: 160px;
+    styled-host := RangeHost {
+        control << styled := Slider { }
+    }
+
+    headless-host := RangeHost {
+        control << headless := SliderBase {
+            surface << LinearSliderSurface { }
+        }
+    }
+
+    init => {
+        styled.set-position(0.5);
+        styled.emit-released();
+        headless.set-position(0.5);
+        headless.emit-released();
+    }
+    out property <bool> test: styled-host.value == 50 && headless-host.value == 50
+        && styled-host.changes == 1 && styled-host.last-change == 50
+        && styled-host.releases == 1 && styled-host.last-release == 50
+        && headless-host.changes == 1 && headless-host.last-change == 50
+        && headless-host.releases == 1 && headless-host.last-release == 50;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

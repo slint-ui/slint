@@ -1,3 +1,5 @@
+<!-- cSpell: ignore DMABUF drmoutput gbmdisplay gbmdmabufdisplay swdisplay -->
+
 # Window & Backend Integration
 
 > Note for AI coding assistants (agents):
@@ -219,6 +221,36 @@ Direct framebuffer rendering:
 - No windowing system required
 - DRM/KMS for display
 - libinput for input
+
+#### Presentation Paths
+
+Each renderer reaches the screen one of four ways, three of them in `display/`:
+
+- `swdisplay/` — a DRM dumb buffer or `/dev/fb0`, for the software renderer.
+- `gbmdisplay.rs` — a GBM surface behind an EGL context, for the OpenGL renderers.
+- The wgpu DRM surface target in `drmoutput.rs`, where Vulkan owns the display itself.
+  This needs `VK_EXT_acquire_drm_display`, which few drivers offer.
+- `gbmdmabufdisplay.rs` — the fallback for the drivers that don't.
+  GBM allocates a ring of scanout buffers, and wgpu imports each as a texture via dma-buf.
+  Vulkan renders into the memory the display scans out,
+  and the backend posts it with the same page flip as the other paths.
+
+`renderer/skia.rs` and `renderer/femtovg_wgpu.rs` pick between the last two.
+They fall back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_acquire_drm_display`,
+or when creating the surface fails anyway.
+`SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
+
+KMS could wait for a dma-buf's rendering through the plane's `IN_FENCE_FD`,
+but wgpu-hal exports no sync fd, so the backend waits before each page flip itself.
+The Skia renderer flips a frame only after it drew the next one,
+so the GPU finishes one frame while the CPU draws the next.
+When no frame follows right away, the event loop shows the last one through `FullscreenRenderer::flush_pending_frame`.
+The FemtoVG renderer still waits for the GPU right after each frame.
+
+Handing a buffer to the display controller is a Vulkan ownership release, which wgpu can't express.
+Both renderers draw into the buffer as an ordinary color target.
+`display/scanout_barriers.rs` records the release, and the acquire before the next frame,
+with ash and submits them on wgpu's queue.
 
 ### Testing Backend (`internal/backends/testing/`)
 
