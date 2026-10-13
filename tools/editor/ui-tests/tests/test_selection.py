@@ -22,6 +22,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     press_key,
+    press_shortcut,
     query,
     select_fixture_element,
     wait_until,
@@ -246,3 +247,132 @@ def test_delete_selected_element_writes_exact_source(
                 )
                 element(window, "Hovered Image")
                 wait_for_no_rectangle_hover(window)
+
+
+def element_block(source: bytes, start: bytes) -> bytes:
+    begin = source.index(start)
+    return source[begin : source.index(b"\n    }\n", begin) + len(b"\n    }")]
+
+
+def test_copy_paste_selected_element_inserts_copy_with_unique_id(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    source_file = fixture_project / "Main.slint"
+    source = source_file.read_bytes()
+    rectangle = element_block(source, b"root-rectangle := ")
+    expected = source.replace(
+        rectangle,
+        rectangle
+        + b"\n    "
+        + rectangle.replace(b"root-rectangle", b"root-rectangle-2", 1),
+        1,
+    )
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source)
+        select_fixture_element(window, "Rectangle")
+        press_shortcut(window, keys.Control, "c")
+        press_shortcut(window, keys.Control, "v")
+        snapshot.wait_for_applied(expected)
+        element(window, "root-rectangle-2", role=slint_testing.AccessibleRole.ListItem)
+
+
+def test_cut_paste_moves_element_after_selection(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    source_file = fixture_project / "Main.slint"
+    source = source_file.read_bytes()
+    rectangle = element_block(source, b"root-rectangle := ")
+    after_cut = deletion_golden("Rectangle")
+    image = element_block(after_cut, b"root-image := ")
+    expected = after_cut.replace(image, image + b"\n    " + rectangle, 1)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source)
+        select_fixture_element(window, "Rectangle")
+        press_shortcut(window, keys.Control, "x")
+        snapshot.wait_for_applied(after_cut)
+        select_fixture_element(window, "Image")
+        press_shortcut(window, keys.Control, "v")
+        snapshot.wait_for_applied(expected)
+
+
+def test_paste_with_empty_clipboard_does_not_edit_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    source_file = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
+        select_fixture_element(window, "Text")
+        press_shortcut(window, keys.Control, "v")
+        element(window, "Selected Text", role=slint_testing.AccessibleRole.Region)
+        snapshot.assert_unchanged()
+
+
+def test_paste_inserts_element_at_pointer(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    source_file = fixture_project / "Main.slint"
+    source = source_file.read_bytes()
+    rectangle = element_block(source, b"root-rectangle := ")
+    copy = (
+        rectangle.replace(b"root-rectangle", b"root-rectangle-2", 1)
+        .replace(b"x: 40px;", b"x: 300px;", 1)
+        .replace(b"y: 40px;", b"y: 420px;", 1)
+    )
+    nested = element_block(source, b"NestedCard {")
+    expected = source.replace(nested, nested + b"\n    " + copy, 1)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source)
+        select_fixture_element(window, "Rectangle")
+        press_shortcut(window, keys.Control, "c")
+        origin = fixture_element(window, "Rectangle").absolute_position
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(
+                slint_testing.LogicalPosition(x=origin.x + 260, y=origin.y + 380)
+            )
+        )
+        press_shortcut(window, keys.Control, "v")
+        snapshot.wait_for_applied(expected)
+
+
+def test_paste_over_selected_container_inserts_child_at_pointer(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    source_file = fixture_project / "Main.slint"
+    source = source_file.read_bytes()
+    rectangle = element_block(source, b"root-rectangle := ")
+    child = (
+        rectangle.replace(b"root-rectangle", b"root-rectangle-2", 1)
+        .replace(b"x: 40px;", b"x: 90px;", 1)
+        .replace(b"y: 40px;", b"y: 60px;", 1)
+        .replace(b"\n", b"\n    ")
+    )
+    expected = source.replace(
+        rectangle, rectangle[: -len(b"}")] + b"    " + child + b"\n    }", 1
+    )
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source)
+        select_fixture_element(window, "Rectangle")
+        press_shortcut(window, keys.Control, "c")
+        hover_rectangle(window)
+        press_shortcut(window, keys.Control, "v")
+        snapshot.wait_for_applied(expected)

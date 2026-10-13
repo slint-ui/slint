@@ -493,6 +493,23 @@ export component EditorUi inherits Window {
                         CanvasView.selection.height);
                     return accept;
                 }
+                if (event.modifiers.control || event.modifiers.meta) && !event.modifiers.shift && !event.modifiers.alt
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
+                    if event.text == "c" || event.text == "C" {
+                        Api.selected-element-copy();
+                        return accept;
+                    }
+                    if event.text == "x" || event.text == "X" {
+                        Api.selected-element-cut();
+                        return accept;
+                    }
+                }
+                if (event.modifiers.control || event.modifiers.meta) && !event.modifiers.shift && !event.modifiers.alt
+                    && (event.text == "v" || event.text == "V") && Diagnostics.preview-editable
+                    && (CanvasView.pointer-inside || Api.selection.highlight-index >= 0) {
+                    Api.paste-element(CanvasView.pointer-inside, CanvasView.pointer.x, CanvasView.pointer.y);
+                    return accept;
+                }
                 reject
             }
 

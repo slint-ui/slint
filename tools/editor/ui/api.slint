@@ -554,6 +554,9 @@ export global Api {
     callback override-element-text(override-id: string, text: string) -> string;
 
     callback selected-element-delete();
+    callback selected-element-copy();
+    callback selected-element-cut();
+    callback paste-element(at-pointer: bool, x: length, y: length);
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
