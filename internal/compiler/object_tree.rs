@@ -898,11 +898,13 @@ fn disallow_non_member_content(
     node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
     node.States().for_each(|n| error_on(&n, "states"));
     node.Transitions().for_each(|n| error_on(&n, "transitions"));
-    node.CallbackDeclaration().for_each(|cb| {
-        if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
-            error_on(&cb, "an 'init' callback")
-        }
-    });
+    if matches!(declaration, ElementType::Global) {
+        node.CallbackDeclaration().for_each(|cb| {
+            if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
+                error_on(&cb, "an 'init' callback")
+            }
+        });
+    }
     node.CallbackConnection().for_each(|cb| {
         if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
             error_on(&cb, "an 'init' callback")

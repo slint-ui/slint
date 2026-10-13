@@ -98,6 +98,7 @@ impl ElementType {
                     },
                 }
             }
+            Self::Interface(None) => crate::typeregister::reserved_property(Cow::Borrowed(name)),
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
         }
     }
