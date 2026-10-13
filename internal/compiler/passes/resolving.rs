@@ -62,6 +62,7 @@ fn resolve_expression(
             current_token: None,
             local_variables: Vec::new(),
             expected_type_probe: None,
+            value_discarded: false,
         };
         lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
@@ -465,26 +466,34 @@ impl Expression {
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
 
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
+
         // new scope for locals
         ctx.local_variables.push(Vec::new());
 
-        let mut statements_or_exprs = node
+        let mut statement_nodes = node
             .children()
-            .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression => {
-                    Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
-                }
-                SyntaxKind::ReturnStatement => {
-                    Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
-                }
-                SyntaxKind::LetStatement => {
-                    Some((n.clone(), Self::from_let_statement(n.into(), ctx)))
-                }
-                _ => None,
+            .filter(|n| {
+                matches!(
+                    n.kind(),
+                    SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
+                )
             })
-            .collect::<Vec<_>>();
+            .peekable();
+        let mut statements_or_exprs = Vec::new();
+        while let Some(n) = statement_nodes.next() {
+            let expr = match n.kind() {
+                SyntaxKind::Expression => {
+                    ctx.value_discarded = value_discarded || statement_nodes.peek().is_some();
+                    Self::from_expression_node(n.clone().into(), ctx)
+                }
+                SyntaxKind::ReturnStatement => Self::from_return_statement(n.clone().into(), ctx),
+                _ => Self::from_let_statement(n.clone().into(), ctx),
+            };
+            statements_or_exprs.push((n, expr));
+        }
 
-        remove_noop::remove_from_codeblock(&mut statements_or_exprs, ctx.diag);
+        remove_noop::remove_from_codeblock(&mut statements_or_exprs, value_discarded, ctx.diag);
 
         let mut statements_or_exprs = statements_or_exprs
             .into_iter()
@@ -629,6 +638,8 @@ impl Expression {
             ctx.record_expected_type_probe(probe_range(&node), &ty);
         }
 
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
+
         // This function recurses for nested expressions. Dispatch with early returns
         // instead of a `find_map` closure: in unoptimized builds, every arm of a match
         // producing a value gets its own stack slot for the resulting `Expression`,
@@ -637,7 +648,10 @@ impl Expression {
         for child in node.children_with_tokens() {
             match child {
                 NodeOrToken::Node(node) => match node.kind() {
-                    SyntaxKind::Expression => return Self::from_expression_node(node.into(), ctx),
+                    SyntaxKind::Expression => {
+                        ctx.value_discarded = value_discarded;
+                        return Self::from_expression_node(node.into(), ctx);
+                    }
                     SyntaxKind::AtImageUrl => {
                         return Self::from_at_image_url_node(node.into(), ctx);
                     }
@@ -708,6 +722,7 @@ impl Expression {
                     SyntaxKind::ConditionalExpression => {
                         // A conditional is in the Slint SC subset; its condition,
                         // branches, and result type are each restricted on their own.
+                        ctx.value_discarded = value_discarded;
                         return Self::from_conditional_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ObjectLiteral => {
@@ -721,6 +736,7 @@ impl Expression {
                     SyntaxKind::CodeBlock => {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("Code blocks are", &node);
+                        ctx.value_discarded = value_discarded;
                         return Self::from_codeblock_node(node.into(), ctx);
                     }
                     SyntaxKind::StringTemplate => {
@@ -2167,14 +2183,21 @@ impl Expression {
         node: syntax_nodes::ConditionalExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
         let condition = ctx
             .with_expected_type(Type::Bool, |ctx| {
                 Self::from_expression_node(condition_n.clone(), ctx)
             })
             .maybe_convert_to(Type::Bool, &condition_n, ctx.diag, &ctx.symbol_counters);
+        ctx.value_discarded = value_discarded;
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
+        ctx.value_discarded = value_discarded;
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
+        if value_discarded {
+            remove_noop::warn_discarded(&true_expr, &true_expr_n, ctx.diag);
+            remove_noop::warn_discarded(&false_expr, &false_expr_n, ctx.diag);
+        }
         let result_ty = common_expression_type(&true_expr, &false_expr);
         let true_expr = true_expr.maybe_convert_to(
             result_ty.clone(),
@@ -3031,6 +3054,7 @@ fn resolve_two_way_bindings_for_element(
                 current_token: Some(node.clone().into()),
                 local_variables: Vec::new(),
                 expected_type_probe: None,
+                value_discarded: false,
             };
 
             // Only the alias-only case stores the two-way binding in the expression slot;
