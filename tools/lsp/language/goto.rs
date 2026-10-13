@@ -362,3 +362,32 @@ export component Test {
     let def = goto_definition(&mut dc, token).unwrap();
     assert_eq!(first_link(&def).target_range.start.line, 1);
 }
+
+#[test]
+fn test_goto_definition_match_case() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    let source = r#"
+enum Nums { one, two }
+export component Test {
+    in property <Nums> num;
+    match num {
+        one: Rectangle { }
+        Nums.two: Rectangle { }
+    }
+}"#;
+    let (mut dc, uri, _) =
+        crate::language::test::loaded_document_cache_with_experimental(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    for (anchor, name) in [("one:", "one"), ("two:", "two")] {
+        let offset: TextSize = (source.find(anchor).unwrap() as u32).into();
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), name);
+        let def = goto_definition(&mut dc, token).unwrap();
+        assert_eq!(first_link(&def).target_range.start.line, 1);
+    }
+}
