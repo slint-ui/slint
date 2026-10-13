@@ -31,6 +31,10 @@ component HeaderOverride inherits Host {
     }
 }
 
+component HeaderCleared inherits Host {
+    header << { }
+}
+
 component SecondLevel inherits HeaderOverride { }
 
 interface I {
@@ -63,6 +67,7 @@ component TypedFilled inherits TypedHost {
 export component TestCase inherits Window {
     out property <bool> test: derived.min-height == 11px && derived-child.y == 1px
         && override.min-height == 12px && override-child.y == 2px
+        && cleared.min-height == 10px && cleared-child.y == 0px
         && replaced.min-height == 14px && replaced-child.y == 4px
         && second-level.min-height == 12px && second-level-child.y == 2px
         && typed-derived.min-height == 15px && typed-derived-child.y == 5px
@@ -77,6 +82,12 @@ export component TestCase inherits Window {
 
     override := HeaderOverride {
         override-child := Rectangle {
+            height: 10px;
+        }
+    }
+
+    cleared := HeaderCleared {
+        cleared-child := Rectangle {
             height: 10px;
         }
     }

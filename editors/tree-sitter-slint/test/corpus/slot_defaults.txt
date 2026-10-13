@@ -31,3 +31,30 @@ component Host {
       (component
         (user_type_identifier)
         (block)))))
+
+================================================================================
+slot_assignment_empty
+================================================================================
+
+component Caller {
+    Host {
+        content << { }
+        header << Text { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (component
+        (user_type_identifier)
+        (block
+          (slot_assignment
+            (simple_identifier))
+          (slot_assignment
+            (simple_identifier)
+            (component
+              (user_type_identifier)
+              (block))))))))

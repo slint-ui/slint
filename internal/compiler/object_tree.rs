@@ -1349,6 +1349,9 @@ pub struct Element {
     /// Also set on a root-level assignment to an inherited untyped slot (`name << ...`).
     pub slot_default: Option<SmolStr>,
 
+    /// The untyped slots this element clears with `name << { }`.
+    pub cleared_slots: Vec<SmolStr>,
+
     pub typed_slot_interface: Option<Rc<Component>>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`

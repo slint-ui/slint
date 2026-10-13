@@ -322,7 +322,11 @@ module.exports = grammar({
       choice($.user_type_identifier, alias("slot", $.user_type_identifier)),
 
     slot_assignment: ($) =>
-      seq(field("name", $._statement_identifier), "<<", $.component),
+      seq(
+        field("name", $._statement_identifier),
+        "<<",
+        choice($.component, seq("{", "}")),
+      ),
 
     slot_forwarding: ($) =>
       seq(field("name", $._statement_identifier), "<<", field("value", $.expression), ";"),

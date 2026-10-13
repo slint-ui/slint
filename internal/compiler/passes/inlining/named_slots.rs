@@ -124,6 +124,20 @@ export component Kept inherits Window {
     Host { }
 }
 
+export component Cleared inherits Window {
+    Host {
+        content << { }
+    }
+}
+
+component Clearing inherits Host {
+    content << { }
+}
+
+export component DerivedCleared inherits Window {
+    Clearing { }
+}
+
 export component Forwarded inherits Window {
     Middle {
         outer << Text { text: "caller"; }
@@ -197,7 +211,7 @@ export component DerivedReplaced inherits Window {
     #[test]
     fn replaced_default_drops_what_it_created() {
         let roots = exported_roots();
-        for id in ["Replaced", "Forwarded"] {
+        for id in ["Replaced", "Forwarded", "Cleared", "DerivedCleared"] {
             let component = root(&roots, id);
             assert_eq!(component.popup_windows.borrow().len(), 0, "{id}");
             assert_eq!(component.timers.borrow().len(), 0, "{id}");
