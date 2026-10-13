@@ -151,6 +151,10 @@ component RootSlotOverride inherits RootSlotHost {
     }
 }
 
+component HeaderCleared inherits Host {
+    header << { }
+}
+
 export component TestCase inherits Window {
     out property <bool> test: defaults.min-height == 35px && defaults.min-width == 300px
         && replaced-header.min-height == 29px && replaced-header.min-width == 20px
@@ -175,10 +179,19 @@ export component TestCase inherits Window {
         && root-slot-override.min-height == 112px
         && root-slot-override-replaced.min-height == 114px
         && in-for.min-height == 56px && in-for-kept.min-height == 52px
-        && in-if.min-height == 28px && in-if-kept.min-height == 26px;
+        && in-if.min-height == 28px && in-if-kept.min-height == 26px
+        && cleared-header.min-height == 24px && cleared-header.min-width == 0px
+        && cleared-counting.inits == 0
+        && derived-cleared.min-height == 24px && derived-cleared-replaced.min-height == 28px
+        && derived-assignment-cleared.min-height == 24px
+        && adjacent-first-cleared.min-height == 2px
+        && adjacent-first-cleared-third-filled.min-height == 10px
+        && adjacent-third-cleared.min-height == 3px
+        && in-for-cleared.min-height == 48px;
     out property <int> replaced-ticks: replaced-counting.ticks;
     out property <int> kept-ticks: kept-counting.ticks;
     out property <int> forwarded-ticks: forwarded-counting.ticks;
+    out property <int> cleared-ticks: cleared-counting.ticks;
 
     defaults := Host { }
 
@@ -335,6 +348,49 @@ export component TestCase inherits Window {
         spacing: 0px;
         if true: HeaderOverride { }
     }
+
+    cleared-header := Host {
+        header << { }
+    }
+
+    cleared-counting := Counting {
+        content << { }
+    }
+
+    derived-cleared := HeaderCleared { }
+
+    derived-cleared-replaced := HeaderCleared {
+        header << Rectangle {
+            height: 4px;
+        }
+    }
+
+    derived-assignment-cleared := HeaderOverride {
+        header << { }
+    }
+
+    adjacent-first-cleared := AdjacentHost {
+        first << { }
+    }
+
+    adjacent-first-cleared-third-filled := AdjacentHost {
+        first << { }
+        third << Rectangle {
+            height: 8px;
+        }
+    }
+
+    adjacent-third-cleared := AdjacentHost {
+        third << { }
+    }
+
+    in-for-cleared := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        for i in 2: Host {
+            header << { }
+        }
+    }
 }
 
 /*
@@ -345,6 +401,7 @@ slint_testing::mock_elapsed_time(10);
 assert_eq!(instance.get_replaced_ticks(), 0);
 assert!(instance.get_kept_ticks() > 0);
 assert_eq!(instance.get_forwarded_ticks(), 0);
+assert_eq!(instance.get_cleared_ticks(), 0);
 ```
 
 ```cpp
@@ -355,5 +412,6 @@ slint_testing::mock_elapsed_time(10);
 assert_eq(instance.get_replaced_ticks(), 0);
 assert(instance.get_kept_ticks() > 0);
 assert_eq(instance.get_forwarded_ticks(), 0);
+assert_eq(instance.get_cleared_ticks(), 0);
 ```
 */
