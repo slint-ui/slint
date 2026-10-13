@@ -104,7 +104,8 @@ fn main() -> std::io::Result<()> {
     // each case runs the Slint compiler (twice with SLINT_TEST_DETERMINISTIC_OUTPUT),
     // which dominates the build script's runtime.
     let module_lines = rayon::ThreadPoolBuilder::new()
-        .stack_size(512 * 1024)
+        // Kept low (< 1MB default stack on Windows) so that tests catch stack overflow earlier
+        .stack_size(750 * 1024)
         .build()
         .expect("failed to create thread pool")
         .install(|| {
