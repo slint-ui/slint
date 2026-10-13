@@ -77,6 +77,18 @@ slint_testing::mock_elapsed_time(1000000);
 
 assert_eq!(instance.get_offset_x(), ORIGIN.x);
 assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+// Targets past the scroll limits are clamped to them.
+instance.invoke_flickable_scroll_to(5000., -300., ScrollMode::Instant);
+assert_eq!(instance.get_offset_x(), 500.);
+assert_eq!(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(-300., 5000., ScrollMode::Smooth);
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_offset_y() < 100., "Animates towards the clamped target: {:?}", instance.get_offset_y());
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 500.);
 ```
 
 ```cpp
@@ -120,6 +132,18 @@ assert(instance.get_offset_y() > 0.);
 slint_testing::mock_elapsed_time(1000000);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
+
+// Targets past the scroll limits are clamped to them.
+instance.invoke_flickable_scroll_to(5000., -300., ScrollMode::Instant);
+assert_eq(instance.get_offset_x(), 500.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(-300., 5000., ScrollMode::Smooth);
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_offset_y() < 100.);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 500.);
 ```
 
 ```js
@@ -160,6 +184,18 @@ assert(instance.offset_y > 0, instance.offset_y);
 slintlib.private_api.mock_elapsed_time(1000000);
 assert(instance.offset_x === 0, instance.offset_x);
 assert(instance.offset_y === 0, instance.offset_y);
+
+// Targets past the scroll limits are clamped to them.
+instance.flickable_scroll_to(5000, -300, "instant");
+assert(instance.offset_x === 500, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(-300, 5000, "smooth");
+slintlib.private_api.mock_elapsed_time(10);
+assert(instance.offset_y < 100, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 500, instance.offset_y);
 ```
 
 */

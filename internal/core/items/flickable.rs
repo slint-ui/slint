@@ -1063,15 +1063,17 @@ impl FlickableDataInner {
         position: LogicalPoint,
         scroll_mode: ScrollMode,
     ) {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let target = ensure_in_bound(flick, -position, &geo, false, false);
         if scroll_mode == ScrollMode::Instant {
             self.running_animation = None;
 
-            flick.content_x.set(-LogicalLength::new(position.x));
-            flick.content_y.set(-LogicalLength::new(position.y));
+            flick.content_x.set(target.x_length());
+            flick.content_y.set(target.y_length());
             return;
         }
-        let deflection_x = (flick.content_x() - LogicalLength::new(-position.x)).0;
-        let deflection_y = (flick.content_y() - LogicalLength::new(-position.y)).0;
+        let deflection_x = (flick.content_x() - target.x_length()).0;
+        let deflection_y = (flick.content_y() - target.y_length()).0;
 
         let simulation = |deflection: f32,
                           dimension: Dimension|
