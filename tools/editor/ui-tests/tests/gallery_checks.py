@@ -276,9 +276,10 @@ def test_gallery_image_alignment_selection_and_reset(
         ).accessible_checked
         element(window, "Bottom right", role=slint_testing.AccessibleRole.Text)
         element(window, "Reset example").invoke_accessible_default_action()
-        assert element(
-            window, "Align image center", role=slint_testing.AccessibleRole.Button
-        ).accessible_checked
+        expect.poll(
+            lambda: center.accessible_checked,
+            message="center image alignment after reset",
+        ).to_equal(True)
 
 
 def test_gallery_properties_edit_component_values(gallery_binary, editor_environment):
