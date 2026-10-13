@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBoxBase, SliderBase, LinearSliderSurface, LineEditBase }
+    from "../../../tools/editor/controls/src/headless.slint";
+import { ComboBox, ComboBoxPopup, Slider, LineEdit }
+    from "../../../tools/editor/controls/src/basic.slint";
+
+component Panel inherits Rectangle {
+    in property <string> prefix;
+
+    VerticalLayout {
+        ComboBoxBase {
+            accessible-label: root.prefix + "Headless combo";
+            model: ["Zero", "One"];
+            popup << ComboBoxPopup { }
+        }
+        ComboBox {
+            accessible-label: root.prefix + "Basic combo";
+            model: ["Zero", "One"];
+        }
+        SliderBase {
+            accessible-label: root.prefix + "Headless slider";
+            surface << LinearSliderSurface { }
+        }
+        Slider {
+            accessible-label: root.prefix + "Basic slider";
+        }
+        LineEditBase {
+            accessible-label: root.prefix + "Headless field";
+        }
+        LineEdit {
+            accessible-label: root.prefix + "Basic field";
+        }
+    }
+}
+
+component Page inherits Rectangle {
+    in property <string> prefix;
+    Panel { prefix: root.prefix; }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 600px;
+    VerticalLayout {
+        for prefix in ["First ", "Second "]: Page { prefix: prefix; }
+    }
+}
+
+/*
+```rust
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(0);
+for prefix in ["First ", "Second "] {
+    for style in ["Headless", "Basic"] {
+        for (kind, role, value) in [
+            ("combo", AccessibleRole::Combobox, "One"),
+            ("slider", AccessibleRole::Slider, "42"),
+            ("field", AccessibleRole::TextInput, "Edited"),
+        ] {
+            let label = format!("{prefix}{style} {kind}");
+            let mut matches = ElementHandle::find_by_accessible_label(&instance, &label);
+            let control = matches.next().unwrap_or_else(|| panic!("Missing label {label:?}"));
+            assert!(matches.next().is_none(), "Duplicate label {label:?}");
+            assert_eq!(control.accessible_role(), Some(role));
+            control.set_accessible_value(value);
+            assert_eq!(control.accessible_value().as_deref(), Some(value));
+        }
+    }
+}
+```
+*/

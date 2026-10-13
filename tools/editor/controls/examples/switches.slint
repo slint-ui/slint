@@ -1,0 +1,209 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Switch, BasicTheme } from "../src/basic.slint";
+import { SwitchBase } from "../src/headless.slint";
+import { ExampleSection } from "section.slint";
+
+export component SwitchExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in-out property <int> toggles;
+    in-out property <int> custom-toggles;
+
+    VerticalLayout {
+        spacing: 20px;
+        ExampleSection {
+            title: "Base theme";
+            description: "Off, on, and disabled switches using BasicTheme.";
+            HorizontalLayout {
+                spacing: 12px;
+                standard := Switch {
+                    text: "Notifications";
+                    toggled => { root.toggles += 1; }
+                }
+
+                Switch {
+                    text: "Autosave";
+                    checked: true;
+                    toggled => { root.toggles += 1; }
+                }
+
+                Switch {
+                    text: "Disabled";
+                    enabled: false;
+                }
+            }
+
+            Switch {
+                text: "Disabled on";
+                checked: true;
+                enabled: false;
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Toggles: \{root.toggles}  ·  Notifications: \{standard.checked ? "on" : "off"}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom switches";
+            description: "Override colors and dimensions, supply headless visuals, or replace the label.";
+            VerticalLayout {
+                spacing: 12px;
+                Switch {
+                    text: "Color override";
+                    checked: true;
+                    track-color: self.checked ? #0f766e : BasicTheme.background;
+                    foreground: #115e59;
+                    track-width: 48px;
+                    track-height: 26px;
+                    thumb-size: 20px;
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                bare := SwitchBase {
+                    text: "Headless switch";
+                    content-padding: 6px;
+                    indicator << Rectangle {
+                        background: bare.checked ? #7c3aed : #f5f3ff;
+                        border-color: bare.has-focus ? #5b21b6 : #a78bfa;
+                        border-width: bare.has-focus ? 2px : 1px;
+                        border-radius: 4px;
+                        Rectangle {
+                            width: 14px;
+                            height: parent.height - 6px;
+                            x: bare.checked ? parent.width - self.width - 3px : 3px;
+                            y: 3px;
+                            background: bare.checked ? white : #7c3aed;
+                            border-radius: 2px;
+                        }
+                    }
+                    content << Text {
+                        text: bare.text;
+                        color: #5b21b6;
+                        font-size: 14px;
+                        vertical-alignment: center;
+                    }
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                custom := SwitchBase {
+                    in property <length> track-width: 40px;
+                    in property <length> track-height: 22px;
+                    in property <length> thumb-size: 16px;
+                    in property <length> thumb-padding: 3px;
+                    in property <length> track-radius: custom.track-height / 2;
+                    in property <length> thumb-radius: custom.thumb-size / 2;
+                    private property <brush> state-track: custom.checked ? BasicTheme.accent : BasicTheme.background;
+                    private property <brush> state-thumb: custom.checked ? BasicTheme.accent-foreground : BasicTheme.foreground;
+                    private property <brush> state-foreground: BasicTheme.foreground;
+                    in property <brush> track-color: custom.state-track;
+                    in property <brush> track-border-color: !custom.enabled ? BasicTheme.disabled-foreground
+                        : custom.checked ? custom.track-color : BasicTheme.border;
+                    in property <length> track-border-width: 1px;
+                    in property <brush> thumb-color: custom.state-thumb;
+                    in property <brush> foreground: custom.state-foreground;
+                    in property <length> font-size: 14px;
+                    in property <int> font-weight: 400;
+
+                    indicator-width: custom.track-width;
+                    indicator-height: custom.track-height;
+                    content-padding: 6px;
+
+                    states [
+                        disabled when !custom.enabled: {
+                            custom.state-track: BasicTheme.disabled-background;
+                            custom.state-thumb: BasicTheme.disabled-foreground;
+                            custom.state-foreground: BasicTheme.disabled-foreground;
+                        }
+                        pressed when custom.pressed: {
+                            custom.state-track: custom.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+                        }
+                        hover when custom.hovered: {
+                            custom.state-track: custom.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
+                        }
+                    ]
+
+                    indicator << Rectangle {
+                        background: custom.track-color;
+                        border-color: custom.track-border-color;
+                        border-width: custom.track-border-width;
+                        border-radius: custom.track-radius;
+
+                        Rectangle {
+                            width: min(custom.thumb-size, max(0px, min(parent.width, parent.height) - 2 * custom.thumb-padding));
+                            height: self.width;
+                            x: custom.checked ? max(0px, parent.width - self.width - custom.thumb-padding) : custom.thumb-padding;
+                            y: (parent.height - self.height) / 2;
+                            background: custom.thumb-color;
+                            border-radius: custom.thumb-radius;
+                        }
+
+                        if custom.enabled && custom.has-focus: Rectangle {
+                            x: -3px;
+                            y: -3px;
+                            width: parent.width + 6px;
+                            height: parent.height + 6px;
+                            border-width: 2px;
+                            border-color: BasicTheme.focus;
+                            border-radius: custom.track-radius + 2px;
+                        }
+                    }
+                    text: "Custom switch content";
+
+                    content << HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Text {
+                            text: "Cloud sync";
+                            color: custom.foreground;
+                            font-size: custom.font-size;
+                            horizontal-stretch: 0;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: custom.checked ? "On" : "Off";
+                            color: BasicTheme.disabled-foreground;
+                            font-size: 12px;
+                            horizontal-stretch: 0;
+                            vertical-alignment: center;
+                        }
+                    }
+                    toggled => { root.custom-toggles += 1; }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Custom toggles: \{root.custom-toggles}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        Text {
+            text: "Click the track or label to toggle. Use Tab to focus, then release Space or Enter to toggle.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}
