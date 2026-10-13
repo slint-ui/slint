@@ -471,11 +471,6 @@ fn resolve_accessible_item(
     Some((owner, local_idx))
 }
 
-/// Returns the candidates to look up an accessible property for a given
-/// flat tree index. The first candidate is the wrapping sub-component
-/// reference at the root level (if applicable); the second is the
-/// deepest item itself, so an outer-element query wins over the inner
-/// sub-component root's own accessible properties.
 fn resolve_accessible_candidates(
     instance: &Instance,
     item_index: u32,
@@ -484,14 +479,17 @@ fn resolve_accessible_candidates(
     let Some(entry) = instance.item_table.get(item_index as usize).and_then(Option::as_ref) else {
         return out;
     };
-    // First candidate: a wrapping sub-component reference at the root.
-    // Its accessible_prop entry is keyed by the root-local flat index.
-    if !entry.0.is_empty() {
-        out.push((instance.root_sub_component.clone(), item_index));
-    }
-    // Second candidate: the deepest item itself.
     let mut owner = instance.root_sub_component.clone();
+    let mut local_idx = item_index;
     for &sub_idx in entry.0.iter() {
+        out.push((owner.clone(), local_idx));
+        let sc = &owner.compilation_unit.sub_components[owner.sub_component_idx];
+        let nested = &sc.sub_components[sub_idx];
+        if local_idx == nested.index_in_tree {
+            local_idx = 0;
+        } else if nested.index_of_first_child_in_tree > 0 {
+            local_idx = local_idx + 1 - nested.index_of_first_child_in_tree;
+        }
         let next = owner.sub_components[sub_idx].clone();
         owner = next;
     }

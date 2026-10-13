@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: cpp-live-preview
+
+component Control inherits Rectangle {
+    accessible-role: button;
+}
+
+component Panel inherits Rectangle {
+    HorizontalLayout {
+        first := Control { accessible-label: "First"; }
+        second := Control { accessible-label: "Second"; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+    Panel {}
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+slint_testing::mock_elapsed_time(0);
+
+assert_eq!(slint_testing::ElementHandle::find_by_element_type_name(&instance, "Control").count(), 2);
+for (id, label) in [("Panel::first", "First"), ("Panel::second", "Second")] {
+    let element = slint_testing::ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+    assert_eq!(element.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+    assert_eq!(element.accessible_label().as_deref(), Some(label));
+}
+```
+
+```cpp
+auto instance = TestCase::create();
+instance->show();
+slint_testing::mock_elapsed_time(0);
+
+auto first = slint::testing::ElementHandle::find_by_element_id(instance, "Panel::first");
+auto second = slint::testing::ElementHandle::find_by_element_id(instance, "Panel::second");
+assert_eq(first.size(), 1);
+assert_eq(second.size(), 1);
+assert(first[0].accessible_label().value() == "First");
+assert(second[0].accessible_label().value() == "Second");
+```
+*/
