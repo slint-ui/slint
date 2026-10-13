@@ -26,7 +26,7 @@ pub fn remove_from_codeblock(
         let (node, expression) = &code_block[index];
         if without_side_effects(expression) {
             if !warns_about_own_values(expression) {
-                diagnostics.push_warning("Expression has no effect!".to_owned(), node);
+                diagnostics.push_warning("Expression has no effect".to_owned(), node);
             }
             code_block.remove(index);
         }
@@ -40,7 +40,7 @@ pub fn warn_discarded(
     diagnostics: &mut BuildDiagnostics,
 ) {
     if !warns_about_own_values(expression) && without_side_effects(expression) {
-        diagnostics.push_warning("Expression has no effect!".to_owned(), node);
+        diagnostics.push_warning("Expression has no effect".to_owned(), node);
     }
 }
 
