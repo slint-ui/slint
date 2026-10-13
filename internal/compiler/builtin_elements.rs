@@ -727,7 +727,7 @@ fn build(l: &mut Loader) {
         //!
         //! Use `backdrop-blur` to blur what's drawn underneath a rectangle, so that it looks like translucent glass.
         //! Give the rectangle a translucent `background` so the blurred backdrop shows through.
-        //! The blur covers the rectangle's area, follows its border radius, and corresponds to CSS `backdrop-filter: blur()`.
+        //! The blur covers the rectangle's area, follows its border radius and corner shape, and corresponds to CSS `backdrop-filter: blur()`.
         //! Unlike CSS, it also picks up content just outside the rectangle, which makes its edges look more natural.
         //! This reaches up to three times the `backdrop-blur` value beyond the rectangle's edges.
         //! Like in CSS, inside an element with an `opacity` below 1 or with `cache-rendering-hint`,
@@ -2433,6 +2433,10 @@ fn build(l: &mut Loader) {
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
         in property <length> border-bottom-right-radius;
+        in property <corner-shape> corner-top-left-shape;
+        in property <corner-shape> corner-top-right-shape;
+        in property <corner-shape> corner-bottom-left-shape;
+        in property <corner-shape> corner-bottom-right-shape;
     } }
 
     element! {

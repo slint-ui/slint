@@ -912,7 +912,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     fn draw_backdrop_blur(
         &mut self,
         backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let sigma = (backdrop_blur.blur() * self.scale_factor).get();
@@ -925,7 +925,18 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         };
         self.canvas.save();
-        self.combine_clip(LogicalRect::from_size(size), backdrop_blur.logical_border_radius());
+        let clip = ShapedRect::new(
+            LogicalRect::from_size(size).cast(),
+            backdrop_blur.logical_border_radius().cast(),
+            backdrop_blur.logical_corner_shape(),
+            0.,
+        );
+        if clip.is_rounded() {
+            let (rect, radius) = clip.rounded_rect();
+            self.combine_clip(rect.cast(), radius.cast());
+        } else {
+            self.combine_shaped_clip(self_rc, clip);
+        }
         let paint = Self::backdrop_layer_paint(self.current_state.alpha);
         let layer = skia_safe::canvas::SaveLayerRec::default()
             .bounds(&bounds)
