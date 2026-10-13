@@ -277,8 +277,8 @@ fn install_property_init(
             install_property_binding(prop, binding, weak_sub, ty);
         }
         LocalMemberIndex::Native { item_index, prop_name, kind } => {
-            // The lowering pass already disambiguates rtti properties,
-            // callbacks and member functions via `NativeMemberKind`, so
+            // The lowering pass already disambiguates rtti properties
+            // and callbacks via `NativeMemberKind`, so
             // dispatch on `kind` rather than probing the rtti tables by
             // name.
             let item = Pin::as_ref(&instance.items[*item_index]);
@@ -308,10 +308,6 @@ fn install_property_init(
                     let animation_kind =
                         animation_for_binding(binding.animation.as_ref(), weak_sub.clone());
                     let _ = item.set_property_binding(prop_name, closure, animation_kind);
-                }
-                i_slint_compiler::llr::NativeMemberKind::Function => {
-                    // No state to install — `Expression::ItemMemberFunctionCall`
-                    // dispatches to the native method on demand.
                 }
             }
         }

@@ -1039,25 +1039,6 @@ impl SwipeGestureHandler {
     }
 }
 
-#[cfg(feature = "ffi")]
-mod ffi {
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
-        s: Pin<&SwipeGestureHandler>,
-        window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-        self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-        self_index: u32,
-    ) {
-        unsafe {
-            let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-            let self_rc = ItemRc::new(self_component.clone(), self_index);
-            s.cancel(window_adapter, &self_rc);
-        }
-    }
-}
-
 /// The implementation of the `ScaleRotateGestureHandler` element.
 ///
 /// Provides an API surface for platform-recognized pinch gesture events.

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <type_traits>
 #include "private/slint_builtin_functions_internal.h"
 
 namespace slint::private_api {
@@ -11,9 +12,15 @@ namespace slint::private_api {
 template<typename R, typename... P, typename... A>
 inline R call_builtin(void (*f)(R *, const P *...), const A &...args)
 {
-    R result {};
-    f(&result, &static_cast<const P &>(args)...);
-    return result;
+    if constexpr (std::is_void_v<R>) {
+        // Rust needs a non-null pointer, even to no value
+        char unit;
+        f(&unit, &static_cast<const P &>(args)...);
+    } else {
+        R result {};
+        f(&result, &static_cast<const P &>(args)...);
+        return result;
+    }
 }
 
 }

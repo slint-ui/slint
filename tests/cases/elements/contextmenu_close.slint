@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+    width: 700px;
+    height: 700px;
+    callback close-menu();
+    close-menu => { area.close(); }
+    TouchArea {
+        clicked => { result += "Background"; }
+    }
+    area := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => { result += "Entry1"; }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let click = |x, y, button| {
+    let position = LogicalPosition::new(x, y);
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+};
+
+// open the menu, then press on the entry
+click(15.0, 15.0, PointerEventButton::Right);
+click(25.0, 25.0, PointerEventButton::Left);
+assert_eq!(instance.get_result(), "Entry1");
+
+// open the menu and close it, then press where the entry was
+click(15.0, 15.0, PointerEventButton::Right);
+instance.invoke_close_menu();
+click(25.0, 25.0, PointerEventButton::Left);
+assert_eq!(instance.get_result(), "Entry1Background");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto click = [&](float x, float y, auto button) {
+    slint::LogicalPosition position({ x, y });
+    instance.window().dispatch_pointer_press_event(position, button);
+    instance.window().dispatch_pointer_release_event(position, button);
+};
+
+// open the menu, then press on the entry
+click(15, 15, slint::PointerEventButton::Right);
+click(25, 25, slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1");
+
+// open the menu and close it, then press where the entry was
+click(15, 15, slint::PointerEventButton::Right);
+instance.invoke_close_menu();
+click(25, 25, slint::PointerEventButton::Left);
+assert_eq(instance.get_result(), "Entry1Background");
+```
+*/

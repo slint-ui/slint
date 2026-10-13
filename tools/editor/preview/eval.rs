@@ -349,7 +349,7 @@ fn handle_builtin_function(
         let context = f.runtime_function_takes_context().then(|| local_context.context()).flatten();
         let args = arguments.iter().map(|a| eval_expression(a, local_context, None));
         if let Some(value) =
-            slint_interpreter::call_runtime_builtin_function(f, context.as_ref(), args)
+            slint_interpreter::call_runtime_builtin_function(f, context.as_ref(), None, args)
         {
             return value;
         }

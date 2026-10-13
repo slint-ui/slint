@@ -83,8 +83,19 @@ fn builtin_function_is_const(
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => false,
-        BuiltinFunction::SetSelectionOffsets => false,
-        BuiltinFunction::HasSelection => false,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => false,
+        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => false,
         BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
         BuiltinFunction::StringIsEmpty
         | BuiltinFunction::StringCharacterCount

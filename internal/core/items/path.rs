@@ -228,25 +228,3 @@ impl ItemConsts for Path {
 
 #[derive(Default)]
 struct FittedPathInner(RefCell<Option<FittedPath>>);
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_point_at(
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    t: f32,
-) -> crate::lengths::LogicalPoint {
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().point_at(&self_rc, t)
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_angle_at(
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    t: f32,
-) -> f32 {
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.downcast::<Path>().unwrap().as_pin_ref().angle_at(&self_rc, t)
-}

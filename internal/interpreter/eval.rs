@@ -19,6 +19,7 @@ use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
+use i_slint_core::item_tree::ItemRc;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
@@ -832,7 +833,6 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
             invoke_function(ctx, function, args)
         }
-        Expression::ItemMemberFunctionCall { function } => call_item_member_function(ctx, function),
         Expression::ExtraBuiltinFunctionCall { function, arguments, .. } => {
             crate::eval_layout::call_extra_builtin(ctx, function, arguments)
         }
@@ -1974,30 +1974,50 @@ fn eval_translation_reference(
 }
 
 macro_rules! call_runtime_function {
-    ($context:ident, $args:ident, ($($params:tt)*)) => { None };
-    ($context:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) $body:block) => {{
+    ($context:ident, $item:ident, $args:ident, ($($params:tt)*)) => { None };
+    ($context:ident, $item:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) $body:block) => {{
         $(let Some($ctx) = $context else { return Some(Value::Void) };)?
-        $(let $param = $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default();)*
+        $(let $param = runtime_function_argument!($item, $args, ($ty $(<$gen>)?) $($as)?);)*
         Some(Value::from(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*)))
     }};
+}
+
+macro_rules! runtime_function_argument {
+    ($item:ident, $args:ident, (ItemRc) ElementReference) => {
+        $item?.clone()
+    };
+    ($item:ident, $args:ident, (ItemArg<$native:ident>) ElementReference) => {
+        i_slint_core::builtin_functions::ItemArg {
+            item: i_slint_core::items::ItemRef::downcast_pin::<i_slint_core::items::$native>(
+                $item?.borrow(),
+            )?,
+            rc: $item?.clone(),
+        }
+    };
+    ($item:ident, $args:ident, ($($ty:tt)*) $($as:tt)?) => {
+        $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default()
+    };
 }
 
 macro_rules! declare_call_runtime_builtin_function {
     ($(
         $(#[$attr:meta])*
-        $Name:ident $(($Payload:ident))? :
+        $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
             $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
     )*) => {
         /// Calls the function that implements `f`, if it has one, with the arguments converted
         /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
+        /// `item` is the first argument if it's an `ElementReference`, and isn't in `args` then.
+        /// Without it, the ones that need it return `None`.
         pub fn call_runtime_builtin_function(
             f: &BuiltinFunction,
             context: Option<&SlintContext>,
+            item: Option<&ItemRc>,
             mut args: impl Iterator<Item = Value>,
         ) -> Option<Value> {
             match f {
                 $(BuiltinFunction::$Name { .. } => {
-                    call_runtime_function!(context, args, $($name)? ($($params)*) $($body)?)
+                    call_runtime_function!(context, item, args, $($name)? ($($params)*) $($body)?)
                 })*
             }
         }
@@ -2018,8 +2038,19 @@ fn call_builtin_function(
     match f {
         i_slint_compiler::runtime_builtin_function!() => {
             let context = f.runtime_function_takes_context().then(|| component_context(ctx));
+            let (element, arguments) = llr::split_element_argument(&f, arguments);
+            let item = match element {
+                Some(element) => {
+                    // The item's component may be gone
+                    let Some((instance, index)) = resolve_item_rc_from_ref(ctx, element) else {
+                        return default_value_for_type(&f.ty().return_type);
+                    };
+                    Some(ItemRc::new(vtable::VRc::into_dyn(instance), index as u32))
+                }
+                None => None,
+            };
             let args = arguments.iter().map(|a| eval_expression(ctx, a));
-            call_runtime_builtin_function(&f, context.as_ref(), args).unwrap()
+            call_runtime_builtin_function(&f, context.as_ref(), item.as_ref(), args).unwrap()
         }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
@@ -2200,43 +2231,6 @@ fn call_builtin_function(
             }
             Value::Void
         }
-        BuiltinFunction::SetSelectionOffsets => {
-            // (item_ref, anchor, focus) -> applied to a TextInput.
-            use i_slint_core::items::TextInput;
-            let [Expression::PropertyReference(mr), anchor_expr, focus_expr] = arguments else {
-                return Value::Void;
-            };
-            let anchor: i32 = eval_expression(ctx, anchor_expr).try_into().unwrap_or(0);
-            let focus: i32 = eval_expression(ctx, focus_expr).try_into().unwrap_or(0);
-            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
-                return Value::Void;
-            };
-            let Some(adapter) = parent_inst.window_adapter_or_default() else {
-                return Value::Void;
-            };
-            let parent_dyn = vtable::VRc::into_dyn(parent_inst);
-            let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
-            if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow()) {
-                text_input.set_selection_offsets(&adapter, &item_rc, anchor, focus);
-            }
-            Value::Void
-        }
-        BuiltinFunction::HasSelection => {
-            use i_slint_core::items::TextInput;
-            let [Expression::PropertyReference(mr)] = arguments else {
-                return Value::Bool(false);
-            };
-            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
-                return Value::Bool(false);
-            };
-            let item_rc = i_slint_core::items::ItemRc::new(
-                vtable::VRc::into_dyn(parent_inst),
-                flat_idx as u32,
-            );
-            let has_selection = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow())
-                .is_some_and(|text_input| text_input.has_selection());
-            Value::Bool(has_selection)
-        }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)
@@ -2257,68 +2251,6 @@ fn call_builtin_function(
             Value::Void
         }
         BuiltinFunction::SetupMenuBar => crate::popup::setup_menubar(ctx, arguments),
-        BuiltinFunction::ItemFontMetrics => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-                && let Some(adapter) = inst.window_adapter_or_default()
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let metrics = i_slint_core::items::slint_text_item_fontmetrics(
-                    &adapter,
-                    item_rc.borrow(),
-                    &item_rc,
-                );
-                return metrics.into();
-            }
-            i_slint_core::items::FontMetrics::default().into()
-        }
-        BuiltinFunction::ItemAbsolutePosition => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                // Map the item's own geometry origin through the ancestor transforms so the
-                // result is the item's absolute position (not its parent's). The lowering no
-                // longer adds the element's x/y on top (see the ItemAbsolutePosition change).
-                return item_rc.map_to_window(item_rc.geometry().origin).to_untyped().into();
-            }
-            i_slint_core::api::LogicalPosition::default().into()
-        }
-        BuiltinFunction::PathPointAt => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let t: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-                return item_rc
-                    .downcast::<i_slint_core::items::Path>()
-                    .unwrap()
-                    .as_pin_ref()
-                    .point_at(&item_rc, t)
-                    .to_untyped()
-                    .into();
-            }
-            panic!("internal error: argument to PathPointAt must be an element")
-        }
-        BuiltinFunction::PathAngleAt => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let t: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-                return item_rc
-                    .downcast::<i_slint_core::items::Path>()
-                    .unwrap()
-                    .as_pin_ref()
-                    .angle_at(&item_rc, t)
-                    .into();
-            }
-            panic!("internal error: argument to PathAngleAt must be an element")
-        }
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => {
             let is_all = matches!(f, BuiltinFunction::ArrayAll);
             let model: i_slint_core::model::ModelRc<Value> =
@@ -2553,76 +2485,4 @@ pub(crate) fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext
         None => i_slint_core::SlintContext::current()
             .expect("a component is being evaluated, so there is a current context"),
     }
-}
-
-/// Dispatch an `Expression::ItemMemberFunctionCall` (like
-/// `TextInput.select-all()`) to the matching native item method by
-/// downcasting the runtime `ItemRc` to its concrete item type.
-fn call_item_member_function(ctx: &EvalContext, function: &MemberReference) -> Value {
-    use i_slint_core::items::{ContextMenu, SwipeGestureHandler, TextInput, WindowItem};
-    let MemberReference::Relative { local_reference, .. } = function else {
-        return Value::Void;
-    };
-    let LocalMemberIndex::Native { prop_name, .. } = &local_reference.reference else {
-        return Value::Void;
-    };
-    let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, function) else {
-        return Value::Void;
-    };
-    let Some(adapter) = parent_inst.window_adapter_or_default() else { return Value::Void };
-    let parent_dyn = vtable::VRc::into_dyn(parent_inst);
-    let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
-    let item_ref = item_rc.borrow();
-
-    // Map a Slint-side member-function name to the matching Rust method on
-    // a downcast item type.
-    macro_rules! dispatch {
-        ($item:expr, $name:expr; $($slint_name:literal => $rust_method:ident $(=> $into:ty)?),* $(,)?) => {
-            match $name {
-                $(
-                    $slint_name => {
-                        let res = $item.$rust_method(&adapter, &item_rc);
-                        $(let res: $into = res.into();)?
-                        return res.into();
-                    }
-                )*
-                _ => {}
-            }
-        };
-    }
-
-    if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_ref) {
-        dispatch!(text_input, prop_name.as_str();
-            "select-all" => select_all => (),
-            "clear-selection" => clear_selection => (),
-            "select-word" => select_word => (),
-            "cut" => cut => (),
-            "copy" => copy => (),
-            "paste" => paste => (),
-            "undo" => undo => (),
-            "redo" => redo => (),
-        );
-    }
-    if let Some(swipe) = vtable::VRef::downcast_pin::<SwipeGestureHandler>(item_rc.borrow()) {
-        dispatch!(swipe, prop_name.as_str();
-            "cancel" => cancel => (),
-        );
-    }
-    if let Some(menu) = vtable::VRef::downcast_pin::<ContextMenu>(item_rc.borrow()) {
-        dispatch!(menu, prop_name.as_str();
-            "close" => close => (),
-            "is-open" => is_open,
-        );
-    }
-    if let Some(window) = vtable::VRef::downcast_pin::<WindowItem>(item_rc.borrow()) {
-        match prop_name.as_str() {
-            "hide" => {
-                window.hide(&adapter, &item_rc);
-                return Value::Void;
-            }
-            "close" => return Value::Bool(window.close(&adapter, &item_rc)),
-            _ => {}
-        }
-    }
-    unimplemented!("ItemMemberFunctionCall `{prop_name}`")
 }

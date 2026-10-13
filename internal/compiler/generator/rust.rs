@@ -3518,8 +3518,7 @@ fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
 }
 
 /// Tokens for the native item `pr` is about, relative to the component instance holding it (see
-/// [`item_owner`]): the member `pr` designates — the item itself or one of its functions — and the
-/// item's `ItemRc`.
+/// [`item_owner`]): the item and its `ItemRc`.
 ///
 /// Taking the owner as a parameter is what lets a caller that needs both get them out of a single
 /// walk of the parent chain.
@@ -3531,8 +3530,7 @@ fn native_item_from_owner(
     let llr::MemberReference::Relative { parent_level, local_reference } = pr else {
         unreachable!()
     };
-    let llr::LocalMemberIndex::Native { item_index, prop_name, .. } = &local_reference.reference
-    else {
+    let llr::LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         unreachable!()
     };
     let root = ctx.parent_sub_component_idx(*parent_level).unwrap();
@@ -3541,12 +3539,7 @@ fn native_item_from_owner(
     let component_id = inner_component_id(sub_component);
     let item_name = ident(&sub_component.items[*item_index].name);
     let item_field = access_component_field_offset(&component_id, &item_name);
-    let mut member = quote!((#compo_path #item_field).apply_pin(#owner));
-    if !prop_name.is_empty() {
-        // a builtin member function of the item, like `TextInput::select-all`
-        let property_name = ident(prop_name);
-        member = quote!(#member.#property_name);
-    }
+    let member = quote!((#compo_path #item_field).apply_pin(#owner));
 
     let (suffix, _) = follow_sub_component_path_fields(
         ctx.compilation_unit,
@@ -3583,7 +3576,6 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::BuiltinFunctionCall { .. }
             | Expression::CallBackCall { .. }
             | Expression::FunctionCall { .. }
-            | Expression::ItemMemberFunctionCall { .. }
             | Expression::ExtraBuiltinFunctionCall { .. }
             | Expression::BinaryExpression { .. }
             | Expression::UnaryOp { .. }
@@ -3683,7 +3675,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::CallBackCall { .. } => compile_callback_call(expr, ctx),
         Expression::FunctionCall { .. } => compile_function_call(expr, ctx),
-        Expression::ItemMemberFunctionCall { .. } => compile_item_member_function_call(expr, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => {
             compile_extra_builtin_function_call(expr, ctx)
         }
@@ -4080,16 +4071,6 @@ fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
     } else {
         f.map_or_default(|f| quote!(#f( #(#a as _),*)))
     }
-}
-
-#[inline(never)]
-fn compile_item_member_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::ItemMemberFunctionCall { function } = expr else { unreachable!() };
-    let window_adapter_tokens = access_window_adapter_field(ctx);
-    item_owner(function).map_or_default(|owner| {
-        let (fun, item_rc) = native_item_from_owner(function, ctx, &owner);
-        quote!(#fun(#window_adapter_tokens, &#item_rc))
-    })
 }
 
 /// Compile builtin-call arguments: structs are passed by reference.
@@ -4583,12 +4564,25 @@ fn compile_builtin_function_call(
                 let context = access_context(ctx);
                 quote!(&#context)
             });
-            let args = arguments.iter().zip(ty.args.iter()).map(|(a, ty)| {
+            let (item, arguments) = llr::split_element_argument(&function, arguments);
+            let arg_types = &ty.args[usize::from(item.is_some())..];
+            let args = arguments.iter().zip(arg_types).map(|(a, ty)| {
                 let a = compile_expression_to_value(a, ctx);
                 if ty.as_unit_product().is_some() { quote!((#a) as _) } else { a }
             });
-            let args = context.into_iter().chain(args);
-            quote!(sp::builtin_functions::#name(#(#args),*))
+            let call = |item| {
+                let args = context.into_iter().chain(item).chain(args);
+                quote!(sp::builtin_functions::#name(#(#args),*))
+            };
+            match item {
+                None => call(None),
+                Some(pr) => item_owner(pr).map_or_default(|owner| {
+                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
+                    call(Some(quote!(
+                        sp::builtin_functions::ItemArg { item: #item, rc: #item_rc }.into()
+                    )))
+                }),
+            }
         }
         BuiltinFunction::SetFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
@@ -4936,45 +4930,6 @@ fn compile_builtin_function_call(
                 }
             })
         }
-        BuiltinFunction::SetSelectionOffsets => {
-            if let [llr::Expression::PropertyReference(pr), anchor_expr, focus_expr] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                let anchor = compile_expression(anchor_expr, ctx);
-                let focus = compile_expression(focus_expr, ctx);
-
-                item_owner(pr).then(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        #item.set_selection_offsets(#window_adapter_tokens, &#item_rc, #anchor as i32, #focus as i32)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
-            }
-        }
-        BuiltinFunction::HasSelection => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, _) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(#item.has_selection())
-                })
-            } else {
-                panic!("internal error: invalid args to has-selection {arguments:?}")
-            }
-        }
-        BuiltinFunction::ItemFontMetrics => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                let window_adapter_tokens = access_window_adapter_field(ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        #item.font_metrics(#window_adapter_tokens, &#item_rc)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ItemMemberFunction {arguments:?}")
-            }
-        }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -5250,19 +5205,6 @@ fn compile_builtin_function_call(
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
         }
-        BuiltinFunction::ItemAbsolutePosition => {
-            if let [Expression::PropertyReference(pr)] = arguments {
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        sp::logical_position_to_api(item_rc.map_to_window(item_rc.geometry().origin))
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
-            }
-        }
         BuiltinFunction::UpdateTimers => {
             quote!(_self.update_timers())
         }
@@ -5283,44 +5225,6 @@ fn compile_builtin_function_call(
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
             quote!(sp::parse_markdown(&#format_string, &#args))
-        }
-        BuiltinFunction::PathPointAt => {
-            if let [Expression::PropertyReference(pr), t] = arguments {
-                let t = compile_expression(t, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        sp::logical_position_to_api(
-                            item_rc
-                                .downcast::<sp::Path>()
-                                .unwrap()
-                                .as_pin_ref()
-                                .point_at(&item_rc, #t as f32),
-                        )
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to PathPointAt {arguments:?}")
-            }
-        }
-        BuiltinFunction::PathAngleAt => {
-            if let [Expression::PropertyReference(pr), t] = arguments {
-                let t = compile_expression(t, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!({
-                        let item_rc = #item_rc;
-                        item_rc
-                            .downcast::<sp::Path>()
-                            .unwrap()
-                            .as_pin_ref()
-                            .angle_at(&item_rc, #t as f32)
-                    })
-                })
-            } else {
-                panic!("internal error: invalid args to PathAngleAt {arguments:?}")
-            }
         }
         BuiltinFunction::ArrayAny => {
             let model = a.next().unwrap();

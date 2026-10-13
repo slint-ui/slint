@@ -277,7 +277,10 @@ impl LoweredSubComponentMapping {
                     .property_type
                 {
                     Type::Callback(..) => super::NativeMemberKind::Callback,
-                    Type::Function(..) => super::NativeMemberKind::Function,
+                    Type::Function(..) => panic!(
+                        "internal error: a builtin function implements {}, not a reference",
+                        from.name()
+                    ),
                     _ => super::NativeMemberKind::Property,
                 };
                 MemberReference::Relative {

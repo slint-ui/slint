@@ -17,15 +17,19 @@
 ///   `[T]` is an array, and `()` is no value.
 /// - `RustType => SlintType` when the Slint type isn't the one of the Rust type,
 ///   such as `f32 => Angle`.
-/// - Optionally, a name and a body that implement the builtin,
-///   when its result only depends on its arguments.
+/// - Optionally, a name and a body that implement the builtin.
 ///   The body is compiled in `i_slint_core::builtin_functions`.
 ///   A first parameter `&context` gives it the component's `SlintContext`.
+///   A parameter `name: ItemArg<Item> => ElementReference`, where `Item` is the type of the
+///   element's native item, gives it the item and its `ItemRc`.
+///   `name: ItemRc => ElementReference` gives it the `ItemRc` of an element of any type.
+///   Attributes after the colon, such as `#[cfg(feature = "path")]`, only apply to that function.
 ///
 /// ```text
 /// Round: pure fn round(x: f32) -> i32 { x.round() as i32 }
 /// ToFixed: pure fn to_fixed(&context, n: f64, digits: i32) -> SharedString { … }
 /// ShowPopupWindow: impure fn(popup: ElementReference) -> ()
+/// HasSelection: pure fn has_selection(text_input: ItemArg<TextInput> => ElementReference) -> bool { … }
 /// ```
 // The `runtime` functions refer to `i_slint_core` with `crate`
 #[allow(clippy::crate_in_macro_def)]
@@ -77,9 +81,36 @@ macro_rules! for_each_builtin_function {
             /// Arguments are `(parent, entries, position)`
             /// The entries argument is an array of MenuEntry
             ShowPopupMenuInternal: impure fn(parent: ElementReference, entries: Model, position: LogicalPosition) -> ()
-            SetSelectionOffsets: impure fn(text_input: ElementReference, anchor: i32, focus: i32) -> ()
-            HasSelection: pure fn(text_input: ElementReference) -> bool
-            ItemFontMetrics: pure fn(element: ElementReference) -> FontMetrics
+            SetSelectionOffsets: impure fn set_selection_offsets(text_input: ItemArg<TextInput> => ElementReference, anchor: i32, focus: i32) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.set_selection_offsets(w, &text_input.rc, anchor, focus))
+            }
+            TextInputSelectAll: impure fn text_input_select_all(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.select_all(w, &text_input.rc))
+            }
+            TextInputClearSelection: impure fn text_input_clear_selection(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.clear_selection(w, &text_input.rc))
+            }
+            TextInputCut: impure fn text_input_cut(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.cut(w, &text_input.rc))
+            }
+            TextInputCopy: impure fn text_input_copy(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.copy(w, &text_input.rc))
+            }
+            TextInputPaste: impure fn text_input_paste(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.paste(w, &text_input.rc))
+            }
+            TextInputUndo: impure fn text_input_undo(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.undo(w, &text_input.rc))
+            }
+            TextInputRedo: impure fn text_input_redo(text_input: ItemArg<TextInput> => ElementReference) -> () {
+                with_window_adapter(&text_input.rc, |w| text_input.item.redo(w, &text_input.rc))
+            }
+            HasSelection: pure fn has_selection(text_input: ItemArg<TextInput> => ElementReference) -> bool {
+                text_input.item.has_selection()
+            }
+            ItemFontMetrics: pure fn item_font_metrics(element: ItemRc => ElementReference) -> FontMetrics {
+                with_window_adapter(&element, |w| crate::items::text_item_font_metrics(w, &element))
+            }
             /// the "42".to_float()
             StringToFloat: pure fn string_to_float(&context, s: SharedString) -> f32 {
                 context.parse_number(&s).unwrap_or_default()
@@ -159,7 +190,24 @@ macro_rules! for_each_builtin_function {
             SetTextInputFocused: impure fn(focused: bool) -> ()
             #[strum(disabled)]
             ImplicitLayoutInfo(Orientation): pure fn(element: ElementReference, constraint: f32) -> LayoutInfo
-            ItemAbsolutePosition: pure fn(element: ElementReference) -> LogicalPosition
+            SwipeGestureHandlerCancel: impure fn swipe_gesture_handler_cancel(handler: ItemArg<SwipeGestureHandler> => ElementReference) -> () {
+                with_window_adapter(&handler.rc, |w| handler.item.cancel(w, &handler.rc))
+            }
+            ContextMenuClose: impure fn context_menu_close(menu: ItemArg<ContextMenu> => ElementReference) -> () {
+                with_window_adapter(&menu.rc, |w| menu.item.close(w, &menu.rc))
+            }
+            ContextMenuIsOpen: pure fn context_menu_is_open(menu: ItemArg<ContextMenu> => ElementReference) -> bool {
+                with_window_adapter(&menu.rc, |w| menu.item.is_open(w, &menu.rc))
+            }
+            WindowClose: impure fn window_close(window: ItemArg<WindowItem> => ElementReference) -> bool {
+                with_window_adapter(&window.rc, |w| window.item.close(w, &window.rc))
+            }
+            WindowHide: impure fn window_hide(window: ItemArg<WindowItem> => ElementReference) -> () {
+                with_window_adapter(&window.rc, |w| window.item.hide(w, &window.rc))
+            }
+            ItemAbsolutePosition: pure fn item_absolute_position(element: ItemRc => ElementReference) -> LogicalPosition {
+                logical_position_to_api(element.map_to_window(element.geometry().origin))
+            }
             RegisterCustomFontByPath: impure fn(path: SharedString) -> ()
             RegisterCustomFontByMemory: impure fn(resource: i32) -> ()
             RegisterBitmapFont: impure fn(resource: i32) -> ()
@@ -181,8 +229,12 @@ macro_rules! for_each_builtin_function {
             /// The window title when the application doesn't set one, see
             /// `i_slint_core::window::default_window_title`
             DefaultWindowTitle: pure fn default_window_title() -> SharedString { crate::window::default_window_title() }
-            PathPointAt: pure fn(path: ElementReference, t: f32) -> LogicalPosition
-            PathAngleAt: pure fn(path: ElementReference, t: f32) -> f32 => Angle
+            PathPointAt: #[cfg(feature = "path")] pure fn path_point_at(path: ItemArg<Path> => ElementReference, t: f32) -> LogicalPosition {
+                logical_position_to_api(path.item.point_at(&path.rc, t))
+            }
+            PathAngleAt: #[cfg(feature = "path")] pure fn path_angle_at(path: ItemArg<Path> => ElementReference, t: f32) -> f32 => Angle {
+                path.item.angle_at(&path.rc, t)
+            }
         }
     };
 }
