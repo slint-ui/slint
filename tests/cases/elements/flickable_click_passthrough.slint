@@ -170,6 +170,6 @@ let instance = TestCaseWrappedMoved::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 50.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(60.0, 50.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_counter(), 0);
+assert_eq!(instance.get_counter(), 1, "The flickable didn't take it so the TouchArea can");
 ```
 */
