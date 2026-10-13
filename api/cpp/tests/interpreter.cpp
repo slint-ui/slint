@@ -4,9 +4,15 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
+#include <filesystem>
+#include <fstream>
+
 #include <slint.h>
 #include <slint-interpreter.h>
 #include <private/slint_tests_helpers.h>
+
+#include <algorithm>
+#include <string_view>
 
 SCENARIO("Value API")
 {
@@ -196,6 +202,19 @@ SCENARIO("Struct API")
                     { "field-b", slint::SharedString("World") } });
 }
 
+SCENARIO("Struct field name with invalid UTF-8")
+{
+    using namespace slint::interpreter;
+    Struct struc;
+
+    struc.set_field("a\xff", Value(42.));
+    REQUIRE(struc.get_field("a\xff").has_value());
+    REQUIRE(struc.get_field(slint::SharedString(u8"a\uFFFD")).has_value());
+    for (auto [k, value] : struc) {
+        REQUIRE(slint::SharedString(k) == u8"a\uFFFD");
+    }
+}
+
 SCENARIO("Struct Iterator Constructor")
 {
     using namespace slint::interpreter;
@@ -303,6 +322,46 @@ SCENARIO("Component Compiler")
         REQUIRE(result.has_value());
     }
 
+    SECTION("invalid UTF-8")
+    {
+        compiler.set_style("\xff");
+        REQUIRE(compiler.style() == u8"\uFFFD");
+        compiler.set_translation_domain("\xff");
+
+        auto require_error = [&](auto result, const slint::SharedString &message,
+                                 const slint::SharedString &file) {
+            REQUIRE_FALSE(result.has_value());
+            auto diags = compiler.diagnostics();
+            REQUIRE(diags.size() == 1);
+            REQUIRE(diags[0].message == message);
+            REQUIRE(diags[0].source_file == file);
+        };
+        require_error(compiler.build_from_source("export component Dummy {}\xff", "a.slint"),
+                      "The source code must be valid UTF-8", "a.slint");
+        require_error(compiler.build_from_source("export component Dummy {}", "\xff.slint"),
+                      "The path must be valid UTF-8", u8"\uFFFD.slint");
+        require_error(compiler.build_from_path("\xff.slint"), "The path must be valid UTF-8",
+                      u8"\uFFFD.slint");
+    }
+
+    SECTION("Compile from std::filesystem::path")
+    {
+        auto result = compiler.build_from_path(std::filesystem::path(SOURCE_DIR "/test.slint"));
+        REQUIRE(result.has_value());
+    }
+
+// Windows paths are UTF-16, and macOS file systems reject file names that aren't UTF-8.
+#if !defined(_WIN32) && !defined(__APPLE__)
+    SECTION("Compile from a path that isn't UTF-8")
+    {
+        auto path = std::filesystem::temp_directory_path() / "slint-interpreter-test-\xff.slint";
+        std::ofstream(path) << "export component Dummy {}";
+        auto result = compiler.build_from_path(path);
+        std::filesystem::remove(path);
+        REQUIRE(result.has_value());
+    }
+#endif
+
     SECTION("Compile failure from path")
     {
         auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.slint");
@@ -318,6 +377,26 @@ SCENARIO("Component Compiler")
     SECTION("Compile from path")
     {
         auto result = compiler.build_from_path(SOURCE_DIR "/test.slint");
+        REQUIRE(result.has_value());
+    }
+
+    SECTION("The project file provides the style")
+    {
+        // A style name the compiler rejects shows which style it actually used.
+        auto result = compiler.build_from_path(SOURCE_DIR "/project-file-interpreter/main.slint");
+        REQUIRE_FALSE(result.has_value());
+
+        auto diags = compiler.diagnostics();
+        REQUIRE(std::any_of(diags.begin(), diags.end(), [](const auto &diagnostic) {
+            return std::string_view(diagnostic.message).find("no-such-style")
+                    != std::string_view::npos;
+        }));
+    }
+
+    SECTION("An explicit style wins over the project file")
+    {
+        compiler.set_style("fluent");
+        auto result = compiler.build_from_path(SOURCE_DIR "/project-file-interpreter/main.slint");
         REQUIRE(result.has_value());
     }
 }
@@ -617,6 +696,30 @@ SCENARIO("Global properties")
                                                [](auto) { return Value {}; }));
         REQUIRE(!instance->invoke_global("TheGlobal", "touppercase", {}));
         REQUIRE(!instance->invoke_global("The-Global", "touppercase", {}));
+    }
+    SECTION("invalid UTF-8 names")
+    {
+        REQUIRE(!component_definition.global_properties("The-Global\xff").has_value());
+        REQUIRE(!component_definition.global_callbacks("The-Global\xff").has_value());
+        REQUIRE(!component_definition.global_functions("The-Global\xff").has_value());
+
+        REQUIRE(!instance->get_property("result\xff").has_value());
+        REQUIRE(!instance->set_property("result\xff", SharedString("x")));
+        REQUIRE(!instance->invoke("result\xff", {}).has_value());
+        REQUIRE(!instance->set_callback("result\xff", [](auto) { return Value {}; }));
+
+        REQUIRE(!instance->get_global_property("The-Global\xff", "the-property").has_value());
+        REQUIRE(!instance->get_global_property("The-Global", "the-property\xff").has_value());
+        REQUIRE(!instance->set_global_property("The-Global\xff", "the-property",
+                                               SharedString("x")));
+        REQUIRE(!instance->set_global_property("The-Global", "the-property\xff",
+                                               SharedString("x")));
+        REQUIRE(!instance->set_global_callback("The-Global\xff", "to_uppercase",
+                                               [](auto) { return Value {}; }));
+        REQUIRE(!instance->set_global_callback("The-Global", "to_uppercase\xff",
+                                               [](auto) { return Value {}; }));
+        REQUIRE(!instance->invoke_global("The-Global\xff", "ff", {}).has_value());
+        REQUIRE(!instance->invoke_global("The-Global", "ff\xff", {}).has_value());
     }
     SECTION("invoke function")
     {

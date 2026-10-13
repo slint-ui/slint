@@ -3,6 +3,9 @@
 
 use std::sync::LazyLock;
 
+#[cfg(feature = "fork-harness")]
+pub mod fork_harness;
+
 use regex::Regex;
 
 pub struct TestCase {
@@ -33,15 +36,29 @@ impl TestCase {
     }
 }
 
+const STYLES: [&str; 5] = ["fluent", "material", "cupertino", "cosmic", "qt"];
+
 /// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
 pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     let mut results = Vec::new();
 
-    let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
-
     println!("cargo:rerun-if-env-changed=DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE");
-    if std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1" {
-        all_styles.push("qt");
+    let qt_supported =
+        std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1";
+    let mut all_styles: Vec<&str> =
+        STYLES.into_iter().filter(|style| *style != "qt" || qt_supported).collect();
+
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_STYLES");
+    if let Ok(styles) = std::env::var("SLINT_TEST_STYLES")
+        && !styles.is_empty()
+    {
+        let requested: Vec<&str> = styles.split(',').map(str::trim).collect();
+        // The same list applies to every driver, and some can't use qt even where Qt is
+        // installed, so only reject names that aren't styles at all.
+        if let Some(unknown) = requested.iter().find(|style| !STYLES.contains(style)) {
+            panic!("Unknown style '{unknown}' in SLINT_TEST_STYLES, expected some of {STYLES:?}");
+        }
+        all_styles.retain(|style| requested.contains(style));
     }
 
     let case_root_dir: std::path::PathBuf =

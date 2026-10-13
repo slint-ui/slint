@@ -7,9 +7,6 @@ use lsp_types::Url;
 
 use super::{PairingRejection, PreviewComponent, Result, SourceFileVersion};
 
-#[cfg(target_arch = "wasm32")]
-use super::wasm_prelude::*;
-
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
 /// they aren't a target of their own.
@@ -79,8 +76,14 @@ pub enum PreviewToLspMessage {
     /// The client offered no usable token, so the viewer is now showing a
     /// pairing code and waiting for the user to type it. `element` starts
     /// the SPAKE2 exchange the code is established through; a fresh one is
-    /// sent for every attempt.
-    PairingRequired { attempts_left: u8, expires_in_seconds: u16, element: super::pairing::Element },
+    /// sent for every attempt. `code_digits` is the length of the code, which
+    /// may be longer than [`super::pairing::CODE_DIGITS`] if it's pinned.
+    PairingRequired {
+        attempts_left: u8,
+        expires_in_seconds: u16,
+        code_digits: u8,
+        element: super::pairing::Element,
+    },
     /// The client announced a token this viewer issued, so the viewer opens
     /// the reconnect exchange, with the token as the secret and nobody on
     /// the screen. Answered like a code prompt, by
@@ -98,6 +101,8 @@ pub enum PreviewToLspMessage {
     PairingRejected { reason: PairingRejection },
     /// The preview exited.
     Exited,
+    /// Clear the highlight in the visual editor run preview.
+    ClearHighlight,
 }
 
 /// One transport from a preview back to the LSP.
@@ -118,17 +123,10 @@ pub trait PreviewToLsp {
     /// Ask the editor to show some document
     fn ask_editor_to_show_document(
         &self,
-        file: &str,
+        file: lsp_types::Url,
         selection: lsp_types::Range,
         take_focus: bool,
     ) -> Result<()> {
-        let file = match lsp_types::Url::from_file_path(file) {
-            Ok(file) => file,
-            Err(()) => {
-                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
-                return Err("Failed to convert file path to URL".to_string().into());
-            }
-        };
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }

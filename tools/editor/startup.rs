@@ -35,14 +35,11 @@ pub fn setup(
     editor_ui: &EditorUi,
     settings: &VisualEditorSettings,
     start_project: Rc<dyn Fn(Project) -> bool>,
+    close_project: Rc<dyn Fn()>,
 ) {
-    let api = editor_ui.global::<Api>();
-    api.set_startup_wizard_visible(true);
+    show_startup_wizard(editor_ui, settings);
 
     let project = editor_ui.global::<ProjectGlobal>();
-    project.set_file_tree(Default::default());
-    project.set_selected_project_file(Default::default());
-    preview::apply_visible_recent_projects(editor_ui, settings);
 
     let editor_ui_weak = editor_ui.as_weak();
     let start_existing_project = start_project.clone();
@@ -86,7 +83,6 @@ pub fn setup(
     });
 
     let editor_ui_weak = editor_ui.as_weak();
-    let settings = settings.clone();
     project.on_open_recent_project(move |recent_project| {
         let root = PathBuf::from(recent_project.root_path.as_str());
         let path = PathBuf::from(recent_project.path.as_str());
@@ -97,32 +93,64 @@ pub fn setup(
             Err(error) => {
                 tracing::warn!("Failed to open recent project: {error}");
                 if let Some(editor_ui) = editor_ui_weak.upgrade() {
+                    let settings = preview::session_settings().unwrap_or_else(load_settings);
                     preview::apply_visible_recent_projects(&editor_ui, &settings);
                 }
                 false
             }
         }
     });
+
+    let editor_ui_weak = editor_ui.as_weak();
+    project.on_close_project(move || {
+        close_project();
+        if let Some(editor_ui) = editor_ui_weak.upgrade() {
+            let settings = preview::session_settings().unwrap_or_else(load_settings);
+            show_startup_wizard(&editor_ui, &settings);
+        }
+    });
+
+    let editor_ui_weak = editor_ui.as_weak();
+    project.on_clear_recent_projects(move || {
+        if preview::clear_recent_projects() {
+            return;
+        }
+        let mut settings = load_settings();
+        if settings.clear_recent_projects()
+            && let Err(error) = i_slint_editor_preview::settings_store::save(
+                TOOL_NAME,
+                SETTINGS_FILE,
+                &settings.serialize(),
+            )
+        {
+            tracing::warn!("Failed to save visual editor settings: {error}");
+        }
+        if let Some(editor_ui) = editor_ui_weak.upgrade() {
+            preview::apply_visible_recent_projects(&editor_ui, &settings);
+        }
+    });
+}
+
+fn show_startup_wizard(editor_ui: &EditorUi, settings: &VisualEditorSettings) {
+    editor_ui.global::<Api>().set_startup_wizard_visible(true);
+
+    let project = editor_ui.global::<ProjectGlobal>();
+    project.set_file_tree(Default::default());
+    project.set_selected_project_file(Default::default());
+    preview::apply_visible_recent_projects(editor_ui, settings);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    let dialog =
-        rfd::FileDialog::new().set_title("Open Slint File").add_filter("Slint files", &["slint"]);
-    with_parent(dialog, window).pick_file()
+    crate::file_dialog::create(window)
+        .set_title(tr::tr!("Open Slint File"))
+        .add_filter(tr::tr!("Slint files"), &["slint"])
+        .pick_file()
 }
 
 #[cfg(target_arch = "wasm32")]
 fn choose_project_file(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn with_parent(dialog: rfd::FileDialog, window: Option<slint::WindowHandle>) -> rfd::FileDialog {
-    match window {
-        Some(window) => dialog.set_parent(&window),
-        None => dialog,
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -148,11 +176,11 @@ fn choose_new_project_path(window: Option<slint::WindowHandle>) -> Option<PathBu
     let path = unique_new_project_path(&parent);
     let file_name = path.file_name()?.to_string_lossy();
 
-    let dialog = rfd::FileDialog::new()
-        .set_title("New Slint UI Project")
+    crate::file_dialog::create(window)
+        .set_title(tr::tr!("New Slint UI Project"))
         .set_directory(parent)
-        .set_file_name(file_name.as_ref());
-    with_parent(dialog, window).save_file()
+        .set_file_name(file_name.as_ref())
+        .save_file()
 }
 
 #[cfg(target_arch = "wasm32")]

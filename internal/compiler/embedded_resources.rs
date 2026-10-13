@@ -66,17 +66,10 @@ pub struct BitmapGlyphs {
 
 #[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
-pub struct CharacterMapEntry {
-    pub code_point: char,
-    pub glyph_index: u16,
-}
-
-#[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
 pub struct BitmapFont {
     pub family_name: String,
-    /// map of available glyphs, sorted by char
-    pub character_map: Vec<CharacterMapEntry>,
+    /// Sorted code points; each one's position is its glyph index.
+    pub character_map: Vec<char>,
     pub units_per_em: f32,
     pub ascent: f32,
     pub descent: f32,
@@ -111,8 +104,8 @@ pub enum EmbeddedResourcesKind {
 
 #[derive(Debug, Clone)]
 pub struct EmbeddedResources {
-    /// Path on disk of the resource, or `None` for in-memory payloads such as data URIs.
-    pub path: Option<smol_str::SmolStr>,
+    /// `None` for in-memory payloads such as data URIs.
+    pub path: Option<crate::source_path::SourcePath>,
 
     pub kind: EmbeddedResourcesKind,
 }

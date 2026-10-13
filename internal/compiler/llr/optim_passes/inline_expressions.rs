@@ -6,7 +6,8 @@
 //! If an expression does a single property access or less, it can be inlined
 //! in the calling expression
 
-use crate::expression_tree::{BuiltinFunction, ImageReference};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_types::ImageReference;
 use crate::langtype::Type;
 use crate::llr::{CompilationUnit, ContextMap, EvaluationContext, Expression};
 
@@ -84,6 +85,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         // The body cost is added by the visit() walk below; returning the body
         // cost here would double-count it.
         Expression::Closure { .. } => 0,
+        Expression::DashArray(_) => ALLOC_COST,
         // Don't inline: that could duplicate or relocate the hook.
         Expression::DebugHook { .. } => return isize::MAX,
     };
@@ -132,6 +134,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
         BuiltinFunction::SetSelectionOffsets => isize::MAX,
+        BuiltinFunction::HasSelection => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,

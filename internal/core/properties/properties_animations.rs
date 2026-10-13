@@ -50,7 +50,6 @@ where
             }
             AnimationState::Animating { current_iteration: _ } => {
                 if let Some(simulation) = self.simulation.upgrade() {
-                    // TODO: Pass in Coord directly?
                     let mut value: f32 = *target as f32;
                     let finished =
                         simulation.borrow_mut().step(&mut value, crate::animations::current_tick());

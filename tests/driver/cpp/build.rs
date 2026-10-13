@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// The root dir of the git repository
 fn root_dir() -> PathBuf {
@@ -20,22 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
     println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
 
-    // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    target_dir.pop();
-    target_dir.pop();
-    target_dir.pop();
-
-    println!("cargo:rustc-env=CPP_LIB_PATH={}/deps", target_dir.display());
-
-    let generated_include_dir = std::env::var_os("DEP_SLINT_CPP_GENERATED_INCLUDE_DIR")
-        .expect("the slint-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
-    println!(
-        "cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}",
-        Path::new(&generated_include_dir).display()
-    );
-    let root_dir = root_dir();
-    println!("cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/cpp/include", root_dir.display());
+    println!("cargo:rustc-env=PROFILE={}", std::env::var("PROFILE").unwrap());
+    println!("cargo:rustc-env=SLINT_CPP_DIR={}/api/cpp", root_dir().display());
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");

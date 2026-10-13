@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Springboard, SpringboardState } from "@springboard";
+
 export global Preview {
     in property <bool> can-run;
-    in property <bool> is-running;
+    out property <bool> is-running: Springboard.state != SpringboardState.Stopped;
     callback run();
 }

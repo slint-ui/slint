@@ -124,6 +124,7 @@ enum SingleElementMatch {
     MatchByTypeName(String),
     MatchByTypeNameOrBase(String),
     MatchByAccessibleRole(crate::AccessibleRole),
+    MatchByAccessibleLabel(String),
     MatchByPredicate(Box<dyn Fn(&ElementHandle) -> bool>),
 }
 
@@ -154,6 +155,9 @@ impl SingleElementMatch {
             }
             SingleElementMatch::MatchByAccessibleRole(role) => {
                 element.accessible_role() == Some(*role)
+            }
+            SingleElementMatch::MatchByAccessibleLabel(label) => {
+                element.accessible_label().is_some_and(|candidate_label| candidate_label == label)
             }
             SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
@@ -280,6 +284,14 @@ impl ElementQuery {
         self
     }
 
+    /// Include only elements in the results where [`ElementHandle::accessible_label()`] is equal to the provided `label`.
+    pub fn match_accessible_label(mut self, label: impl Into<String>) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByAccessibleLabel(label.into()),
+        ));
+        self
+    }
+
     pub fn match_predicate(mut self, predicate: impl Fn(&ElementHandle) -> bool + 'static) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
             SingleElementMatch::MatchByPredicate(Box::new(predicate)),
@@ -324,6 +336,21 @@ impl ElementQuery {
 pub struct ElementHandle {
     item: ItemWeak,
     element_index: usize, // When multiple elements get optimized into a single ItemRc, this index separates.
+}
+
+/// Overrides scrolling behavior for Slint's internal tests.
+/// Panics if the handle has expired or does not refer to a Flickable.
+#[cfg(feature = "internal")]
+pub fn set_flickable_physics(
+    element: &ElementHandle,
+    bounce: i_slint_core::items::AutoBool,
+    carry_momentum: i_slint_core::items::AutoBool,
+) {
+    use i_slint_core::items::Flickable;
+
+    let item = element.item.upgrade().expect("Flickable element has expired");
+    let flickable = item.downcast::<Flickable>().expect("Element is not a Flickable");
+    flickable.as_pin_ref().set_physics(bounce, carry_momentum);
 }
 
 impl ElementHandle {
@@ -427,15 +454,12 @@ impl ElementHandle {
         component: &impl ElementRoot,
         label: &str,
     ) -> impl Iterator<Item = Self> {
-        let label = label.to_string();
-        let results = component
+        component
             .root_element()
             .query_descendants()
-            .match_predicate(move |elem| {
-                elem.accessible_label().is_some_and(|candidate_label| candidate_label == label)
-            })
-            .find_all();
-        results.into_iter()
+            .match_accessible_label(label)
+            .find_all()
+            .into_iter()
     }
 
     /// This function searches through the entire tree of elements of this window and looks for
@@ -1009,10 +1033,9 @@ impl ElementHandle {
 
     /// Simulates a double click (or touch tap) on the element at its center point.
     pub async fn double_click(&self, button: PointerEventButton) {
-        let Ok(click_interval) = i_slint_core::with_global_context(
-            || Err(i_slint_core::platform::PlatformError::NoPlatform),
-            |ctx| ctx.platform().click_interval(),
-        ) else {
+        let Ok(click_interval) =
+            i_slint_core::with_existing_context(|ctx| ctx.platform().click_interval())
+        else {
             return;
         };
         let Some(duration_recognized_as_double_click) =
@@ -1306,6 +1329,9 @@ fn test_matches() {
             .unwrap_or_default(),
         "hello"
     );
+
+    assert_eq!(root.query_descendants().match_accessible_label("hello").find_all().len(), 1);
+    assert_eq!(root.query_descendants().match_accessible_label("hell").find_all().len(), 0);
 
     app.set_condition(true);
 

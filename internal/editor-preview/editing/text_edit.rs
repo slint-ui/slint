@@ -4,6 +4,8 @@
 use std::collections::HashMap;
 
 use i_slint_compiler::parser::{TextRange, TextSize};
+#[cfg(test)]
+use i_slint_compiler::source_path::SourcePath;
 
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
@@ -928,7 +930,7 @@ fn test_edit_iterator_document_mixed() {
 fn test_texteditor_no_content_in_source_file() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = SourceFileInner::from_path_only(std::path::PathBuf::from("/tmp/foo.slint"));
+    let source_file = SourceFileInner::from_path_only(SourcePath::new("/tmp/foo.slint"));
 
     assert!(TextEditor::new(source_file).is_err());
 }
@@ -938,7 +940,7 @@ fn test_texteditor_edit_out_of_range() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#""#.to_string(),
     ));
 
@@ -959,7 +961,7 @@ fn test_texteditor_delete_everything() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -989,7 +991,7 @@ fn test_texteditor_replace() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1024,7 +1026,7 @@ fn test_texteditor_2step_replace_all() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1091,7 +1093,7 @@ mod test_apply_reversed_edit {
 
     #[test]
     fn test_multi_line_edit() {
-        let url = lsp_types::Url::from_file_path(crate::test::main_test_file_name()).unwrap();
+        let url = crate::test::main_test_file_name().to_url().unwrap();
         let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
         let mut document_cache = crate::test::compile_test_with_sources("fluent", code, true);
 

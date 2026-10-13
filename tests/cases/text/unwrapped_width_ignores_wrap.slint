@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The preferred width is the width the text takes without wrapping, so the wrap mode
+// doesn't change it. `text_layout_info` relies on this to shape the text only once.
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 100px;
+
+    property <string> content: "Hello World this is a long text";
+
+    no-wrap-text := Text { text: root.content; wrap: no-wrap; }
+    word-wrap-text := Text { text: root.content; wrap: word-wrap; }
+    char-wrap-text := Text { text: root.content; wrap: char-wrap; }
+
+    no-wrap-input := TextInput { text: root.content; wrap: no-wrap; }
+    word-wrap-input := TextInput { text: root.content; wrap: word-wrap; }
+    char-wrap-input := TextInput { text: root.content; wrap: char-wrap; }
+
+    out property <bool> test: no-wrap-text.preferred-width > 0px
+        && word-wrap-text.preferred-width == no-wrap-text.preferred-width
+        && char-wrap-text.preferred-width == no-wrap-text.preferred-width
+        && word-wrap-input.preferred-width == no-wrap-input.preferred-width
+        && char-wrap-input.preferred-width == no-wrap-input.preferred-width;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

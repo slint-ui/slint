@@ -5,8 +5,8 @@
 
 #![allow(clippy::mutable_key_type)] // ByAddress<ElementRc> keys rely on Rc identity semantics
 
+use crate::element_type::ElementType;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::ElementType;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use core::cell::RefCell;

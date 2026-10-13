@@ -32,6 +32,11 @@ export component App inherits Window {
     ]
 
     VerticalBox {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+
         image := Image {}
     }
 
@@ -44,7 +49,7 @@ export component App inherits Window {
         controls := Rectangle {
             width: 50%;
             height: self.preferred-height;
-            y: root.height - self.height - 40px;
+            y: root.height - root.safe-area-insets.bottom - self.height - 40px;
             border-radius: 4px;
             background: Palette.color-scheme == ColorScheme.dark ? #3737378c : #ffffff82;
 

@@ -22,6 +22,7 @@ export component TestCase inherits Window {
     in-out property <bool> read-only <=> edit.read-only;
     in-out property <bool> enabled <=> edit.enabled;
     in-out property <bool> font-italic <=> edit.font-italic;
+    out property <bool> has-selection: edit.has-selection;
     public function paste() {
         edit.paste();
     }
@@ -155,9 +156,12 @@ assert_eq!(instance.get_font_italic(), false);
 instance.set_font_italic(true);
 assert_eq!(instance.get_font_italic(), true);
 
+assert!(!instance.get_has_selection());
 instance.invoke_select_all();
+assert!(instance.get_has_selection());
 instance.invoke_cut();
 assert_eq!(instance.get_text(), "");
+assert!(!instance.get_has_selection());
 
 // undo and redo, through the public functions
 instance.set_enabled(true);

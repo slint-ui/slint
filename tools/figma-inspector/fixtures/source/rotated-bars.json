@@ -1,0 +1,45 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "rotation:frame", "name": "Rotated bars", "type": "FRAME", "errors": [],
+    "properties": {
+      "x": 0, "y": 0, "width": 100, "height": 100, "rotation": 0, "opacity": 1,
+      "visible": true, "layoutMode": "NONE", "clipsContent": true, "cornerRadius": 0,
+      "fills": [{"type": "SOLID", "color": {"r": 1, "g": 1, "b": 1}, "opacity": 1}],
+      "strokes": [], "effects": []
+    },
+    "children": [
+      {
+        "id": "rotation:180", "name": "Bar above baseline", "type": "RECTANGLE", "errors": [],
+        "properties": {
+          "x": 20, "y": 80, "width": 10, "height": 30, "rotation": 180, "opacity": 1,
+          "visible": true, "cornerRadius": 0,
+          "relativeTransform": [[-1, 0, 20], [0, -1, 80]],
+          "fills": [{"type": "SOLID", "color": {"r": 1, "g": 0, "b": 0}, "opacity": 1}],
+          "strokes": [], "effects": []
+        }
+      },
+      {
+        "id": "rotation:90", "name": "Counterclockwise bar", "type": "RECTANGLE", "errors": [],
+        "properties": {
+          "x": 70, "y": 40, "width": 20, "height": 10, "rotation": 90, "opacity": 1,
+          "visible": true, "cornerRadius": 0,
+          "relativeTransform": [[0, 1, 70], [-1, 0, 40]],
+          "fills": [{"type": "SOLID", "color": {"r": 0, "g": 1, "b": 0}, "opacity": 1}],
+          "strokes": [], "effects": []
+        }
+      },
+      {
+        "id": "rotation:-90", "name": "Clockwise bar", "type": "RECTANGLE", "errors": [],
+        "properties": {
+          "x": 40, "y": 20, "width": 20, "height": 10, "rotation": -90, "opacity": 1,
+          "visible": true, "cornerRadius": 0,
+          "relativeTransform": [[0, -1, 40], [1, 0, 20]],
+          "fills": [{"type": "SOLID", "color": {"r": 0, "g": 0, "b": 1}, "opacity": 1}],
+          "strokes": [], "effects": []
+        }
+      }
+    ]
+  },
+  "images": {}, "exportScale": 1, "pngEnabled": false, "options": {}
+}

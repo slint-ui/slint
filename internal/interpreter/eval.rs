@@ -10,15 +10,17 @@
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::SubComponentInstance;
+use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
-use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
+use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
-use i_slint_core::{Color, SharedString, SharedVector};
+use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -653,7 +655,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Easing
         | Type::ElementReference
         | Type::ArrayOfU16
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::Closure => Value::Void,
     }
 }
@@ -720,14 +722,11 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 
 /// Convert a value to the given type, as [`Expression::Cast`] does.
 fn cast_constant_value(value: Value, to: &Type) -> Value {
+    debug_assert!(*to != Type::String, "struct field defaults reject casts to string");
     match (value, to) {
         (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
         (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
         (v, _) => v,
     }
 }
@@ -804,7 +803,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+                    Value::String(component_context(ctx).format_number(n))
                 }
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
@@ -944,7 +943,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
         ),
         Expression::EasingCurve(curve) => {
-            use i_slint_compiler::expression_tree::EasingCurve as EC;
+            use i_slint_compiler::expression_types::EasingCurve as EC;
             use i_slint_core::animations::EasingCurve as Core;
             Value::EasingCurve(match curve {
                 EC::Linear => Core::Linear,
@@ -959,7 +958,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             })
         }
         Expression::MouseCursor(cursor) => {
-            use i_slint_compiler::expression_tree::MouseCursorInner as Expr;
+            use i_slint_compiler::expression_types::MouseCursorInner as Expr;
             use i_slint_core::cursor::MouseCursorInner as Core;
             Value::MouseCursorInner(match cursor {
                 Expr::BuiltIn(cursor) => {
@@ -1109,6 +1108,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
+        Expression::DashArray(dash_array) => {
+            Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
+        }
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
@@ -1612,10 +1614,16 @@ fn push_repeater_grid_input_data(
                         // Let each inner cell report its own
                         // col/row/colspan/rowspan via its
                         // `grid_layout_input_for_repeated` expression.
-                        for inner_inst in inner_rep.instances_vec() {
+                        // An empty slot keeps its position, like in `layout_item_info` (#13726).
+                        for slot in inner_rep.range() {
                             if written >= step {
                                 break;
                             }
+                            let Some(inner_inst) = inner_rep.instance_at(slot) else {
+                                cells.push(auto_grid_input_data());
+                                written += 1;
+                                continue;
+                            };
                             for mut v in eval_grid_input_for_repeated(
                                 &inner_inst.root_sub_component,
                                 written == 0 && current_new_row,
@@ -1768,9 +1776,9 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
 }
 
 fn load_image_reference(
-    resource_ref: &i_slint_compiler::expression_tree::ImageReference,
+    resource_ref: &i_slint_compiler::expression_types::ImageReference,
 ) -> i_slint_core::graphics::Image {
-    use i_slint_compiler::expression_tree::ImageReference as Ref;
+    use i_slint_compiler::expression_types::ImageReference as Ref;
     let image = match resource_ref {
         Ref::None => Ok(Default::default()),
         Ref::DataUri(data_uri) => i_slint_compiler::data_uri::decode_data_uri(data_uri)
@@ -1779,15 +1787,12 @@ fn load_image_reference(
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
-        Ref::Url(url) if url.scheme() == "builtin" => {
+        Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
-            // baked into the compiler's builtin library and need to be fetched
-            // through `fileaccess::load_file` rather than the filesystem.
-            let path = std::path::Path::new(url.as_str());
-            i_slint_compiler::fileaccess::load_file(path)
-                .and_then(|virtual_file| virtual_file.builtin_contents)
+            // baked into the compiler's builtin library.
+            i_slint_compiler::fileaccess::builtin_contents(builtin_path)
                 .map(|contents| {
-                    let extension = path.extension().unwrap().to_str().unwrap();
+                    let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
@@ -1795,13 +1800,11 @@ fn load_image_reference(
                 })
                 .ok_or_else(Default::default)
         }
-        Ref::Path(path) => {
-            i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path.as_str()))
-        }
-        Ref::Url(url) => {
+        Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
-                i_slint_core::graphics::load_as_html_image(url.as_str())
+                i_slint_core::graphics::load_as_html_image(&url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
             #[cfg(not(target_arch = "wasm32"))]
@@ -1826,7 +1829,7 @@ fn layout_cache_access(
     entries_per_item: usize,
 ) -> Value {
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             if let Some(ri) = repeater_index {
                 let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
                 Value::Number(
@@ -1874,7 +1877,7 @@ fn grid_repeater_cache_access(
         if data_idx < slice_len { Value::Number(read(data_idx)) } else { Value::Number(0.) }
     };
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             let base = cache.get(index).copied().unwrap_or(0.) as usize;
             let data_idx = base + repeater_index * stride + child_offset + inner_offset;
             get(data_idx, cache.len(), &|i| cache[i] as f64)
@@ -1888,21 +1891,34 @@ fn grid_repeater_cache_access(
     }
 }
 
-/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
-/// The location of a builtin function call in the .slint source, in the form
-/// attached to the log messages it emits.
-fn log_message_location(
-    source_location: &Option<SourceLocation>,
-) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+/// The location of a builtin function call in the .slint source, which the log
+/// messages it emits borrow through [`LogLocation::get`].
+struct LogLocation<'a> {
+    path: std::borrow::Cow<'a, str>,
+    line: usize,
+    column: usize,
+}
+
+impl LogLocation<'_> {
+    fn get(&self) -> i_slint_core::debug_log::LogMessageLocation<'_> {
+        i_slint_core::debug_log::LogMessageLocation {
+            path: &self.path,
+            line: self.line,
+            column: self.column,
+        }
+    }
+}
+
+fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogLocation<'_>> {
     let location = source_location.as_ref()?;
     let source_file = location.source_file.as_ref()?;
     let (line, column) = source_file
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
-    Some(i_slint_core::debug_log::LogMessageLocation {
-        path: source_file.path().to_str()?,
-        line,
-        column,
-    })
+    let path = match source_file.path() {
+        SourcePath::File(path) => path.to_string_lossy(),
+        path => path.to_string().into(),
+    };
+    Some(LogLocation { path, line, column })
 }
 
 /// Arguments of a `@tr(...)` formatting, as a model of strings.
@@ -1932,16 +1948,16 @@ fn eval_translation_reference(
     };
     let args = StringModelWrapper(args);
     let Some(plural) = plural else {
-        return Value::String(i_slint_core::translations::translate_from_bundle(
-            &translations.strings[string_index],
-            &args,
-        ));
+        return Value::String(
+            component_context(ctx)
+                .translate_from_bundle(&translations.strings[string_index], &args),
+        );
     };
 
     let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
     let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
     let globals = ctx.globals.clone();
-    Value::String(i_slint_core::translations::translate_from_bundle_with_plural_form(
+    Value::String(component_context(ctx).translate_from_bundle_with_plural_form(
         &forms,
         |language_index| {
             let rule = translations.plural_rules.get(language_index)?.as_ref()?;
@@ -1957,229 +1973,60 @@ fn eval_translation_reference(
     ))
 }
 
+macro_rules! call_runtime_function {
+    ($context:ident, $args:ident, ($($params:tt)*)) => { None };
+    ($context:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) $body:block) => {{
+        $(let Some($ctx) = $context else { return Some(Value::Void) };)?
+        $(let $param = $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default();)*
+        Some(Value::from(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*)))
+    }};
+}
+
+macro_rules! declare_call_runtime_builtin_function {
+    ($(
+        $(#[$attr:meta])*
+        $Name:ident $(($Payload:ident))? :
+            $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+    )*) => {
+        /// Calls the function that implements `f`, if it has one, with the arguments converted
+        /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
+        pub fn call_runtime_builtin_function(
+            f: &BuiltinFunction,
+            context: Option<&SlintContext>,
+            mut args: impl Iterator<Item = Value>,
+        ) -> Option<Value> {
+            match f {
+                $(BuiltinFunction::$Name { .. } => {
+                    call_runtime_function!(context, args, $($name)? ($($params)*) $($body)?)
+                })*
+            }
+        }
+    };
+}
+i_slint_common::for_each_builtin_function!(declare_call_runtime_builtin_function);
+
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
     source_location: &Option<SourceLocation>,
 ) -> Value {
-    let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
-        eval_expression(ctx, e).try_into().unwrap_or_default()
-    };
     let to_string = |ctx: &mut EvalContext, e: &Expression| -> SharedString {
         eval_expression(ctx, e).try_into().unwrap_or_default()
     };
 
     match f {
-        BuiltinFunction::Mod => {
-            Value::Number(to_num(ctx, &arguments[0]).rem_euclid(to_num(ctx, &arguments[1])))
+        i_slint_compiler::runtime_builtin_function!() => {
+            let context = f.runtime_function_takes_context().then(|| component_context(ctx));
+            let args = arguments.iter().map(|a| eval_expression(ctx, a));
+            call_runtime_builtin_function(&f, context.as_ref(), args).unwrap()
         }
-        BuiltinFunction::Round => Value::Number(to_num(ctx, &arguments[0]).round()),
-        BuiltinFunction::Ceil => Value::Number(to_num(ctx, &arguments[0]).ceil()),
-        BuiltinFunction::Floor => Value::Number(to_num(ctx, &arguments[0]).floor()),
-        BuiltinFunction::Sqrt => Value::Number(to_num(ctx, &arguments[0]).sqrt()),
-        BuiltinFunction::Abs => Value::Number(to_num(ctx, &arguments[0]).abs()),
-        BuiltinFunction::Sin => Value::Number(to_num(ctx, &arguments[0]).to_radians().sin()),
-        BuiltinFunction::Cos => Value::Number(to_num(ctx, &arguments[0]).to_radians().cos()),
-        BuiltinFunction::Tan => Value::Number(to_num(ctx, &arguments[0]).to_radians().tan()),
-        BuiltinFunction::ASin => Value::Number(to_num(ctx, &arguments[0]).asin().to_degrees()),
-        BuiltinFunction::ACos => Value::Number(to_num(ctx, &arguments[0]).acos().to_degrees()),
-        BuiltinFunction::ATan => Value::Number(to_num(ctx, &arguments[0]).atan().to_degrees()),
-        BuiltinFunction::ATan2 => {
-            Value::Number(to_num(ctx, &arguments[0]).atan2(to_num(ctx, &arguments[1])).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            Value::Number(to_num(ctx, &arguments[0]).log(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Ln => Value::Number(to_num(ctx, &arguments[0]).ln()),
-        BuiltinFunction::Pow => {
-            Value::Number(to_num(ctx, &arguments[0]).powf(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Exp => Value::Number(to_num(ctx, &arguments[0]).exp()),
-        BuiltinFunction::ToFixed => {
-            let n = to_num(ctx, &arguments[0]);
-            let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(
-                n,
-                digits.max(0) as usize,
-            ))
-        }
-        BuiltinFunction::ToPrecision => {
-            let n = to_num(ctx, &arguments[0]);
-            let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_precision(
-                n,
-                p.max(0) as usize,
-            ))
-        }
-        BuiltinFunction::StringStartsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .starts_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::StringEndsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .ends_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::ToStringUnlocalized => {
-            let n = to_num(ctx, &arguments[0]);
-            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
-        }
-        BuiltinFunction::DefaultWindowTitle => {
-            Value::String(i_slint_core::window::default_window_title())
-        }
-        BuiltinFunction::DecimalSeparator => Value::String(
-            find_window_adapter(ctx)
-                .map(|adapter| {
-                    i_slint_core::window::WindowInner::from_pub(adapter.window())
-                        .context()
-                        .locale_decimal_separator()
-                })
-                .unwrap_or_default()
-                .into(),
-        ),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
         }
-        BuiltinFunction::ColorToStyledText => {
-            let color: i_slint_core::Color =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::color_to_styled_text(color))
-        }
         BuiltinFunction::SetupSystemTrayIcon => {
             crate::popup::setup_system_tray_icon(ctx, arguments)
-        }
-        BuiltinFunction::StringIsFloat => Value::Bool(
-            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str()).is_some(),
-        ),
-        BuiltinFunction::StringToFloat => Value::Number(
-            i_slint_core::string::string_to_float(to_string(ctx, &arguments[0]).as_str())
-                .unwrap_or_default() as f64,
-        ),
-        BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
-        BuiltinFunction::StringCharacterCount => Value::Number(
-            unicode_segmentation::UnicodeSegmentation::graphemes(
-                to_string(ctx, &arguments[0]).as_str(),
-                true,
-            )
-            .count() as f64,
-        ),
-        BuiltinFunction::StringToLowercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_lowercase().into())
-        }
-        BuiltinFunction::StringToUppercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
-        }
-        BuiltinFunction::StringReplaceAll => {
-            if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to StringReplaceAll")
-            }
-
-            if let (Value::String(s), Value::String(from), Value::String(to)) = (
-                eval_expression(ctx, &arguments[0]),
-                eval_expression(ctx, &arguments[1]),
-                eval_expression(ctx, &arguments[2]),
-            ) {
-                Value::String(i_slint_core::string::shared_string_replace_all(
-                    &s,
-                    from.as_str(),
-                    to.as_str(),
-                ))
-            } else {
-                panic!("Not all arguments are strings");
-            }
-        }
-        BuiltinFunction::ColorRgbaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color();
-                let values = [
-                    ("red".to_string(), Value::Number(color.red().into())),
-                    ("green".to_string(), Value::Number(color.green().into())),
-                    ("blue".to_string(), Value::Number(color.blue().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorHsvaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_hsva();
-                let values = [
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("saturation".to_string(), Value::Number(color.saturation.into())),
-                    ("value".to_string(), Value::Number(color.value.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorOklchStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_oklch();
-                let values = [
-                    ("lightness".to_string(), Value::Number(color.lightness.into())),
-                    ("chroma".to_string(), Value::Number(color.chroma.into())),
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorBrighter => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.brighter(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorDarker => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.darker(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorTransparentize => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.transparentize(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.with_alpha(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorMix => {
-            let a = eval_expression(ctx, &arguments[0]);
-            let b = eval_expression(ctx, &arguments[1]);
-            let factor = to_num(ctx, &arguments[2]) as f32;
-            if let (
-                Value::Brush(i_slint_core::Brush::SolidColor(ca)),
-                Value::Brush(i_slint_core::Brush::SolidColor(cb)),
-            ) = (a, b)
-            {
-                ca.mix(&cb, factor).into()
-            } else {
-                Value::Void
-            }
         }
         BuiltinFunction::ArrayPush => {
             if arguments.len() != 2 {
@@ -2193,8 +2040,9 @@ fn call_builtin_function(
             let value = eval_expression(ctx, &arguments[1]);
 
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "push",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 model.push_row(value),
             );
 
@@ -2219,8 +2067,9 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "remove",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2247,47 +2096,13 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "insert",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
             Value::Void
-        }
-        BuiltinFunction::Rgb => {
-            let r: i32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let g: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let b: i32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let r: u8 = r.clamp(0, 255) as u8;
-            let g: u8 = g.clamp(0, 255) as u8;
-            let b: u8 = b.clamp(0, 255) as u8;
-            let a: u8 = (255. * a).clamp(0., 255.) as u8;
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_argb_u8(
-                a, r, g, b,
-            )))
-        }
-        BuiltinFunction::Hsv => {
-            let h: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let s: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let v: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let a = a.clamp(0., 1.);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_hsva(
-                h, s, v, a,
-            )))
-        }
-        BuiltinFunction::Oklch => {
-            let l: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let c: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let h: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_oklch(
-                l.clamp(0.0, 1.0),
-                c,
-                h,
-                a.clamp(0.0, 1.0),
-            )))
         }
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
@@ -2318,26 +2133,9 @@ fn call_builtin_function(
                 .unwrap_or(12.0);
             Value::Number(size)
         }
-        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
-        BuiltinFunction::Use24HourFormat => {
-            Value::Bool(i_slint_core::date_time::use_24_hour_format())
-        }
         BuiltinFunction::ColorScheme => {
-            let scheme = root_instance(ctx)
-                .map(vtable::VRc::into_dyn)
-                .and_then(|root| {
-                    i_slint_core::window::context_for_root(&root)
-                        .map(|ctx| ctx.color_scheme(Some(&root)))
-                })
-                .unwrap_or(i_slint_core::items::ColorScheme::Unknown);
-            scheme.into()
-        }
-        BuiltinFunction::AccentColor => {
-            let color = root_instance(ctx)
-                .map(vtable::VRc::into_dyn)
-                .map(|root| i_slint_core::window::accent_color(&root))
-                .unwrap_or_default();
-            Value::Brush(i_slint_core::Brush::SolidColor(color))
+            let root = root_instance(ctx).map(vtable::VRc::into_dyn);
+            component_context(ctx).color_scheme(root.as_ref()).into()
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let supports = find_window_adapter(ctx).is_some_and(|a| {
@@ -2402,14 +2200,6 @@ fn call_builtin_function(
             }
             Value::Void
         }
-        BuiltinFunction::KeysToString => {
-            let v = arguments.first().map(|e| eval_expression(ctx, e));
-            if let Some(Value::Keys(keys)) = v {
-                Value::String(keys.to_string().into())
-            } else {
-                Value::String(Default::default())
-            }
-        }
         BuiltinFunction::SetSelectionOffsets => {
             // (item_ref, anchor, focus) -> applied to a TextInput.
             use i_slint_core::items::TextInput;
@@ -2430,6 +2220,22 @@ fn call_builtin_function(
                 text_input.set_selection_offsets(&adapter, &item_rc, anchor, focus);
             }
             Value::Void
+        }
+        BuiltinFunction::HasSelection => {
+            use i_slint_core::items::TextInput;
+            let [Expression::PropertyReference(mr)] = arguments else {
+                return Value::Bool(false);
+            };
+            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
+                return Value::Bool(false);
+            };
+            let item_rc = i_slint_core::items::ItemRc::new(
+                vtable::VRc::into_dyn(parent_inst),
+                flat_idx as u32,
+            );
+            let has_selection = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow())
+                .is_some_and(|text_input| text_input.has_selection());
+            Value::Bool(has_selection)
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
@@ -2568,25 +2374,11 @@ fn call_builtin_function(
         BuiltinFunction::Debug => {
             use i_slint_core::debug_log::*;
             let msg = to_string(ctx, &arguments[0]);
-            let root = ctx
-                .current
-                .as_ref()
-                .and_then(|c| c.root.get())
-                .and_then(|w| w.upgrade())
-                .map(vtable::VRc::into_dyn);
-            if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
-                context.dispatch_log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            } else {
-                log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            }
+            component_context(ctx).dispatch_log_message(LogMessage::new(
+                LogMessageSource::SlintCode,
+                log_message_location(source_location).as_ref().map(LogLocation::get),
+                format_args!("{msg}"),
+            ));
             Value::Void
         }
         BuiltinFunction::ArrayLength => match eval_expression(ctx, &arguments[0]) {
@@ -2596,6 +2388,8 @@ fn call_builtin_function(
                 m.model_tracker().track_row_count_changes();
                 Value::Number(m.row_count() as f64)
             }
+            // A number model, see the repeater model binding in `bindings.rs`.
+            Value::Number(n) => Value::Number((n.max(0.) as usize) as f64),
             _ => Value::Number(0.),
         },
         BuiltinFunction::ImageSize => {
@@ -2625,11 +2419,6 @@ fn call_builtin_function(
             };
             Value::StyledText(i_slint_core::styled_text::parse_markdown(&format_string, &args))
         }
-        BuiltinFunction::StringToStyledText => {
-            let string: SharedString =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::string_to_styled_text(string.to_string()))
-        }
         BuiltinFunction::Translate => {
             let original: SharedString = to_string(ctx, &arguments[0]);
             let context: SharedString = to_string(ctx, &arguments[1]);
@@ -2640,7 +2429,7 @@ fn call_builtin_function(
             };
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
-            Value::String(i_slint_core::translations::translate(
+            Value::String(component_context(ctx).translate(
                 &original,
                 &context,
                 &domain,
@@ -2681,23 +2470,6 @@ fn call_builtin_function(
             }
             Value::Void
         }
-        BuiltinFunction::MonthDayCount => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
-        }
-        BuiltinFunction::MonthOffset => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
-        }
-        BuiltinFunction::FormatDate => {
-            let f: SharedString = to_string(ctx, &arguments[0]);
-            let d: u32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let m: u32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(0);
-            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
-        }
         BuiltinFunction::DateNow => {
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
                 i_slint_core::date_time::date_now()
@@ -2705,11 +2477,6 @@ fn call_builtin_function(
                     .map(|x| Value::Number(x as f64))
                     .collect::<Vec<_>>(),
             )))
-        }
-        BuiltinFunction::ValidDate => {
-            let d: SharedString = to_string(ctx, &arguments[0]);
-            let f: SharedString = to_string(ctx, &arguments[1]);
-            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
         }
         BuiltinFunction::ParseDate => {
             let d: SharedString = to_string(ctx, &arguments[0]);
@@ -2722,13 +2489,6 @@ fn call_builtin_function(
         }
         BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             crate::popup::show_popup_menu(ctx, arguments)
-        }
-        BuiltinFunction::OpenUrl => {
-            let url = to_string(ctx, &arguments[0]);
-            let result = find_window_adapter(ctx)
-                .map(|adapter| i_slint_core::open_url(&url, adapter.window()).is_ok())
-                .unwrap_or(false);
-            Value::Bool(result)
         }
         BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
             // Bitmap font registration is generated by build.rs, not callable from .slint.
@@ -2785,6 +2545,14 @@ pub(crate) fn find_window_adapter(
     ctx: &EvalContext,
 ) -> Option<i_slint_core::window::WindowAdapterRc> {
     find_root_instance(ctx)?.window_adapter_or_default()
+}
+
+pub(crate) fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext {
+    match ctx.globals.upgrade() {
+        Some(globals) => globals.context.clone(),
+        None => i_slint_core::SlintContext::current()
+            .expect("a component is being evaluated, so there is a current context"),
+    }
 }
 
 /// Dispatch an `Expression::ItemMemberFunctionCall` (like

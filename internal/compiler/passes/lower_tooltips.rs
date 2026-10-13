@@ -27,9 +27,12 @@
 //!   `TooltipArea` (which owns the generated `PopupWindow` as its child), so the area only
 //!   exists while `cond` is true.
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::{ElementType, EnumerationValue};
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::Unit;
+use crate::langtype::EnumerationValue;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::{BUILTIN, TypeRegister};

@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../recipe-adapter.slint";
+import { Styles } from "../styles.slint";
+
+export component CookingTimer {
+    in property <Recipe> recipe;
+    in property <int> remaining-seconds: 0;
+
+    property <float> minutes: Math.floor(root.remaining-seconds / 60);
+    property <float> seconds: Math.mod(root.remaining-seconds, 60);
+    property <string> seconds-str: seconds < 10 ? "0" + seconds : seconds;
+
+    callback clicked <=> ta.clicked;
+    callback close <=> close-ta.clicked;
+
+    ta := TouchArea {}
+
+    content := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        alignment: center;
+
+        clock-icon := Rectangle {
+            width: 20px;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.height / 2;
+            background: #4285f4;
+
+            Image {
+                width: 10px;
+                source: @image-url("../images/time.svg");
+                colorize: white;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            horizontal-stretch: 1;
+            alignment: center;
+
+            Text {
+                text: "Cooking";
+                font-size: Styles.small-font-size;
+                color: #999;
+                font-weight: FontWeight.normal;
+                horizontal-alignment: left;
+            }
+
+            Text {
+                text: root.recipe.title;
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.semi-bold;
+                color: white;
+                horizontal-alignment: left;
+            }
+        }
+
+        Rectangle {
+            height: parent.height;
+            width: 50px;
+
+            Text {
+                text: {
+                    minutes + ":" + seconds-str
+                }
+                width: parent.width;
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.bold;
+                color: white;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+            }
+
+            Text {
+                text: "|";
+                font-size: Styles.small-font-size;
+                x: close-button.x - 5px;
+            }
+
+            close-button := Rectangle {
+                x: parent.width - self.width;
+                width: 15px;
+                height: 15px;
+
+                close-ta := TouchArea {
+                    width: 40px;
+                    height: 40px;
+                }
+
+                Image {
+                    source: @image-url("../images/close.svg");
+                    width: 7px;
+                    colorize: white;
+                }
+            }
+        }
+    }
+}
+

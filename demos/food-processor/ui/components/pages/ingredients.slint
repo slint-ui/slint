@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe, Ingredient } from "../../recipe-adapter.slint";
+import { Styles } from "../../styles.slint";
+
+component IngredientItem inherits HorizontalLayout {
+    in property <Ingredient> ingredient;
+    in property <float> multiplier: 1.0;
+    alignment: space-between;
+
+    HorizontalLayout {
+        spacing: 15px;
+        height: 24px;
+
+        icon := Image {
+            source: root.ingredient.image;
+            width: 24px;
+        }
+
+        ingredient := VerticalLayout {
+            spacing: 2px;
+            alignment: center;
+
+            Text {
+                text: root.ingredient.name;
+                font-size: 10px;
+                font-weight: FontWeight.medium;
+                color: #171717;
+            }
+
+            if root.ingredient.description != "": Text {
+                text: root.ingredient.description;
+                font-size: 6px;
+                font-weight: FontWeight.normal;
+                color: #737373;
+            }
+
+            if root.ingredient.substitute != "": Text {
+                text: "or " + root.ingredient.substitute;
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.normal;
+                color: #737373;
+            }
+        }
+    }
+
+    amount := Text {
+        text: Math.round(root.ingredient.amount * root.multiplier) + " " + root.ingredient.unit;
+        font-size: Styles.regular-font-size;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+        vertical-alignment: top;
+    }
+}
+
+export component IngredientsPage inherits VerticalLayout {
+    in property <Recipe> recipe;
+
+    property <float> portion-multiplier: recipe.portions / 3;
+
+    callback portions-changed(int);
+
+    spacing: Styles.side-margin;
+    padding-left: Styles.side-margin;
+    padding-top: Styles.side-margin / 2;
+    alignment: start;
+
+
+    VerticalLayout {
+        spacing: 10px;
+
+        VerticalLayout {
+            padding-bottom: 12px;
+
+            Text {
+                text: "Ingredients";
+                font-size: 12px;
+                font-weight: FontWeight.bold;
+                color: #1a1a1a;
+            }
+        }
+
+        for ingredient[index] in root.recipe.ingredients: IngredientItem {
+            ingredient: ingredient;
+            multiplier: root.portion-multiplier;
+        }
+    }
+}

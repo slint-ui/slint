@@ -176,6 +176,7 @@ message ElementQueryInstruction {
         string match_element_type_name = 3;
         string match_element_type_name_or_base = 4;
         AccessibleRole match_element_accessible_role = 5;
+        string match_element_accessible_label = 6;
     }
 }
 

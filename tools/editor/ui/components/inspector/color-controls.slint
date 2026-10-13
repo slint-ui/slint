@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Colors, Typography, ColorSliderStyle, ColorControlsStyle } from "../../style.slint";
-import { Api } from "../../api.slint";
+import { Style, Metrics, ColorSliderStyle, ColorControlsStyle } from "../../style.slint";
 
-import { InspectorTextFieldBase } from "text-field-base.slint";
+import { InspectorColorValueField } from "color-value-field.slint";
 
 component ColorSlider inherits Rectangle {
     in property <ColorSliderStyle> style: Style.color-slider;
@@ -100,10 +99,6 @@ export component InspectorColorControls inherits Rectangle {
             return true;
         }
         return false;
-    }
-
-    function commit-text(text: string) -> bool {
-        return Api.string-is-color(text) && root.preview-color(Api.string-to-color(text));
     }
 
     function begin-gesture() {
@@ -215,42 +210,15 @@ export component InspectorColorControls inherits Rectangle {
             }
         }
 
-        HorizontalLayout {
+        InspectorColorValueField {
             height: root.style.row-height;
-            spacing: Metrics.space-regular;
-            InspectorTextFieldBase {
-                accessible-name: "Hex color";
-                live-edit: true;
-                enabled: root.editable;
-                value: Api.color-to-data(root.working-color).text;
-                commit-key: root.session-key;
-                accepted(text) => { return root.commit-text(text); }
-            }
-            HorizontalLayout {
-                width: root.style.hex.width;
-                spacing: Metrics.space-tight;
-                InspectorTextFieldBase {
-                    accessible-name: "Opacity percentage";
-                    live-edit: true;
-                    enabled: root.editable;
-                    width: root.style.hex.input-width;
-                    value: (root.alpha * 100 / 255).to-fixed(0);
-                    commit-key: root.session-key;
-                    accepted(text) => {
-                        if !text.is-float() || !root.editable {
-                            return false;
-                        }
-                        root.alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
-                        return root.preview-color(root.color-at());
-                    }
-                }
-                Text {
-                    text: "%";
-                    color: Colors.muted;
-                    font-size: Typography.caption.size;
-                    vertical-alignment: center;
-                }
-            }
+            accessible-name: "Hex color";
+            value: root.working-color;
+            enabled: root.editable;
+            live-edit: true;
+            swatch-enabled: false;
+            commit-key: root.session-key;
+            preview(color) => { return root.preview-color(color); }
         }
 
     }

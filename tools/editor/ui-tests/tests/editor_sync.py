@@ -17,7 +17,7 @@ class EditorSync:
         self.request_id += 1
         request = {
             "id": self.request_id,
-            "sources": {path.resolve().as_uri(): expected.decode("utf-8")},
+            "sources": {path.as_uri(): expected.decode("utf-8")},
         }
         temporary = self.directory / "request.tmp"
         temporary.write_text(json.dumps(request))

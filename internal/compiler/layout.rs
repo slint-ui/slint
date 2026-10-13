@@ -3,10 +3,13 @@
 
 //! Datastructures used to represent layouts in the compiler
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
+use crate::object_tree::{Component, Element, ElementRc, PropertyDeclaration};
 
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -898,6 +901,7 @@ fn has_no_intrinsic_size(base: &ElementType) -> bool {
             | "Opacity"
             | "Layer"
             | "BoxShadow"
+            | "BackdropBlur"
             | "Clip"
     )
 }
@@ -1004,7 +1008,7 @@ pub fn implicit_layout_info_call(
             ElementType::Builtin(base_type)
                 if filter == BuiltinFilter::SkipNonImplicit
                     && base_type.default_size_binding
-                        != crate::langtype::DefaultSizeBinding::ImplicitSize =>
+                        != crate::element_type::DefaultSizeBinding::ImplicitSize =>
             {
                 None
             }
@@ -1062,7 +1066,8 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> N
     } else {
         tentative_name
     };
-    e.property_declarations.insert(name.clone(), ty.into());
+    e.property_declarations
+        .insert(name.clone(), PropertyDeclaration { synthesized: true, ..ty.into() });
     drop(e);
     NamedReference::new(elem, name)
 }
@@ -1166,12 +1171,6 @@ pub fn repeated_element_layout_info(
         cross_alignment: None,
         is_synthesized_repeated_merge: true,
     };
-    // KNOWN LIMITATION: a height-for-width instance — a word-wrapped `Text`, say —
-    // is measured unconstrained rather than at the size it is given, so it can
-    // under-report its cross size. That needs a known cross size here, the way a
-    // real enclosing layout threads one through `repeated_cross_size`; no single
-    // such value exists in the outer scope, where the instance's own width does
-    // not yet exist.
     Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size: None }
 }
 

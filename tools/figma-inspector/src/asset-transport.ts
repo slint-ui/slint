@@ -252,11 +252,72 @@ export function packPreviewAssets(source: string): AssetPreview {
     };
 }
 
+type PreviewAssetOptions = {
+    createObjectUrl?: (blob: Blob) => string;
+    revokeObjectUrl?: (url: string) => void;
+};
+
+function previewAssetBlob(data: string, mime: string): Blob {
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++)
+        bytes[index] = binary.charCodeAt(index);
+    return new Blob([bytes], { type: mime });
+}
+
+export function createPreviewAssetPool(options: PreviewAssetOptions = {}): (
+    value: unknown,
+) => {
+    source: string;
+    dispose: () => void;
+} {
+    const entries = new Map<
+        string,
+        Map<string, { url: string; owners: number }>
+    >();
+    const createObjectUrl =
+        options.createObjectUrl ?? ((blob: Blob) => URL.createObjectURL(blob));
+    const revokeObjectUrl =
+        options.revokeObjectUrl ?? ((url: string) => URL.revokeObjectURL(url));
+    return (value) =>
+        materializePreviewAssets(value, {
+            acquireAsset: (data, mime) => {
+                const assets =
+                    entries.get(mime) ??
+                    new Map<string, { url: string; owners: number }>();
+                let entry = assets.get(data);
+                if (!entry) {
+                    entry = {
+                        url: createObjectUrl(previewAssetBlob(data, mime)),
+                        owners: 0,
+                    };
+                    assets.set(data, entry);
+                    entries.set(mime, assets);
+                }
+                entry.owners++;
+                const held = entry;
+                return {
+                    url: held.url,
+                    release: () => {
+                        held.owners--;
+                        if (held.owners === 0) {
+                            revokeObjectUrl(held.url);
+                            assets.delete(data);
+                            if (assets.size === 0) entries.delete(mime);
+                        }
+                    },
+                };
+            },
+        });
+}
+
 export function materializePreviewAssets(
     value: unknown,
-    options: {
-        createObjectUrl?: (blob: Blob) => string;
-        revokeObjectUrl?: (url: string) => void;
+    options: PreviewAssetOptions & {
+        acquireAsset?: (
+            data: string,
+            mime: string,
+        ) => { url: string; release: () => void };
     } = {},
 ): { source: string; dispose: () => void } {
     if (!isAssetPreview(value)) throw Error("Invalid asset preview");
@@ -267,6 +328,7 @@ export function materializePreviewAssets(
         options.revokeObjectUrl ?? ((url: string) => URL.revokeObjectURL(url));
     const urls = new Map<string, string>();
     const created: string[] = [];
+    const releases: (() => void)[] = [];
     const output: string[] = [];
     const prefix = /data:(image\/(?:png|jpeg|gif|svg\+xml));base64,$/u;
     try {
@@ -286,19 +348,28 @@ export function materializePreviewAssets(
             const key = `${part}:${match[1]}`;
             let url = urls.get(key);
             if (url === undefined) {
-                const binary = atob(packed.assets[part]);
-                const bytes = new Uint8Array(binary.length);
-                for (let index = 0; index < binary.length; index++)
-                    bytes[index] = binary.charCodeAt(index);
-                const blob = new Blob([bytes], { type: match[1] });
-                url = createObjectUrl(blob);
+                if (options.acquireAsset) {
+                    const asset = options.acquireAsset(
+                        packed.assets[part],
+                        match[1],
+                    );
+                    url = asset.url;
+                    releases.push(asset.release);
+                } else {
+                    const blob = previewAssetBlob(
+                        packed.assets[part],
+                        match[1],
+                    );
+                    url = createObjectUrl(blob);
+                    created.push(url);
+                }
                 urls.set(key, url);
-                created.push(url);
             }
             output.push(url);
         }
     } catch (error) {
         for (const url of created) revokeObjectUrl(url);
+        for (const release of releases) release();
         throw error;
     }
     let disposed = false;
@@ -308,6 +379,7 @@ export function materializePreviewAssets(
             if (disposed) return;
             disposed = true;
             for (const url of created) revokeObjectUrl(url);
+            for (const release of releases) release();
         },
     };
 }

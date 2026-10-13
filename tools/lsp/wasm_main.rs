@@ -32,9 +32,6 @@ use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
-
 type JsResult<T> = std::result::Result<T, JsError>;
 
 impl RequestHandler {
@@ -193,7 +190,7 @@ pub struct SlintServer {
     ///
     /// Every exported `async` method must therefore take `&self`, not `&mut self`:
     /// wasm-bindgen holds a `&mut self` borrow across the future's `.await` points,
-    /// which re-entrant messages would trip (see tests/wasm_export_reentrancy.rs).
+    /// which re-entrant messages would trip.
     ctx: ReentryGuard<Context>,
     rh: Rc<RequestHandler>,
 }
@@ -225,8 +222,8 @@ pub fn create(
         let load_file = Function::from(load_file.clone());
         let to_preview = to_preview_clone.clone();
         Box::pin(async move {
-            let contents = self::load_file(path.clone(), &load_file).await;
-            let Ok(url) = Url::from_file_path(&path) else {
+            let contents = self::load_file(path.to_string(), &load_file).await;
+            let Some(url) = path.to_url() else {
                 return Some(contents.map(|c| (None, c)));
             };
             if let Ok(contents) = &contents {
@@ -245,16 +242,7 @@ pub fn create(
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            session: crate::editor_preview::EditorSession {
-                document_cache,
-                preview_config: Default::default(),
-                open_urls: Default::default(),
-                previews: vec![crate::editor_preview::PreviewConnection {
-                    to_preview,
-                    to_show: Default::default(),
-                }],
-                pending_recompile: Default::default(),
-            },
+            session: crate::editor_preview::EditorSession::new(document_cache, to_preview),
             init_param,
             server_notifier,
             host_language_rename_dont_ask_again: Default::default(),
@@ -322,6 +310,9 @@ impl SlintServer {
                     crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, true)
                         .await
                 });
+            }
+            M::ClearHighlight => {
+                tracing::debug!("Ignoring ClearHighlight from the preview");
             }
             M::PreviewTypeChanged { target } => {
                 ctx.session
@@ -416,7 +407,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .open_document(content, uri.clone(), Some(version))
+            .open_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -434,7 +425,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .load_document(content, uri.clone(), Some(version))
+            .load_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);

@@ -3,6 +3,14 @@
 
 import type { SourceBytes } from "./plugin/source";
 
+export function validSvgDocument(value: string | undefined): value is string {
+    return (
+        value !== undefined &&
+        (/^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(value) ||
+            /^<svg(?:\s[^>]*)?\/>$/iu.test(value))
+    );
+}
+
 export function isPngByteArray(value: unknown): value is Uint8Array {
     if (value instanceof Uint8Array) return true;
     return (

@@ -50,7 +50,9 @@ export component InspectorEffectSlider inherits Rectangle {
             commit-key: root.commit-key;
             width: root.style.value-width;
             accepted(text) => {
-                return text.is-float() && root.accepted(text.to-float().round().clamp(root.minimum, root.maximum));
+                if !text.is-float() { return false; }
+                let value = text.to-float().round().clamp(root.minimum, root.maximum);
+                return value != root.value && root.accepted(value);
             }
         }
     }

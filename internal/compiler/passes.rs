@@ -46,9 +46,12 @@ mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
 mod lower_tooltips;
+mod lower_typed_slots;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
+#[cfg(test)]
+pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
 mod remove_constant_conditions;
@@ -58,6 +61,7 @@ mod repeater_component;
 pub mod resolving;
 mod unique_declared_type_names;
 mod unique_id;
+mod validate_interfaces;
 mod visible;
 mod windows;
 mod z_order;
@@ -121,6 +125,9 @@ pub async fn run_passes(
 
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::prepare(component, &doc.local_registry);
+    });
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
@@ -135,17 +142,46 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
+        lower_states::lower_states(
+            component,
+            &doc.local_registry,
+            &symbol_counters,
+            &mut forwarded_references,
+            diag,
+        );
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::check_derived_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
+        lower_menus::remove_root_menus(component);
     });
+
+    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
+        diag.iter()
+            .skip(before)
+            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    };
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        let is_exported_root =
+            doc.exported_roots().any(|root| std::rc::Rc::ptr_eq(&root, component));
+        lower_typed_slots::check_content(component, is_exported_root, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     collect_subcomponents::collect_subcomponents(doc);
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::lower(component, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);
@@ -327,7 +363,7 @@ pub async fn run_passes(
     match type_loader.compiler_config.embed_resources {
         #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
-            let mut characters_seen = std::collections::HashSet::new();
+            let mut characters_seen = std::collections::BTreeSet::new();
 
             let sf = type_loader.compiler_config.const_scale_factor.unwrap_or(1.) as f64;
 
@@ -378,6 +414,7 @@ pub fn run_import_passes(
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
+    validate_interfaces::validate_interfaces(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

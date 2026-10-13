@@ -355,9 +355,12 @@ pub trait RenderBorderRectangle {
 /// the renderers that stroke the border centered on a path: the border is drawn entirely
 /// inside the item's geometry, the background doesn't extend under an opaque border, and
 /// brushes are resolved against the full border box.
+#[derive(Clone, Debug, PartialEq)]
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the outer border box, adjusted for the border width.
+    pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
     pub background_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `background_rect`.
@@ -419,6 +422,7 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
@@ -636,6 +640,13 @@ pub trait ItemRenderer {
         _self_rc: &ItemRc,
         _size: LogicalSize,
     );
+    fn draw_backdrop_blur(
+        &mut self,
+        _backdrop_blur: Pin<&BackdropBlur>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+    }
     fn visit_opacity(
         &mut self,
         opacity_item: Pin<&Opacity>,
@@ -834,4 +845,6 @@ where
 pub trait ItemRendererFeatures {
     /// The renderer supports applying 2D transformations to items.
     const SUPPORTS_TRANSFORMATIONS: bool;
+    /// The renderer draws [`BackdropBlur`] items, see [`ItemRenderer::draw_backdrop_blur`].
+    const SUPPORTS_BACKDROP_BLUR: bool = false;
 }

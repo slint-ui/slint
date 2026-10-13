@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::source_path::SourcePath;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::parser::TextSize;
@@ -44,7 +45,7 @@ pub trait Spanned {
 
 #[derive(Default)]
 pub struct SourceFileInner {
-    path: PathBuf,
+    path: SourcePath,
 
     /// Complete source code of the path, used to map from offset to line number
     source: Option<String>,
@@ -60,16 +61,16 @@ impl std::fmt::Debug for SourceFileInner {
 }
 
 impl SourceFileInner {
-    pub fn new(path: PathBuf, source: String) -> Self {
+    pub fn new(path: SourcePath, source: String) -> Self {
         Self { path, source: Some(source), line_offsets: Default::default() }
     }
 
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &SourcePath {
         &self.path
     }
 
     /// Create a SourceFile that has just a path, but no contents
-    pub fn from_path_only(path: PathBuf) -> Arc<Self> {
+    pub fn from_path_only(path: SourcePath) -> Arc<Self> {
         Arc::new(Self { path, ..Default::default() })
     }
 
@@ -105,10 +106,9 @@ impl SourceFileInner {
         &self,
         size: TextSize,
         format: ByteFormat,
-    ) -> (String, usize, usize, usize, usize) {
-        let file_name = self.path().to_string_lossy().to_string();
+    ) -> (SourcePath, usize, usize, usize, usize) {
         let (start_line, start_column) = self.line_column(size.into(), format);
-        (file_name, start_line, start_column, start_line, start_column)
+        (self.path().clone(), start_line, start_column, start_line, start_column)
     }
 
     /// Returns the offset that corresponds to the line/column
@@ -180,7 +180,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
     .map_err(|err| Diagnostic {
         message: format!("Could not load {}: {}", path.display(), err),
         span: SourceLocation {
-            source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
+            source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
             span: Default::default(),
         },
         level: DiagnosticLevel::Error,
@@ -190,7 +190,7 @@ pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
         return crate::lexer::extract_rust_macro(string).ok_or_else(|| Diagnostic {
             message: "No `slint!` macro".into(),
             span: SourceLocation {
-                source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new(path))),
                 span: Default::default(),
             },
             level: DiagnosticLevel::Error,
@@ -285,9 +285,27 @@ impl Diagnostic {
     // NOTE: The return-type differs from the Spanned trait.
     // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
     // this.
-    /// return the path of the source file where this error is attached
+    /// Returns the path of the source file where this diagnostic is attached,
+    /// or `None` if the source wasn't loaded from a file, such as one loaded from a URL.
+    #[deprecated(note = "Use `source_path()`, which also names sources that aren't files")]
     pub fn source_file(&self) -> Option<&Path> {
-        self.span.source_file().map(|sf| sf.path())
+        self.span.source_file()?.path().as_native_path()
+    }
+
+    /// Returns the name of the source where this diagnostic is attached:
+    /// the path of a file, or the URL of a source that isn't a local file.
+    pub fn source_path(&self) -> Option<String> {
+        Some(self.span.source_file()?.path().to_string())
+    }
+}
+
+impl Spanned for Diagnostic {
+    fn span(&self) -> Span {
+        self.span.span()
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.span.source_file()
     }
 }
 
@@ -295,7 +313,7 @@ impl std::fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = self.span.source_file() {
             let (line, _) = self.line_column();
-            write!(f, "{}:{}: {}", sf.path.display(), line, self.message)
+            write!(f, "{}:{}: {}", sf.path, line, self.message)
         } else {
             write!(f, "{}", self.message)
         }
@@ -306,7 +324,7 @@ impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(sf) = &self.source_file {
             let (line, col) = sf.line_column(self.span.offset, ByteFormat::Utf8);
-            write!(f, "{}:{line}:{col}", sf.path.display())
+            write!(f, "{}:{line}:{col}", sf.path)
         } else {
             write!(f, "<unknown>")
         }
@@ -349,7 +367,7 @@ pub struct BuildDiagnostics {
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
-    pub all_loaded_files: BTreeSet<PathBuf>,
+    pub all_loaded_files: BTreeSet<SourcePath>,
 }
 
 impl IntoIterator for BuildDiagnostics {
@@ -427,11 +445,7 @@ impl BuildDiagnostics {
     /// since those are loaded automatically by the compiler and are not user code.
     #[cfg(feature = "slint-sc")]
     pub fn slint_sc_error(&mut self, feature: &str, source: &dyn Spanned) {
-        if self.slint_sc
-            && !source
-                .source_file()
-                .is_some_and(|sf| sf.path().to_string_lossy().starts_with("builtin:"))
-        {
+        if self.slint_sc && !source.source_file().is_some_and(|sf| sf.path().is_builtin()) {
             self.push_error(format!("{feature} not supported in Slint SC"), source);
         }
     }
@@ -507,7 +521,7 @@ impl BuildDiagnostics {
                         let end_offset = d.span.span.offset + d.length();
                         message.element(
                             annotate_snippets::Snippet::source(source)
-                                .path(sf.path.to_string_lossy())
+                                .path(sf.path.to_string())
                                 .annotation(
                                     annotate_snippets::AnnotationKind::Primary
                                         .span(start_offset..end_offset),
@@ -519,7 +533,7 @@ impl BuildDiagnostics {
                             handle_no_source(d);
                             return None;
                         }
-                        message.element(annotate_snippets::Origin::path(sf.path.to_string_lossy()))
+                        message.element(annotate_snippets::Origin::path(sf.path.to_string()))
                     }
                 } else {
                     annotate_snippets::Group::with_title(message)
@@ -682,7 +696,7 @@ component MainWindow inherits Window {
 
 
     "#.to_string();
-        let sf = SourceFileInner::new(PathBuf::from("foo.slint"), content.clone());
+        let sf = SourceFileInner::new(SourcePath::new("foo.slint"), content.clone());
 
         let mut line = 1;
         let mut column = 1;

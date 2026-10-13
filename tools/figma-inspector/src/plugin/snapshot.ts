@@ -71,11 +71,15 @@ export type SnapshotPaint =
 
 export type SnapshotImage = {
     readonly kind: "image";
-    readonly mimeType: "image/png" | "image/jpeg" | "image/gif";
+    readonly mimeType:
+        | "image/png"
+        | "image/jpeg"
+        | "image/gif"
+        | "image/svg+xml";
     readonly data: string;
     readonly intrinsicWidth: number;
     readonly intrinsicHeight: number;
-    readonly scaleMode: "FILL" | "FIT" | "CROP" | "TILE";
+    readonly scaleMode: "FILL" | "FIT" | "CROP" | "TILE" | "STRETCH";
     readonly tileScale?: number;
     readonly grayscale?: boolean;
     readonly crop?: readonly [number, number, number, number];
@@ -216,6 +220,7 @@ type SnapshotSvgNode = SnapshotGeometry &
         readonly sourceType: string;
         /** SVG provenance when Figma's SVG exporter accepts the node. */
         readonly svg?: string;
+        readonly svgBounds?: VisualBounds;
         /** Figma's raster export, retained with its density and bounds. */
         readonly raster?: SnapshotRaster;
     };
@@ -566,7 +571,8 @@ function validatePaint(value: unknown, path: string): Diagnostic[] {
         if (
             value.mimeType !== "image/png" &&
             value.mimeType !== "image/jpeg" &&
-            value.mimeType !== "image/gif"
+            value.mimeType !== "image/gif" &&
+            value.mimeType !== "image/svg+xml"
         )
             errors.push(
                 diagnostic("Unsupported image MIME type", `${path}.mimeType`),
@@ -588,7 +594,11 @@ function validatePaint(value: unknown, path: string): Diagnostic[] {
                 errors.push(
                     diagnostic(`${key} must be positive`, `${path}.${key}`),
                 );
-        if (!["FILL", "FIT", "CROP", "TILE"].includes(String(value.scaleMode)))
+        if (
+            !["FILL", "FIT", "CROP", "TILE", "STRETCH"].includes(
+                String(value.scaleMode),
+            )
+        )
             errors.push(
                 diagnostic("Unsupported image scale mode", `${path}.scaleMode`),
             );
@@ -1103,6 +1113,18 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
         }
         if (value.raster !== undefined)
             errors.push(...validateRaster(value.raster, `${path}.raster`));
+        if (
+            value.svgBounds !== undefined &&
+            (!validVisualBounds(value.svgBounds) ||
+                value.raster !== undefined ||
+                value.svg === undefined)
+        )
+            errors.push(
+                diagnostic(
+                    "SVG paint bounds require SVG content without raster pixels and finite positive dimensions",
+                    `${path}.svgBounds`,
+                ),
+            );
         if (value.svg === undefined && value.raster === undefined)
             errors.push(
                 diagnostic(

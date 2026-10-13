@@ -3,6 +3,8 @@
 
 import { CupertinoPalette, Icons } from "styling.slint";
 
+import { ScrollViewInterface } from "../common/std-widget-interfaces.slint";
+
 export component ScrollBar inherits Rectangle {
     in property <bool> enabled;
     out property <bool> has-hover: touch-area.has-hover;
@@ -103,6 +105,8 @@ export component ScrollBar inherits Rectangle {
 }
 
 export component ScrollView {
+    implement ScrollViewInterface <=> self;
+
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;

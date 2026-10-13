@@ -81,8 +81,8 @@ int main() {
 <TabItem label="NodeJS" icon="node">
 
 ```js
-let slint = require("slint-ui");
-let file = slint.loadFile("app.slint");
+import * as slint from "slint-ui";
+let file = slint.loadFile(new URL("app.slint", import.meta.url));
 let app = new file.App();
 app.Logic.magic_operation = (value) => {
     return value * 2;

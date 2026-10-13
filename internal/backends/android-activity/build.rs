@@ -18,12 +18,8 @@ fn main() {
     let java_src = "SlintAndroidJavaHelper.java";
     let java_src_path = format!("java/{java_src}");
 
-    let slint_path: PathBuf = ["dev", "slint", "android-activity"].iter().collect();
-
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
-    let mut out_class_dir = out_dir.clone();
-    out_class_dir.push("java");
-    out_class_dir.push(slint_path);
+    let out_class_dir = out_dir.join("java");
 
     if out_class_dir.try_exists().unwrap_or(false) {
         let _ = std::fs::remove_dir_all(&out_class_dir);

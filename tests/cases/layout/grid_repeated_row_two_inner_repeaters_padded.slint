@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+
+// Rows of different lengths, right-aligned by a padding repeater before the cells.
+// Each cell's value is its expected column plus one.
+
+export component TestCase inherits Window {
+    width: 30px;
+    height: 30px;
+
+    in property <[[int]]> rows: [[2, 3], [1, 2, 3], [3]];
+    out property <int> count;
+    out property <int> wrong-col-count;
+
+    GridLayout {
+        for cells in root.rows: Row {
+            for i in 3 - cells.length: pad := Rectangle {
+                min-height: 10px;
+                init => {
+                    root.count += 1;
+                    if pad.col != i {
+                        root.wrong-col-count += 1;
+                    }
+                }
+            }
+            for value in cells: cell := Rectangle {
+                min-height: 10px;
+                init => {
+                    root.count += 1;
+                    if cell.col != value - 1 {
+                        root.wrong-col-count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    out property <bool> test: root.count == 9 && root.wrong-col-count == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_count(), 9);
+assert_eq!(instance.get_wrong_col_count(), 0);
+
+// (y, x) of every element with the given id, in reading order
+let positions = |id| {
+    let mut positions: Vec<(f32, f32)> = slint_testing::ElementHandle::find_by_element_id(&instance, id)
+        .map(|e| (e.absolute_position().y, e.absolute_position().x))
+        .collect();
+    positions.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    positions
+};
+assert_eq!(positions("TestCase::pad"), [(0., 0.), (20., 0.), (20., 10.)]);
+assert_eq!(positions("TestCase::cell"), [(0., 10.), (0., 20.), (10., 0.), (10., 10.), (10., 20.), (20., 20.)]);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_count(), 9);
+assert_eq(instance.get_wrong_col_count(), 0);
+
+// (y, x) of every element with the given id, in reading order
+auto positions = [&](std::string_view id) {
+    std::vector<std::pair<float, float>> positions;
+    for (const auto &e : slint::testing::ElementHandle::find_by_element_id(handle, id)) {
+        auto p = e.absolute_position();
+        positions.push_back({ p.y, p.x });
+    }
+    std::sort(positions.begin(), positions.end());
+    return positions;
+};
+assert((positions("TestCase::pad") == std::vector<std::pair<float, float>> { { 0, 0 }, { 20, 0 }, { 20, 10 } }));
+assert((positions("TestCase::cell") == std::vector<std::pair<float, float>> { { 0, 10 }, { 0, 20 }, { 10, 0 }, { 10, 10 }, { 10, 20 }, { 20, 20 } }));
+```
+*/

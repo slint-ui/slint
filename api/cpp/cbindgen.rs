@@ -5,7 +5,7 @@ use anyhow::Context;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-// cSpell: ignore compat constexpr corelib deps sharedvector pathdata
+// cSpell: ignore compat constexpr corelib cstdint deps sharedvector pathdata
 
 fn enums(path: &Path) -> anyhow::Result<()> {
     let mut enums_priv = BufWriter::new(
@@ -145,11 +145,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
                     $(writeln!(file, "    ///{}", $field_doc)?;)*
-                    let field_type = match stringify!($field_type) {
-                        "i32" => "int32_t",
-                        "f32" | "Coord" => "float",
-                        other => other,
-                    };
+                    let field_type = rust_type_to_cpp(stringify!($field_type));
                     // The raw tokens of the default value stringify with spaces, such as
                     // `CapitalizationMode :: Sentences`; the header reads better without them.
                     let default_value: String = stringify!($($field_default)*)
@@ -318,6 +314,57 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Declares the C functions that `i_slint_core::builtin_functions` defines.
+fn builtin_functions(path: &Path) -> anyhow::Result<()> {
+    let mut out = BufWriter::new(
+        std::fs::File::create(path.join("slint_builtin_functions_internal.h"))
+            .context("Error creating slint_builtin_functions_internal.h file")?,
+    );
+    writeln!(out, "#pragma once")?;
+    writeln!(out, "// This file is auto-generated from {}", file!())?;
+    writeln!(out, "#include <cstdint>")?;
+    writeln!(out, "#include \"private/slint_enums_internal.h\"")?;
+    // The types of the functions, which `rust_type_to_cpp` doesn't change
+    writeln!(
+        out,
+        "namespace slint {{ class Brush; class Color; class Keys; struct HsvaColor; struct OklchColor; \
+         template<typename T> struct RgbaColor; struct SharedString; struct StyledText; }}"
+    )?;
+    writeln!(out, "namespace slint::cbindgen_private {{ extern \"C\" {{")?;
+    macro_rules! print_builtin_functions {
+        ($(
+            $(#[$attr:meta])*
+            $Name:ident $(($Payload:ident))? :
+                $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+        )*) => {
+            $(print_builtin_functions!(@ $($name)? ($($params)*) -> $Ret $($body)?);)*
+        };
+        (@ ($($params:tt)*) -> $Ret:tt) => {};
+        // The C function gets the thread's context
+        (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
+            let params = vec![
+                format!("{} *", rust_type_to_cpp(stringify!($Ret))),
+                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
+            ];
+            writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
+        };
+    }
+    i_slint_common::for_each_builtin_function!(print_builtin_functions);
+    writeln!(out, "}} }}")?;
+    Ok(())
+}
+
+/// The C++ type of a Rust type in `for_each_builtin_structs!` or `for_each_builtin_function!`
+fn rust_type_to_cpp(rust_type: &str) -> &str {
+    match rust_type {
+        "i32" => "int32_t",
+        "f32" | "Coord" => "float",
+        "f64" => "double",
+        "RgbaColorU8" => "RgbaColor<uint8_t>",
+        other => other,
+    }
+}
+
 fn ensure_cargo_rerun_for_crate(
     crate_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
@@ -447,6 +494,7 @@ fn gen_corelib(
         "TextInput",
         "Clip",
         "BoxShadow",
+        "BackdropBlur",
         "Transform",
         "Opacity",
         "Layer",
@@ -571,7 +619,10 @@ fn gen_corelib(
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
+        "LogicalSize",
         "LogicalLength",
+        "MouseEvent",
+        "OnceBox",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -679,12 +730,9 @@ fn gen_corelib(
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
             "slint_color_transparentize",
-            "slint_color_mix",
             "slint_color_with_alpha",
-            "slint_color_to_hsva",
             "slint_color_from_hsva",
-            "slint_color_from_oklch",
-            "slint_color_to_oklch",],
+            "slint_color_from_oklch",],
             "slint_color_internal.h",
             "",
         ),
@@ -742,7 +790,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["MouseEvent", "BackendMouseEvent", "TouchPhase"],
+            vec!["BackendMouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
@@ -754,7 +802,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
+            vec!["Keys", "KeysInner", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
@@ -769,7 +817,6 @@ fn gen_corelib(
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
             "slint_keys_debug_string",
-            "slint_keys_to_string",
             "slint_keys",
             "slint_keys_from_parts",
             "slint_keys_to_parts",
@@ -961,29 +1008,6 @@ fn gen_corelib(
     ~WindowEvent() {}"
             .into(),
     );
-    config
-        .export
-        .body
-        .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config
-        .export
-        .pre_body
-        .insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
-    config
-        .export
-        .body
-        .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
-    config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
-    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
-    config.export.body.insert(
-        "SystemTrayIcon".to_owned(),
-        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
-    );
-    config
-        .export
-        .pre_body
-        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
     // cbindgen only derives the special member functions and equality for tagged enums in the
     // separate special-config pass, not for the types generated here, so they are provided by
     // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
@@ -1051,7 +1075,7 @@ fn gen_corelib(
         .with_include("private/slint_data_transfer_internal.h")
         .with_include("private/slint_data_transfer.h")
         .with_after_include(
-            r"
+            r#"
 namespace slint {
     namespace private_api { class WindowAdapterRc; }
     namespace cbindgen_private {
@@ -1063,10 +1087,11 @@ namespace slint {
         using private_api::Point;
         struct ItemTreeVTable;
         struct ItemVTable;
+        struct SlintContext;
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;
-        using types::MouseEvent;
+        struct MouseEvent;
 
         template<typename T> struct Option;
         // This specialization provides a concrete C++ type for Option types
@@ -1076,9 +1101,20 @@ namespace slint {
             Option() noexcept = default;
             Option(T *p) noexcept : ptr(p) {}
         };
+
+        // See OnceBox in internal/core/once_box.rs
+        template<typename T>
+        struct OnceBox {
+            // Points at Rust's OnceBoxAlloc<T>, not at a T: only null-check it and pass it to slint_once_box_drop
+            Option<T *> alloc;
+            OnceBox() noexcept = default;
+            OnceBox(const OnceBox &) = delete;
+            OnceBox &operator=(const OnceBox &) = delete;
+            ~OnceBox();
+        };
     }
     template<typename ModelData> class Model;
-}",
+}"#,
         )
         .with_trailer(gen_item_declarations(&items))
         .generate()
@@ -1293,6 +1329,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                using types::PathValueType;
                 struct LiveReloadingComponentInner;
                 struct Instance;
                 template <typename T> using Box = T*;
@@ -1379,6 +1416,7 @@ pub fn gen_all(
     let mut deps = Vec::new();
     enums(&gen_dir)?;
     builtin_structs(&gen_dir)?;
+    builtin_functions(&gen_dir)?;
     gen_corelib(root_dir, &gen_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, &gen_dir, &mut deps)?;
     gen_platform(root_dir, &gen_dir, &mut deps)?;

@@ -32,6 +32,7 @@ pub use std::thread_local;
 pub mod accessibility;
 pub mod animations;
 pub mod api;
+pub mod builtin_functions;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
@@ -39,6 +40,8 @@ pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
+#[doc(hidden)]
+pub mod font_collection;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -50,6 +53,7 @@ pub mod layout;
 pub mod lengths;
 pub mod menus;
 pub mod model;
+pub mod once_box;
 pub mod partial_renderer;
 pub mod platform;
 pub mod properties;
@@ -60,6 +64,8 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
+#[cfg(test)]
+mod testing;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
@@ -99,7 +105,7 @@ pub use graphics::BorderRadius;
 #[doc(inline)]
 pub use data_transfer::DataTransfer;
 
-pub use context::{SlintContext, SlintContextWeak, with_global_context};
+pub use context::{SlintContext, SlintContextWeak, with_existing_context, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -202,8 +208,8 @@ pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
 
-pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
-    crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
+pub fn open_url(url: &str, ctx: &SlintContext) -> Result<(), crate::api::PlatformError> {
+    ctx.platform().open_url(url)
 }
 
 #[cfg(target_os = "macos")]

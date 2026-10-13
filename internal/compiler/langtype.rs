@@ -1,21 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::rc::Rc;
 use std::sync::Arc;
-
-use itertools::Itertools;
 
 use smol_str::SmolStr;
 
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
-use crate::object_tree::{Component, DEFAULT_SLOT_NAME, PropertyVisibility};
-use crate::parser::SyntaxNode;
-use crate::typeregister::TypeRegister;
+use crate::expression_types::Unit;
 
 #[derive(Debug, Clone, Default)]
 pub enum Type {
@@ -68,8 +61,8 @@ pub enum Type {
 
     ElementReference,
 
-    /// This is a `SharedArray<f32>`
-    LayoutCache,
+    /// This is a `SharedVector<Coord>`
+    ArrayOfCoord,
     /// This is used by GridLayoutOrganizedData
     ArrayOfU16,
 
@@ -117,7 +110,7 @@ impl core::cmp::PartialEq for Type {
             Type::Keys => matches!(other, Type::Keys),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
-            Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfCoord => matches!(other, Type::ArrayOfCoord),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
@@ -164,22 +157,26 @@ impl Display for Type {
             Type::DataTransfer => write!(f, "data-transfer"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
-                let mut x = vec.iter().map(|(unit, power)| {
+                f.write_str("(")?;
+                for (i, (unit, power)) in vec.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str("×")?;
+                    }
+                    write!(f, "{unit}")?;
                     if *power == 1 {
-                        return unit.to_string();
+                        continue;
                     }
-                    let mut res = format!("{}{}", unit, if *power < 0 { "⁻" } else { "" });
-                    let value = power.abs().to_string();
-                    for x in value.as_bytes() {
-                        res.push(POWERS[(x - b'0') as usize]);
+                    if *power < 0 {
+                        f.write_str("⁻")?;
                     }
-
-                    res
-                });
-                write!(f, "({})", x.join("×"))
+                    for x in power.unsigned_abs().to_string().as_bytes() {
+                        write!(f, "{}", POWERS[(x - b'0') as usize])?;
+                    }
+                }
+                f.write_str(")")
             }
             Type::ElementReference => write!(f, "element ref"),
-            Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfCoord => write!(f, "[coord]"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
             Type::Closure => write!(f, "closure"),
@@ -307,17 +304,6 @@ impl Type {
         }
     }
 
-    /// The noun for a member of this type in diagnostics.
-    pub fn member_kind(&self) -> &'static str {
-        use crate::generator::accessor_names::DeclarationKind;
-        match self {
-            Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
-            Type::Function { .. } => DeclarationKind::Function,
-            _ => DeclarationKind::Property,
-        }
-        .label()
-    }
-
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
@@ -353,7 +339,7 @@ impl Type {
             Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
-            Type::LayoutCache => None,
+            Type::ArrayOfCoord => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
             Type::Closure => None,
@@ -371,360 +357,6 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum BuiltinPropertyDefault {
-    None,
-    Expr(ConstantExpression),
-    /// The property is computed per element by this function, which takes the element.
-    ElementFunction(BuiltinFunction),
-    /// A value only the runtime knows, which this function returns. It takes no argument, so
-    /// unlike [`Self::ElementFunction`] the property still belongs to the native item.
-    RuntimeValue(BuiltinFunction),
-    /// The property is actually not a property but a builtin function
-    BuiltinFunction(BuiltinFunction),
-}
-
-impl BuiltinPropertyDefault {
-    /// The default of a property that doesn't need an element to express, for the callers that
-    /// have no `ElementRc` at hand.
-    pub fn expr_without_element(&self) -> Option<Expression> {
-        match self {
-            BuiltinPropertyDefault::None => None,
-            BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
-            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
-                function: function.clone().into(),
-                arguments: Vec::new(),
-                source_location: None,
-            }),
-            // Neither is a default this caller can express: ElementFunction needs the element,
-            // and a function is not a property in the first place
-            BuiltinPropertyDefault::ElementFunction(..)
-            | BuiltinPropertyDefault::BuiltinFunction(..) => None,
-        }
-    }
-
-    pub fn expr(&self, elem: &crate::object_tree::ElementRc) -> Option<Expression> {
-        match self {
-            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
-                function: function.clone().into(),
-                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-                source_location: None,
-            }),
-            other => other.expr_without_element(),
-        }
-    }
-}
-
-/// Information about properties in NativeClass
-#[derive(Debug, Clone)]
-pub struct BuiltinPropertyInfo {
-    /// The property type
-    pub ty: Type,
-    /// When != None, this is the initial value that we will have to set if no other binding were specified
-    pub default_value: BuiltinPropertyDefault,
-    pub property_visibility: PropertyVisibility,
-    /// Raw `///` doc comment from the builtin element declaration, if any.
-    pub docs: Option<String>,
-    /// Whether the property is part of the Slint SC subset
-    /// (`@sc` modifier in the builtin element declaration).
-    pub slint_sc: bool,
-    /// True when a component may declare a member of the same name, shadowing this one
-    /// (`@shadowable` attribute in the builtin element declaration).
-    /// Members added to a builtin element after its initial release should be marked
-    /// shadowable so that older code that already declares the name keeps compiling —
-    /// unless a compiler pass accesses the member by name, in which case shadowing
-    /// would generate wrong code and the member must not be marked.
-    pub shadowable: bool,
-    /// For a function or callback: whether it is pure.
-    /// A member implemented natively has no body the compiler could inspect, so this comes from
-    /// the `pure` qualifier of the builtin element declaration, or from [`BuiltinFunction::is_pure`] when the
-    /// declaration names one.
-    pub pure: bool,
-}
-
-impl BuiltinPropertyInfo {
-    pub fn new(ty: Type) -> Self {
-        Self {
-            ty,
-            default_value: BuiltinPropertyDefault::None,
-            property_visibility: PropertyVisibility::InOut,
-            docs: None,
-            shadowable: false,
-            pure: false,
-            slint_sc: false,
-        }
-    }
-
-    pub fn is_native_output(&self) -> bool {
-        matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
-    }
-
-    /// The `pure` declaration of a function or callback, `None` for a property.
-    pub fn declared_pure(&self) -> Option<bool> {
-        matches!(self.ty, Type::Function(_) | Type::Callback(_)).then_some(self.pure)
-    }
-}
-
-impl From<BuiltinFunction> for BuiltinPropertyInfo {
-    fn from(function: BuiltinFunction) -> Self {
-        Self {
-            ty: Type::Function(function.ty()),
-            property_visibility: PropertyVisibility::Public,
-            docs: None,
-            shadowable: false,
-            pure: function.is_pure(),
-            default_value: BuiltinPropertyDefault::BuiltinFunction(function),
-            slint_sc: false,
-        }
-    }
-}
-
-/// The base of an element
-#[derive(Clone, Debug, derive_more::From, Default)]
-pub enum ElementType {
-    /// The element is based of a component
-    Component(Rc<Component>),
-    /// The element is a builtin element
-    Builtin(Rc<BuiltinElement>),
-    /// The base element couldn't be looked up
-    #[default]
-    Error,
-    /// This should be the base type of the root element of a global component
-    Global,
-    /// This should be the base type of the root element of an interface
-    Interface,
-}
-
-impl PartialEq for ElementType {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
-            (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Self::Error, Self::Error)
-            | (Self::Global, Self::Global)
-            | (Self::Interface, Self::Interface) => true,
-            _ => false,
-        }
-    }
-}
-
-impl ElementType {
-    /// Resolve a name written in `.slint` source.
-    /// Resolve `name` in the given [`PropertyLookupMode`]. See
-    /// [`crate::object_tree::Element::lookup_property`]. Only a component can have shadowed members,
-    /// so the other bases ignore the mode.
-    pub fn lookup_property<'a>(
-        &self,
-        name: &'a str,
-        mode: PropertyLookupMode,
-    ) -> PropertyLookupResult<'a> {
-        match self {
-            Self::Component(c) => c.root_element.borrow().lookup_property(name, mode),
-            Self::Builtin(b) => {
-                let resolved_name =
-                    if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
-                        Cow::Owned(alias_name.to_string())
-                    } else {
-                        Cow::Borrowed(name)
-                    };
-                match b.properties.get(resolved_name.as_ref()) {
-                    None => {
-                        if b.is_non_item_type || b.is_global {
-                            PropertyLookupResult::invalid(resolved_name)
-                        } else {
-                            crate::typeregister::reserved_property(resolved_name)
-                        }
-                    }
-                    Some(p) => PropertyLookupResult {
-                        resolved_name,
-                        property_type: p.ty.clone(),
-                        property_visibility: p.property_visibility,
-                        declared_pure: p.declared_pure(),
-                        is_local_to_component: false,
-                        is_in_direct_base: false,
-                        is_shadowable: p.shadowable,
-                        builtin_function: match &p.default_value {
-                            BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
-                            _ => None,
-                        },
-                        is_slint_sc: p.slint_sc,
-                        internal_name: None,
-                        deprecated: None,
-                    },
-                }
-            }
-            _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
-        }
-    }
-
-    /// Return the node declaring `name` in this type or one of its bases, if there is one.
-    pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
-        match self {
-            Self::Component(c) => c.root_element.borrow().property_declaration_node(name),
-            _ => None,
-        }
-    }
-
-    /// List of sub properties valid for the auto completion
-    pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
-        match self {
-            Self::Component(c) => {
-                let root = c.root_element.borrow();
-                let mut r = root.base_type.property_list();
-                // A visible shadowing declaration replaces the inherited entry of the same name.
-                if !root.shadowing_members.is_empty() {
-                    let hidden: std::collections::HashSet<_> =
-                        root.visible_shadowing_members().collect();
-                    r.retain(|(name, _)| !hidden.contains(name));
-                }
-                r.extend(
-                    root.property_declarations
-                        .iter()
-                        .filter(|(_, d)| d.visibility != PropertyVisibility::Private)
-                        .map(|(k, d)| (d.declared_name(k).clone(), d.property_type.clone())),
-                );
-                r
-            }
-            Self::Builtin(b) => {
-                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
-            _ => Vec::new(),
-        }
-    }
-
-    /// This function looks at the element and checks whether it can have Elements of type `name` as children.
-    /// In addition to what `accepts_child_element` does, this method also probes the type of `name`.
-    /// It returns an Error if that is not possible or an `ElementType` if it is.
-    pub fn lookup_type_for_child_element(
-        &self,
-        name: &str,
-        tr: &TypeRegister,
-    ) -> Result<ElementType, String> {
-        match self {
-            Self::Component(component) => {
-                let base_type = match component.child_insertion_points.borrow().get(DEFAULT_SLOT_NAME) {
-                    Some(insert_in) => insert_in.parent.borrow().base_type.clone(),
-                    None => {
-                        let base_type = component.root_element.borrow().base_type.clone();
-                        if base_type == tr.empty_type() {
-                            let element = tr.lookup_element(name)?;
-                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
-                                return Ok(element);
-                            }
-                            return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
-                        }
-                        base_type
-                    }
-                };
-                base_type.lookup_type_for_child_element(name, tr)
-            }
-            Self::Builtin(builtin) => {
-                let looked_up = tr.lookup_element(name);
-                if let Ok(ElementType::Builtin(b)) = &looked_up
-                    && b.can_be_declared_without_children_slot
-                {
-                    return Ok(ElementType::Builtin(b.clone()));
-                }
-                if builtin.disallow_global_types_as_child_elements {
-                    if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                        return Ok(child_type.clone().into());
-                    } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
-                        return Ok(builtin.clone().into());
-                    }
-                    let mut valid_children: Vec<_> =
-                        builtin.additional_accepted_child_types.keys().cloned().collect();
-                    if builtin.additional_accept_self {
-                        valid_children.push(builtin.native_class.class_name.clone());
-                    }
-                    valid_children.sort();
-
-                    let err = if valid_children.is_empty() {
-                        // No whitelist to suggest from; prefer "Unknown element" for typos.
-                        looked_up?;
-                        format!("{} cannot have children elements", builtin.native_class.class_name,)
-                    } else {
-                        format!(
-                            "{} is not allowed within {}. Only {} are valid children",
-                            name,
-                            builtin.native_class.class_name,
-                            valid_children.join(" ")
-                        )
-                    };
-                    return Err(err);
-                }
-                let err = match looked_up {
-                    Err(e) => e,
-                    Ok(t) => {
-                        if !tr.expose_internal_types
-                            && matches!(&t, Self::Builtin(e) if e.is_internal)
-                        {
-                            format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)")
-                        } else {
-                            return Ok(t);
-                        }
-                    }
-                };
-                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                    return Ok(child_type.clone().into());
-                } else if builtin.additional_accept_self && name == builtin.native_class.class_name {
-                    return Ok(builtin.clone().into());
-                }
-                match tr.lookup(name) {
-                    Type::Invalid => Err(err),
-                    ty => Err(format!("'{ty}' cannot be used as an element")),
-                }
-            }
-            _ => tr.lookup_element(name).and_then(|t| {
-                if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
-                    Err(format!("Unknown element '{name}'. (The type exists as an internal type, but cannot be accessed in this scope)"))
-                } else {
-                    Ok(t)
-                }
-            })
-        }
-    }
-
-    /// Assume this is a builtin type, panic if it isn't
-    pub fn as_builtin(&self) -> &BuiltinElement {
-        match self {
-            Self::Builtin(b) => b,
-            Self::Component(_) => panic!("This should not happen because of inlining"),
-            _ => panic!("invalid type"),
-        }
-    }
-
-    /// Assume it is a Component, panic if it isn't
-    pub fn as_component(&self) -> &Rc<Component> {
-        match self {
-            Self::Component(c) => c,
-            _ => panic!("should be a component because of the repeater_component pass"),
-        }
-    }
-
-    /// Returns the Slint type name if applicable (for example `Rectangle` or `MyButton` when `component MyButton {}` is used as `MyButton` element)
-    pub fn type_name(&self) -> Option<&str> {
-        match self {
-            ElementType::Component(component) => Some(&component.id),
-            ElementType::Builtin(b) => Some(&b.name),
-            ElementType::Error => None,
-            ElementType::Global => None,
-            ElementType::Interface => None,
-        }
-    }
-}
-
-impl Display for ElementType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Component(c) => c.id.fmt(f),
-            Self::Builtin(b) => b.name.fmt(f),
-            Self::Error => write!(f, "<error>"),
-            Self::Global => Ok(()),
-            Self::Interface => Ok(()),
-        }
-    }
-}
-
 macro_rules! define_builtin_struct_enum {
     ($(
         $(#[$attr:meta])*
@@ -732,15 +364,20 @@ macro_rules! define_builtin_struct_enum {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
-        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr)]
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
 
             // Public structs not in the macro (registered in typeregister.rs)
-            Color,
             LogicalPosition,
             LogicalSize,
+
+            // The results of a color's `to-hsv()` and `to-oklch()`, and the struct that its
+            // `red`, `green`, `blue` and `alpha` come from. They have no name in Slint.
+            ColorRgba,
+            ColorHsva,
+            ColorOklch,
 
             // Path element types, set via the `builtin_struct` flag of the
             // builtin element declaration and read through NativeClass.builtin_struct
@@ -780,7 +417,7 @@ macro_rules! define_builtin_struct_enum {
                     // Macro-defined structs: derived from the `pub` visibility keyword
                     $(Self::$Name => stringify!($vis) == "pub",)*
                     // Non-macro public structs
-                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
+                    Self::LogicalPosition | Self::LogicalSize => true,
                     _ => false,
                 }
             }
@@ -794,7 +431,6 @@ macro_rules! define_builtin_struct_enum {
                         Some(SmolStr::new_static(stringify!($Name)))
                     })*
                     // Non-macro structs with custom slint names
-                    Self::Color => Some(SmolStr::new_static("color")),
                     Self::LogicalPosition => Some(SmolStr::new_static("Point")),
                     Self::LogicalSize => Some(SmolStr::new_static("Size")),
                     _ => None,
@@ -818,211 +454,6 @@ impl BuiltinStruct {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct NativeClass {
-    pub parent: Option<Arc<NativeClass>>,
-    pub class_name: SmolStr,
-    pub cpp_vtable_getter: String,
-    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
-    /// Type override if class_name is not equal to the name to be used in the
-    /// target language API.
-    pub builtin_struct: Option<BuiltinStruct>,
-}
-
-impl NativeClass {
-    pub fn new(class_name: &str) -> Self {
-        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({class_name}VTable)");
-        Self {
-            class_name: class_name.into(),
-            cpp_vtable_getter,
-            properties: Default::default(),
-            ..Default::default()
-        }
-    }
-
-    pub fn new_with_properties(
-        class_name: &str,
-        properties: impl IntoIterator<Item = (SmolStr, BuiltinPropertyInfo)>,
-    ) -> Self {
-        let mut class = Self::new(class_name);
-        class.properties = properties.into_iter().collect();
-        class
-    }
-
-    pub fn property_count(&self) -> usize {
-        self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
-    }
-
-    pub fn lookup_property(&self, name: &str) -> Option<&Type> {
-        self.lookup_property_info(name).map(|info| &info.ty)
-    }
-
-    /// The declaration of `name` on this class or the closest parent that has it.
-    pub fn lookup_property_info(&self, name: &str) -> Option<&BuiltinPropertyInfo> {
-        self.properties
-            .get(name)
-            .or_else(|| self.parent.as_ref().and_then(|parent| parent.lookup_property_info(name)))
-    }
-
-    pub fn lookup_alias(&self, name: &str) -> Option<&str> {
-        if let Some(alias_target) = self.deprecated_aliases.get(name) {
-            Some(alias_target)
-        } else if self.properties.contains_key(name) {
-            None
-        } else if let Some(parent_class) = &self.parent {
-            parent_class.lookup_alias(name)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum DefaultSizeBinding {
-    /// There should not be a default binding for the size
-    #[default]
-    None,
-    /// The size should default to `width:100%; height:100%`
-    ExpandsToParentGeometry,
-    /// The size should default to the item's implicit size
-    ImplicitSize,
-}
-
-/// One entry in the documentation of a builtin element, in declaration order.
-#[derive(Debug, Clone)]
-pub enum ElementDocEntry {
-    /// Free-form documentation text (from `///` or `//!` comments).
-    Text(String),
-    /// Reference to a property, callback, or function by name.
-    Member(SmolStr),
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct BuiltinElement {
-    pub name: SmolStr,
-    pub native_class: Arc<NativeClass>,
-    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    /// Additional builtin element that can be accepted as child of this element
-    /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
-    pub additional_accepted_child_types: BTreeMap<SmolStr, Rc<BuiltinElement>>,
-    /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
-    pub additional_accept_self: bool,
-    pub disallow_global_types_as_child_elements: bool,
-    /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
-    pub is_non_item_type: bool,
-    pub accepts_focus: bool,
-    pub is_global: bool,
-    pub default_size_binding: DefaultSizeBinding,
-    /// When true this is an internal type not shown in the auto-completion
-    pub is_internal: bool,
-    /// Documentation sections of the builtin element declaration, preserving source order.
-    /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
-    /// `Member` entries reference a property, callback, or function by name.
-    pub docs: Vec<ElementDocEntry>,
-    /// When true this builtin can be declared as a child even if the parent element
-    /// does not expose an explicit @children insertion slot.
-    pub can_be_declared_without_children_slot: bool,
-    /// When true this element is part of the Slint SC (safety-critical) subset.
-    pub slint_sc: bool,
-}
-
-/// How [`crate::object_tree::Element::lookup_property`] resolves a name.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum PropertyLookupMode {
-    /// A source name resolved from within the declaring component: a private shadow is visible.
-    ComponentLocal,
-    /// A source name resolved from outside the component: a private shadow is invisible, so the name
-    /// resolves to the member it shadows.
-    FromOutside,
-    /// A storage key, as a `NamedReference` carries: no shadow resolution.
-    InternalName,
-}
-
-#[derive(PartialEq, Debug)]
-pub struct PropertyLookupResult<'a> {
-    pub resolved_name: std::borrow::Cow<'a, str>,
-    pub property_type: Type,
-    pub property_visibility: PropertyVisibility,
-    pub declared_pure: Option<bool>,
-    /// True if the property is part of the current component (for visibility purposes)
-    pub is_local_to_component: bool,
-    /// True if the property in the direct base of the component (for protected visibility purposes)
-    pub is_in_direct_base: bool,
-    /// True if a local declaration may shadow this member: it is marked `@shadowable`.
-    pub is_shadowable: bool,
-
-    /// Set when the lookup went through a shadow: the member is declared under this
-    /// name in `Element::property_declarations`, `bindings`, etc, while `resolved_name`
-    /// keeps the name as it is written in the source. Only ever set by
-    /// [`crate::object_tree::Element::lookup_property`].
-    pub internal_name: Option<SmolStr>,
-
-    /// If the property is a builtin function
-    pub builtin_function: Option<BuiltinFunction>,
-
-    /// Whether the property is part of the Slint SC subset (`@sc` in the builtin element
-    /// declaration).
-    pub is_slint_sc: bool,
-
-    /// Some if the property was declared with `@deprecated`: the hint message shown after
-    /// "The property 'xxx' has been deprecated:" in the warning.
-    /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
-    pub deprecated: Option<SmolStr>,
-}
-
-impl<'a> PropertyLookupResult<'a> {
-    pub fn is_valid(&self) -> bool {
-        self.property_type != Type::Invalid
-    }
-
-    /// Can this property be used in an assignment
-    pub fn is_valid_for_assignment(&self) -> bool {
-        !matches!(
-            (self.property_visibility, self.is_local_to_component),
-            (PropertyVisibility::Private, false)
-                | (PropertyVisibility::Input, true)
-                | (PropertyVisibility::Output, false)
-        )
-    }
-
-    /// Report the property as outside the Slint SC subset, unless it's one the subset has.
-    /// A name that resolves to nothing is left to the diagnostic that says so.
-    #[cfg(feature = "slint-sc")]
-    pub fn check_slint_sc(
-        &self,
-        name: &dyn Display,
-        source: &dyn crate::diagnostics::Spanned,
-        diag: &mut crate::diagnostics::BuildDiagnostics,
-    ) {
-        if self.is_valid() && !self.is_slint_sc {
-            diag.slint_sc_error(&format!("The property '{name}' is"), source);
-        }
-    }
-
-    /// The name the member is stored under in `Element::property_declarations`, `bindings`,
-    /// `change_callbacks` and `property_analysis`, and the name a `NamedReference` to it carries.
-    pub fn internal_or_resolved_name(&self) -> SmolStr {
-        self.internal_name.clone().unwrap_or_else(|| self.resolved_name.as_ref().into())
-    }
-
-    pub fn invalid(resolved_name: Cow<'a, str>) -> Self {
-        Self {
-            resolved_name,
-            property_type: Type::Invalid,
-            property_visibility: PropertyVisibility::Private,
-            declared_pure: None,
-            is_local_to_component: false,
-            is_in_direct_base: false,
-            is_shadowable: false,
-            builtin_function: None,
-            is_slint_sc: false,
-            internal_name: None,
-            deprecated: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub return_type: Type,
@@ -1039,7 +470,10 @@ impl Display for Function {
             if i > 0 {
                 write!(formatter, ", ")?;
             }
-            write!(formatter, "{arg}")?;
+            match self.arg_names.get(i).filter(|name| !name.is_empty()) {
+                Some(name) => write!(formatter, "{name}: {arg}")?,
+                None => write!(formatter, "{arg}")?,
+            }
         }
         let return_type = if self.return_type == Type::Void {
             String::new()
@@ -1152,28 +586,18 @@ impl Struct {
             _ => &[],
         }
     }
-
-    /// The default value for the given field: the user-declared default if there is one,
-    /// otherwise the default value for the field's type.
-    pub fn default_value_for_field(&self, name: &SmolStr) -> Expression {
-        self.field_defaults.get(name).map(ConstantExpression::to_expression).unwrap_or_else(|| {
-            Expression::default_value_for_type(
-                self.fields.get(name).expect("default value requested for unknown struct field"),
-            )
-        })
-    }
 }
 
 /// A constant expression, used for the default values of struct fields
 /// (see [`Struct::field_defaults`]).
 ///
-/// This is deliberately neither [`Expression`] nor an llr expression:
+/// This is deliberately neither [`Expression`](crate::expression_tree::Expression) nor an llr expression:
 /// unlike those, it cannot reference any properties, elements, or syntax nodes,
 /// so a [`Struct`] carrying one can safely outlive the object tree.
 /// The variants are the subset that every consumer can materialize.
 /// Keep the matches over this type exhaustive,
 /// so that adding a variant is a compile error in each consumer:
-/// the conversion to an expression tree ([`Self::to_expression`]),
+/// the conversion to an expression tree (`Expression::from_constant`),
 /// the lowering for the code generators (`lower_constant_expression` in the llr module),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
@@ -1199,68 +623,6 @@ pub enum ConstantExpression {
         element_ty: Type,
         values: Vec<ConstantExpression>,
     },
-}
-
-impl ConstantExpression {
-    /// Create a constant expression from a resolved, converted, and constant-folded
-    /// expression, or `None` if the expression is not in the constant subset.
-    pub fn from_expression(expression: &Expression) -> Option<Self> {
-        Some(match expression {
-            Expression::StringLiteral(s) => Self::StringLiteral(s.clone()),
-            Expression::NumberLiteral(n, unit) => Self::NumberLiteral(*n, *unit),
-            Expression::BoolLiteral(b) => Self::BoolLiteral(*b),
-            Expression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
-            Expression::Cast { from, to } => {
-                // Converting a number to a string depends on the locale's decimal separator.
-                // The constant propagation folds the cases that render the same in every
-                // locale into a string literal, so a cast that's still here isn't constant
-                // (see `Expression::is_constant`).
-                if *to == Type::String {
-                    return None;
-                }
-                Self::Cast { from: Box::new(Self::from_expression(from)?), to: to.clone() }
-            }
-            Expression::UnaryOp { sub, op } => {
-                Self::UnaryOp { sub: Box::new(Self::from_expression(sub)?), op: *op }
-            }
-            Expression::Struct { ty, values } => Self::Struct {
-                ty: ty.clone(),
-                values: values
-                    .iter()
-                    .map(|(k, v)| Some((k.clone(), Self::from_expression(v)?)))
-                    .collect::<Option<_>>()?,
-            },
-            Expression::Array { element_ty, values } => Self::Array {
-                element_ty: element_ty.clone(),
-                values: values.iter().map(Self::from_expression).collect::<Option<_>>()?,
-            },
-            _ => return None,
-        })
-    }
-
-    /// The expression tree form, for splicing the constant into bindings at compile time
-    pub fn to_expression(&self) -> Expression {
-        match self {
-            Self::StringLiteral(s) => Expression::StringLiteral(s.clone()),
-            Self::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
-            Self::BoolLiteral(b) => Expression::BoolLiteral(*b),
-            Self::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
-            Self::Cast { from, to } => {
-                Expression::Cast { from: Box::new(from.to_expression()), to: to.clone() }
-            }
-            Self::UnaryOp { sub, op } => {
-                Expression::UnaryOp { sub: Box::new(sub.to_expression()), op: *op }
-            }
-            Self::Struct { ty, values } => Expression::Struct {
-                ty: ty.clone(),
-                values: values.iter().map(|(k, v)| (k.clone(), v.to_expression())).collect(),
-            },
-            Self::Array { element_ty, values } => Expression::Array {
-                element_ty: element_ty.clone(),
-                values: values.iter().map(Self::to_expression).collect(),
-            },
-        }
-    }
 }
 
 impl Display for Struct {
@@ -1418,7 +780,7 @@ impl std::fmt::Display for EnumerationValue {
 
 impl EnumerationValue {
     pub fn to_pascal_case(&self) -> String {
-        crate::generator::to_pascal_case(&self.enumeration.values[self.value])
+        crate::names::to_pascal_case(&self.enumeration.values[self.value])
     }
 }
 

@@ -4,8 +4,10 @@
     "main": "main.js",
     "type": "module",
     "dependencies": {
-        "@biomejs/biome": "catalog:",
         "slint-ui": "workspace:*"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "catalog:"
     },
     "scripts": {
         "start": "node .",

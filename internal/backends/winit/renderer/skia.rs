@@ -163,6 +163,12 @@ impl WinitSkiaRenderer {
                     RequestedGraphicsAPI::WGPU29(..) => Ok(Self::new_wgpu_29_suspended),
                     #[cfg(feature = "unstable-wgpu-30")]
                     RequestedGraphicsAPI::WGPU30(..) => Ok(Self::new_wgpu_30_suspended),
+                    // The enum's variants follow i-slint-core's `unstable-wgpu-*` features, which
+                    // another crate can enable without this one's.
+                    #[allow(unreachable_patterns)]
+                    _ => Err("The requested WGPU version is not enabled in the winit backend"
+                        .to_string()
+                        .into()),
                 }
             }
             None => Ok(Self::new_suspended),

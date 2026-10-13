@@ -4,7 +4,8 @@
 import { Style, Metrics, Colors, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, ComponentPaletteRow, MutedLabel, SectionTitle, PrimerTextInput } from "index.slint";
 import { Api, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
-import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { Diagnostics } from "../diagnostics.slint";
+import { Icons } from "icons.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
 component ElementsUnavailableNotice inherits Rectangle {
@@ -113,7 +114,7 @@ component ElementPaletteGroup inherits VerticalLayout {
                 visible: root.query == "";
                 width: Metrics.icon-small;
                 height: Metrics.icon-small;
-                source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                source: root.expanded ? Icons.chevron-down : Icons.chevron-right;
                 colorize: Colors.muted;
             }
             MutedLabel { text: root.group.label; horizontal-stretch: 1; }
@@ -206,8 +207,8 @@ export component ElementPalette inherits Rectangle {
             ElementPaletteRows {
                 vertical-stretch: 1;
                 query: Api.element-library-normalize-query(search.text);
-                enabled: !root.image-mode;
-                drag-enabled: Api.known-components.length > 0;
+                enabled: !root.image-mode && Diagnostics.preview-editable;
+                drag-enabled: Diagnostics.preview-editable && Api.known-components.length > 0;
                 drag-started => { root.drag-started(); }
             }
         }

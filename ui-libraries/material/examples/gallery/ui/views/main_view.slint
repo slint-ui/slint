@@ -36,6 +36,10 @@ export global MainViewAdapter {
 }
 
 export component MainView {
+    in property <length> safe-area-top;
+    in property <length> safe-area-bottom;
+    in property <length> safe-area-left;
+    in property <length> safe-area-right;
     property <Views> current_view: Views.components;
     property <[NavigationItem]> navigation_items: [
         {
@@ -46,6 +50,10 @@ export component MainView {
     ];
 
     VerticalLayout {
+        padding-top: root.safe-area-top;
+        padding-left: root.safe-area-left;
+        padding-right: root.safe-area-right;
+
         app_bar := SmallAppBar {
             title: "Material 3";
             trailing_buttons: [
@@ -86,6 +94,7 @@ export component MainView {
             background: MaterialPalette.background;
 
             if !MainWindowAdapter.break_layout : HorizontalLayout {
+                padding-bottom: root.safe-area-bottom;
 
                 if root.current_view == Views.components : ComponentsView {
                     horizontal_stretch: 1;
@@ -93,6 +102,8 @@ export component MainView {
             }
 
             if MainWindowAdapter.break_layout : VerticalLayout {
+                padding-bottom: root.safe-area-bottom;
+
                 if root.current_view == Views.components : ComponentsView {
                     horizontal_stretch: 1;
                 }

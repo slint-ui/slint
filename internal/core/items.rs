@@ -33,8 +33,8 @@ use crate::item_tree::ItemTreeRc;
 pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-    RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths,
 };
 pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
@@ -54,7 +54,7 @@ use vtable::*;
 mod component_container;
 pub use self::component_container::*;
 mod flickable;
-pub use flickable::Flickable;
+pub use flickable::{AutoBool, Flickable};
 mod text;
 pub use text::*;
 mod input_items;
@@ -856,6 +856,9 @@ declare_item_vtable! {
 pub struct Opacity {
     // FIXME: this element shouldn't need these geometry property
     pub opacity: Property<f32>,
+    /// Set by the compiler on the item injected for an element with a [`BackdropBlur`].
+    /// The blur reads what's beneath this item, while other opacity layers hide it from blurs inside.
+    pub wraps_backdrop_blur: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -945,29 +948,30 @@ impl Item for Opacity {
 }
 
 impl Opacity {
-    // This function determines the optimization opportunities for not having to render the
-    // children of the Opacity element into a layer:
-    //  *  The opacity item typically only one child (this is not guaranteed). If that item has
-    //     no children, then we can skip the layer and apply the opacity directly. This is not perfect though,
-    //     for example if the compiler inserts another synthetic element between the `Opacity` and the actual child,
-    //     then this check will apply a layer even though it might not actually be necessary.
-    //  * If the vale of the opacity is 1.0 then we don't need to do anything.
+    /// A layer and per-item opacity only differ where drawn primitives overlap,
+    /// so a single childless item is drawn without one.
+    /// `Clip` and `Transform` draw nothing themselves and are looked through.
+    /// The compiler injects them for `visible` and the transform properties,
+    /// see `passes/visible.rs` and `lower_transform_properties`.
     pub fn need_layer(self_rc: &ItemRc, opacity: f32) -> bool {
         if opacity == 1.0 {
             return false;
         }
 
-        let opacity_child = match self_rc.first_child() {
-            Some(first_child) => first_child,
-            None => return false, // No children? Don't need a layer then.
-        };
-
-        if opacity_child.next_sibling().is_some() {
-            return true; // If the opacity item has more than one child, then we need a layer
+        let mut child = self_rc.first_child();
+        while let Some(item) = child {
+            if item.next_sibling().is_some() {
+                return true;
+            }
+            let item_ref = item.borrow();
+            if ItemRef::downcast_pin::<Clip>(item_ref).is_none()
+                && ItemRef::downcast_pin::<Transform>(item_ref).is_none()
+            {
+                return item.first_child().is_some();
+            }
+            child = item.first_child();
         }
-
-        // If the target of the opacity has any children then we need a layer
-        opacity_child.first_child().is_some()
+        false
     }
 }
 
@@ -988,6 +992,8 @@ declare_item_vtable! {
 /// The Layer Item is not meant to be used directly by the .slint code, instead, the `layer: xxx` property should be used
 pub struct Layer {
     pub cache_rendering_hint: Property<bool>,
+    /// See [`Opacity::wraps_backdrop_blur`].
+    pub wraps_backdrop_blur: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1260,9 +1266,9 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub safe_area_insets: Property<crate::lengths::LogicalEdges>,
-    pub virtual_keyboard_position: Property<crate::lengths::LogicalPoint>,
-    pub virtual_keyboard_size: Property<crate::lengths::LogicalSize>,
+    pub safe_area_insets: Property<Edges>,
+    pub virtual_keyboard_position: Property<LogicalPosition>,
+    pub virtual_keyboard_size: Property<crate::api::LogicalSize>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
@@ -1419,9 +1425,7 @@ impl WindowItem {
     /// `default-font-size` is set in the .slint code, before the renderer's built-in
     /// default applies.
     fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
-        item.window_adapter().and_then(|adapter| {
-            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
-        })
+        item.slint_context().platform_default_font_size()
     }
 
     fn resolve_font_property<T>(
@@ -1608,12 +1612,20 @@ impl Item for ContextMenu {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardEvent
+        match event {
+            MouseEvent::Pressed { position, button: PointerEventButton::Right, .. }
+                if self.enabled()
+                    && !enabled_context_menu_at(self_rc, *position, window_adapter) =>
+            {
+                InputEventFilterResult::Intercept
+            }
+            _ => InputEventFilterResult::ForwardEvent,
+        }
     }
 
     fn input_event(
@@ -1747,6 +1759,35 @@ impl ContextMenu {
     }
 }
 
+fn enabled_context_menu_at(
+    parent: &ItemRc,
+    position_in_children: LogicalPoint,
+    window_adapter: &Rc<dyn WindowAdapter>,
+) -> bool {
+    let mut child = parent.first_child();
+    while let Some(item) = child {
+        let geometry = item.geometry();
+        let inside = geometry.contains(position_in_children);
+        if inside && item.downcast::<ContextMenu>().is_some_and(|menu| menu.as_pin_ref().enabled())
+        {
+            return true;
+        }
+        if inside || !item.borrow().as_ref().clips_children() {
+            let mut position = position_in_children - geometry.origin.to_vector();
+            if window_adapter.renderer().supports_transformations()
+                && let Some(inverse_transform) = item.inverse_children_transform()
+            {
+                position = inverse_transform.transform_point(position.cast()).cast();
+            }
+            if enabled_context_menu_at(&item, position, window_adapter) {
+                return true;
+            }
+        }
+        child = item.next_sibling();
+    }
+    false
+}
+
 impl ItemConsts for ContextMenu {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
@@ -1791,6 +1832,9 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
+    pub background: Property<Brush>,
+    pub border_color: Property<Brush>,
+    pub border_width: Property<LogicalLength>,
     pub border_top_left_radius: Property<LogicalLength>,
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
@@ -1813,6 +1857,21 @@ impl BoxShadow {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+    }
+}
+
+impl RenderBorderRectangle for BoxShadow {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.background()
+    }
+    fn border_width(self: Pin<&Self>) -> LogicalLength {
+        self.border_width()
+    }
+    fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        self.logical_border_radius()
+    }
+    fn border_color(self: Pin<&Self>) -> Brush {
+        self.border_color()
     }
 }
 
@@ -1917,6 +1976,128 @@ impl ItemConsts for BoxShadow {
 
 declare_item_vtable! {
     fn slint_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
+}
+
+/// The implementation of the `BackdropBlur` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct BackdropBlur {
+    pub blur: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl BackdropBlur {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
+    }
+}
+
+impl Item for BackdropBlur {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursorInner,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursorInner,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) -> RenderingResult {
+        (*backend).draw_backdrop_blur(self, self_rc, size);
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        // Gaussian blurs sample up to three standard deviations away.
+        // Covering that margin makes partial rendering redraw it along with the blur.
+        let margin = LogicalLength::new(self.blur().get().max(0 as Coord) * 3 as Coord);
+        geometry.outer_rect(euclid::SideOffsets2D::from_length_all_same(margin))
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for BackdropBlur {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_BackdropBlurVTable() -> BackdropBlurVTable for BackdropBlur
 }
 
 declare_item_vtable! {
@@ -2122,12 +2303,8 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        // Start on the context this item's window belongs to, not on whichever one is
-        // current: a component built with `new_with_context` must keep its timers there.
-        let Some(window_adapter) = self_rc.window_adapter() else { return };
-        let ctx = crate::window::WindowInner::from_pub(window_adapter.window()).context();
         self.timer.start_on(
-            ctx,
+            &self_rc.slint_context(),
             crate::timers::TimerMode::SingleShot,
             Duration::from_millis(delay_ms),
             move || {

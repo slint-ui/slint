@@ -44,6 +44,9 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: Configure network retries
+          shell: bash
+          run: bash "$GITHUB_ACTION_PATH/../network-retries.sh"
         - name: Disable debug info to avoid running out of disk space on Windows
           if: runner.os == 'Windows'
           run: |

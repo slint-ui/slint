@@ -6,11 +6,14 @@
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
+use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
-use crate::langtype::{ElementType, PropertyLookupMode};
 use crate::layout::*;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::{TypeRegister, layout_info_type};
@@ -40,8 +43,9 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
         prop_name.clone(),
         PropertyDeclaration {
             property_type: function_ty,
-            visibility: crate::object_tree::PropertyVisibility::Private,
+            visibility: PropertyVisibility::Private,
             pure: Some(true),
+            synthesized: true,
             ..Default::default()
         },
     );
@@ -448,12 +452,12 @@ fn lower_grid_layout(
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-h"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_cache_prop_v = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-v"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_info_prop_h = create_new_prop(
         grid_layout_element,
@@ -784,7 +788,8 @@ impl GridLayout {
                 let e = nr.element();
                 let mut nr = nr.clone();
                 if e.borrow().repeated.is_some()
-                    && let crate::langtype::ElementType::Component(c) = e.borrow().base_type.clone()
+                    && let crate::element_type::ElementType::Component(c) =
+                        e.borrow().base_type.clone()
                 {
                     nr = NamedReference::new(&c.root_element, nr.name().clone())
                 };
@@ -916,7 +921,7 @@ impl GridLayout {
                         let e = nr.element();
                         let mut nr = nr.clone();
                         if e.borrow().repeated.is_some()
-                            && let crate::langtype::ElementType::Component(c) =
+                            && let crate::element_type::ElementType::Component(c) =
                                 e.borrow().base_type.clone()
                         {
                             nr = NamedReference::new(&c.root_element, nr.name().clone())
@@ -1605,7 +1610,7 @@ fn lower_box_layout(
             create_new_prop(
                 layout_element,
                 SmolStr::new_static("layout-cache-ortho"),
-                Type::LayoutCache,
+                Type::ArrayOfCoord,
             )
         });
 
@@ -1615,7 +1620,7 @@ fn lower_box_layout(
     };
 
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
         let pads = layout.geometry.padding.begin_end(orientation.orthogonal());
@@ -1743,7 +1748,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
 
     // FlexboxLayout needs 4 values per item: x, y, width, height
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     let layout_info_prop_v = create_new_prop(
         layout_element,
         SmolStr::new_static("layoutinfo-v"),
@@ -1905,9 +1910,9 @@ fn lower_dialog_layout(
         Type::ArrayOfU16,
     );
     let layout_cache_prop_h =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::ArrayOfCoord);
     let layout_cache_prop_v =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::ArrayOfCoord);
     let layout_info_prop_h = create_new_prop(
         dialog_element,
         SmolStr::new_static("layoutinfo-h"),
@@ -2014,6 +2019,7 @@ fn lower_dialog_layout(
                                         shadowable: false,
                                         moved_from: None,
                                         deprecated: None,
+                                        synthesized: false,
                                     });
                             }
                         }

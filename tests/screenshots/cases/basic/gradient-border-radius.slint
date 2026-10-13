@@ -1,0 +1,93 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=128x64
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=600  - gradients and the border radius algorithm are imprecise in rotation
+
+// Gradient backgrounds stay inside the border radius: no gradient pixels in the corners.
+export component TestCase inherits Window {
+    width: 128px;
+    height: 64px;
+    background: black;
+
+    // Linear, no border
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: @linear-gradient(45deg, red, yellow, blue);
+    }
+    // Radial, opaque border
+    Rectangle {
+        x: 34px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        border-width: 3px;
+        border-color: white;
+        background: @radial-gradient(circle, cyan, red);
+    }
+    // Conic, semi-transparent border
+    Rectangle {
+        x: 66px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        border-width: 3px;
+        border-color: #ffffff80;
+        background: @conic-gradient(red 0deg, green 120deg, blue 240deg, red 360deg);
+    }
+    // Asymmetric radii
+    Rectangle {
+        x: 98px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 2px;
+        border-bottom-right-radius: 8px;
+        border-bottom-left-radius: 0px;
+        background: @linear-gradient(90deg, green, magenta);
+    }
+    // Narrow pill at a fractional position, where both arcs cross the same pixels
+    Rectangle {
+        x: 2.5px;
+        y: 34.5px;
+        width: 9px;
+        height: 27px;
+        border-radius: 8px;
+        background: @radial-gradient(circle, yellow, blue);
+    }
+    // A parent clip cuts through the corners
+    Rectangle {
+        x: 16px;
+        y: 36px;
+        width: 40px;
+        height: 22px;
+        clip: true;
+        Rectangle {
+            x: -6px;
+            y: -6px;
+            width: 52px;
+            height: 34px;
+            border-radius: 12px;
+            border-width: 2px;
+            border-color: white;
+            background: @conic-gradient(cyan 0deg, magenta 180deg, cyan 360deg);
+        }
+    }
+    // Radius on a fractional position: the gradient center must not move with the radius
+    Rectangle {
+        x: 62.5px;
+        y: 34.5px;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        background: @radial-gradient(circle, white 0%, black 30%, white 60%, black 100%);
+    }
+}

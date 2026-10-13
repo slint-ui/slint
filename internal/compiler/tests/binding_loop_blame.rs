@@ -40,7 +40,11 @@ export component Main inherits Window {
 
 fn compile(source: &str) -> Vec<String> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parse(source.into(), Some(std::path::Path::new("main.slint")), &mut diag);
+    let syntax_node = parse(
+        source.into(),
+        Some(i_slint_compiler::source_path::SourcePath::new("main.slint")),
+        &mut diag,
+    );
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
     config.style = Some("fluent".into());
     let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));

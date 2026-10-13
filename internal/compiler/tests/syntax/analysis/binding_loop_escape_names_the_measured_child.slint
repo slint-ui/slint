@@ -6,7 +6,7 @@
 // an 'x' on 'sibling' would leave the loop untouched.
 component WithSibling inherits Rectangle {
     in property <length> helper: sibling.width;
-//                               >            <error{The binding for the property 'helper' is part of a binding loop (WithSibling.layoutinfo-h -> WithSibling.preferred-width -> WithSibling.width -> sibling.width -> WithSibling.helper -> measured.text -> WithSibling.layoutinfo-h)↵Compute 'helper' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'measured', so its parent stops sizing itself from it}
+//                               >            <error{The binding for the property 'helper' is part of a binding loop (WithSibling.preferred-width -> WithSibling.width -> sibling.width -> WithSibling.helper -> measured.text -> WithSibling -> WithSibling.preferred-width)↵Compute 'helper' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'measured', so its parent stops sizing itself from it}
     sibling := Rectangle { }
     measured := Text { text: root.helper / 1px; }
 //              >   <note{setting an 'x' or a 'y' here takes 'measured' out of its parent's size, one way out of the binding loop reported for 'helper' at line 8}

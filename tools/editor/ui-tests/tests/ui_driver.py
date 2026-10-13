@@ -4,16 +4,16 @@
 # cspell:ignore tobytes
 
 import contextlib
-import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TypeVar
 
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
+from slint_testing import wait_until
+from ui_assertions import expect
 from ui_reporting import capture_failure, current_report, replay_stage
 
 
@@ -22,7 +22,9 @@ def screenshot(window: slint_testing.Window) -> Image.Image:
 
     def settled() -> Image.Image | None:
         nonlocal previous
-        image = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
+        image = Image.open(
+            BytesIO(window.grab_window_with_mime_type("image/bmp"))
+        ).convert("RGB")
         data = image.tobytes()
         stable = data == previous
         previous = data
@@ -44,21 +46,6 @@ def press_keys(window: slint_testing.Window, text: str) -> None:
         press_key(window, key)
 
 
-T = TypeVar("T")
-
-
-def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        result = probe()
-        if result is not None:
-            return result
-        time.sleep(0.02)
-    result = probe()
-    assert result is not None
-    return result
-
-
 def first_window(
     application: slint_testing.Application,
 ) -> slint_testing.Window:
@@ -67,47 +54,55 @@ def first_window(
     return window
 
 
-def elements_with_label(
-    root: slint_testing.Element,
-    label: str,
+def query(
+    scope: slint_testing.Window | slint_testing.Element,
+    name: str | None = None,
+    *,
     role: slint_testing.AccessibleRole | None = None,
-) -> list[slint_testing.Element]:
-    query = root.query_descendants()
+    id: str | None = None,
+) -> slint_testing.ElementQuery:
+    """The query that element() and elements() run, for assertions on its matches."""
+    query = scope.query_descendants()
+    if id is not None:
+        query = query.match_id(id)
     if role is not None:
         query = query.match_accessible_role(role)
-    return [
-        element for element in query.find_all() if element.accessible_label == label
-    ]
+    if name is not None:
+        query = query.match_accessible_label(name)
+    return query
 
 
-def element_with_label(
-    root: slint_testing.Element,
-    label: str,
+def element(
+    scope: slint_testing.Window | slint_testing.Element,
+    name: str | None = None,
+    *,
     role: slint_testing.AccessibleRole | None = None,
+    id: str | None = None,
     timeout: float = 5,
+    tracking: bool = True,
 ) -> slint_testing.Element:
-    matches: list[slint_testing.Element] = []
+    """Waits until exactly one element below `scope` matches, and returns it.
 
-    def unique_match() -> slint_testing.Element | None:
-        nonlocal matches
-        matches = elements_with_label(root, label, role)
-        return matches[0] if len(matches) == 1 else None
-
-    try:
-        return wait_until(unique_match, timeout=timeout)
-    except AssertionError as error:
-        raise AssertionError(
-            f"expected exactly one element labeled {label!r}, found {len(matches)}"
-        ) from error
+    The element tracks the query: every property read or action runs the query again, so it
+    follows the element when the UI replaces it, for example when the preview updates. Pass
+    `tracking=False` for a handle to the instance that matches now, to keep reading it while the
+    element is hidden from queries.
+    """
+    lookup = query(scope, name, role=role, id=id)
+    if tracking:
+        return lookup.tracking(timeout).find_one()
+    return wait_until(lookup.find_one, timeout=timeout)
 
 
-def window_element_with_label(
-    window: slint_testing.Window,
-    label: str,
+def elements(
+    scope: slint_testing.Window | slint_testing.Element,
+    name: str | None = None,
+    *,
     role: slint_testing.AccessibleRole | None = None,
-    timeout: float = 5,
-) -> slint_testing.Element:
-    return element_with_label(window.root_element, label, role, timeout)
+    id: str | None = None,
+) -> list[slint_testing.Element]:
+    """The elements below `scope` that match right now, without waiting."""
+    return query(scope, name, role=role, id=id).find_all()
 
 
 ELEMENT_ROWS = {
@@ -118,19 +113,13 @@ ELEMENT_ROWS = {
 
 
 def outline_row(window: slint_testing.Window, label: str) -> slint_testing.Element:
-    return window_element_with_label(
-        window, label, slint_testing.AccessibleRole.ListItem
-    )
+    return element(window, label, role=slint_testing.AccessibleRole.ListItem)
 
 
 def outline_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
-    tree = window_element_with_label(
-        window, "Current file outline", slint_testing.AccessibleRole.List
-    )
-    return (
-        tree.query_descendants()
-        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-        .find_all()
+    return elements(
+        element(window, "Current file outline", role=slint_testing.AccessibleRole.List),
+        role=slint_testing.AccessibleRole.ListItem,
     )
 
 
@@ -139,15 +128,14 @@ def select_outline_row(
 ) -> slint_testing.Element:
     row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
-    return wait_until(lambda: row if row.accessible_item_selected else None)
+    expect(row).to_be_selected()
+    return row
 
 
 def select_fixture_element(window: slint_testing.Window, element_type: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[element_type])
-    window_element_with_label(
-        window,
-        f"Selected {element_type}",
-        slint_testing.AccessibleRole.Region,
+    element(
+        window, f"Selected {element_type}", role=slint_testing.AccessibleRole.Region
     )
 
 
@@ -186,7 +174,8 @@ def launch_editor(
 def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
     from canvas_interactions import center
 
-    tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
+    tree = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
+    role = slint_testing.AccessibleRole.ListItem
     scroll_step = max(1, min(250, tree.size.height / 2))
     for delta in [0, 10000] + [-scroll_step] * 32:
         if delta:
@@ -195,22 +184,19 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
                     center(tree), delta_x=0, delta_y=delta
                 )
             )
-        rows = elements_with_label(
-            tree, str(path), slint_testing.AccessibleRole.ListItem
-        )
-        if rows:
-            return rows[0]
-    return window_element_with_label(
-        window, str(path), slint_testing.AccessibleRole.ListItem
-    )
+        if elements(tree, str(path), role=role):
+            break
+    return element(tree, str(path), role=role)
 
 
 def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Element:
     from canvas_interactions import center
 
-    pane = window_element_with_label(window, "Element library")
-    top = pane.absolute_position.y
-    bottom = top + pane.size.height
+    pane = element(window, "Element library")
+    role = slint_testing.AccessibleRole.ListItem
+    rect = pane.absolute_rect
+    top = rect.y
+    bottom = top + rect.height
     position = slint_testing.LogicalPosition(x=center(pane).x, y=(top + bottom) / 2)
     step = max(1, (bottom - top) / 2)
     for delta in [0, 10000] + [-step] * 16:
@@ -218,9 +204,9 @@ def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Elemen
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
             )
-        rows = elements_with_label(pane, kind, slint_testing.AccessibleRole.ListItem)
+        rows = elements(pane, kind, role=role)
         if len(rows) == 1 and top < center(rows[0]).y < bottom:
-            return rows[0]
+            return element(pane, kind, role=role)
     raise AssertionError(f"No visible palette row for {kind!r}")
 
 

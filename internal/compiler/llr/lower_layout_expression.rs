@@ -9,8 +9,8 @@ use smol_str::SmolStr;
 
 use super::lower_to_item_tree::LoweredElement;
 use super::{GridLayoutRepeatedElement, LayoutRepeatedElement};
-use crate::expression_tree::MinMaxOp;
-use crate::langtype::{BuiltinStruct, EnumerationValue, Struct, Type};
+use crate::expression_types::MinMaxOp;
+use crate::langtype::{BuiltinStruct, EnumerationValue, Type};
 use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
@@ -233,15 +233,11 @@ fn compute_box_layout_info_ortho_with_measure(
     let solve_data = make_struct(
         BuiltinStruct::BoxLayoutData,
         [
-            ("size", Type::Float32, size),
-            ("spacing", Type::Float32, spacing_main),
-            ("padding", padding_main.ty(ctx), padding_main),
-            (
-                "alignment",
-                Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
-                bld.alignment,
-            ),
-            ("cells", bld.cells.ty(ctx), bld.cells),
+            ("size", size),
+            ("spacing", spacing_main),
+            ("padding", padding_main),
+            ("alignment", bld.alignment),
+            ("cells", bld.cells),
         ],
     );
     let sub_expression = llr_Expression::BoxLayoutInfoOrthoWithMeasure {
@@ -344,10 +340,10 @@ pub(super) fn solve_grid_layout(
     let data = make_struct(
         BuiltinStruct::GridLayoutData,
         [
-            ("size", Type::Float32, size),
-            ("spacing", Type::Float32, spacing),
-            ("padding", padding.ty(ctx), padding),
-            ("organized_data", Type::ArrayOfU16, llr_Expression::PropertyReference(cells)),
+            ("size", size),
+            ("spacing", spacing),
+            ("padding", padding),
+            ("organized_data", llr_Expression::PropertyReference(cells)),
         ],
     );
     let constraints_result = grid_layout_cell_constraints(layout, o, ctx, None);
@@ -378,7 +374,7 @@ pub(super) fn solve_grid_layout(
                         ty: Type::Array(Type::Int32.into()),
                     },
                 ],
-                return_ty: Type::LayoutCache,
+                return_ty: Type::ArrayOfCoord,
             }),
         },
         None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -390,7 +386,7 @@ pub(super) fn solve_grid_layout(
                 empty_int32_slice(),
                 empty_int32_slice(),
             ],
-            return_ty: Type::LayoutCache,
+            return_ty: Type::ArrayOfCoord,
         },
     }
 }
@@ -426,21 +422,15 @@ pub(super) fn solve_box_layout(
         let data = make_struct(
             BuiltinStruct::BoxLayoutData,
             [
-                ("size", Type::Float32, size),
-                ("spacing", Type::Float32, spacing),
-                ("padding", padding.ty(ctx), padding),
-                (
-                    "alignment",
-                    Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
-                    bld.alignment,
-                ),
-                ("cells", bld.cells.ty(ctx), bld.cells),
+                ("size", size),
+                ("spacing", spacing),
+                ("padding", padding),
+                ("alignment", bld.alignment),
+                ("cells", bld.cells),
             ],
         );
         (data, "solve_box_layout")
     } else {
-        let cross_axis_alignment_ty =
-            Type::Enumeration(crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone());
         let cross_axis_alignment = if let Some(nr) = &layout.cross_alignment {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         } else {
@@ -453,10 +443,10 @@ pub(super) fn solve_box_layout(
         let data = make_struct(
             BuiltinStruct::BoxLayoutOrthoData,
             [
-                ("size", Type::Float32, size),
-                ("padding", padding.ty(ctx), padding),
-                ("cross_axis_alignment", cross_axis_alignment_ty, cross_axis_alignment),
-                ("cells", bld.cells.ty(ctx), bld.cells),
+                ("size", size),
+                ("padding", padding),
+                ("cross_axis_alignment", cross_axis_alignment),
+                ("cells", bld.cells),
             ],
         );
         (data, "solve_box_layout_ortho")
@@ -478,13 +468,13 @@ pub(super) fn solve_box_layout(
                         ty: Type::Array(Type::Int32.into()),
                     },
                 ],
-                return_ty: Type::LayoutCache,
+                return_ty: Type::ArrayOfCoord,
             }),
         },
         None => llr_Expression::ExtraBuiltinFunctionCall {
             function: function.into(),
             arguments: vec![data, empty_int32_slice()],
-            return_ty: Type::LayoutCache,
+            return_ty: Type::ArrayOfCoord,
         },
     }
 }
@@ -521,42 +511,20 @@ pub(super) fn solve_flexbox_layout(
     let data = make_struct(
         BuiltinStruct::FlexboxLayoutData,
         [
-            ("width", Type::Float32, width),
-            ("height", Type::Float32, height),
-            ("spacing_h", Type::Float32, spacing_h),
-            ("spacing_v", Type::Float32, spacing_v),
-            ("padding_h", padding_h.ty(ctx), padding_h),
-            ("padding_v", padding_v.ty(ctx), padding_v),
-            (
-                "alignment",
-                Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
-                fld.alignment,
-            ),
-            (
-                "direction",
-                Type::Enumeration(
-                    crate::typeregister::BUILTIN.enums.FlexboxLayoutDirection.clone(),
-                ),
-                fld.direction,
-            ),
-            (
-                "cross_axis_line_alignment",
-                Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
-                fld.cross_axis_line_alignment,
-            ),
-            (
-                "cross_axis_alignment",
-                Type::Enumeration(crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone()),
-                fld.cross_axis_alignment,
-            ),
-            (
-                "flex_wrap",
-                Type::Enumeration(crate::typeregister::BUILTIN.enums.FlexboxLayoutWrap.clone()),
-                fld.flex_wrap,
-            ),
-            ("cells_h", fld.cells_h.ty(ctx), fld.cells_h),
-            ("cells_v", fld.cells_v.ty(ctx), fld.cells_v),
-            ("flex_props", fld.flex_props.ty(ctx), fld.flex_props),
+            ("width", width),
+            ("height", height),
+            ("spacing_h", spacing_h),
+            ("spacing_v", spacing_v),
+            ("padding_h", padding_h),
+            ("padding_v", padding_v),
+            ("alignment", fld.alignment),
+            ("direction", fld.direction),
+            ("cross_axis_line_alignment", fld.cross_axis_line_alignment),
+            ("cross_axis_alignment", fld.cross_axis_alignment),
+            ("flex_wrap", fld.flex_wrap),
+            ("cells_h", fld.cells_h),
+            ("cells_v", fld.cells_v),
+            ("flex_props", fld.flex_props),
         ],
     );
     // Forward the container width to repeated cells so a column flex re-measures
@@ -584,7 +552,7 @@ pub(super) fn solve_flexbox_layout(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_flexbox_layout".into(),
                     arguments: vec![data, repeated_indices()],
-                    return_ty: Type::LayoutCache,
+                    return_ty: Type::ArrayOfCoord,
                 }
             };
             llr_Expression::WithFlexboxLayoutItemInfo {
@@ -602,7 +570,7 @@ pub(super) fn solve_flexbox_layout(
                 return llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_flexbox_layout".into(),
                     arguments: vec![data, empty_int32_slice()],
-                    return_ty: Type::LayoutCache,
+                    return_ty: Type::ArrayOfCoord,
                 };
             }
             llr_Expression::SolveFlexboxLayoutWithMeasure {
@@ -981,7 +949,7 @@ fn flexbox_layout_data(
                     .cross_axis_self_alignment
                     .as_ref()
                     .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(nr)))
-                    .unwrap_or(default_align_self().1),
+                    .unwrap_or_else(default_align_self),
                 order: li
                     .layout_order
                     .as_ref()
@@ -1005,7 +973,7 @@ fn flexbox_layout_data(
             return Some(width_override.cloned().unwrap_or_else(|| {
                 crate::expression_tree::Expression::NumberLiteral(
                     f32::MAX as f64,
-                    crate::expression_tree::Unit::Px,
+                    crate::expression_types::Unit::Px,
                 )
             }));
         }
@@ -1153,14 +1121,9 @@ struct BoxLayoutDataResult {
     compute_cells: Option<(String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
 }
 
-fn default_align_self() -> (Type, llr_Expression) {
-    let e = crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone();
-    (
-        Type::Enumeration(e.clone()),
-        llr_Expression::EnumerationValue(EnumerationValue {
-            value: e.default_value,
-            enumeration: e,
-        }),
+fn default_align_self() -> llr_Expression {
+    llr_Expression::EnumerationValue(
+        crate::typeregister::BUILTIN.enums.CrossAxisAlignment.clone().default_value(),
     )
 }
 
@@ -1192,13 +1155,9 @@ struct FlexItemProps {
 }
 
 fn make_flex_props_struct(fp: FlexItemProps) -> llr_Expression {
-    let (align_self_ty, _) = default_align_self();
     make_struct(
         BuiltinStruct::FlexItemProps,
-        [
-            ("cross-axis-self-alignment", align_self_ty, fp.align_self),
-            ("layout-order", Type::Int32, fp.order),
-        ],
+        [("cross-axis-self-alignment", fp.align_self), ("layout-order", fp.order)],
     )
 }
 
@@ -1305,7 +1264,7 @@ fn box_layout_data(
         }
         let cells = llr_Expression::ReadLocalVariable {
             name: "cells".into(),
-            ty: Type::Array(Arc::new(crate::typeregister::layout_info_type().into())),
+            ty: Type::Array(Arc::new(crate::typeregister::layout_item_info_type())),
         };
         BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
@@ -1711,11 +1670,11 @@ fn grid_layout_input_data(
         make_struct(
             BuiltinStruct::GridLayoutInputData,
             [
-                ("new_row", Type::Bool, new_row_expr),
-                ("row", Type::Float32, row_expr),
-                ("col", Type::Float32, col_expr),
-                ("rowspan", Type::Float32, rowspan_expr),
-                ("colspan", Type::Float32, colspan_expr),
+                ("new_row", new_row_expr),
+                ("row", row_expr),
+                ("col", col_expr),
+                ("rowspan", rowspan_expr),
+                ("colspan", colspan_expr),
             ],
         )
     };
@@ -1784,17 +1743,7 @@ fn grid_layout_input_data(
 }
 
 pub(super) fn grid_layout_input_data_ty() -> Type {
-    Type::Struct(Arc::new(Struct::new(
-        IntoIterator::into_iter([
-            (SmolStr::new_static("new_row"), Type::Bool),
-            (SmolStr::new_static("row"), Type::Int32),
-            (SmolStr::new_static("col"), Type::Int32),
-            (SmolStr::new_static("rowspan"), Type::Int32),
-            (SmolStr::new_static("colspan"), Type::Int32),
-        ])
-        .collect(),
-        BuiltinStruct::GridLayoutInputData,
-    )))
+    crate::typeregister::builtin_structs::get(&BuiltinStruct::GridLayoutInputData).into()
 }
 
 fn generate_layout_padding_and_spacing(
@@ -1814,7 +1763,7 @@ fn generate_layout_padding_and_spacing(
 
     let padding = make_struct(
         BuiltinStruct::Padding,
-        [("begin", Type::Float32, padding_prop(begin)), ("end", Type::Float32, padding_prop(end))],
+        [("begin", padding_prop(begin)), ("end", padding_prop(end))],
     );
 
     (padding, spacing)
@@ -1837,7 +1786,7 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
         || matches!(
             &elem_b.base_type,
-            crate::langtype::ElementType::Component(base_comp)
+            crate::element_type::ElementType::Component(base_comp)
                 if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
         );
     if has_constrained_layoutinfo_v {
@@ -1877,16 +1826,17 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 pub(crate) fn default_cross_axis_constraint(
     elem: &ElementRc,
 ) -> Option<crate::expression_tree::Expression> {
-    let elem_b = elem.borrow();
+    own_layout_info_h(elem).map(|info| crate::expression_tree::Expression::StructFieldAccess {
+        base: Box::new(info),
+        name: "preferred".into(),
+    })
+}
 
+fn own_layout_info_h(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
     // Layouts and components with their own resolved layout_info_prop.
-    if let Some(h_nr) = elem_b.effective_layout_info_prop(Orientation::Horizontal) {
-        return Some(crate::expression_tree::Expression::StructFieldAccess {
-            base: Box::new(crate::expression_tree::Expression::PropertyReference(h_nr.clone())),
-            name: "preferred".into(),
-        });
+    if let Some(h_nr) = elem.borrow().effective_layout_info_prop(Orientation::Horizontal) {
+        return Some(crate::expression_tree::Expression::PropertyReference(h_nr.clone()));
     }
-    drop(elem_b);
 
     // Builtins and component instances (looked up via the base component).
     crate::layout::implicit_layout_info_call(
@@ -1895,10 +1845,179 @@ pub(crate) fn default_cross_axis_constraint(
         crate::layout::BuiltinFilter::All,
         None,
     )
-    .map(|expr| crate::expression_tree::Expression::StructFieldAccess {
-        base: Box::new(expr),
-        name: "preferred".into(),
-    })
+}
+
+/// The vertical layout info of a component's root that isn't in a layout.
+///
+/// `min` and `max` are measured at the root's `width` once it's set, so they follow a resize.
+/// `preferred` is measured at the root's bounded preferred width,
+/// the width a window opens at, whatever `width` holds before that.
+pub(crate) fn get_root_layout_info_v(
+    elem: &ElementRc,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+) -> llr_Expression {
+    use crate::expression_tree::Expression;
+    let Some(preferred_width) = bounded_preferred_width(elem, constraints) else {
+        return get_layout_info(elem, ctx, constraints, Orientation::Vertical, None);
+    };
+    if fixed_size_property(constraints, Orientation::Horizontal).is_some() {
+        return get_layout_info(
+            elem,
+            ctx,
+            constraints,
+            Orientation::Vertical,
+            Some(preferred_width),
+        );
+    }
+    let length_local = |name: &'static str| Expression::ReadLocalVariable {
+        name: name.into(),
+        ty: Type::LogicalLength,
+    };
+    // An injected wrapper (`Opacity`, …) has no `width`, its `geometry_props` point below it.
+    let width =
+        Expression::PropertyReference(elem.borrow().geometry_props.as_ref().unwrap().width.clone());
+    let measure_width = Expression::Condition {
+        condition: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(width.clone()),
+            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_types::Unit::Px)),
+            op: '>',
+            source_location: None,
+        }),
+        true_expr: Box::new(width),
+        false_expr: Box::new(length_local("root_preferred_width")),
+        source_location: None,
+    };
+    let store_preferred_width = super::lower_expression::lower_expression(
+        &Expression::StoreLocalVariable {
+            name: "root_preferred_width".into(),
+            value: Box::new(preferred_width),
+        },
+        ctx,
+    );
+    let store_measure_width = super::lower_expression::lower_expression(
+        &Expression::StoreLocalVariable {
+            name: "root_measure_width".into(),
+            value: Box::new(measure_width),
+        },
+        ctx,
+    );
+    let at_width = get_layout_info(
+        elem,
+        ctx,
+        constraints,
+        Orientation::Vertical,
+        Some(length_local("root_measure_width")),
+    );
+    let ty = crate::typeregister::layout_info_type();
+    let info_local = |name: &'static str| llr_Expression::ReadLocalVariable {
+        name: name.into(),
+        ty: ty.clone().into(),
+    };
+    let at_preferred_width = llr_Expression::Condition {
+        condition: llr_Expression::BinaryExpression {
+            lhs: super::lower_expression::lower_expression(
+                &length_local("root_measure_width"),
+                ctx,
+            )
+            .into(),
+            rhs: super::lower_expression::lower_expression(
+                &length_local("root_preferred_width"),
+                ctx,
+            )
+            .into(),
+            op: '=',
+        }
+        .into(),
+        true_expr: info_local("layout_info_v_at_width").into(),
+        false_expr: get_layout_info(
+            elem,
+            ctx,
+            constraints,
+            Orientation::Vertical,
+            Some(length_local("root_preferred_width")),
+        )
+        .into(),
+    };
+    let values = ty
+        .fields
+        .keys()
+        .map(|f| {
+            let from = if f == "preferred" {
+                "layout_info_v_at_preferred_width"
+            } else {
+                "layout_info_v_at_width"
+            };
+            let read = llr_Expression::StructFieldAccess {
+                base: info_local(from).into(),
+                name: f.clone(),
+            };
+            (f.clone(), read)
+        })
+        .collect::<BTreeMap<_, _>>();
+    llr_Expression::CodeBlock(
+        [
+            store_preferred_width,
+            store_measure_width,
+            llr_Expression::StoreLocalVariable {
+                name: "layout_info_v_at_width".into(),
+                value: at_width.into(),
+            },
+            llr_Expression::StoreLocalVariable {
+                name: "layout_info_v_at_preferred_width".into(),
+                value: at_preferred_width.into(),
+            },
+            llr_Expression::Struct { ty, values },
+        ]
+        .into(),
+    )
+}
+
+/// The preferred width of an element, bounded by its constraints:
+/// its layout info with `constraints` applied as in `override_layout_info`,
+/// clamped into its min and max as in `LayoutInfo::preferred_bounded`.
+fn bounded_preferred_width(
+    elem: &ElementRc,
+    constraints: &crate::layout::LayoutConstraints,
+) -> Option<crate::expression_tree::Expression> {
+    use crate::expression_tree::Expression;
+    // A fixed width is returned as is, which keeps the layout info out of it.
+    if let Some(width) = fixed_size_property(constraints, Orientation::Horizontal) {
+        return Some(Expression::PropertyReference(width.clone()));
+    }
+    let info = own_layout_info_h(elem)?;
+    let name = SmolStr::new_static("layout_info_h");
+    let ty = info.ty();
+    let field = |field: &'static str| Expression::StructFieldAccess {
+        base: Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
+        name: field.into(),
+    };
+    let c = constraints.for_orientation(Orientation::Horizontal);
+    let length_constraint = |nr: &Option<NamedReference>, default: &'static str| {
+        nr.as_ref()
+            .filter(|nr| nr.ty() == Type::LogicalLength)
+            .map(|nr| Expression::PropertyReference(nr.clone()))
+            .unwrap_or_else(|| field(default))
+    };
+    let min_max = |op, lhs, rhs| Expression::MinMax {
+        ty: Type::LogicalLength,
+        op,
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    };
+    let bounded = min_max(
+        MinMaxOp::Max,
+        min_max(
+            MinMaxOp::Min,
+            length_constraint(c.preferred, "preferred"),
+            length_constraint(c.max, "max"),
+        ),
+        length_constraint(c.min, "min"),
+    );
+    Some(Expression::CodeBlock(vec![
+        Expression::StoreLocalVariable { name: name.clone(), value: Box::new(info) },
+        bounded,
+    ]))
 }
 
 /// Subtract `geometry`'s padding on the `axis` from `base`. Turns an outer size
@@ -2022,11 +2141,7 @@ pub fn get_fixed_size_root_layout_info(
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> Option<llr_Expression> {
-    let c = constraints.for_orientation(orientation);
-    let size = c
-        .min
-        .as_ref()
-        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)?;
+    let size = fixed_size_property(constraints, orientation)?;
     let own_info = super::lower_expression::lower_expression(
         &crate::layout::implicit_layout_info_call(
             elem,
@@ -2038,6 +2153,16 @@ pub fn get_fixed_size_root_layout_info(
         ctx,
     );
     Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))
+}
+
+fn fixed_size_property(
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+) -> Option<&NamedReference> {
+    let c = constraints.for_orientation(orientation);
+    c.min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
 }
 
 /// `layout_info` with each field that `constraints` restricts read from that constraint,
@@ -2107,11 +2232,11 @@ pub fn get_grid_layout_input_for_repeated(
             let value = make_struct(
                 BuiltinStruct::GridLayoutInputData,
                 [
-                    ("new_row", Type::Bool, new_row_expr.clone()),
-                    ("row", Type::Float32, row),
-                    ("col", Type::Float32, col),
-                    ("rowspan", Type::Float32, rowspan),
-                    ("colspan", Type::Float32, colspan),
+                    ("new_row", new_row_expr.clone()),
+                    ("row", row),
+                    ("col", col),
+                    ("rowspan", rowspan),
+                    ("colspan", colspan),
                 ],
             );
             assignments.push(llr_Expression::SliceIndexAssignment {
@@ -2183,9 +2308,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
             .map(|nr| llr_Expression::PropertyReference(ctx.map_property_reference(&nr)))
     };
 
-    let (_, align_self_default) = default_align_self();
-
-    let align_self = prop_ref("cross-axis-self-alignment").unwrap_or(align_self_default);
+    let align_self = prop_ref("cross-axis-self-alignment").unwrap_or_else(default_align_self);
     let order = prop_ref("layout-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
     make_struct(
@@ -2193,17 +2316,12 @@ pub fn get_flexbox_layout_item_info_for_repeated(
         [
             (
                 "constraint",
-                crate::typeregister::layout_info_type().into(),
                 llr_Expression::default_value_for_type(
                     &crate::typeregister::layout_info_type().into(),
                 )
                 .unwrap(),
             ),
-            (
-                "props",
-                crate::typeregister::flex_item_props_type(),
-                make_flex_props_struct(FlexItemProps { align_self, order }),
-            ),
+            ("props", make_flex_props_struct(FlexItemProps { align_self, order })),
         ],
     )
 }
@@ -2231,7 +2349,7 @@ pub fn get_layout_info_v_constrained_for_repeated(
     let width_constraint = default_cross_axis_constraint(element).unwrap_or_else(|| {
         crate::expression_tree::Expression::NumberLiteral(
             f32::MAX as f64,
-            crate::expression_tree::Unit::Px,
+            crate::expression_types::Unit::Px,
         )
     });
     Some(get_flex_cell_layout_info(

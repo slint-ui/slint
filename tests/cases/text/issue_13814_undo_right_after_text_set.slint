@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #13814: calling `undo()` or `redo()` in the same callback that
+// assigned `text`, before the change tracker had run, replayed undo items that pointed into
+// the old text and panicked with "byte index out of bounds".
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput { }
+
+    in-out property <string> test_text <=> ti.text;
+    in-out property <bool> input_focused: ti.has_focus;
+
+    callback set_and_undo(string);
+    set_and_undo(text) => {
+        ti.text = text;
+        ti.undo();
+    }
+    callback set_and_redo(string);
+    set_and_redo(text) => {
+        ti.text = text;
+        ti.redo();
+    }
+    callback do_undo();
+    do_undo => { ti.undo(); }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+
+slint_testing::send_keyboard_string_sequence(&instance, "change this text");
+assert_eq!(instance.get_test_text(), "change this text");
+
+// The assignment discards the undo history, so the undo has nothing to undo.
+instance.invoke_set_and_undo("changed".into());
+assert_eq!(instance.get_test_text(), "changed");
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_test_text(), "changed");
+
+// Same for redo, with a redo item recorded against the previous text.
+slint_testing::send_keyboard_string_sequence(&instance, " again");
+assert_eq!(instance.get_test_text(), "changed again");
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "changed");
+instance.invoke_set_and_redo("x".into());
+assert_eq!(instance.get_test_text(), "x");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.get_input_focused());
+
+slint_testing::send_keyboard_string_sequence(&instance, "change this text");
+assert_eq(instance.get_test_text(), "change this text");
+
+// The assignment discards the undo history, so the undo has nothing to undo.
+instance.invoke_set_and_undo("changed");
+assert_eq(instance.get_test_text(), "changed");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_test_text(), "changed");
+
+// Same for redo, with a redo item recorded against the previous text.
+slint_testing::send_keyboard_string_sequence(&instance, " again");
+assert_eq(instance.get_test_text(), "changed again");
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "changed");
+instance.invoke_set_and_redo("x");
+assert_eq(instance.get_test_text(), "x");
+```
+*/

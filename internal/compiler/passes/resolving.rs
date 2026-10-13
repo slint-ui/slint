@@ -9,17 +9,19 @@
 //!
 //! Most of the code for the resolving actually lies in the expression_tree module
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype;
-use crate::langtype::{
-    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
-};
+use crate::expression_types::{ImageReference, OperatorClass, Unit, operator_class};
+use crate::langtype::{self, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
+use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
@@ -147,6 +149,16 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        let domain = MatchSubjectDomain::of(&case_type);
+        if matches!(domain, MatchSubjectDomain::Unsupported) {
+            diag.push_error(
+                format!(
+                    "Cannot match on '{case_type}'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value"
+                ),
+                &match_element.node.Expression(),
+            );
+            continue;
+        }
         if CaseValue::new(&match_element.subject).is_some() {
             diag.push_warning(
                 "Match subject is a literal, so the same case always applies".into(),
@@ -174,7 +186,7 @@ fn resolve_match_elements(
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
-        check_exhaustiveness(match_element, &values, diag);
+        check_exhaustiveness(match_element, domain, &values, diag);
 
         let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
         let subject = std::mem::replace(
@@ -209,7 +221,15 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         diag.push_warning("Floating point comparison is not recommended".into(), node);
     }
 
-    if is_literal || is_valid_cast {
+    if let Expression::Cast { from, to: Type::Int32, .. } = value
+        && let Some((number, _)) = as_number_literal(from)
+        && number.fract() != 0.0
+    {
+        diag.push_error(
+            format!("'{number}' is not an integer, so it never matches an 'int' subject"),
+            node,
+        );
+    } else if is_literal || is_valid_cast {
         // pass
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
@@ -244,52 +264,6 @@ fn is_literal_only(expr: &Expression) -> bool {
     }
 }
 
-#[derive(PartialEq)]
-enum CaseValue {
-    Number(f64, Unit),
-    String(SmolStr),
-    Bool(bool),
-    Enumeration(langtype::EnumerationValue),
-}
-
-impl CaseValue {
-    fn new(value: &Expression) -> Option<Self> {
-        match value {
-            Expression::Cast { from, .. } => Self::new(from),
-            Expression::UnaryOp { sub, op: '-' } => match Self::new(sub)? {
-                Self::Number(number, unit) => Some(Self::Number(-number, unit)),
-                _ => None,
-            },
-            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
-            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
-            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
-            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
-            _ => None, // For invalid non-literals
-        }
-    }
-}
-
-// `f64` has no total order/equality (NaN), but case values are always parsed
-// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
-impl Eq for CaseValue {}
-
-impl std::hash::Hash for CaseValue {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-        match self {
-            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
-            CaseValue::Number(number, unit) => {
-                debug_assert!(!number.is_nan());
-                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
-                unit.hash(state);
-            }
-            CaseValue::String(string) => string.hash(state),
-            CaseValue::Bool(boolean) => boolean.hash(state),
-            CaseValue::Enumeration(value) => value.hash(state),
-        }
-    }
-}
-
 /// Reports every case whose value is already covered by an earlier case
 fn check_duplicate_cases(
     cases: &[MatchCaseInfo],
@@ -311,52 +285,29 @@ fn check_duplicate_cases(
     }
 }
 
-impl std::fmt::Display for CaseValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CaseValue::Number(number, _) => write!(f, "{number}"),
-            CaseValue::String(string) => write!(f, "{string:?}"),
-            CaseValue::Bool(boolean) => write!(f, "{boolean}"),
-            CaseValue::Enumeration(value) => write!(f, "{value}"),
-        }
-    }
-}
-
 /// Reports a match element that does not cover every value its subject can take
 fn check_exhaustiveness(
     match_element: &MatchElementInfo,
+    domain: MatchSubjectDomain,
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    #[allow(
-        clippy::mutable_key_type,
-        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
-    )]
-    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
+    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.insert(value);
+        covered.push(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
-    let expected: Vec<CaseValue> = match &subject_type {
-        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
-        Type::Enumeration(enumeration) => (0..enumeration.values.len())
-            .map(|value| {
-                CaseValue::Enumeration(langtype::EnumerationValue {
-                    value,
-                    enumeration: enumeration.clone(),
-                })
-            })
-            .collect(),
-        // The subject expression failed to resolve, so an error was already reported
-        Type::Invalid => return,
-        _ => {
+    let expected = match domain {
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return,
+        MatchSubjectDomain::Exhaustive(case_values) => case_values,
+        MatchSubjectDomain::Unbounded => {
             diag.push_error(
                 format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
                 &subject_node,
@@ -365,15 +316,12 @@ fn check_exhaustiveness(
         }
     };
 
-    let mut missing = Vec::new();
-    for value in &expected {
-        if !covered.contains(value) {
-            missing.push(format!("'{value}'"));
-        }
-    }
+    let missing = missing_case_values(&expected, covered);
     if !missing.is_empty() {
+        let missing =
+            missing.iter().map(|value| format!("'{value}'")).collect::<Vec<_>>().join(", ");
         diag.push_error(
-            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            format!("Non-exhaustive match on {subject_type}: missing {missing}"),
             &subject_node,
         );
     }
@@ -818,7 +766,7 @@ impl Expression {
                             Ok((value, unit)) => {
                                 #[cfg(feature = "slint-sc")]
                                 {
-                                    use crate::expression_tree::WrittenUnit;
+                                    use crate::expression_types::WrittenUnit;
                                     match unit {
                                         WrittenUnit::Px if value.fract() != 0. => ctx
                                             .diag
@@ -884,27 +832,18 @@ impl Expression {
         let resource_ref = if s.starts_with("data:") {
             ImageReference::DataUri(s)
         } else {
-            let absolute_source_path = {
-                let path = std::path::Path::new(&s);
-                if crate::pathutils::is_absolute(path) {
-                    s
-                } else {
-                    ctx.type_loader
-                        .and_then(|loader| {
-                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                        })
-                        .map(|i| i.0.to_string_lossy().into())
-                        .unwrap_or_else(|| {
-                            crate::pathutils::join(
-                                &crate::pathutils::dirname(node.source_file.path()),
-                                path,
-                            )
-                            .map(|p| p.to_string_lossy().into())
-                            .unwrap_or(s.clone())
-                        })
+            let is_absolute = crate::source_path::is_absolute(&s);
+            let resolved = ctx
+                .type_loader
+                .filter(|_| !is_absolute)
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s));
+            let path = match resolved {
+                Some(path) => path,
+                None => {
+                    node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            ImageReference::Source(path)
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
@@ -914,7 +853,9 @@ impl Expression {
             ImageReference::DataUri(_) => {
                 ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
             }
-            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            ImageReference::Source(path) if path.as_native_path().is_none() => {
+                ctx.diag.slint_sc_error("URLs in @image-url() are", &node)
+            }
             _ => {}
         }
 
@@ -1804,7 +1745,7 @@ impl Expression {
             LookupResult::Expression { expression, .. } => expression,
             // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
             LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
-                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
+                Expression::EasingCurve(crate::expression_types::EasingCurve::Spring(0.))
             }
             LookupResult::Callable(c) => {
                 let what = match c {
@@ -2347,6 +2288,30 @@ impl Expression {
             );
         }
 
+        if element_ty == Type::LogicalLength
+            && ctx.property_name == Some("stroke-dash-array")
+            && ctx
+                .component_scope
+                .last()
+                .is_some_and(|e| e.borrow().builtin_type().is_some_and(|bt| bt.name == "Path"))
+        {
+            let mut has_err = false;
+            for (val, val_node) in values.iter().zip(node.Expression()) {
+                if val.ty() == Type::LogicalLength
+                    && !matches!(val, Expression::NumberLiteral(v, Unit::Px) if *v >= 0.)
+                {
+                    ctx.diag.push_error(
+                        "`stroke-dash-array` entries must be non-negative length literals".into(),
+                        &val_node,
+                    );
+                    has_err = true;
+                }
+            }
+            if has_err {
+                return Expression::Invalid;
+            }
+        }
+
         Expression::Array { element_ty, values }
     }
 
@@ -2666,7 +2631,7 @@ fn lookup_qualified_name_node(
                     .map(|s| format!("'{s}'"))
                     .collect::<Vec<_>>();
                 let hint = match parts.pop() {
-                    None => String::new(),
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
                     Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
                 };
@@ -2907,9 +2872,10 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
+        let suggestion = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                ElementType::Global | ElementType::Interface => {
+                ElementType::Global | ElementType::Interface(_) => {
                     let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
                     assert!(enclosing_type.is_global() || enclosing_type.is_interface());
                     format!("'{}'", enclosing_type.id)
@@ -2941,7 +2907,7 @@ fn continue_lookup_within_element(
                 return None;
             }
         }
-        err("");
+        err(&suggestion);
         None
     }
 }
@@ -2966,6 +2932,7 @@ fn maybe_lookup_object(
                     return None;
                 }
 
+                let suggestion = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,
@@ -2975,7 +2942,7 @@ fn maybe_lookup_object(
                     }
                     LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
                         format!(
-                            "'{}' is not a member of the enum {}",
+                            "'{}' is not a member of the enum {}{suggestion}",
                             next.text(),
                             enumeration.name
                         ),
@@ -2984,13 +2951,17 @@ fn maybe_lookup_object(
 
                     LookupResult::Namespace(ns) => {
                         ctx.diag.push_error(
-                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
+                            format!(
+                                "'{}' is not a member of the namespace {}{suggestion}",
+                                next.text(),
+                                ns
+                            ),
                             &next,
                         );
                     }
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
-                            Type::Struct { .. } => String::new(),
+                            Type::Struct { .. } => suggestion,
                             Type::Float32
                                 if ctx.property_type == Type::Model
                                     && matches!(
@@ -3005,7 +2976,7 @@ fn maybe_lookup_object(
                                 )
                             }
 
-                            ty => format!(" of {ty}"),
+                            ty => format!(" of {ty}{suggestion}"),
                         };
                         ctx.diag.push_error(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),

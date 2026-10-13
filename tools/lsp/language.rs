@@ -17,16 +17,16 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::editor_preview::EditorSession;
+use crate::editor_preview::{EditorSession, SessionConfigOverrides};
 use crate::{editor_preview, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+use i_slint_compiler::source_path::SourcePath;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 #[cfg(all(
@@ -34,7 +34,7 @@ use i_slint_live_preview::protocol::PreviewComponent;
     any(feature = "preview-external", feature = "preview-engine")
 ))]
 use i_slint_live_preview::protocol::VersionedUrl;
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, SourceFileVersion};
 
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
@@ -653,12 +653,10 @@ pub fn show_preview_command(
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url = editor_preview::uri_to_file(&url)
-        .and_then(|u| Url::from_file_path(u).ok())
-        .ok_or_else(|| LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "invalid document url".into(),
-        })?;
+    let url = SourcePath::from(url).to_url().ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "invalid document url".into(),
+    })?;
 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
@@ -1081,7 +1079,7 @@ fn get_code_actions(
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
-    let uri = Url::from_file_path(token.source_file.path()).ok()?;
+    let uri = token.source_file.path().to_url()?;
     let mut result = Vec::new();
 
     let component = syntax_nodes::Component::new(node.clone())
@@ -1389,7 +1387,60 @@ fn get_code_actions(
                 }));
             }
         }
+    } else if token.kind() == SyntaxKind::Identifier
+        && let Some(implement_statement) = match node.kind() {
+            SyntaxKind::ImplementStatement => syntax_nodes::ImplementStatement::new(node.clone()),
+            SyntaxKind::QualifiedName | SyntaxKind::DeclaredIdentifier
+                if node.parent().map(|n| n.kind()) == Some(SyntaxKind::ImplementStatement) =>
+            {
+                node.parent().and_then(syntax_nodes::ImplementStatement::new)
+            }
+            _ => None,
+        }
+    {
+        let r = util::text_range_to_lsp_range(
+            &token.source_file,
+            implement_statement.text_range(),
+            document_cache.format,
+        );
+        if let Some(element) = document_cache.element_at_position(&uri, &r.start) {
+            let missing =
+                i_slint_compiler::object_tree::missing_interface_members(&element.element);
+            if let Some(missing_entry) = missing
+                .into_iter()
+                .find(|entry| entry.statement.text_range() == implement_statement.text_range())
+            {
+                let indent = util::find_indent(&implement_statement).unwrap_or_default();
+                let insertion: String = missing_entry
+                    .declarations
+                    .iter()
+                    .map(|decl| format!("\n{indent}{decl}"))
+                    .collect();
+                let insert_pos = util::text_size_to_lsp_position(
+                    &token.source_file,
+                    implement_statement.text_range().end(),
+                    document_cache.format,
+                );
+                let interface_name =
+                    QualifiedTypeName::from_node(implement_statement.QualifiedName());
+                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: format!("Add the missing declarations for '{interface_name}'"),
+                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                    edit: editor_preview::editing::create_workspace_edit_from_path(
+                        document_cache,
+                        token.source_file.path(),
+                        vec![TextEdit::new(
+                            lsp_types::Range::new(insert_pos, insert_pos),
+                            insertion,
+                        )],
+                    ),
+                    ..Default::default()
+                }));
+            }
+        }
     }
+
+    completion::match_element::add_code_actions(document_cache, &token, &mut result);
 
     (!result.is_empty()).then_some(result)
 }
@@ -1695,38 +1746,36 @@ pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     load_configuration(ctx).await
 }
 
-#[derive(Debug)]
-struct WorkspaceConfig {
-    hide_ui: Option<bool>,
-    include_paths: Option<Vec<PathBuf>>,
-    library_paths: Option<HashMap<String, PathBuf>>,
-    style: Option<String>,
-    experimental: bool,
-}
-
-fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceConfig {
+fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfigOverrides {
     let mut hide_ui = None;
     let mut include_paths = None;
     let mut library_paths = None;
     let mut style = None;
-    let mut experimental = false;
+    let mut experimental = None;
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
-            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array())
-                && !ip.is_empty()
+            if let Some(include_path_values) =
+                config_object.get("includePaths").and_then(|value| value.as_array())
+                && !include_path_values.is_empty()
             {
                 include_paths = Some(
-                    ip.iter().filter_map(serde_json::Value::as_str).map(PathBuf::from).collect(),
+                    include_path_values
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(PathBuf::from)
+                        .collect(),
                 );
             }
-            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object())
-                && !lp.is_empty()
+            if let Some(library_path_values) =
+                config_object.get("libraryPaths").and_then(|value| value.as_object())
+                && !library_path_values.is_empty()
             {
                 library_paths = Some(
-                    lp.iter()
+                    library_path_values
+                        .iter()
                         .filter_map(|(key, value)| {
-                            value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
+                            value.as_str().map(|path| (key.to_string(), PathBuf::from(path)))
                         })
                         .collect(),
                 );
@@ -1739,12 +1788,24 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> WorkspaceCon
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-            if config_object.get("experimental").and_then(|v| v.as_bool()) == Some(true) {
-                experimental = true;
+            if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
+                experimental = Some(value);
             }
         }
     }
-    WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental }
+    SessionConfigOverrides {
+        hide_ui,
+        compiler: i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths,
+                library_paths,
+                style,
+                enable_experimental_features: experimental,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    }
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
@@ -1773,37 +1834,10 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
         )?
         .await?;
 
-    let workspace_config = parse_configuration(workspace_config);
-    tracing::debug!("Loaded configuration: {workspace_config:?}");
-    let WorkspaceConfig { hide_ui, include_paths, library_paths, style, experimental } =
-        workspace_config;
-
-    let mut diag = BuildDiagnostics::default();
-    let (cc, all_files) = ctx
-        .session
-        .document_cache
-        .reconfigure(style, include_paths, library_paths, experimental, &mut diag)
-        .await;
-
-    let diagnostics = editor_preview::editor_session::collect_diagnostics(
-        &ctx.session.document_cache,
-        &all_files.iter().filter_map(editor_preview::uri_to_file).collect(),
-        diag,
-    );
+    let config_overrides = parse_configuration(workspace_config);
+    tracing::debug!("Loaded configuration: {config_overrides:?}");
+    let diagnostics = ctx.session.set_workspace_config_overrides(config_overrides).await?;
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
-
-    let config = PreviewConfig {
-        hide_ui,
-        style: cc.style.clone().unwrap_or_default(),
-        include_paths: cc.include_paths.clone(),
-        library_paths: cc.library_paths.clone(),
-        format_utf8: cc.format == editor_preview::ByteFormat::Utf8,
-        enable_experimental: cc.enable_experimental,
-    };
-    {
-        ctx.session.preview_config = config.clone();
-        ctx.session.send_to_previews(&LspToPreviewMessage::SetConfiguration { config });
-    }
 
     tracing::debug!("Loaded configuration from client");
 
@@ -1816,9 +1850,10 @@ pub mod tests {
     use super::*;
 
     use crate::language::test::{
-        complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
-        preview_capture,
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+        loaded_document_cache_with_file_name, preview_capture,
     };
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
     use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
@@ -1872,6 +1907,53 @@ pub mod tests {
         let waker = std::task::Waker::noop();
         let mut context = std::task::Context::from_waker(waker);
         future.poll(&mut context)
+    }
+
+    #[test]
+    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+        for configuration in [
+            serde_json::json!({"experimental": false}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, None);
+            assert_eq!(overrides.compiler.project.library_paths, None);
+            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            for paths in ["startup", "project"] {
+                let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
+                    i_slint_compiler::generator::OutputFormat::Interpreter,
+                );
+                compiler_configuration.include_paths = vec![PathBuf::from(paths)];
+                compiler_configuration.library_paths =
+                    HashMap::from([(paths.into(), PathBuf::from(paths))]);
+                overrides.compiler.apply(None, &mut compiler_configuration);
+                assert_eq!(compiler_configuration.include_paths, vec![PathBuf::from(paths)]);
+                assert_eq!(
+                    compiler_configuration.library_paths,
+                    HashMap::from([(paths.into(), PathBuf::from(paths))])
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn configuration_parser_filters_nonempty_collections_before_replacement() {
+        for (configuration, expected_paths, expected_libraries) in [
+            (
+                serde_json::json!({"includePaths": ["workspace", 1], "libraryPaths": {"workspace": "lib", "invalid": 1}}),
+                vec![PathBuf::from("workspace")],
+                HashMap::from([("workspace".into(), PathBuf::from("lib"))]),
+            ),
+            (
+                serde_json::json!({"includePaths": [1], "libraryPaths": {"invalid": 1}}),
+                vec![],
+                HashMap::new(),
+            ),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, Some(expected_paths));
+            assert_eq!(overrides.compiler.project.library_paths, Some(expected_libraries));
+        }
     }
 
     #[test]
@@ -2666,10 +2748,8 @@ export component TestWindow inherits Window {
 }
 "#;
 
-        let types_url =
-            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
-        let main_url =
-            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();
@@ -2748,6 +2828,187 @@ export component TestWindow inherits Window {
         assert_eq!(action2, None, "import action should not appear when type is already imported");
     }
 
+    const IMPLEMENT_LINE: u32 = 8;
+    const SIGNATURE_INTERFACE: &str = r#"interface Signature {
+    in property <bool> checkable;
+    in property <string> text;
+    callback clicked();
+    public function add(a: int, b: int) -> int;
+}
+
+"#;
+
+    #[test]
+    fn test_implement_missing_members_inserts_all_declarations() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();\n    in property <string> text;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_includes_inherited_members() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(
+            r#"interface A {
+    out property <int> speed;
+}
+interface B inherits A {
+    out property <float> direction;
+}
+export component TestCase {
+    implement B <=> self;
+}
+"#
+            .into(),
+        );
+        let action = token_descr(&dc, &url, &Position::new(7, 14)).and_then(|(token, _)| {
+            get_code_actions(&mut dc, token, &ClientCapabilities::default())
+        });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'B'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(
+                                    Position::new(7, 25),
+                                    Position::new(7, 25)
+                                ),
+                                "\n    out property <float> direction;\n    out property <int> speed;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_offers_nothing_when_satisfied() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            r#"{SIGNATURE_INTERFACE}export component TestCase {{
+    implement Signature <=> self;
+
+    in property <bool> checkable;
+    in property <string> text;
+    callback clicked();
+    public function add(a: int, b: int) -> int {{ 0 }}
+}}
+"#
+        ));
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(action, None, "no action once every member is declared");
+    }
+
+    #[test]
+    fn test_implement_missing_members_skips_members_with_wrong_type() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <int> checkable;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    callback clicked();\n    in property <string> text;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_skips_members_with_invalid_type() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <Nonexistent> text;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
     #[test]
     fn test_add_import_for_name_with_a_separator() {
         // The catalog holds the normalized name while the token holds the spelling the file
@@ -2760,10 +3021,8 @@ export component My_Component { }
     My_Component { }
 }
 "#;
-        let types_url =
-            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
-        let main_url =
-            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
 
         let mut dc = test::empty_document_cache();
         let mut diagnostics = BuildDiagnostics::default();

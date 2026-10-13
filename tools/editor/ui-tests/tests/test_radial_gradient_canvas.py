@@ -9,11 +9,20 @@ import pytest
 import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
-from gradient_interactions import center, click, control, gesture, open_radial, shifted
+from gradient_interactions import (
+    center,
+    click,
+    control,
+    gesture,
+    move_picker_to_files,
+    open_radial,
+    shifted,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -33,9 +42,9 @@ def test_radial_activation_preserves_the_actual_picker(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         click(window, "Rectangle background color picker")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         click(window, "Gradient")
         control(
             window, "Gradient type", slint_testing.AccessibleRole.Combobox
@@ -44,12 +53,9 @@ def test_radial_activation_preserves_the_actual_picker(
         control(window, "Gradient radius handle")
         control(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
         control(window, "Edit stop 1 color")
-        assert not elements_with_label(window.root_element, "Hex color")
-        (tmp_path / "radial-picker-and-canvas.png").write_bytes(
-            window.grab_window_as_png()
-        )
+        assert not elements(window, "Hex color")
         click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         click(window, "Gradient")
         control(window, "Gradient center handle")
@@ -104,6 +110,7 @@ def test_radial_radius_save_reopen_and_history(
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_radial(window)
+        move_picker_to_files(window, "main")
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         gesture(window, r, shifted(c, x=percent))
@@ -170,7 +177,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert field.accessible_value == "#264052"
+        expect(field).to_have_value("264052")
         field.accessible_value = "#abcdef80"
         click(window, "Close Stop color")
         c = center(control(window, "Gradient center handle"), 35)
@@ -180,14 +187,11 @@ def test_radial_stops_cross_insert_delete_and_color(
         gesture(window, p, p)
         control(window, "Gradient stop 4")
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
+        assert not elements(window, "Gradient stop 4")
         click(window, "Gradient stop 2")
         press_key(window, keys.Delete)
         press_key(window, keys.Delete)
         control(window, "Gradient center handle")
         control(window, "Gradient stop 2")
-        (tmp_path / "radial-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
         press_key(window, keys.Escape)
         original.assert_unchanged()

@@ -6,7 +6,10 @@ use super::{
     LocalMemberReference, MemberReference, RepeatedElementIdx, SubComponentIdx,
     SubComponentInstanceIdx,
 };
-use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_types::{
+    EasingCurve, ImageReference, MinMaxOp, OperatorClass, operator_class,
+};
 use crate::langtype::{Keys, Type};
 use crate::layout::Orientation;
 use itertools::Either;
@@ -21,7 +24,7 @@ pub enum ArrayOutput {
     Vector,
 }
 
-pub use crate::expression_tree::MouseCursorInner;
+pub use crate::expression_types::MouseCursorInner;
 
 /// One cell of a generated flexbox measure callback: how to re-measure it at a
 /// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
@@ -179,7 +182,7 @@ pub enum Expression {
     },
 
     ImageReference {
-        resource_ref: crate::expression_tree::ImageReference,
+        resource_ref: ImageReference,
         nine_slice: Option<[u16; 4]>,
     },
 
@@ -200,7 +203,7 @@ pub enum Expression {
         values: BTreeMap<SmolStr, Expression>,
     },
 
-    EasingCurve(crate::expression_tree::EasingCurve),
+    EasingCurve(EasingCurve),
 
     MouseCursor(MouseCursorInner<Expression>),
 
@@ -380,6 +383,8 @@ pub enum Expression {
         expression: Box<Expression>,
     },
 
+    DashArray(Vec<f32>),
+
     /// Wraps a binding so the live-preview can observe or override its value.
     /// Only present when the `debug_hooks` compiler option is enabled.
     DebugHook {
@@ -392,11 +397,7 @@ pub enum Expression {
 /// comparison and logic operators produce a bool,
 /// while the arithmetic operators keep the type of the left operand
 pub fn binary_expression_ty(op: char, lhs_ty: impl FnOnce() -> Type) -> Type {
-    if crate::expression_tree::operator_class(op) != OperatorClass::ArithmeticOp {
-        Type::Bool
-    } else {
-        lhs_ty()
-    }
+    if operator_class(op) != OperatorClass::ArithmeticOp { Type::Bool } else { lhs_ty() }
 }
 
 impl Expression {
@@ -409,7 +410,7 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache
+            | Type::ArrayOfCoord
             | Type::ArrayOfU16
             | Type::Closure => return None,
             Type::Float32
@@ -425,10 +426,9 @@ impl Expression {
             Type::Color => {
                 Expression::Cast { from: Box::new(Expression::NumberLiteral(0.)), to: ty.clone() }
             }
-            Type::Image => Expression::ImageReference {
-                resource_ref: crate::expression_tree::ImageReference::None,
-                nine_slice: None,
-            },
+            Type::Image => {
+                Expression::ImageReference { resource_ref: ImageReference::None, nine_slice: None }
+            }
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => return None,
             Type::PathData => return None,
@@ -453,7 +453,7 @@ impl Expression {
                     })
                     .collect::<Option<_>>()?,
             },
-            Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::Easing => Expression::EasingCurve(EasingCurve::default()),
             Type::MouseCursor => {
                 let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
                 Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
@@ -529,7 +529,7 @@ impl Expression {
             Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
-            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::ArrayOfCoord,
             Self::BoxLayoutInfoOrthoWithMeasure { .. } => {
                 crate::typeregister::layout_info_type().into()
             }
@@ -542,6 +542,7 @@ impl Expression {
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
             Self::Closure { .. } => Type::Closure,
+            Self::DashArray(_) => Type::ArrayOfCoord,
             Self::DebugHook { expression, .. } => expression.ty(ctx),
         }
     }
@@ -758,6 +759,7 @@ macro_rules! visit_impl {
             Expression::Closure { expression, .. } => {
                 $visitor(expression);
             }
+            Expression::DashArray(_) => {}
             Expression::DebugHook { expression, id: _ } => $visitor(expression),
         }
     };
@@ -1167,9 +1169,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
                 }
+                if prop_name == "stroke-dash-array" {
+                    return &Type::ArrayOfCoord;
+                }
                 let item = &sc.items[*item_index];
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {
-                    panic!("Failed to lookup property {prop_name} for {}", item.name)
+                    panic!("Failed to lookup property '{prop_name}' for '{}'", item.name)
                 })
             }
         }

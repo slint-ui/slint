@@ -3,7 +3,11 @@
 
 import { FluentPalette } from "styling.slint";
 
+import { ProgressIndicatorInterface } from "../common/std-widget-interfaces.slint";
+
 export component ProgressIndicator {
+    implement ProgressIndicatorInterface <=> self;
+
     in property <float> progress;
     in property <bool> indeterminate;
 

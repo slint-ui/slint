@@ -1,0 +1,12 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The popup's own 'width' binding moves to a compiler-made 'fixed-width', and stays the one reported.
+export component Test inherits Window {
+    popup := PopupWindow {
+        width: t.preferred-width;
+//             >                <error{The binding for the property 'fixed-width' is part of a binding loop (popup.fixed-width -> t.text -> t.preferred-width -> popup.fixed-width)}
+        t := Text { text: popup.width > 10px ? "a" : "bbbbbbbbbb"; }
+//                        >                                      <note{'text' is part of the binding loop reported for 'fixed-width' at line 7}
+    }
+}

@@ -28,6 +28,8 @@ The widget style is determined at your project's compile time. The method to sel
 
 If no style is selected, `fluent` is the default on all platforms.
 
+To select the style for your build and your editor at once, set `style` in a [project file](../../../guide/tooling/project-file/).
+
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
@@ -51,7 +53,7 @@ You can select the style by setting the `style` property in [`LoadFileOptions`](
 
 ```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile("main.slint", { style: "fluent" });
+let ui = slint.loadFile(new URL("main.slint", import.meta.url), { style: "fluent" });
 let main = new ui.Main();
 main.greeting = "Hello friends";
 ```

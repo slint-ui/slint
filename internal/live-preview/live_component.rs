@@ -48,6 +48,25 @@ impl LiveReloadingComponent {
         file_name: PathBuf,
         component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
+        Self::new_impl(compiler_factory, file_name, component_name, None)
+    }
+
+    /// Like [`Self::new`], but the component uses `context` instead of the thread's.
+    pub fn new_with_context(
+        compiler_factory: impl FnOnce() -> Compiler + Send + 'static,
+        file_name: PathBuf,
+        component_name: Option<String>,
+        context: i_slint_core::SlintContext,
+    ) -> Result<Rc<RefCell<Self>>, PlatformError> {
+        Self::new_impl(compiler_factory, file_name, component_name, Some(context))
+    }
+
+    fn new_impl(
+        compiler_factory: impl FnOnce() -> Compiler + Send + 'static,
+        file_name: PathBuf,
+        component_name: Option<String>,
+        context: Option<i_slint_core::SlintContext>,
+    ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         let (compile_request, compile_rx) = std::sync::mpsc::channel();
         let watcher_file_name = file_name.clone();
         let self_rc = Rc::<RefCell<Self>>::new_cyclic(move |self_weak| {
@@ -85,7 +104,10 @@ impl LiveReloadingComponent {
         let definition = self_mut.find_component(&result).ok_or_else(|| -> PlatformError {
             format!("No component found in {}", self_mut.file_name.display()).into()
         })?;
-        let instance = definition.create()?;
+        let instance = match context {
+            Some(context) => definition.create_with_context(context)?,
+            None => definition.create()?,
+        };
         self_mut.window_adapter =
             Some(i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter());
         self_mut.instance = Some(instance);
@@ -138,7 +160,13 @@ impl LiveReloadingComponent {
         Watcher::update_watched_paths(
             &self.watcher,
             std::iter::once(self.file_name.clone())
-                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
+                .chain(
+                    result
+                        .watch_paths(i_slint_core::InternalToken)
+                        .iter()
+                        .filter_map(i_slint_compiler::source_path::SourcePath::as_native_path)
+                        .map(std::path::Path::to_path_buf),
+                )
                 .chain(self.extra_watch_paths.iter().cloned()),
         );
     }

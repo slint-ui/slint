@@ -29,10 +29,6 @@ export global UpdateStatus {
         return !root.in-titlebar() && root.has-news();
     }
 
-    public pure function bar-height() -> length {
-        return root.shows-bar() ? Style.shell.status-bar-height : 0px;
-    }
-
     public pure function clickable() -> bool {
         return root.has-news();
     }
@@ -120,7 +116,6 @@ export component UpdateStatusPill inherits Rectangle {
 // The window's bottom edge everywhere else. It is part of the layout rather
 // than an overlay, so the canvas gives up the height instead of being covered.
 export component UpdateStatusBar inherits Rectangle {
-    in property <UpdateStatusStyle> style: Style.update-status;
     height: Style.shell.status-bar-height;
     background: Colors.surface;
     clip: true;

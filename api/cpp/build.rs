@@ -19,8 +19,6 @@ fn main() -> Result<(), anyhow::Error> {
     });
     let output_dir = Path::new(&output_dir);
 
-    println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
-
     let enabled_features = EnabledFeatures::from_env();
 
     let dependencies = cbindgen::gen_all(root_dir, output_dir, enabled_features)?;

@@ -258,16 +258,19 @@ export interface LoadFileOptions {
 
     /**
      * Sets the widget style the compiler is currently using when compiling .slint files.
+     * This wins over the style of the project file.
      */
     style?: string;
 
     /**
      * Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+     * This wins over the include paths of the project file.
      */
     includePaths?: Array<string>;
 
     /**
      * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
+     * This wins over the library paths of the project file.
      */
     libraryPaths?: Record<string, string>;
 
@@ -656,10 +659,14 @@ function loadSlint(loadData: LoadData): Object {
  * **`index.js`**:
  * ```javascript
  * import * as slint from "slint-ui";
- * let ui = slint.loadFile("main.slint");
+ * let ui = slint.loadFile(new URL("main.slint", import.meta.url));
  * let main = new ui.Main();
  * main.greeting = "Hello friends";
  * ```
+ *
+ * A `slint-project.json` in the directory of the file, or in a directory above it,
+ * provides the settings that `options` leaves open.
+ * `filePath` can also be a `slint-project.json`, whose `entry` is loaded.
  *
  * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
  * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings,

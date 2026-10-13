@@ -1,0 +1,82 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface I {
+    in-out property <int> value;
+}
+
+component Impl {
+    in-out property <int> value: 1;
+}
+
+component Host {
+    out property <int> seen: control.value;
+    public function bump() { control.value += 10; }
+    slot <I> control;
+    Rectangle {
+        control {
+            value: 5;
+        }
+    }
+}
+
+component Fwd {
+    out property <int> seen: h.seen;
+    public function bump() { h.bump(); }
+    slot <I> inner;
+    h := Host {
+        control << inner;
+    }
+}
+
+component X {
+    out property <int> seen: h.seen;
+    public function bump() { h.bump(); }
+    h := Host {
+        control << Impl { }
+    }
+}
+
+component Y {
+    out property <int> seen: f.seen;
+    public function bump() { f.bump(); }
+    f := Fwd {
+        inner << Impl { }
+    }
+}
+
+export component TestCase inherits Window {
+    x1 := X { }
+
+    x2 := X { }
+
+    y1 := Y { }
+
+    public function bump() { x1.bump(); y1.bump(); }
+    out property <bool> test: x1.seen == 5 && x2.seen == 5 && y1.seen == 5;
+    out property <bool> bumped: x1.seen == 15 && x2.seen == 5 && y1.seen == 15;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_bump();
+assert!(instance.get_bumped());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_bump();
+assert(instance.get_bumped());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.bump();
+assert(instance.bumped);
+```
+*/

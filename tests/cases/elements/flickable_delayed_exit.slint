@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    out property <bool> first-hover <=> first.has-hover;
+    out property <bool> first-pressed <=> first.pressed;
+    out property <bool> second-hover <=> second.has-hover;
+    in-out property <int> tooltip-created;
+    in-out property <int> first-clicked;
+    in-out property <int> first-double-clicked;
+
+    Flickable {
+        width: parent.width;
+        height: parent.height;
+        content-width: 600px;
+        content-height: 400px;
+
+        first := TouchArea {
+            clicked => { root.first-clicked += 1; }
+            double-clicked => { root.first-double-clicked += 1; }
+            x: 100px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+        }
+        second := TouchArea {
+            x: 150px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+        }
+        TouchArea {
+            x: 200px;
+            y: 100px;
+            width: 50px;
+            height: 50px;
+        }
+        Rectangle {
+            x: 200px;
+            y: 100px;
+            width: 50px;
+            height: 50px;
+            Tooltip {
+                Rectangle {
+                    width: 40px;
+                    height: 20px;
+                    init => { root.tooltip-created += 1; }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+// Resolving the delayed press must clear hover on an abandoned sibling.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(148.0, 75.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(148.0, 75.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(152.0, 75.0) });
+assert!(instance.get_second_hover());
+assert!(!instance.get_first_pressed());
+slint_testing::mock_elapsed_time(150);
+assert!(instance.get_first_pressed());
+assert!(instance.get_first_hover());
+assert!(!instance.get_second_hover(), "the first TouchArea now owns the grab");
+```
+
+```rust
+// A tooltip entered during the delay must not appear after the Flickable claims the pan.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(196.0, 125.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(196.0, 125.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(202.0, 125.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 125.0) });
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_tooltip_created(), 0, "the pan must cancel the tooltip timer");
+```
+
+```rust
+// An observer reached again by the delayed press must keep its tooltip timer.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(202.0, 125.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(204.0, 125.0) });
+slint_testing::mock_elapsed_time(150);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_tooltip_created(), 1);
+```
+
+```rust
+// A speculative sibling visit must not replace the delayed click target.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+for _ in 0..2 {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(148.0, 75.0) });
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(148.0, 75.0), button: PointerEventButton::Left });
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(152.0, 75.0) });
+    slint_testing::mock_elapsed_time(150);
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(148.0, 75.0), button: PointerEventButton::Left });
+}
+assert_eq!(instance.get_first_clicked(), 2);
+assert_eq!(instance.get_first_double_clicked(), 1);
+```
+*/

@@ -10,8 +10,10 @@
 //! that themselves need to be inlined.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::collections::HashSet;
@@ -28,6 +30,7 @@ pub async fn lower_radiogroup(
     let mut seen = HashSet::new();
     let mut radio_groups = Vec::new();
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["RadioGroup"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup")
                 && seen.insert(Rc::as_ptr(elem))
@@ -121,7 +124,7 @@ fn process_radiogroup(
 
     let count_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
         Some(rep) if children.len() == 1 => Expression::FunctionCall {
-            function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
+            function: Callable::Builtin(crate::builtin_functions::BuiltinFunction::ArrayLength),
             arguments: vec![rep.model],
             source_location: None,
         },

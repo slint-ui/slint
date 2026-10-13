@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const ui = slint.loadFile("../ui/demo.slint");
+const ui = slint.loadFile(new URL("../ui/demo.slint", import.meta.url));
 const appWindow = new ui.AppWindow();
 const api = appWindow.Api;
 const date = api.current_date;

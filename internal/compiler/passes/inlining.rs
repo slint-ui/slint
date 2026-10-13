@@ -6,8 +6,10 @@
 #![allow(clippy::mutable_key_type)] // pass uses identity-based keys backed by interior mutability
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;
@@ -195,6 +197,34 @@ fn inline_element(
         children_by_slot.entry(slot).or_default().push(child);
     }
 
+    if Rc::ptr_eq(elem, &root_component.root_element) {
+        for slot in inlined_component.declared_slots.borrow().iter() {
+            if slot.interface.is_none()
+                || children_by_slot.contains_key(&slot.name)
+                || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
+            {
+                continue;
+            }
+            if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
+                && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
+            {
+                root_component
+                    .child_insertion_points
+                    .borrow_mut()
+                    .entry(slot.name.to_string())
+                    .or_insert_with(|| ChildrenInsertionPoint {
+                        parent: parent.clone(),
+                        insertion_index: cip.insertion_index,
+                        node: cip.node.clone(),
+                    });
+                let mut declarations = root_component.declared_slots.borrow_mut();
+                if !declarations.iter().any(|s| s.name == slot.name) {
+                    declarations.push(slot.clone());
+                }
+            }
+        }
+    }
+
     // Validate that all referenced slots exist on the inlined component.
     let mut unknown_slots = Vec::new();
     for (slot_name, children) in &children_by_slot {
@@ -253,12 +283,18 @@ fn inline_element(
                     children,
                 });
         } else if !children.is_empty() {
-            // @children was into a PopupWindow (named slots inside popups are not supported).
-            debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
-                &p.component,
-                &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
-            )));
-            if slot_name == DEFAULT_SLOT_NAME {
+            let enclosing = inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap();
+            let in_popup = inlined_component
+                .popup_windows
+                .borrow()
+                .iter()
+                .any(|p| Rc::ptr_eq(&p.component, &enclosing));
+            if !in_popup {
+                debug_assert!(
+                    diag.has_errors(),
+                    "error_on_slot_in_inner_builtin reports @children in a Menu"
+                );
+            } else if slot_name == DEFAULT_SLOT_NAME {
                 move_children_into_popup = Some(children);
             } else {
                 diag.push_error(
@@ -589,9 +625,9 @@ fn duplicate_element_with_mapping(
     let new = Rc::new(RefCell::new(Element {
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
-        is_injected_wrapper_element: elem.is_injected_wrapper_element,
         property_declarations: elem.property_declarations.clone(),
         shadowing_members: elem.shadowing_members.clone(),
+        implement_statements: Default::default(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings_including_synthetic()
@@ -635,6 +671,7 @@ fn duplicate_element_with_mapping(
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
+        typed_slot_interface: elem.typed_slot_interface.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need
@@ -925,6 +962,9 @@ fn duplicate_transition(
                 )
             })
             .collect(),
+        catch_all_property_animation: t.catch_all_property_animation.clone().map(|(loc, anim)| {
+            (loc, duplicate_element_with_mapping(&anim, mapping, root_component, priority_delta))
+        }),
         node: t.node.clone(),
     }
 }
@@ -943,6 +983,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
             || prop.starts_with("inner-shadow-")
+            || prop == "backdrop-blur"
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"
@@ -991,8 +1032,8 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
     }
 
     for (prop, binding) in elem.borrow().real_bindings() {
-        if prop == "clip" {
-            // otherwise the children of the clipped items won't get moved as child of the Clip element
+        if prop == "clip" || prop.starts_with("inner-shadow-") {
+            // These are lowered to a child of this element, which sub-components don't support
             return true;
         }
 

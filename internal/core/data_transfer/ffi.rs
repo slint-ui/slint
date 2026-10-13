@@ -24,7 +24,7 @@ pub type PathValueType = u16;
 pub type PathValueType = u8;
 
 #[cfg(feature = "std")]
-fn path_from_units(units: &[PathValueType]) -> std::path::PathBuf {
+pub fn path_from_units(units: &[PathValueType]) -> std::path::PathBuf {
     #[cfg(unix)]
     {
         use std::os::unix::ffi::OsStrExt;

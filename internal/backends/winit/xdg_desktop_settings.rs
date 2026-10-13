@@ -16,13 +16,14 @@ use crate::SharedBackendData;
 /// defaults. Keep it above portal activation time; a missing portal fails fast.
 const APPEARANCE_QUERY_TIMEOUT: Duration = Duration::from_millis(500);
 
-/// Desktop settings read from the XDG portal: cursor blink and the one-time
-/// appearance query the first windows wait for. Updated by [`watch`].
+/// Desktop settings read from the XDG portal, and the one-time appearance query
+/// the first windows wait for. Updated by [`watch`].
 pub(crate) struct DesktopSettings {
     /// Whether the cursor blinks at all.
     cursor_blink_enabled: Cell<bool>,
     /// The cursor blink period, used when blinking is enabled.
     cursor_blink_time: Cell<Duration>,
+    pub(crate) click_interval: Cell<Duration>,
     /// True while the appearance query is in flight; the backend holds the first
     /// windows in `inactive_windows` until it clears, to avoid a default flash.
     appearance_pending: Cell<bool>,
@@ -33,6 +34,7 @@ impl DesktopSettings {
         Self {
             cursor_blink_enabled: Cell::new(true),
             cursor_blink_time: Cell::new(crate::DEFAULT_CURSOR_FLASH_CYCLE),
+            click_interval: Cell::new(i_slint_core::input::DEFAULT_CLICK_INTERVAL),
             appearance_pending: Cell::new(false),
         }
     }
@@ -50,6 +52,9 @@ impl DesktopSettings {
 
 const APPEARANCE: &str = "org.freedesktop.appearance";
 const GNOME_INTERFACE: &str = "org.gnome.desktop.interface";
+const GNOME_MOUSE: &str = "org.gnome.desktop.peripherals.mouse";
+/// The `[KDE]` group of `kdeglobals`, as exposed by xdg-desktop-portal-kde.
+const KDE_GLOBALS: &str = "org.kde.kdeglobals.KDE";
 
 /// Handles passed to a setting's `apply` function so it can push the parsed value
 /// into the runtime context or the backend.
@@ -85,6 +90,12 @@ static SETTINGS: &[SettingDescriptor] = &[
         namespace: GNOME_INTERFACE,
         key: "cursor-blink-time",
         apply: apply_cursor_blink_time_value,
+    },
+    SettingDescriptor { namespace: GNOME_MOUSE, key: "double-click", apply: apply_click_interval },
+    SettingDescriptor {
+        namespace: KDE_GLOBALS,
+        key: "DoubleClickInterval",
+        apply: apply_click_interval,
     },
 ];
 
@@ -157,12 +168,29 @@ fn apply_cursor_blink_value(value: zbus::zvariant::OwnedValue, cx: &SettingsCont
     }
 }
 
+/// Accepts both GNOME's `i32` and KDE's string,
+/// since xdg-desktop-portal-kde returns every `kdeglobals` entry as a string.
+fn positive_millis(value: &zbus::zvariant::OwnedValue) -> Option<Duration> {
+    let ms = value
+        .downcast_ref::<i32>()
+        .ok()
+        .or_else(|| value.downcast_ref::<&str>().ok().and_then(|s| s.trim().parse().ok()))?;
+    (ms > 0).then(|| Duration::from_millis(ms as u64))
+}
+
 fn apply_cursor_blink_time_value(value: zbus::zvariant::OwnedValue, cx: &SettingsContext) {
-    if let Ok(ms) = value.downcast_ref::<i32>()
-        && ms > 0
+    if let Some(time) = positive_millis(&value)
         && let Some(shared) = cx.shared.upgrade()
     {
-        shared.desktop_settings.cursor_blink_time.set(Duration::from_millis(ms as u64));
+        shared.desktop_settings.cursor_blink_time.set(time);
+    }
+}
+
+fn apply_click_interval(value: zbus::zvariant::OwnedValue, cx: &SettingsContext) {
+    if let Some(interval) = positive_millis(&value)
+        && let Some(shared) = cx.shared.upgrade()
+    {
+        shared.desktop_settings.click_interval.set(interval);
     }
 }
 

@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Styles } from "../../styles.slint";
+
+component TipCard inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <color> bg-color;
+    in property <color> text-color;
+
+    background: root.bg-color;
+    border-radius: 7px;
+    border-width: 1px;
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 5px;
+        alignment: start;
+
+        Text {
+            text: root.title;
+            font-size: Styles.regular-font-size;
+            font-weight: FontWeight.semi-bold;
+            color: root.text-color;
+        }
+
+        Text {
+            text: root.description;
+            font-size: Styles.small-font-size;
+            color: root.text-color;
+            font-weight: FontWeight.normal;
+            wrap: word-wrap;
+            opacity: 0.9;
+        }
+    }
+}
+
+export component TipsPage inherits VerticalLayout {
+    spacing: 10px;
+    padding: 20px;
+    alignment: start;
+
+    Text {
+        text: "Pro Tips";
+        font-size: Styles.regular-font-size;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+
+        TipCard {
+            title: "Perfect Consistency";
+            description: "Use frozen fruit for a thicker texture. Add liquid gradually to control consistency.";
+            bg-color: #fef9e7;
+            text-color: #8b6914;
+            border-color: #feeca3;
+        }
+
+        TipCard {
+            title: "Topping Ideas";
+            description: "Try granola, chia seeds, sliced almonds, fresh berries, or a drizzle of nut butter.";
+            bg-color: #deeafd;
+            text-color: #1b34af;
+            border-color: #bedbff;
+        }
+
+        TipCard {
+            title: "Make Ahead";
+            description: "Pre-portion ingredients in freezer bags for quick morning prep.";
+            bg-color: #e2fbe8;
+            text-color: #326b3d;
+            border-color: #c9f7e4;
+        }
+    }
+}

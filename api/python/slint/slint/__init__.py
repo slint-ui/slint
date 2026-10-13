@@ -25,7 +25,7 @@ from typing import Any
 from . import language
 from ._native import native
 from .loop import SlintEventLoop
-from .models import ListModel, Model
+from .models import FilterModel, ListModel, MapModel, Model, ReverseModel, SortModel
 
 _logger = logging.getLogger(__name__)
 
@@ -318,6 +318,10 @@ def _load_file(
     * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
+    A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
+    settings that are not given here. The arguments above win over the project file.
+    `path` can also be a `slint-project.json`, whose `entry` is loaded.
+
     """
 
     compiler = native.Compiler()
@@ -391,6 +395,10 @@ def load_file(
        library imports, such as `import { MyButton } from "@mylibrary";`.
     * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
+
+    A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
+    settings that are not given here. The arguments above win over the project file.
+    `path` can also be a `slint-project.json`, whose `entry` is loaded.
 
     """
 
@@ -663,12 +671,16 @@ __all__ = [
     "CompileError",
     "Component",
     "DataTransfer",
+    "FilterModel",
     "Image",
     "Keys",
     "ListModel",
     "LogicalPosition",
     "LogicalSize",
+    "MapModel",
     "Model",
+    "ReverseModel",
+    "SortModel",
     "StyledText",
     "Timer",
     "TimerMode",

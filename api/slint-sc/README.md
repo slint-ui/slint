@@ -14,7 +14,7 @@ dynamic memory allocation.
 
 ## Documentation
 
-The Slint SC Safety Manual, including its User Manual and Qualification Plan, lives in
+The Slint SC Safety Manual, including its User Manual and Safety Plan, lives in
 [`docs/safety/`](https://github.com/slint-ui/slint/tree/master/docs/safety)
 in the Slint repository.
 

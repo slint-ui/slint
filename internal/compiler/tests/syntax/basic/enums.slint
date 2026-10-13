@@ -26,5 +26,5 @@ export component Test {
     property<Empty> empty;
     property<Xyz> xyz;
     property<{ a: Empty, b: Xyz }> xxx: { b: Xyz.c-dE};
-//                                               >  <error{'c-dE' is not a member of the enum Xyz}
+//                                               >  <error{'c-dE' is not a member of the enum Xyz. Did you mean 'CDE'?}
 }

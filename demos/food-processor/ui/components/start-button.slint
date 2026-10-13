@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component StartButton {
+    callback clicked <=> ta.clicked;
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: center;
+
+        Image {
+            source: @image-url("../images/play.svg");
+            colorize: white;
+            width: 15px;
+        }
+
+        Text {
+            font-size: 8pt;
+            font-weight: FontWeight.bold;
+            color: white;
+            text: "Start Recipe";
+            letter-spacing: 0.1px;
+            vertical-alignment: center;
+        }
+    }
+
+    ta := TouchArea {}
+}

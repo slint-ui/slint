@@ -5,7 +5,7 @@
 //! The animation system
 
 use alloc::boxed::Box;
-use core::cell::Cell;
+use core::{cell::Cell, time::Duration};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -173,41 +173,53 @@ pub enum EasingCurve {
     // Custom(Box<dyn Fn(f32) -> f32>),
 }
 
-/// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
+/// Represents an instant, in whole nanoseconds since the AnimationDriver's initial_instant.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
-pub struct Instant(pub u64);
+pub struct Instant(u64);
+
+impl From<Instant> for Duration {
+    fn from(value: Instant) -> Self {
+        Duration::from_nanos(value.0)
+    }
+}
 
 impl core::ops::Sub<Instant> for Instant {
-    type Output = core::time::Duration;
-    fn sub(self, other: Self) -> core::time::Duration {
-        core::time::Duration::from_millis(self.0 - other.0)
+    type Output = Duration;
+    fn sub(self, other: Self) -> Duration {
+        Duration::from_nanos(self.0.saturating_sub(other.0))
     }
 }
 
-impl core::ops::Sub<core::time::Duration> for Instant {
+impl core::ops::Sub<Duration> for Instant {
     type Output = Instant;
-    fn sub(self, other: core::time::Duration) -> Instant {
-        Self(self.0 - other.as_millis() as u64)
+    fn sub(self, other: Duration) -> Instant {
+        Self(self.0.saturating_sub(other.as_nanos() as u64))
     }
 }
 
-impl core::ops::Add<core::time::Duration> for Instant {
+impl core::ops::Add<Duration> for Instant {
     type Output = Instant;
-    fn add(self, other: core::time::Duration) -> Instant {
-        Self(self.0 + other.as_millis() as u64)
+    fn add(self, other: Duration) -> Instant {
+        Self(self.0 + other.as_nanos() as u64)
     }
 }
 
-impl core::ops::AddAssign<core::time::Duration> for Instant {
-    fn add_assign(&mut self, other: core::time::Duration) {
-        self.0 += other.as_millis() as u64;
+impl core::ops::AddAssign<Duration> for Instant {
+    fn add_assign(&mut self, other: Duration) {
+        self.0 += other.as_nanos() as u64;
     }
 }
 
-impl core::ops::SubAssign<core::time::Duration> for Instant {
-    fn sub_assign(&mut self, other: core::time::Duration) {
-        self.0 -= other.as_millis() as u64;
+impl core::ops::SubAssign<Duration> for Instant {
+    fn sub_assign(&mut self, other: Duration) {
+        self.0 = self.0.saturating_sub(other.as_nanos() as u64);
+    }
+}
+
+impl From<Duration> for Instant {
+    fn from(duration: Duration) -> Self {
+        Self(duration.as_nanos() as u64)
     }
 }
 
@@ -215,7 +227,7 @@ impl Instant {
     /// Returns the amount of time elapsed since an other instant.
     ///
     /// Equivalent to `self - earlier`
-    pub fn duration_since(self, earlier: Instant) -> core::time::Duration {
+    pub fn duration_since(self, earlier: Instant) -> Duration {
         self - earlier
     }
 
@@ -226,11 +238,26 @@ impl Instant {
     /// platform's start time: instants from different contexts are not comparable, so the
     /// caller has to say which clock it means.
     pub fn now(ctx: &crate::SlintContext) -> Self {
-        Self(ctx.platform().duration_since_start().as_millis() as u64)
+        ctx.platform().duration_since_start().into()
+    }
+
+    /// Returns an `Instant` for the given number of milliseconds after the backend has started.
+    pub fn from_millis(millis: u64) -> Self {
+        Self(millis * 1_000_000)
+    }
+
+    /// Returns an `Instant` for the given number of nanoseconds after the backend has started.
+    pub fn from_nanos(nanos: u64) -> Self {
+        Self(nanos)
     }
 
     /// Return the number of milliseconds this `Instant` is after the backend has started
     pub fn as_millis(&self) -> u64 {
+        self.0 / 1_000_000
+    }
+
+    /// Return the number of nanoseconds this `Instant` is after the backend has started
+    pub fn as_nanos(&self) -> u64 {
         self.0
     }
 }
@@ -266,8 +293,8 @@ impl AnimationDriver {
         }
     }
 
-    /// Returns true if there are any active or ready animations. This is used by the windowing system to determine
-    /// if a new animation frame is required or not. Returns false otherwise.
+    /// Returns true if an active animation was evaluated in the current tick,
+    /// other than while rendering a window, which tracks its own animations.
     pub fn has_active_animations(&self) -> bool {
         self.active_animations.get()
     }
@@ -276,6 +303,19 @@ impl AnimationDriver {
     pub fn set_has_active_animations(&self) {
         self.active_animations.set(true);
     }
+
+    /// Runs `f` and returns whether it evaluated an active animation,
+    /// without recording it in [`Self::has_active_animations`].
+    pub(crate) fn track_active_animations<R>(&self, f: impl FnOnce() -> R) -> (R, bool) {
+        let tick = self.global_instant.as_ref().get_untracked();
+        let was_active = self.active_animations.replace(false);
+        let result = f();
+        // Advancing the tick in `f` (as the Qt backend does) drops the earlier state.
+        let same_tick = self.global_instant.as_ref().get_untracked() == tick;
+        let active = self.active_animations.replace(was_active && same_tick);
+        (result, active)
+    }
+
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
     pub fn current_tick(&self) -> Instant {
@@ -298,10 +338,12 @@ pub fn current_tick() -> Instant {
 /// Same as [`current_tick`], but also register that one should be running animation
 /// on next frame
 pub fn animation_tick() -> u64 {
-    CURRENT_ANIMATION_DRIVER.with(|driver| {
-        driver.set_has_active_animations();
-        driver.current_tick().0
-    })
+    CURRENT_ANIMATION_DRIVER
+        .with(|driver| {
+            driver.set_has_active_animations();
+            driver.current_tick()
+        })
+        .as_millis()
 }
 
 fn ease_out_bounce_curve(value: f32) -> f32 {

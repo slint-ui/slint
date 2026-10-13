@@ -9,8 +9,10 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::HashSet;
@@ -28,6 +30,7 @@ pub async fn lower_tabwidget(
     let mut seen = HashSet::new();
     let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["TabWidget"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
                 && seen.insert(Rc::as_ptr(elem))

@@ -501,8 +501,8 @@ int main(int argc, char **argv)
 In JavaScript you can set the callback like this:
 
 ```js
-let slint = require("slint-ui");
-let file = slint.loadFile("recipe.slint");
+import * as slint from "slint-ui";
+let file = slint.loadFile(new URL("recipe.slint", import.meta.url));
 let recipe = new file.Recipe();
 recipe.Logic.to_upper_case = (str) => {
     return str.toUpperCase();

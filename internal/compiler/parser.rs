@@ -14,6 +14,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
+use crate::source_path::SourcePath;
 use smol_str::SmolStr;
 use std::fmt::Display;
 
@@ -419,7 +420,7 @@ declare_syntax! {
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
         /// `slot header;`
-        SlotDeclaration -> [ DeclaredIdentifier ],
+        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
@@ -1067,66 +1068,17 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
 }
 
-pub fn normalize_identifier(ident: &str) -> SmolStr {
-    if is_identifier_normalized(ident) {
-        // one bulk copy instead of the char-by-char builder below
-        return SmolStr::new(ident);
-    }
-    let mut builder = smol_str::SmolStrBuilder::default();
-    for (pos, c) in ident.chars().enumerate() {
-        match (pos, c) {
-            (0, '-') | (0, '_') => builder.push('_'),
-            (_, '_') => builder.push('-'),
-            (_, c) => builder.push(c),
-        }
-    }
-    builder.finish()
-}
-
-/// Returns true if [`normalize_identifier`] would return `ident` unchanged.
-/// Lets callers skip the copy (and heap allocation for long identifiers).
-pub fn is_identifier_normalized(ident: &str) -> bool {
-    // '-' and '_' are ASCII, so a byte scan is UTF-8-safe
-    let b = ident.as_bytes();
-    b.first() != Some(&b'-') && !b[1.min(b.len())..].contains(&b'_')
-}
-
-#[test]
-fn test_normalize_identifier() {
-    assert_eq!(normalize_identifier("true"), SmolStr::new("true"));
-    assert_eq!(normalize_identifier("foo_bar"), SmolStr::new("foo-bar"));
-    assert_eq!(normalize_identifier("-foo_bar"), SmolStr::new("_foo-bar"));
-    assert_eq!(normalize_identifier("-foo-bar"), SmolStr::new("_foo-bar"));
-    assert_eq!(normalize_identifier("foo_bar_"), SmolStr::new("foo-bar-"));
-    assert_eq!(normalize_identifier("foo_bar-"), SmolStr::new("foo-bar-"));
-    assert_eq!(normalize_identifier("_foo_bar_"), SmolStr::new("_foo-bar-"));
-    assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
-    assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
-    assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
-}
-
-#[test]
-fn test_is_identifier_normalized() {
-    for ident in
-        ["true", "foo-bar", "foo_bar", "-foo", "_foo", "foo-bar-", "", "-", "_", "ä_ö", "ä-ö"]
-    {
-        assert_eq!(
-            is_identifier_normalized(ident),
-            normalize_identifier(ident) == ident,
-            "{ident:?}"
-        );
-    }
-}
+pub use crate::names::{is_identifier_normalized, normalize_identifier};
 
 // Actual parser
 pub fn parse(
     source: String,
-    path: Option<&std::path::Path>,
+    path: Option<SourcePath>,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
-        path.map(crate::pathutils::clean_path).unwrap_or_default(),
+        path.unwrap_or_default(),
         source,
     ));
     document::parse_document(&mut p);
@@ -1140,11 +1092,11 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> Option<SyntaxNode> {
-    let path = crate::pathutils::clean_path(path.as_ref());
+    let path = crate::source_path::clean_path(path.as_ref());
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
-    Some(parse(source, Some(path.as_ref()), build_diagnostics))
+    Some(parse(source, Some(SourcePath::File(path)), build_diagnostics))
 }
 
 pub fn parse_tokens(

@@ -56,14 +56,14 @@ import * as slint from "slint-ui";
 Next, load a slint file with the `loadFile` function:
 
 ```js
-let ui = slint.loadFile("ui/main.slint");
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 ```
 
 Combining these two steps leads us to the obligatory "Hello World" example:
 
 ```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile(new URL(".ui/main.slint", import.meta.url));
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let main = new ui.Main();
 main.run();
 ```

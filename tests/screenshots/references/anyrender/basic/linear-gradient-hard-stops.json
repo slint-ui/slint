@@ -1,0 +1,751 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 21.3333,
+                "y": 10.6667
+              },
+              "start": {
+                "x": 0.0,
+                "y": 10.6667
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 10.6667,
+                "y": 21.3333
+              },
+              "start": {
+                "x": 10.6667,
+                "y": 0.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        21.3333,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 21.3333,
+                "y": 0.0
+              },
+              "start": {
+                "x": 0.0,
+                "y": 21.3333
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.3
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        42.6667,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 21.3333,
+                "y": 10.6667
+              },
+              "start": {
+                "x": 0.0,
+                "y": 10.6667
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.7
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.7
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        21.3333
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 10.6667,
+                "y": 0.0
+              },
+              "start": {
+                "x": 10.6667,
+                "y": 21.3333
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.4
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.4
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        21.3333,
+        21.3333
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 21.3333,
+                "y": 21.3333
+              },
+              "start": {
+                "x": 0.0,
+                "y": 0.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.5
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        42.6667,
+        21.3333
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 0.0,
+                "y": 10.6667
+              },
+              "start": {
+                "x": 21.3333,
+                "y": 10.6667
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.2
+            },
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.2
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.8
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.8
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        42.6667
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 0.0,
+                "y": 21.3333
+              },
+              "start": {
+                "x": 21.3333,
+                "y": 0.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.6
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.6
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        21.3333,
+        42.6667
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "start": {
+                "x": 21.3333,
+                "y": 21.3333
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.25
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.502,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.25
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L21.3333,0 L21.3333,21.3333 L0,21.3333 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        42.6667,
+        42.6667
+      ]
+    }
+  }
+]

@@ -121,6 +121,7 @@ pub struct GlobalStorage {
     pub root: std::cell::OnceCell<
         vtable::VWeak<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
     >,
+    pub context: i_slint_core::SlintContext,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
     pub debug_hook_callback: std::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
@@ -128,7 +129,10 @@ pub struct GlobalStorage {
 impl GlobalStorage {
     /// Allocate one `GlobalInstance` per declared global.
     /// Bindings are installed separately by [`install_global_bindings`].
-    pub fn new(compilation_unit: &Rc<CompilationUnit>) -> Self {
+    pub fn new(
+        compilation_unit: &Rc<CompilationUnit>,
+        context: i_slint_core::SlintContext,
+    ) -> Self {
         let globals = compilation_unit
             .globals
             .iter_enumerated()
@@ -178,6 +182,7 @@ impl GlobalStorage {
         Self {
             globals,
             root: std::cell::OnceCell::new(),
+            context,
             debug_hook_callback: std::cell::RefCell::new(None),
         }
     }

@@ -138,7 +138,7 @@ fn visit_node(
                         .source_file
                         .line_column(span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
                     if line > 0 {
-                        let path = node.source_file.path().to_string_lossy().into_owned();
+                        let path = node.source_file.path().to_string();
                         let lineno = line.to_string();
                         if !msg.occurrences.iter().any(|(p, l)| p == &path && l == &lineno) {
                             msg.occurrences.push((path, lineno));
@@ -318,7 +318,7 @@ fn extract_messages() {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(
         source.into(),
-        Some(std::path::Path::new("test.slint")),
+        Some(i_slint_compiler::source_path::SourcePath::new("test.slint")),
         &mut diag,
     );
 

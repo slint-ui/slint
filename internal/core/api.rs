@@ -607,7 +607,7 @@ impl Window {
         size: LogicalSize,
         _: crate::InternalToken,
     ) {
-        self.0.set_window_item_virtual_keyboard(origin.to_euclid(), size.to_euclid());
+        self.0.set_window_item_virtual_keyboard(origin, size);
     }
 
     #[doc(hidden)]
@@ -615,9 +615,7 @@ impl Window {
         &self,
         _: crate::InternalToken,
     ) -> Option<(LogicalPosition, LogicalSize)> {
-        self.0.window_item_virtual_keyboard().map(|(origin, size)| {
-            (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
-        })
+        self.0.window_item_virtual_keyboard()
     }
 
     /// Dispatch a window event to the scene.
@@ -679,6 +677,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerReleased { position, button } => self
@@ -688,6 +687,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerMoved { position } => self
@@ -695,6 +695,8 @@ impl Window {
                 .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
+                    event_time: None,
+                    history: Default::default(),
                 })
                 .into(),
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => self
@@ -774,9 +776,13 @@ impl Window {
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()
                 }
-                crate::platform::InternalEvent::Touch { id, position, phase } => {
-                    self.0.process_touch_input(id, position, phase).into()
-                }
+                crate::platform::InternalEvent::Touch {
+                    id,
+                    position,
+                    phase,
+                    event_time,
+                    history,
+                } => self.0.process_touch_input(id, position, phase, event_time, history).into(),
             },
         };
         if let Some(event_for_hook) = event_for_hook
@@ -788,10 +794,9 @@ impl Window {
         Ok(dispatch_result)
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
+    /// Returns true if an active animation may change what this window renders.
     pub fn has_active_animations(&self) -> bool {
-        // TODO make it really per window.
-        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
+        self.0.has_active_animations()
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
@@ -1441,8 +1446,5 @@ fn error_is_send() {
 /// Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
 /// compliant window managers. This must be set before the window is shown, and has only an effect on Wayland or X11.
 pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformError> {
-    crate::context::with_global_context(
-        || Err(crate::platform::PlatformError::NoPlatform),
-        |ctx| ctx.set_xdg_app_id(app_id.into()),
-    )
+    crate::context::with_existing_context(|ctx| ctx.set_xdg_app_id(app_id.into()))
 }

@@ -9,8 +9,9 @@ use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::element_type::BuiltinElement;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinElement, BuiltinPropertyDefault, NativeClass};
+use crate::native_class::{BuiltinPropertyDefault, NativeClass};
 use crate::object_tree::Element;
 
 pub fn select_native_class(elem: &Element, builtin: &BuiltinElement) -> Arc<NativeClass> {
@@ -61,7 +62,7 @@ fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExp
     };
     binding.animation.is_none()
         && binding.two_way_bindings.is_empty()
-        && same_literal(binding.value_expression(), &default.to_expression())
+        && same_literal(binding.value_expression(), &Expression::from_constant(default))
 }
 
 /// Anything that isn't a literal compares as different, so a computed binding counts as a use.
@@ -119,7 +120,8 @@ fn select_minimal_class_based_on_property_usage<'a>(
 
 #[test]
 fn test_select_minimal_class_based_on_property_usage() {
-    use crate::langtype::{BuiltinPropertyInfo, Type};
+    use crate::langtype::Type;
+    use crate::native_class::BuiltinPropertyInfo;
     use smol_str::ToSmolStr;
     let first = Arc::new(NativeClass::new_with_properties(
         "first_class",
@@ -156,10 +158,10 @@ fn builtin_defaults_are_comparable() {
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     for (name, element) in tr.all_elements() {
-        let crate::langtype::ElementType::Builtin(element) = element else { continue };
+        let crate::element_type::ElementType::Builtin(element) = element else { continue };
         for (property, info) in &element.properties {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
-                let default = default.to_expression();
+                let default = Expression::from_constant(default);
                 assert!(
                     same_literal(&default, &default),
                     "the default of {name}::{property} is a shape same_literal doesn't compare, \

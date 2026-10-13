@@ -175,9 +175,6 @@ component RecentProjectRow inherits Rectangle {
         clicked => {
             root.opened();
         }
-        double-clicked => {
-            root.opened();
-        }
 
         Tooltip {
             text: @markdown("\{root.path}");
@@ -187,7 +184,6 @@ component RecentProjectRow inherits Rectangle {
 
 export component StartupWizard inherits Rectangle {
     in property <WelcomeShellStyle> style: Style.welcome-shell;
-    callback opened;
     callback create-new-project;
     callback open-existing-project;
 

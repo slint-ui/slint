@@ -39,8 +39,8 @@ sudo apt install -y libx11-xcb1 libxkbcommon0 libinput10 libgbm1
 ## cargo install (requires Rust)
 
 ```sh
-cargo install slint-lsp
-cargo install slint-viewer --features mcp
+cargo install --locked slint-lsp
+cargo install --locked slint-viewer --features mcp
 ```
 
 Cargo places binaries in `$HOME/.cargo/bin`, which is on `PATH` when Rust was

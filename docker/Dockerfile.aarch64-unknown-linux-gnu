@@ -1,36 +1,79 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
-#FROM rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
-FROM ghcr.io/slint-ui/cross-aarch64-base:1.0
+# cSpell: ignore CLANGCC CLANGCXX CXXFLAGS lname MULTIARCH noninteractive readlink SDKTARGETSYSROOT Yocto
 
-RUN dpkg --add-architecture arm64 && \
+# Ubuntu 22.04 sysroot with the target libraries for the clang cross-build
+# below. Its glibc 2.35 is the oldest glibc the binaries built here run on.
+# apt installs the foreign-architecture (multiarch) packages without
+# emulation; the target files are then copied into /sysroot.
+FROM ubuntu:22.04 AS sysroot
+RUN sed -i 's/^deb http/deb [arch=amd64] http/' /etc/apt/sources.list && \
+    for suite in jammy jammy-updates jammy-security; do \
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $suite main universe" >> /etc/apt/sources.list; \
+    done && \
+    dpkg --add-architecture arm64 && \
     apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes libfontconfig1-dev:arm64 libxcb1-dev:arm64 libxcb-render0-dev:arm64 libxcb-shape0-dev:arm64 libxcb-xfixes0-dev:arm64 libxkbcommon-dev:arm64 libinput-dev:arm64 libgbm-dev:arm64 libssl-dev:arm64 python3 python3-pip \
-    libfontconfig1-dev \
-    clang libstdc++-10-dev:arm64 ninja-build
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes --no-install-recommends \
+        libc6-dev:arm64 libgcc-12-dev:arm64 libstdc++-12-dev:arm64 \
+        libfontconfig1-dev:arm64 libxcb1-dev:arm64 libxcb-render0-dev:arm64 libxcb-shape0-dev:arm64 libxcb-xfixes0-dev:arm64 \
+        libxkbcommon-dev:arm64 libinput-dev:arm64 libudev-dev:arm64 libgbm-dev:arm64 libseat-dev:arm64 libssl-dev:arm64
+# Absolute symlinks are made relative so that they resolve inside /sysroot.
+RUN mkdir -p /sysroot/usr/lib /sysroot/usr/share && \
+    cp -a /usr/include /sysroot/usr/ && \
+    cp -a /usr/lib/aarch64-linux-gnu /usr/lib/gcc /usr/lib/ld-linux-aarch64.so.1 /sysroot/usr/lib/ && \
+    cp -a /usr/share/pkgconfig /sysroot/usr/share/ && \
+    ln -s usr/lib /sysroot/lib && \
+    find /sysroot -type l -lname '/*' -exec sh -c 'ln -sfr "/sysroot$(readlink "$1")" "$1"' _ {} \;
 
-# Work around the Skia source build requiring a newer git version (that supports --path-format=relative with rev-parse, as needed by git-sync-deps.py),
-# as well as a disabling of the directory safety checks (https://github.blog/2022-04-12-git-security-vulnerability-announced/#cve-2022-24765) as
-# /cargo comes from ~/.cargo and may have differing user ids, which breaks when the skia-bindings build clones additional git repos (skia/third_party/external/*)
-# Don't use add-apt-repository: it resolves the PPA through the Launchpad API, which stalls for minutes on CI and then
-# reports the timeout as "'~git-core' user or team does not exist" (Launchpad bug #1537056).
-# Requesting the key by full fingerprint is enough, because apt rejects the archive if the signature doesn't match.
-RUN curl --silent --show-error --fail --retry 5 \
-        "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xE1DD270288B4E6030699E45FA1715D88E1DF1F24" \
-        -o /usr/share/keyrings/git-core-ppa.asc && \
-    . /etc/os-release && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/git-core-ppa.asc] https://ppa.launchpadcontent.net/git-core/ppa/ubuntu $VERSION_CODENAME main" > /etc/apt/sources.list.d/git-core-ppa.list && \
-    apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes git && \
+# Ubuntu 26.04 for a recent clang and a git that is new enough for the Skia
+# source build.
+FROM ubuntu:26.04
+
+# clang cross-compiles against the sysroot, with lld linking the
+# foreign-architecture binaries; ninja and python3 are for the Skia source
+# build, cmake is for aws-lc-sys. zstd is for the rust-cache action when this
+# image is used as a job container.
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang lld llvm gcc libclang-dev pkg-config libfontconfig-dev cmake ninja-build python3 git curl ca-certificates zstd && \
+    # The skia-bindings build clones git repos into the mounted, differently
+    # owned cargo home.
     git config --global safe.directory '*'
 
-ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu=/usr/lib/aarch64-linux-gnu/pkgconfig
-ENV PKG_CONFIG_PATH_x86_64_unknown_linux_gnu=/usr/lib/pkgconfig
-ENV PKG_CONFIG_PATH=
-ENV PKG_CONFIG_ALLOW_CROSS=1
+COPY --from=sysroot /sysroot /sysroot
 
-# In the absence of a sysroot, the header files we install earlier (such as libfontconfig1-dev:arm64) are in /usr/include
-# so remember to teach bindgen to also look there, despite its --target.
-ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu=-I/usr/include
+ENV CROSS_SYSROOT=/sysroot \
+    CROSS_MULTIARCH=aarch64-linux-gnu \
+    CROSS_CLANG_TARGET=aarch64-unknown-linux-gnu \
+    CROSS_CMAKE_SYSTEM_PROCESSOR=aarch64
+ARG CROSS="--target=$CROSS_CLANG_TARGET --sysroot=$CROSS_SYSROOT $CROSS_CLANG_FLAGS"
+
+# clang runs the target-prefixed ld when it exists, so this makes lld the
+# linker for every clang invocation for the target, including the ones
+# Corrosion and CMake make.
+RUN ln -s "$(command -v ld.lld)" /usr/local/bin/aarch64-unknown-linux-gnu-ld
+
+# The link flags live in a linker wrapper rather than in the rustflags: tools
+# like napi overwrite RUSTFLAGS, which takes precedence over the
+# CARGO_TARGET_*_RUSTFLAGS variable and would drop them.
+RUN printf '#!/bin/sh\nexec clang %s "$@"\n' "$CROSS" > /usr/local/bin/aarch64-unknown-linux-gnu-clang && \
+    chmod +x /usr/local/bin/aarch64-unknown-linux-gnu-clang
+
+# For C++ builds (the -cpp image) and for the cmake crate.
+COPY docker/cross-toolchain.cmake /opt/toolchain.cmake
+ENV CMAKE_TOOLCHAIN_FILE_aarch64_unknown_linux_gnu=/opt/toolchain.cmake
+
+# SDKTARGETSYSROOT and CLANGCC/CLANGCXX are skia-bindings' Yocto-style cross
+# setup for the gn build.
+ENV SDKTARGETSYSROOT=/sysroot
+ENV CLANGCC="clang $CROSS"
+ENV CLANGCXX="clang++ $CROSS"
+ENV PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu=/sysroot
+ENV PKG_CONFIG_LIBDIR_aarch64_unknown_linux_gnu=/sysroot/usr/lib/aarch64-linux-gnu/pkgconfig:/sysroot/usr/share/pkgconfig
+ENV CC_aarch64_unknown_linux_gnu=clang
+ENV CXX_aarch64_unknown_linux_gnu=clang++
+ENV AR_aarch64_unknown_linux_gnu=llvm-ar
+ENV CFLAGS_aarch64_unknown_linux_gnu="$CROSS"
+ENV CXXFLAGS_aarch64_unknown_linux_gnu="$CROSS"
+ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu="$CROSS"
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-unknown-linux-gnu-clang

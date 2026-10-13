@@ -64,7 +64,7 @@ renderer-femtovg = [
 ]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
 renderer-skia = ["i-slint-renderer-skia/default"]
-renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
+renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-30"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
 renderer-skia-software = ["i-slint-renderer-skia/softbuffer"]
@@ -117,7 +117,7 @@ bytemuck = { workspace = true, optional = true, features = ["derive"] }
 webbrowser = "1.2.0"
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
-muda = { version = "0.19.0", optional = true, default-features = false }
+muda = { version = "0.21.1", optional = true, default-features = false }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -145,7 +145,7 @@ arboard = { version = "3.6", default-features = false, optional = true }
 # To disable macOS automatic shortcut translation
 objc2 = { workspace = true }
 # For GL rendering
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSView", "NSWindow", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSColor", "NSEvent", "NSView", "NSWindow", "NSResponder", "objc2-core-foundation", "objc2-quartz-core"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSRunLoop", "NSObjCRuntime", "NSUserDefaults"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink"] }
 block2 = "0.6.2"
@@ -164,7 +164,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
 arboard = { version = "3.6", default-features = false }
 
 [build-dependencies]

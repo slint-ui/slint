@@ -92,7 +92,7 @@ impl SlintContext {
     /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
-        let collection = i_slint_common::sharedfontique::create_collection(true);
+        let collection = crate::font_collection::take_or_create();
 
         let this = Self(Rc::pin(SlintContextInner {
             platform,
@@ -152,9 +152,24 @@ impl SlintContext {
         this
     }
 
+    /// This thread's context, or `None` if none was created yet.
+    ///
+    /// Setting a platform creates the context, and creating a component needs a platform.
+    pub fn current() -> Option<Self> {
+        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
+    }
+
     /// Return a reference to the platform abstraction
     pub fn platform(&self) -> &dyn Platform {
         &*self.0.platform
+    }
+
+    /// Creates a window adapter with this context's platform, and associates its window
+    /// with this context.
+    pub fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        let adapter = self.platform().create_window_adapter()?;
+        crate::window::WindowInner::from_pub(adapter.window()).set_context(self.clone());
+        Ok(adapter)
     }
 
     /// Return a reference to the font context
@@ -201,6 +216,20 @@ impl SlintContext {
         crate::timers::Timer::with_list(&self.0.timers)
     }
 
+    /// Starts `timer` like [`Timer::start`](crate::timers::Timer::start), but registers it on
+    /// this context if it hasn't been started yet.
+    ///
+    /// A timer that already belongs to a live context keeps firing on that one.
+    pub fn start_timer(
+        &self,
+        timer: &crate::timers::Timer,
+        mode: crate::timers::TimerMode,
+        interval: core::time::Duration,
+        callback: impl FnMut() + 'static,
+    ) {
+        timer.start_on(self, mode, interval, callback);
+    }
+
     /// Runs `callback` once, `duration` from now, on this context.
     ///
     /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),
@@ -230,7 +259,7 @@ impl SlintContext {
     pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
         let timeout = self.next_timer_timeout()?;
         let now = crate::animations::Instant::now(self);
-        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+        Some(timeout - now)
     }
 
     /// Fires the callbacks of this context's timers that have expired by `now`, and returns
@@ -353,6 +382,27 @@ impl SlintContext {
         self.0.as_ref().project_ref().locale_decimal_separator.get()
     }
 
+    /// Format a number using this context's decimal separator.
+    pub fn format_number(&self, n: f64) -> crate::SharedString {
+        crate::string::format_number(self.locale_decimal_separator(), n)
+    }
+
+    /// Format a number with a fixed number of digits after the decimal point,
+    /// using this context's decimal separator.
+    pub fn format_number_fixed(&self, n: f64, digits: usize) -> crate::SharedString {
+        crate::string::format_number_fixed(self.locale_decimal_separator(), n, digits)
+    }
+
+    /// Format a number with the given precision, using this context's decimal separator.
+    pub fn format_number_precision(&self, n: f64, precision: usize) -> crate::SharedString {
+        crate::string::format_number_precision(self.locale_decimal_separator(), n, precision)
+    }
+
+    /// Parse a number written with this context's decimal separator.
+    pub fn parse_number(&self, string: &str) -> Option<f32> {
+        crate::string::parse_number(self.locale_decimal_separator(), string)
+    }
+
     /// Override the locale used for decimal separator detection (testing only).
     #[cfg(feature = "std")]
     pub fn set_locale(&self, locale: &str) {
@@ -361,18 +411,6 @@ impl SlintContext {
             .project_ref()
             .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
-    }
-
-    /// Assign the list of bundled languages and their decimal separator to this context,
-    /// and select the one that matches the system locale.
-    ///
-    /// Does nothing if this context already has a list, so that a language selected with
-    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
-    pub fn set_bundled_languages(
-        &self,
-        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
-    ) {
-        crate::translations::set_bundled_languages_for_context(self, languages);
     }
 
     #[cfg(feature = "tr")]
@@ -425,10 +463,36 @@ pub fn with_global_context<R>(
                     crate::platform::SetPlatformError::AlreadySet,
                 ));
             }
+            let _prefetch = crate::font_collection::prefetch();
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             Ok(f(p.get().unwrap()))
         }
     })
+}
+
+/// Run `f` with this thread's context.
+///
+/// Unlike [`with_global_context`], this never creates a platform.
+/// It fails with [`SetPlatformError::AlreadySet`](crate::platform::SetPlatformError::AlreadySet)
+/// when another thread installed the event-loop proxy through [`set_platform`](crate::platform::set_platform),
+/// and with [`PlatformError::NoPlatform`] otherwise.
+pub fn with_existing_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => Ok(f(ctx)),
+        None if crate::platform::with_event_loop_proxy(|proxy| proxy.is_some()) => {
+            Err(PlatformError::SetPlatformError(crate::platform::SetPlatformError::AlreadySet))
+        }
+        None => Err(PlatformError::NoPlatform),
+    })
+}
+
+#[test]
+#[cfg(feature = "std")]
+fn with_existing_context_never_creates_a_platform() {
+    assert!(matches!(with_existing_context(|_| ()), Err(PlatformError::NoPlatform)));
+
+    let _ctx = SlintContext::new(Box::new(crate::testing::NoWindowPlatform));
+    assert_eq!(with_existing_context(|_| 42).unwrap(), 42);
 }
 
 /// Internal function to set a hook that's invoked whenever a slint::Window is shown. This

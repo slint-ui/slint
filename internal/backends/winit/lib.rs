@@ -977,6 +977,10 @@ impl i_slint_core::platform::Platform for Backend {
         struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+                if cfg!(target_family = "wasm") {
+                    // winit destroys its event loop when it exits, and can't run another one.
+                    return Ok(());
+                }
                 let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
                 self.0
                     .send_event(SlintEvent(CustomEvent::Exit(generation)))
@@ -1035,6 +1039,26 @@ impl i_slint_core::platform::Platform for Backend {
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         let mut pair = self.shared_data.clipboard.borrow_mut();
         clipboard::select_clipboard(&mut pair, clipboard).and_then(|c| c.get_contents().ok())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn click_interval(&self) -> core::time::Duration {
+        let ms = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() };
+        core::time::Duration::from_millis(ms as u64)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn click_interval(&self) -> core::time::Duration {
+        let seconds = objc2_app_kit::NSEvent::doubleClickInterval();
+        core::time::Duration::try_from_secs_f64(seconds)
+            .ok()
+            .filter(|interval| !interval.is_zero())
+            .unwrap_or(i_slint_core::input::DEFAULT_CLICK_INTERVAL)
+    }
+
+    #[cfg(xdg_desktop_settings)]
+    fn click_interval(&self) -> core::time::Duration {
+        self.shared_data.desktop_settings.click_interval.get()
     }
 
     #[cfg(target_os = "windows")]
@@ -1333,13 +1357,13 @@ fn create_renderer(
         }
         #[cfg(feature = "renderer-vello")]
         (Some("vello"), maybe_graphics_api) => {
-            // vello renders through WGPU 29; anything else was not created by
+            // vello renders through WGPU 30; anything else was not created by
             // this renderer and cannot be adopted.
             if let Some(api) = maybe_graphics_api
-                && !matches!(api, RequestedGraphicsAPI::WGPU29(..))
+                && !matches!(api, RequestedGraphicsAPI::WGPU30(..))
             {
                 return Err(
-                    "The vello renderer only supports the WGPU29 graphics API selection".into()
+                    "The vello renderer only supports the WGPU30 graphics API selection".into()
                 );
             }
             renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
@@ -1361,11 +1385,8 @@ fn create_renderer(
                 enable_skia_wgpu => {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
                 }
-                feature = "renderer-vello" => {
-                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
-                }
                 _ => {
-                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia* or renderer-vello".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
@@ -1378,8 +1399,11 @@ fn create_renderer(
                 feature = "renderer-femtovg-wgpu" => {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 }
+                feature = "renderer-vello" => {
+                    renderer::vello::WinitVelloRenderer::new_suspended(shared_data)
+                }
                 _ => {
-                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-30 was enabled but no renderer was selected. Please select renderer-skia*, renderer-femtovg-wgpu, or renderer-vello".into())
                 }
             }
         }

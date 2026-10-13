@@ -1,0 +1,190 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `implement` must be satisfied against an interface's full member set: its own declarations
+// plus the ones it inherits.
+
+interface Base {
+    in-out property <string> text;
+}
+
+interface Derived inherits Base {
+    out property <int> count;
+}
+
+interface MostDerived inherits Derived { }
+
+// A component that provides only the derived members is missing the inherited one.
+export component MissingInheritedMember {
+    implement Derived <=> self;
+//            >      <error{Cannot implement 'Derived'.↵- missing 'in-out property <string> text;'}
+
+    out property <int> count;
+}
+
+// An inherited member with the wrong type still names the interface that declared it.
+export component MismatchedInheritedMember {
+    implement Derived <=> self;
+//            >      <error{Cannot implement 'Derived'.↵- 'text' must be a 'string' property (found a 'int' property)}
+
+    out property <int> count;
+    in-out property <int> text;
+//                   > <note{'MismatchedInheritedMember' declares 'text' here, 'Derived' expects 'in-out property <string> text;'}
+}
+
+interface Other {
+    in-out property <string> text;
+}
+
+// Two unrelated interfaces still conflict when one's own member matches a name the other inherits.
+export component OverlapViaInheritance {
+    implement Derived <=> self;
+    implement Other <=> self;
+//            >    <error{'text' occurs in 'Other' and 'Derived'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+component ChildBase {
+    out property <int> count;
+}
+
+// A delegated child must carry the inherited members too, not just the derived ones.
+export component MissingInheritedMemberChild {
+    implement Derived <=> child;
+//                        >   <error{Cannot implement 'Derived' based on 'child'.↵- missing 'in-out property <string> text;'}
+    child := ChildBase { }
+}
+
+// Implementing Base is redundant once Derived, which inherits it, is implemented too.
+export component RedundantAfterInherited {
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'Derived'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// The same redundancy, reported the same way regardless of which statement comes first.
+export component RedundantBeforeInherited {
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'Derived'}
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// The inheritance chain walk goes past the immediate parent.
+export component RedundantAcrossTwoLevels {
+    implement Base <=> self;
+//  >                      <error{'Base' is already implemented through 'MostDerived'}
+    implement MostDerived <=> self;
+//  >                             <note{'MostDerived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
+}
+
+// Redundancy doesn't depend on both statements binding to the same target.
+export component RedundantAcrossBindings {
+    implement Base <=> child;
+//  >                       <error{'Base' is already implemented through 'Derived'}
+    implement Derived <=> self;
+//  >                         <note{'Derived' inherits 'Base'}
+
+    out property <int> count;
+    in-out property <string> text;
+    child := ChildBase { }
+}
+
+// Two interfaces that inherit the same member from a common base can be implemented together.
+interface Sibling inherits Base {
+    out property <int> other;
+}
+
+component ChildAll {
+    in-out property <string> text;
+    out property <int> count;
+    out property <int> other;
+}
+
+// Both interfaces forward to `self`.
+export component SharedBaseSelf {
+    implement Derived <=> self;
+    implement Sibling <=> self;
+
+    in-out property <string> text;
+    out property <int> count;
+    out property <int> other;
+}
+
+// Both interfaces forward to the same child.
+// Installing the shared member twice would trip the `Cannot override` path.
+export component SharedBaseChild {
+    implement Derived <=> child;
+    implement Sibling <=> child;
+
+    child := ChildAll { }
+}
+
+// A shared member still conflicts once the two statements target different elements.
+// One member cannot be forwarded to two places.
+export component SharedBaseSelfAndChild {
+    implement Derived <=> self;
+    implement Sibling <=> child;
+//            >      <error{'text' occurs in 'Sibling' and 'Derived'}
+
+    in-out property <string> text;
+    out property <int> count;
+    child := ChildAll { }
+}
+
+// Same as above with two children, proving the check is target-based rather than self-vs-child.
+export component SharedBaseDifferentChildren {
+    implement Derived <=> child-a;
+    implement Sibling <=> child-b;
+//            >      <error{'text' occurs in 'Sibling' and 'Derived'}
+
+    child-a := ChildAll { }
+    child-b := ChildAll { }
+}
+
+// A shared member that's missing is reported once per interface, not deduplicated.
+export component SharedBaseMissingMember {
+    implement Derived <=> self;
+//            >      <error{Cannot implement 'Derived'.↵- missing 'in-out property <string> text;'}
+    implement Sibling <=> self;
+//            >      <error{Cannot implement 'Sibling'.↵- missing 'in-out property <string> text;'}
+
+    out property <int> count;
+    out property <int> other;
+}
+
+// `@shadowable` lets a derived interface redeclare the member.
+// The redeclaration is a different declaration, so implementing both interfaces still conflicts.
+interface ShadowableBase {
+    @shadowable in-out property <string> text;
+}
+
+interface DerivedFromShadowable inherits ShadowableBase {
+    out property <int> count;
+}
+
+interface ShadowsBase inherits ShadowableBase {
+    in-out property <string> text;
+//                           >  <warning{'text' shadows the inherited property of the same name}
+}
+
+export component ShadowedMemberIsADifferentDeclaration {
+    implement DerivedFromShadowable <=> self;
+    implement ShadowsBase <=> self;
+//            >          <error{'text' occurs in 'ShadowsBase' and 'DerivedFromShadowable'}
+
+    in-out property <string> text;
+    out property <int> count;
+}

@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Styles } from "../../styles.slint";
+
+component StepItem inherits HorizontalLayout {
+    in property <int> step-number;
+    in property <string> step-text;
+
+    spacing: 12px;
+    alignment: start;
+
+    Rectangle {
+        width: 20px;
+        height: self.width;
+        border-radius: self.height / 2;
+        background: Styles.slint-blue;
+
+        Text {
+            text: root.step-number;
+            font-size: 8px;
+            font-weight: FontWeight.bold;
+            color: white;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    Text {
+        text: root.step-text;
+        font-size: 8px;
+        color: #737373;
+        font-weight: FontWeight.normal;
+        wrap: word-wrap;
+        vertical-alignment: center;
+    }
+}
+
+export component PreparationPage inherits VerticalLayout {
+    spacing: 10px;
+    padding: 20px;
+    alignment: start;
+
+    Text {
+        text: "Step by Step";
+        font-size: 9px;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+
+        StepItem {
+            step-number: 1;
+            step-text: "Add frozen berries, banana, yogurt, and almond milk to your food processor.";
+        }
+
+        StepItem {
+            step-number: 2;
+            step-text: "Blend on high speed until smooth and creamy, about 1-2 minutes.";
+        }
+
+        StepItem {
+            step-number: 3;
+            step-text: "Pour into bowls and add your favorite toppings like granola, fresh berries, or coconut flakes.";
+        }
+
+        StepItem {
+            step-number: 4;
+            step-text: "Serve immediately and enjoy your nutritious smoothie bowl!";
+        }
+    }
+}
