@@ -908,16 +908,21 @@ impl SoftwareRenderer {
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
+                    let background_color: PremultipliedRgbaColor = background.color().into();
                     let gradient_background = gradient_background(&background);
                     if !gradient_background.is_some_and(Brush::is_opaque) {
                         let mut bg = TargetPixel::background();
                         if gradient_background.is_none() {
-                            TargetPixel::blend(&mut bg, background.color().into());
+                            TargetPixel::blend(&mut bg, background_color);
                         }
                         renderer.actual_renderer.processor.foreach_ranges(
                             &dirty_region.bounding_rect(),
                             |_, buffer, _, _| {
-                                buffer.fill(bg);
+                                if gradient_background.is_none() && background_color.alpha == u8::MAX {
+                                    TargetPixel::blend_slice(buffer, background_color);
+                                } else {
+                                    buffer.fill(bg);
+                                }
                             },
                         );
                     }
