@@ -41,6 +41,18 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 
 In your build.rs, you must include a call to `slint_build::print_rustc_flags().unwrap()` to set some of the flags.
 
+### Host Link
+
+To exchange data with the computer that drives your board, such as over a USB serial port, call `init_with_host_link()` instead of `init()`.
+It returns a `HostLink` that reads from and writes to that computer.
+For example, [`mcu-viewer`](../mcu-viewer) uses it to receive designs from the live preview.
+
+The following boards provide `init_with_host_link()`:
+
+- ESP32-S3-BOX-3
+- M5Stack CoreS3
+- The `simulator` feature, through a pseudo-terminal on Linux and macOS
+
 ## Run the demo:
 
 The demo lives in the `demos` workspace, which is separate from the repository's root workspace.
