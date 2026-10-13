@@ -43,7 +43,7 @@ slint_testing::mock_elapsed_time(1000);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(62.0, 10.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_y(), -40.);
-assert_eq!(instance.get_clicked_count(), 0);
+assert_eq!(instance.get_clicked_count(), 0, "The flickabled flicked, so the TouchArea should not receive the event");
 ```
 
 // Test with a delay between press and move to trigger the delay forwarding
@@ -65,7 +65,7 @@ slint_testing::mock_elapsed_time(1000);
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(62.0, 10.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_content_y(), -40.);
-assert_eq!(instance.get_clicked_count(), 0);
+assert_eq!(instance.get_clicked_count(), 0, "The flickabled flicked, so the TouchArea should not receive the event");
 ```
 
 */
