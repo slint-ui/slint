@@ -1320,7 +1320,8 @@ pub struct Element {
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
     pub slot_target: Option<SmolStr>,
 
-    /// If this element is the default content of a slot (e.g., `slot name << ...`), which callers can replace
+    /// If this element is the default content of a slot (e.g., `slot name << ...`), which callers can replace.
+    /// Also set on a root-level assignment to an inherited untyped slot (`name << ...`).
     pub slot_default: Option<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
@@ -1641,6 +1642,7 @@ impl Element {
             return ElementRc::default();
         };
 
+        let is_component_root = is_component_root(&node);
         Self::apply_slots(&node, &r, component_child_insertion_points, declared_slots, diag, tr);
 
         let mut assigned_slots: HashSet<SmolStr> = r
@@ -1684,6 +1686,16 @@ impl Element {
                             tr,
                         );
                     }
+                    continue;
+                }
+                if let Some((name, name_node, base)) = Self::component_slot_placeholder(&se, &r, tr)
+                {
+                    let message = if is_component_root {
+                        format!("Assign to the inherited slot '{name}' with '{name} << ...'")
+                    } else {
+                        format!("Assign to slot '{name}' of '{}' with '{name} << ...'", base.id)
+                    };
+                    diag.push_error(message, &name_node);
                     continue;
                 }
                 let parent_type = r.borrow().base_type.clone();
@@ -1762,6 +1774,7 @@ impl Element {
                     component_child_insertion_points,
                     declared_slots,
                     is_legacy_syntax,
+                    is_component_root,
                     diag,
                     tr,
                 );

@@ -199,10 +199,10 @@ fn inline_element(
         children_by_slot.entry(slot).or_default().push(child);
     }
 
+    let mut reexported = HashSet::new();
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
-            if slot.interface.is_none()
-                || children_by_slot.contains_key(&slot.name)
+            if (slot.interface.is_some() && children_by_slot.contains_key(&slot.name))
                 || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
             {
                 continue;
@@ -210,15 +210,18 @@ fn inline_element(
             if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
                 && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
             {
-                root_component
-                    .child_insertion_points
-                    .borrow_mut()
-                    .entry(slot.name.to_string())
-                    .or_insert_with(|| ChildrenInsertionPoint {
+                if let Entry::Vacant(entry) =
+                    root_component.child_insertion_points.borrow_mut().entry(slot.name.to_string())
+                {
+                    entry.insert(ChildrenInsertionPoint {
                         parent: parent.clone(),
                         insertion_index: cip.insertion_index,
                         node: cip.node.clone(),
                     });
+                    if slot.interface.is_none() {
+                        reexported.insert(slot.name.clone());
+                    }
+                }
                 let mut declarations = root_component.declared_slots.borrow_mut();
                 if !declarations.iter().any(|s| s.name == slot.name) {
                     declarations.push(slot.clone());
@@ -324,19 +327,33 @@ fn inline_element(
         for insertion in insertions {
             let adjusted_index = insertion.insertion_index.checked_add_signed(offset).unwrap();
             let inserted_len = insertion.children.len();
+            let is_reexported = reexported.contains(&insertion.slot_name);
+            let kept_marker = if is_reexported {
+                Some(&insertion.slot_name)
+            } else {
+                forwarded_sources_by_target
+                    .get(insertion.slot_name.as_str())
+                    .and_then(|sources| sources.first())
+            };
             let removed_len = named_slots::take_defaults(
                 &destination[adjusted_index..],
                 &insertion.slot_name,
                 inserted_len > 0,
-                forwarded_sources_by_target
-                    .get(insertion.slot_name.as_str())
-                    .and_then(|sources| sources.first()),
+                kept_marker,
                 &mut removed_defaults,
             );
             destination.splice(adjusted_index..adjusted_index + removed_len, insertion.children);
             let mut root_points = root_component.child_insertion_points.borrow_mut();
+            if is_reexported && let Some(cip) = root_points.get_mut(insertion.slot_name.as_str()) {
+                *cip = ChildrenInsertionPoint {
+                    parent: insertion_element.clone(),
+                    insertion_index: adjusted_index,
+                    node: insertion.node.clone(),
+                };
+            }
             for (name, cip) in root_points.iter_mut() {
                 if Rc::ptr_eq(&cip.parent, elem)
+                    && !is_reexported
                     && (name.as_str() == insertion.slot_name.as_str()
                         || forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
@@ -349,7 +366,7 @@ fn inline_element(
                     };
                 }
             }
-            if root_points.is_empty()
+            if !root_points.contains_key(DEFAULT_SLOT_NAME)
                 && Rc::ptr_eq(elem, &root_component.root_element)
                 && insertion.slot_name == DEFAULT_SLOT_NAME
             {

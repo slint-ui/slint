@@ -50,7 +50,7 @@ pub(super) fn take_defaults(
     following: &[ElementRc],
     slot_name: &SmolStr,
     supplied: bool,
-    forwarded_source: Option<&SmolStr>,
+    kept_marker: Option<&SmolStr>,
     removed: &mut RemovedDefaults,
 ) -> usize {
     let len = following
@@ -65,7 +65,7 @@ pub(super) fn take_defaults(
         len
     } else {
         for default in defaults {
-            default.borrow_mut().slot_default = forwarded_source.cloned();
+            default.borrow_mut().slot_default = kept_marker.cloned();
         }
         0
     }
@@ -129,6 +129,26 @@ export component Forwarded inherits Window {
         outer << Text { text: "caller"; }
     }
 }
+
+component Overriding inherits Host {
+    content << Rectangle {
+        init => { debug("derived init"); }
+        derived-timer := Timer {
+            interval: 10ms;
+            triggered => { debug("derived timer"); }
+        }
+    }
+}
+
+export component DerivedKept inherits Window {
+    Overriding { }
+}
+
+export component DerivedReplaced inherits Window {
+    Overriding {
+        content << Text { text: "caller"; }
+    }
+}
 "#;
 
     fn exported_roots() -> Vec<Rc<Component>> {
@@ -152,11 +172,11 @@ export component Forwarded inherits Window {
         roots.iter().find(|c| c.id == id).unwrap_or_else(|| panic!("no root {id}")).clone()
     }
 
-    fn default_init_count(component: &Component) -> usize {
+    fn init_count(component: &Component, literal: &str) -> usize {
         let mut count = 0;
         for expression in component.init_code.borrow().iter() {
             expression.visit_recursive(&mut |e| {
-                if matches!(e, Expression::StringLiteral(s) if s == "default init") {
+                if matches!(e, Expression::StringLiteral(s) if s == literal) {
                     count += 1;
                 }
             });
@@ -182,9 +202,31 @@ export component Forwarded inherits Window {
             assert_eq!(component.popup_windows.borrow().len(), 0, "{id}");
             assert_eq!(component.timers.borrow().len(), 0, "{id}");
             assert_eq!(component.menu_item_tree.borrow().len(), 0, "{id}");
-            assert_eq!(default_init_count(&component), 0, "{id}");
+            assert_eq!(init_count(&component, "default init"), 0, "{id}");
             assert_eq!(optimized_default_ids(&component), Vec::<String>::new(), "{id}");
         }
+    }
+
+    #[test]
+    fn derived_content_drops_what_the_base_default_created() {
+        let component = root(&exported_roots(), "DerivedKept");
+        assert_eq!(component.popup_windows.borrow().len(), 0);
+        assert_eq!(component.menu_item_tree.borrow().len(), 0);
+        assert_eq!(init_count(&component, "default init"), 0);
+        assert_eq!(optimized_default_ids(&component), Vec::<String>::new());
+        assert_eq!(init_count(&component, "derived init"), 1);
+        assert_eq!(component.timers.borrow().len(), 1);
+    }
+
+    #[test]
+    fn replaced_derived_content_drops_what_it_created() {
+        let component = root(&exported_roots(), "DerivedReplaced");
+        assert_eq!(component.popup_windows.borrow().len(), 0);
+        assert_eq!(component.timers.borrow().len(), 0);
+        assert_eq!(component.menu_item_tree.borrow().len(), 0);
+        assert_eq!(init_count(&component, "default init"), 0);
+        assert_eq!(init_count(&component, "derived init"), 0);
+        assert_eq!(optimized_default_ids(&component), Vec::<String>::new());
     }
 
     #[test]
@@ -220,7 +262,7 @@ export component Forwarded inherits Window {
         assert_eq!(component.popup_windows.borrow().len(), 1);
         assert_eq!(component.timers.borrow().len(), 2);
         assert_eq!(component.menu_item_tree.borrow().len(), 1);
-        assert_eq!(default_init_count(&component), 1);
+        assert_eq!(init_count(&component, "default init"), 1);
         let ids = optimized_default_ids(&component);
         for name in ["default-timer", "default-menu", "default-row"] {
             assert!(ids.iter().any(|id| id.contains(name)), "{name} not in {ids:?}");
