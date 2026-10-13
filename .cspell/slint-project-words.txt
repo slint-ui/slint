@@ -595,6 +595,7 @@ segmenteditem
 semihosting
 Segoe
 serde
+serialport
 setattr
 SETFL
 Shaderiv
