@@ -60,6 +60,20 @@ test("packed image assets compile through preview object URLs", async () => {
     await expect
         .poll(() => p.element("#source-view").textContent)
         .toBe(exportSource);
+    p.send({ type: "preview-source", revision: 2, source: packed });
+    await p.ready(2);
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toContain("Copy Slint includes the complete source");
+    expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(true);
+    const copied: string[] = [];
+    p.doc.execCommand = () => {
+        copied.push((p.doc.activeElement as HTMLTextAreaElement).value);
+        return true;
+    };
+    p.element<HTMLButtonElement>("#copy-button").click();
+    await expect.poll(() => copied).toEqual([source]);
+    expect(copied[0]).not.toContain("blob:");
 });
 
 test("oversized export validation cannot block the specialized preview", async () => {

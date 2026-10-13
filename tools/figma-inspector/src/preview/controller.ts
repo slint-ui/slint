@@ -15,6 +15,7 @@ import {
 import type { TimingTrace } from "../performance/timing";
 import type { Diagnostic } from "../plugin/snapshot";
 import { warningSummaries } from "../plugin/snapshot";
+import { exportFailure } from "./export-diagnostic";
 
 type PreviewState = "initializing" | "compiling" | "ready" | "error";
 type RenderRequest = {
@@ -48,7 +49,10 @@ export class PreviewController {
     private instance: WrappedInstance | undefined;
     private initialized = false;
     private renderedSource: string | undefined;
-    private validatedSource: string | undefined;
+    private exportValidation:
+        | { source: string; warning?: Diagnostic }
+        | undefined;
+    private runtimeFailure: string | undefined;
     /** The newest accepted source or diagnostic action, regardless of state. */
     private nextRevision = 0;
     private minimumRevision = 0;
@@ -215,7 +219,7 @@ export class PreviewController {
         trace: WorkingTrace | undefined,
         acceptedAtMonotonicMs: number,
     ): Promise<void> {
-        if (previousInstance !== undefined) {
+        if (previousInstance !== undefined && !this.runtimeFailure) {
             try {
                 await previousInstance.hide();
             } catch {
@@ -412,55 +416,64 @@ export class PreviewController {
             );
             return;
         }
+        if (this.runtimeFailure) throw Error(this.runtimeFailure);
         const renderWarnings = [...warnings];
         const completePreview = async (
             outcome: "unchanged" | "rendered",
         ): Promise<void> => {
-            if (
-                validationSource !== undefined &&
-                validationSource !== source &&
-                validationSource !== this.validatedSource
-            ) {
-                const validationStart = defaultClock.monotonicNow();
-                let validation:
-                    | Awaited<ReturnType<typeof compile_from_string>>
-                    | undefined;
-                try {
-                    validation = await compile_from_string(
-                        validationSource,
-                        "",
-                        undefined,
-                    );
-                    const component = validation.component;
-                    component?.free();
-                    const error = validation.error_string.trim();
-                    if (error !== "")
-                        throw Error(`Export compilation failed:\n${error}`);
-                    if (component === undefined)
-                        throw Error(
-                            "Slint compiler did not return an export component",
+            this.canvas.style.visibility = "visible";
+            if (validationSource !== undefined && validationSource !== source) {
+                if (validationSource !== this.exportValidation?.source) {
+                    this.setState("compiling", revision);
+                    const validationStart = defaultClock.monotonicNow();
+                    let validation:
+                        | Awaited<ReturnType<typeof compile_from_string>>
+                        | undefined;
+                    try {
+                        validation = await compile_from_string(
+                            validationSource,
+                            "",
+                            undefined,
                         );
-                    this.validatedSource = validationSource;
-                } catch (error) {
-                    renderWarnings.push({
-                        severity: "warning",
-                        code: "EXPORT_COMPILATION_ERROR",
-                        message:
-                            error instanceof Error
-                                ? error.message
-                                : String(error),
-                    });
+                        const component = validation.component;
+                        component?.free();
+                        const error = validation.error_string.trim();
+                        const warning =
+                            error !== ""
+                                ? exportFailure(
+                                      `Export compilation failed:\n${error}`,
+                                      "EXPORT_COMPILATION_ERROR",
+                                  )
+                                : component === undefined
+                                  ? exportFailure(
+                                        "Slint compiler did not return an export component",
+                                        "EXPORT_COMPILATION_ERROR",
+                                    )
+                                  : undefined;
+                        this.exportValidation = {
+                            source: validationSource,
+                            warning,
+                        };
+                    } catch (error) {
+                        this.runtimeFailure = `Export compiler failed: ${this.errorMessage(error)}. Restart the plugin to reset the interpreter.`;
+                        throw Error(this.runtimeFailure);
+                    } finally {
+                        if (!this.runtimeFailure) validation?.free();
+                        if (workingTrace)
+                            workingTrace.phases.slintCompilation =
+                                (workingTrace.phases.slintCompilation ?? 0) +
+                                Math.max(
+                                    0,
+                                    defaultClock.monotonicNow() -
+                                        validationStart,
+                                );
+                    }
+                }
+                const warning = this.exportValidation?.warning;
+                if (warning) {
+                    renderWarnings.push(warning);
                     if (this.isCurrentRevision(revision))
                         this.dispatch("preview-export-error", revision);
-                } finally {
-                    validation?.free();
-                    if (workingTrace)
-                        workingTrace.phases.slintCompilation =
-                            (workingTrace.phases.slintCompilation ?? 0) +
-                            Math.max(
-                                0,
-                                defaultClock.monotonicNow() - validationStart,
-                            );
                 }
             }
             if (!this.isCurrentRevision(revision)) {
@@ -609,8 +622,6 @@ export class PreviewController {
                     );
                     return;
                 }
-                this.canvas.style.visibility = "visible";
-                await completePreview("rendered");
             } catch (error) {
                 if (instance !== undefined) this.freeInstance(instance);
                 throw error;
@@ -620,6 +631,7 @@ export class PreviewController {
         } finally {
             result.free();
         }
+        await completePreview("rendered");
     }
 
     private setState(state: PreviewState, revision = this.nextRevision): void {
@@ -683,7 +695,10 @@ export class PreviewController {
                 (counts.get(warning.category ?? "approximation") ?? 0) + 1,
             );
         summary.textContent = [...counts]
-            .map(([kind, count]) => `${count} ${kind}${count === 1 ? "" : "s"}`)
+            .map(
+                ([kind, count]) =>
+                    `${count} ${kind === "export" ? "export failure" : kind}${count === 1 ? "" : "s"}`,
+            )
             .join(" · ");
         details.append(summary);
         for (const item of summaries) {
@@ -731,7 +746,7 @@ export class PreviewController {
     private freeInstance(instance: WrappedInstance): void {
         if (this.freedInstances.has(instance)) return;
         this.freedInstances.add(instance);
-        instance.free();
+        if (!this.runtimeFailure) instance.free();
     }
 
     private isCurrentRevision(revision: number): boolean {

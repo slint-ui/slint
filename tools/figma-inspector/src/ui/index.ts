@@ -22,6 +22,8 @@ import {
 } from "../protocol";
 import { createPreviewAssetPool, packPreviewAssets } from "../asset-transport";
 import { PreviewController } from "../preview/controller";
+import { exportFailure } from "../preview/export-diagnostic";
+import type { AssetPreview } from "../asset-transport";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
 import { ConversionClient } from "./conversion-client";
@@ -119,7 +121,7 @@ keepaliveCanvas.style.cssText =
     "position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none;";
 document.body.append(keepaliveCanvas);
 type PreviewOutput = {
-    source: string;
+    source: string | AssetPreview;
     json: string;
     revision: number;
     name: string;
@@ -178,9 +180,18 @@ function updateOutputProvenance(trace: TimingTrace): void {
             successfulOutput &&
             latestSourceRevision !== successfulOutput.revision
         ) {
+            const previewSource = successfulOutput.source;
             latestSource =
                 successfulOutput.exportPackage?.source ??
-                successfulOutput.source;
+                (typeof previewSource === "string"
+                    ? previewSource
+                    : previewSource.source
+                          .map((part) =>
+                              typeof part === "string"
+                                  ? part
+                                  : previewSource.assets[part],
+                          )
+                          .join(""));
             if (!latestSource) sourcePanel.clear();
             latestSnapshotJson = successfulOutput.json;
             latestSourceRevision = successfulOutput.revision;
@@ -354,7 +365,7 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
         if (phase === "slintConversion") {
             const sourceTerm = document.createElement("dt");
             sourceTerm.className = "timing-breakdown";
-            sourceTerm.textContent = "Generated source";
+            sourceTerm.textContent = "Preview source";
             const sourceValue = document.createElement("dd");
             sourceValue.className = "timing-breakdown";
             sourceValue.dataset.generatedSourceLines = "";
@@ -505,7 +516,7 @@ function acceptSource(
     exportPackage: ExportPackage | undefined,
     trace?: TimingTrace,
     warnings: readonly import("../plugin/snapshot").Diagnostic[] = [],
-    previewSource = source,
+    previewSource: string | AssetPreview = source,
 ): void {
     if (
         !Number.isSafeInteger(revision) ||
@@ -524,7 +535,7 @@ function acceptSource(
     });
     generatedSourceMetrics = {
         revision,
-        lineCount: sourceLineCount(exportPackage?.source ?? source),
+        lineCount: sourceLineCount(source),
     };
     renderingSource = true;
     setPreviewBusy(true);
@@ -560,11 +571,7 @@ function acceptSource(
     } catch (error) {
         const output = pendingOutputs.get(revision);
         if (output) output.exportPackage = undefined;
-        renderWarnings.push({
-            severity: "warning",
-            code: "EXPORT_UNAVAILABLE",
-            message: `Export unavailable: ${error instanceof Error ? error.message : String(error)}`,
-        });
+        renderWarnings.push(exportFailure(error));
     }
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
@@ -814,17 +821,6 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 if (typeof message.source !== "string")
                     trace.phases.assetUnpacking =
                         defaultClock.monotonicNow() - started;
-                const capturedSource = message.source;
-                const copySource =
-                    typeof capturedSource === "string"
-                        ? capturedSource
-                        : capturedSource.source
-                              .map((part) =>
-                                  typeof part === "string"
-                                      ? part
-                                      : capturedSource.assets[part],
-                              )
-                              .join("");
                 acceptSelection(message.selection);
                 acceptSource(
                     decoded.source,
@@ -832,7 +828,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                     message.exportPackage,
                     trace,
                     message.warnings ?? [],
-                    copySource,
+                    message.source,
                 );
             } catch (error) {
                 disposePreviewAssets(message.revision);

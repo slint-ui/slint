@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
+import { page, server } from "vitest/browser";
 import {
     mountCanvasPreview,
     mountPreview,
@@ -15,7 +16,7 @@ const secondSource = await readFixture("fixtures/frame.slint");
 test.each([false, true])(
     "a valid preview survives an invalid reusable export (unchanged preview: %s)",
     async (warm) => {
-        const p = await mountPreview();
+        const p = await mountPreview(false);
         if (warm) {
             p.send({
                 type: "preview-source",
@@ -41,6 +42,12 @@ test.each([false, true])(
             true,
         );
         await p.ready(2);
+        expect(p.element("#diagnostics summary").textContent).toBe(
+            "1 export failure",
+        );
+        expect(p.element("#diagnostics").textContent).toContain(
+            "Export ZIP is disabled",
+        );
         expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(
             false,
         );
@@ -48,6 +55,49 @@ test.each([false, true])(
             .poll(() => p.element("#source-view").textContent)
             .toBe(firstSource);
         expect(p.element("#preview-canvas").style.visibility).toBe("visible");
+        await expect
+            .poll(() =>
+                p.messages.some(
+                    (message) =>
+                        message.type === "preview-complete" &&
+                        message.revision === 2,
+                ),
+            )
+            .toBe(true);
+        const completion = p.messages.find(
+            (message) =>
+                message.type === "preview-complete" && message.revision === 2,
+        );
+        if (completion?.type !== "preview-complete")
+            throw Error("Missing completion trace");
+        p.send({
+            type: "preview-finalized",
+            revision: 2,
+            trace: completion.trace,
+        });
+        const lineCount = firstSource.trimEnd().split(/\r\n|\r|\n/u).length;
+        await expect
+            .poll(
+                () =>
+                    p.doc.querySelector("[data-generated-source-lines]")
+                        ?.textContent,
+            )
+            .toBe(`${lineCount} lines`);
+        if (!warm) {
+            await server.commands.writeFile(
+                ".vitest/attachments/export-failure-preview.png",
+                await page.elementLocator(p.iframe).screenshot({ save: false }),
+                "base64",
+            );
+            p.element("#diagnostics-tab").click();
+            p.element<HTMLDetailsElement>("#diagnostics details").open = true;
+            await server.commands.writeFile(
+                ".vitest/attachments/export-failure-diagnostics.png",
+                await page.elementLocator(p.iframe).screenshot({ save: false }),
+                "base64",
+            );
+            p.element("#preview-tab").click();
+        }
         p.send({
             type: "preview-source",
             revision: 3,
