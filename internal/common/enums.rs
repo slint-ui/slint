@@ -680,9 +680,9 @@ macro_rules! for_each_enums {
                 Other,
             }
 
-            /// This enum describes the mode used for scrolling to a specific position
+            /// This enum describes how to scroll to a specific position
             #[non_exhaustive]
-            pub enum ScrollMode {
+            pub enum ScrollBehavior {
                 /// Instant jump to the scroll position
                 Instant,
                 /// Smooth scroll animation to the scroll position

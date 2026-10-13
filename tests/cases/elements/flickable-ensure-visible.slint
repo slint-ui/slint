@@ -7,7 +7,7 @@ export component TestCase inherits Window {
     height: 500phx;
     no-frame: false;
 
-    callback ensure_visible_(int, ScrollMode);
+    callback ensure_visible_(int, ScrollBehavior);
     ensure_visible_(rectangle_index, mode) => {
         if rectangle-index == 0 {
             debug("Ensure visible red");
@@ -26,7 +26,7 @@ export component TestCase inherits Window {
             property <int> counter: 0;
             text: "Press";
             clicked => {
-                root.ensure_visible_(counter, ScrollMode.instant);
+                root.ensure_visible_(counter, ScrollBehavior.instant);
                 if counter > 2 {
                     counter = 0;
                 } else {
@@ -75,7 +75,7 @@ export component TestCase inherits Window {
 
 /// Instant scrolling
 ```rust
-use slint::language::ScrollMode;
+use slint::language::ScrollBehavior;
 use slint::LogicalPosition;
 
 let instance = TestCase::new().unwrap();
@@ -86,28 +86,28 @@ const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
 const RED_RECTANGLE_WIDTH: f32 = 100.;
 const RED_RECTANGLE_HEIGHT: f32 = 100.;
 const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
-const SCROLL_MODE: ScrollMode = ScrollMode::Instant;
+const SCROLL_BEHAVIOR: ScrollBehavior = ScrollBehavior::Instant;
 const RED_RECTANGLE_INDEX: i32 = 0;
 const BLUE_RECTANGLE_INDEX: i32 = 1;
 const GREEN_RECTANGLE_INDEX: i32 = 2;
 
 
-instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
 assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
 
-instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
 assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
 
-instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert!(instance.get_offset_x() >= POS_GREEN_RECTANGLE.x - WINDOW_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
 assert!(instance.get_offset_y() >= POS_GREEN_RECTANGLE.y - WINDOW_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
 
-instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert!(instance.get_offset_x() <= POS_RED_RECTANGLE.x + RED_RECTANGLE_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
 assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
@@ -115,7 +115,7 @@ assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "
 
 /// Smooth scrolling
 ```rust
-use slint::language::ScrollMode;
+use slint::language::ScrollBehavior;
 use slint::LogicalPosition;
 
 let instance = TestCase::new().unwrap();
@@ -126,23 +126,23 @@ const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
 const RED_RECTANGLE_WIDTH: f32 = 100.;
 const RED_RECTANGLE_HEIGHT: f32 = 100.;
 const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
-const SCROLL_MODE: ScrollMode = ScrollMode::Smooth;
+const SCROLL_BEHAVIOR: ScrollBehavior = ScrollBehavior::Smooth;
 const RED_RECTANGLE_INDEX: i32 = 0;
 const BLUE_RECTANGLE_INDEX: i32 = 1;
 const GREEN_RECTANGLE_INDEX: i32 = 2;
 
 
-instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
 assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
 
-instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
 assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
 assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
 
-instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 assert_eq!(instance.get_offset_x(), 0., "The flickable did not scroll yet");
 assert_eq!(instance.get_offset_y(), 0., "The flickable did not scroll yet");
 slint_testing::mock_elapsed_time(1000000);
@@ -152,7 +152,7 @@ assert!(instance.get_offset_y() >= POS_GREEN_RECTANGLE.y - WINDOW_HEIGHT, "The f
 
 let offset_x = instance.get_offset_x();
 let offset_y = instance.get_offset_y();
-instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 assert_eq!(instance.get_offset_x(), offset_x, "The flickable did not scroll yet");
 assert_eq!(instance.get_offset_y(), offset_y, "The flickable did not scroll yet");
 slint_testing::mock_elapsed_time(1000000);
@@ -162,44 +162,44 @@ assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "
 
 /// Instant scrolling
 ```cpp
-using slint::language::ScrollMode;
+using slint::language::ScrollBehavior;
 
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-instance.invoke_ensure_visible_(0, ScrollMode::Instant);
+instance.invoke_ensure_visible_(0, ScrollBehavior::Instant);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
 
-instance.invoke_ensure_visible_(1, ScrollMode::Instant);
+instance.invoke_ensure_visible_(1, ScrollBehavior::Instant);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
 
-instance.invoke_ensure_visible_(2, ScrollMode::Instant);
+instance.invoke_ensure_visible_(2, ScrollBehavior::Instant);
 assert(instance.get_offset_x() >= 700. - 500.);
 assert(instance.get_offset_y() >= 700. - 500.);
 
-instance.invoke_ensure_visible_(0, ScrollMode::Instant);
+instance.invoke_ensure_visible_(0, ScrollBehavior::Instant);
 assert(instance.get_offset_x() <= 100.);
 assert(instance.get_offset_y() <= 100.);
 ```
 
 /// Smooth scrolling
 ```cpp
-using slint::language::ScrollMode;
+using slint::language::ScrollBehavior;
 
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-instance.invoke_ensure_visible_(0, ScrollMode::Smooth);
+instance.invoke_ensure_visible_(0, ScrollBehavior::Smooth);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
 
-instance.invoke_ensure_visible_(1, ScrollMode::Smooth);
+instance.invoke_ensure_visible_(1, ScrollBehavior::Smooth);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
 
-instance.invoke_ensure_visible_(2, ScrollMode::Smooth);
+instance.invoke_ensure_visible_(2, ScrollBehavior::Smooth);
 assert_eq(instance.get_offset_x(), 0.);
 assert_eq(instance.get_offset_y(), 0.);
 slint_testing::mock_elapsed_time(1000000);
@@ -208,7 +208,7 @@ assert(instance.get_offset_y() >= 700. - 500.);
 
 auto offset_x = instance.get_offset_x();
 auto offset_y = instance.get_offset_y();
-instance.invoke_ensure_visible_(0, ScrollMode::Smooth);
+instance.invoke_ensure_visible_(0, ScrollBehavior::Smooth);
 assert_eq(instance.get_offset_x(), offset_x);
 assert_eq(instance.get_offset_y(), offset_y);
 slint_testing::mock_elapsed_time(1000000);

@@ -345,11 +345,11 @@ export component AppWindow inherits Window {
 
 ## Common Functions
 
-### ensure-visible(mode: ScrollMode)
+### ensure-visible(behavior: ScrollBehavior)
 
 Call this function to scroll the enclosing `Flickable` by the smallest amount that brings this element into view.
 The `Flickable` doesn't need to be the direct parent, and nested `Flickable`s all scroll.
-Pass `ScrollMode.instant` to jump or `ScrollMode.smooth` to animate, see [`ScrollMode`](/reference/property-types/builtin-enums/#scrollmode).
+Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate, see [`ScrollBehavior`](/reference/property-types/builtin-enums/#scrollbehavior).
 If no ancestor is a `Flickable`, the call does nothing.
 
 ## Accessibility Properties

@@ -5026,11 +5026,11 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::EnsureVisible => {
-            if let [llr::Expression::PropertyReference(pr), mode] = arguments {
-                let mode = compile_expression(mode, ctx);
+            if let [llr::Expression::PropertyReference(pr), behavior] = arguments {
+                let behavior = compile_expression(behavior, ctx);
                 item_owner(pr).then(|owner| {
                     let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
-                    format!("slint::cbindgen_private::slint_item_try_scroll_into_visible(&{item_rc}, {mode})")
+                    format!("slint::cbindgen_private::slint_item_try_scroll_into_visible(&{item_rc}, {behavior})")
                 })
             } else {
                 panic!("internal error: invalid args to EnsureVisible {arguments:?}")
@@ -5391,13 +5391,13 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ScrollTo => {
-            if let [llr::Expression::PropertyReference(pr), pos, mode] = arguments {
+            if let [llr::Expression::PropertyReference(pr), pos, behavior] = arguments {
                 let pos = compile_expression(pos, ctx);
-                let mode = compile_expression(mode, ctx);
+                let behavior = compile_expression(behavior, ctx);
                 item_owner(pr).then(|owner| {
                     let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
                     format!(
-                        "[&]{{ auto pos = {pos}; slint::cbindgen_private::slint_flickable_scroll_to(&{item}, &{item_rc}, pos.x, pos.y, {mode}); }}()"
+                        "[&]{{ auto pos = {pos}; slint::cbindgen_private::slint_flickable_scroll_to(&{item}, &{item_rc}, pos.x, pos.y, {behavior}); }}()"
                     )
                 })
             } else {

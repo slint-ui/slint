@@ -4976,13 +4976,13 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ScrollTo => {
-            if let [Expression::PropertyReference(pr), pos, mode] = arguments {
+            if let [Expression::PropertyReference(pr), pos, behavior] = arguments {
                 let pos = compile_expression(pos, ctx);
-                let mode = compile_expression(mode, ctx);
+                let behavior = compile_expression(behavior, ctx);
                 item_owner(pr).map_or_default(|owner| {
                     let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
                     quote!(
-                        #item.as_ref().scroll_to(&#item_rc, #pos, #mode)
+                        #item.as_ref().scroll_to(&#item_rc, #pos, #behavior)
                     )
                 })
             } else {
@@ -4990,11 +4990,11 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::EnsureVisible => {
-            if let [Expression::PropertyReference(pr), mode] = arguments {
+            if let [Expression::PropertyReference(pr), behavior] = arguments {
                 item_owner(pr).then(|owner| {
-                    let mode = compile_expression(mode, ctx);
+                    let behavior = compile_expression(behavior, ctx);
                     let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(#item_rc.try_scroll_into_visible(#mode))
+                    quote!(#item_rc.try_scroll_into_visible(#behavior))
                 })
             } else {
                 panic!("internal error: invalid args to EnsureVisible {arguments:?}")

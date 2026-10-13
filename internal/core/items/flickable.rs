@@ -25,7 +25,7 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
-use crate::items::ScrollMode;
+use crate::items::ScrollBehavior;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -297,13 +297,13 @@ impl Flickable {
         self: Pin<&Self>,
         self_rc: &ItemRc,
         position: LogicalPosition,
-        scroll_mode: ScrollMode,
+        scroll_behavior: ScrollBehavior,
     ) {
         self.as_ref().data.inner.borrow_mut().scroll_to(
             self,
             self_rc,
             position.to_euclid(),
-            scroll_mode,
+            scroll_behavior,
         );
     }
 
@@ -384,7 +384,7 @@ impl Flickable {
         self: Pin<&Self>,
         self_rc: &ItemRc,
         pts: &[LogicalPoint],
-        scroll_mode: ScrollMode,
+        scroll_behavior: ScrollBehavior,
     ) {
         if pts.is_empty() {
             return;
@@ -409,7 +409,7 @@ impl Flickable {
         self.scroll_to(
             self_rc,
             LogicalPosition::from_euclid(LogicalPoint::new(new_cx, new_cy)),
-            scroll_mode,
+            scroll_behavior,
         );
     }
 
@@ -1061,11 +1061,11 @@ impl FlickableDataInner {
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
         position: LogicalPoint,
-        scroll_mode: ScrollMode,
+        scroll_behavior: ScrollBehavior,
     ) {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
         let target = ensure_in_bound(flick, -position, &geo, false, false);
-        if scroll_mode == ScrollMode::Instant {
+        if scroll_behavior == ScrollBehavior::Instant {
             self.running_animation = None;
 
             flick.content_x.set(target.x_length());
@@ -1477,10 +1477,10 @@ pub extern "C" fn slint_flickable_scroll_to(
     self_index: u32,
     x: Coord,
     y: Coord,
-    scroll_mode: ScrollMode,
+    scroll_behavior: ScrollBehavior,
 ) {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    flickable.scroll_to(&self_rc, LogicalPosition::new(x, y), scroll_mode);
+    flickable.scroll_to(&self_rc, LogicalPosition::new(x, y), scroll_behavior);
 }
 
 #[cfg(test)]

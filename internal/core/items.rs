@@ -2443,9 +2443,9 @@ fn builtin_struct_field_defaults() {
 pub extern "C" fn slint_item_try_scroll_into_visible(
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-    scroll_mode: ScrollMode,
+    scroll_behavior: ScrollBehavior,
 ) {
-    ItemRc::new(self_component.clone(), self_index).try_scroll_into_visible(scroll_mode);
+    ItemRc::new(self_component.clone(), self_index).try_scroll_into_visible(scroll_behavior);
 }
 
 #[cfg(feature = "ffi")]

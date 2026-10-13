@@ -1572,10 +1572,10 @@ fn build(l: &mut Loader) {
 
         /// Scrolls so that the point `pos` of the content is at the top-left corner of the `Flickable`.
         /// `pos` is in content coordinates, so it's positive where `content-x` and `content-y` are usually negative.
-        /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollMode.instant)` sets `content-y` to `-100px`.
+        /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
-        /// Pass `ScrollMode.instant` to jump or `ScrollMode.smooth` to animate.
-        function scroll-to(pos: Point, mode: ScrollMode) { BuiltinFunction.ScrollTo }
+        /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
+        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }

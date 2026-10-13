@@ -20,7 +20,7 @@ use i_slint_core::api::LogicalPosition;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
-use i_slint_core::items::ScrollMode;
+use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
@@ -2508,13 +2508,13 @@ fn call_builtin_function(
                     i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
                 let pos: LogicalPosition =
                     eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-                let mode: ScrollMode =
+                let behavior: ScrollBehavior =
                     eval_expression(ctx, &arguments[2]).try_into().unwrap_or_default();
                 item_rc
                     .downcast::<i_slint_core::items::Flickable>()
                     .unwrap()
                     .as_pin_ref()
-                    .scroll_to(&item_rc, pos, mode);
+                    .scroll_to(&item_rc, pos, behavior);
                 return Value::Void;
             }
             panic!("internal error: argument to ScrollTo must be an element")
@@ -2523,11 +2523,11 @@ fn call_builtin_function(
             if let Some(Expression::PropertyReference(mr)) = arguments.first()
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
             {
-                let mode: ScrollMode =
+                let behavior: ScrollBehavior =
                     eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
                 let dyn_rc = vtable::VRc::into_dyn(inst);
                 let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
-                item_rc.try_scroll_into_visible(mode);
+                item_rc.try_scroll_into_visible(behavior);
                 return Value::Void;
             }
             panic!("internal error: argument to ScrollTo must be an element")
