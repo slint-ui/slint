@@ -37,6 +37,10 @@ path = "lib.rs"
 
 [features]
 
+## A desktop simulator, whose host link is a pseudo-terminal on Linux and macOS.
+## The application selects a desktop Slint backend itself.
+simulator = ["dep:serialport"]
+
 pico-st7789 = [
   "slint/unsafe-single-threaded",
   "rp-pico",
@@ -301,5 +305,8 @@ sh8601-rs = { version = "0.1.8", features = ["waveshare_18_amoled"], optional = 
 ft3x68-rs = { version = "0.1.2", optional = true }
 
 rand_core = { version = "0.6.3", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+serialport = { version = "4.10", default-features = false, optional = true }
 
 [build-dependencies]

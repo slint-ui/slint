@@ -110,6 +110,35 @@ pub fn init() {}
 #[cfg(any(feature = "stm32u5g9j-dk2", feature = "pico2-touch-lcd-2-8"))]
 mod embassy;
 
+#[cfg(feature = "simulator")]
+mod simulator;
+#[cfg(feature = "simulator")]
+pub use simulator::init_with_host_link;
+
+/// The channel to the computer that drives the device, such as the USB serial port of an
+/// ESP32-S3, and what the device can tell that computer about itself.
+/// A board that has one returns it from `init_with_host_link()`, which initializes the
+/// board like `init()`. After a panic, the board then prints the message and restarts.
+pub trait HostLink {
+    /// Reads into `buffer` what the computer sent, and returns how many bytes that is.
+    /// Waits at most for a short pause in the data, and returns 0 if nothing arrived.
+    fn read(&mut self, buffer: &mut [u8]) -> usize;
+    /// Sends `bytes` to the computer. The board's log output goes out on the same channel,
+    /// and the two never interleave.
+    fn write(&mut self, bytes: &[u8]);
+    fn board_name(&self) -> &str;
+    /// The name of the port to open on the computer, if the device knows it,
+    /// such as the pseudo-terminal of a simulator.
+    fn port_name(&self) -> Option<&str> {
+        None
+    }
+    /// The heap memory left, if the board can tell.
+    fn free_memory(&self) -> Option<usize> {
+        None
+    }
+    fn reset(&mut self);
+}
+
 pub mod prelude {
     #[cfg(any(
         feature = "esp32-s3-box-3",
