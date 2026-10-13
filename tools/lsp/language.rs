@@ -2418,7 +2418,8 @@ enum {}
                 "Wrap in `@tr()`",
                 None,
                 r#"export component Test inherits Text { text: @tr("Hello"); }"#,
-            );
+            )
+            .compiles();
     }
 
     const SUB_ELEMENT: &str = r#"export component Test {
@@ -2472,10 +2473,11 @@ enum {}
                 ["Wrap in element", "Repeat element", "Make conditional"],
                 "column {column}"
             );
-            actions.assert(
-                "Wrap in element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
+            actions
+                .assert(
+                    "Wrap in element",
+                    Some(lsp_types::CodeActionKind::REFACTOR),
+                    r#"export component Test {
     Rectangle {
         ${0:element} {
             Text {
@@ -2485,11 +2487,13 @@ enum {}
     }
 }
 "#,
-            );
-            actions.assert(
-                "Repeat element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
+                )
+                .compiles_with(&[("element", "Rectangle")]);
+            actions
+                .assert(
+                    "Repeat element",
+                    Some(lsp_types::CodeActionKind::REFACTOR),
+                    r#"export component Test {
     Rectangle {
         for ${1:name}[index] in ${0:model} : Text {
             text: "Hello";
@@ -2497,11 +2501,13 @@ enum {}
     }
 }
 "#,
-            );
-            actions.assert(
-                "Make conditional",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
+                )
+                .compiles_with(&[("name", "item"), ("model", "3")]);
+            actions
+                .assert(
+                    "Make conditional",
+                    Some(lsp_types::CodeActionKind::REFACTOR),
+                    r#"export component Test {
     Rectangle {
         if ${0:condition} : Text {
             text: "Hello";
@@ -2509,7 +2515,8 @@ enum {}
     }
 }
 "#,
-            );
+                )
+                .compiles_with(&[("condition", "true")]);
         }
     }
 
@@ -2522,10 +2529,11 @@ enum {}
         .snippets()
         .load();
         assert_eq!(actions.titles(), ["Wrap in element", "Remove element"]);
-        actions.assert(
-            "Wrap in element",
-            Some(lsp_types::CodeActionKind::REFACTOR),
-            r#"export component Test {
+        actions
+            .assert(
+                "Wrap in element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                r#"export component Test {
     if true: ${0:element} {
         Rectangle {
             background: red;
@@ -2539,11 +2547,13 @@ enum {}
 }
 }
 "#,
-        );
-        actions.assert(
-            "Remove element",
-            Some(lsp_types::CodeActionKind::REFACTOR),
-            r#"export component Test {
+            )
+            .compiles_with(&[("element", "Rectangle")]);
+        actions
+            .assert(
+                "Remove element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                r#"export component Test {
     if true: Text { text: "A"; }
 
     Text {
@@ -2551,7 +2561,36 @@ enum {}
     }
 }
 "#,
-        );
+            )
+            .compiles();
+    }
+
+    #[test]
+    fn test_code_action_remove_component_root() {
+        CodeActionRequest::at("export component Test inherits 🔺Rectangle {\n    Text { }\n}\n")
+            .snippets()
+            .load()
+            .assert(
+                "Remove element",
+                Some(lsp_types::CodeActionKind::REFACTOR),
+                "export component Test inherits Text { }\n",
+            )
+            .compiles();
+    }
+
+    #[test]
+    fn test_code_action_remove_element_with_id() {
+        CodeActionRequest::at(
+            "export component Test {\n    input := 🔺Rectangle {\n        Text { }\n    }\n}\n",
+        )
+        .snippets()
+        .load()
+        .assert(
+            "Remove element",
+            Some(lsp_types::CodeActionKind::REFACTOR),
+            "export component Test {\n    input := Text { }\n}\n",
+        )
+        .compiles();
     }
 
     #[test]
@@ -2566,16 +2605,18 @@ export component Test {
         )
         .load();
         assert_eq!(actions.titles(), ["import { LineEdit } from \"std-widgets.slint\""]);
-        actions.assert(
-            "import { LineEdit } from \"std-widgets.slint\"",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"import { Button, LineEdit } from "std-widgets.slint";
+        actions
+            .assert(
+                "import { LineEdit } from \"std-widgets.slint\"",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                r#"import { Button, LineEdit } from "std-widgets.slint";
 
 export component Test {
     input := LineEdit { }
 }
 "#,
-        );
+            )
+            .compiles();
     }
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
@@ -2630,7 +2671,8 @@ export component TestWindow inherits Window {
     property <MyPoint> position;
 }
 "#,
-        );
+        )
+        .compiles();
     }
 
     #[test]
@@ -2652,30 +2694,29 @@ export component TestWindow inherits Window {
     fn test_add_import_for_name_with_a_separator() {
         const TYPES: &str =
             "export struct My_Struct { x: int }\nexport component My_Component { }\n";
-        const MAIN: &str = r#"export component TestWindow inherits Window {
-    property <My_Struct> position;
-    My_Component { }
-}
-"#;
-        let actions = CodeActionRequest::at_offset(MAIN, MAIN.find("My_Struct").unwrap())
-            .with_file("types.slint", TYPES)
-            .load();
-        assert_eq!(actions.titles(), ["import { My-Struct } from \"types.slint\""]);
-        actions.assert(
-            "import { My-Struct } from \"types.slint\"",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!("import {{ My-Struct }} from \"types.slint\";\n{MAIN}"),
-        );
-
-        let actions = CodeActionRequest::at_offset(MAIN, MAIN.find("My_Component").unwrap())
-            .with_file("types.slint", TYPES)
-            .load();
-        assert_eq!(actions.titles(), ["import { My-Component } from \"types.slint\""]);
-        actions.assert(
-            "import { My-Component } from \"types.slint\"",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!("import {{ My-Component }} from \"types.slint\";\n{MAIN}"),
-        );
+        for (name, main) in [
+            (
+                "My-Struct",
+                "export component TestWindow inherits Window {\n    property <My_Struct> position;\n}\n",
+            ),
+            (
+                "My-Component",
+                "export component TestWindow inherits Window {\n    My_Component { }\n}\n",
+            ),
+        ] {
+            let title = format!("import {{ {name} }} from \"types.slint\"");
+            let actions = CodeActionRequest::at_offset(main, main.find("My_").unwrap())
+                .with_file("types.slint", TYPES)
+                .load();
+            assert_eq!(actions.titles(), [title.as_str()]);
+            actions
+                .assert(
+                    &title,
+                    Some(lsp_types::CodeActionKind::QUICKFIX),
+                    &format!("import {{ {name} }} from \"types.slint\";\n{main}"),
+                )
+                .compiles();
+        }
     }
 
     const SIGNATURE_INTERFACE: &str = r#"interface Signature {
@@ -2706,7 +2747,7 @@ export component TestWindow inherits Window {
 }}
 "#
             ),
-        );
+        ).skip_compile("the function body stays empty");
     }
 
     #[test]
@@ -2740,7 +2781,8 @@ export component TestCase {
     out property <int> speed;
 }
 "#,
-        );
+        )
+        .compiles();
     }
 
     #[test]
@@ -2781,7 +2823,7 @@ export component TestCase {
 }}
 "#
             ),
-        );
+        ).skip_compile("the wrongly typed member stays");
     }
 
     #[test]
@@ -2804,7 +2846,7 @@ export component TestCase {
 }}
 "#
             ),
-        );
+        ).skip_compile("the invalid member stays");
     }
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -2834,13 +2876,14 @@ export component TestCase {
 
     #[test]
     fn test_qualify_named_color() {
-        CodeActionRequest::at("export component TestCase {\n    property <string> s: 🔺red;\n}\n")
+        CodeActionRequest::at("export component TestCase {\n    init => { debug(🔺red); }\n}\n")
             .load()
             .assert(
                 "Qualify as 'Colors.red'",
                 Some(lsp_types::CodeActionKind::QUICKFIX),
-                "export component TestCase {\n    property <string> s: Colors.red;\n}\n",
-            );
+                "export component TestCase {\n    init => { debug(Colors.red); }\n}\n",
+            )
+            .compiles();
     }
 
     #[test]
@@ -2855,7 +2898,7 @@ export component TestCase {
         const SOURCE: &str = r#"enum EA { shared_value }
 enum EB { shared_value }
 export component TestCase {
-    property <int> foo: shared_value;
+    init => { debug(shared_value); }
 }
 "#;
         let actions =
@@ -2865,11 +2908,13 @@ export component TestCase {
             ["Qualify as 'EA.shared-value'", "Qualify as 'EB.shared-value'"]
         );
         for qualified in ["EA.shared-value", "EB.shared-value"] {
-            actions.assert(
-                &format!("Qualify as '{qualified}'"),
-                Some(lsp_types::CodeActionKind::QUICKFIX),
-                &SOURCE.replace(": shared_value;", &format!(": {qualified};")),
-            );
+            actions
+                .assert(
+                    &format!("Qualify as '{qualified}'"),
+                    Some(lsp_types::CodeActionKind::QUICKFIX),
+                    &SOURCE.replace("(shared_value)", &format!("({qualified})")),
+                )
+                .compiles();
         }
     }
 

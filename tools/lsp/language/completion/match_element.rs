@@ -474,11 +474,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -489,8 +490,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -509,11 +511,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -524,8 +527,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -543,10 +547,11 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"export component Test {
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                r#"export component Test {
     in-out property <bool> flag: true;
 
     match flag {
@@ -555,7 +560,8 @@ export component Test {{
     }
 }
 "#,
-        );
+            )
+            .compiles();
     }
 
     #[test]
@@ -573,10 +579,11 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add '*' case"]);
-        actions.assert(
-            "Add '*' case",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"export component Test {
+        actions
+            .assert(
+                "Add '*' case",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                r#"export component Test {
     in-out property <int> num: 0;
 
     match num {
@@ -585,7 +592,8 @@ export component Test {{
     }
 }
 "#,
-        );
+            )
+            .compiles();
     }
 
     #[test]
@@ -673,11 +681,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -692,8 +701,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .skip_compile("the outer match stays non-exhaustive");
     }
 
     #[test]
@@ -710,11 +720,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -725,8 +736,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -743,11 +755,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -757,8 +770,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -775,11 +789,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -790,8 +805,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -809,11 +825,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -824,8 +841,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -844,11 +862,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -859,8 +878,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -879,11 +899,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -894,8 +915,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -915,11 +937,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -931,8 +954,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -944,7 +968,7 @@ export component Test {{
         assert_eq!(actions.titles(), ["Add missing cases"]);
         actions.assert("Add missing cases", Some(lsp_types::CodeActionKind::QUICKFIX), &format!(
                 "{NUMS}\nexport component Test {{\n\tin-out property <Nums> num: one;\n\n\tmatch num {{\n\t\tone: Rectangle {{ }}\n\t\ttwo: {{ }}\n\t\tthree: {{ }}\n\t}}\n}}\n"
-            ));
+            )).compiles();
     }
 
     #[test]
@@ -964,11 +988,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -980,8 +1005,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .skip_compile("the duplicate case stays");
     }
 
     #[test]
@@ -1004,11 +1030,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 struct Item {{ num: Nums }}
 
 export component Test {{
@@ -1023,8 +1050,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
@@ -1043,11 +1071,12 @@ export component Test {{
         .experimental()
         .load();
         assert_eq!(actions.titles(), ["Add missing cases"]);
-        actions.assert(
-            "Add missing cases",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{NUMS}
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
@@ -1059,8 +1088,9 @@ export component Test {{
     }}
 }}
 "#
-            ),
-        );
+                ),
+            )
+            .skip_compile("the misspelled case stays");
     }
 
     #[test]
