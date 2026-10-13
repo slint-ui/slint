@@ -68,6 +68,7 @@ let find_item = |text: &str| {
         .unwrap()
 };
 instance.set_current_index(2);
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), "Two");
 assert_eq!(instance.get_activations(), 0);
 instance.set_current_value("Four".into());
