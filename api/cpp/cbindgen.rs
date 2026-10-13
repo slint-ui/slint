@@ -623,7 +623,6 @@ fn gen_corelib(
         "LogicalLength",
         "MouseEvent",
         "OnceBox",
-        "slint_once_box_drop",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -1103,7 +1102,6 @@ namespace slint {
             Option(T *p) noexcept : ptr(p) {}
         };
 
-        extern "C" void slint_once_box_drop(void *alloc);
         // See OnceBox in internal/core/once_box.rs
         template<typename T>
         struct OnceBox {
@@ -1112,7 +1110,7 @@ namespace slint {
             OnceBox() noexcept = default;
             OnceBox(const OnceBox &) = delete;
             OnceBox &operator=(const OnceBox &) = delete;
-            ~OnceBox() { if (alloc.ptr) slint_once_box_drop(alloc.ptr); }
+            ~OnceBox();
         };
     }
     template<typename ModelData> class Model;
