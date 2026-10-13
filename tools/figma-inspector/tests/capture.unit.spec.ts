@@ -3644,3 +3644,62 @@ describe("milestone7", () => {
         });
     });
 });
+
+test("Section raster fallback preserves structural geometry defaults and rejects malformed fields", async () => {
+    const png = new Uint8Array(
+        await readFile("fixtures/authored/odd-size.png"),
+    );
+    const section = {
+        type: "SECTION",
+        id: "section:raster",
+        name: "Raster section",
+        x: -2679,
+        y: 0,
+        width: 40,
+        height: 30,
+        fills: [],
+        children: [],
+    };
+    const capture = async (properties = {}) =>
+        (
+            await captureSource(
+                { ...section, ...properties } as unknown as SceneNode,
+                Symbol("mixed"),
+                async () => "",
+                async () => undefined,
+                async () => png,
+                1,
+                false,
+                undefined,
+                undefined,
+                4,
+                undefined,
+                undefined,
+                "raster",
+            )
+        ).source;
+    const source = await capture();
+    expect(source.root).toMatchObject({
+        type: "VECTOR",
+        properties: { opacity: 1, rotation: 0, visible: true },
+    });
+    const normalized = await normalizeSource(source);
+    expect(normalized).toMatchObject({
+        ok: true,
+        snapshot: {
+            root: { kind: "svg", x: -2679, y: 0, width: 40, height: 30 },
+        },
+    });
+    if (!normalized.ok || normalized.empty)
+        throw Error("Missing raster snapshot");
+    const converted = convertSnapshot(normalized.snapshot);
+    expect(converted.ok).toBe(true);
+    for (const properties of [{ opacity: 2 }, { rotation: Number.NaN }]) {
+        expect(await normalizeSource(await capture(properties))).toMatchObject({
+            ok: false,
+            diagnostics: expect.arrayContaining([
+                expect.objectContaining({ code: "INVALID_GEOMETRY" }),
+            ]),
+        });
+    }
+});
