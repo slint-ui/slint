@@ -1099,8 +1099,8 @@ impl ItemRc {
             .and_then(|child_transform| child_transform.inverse())
     }
 
-    /// Tries to scroll `self` into the visible. This is only possible if the parent
-    /// is a flickable
+    /// Scrolls every `Flickable` ancestor up to the nearest popup by the smallest amount that brings `self` into view.
+    /// Does nothing if no such ancestor is a `Flickable`.
     pub fn try_scroll_into_visible(&self, scroll_behavior: ScrollBehavior) {
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(item_rc) = parent.as_ref() {

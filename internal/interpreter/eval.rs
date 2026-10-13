@@ -2530,7 +2530,7 @@ fn call_builtin_function(
                 item_rc.try_scroll_into_visible(behavior);
                 return Value::Void;
             }
-            panic!("internal error: argument to ScrollTo must be an element")
+            panic!("internal error: argument to EnsureVisible must be an element")
         }
     }
 }

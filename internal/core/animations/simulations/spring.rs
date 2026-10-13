@@ -60,7 +60,7 @@ impl SpringPhysicalParameters {
         Self { mass, stiffness, damping }
     }
 
-    /// Creates a new spring with fixed damping ratio `zeta` and stiffness `stiffness`
+    /// Creates a critically damped spring with a mass of 1 and the given `stiffness`.
     pub fn new_critical_damped(stiffness: f32) -> Self {
         const MASS: f32 = 1.;
         const ZETA: f32 = 1.;

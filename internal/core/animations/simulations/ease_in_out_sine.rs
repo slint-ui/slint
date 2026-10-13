@@ -10,8 +10,7 @@ use num_traits::Float;
 
 /// Moves a position by a fixed distance in a fixed duration along `(1 - cos(π t / duration)) / 2`.
 ///
-/// UIKit's `setContentOffset(_:animated: true)` follows this curve,
-/// see `tests/manual/ios-scroll-to-comparison`.
+/// UIKit's `setContentOffset(_:animated: true)` follows this curve, as measured in #13946.
 #[derive(Debug)]
 pub struct EaseInOutSine {
     limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
