@@ -32,6 +32,9 @@
     "color": {
         "href": "reference/property-types/colors-and-brushes/#color"
     },
+    "corner-shape": {
+        "href": "reference/property-types/other-types/#corner-shape"
+    },
     "Deprecation": {
         "href": "guide/language/coding/deprecation/"
     },

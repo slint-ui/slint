@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::api::LogicalPosition;
 use crate::cursor::MouseCursorInner;
 use crate::data_transfer::DataTransfer;
-use crate::graphics::{Brush, Color, FontRequest, Image};
+use crate::graphics::{Brush, Color, CornerShape, CornerShapes, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, KeyEventType, Keys, MouseEvent,
@@ -450,6 +450,7 @@ pub struct BasicBorderRectangle {
     pub border_width: Property<LogicalLength>,
     pub border_radius: Property<LogicalLength>,
     pub border_color: Property<Brush>,
+    pub border_corner_shape: Property<CornerShape>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -549,6 +550,9 @@ impl RenderBorderRectangle for BasicBorderRectangle {
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
         LogicalBorderRadius::from_length(self.border_radius())
     }
+    fn border_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        CornerShapes::new_uniform(self.border_corner_shape())
+    }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
     }
@@ -577,6 +581,11 @@ pub struct BorderRectangle {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub border_corner_shape: Property<CornerShape>,
+    pub border_top_left_corner_shape: Property<CornerShape>,
+    pub border_top_right_corner_shape: Property<CornerShape>,
+    pub border_bottom_left_corner_shape: Property<CornerShape>,
+    pub border_bottom_right_corner_shape: Property<CornerShape>,
     pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -682,6 +691,14 @@ impl RenderBorderRectangle for BorderRectangle {
             self.border_bottom_left_radius(),
         )
     }
+    fn border_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        CornerShapes::new(
+            self.border_top_left_corner_shape(),
+            self.border_top_right_corner_shape(),
+            self.border_bottom_right_corner_shape(),
+            self.border_bottom_left_corner_shape(),
+        )
+    }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
     }
@@ -727,6 +744,10 @@ pub struct Clip {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub border_top_left_corner_shape: Property<CornerShape>,
+    pub border_top_right_corner_shape: Property<CornerShape>,
+    pub border_bottom_left_corner_shape: Property<CornerShape>,
+    pub border_bottom_right_corner_shape: Property<CornerShape>,
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
@@ -836,6 +857,15 @@ impl Clip {
             self.border_top_right_radius(),
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
+        )
+    }
+
+    pub fn logical_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        CornerShapes::new(
+            self.border_top_left_corner_shape(),
+            self.border_top_right_corner_shape(),
+            self.border_bottom_right_corner_shape(),
+            self.border_bottom_left_corner_shape(),
         )
     }
 }
@@ -1779,6 +1809,10 @@ pub struct BoxShadow {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub border_top_left_corner_shape: Property<CornerShape>,
+    pub border_top_right_corner_shape: Property<CornerShape>,
+    pub border_bottom_left_corner_shape: Property<CornerShape>,
+    pub border_bottom_right_corner_shape: Property<CornerShape>,
     // Shadow specific properties
     pub offset_x: Property<LogicalLength>,
     pub offset_y: Property<LogicalLength>,
@@ -1798,6 +1832,15 @@ impl BoxShadow {
             self.border_bottom_left_radius(),
         )
     }
+
+    pub fn logical_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        CornerShapes::new(
+            self.border_top_left_corner_shape(),
+            self.border_top_right_corner_shape(),
+            self.border_bottom_right_corner_shape(),
+            self.border_bottom_left_corner_shape(),
+        )
+    }
 }
 
 impl RenderBorderRectangle for BoxShadow {
@@ -1809,6 +1852,9 @@ impl RenderBorderRectangle for BoxShadow {
     }
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
         self.logical_border_radius()
+    }
+    fn border_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        self.logical_corner_shape()
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()

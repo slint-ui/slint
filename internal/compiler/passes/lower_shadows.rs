@@ -117,17 +117,24 @@ fn create_box_shadow_element(
         }
     }
 
-    bind_border_radius(&mut element, sibling_element);
+    bind_corners_to_sibling(&mut element, sibling_element);
 
     Some(element)
 }
 
-fn bind_border_radius(element: &mut Element, sibling_element: &ElementRc) {
-    for property_name in super::border_radius::BORDER_RADIUS_PROPERTIES {
+/// Binds the `per_corner` properties of `element` to those of `sibling_element`, falling back
+/// to its `uniform` property for the corners it doesn't set.
+fn bind_corners(
+    element: &mut Element,
+    sibling_element: &ElementRc,
+    uniform: &'static str,
+    per_corner: [&'static str; 4],
+) {
+    for property_name in per_corner {
         let source_property = if sibling_element.borrow().is_binding_set(property_name, true) {
             Some(SmolStr::new_static(property_name))
-        } else if sibling_element.borrow().is_binding_set("border-radius", true) {
-            Some(SmolStr::new_static("border-radius"))
+        } else if sibling_element.borrow().is_binding_set(uniform, true) {
+            Some(SmolStr::new_static(uniform))
         } else {
             None
         };
@@ -144,6 +151,22 @@ fn bind_border_radius(element: &mut Element, sibling_element: &ElementRc) {
             );
         }
     }
+}
+
+/// Binds the corner radii and shapes of `element` to those of `sibling_element`.
+fn bind_corners_to_sibling(element: &mut Element, sibling_element: &ElementRc) {
+    bind_corners(
+        element,
+        sibling_element,
+        "border-radius",
+        super::border_radius::BORDER_RADIUS_PROPERTIES,
+    );
+    bind_corners(
+        element,
+        sibling_element,
+        "border-corner-shape",
+        super::border_radius::CORNER_SHAPE_PROPERTIES,
+    );
 }
 
 fn prepend_inner_shadow_child(parent: &ElementRc, inner_elem: Element) {
@@ -212,7 +235,12 @@ fn create_backdrop_blur_element(
         ..Default::default()
     };
     element.set_binding(SmolStr::new_static("blur"), binding);
-    bind_border_radius(&mut element, sibling_element);
+    bind_corners(
+        &mut element,
+        sibling_element,
+        "border-radius",
+        super::border_radius::BORDER_RADIUS_PROPERTIES,
+    );
     Some(element)
 }
 

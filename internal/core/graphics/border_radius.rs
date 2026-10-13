@@ -501,6 +501,36 @@ impl PartialEq for CornerShape {
     }
 }
 
+/// The shape of each of a rectangle's four corners.
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct CornerShapes {
+    /// The shape of the top left corner.
+    pub top_left: CornerShape,
+    /// The shape of the top right corner.
+    pub top_right: CornerShape,
+    /// The shape of the bottom right corner.
+    pub bottom_right: CornerShape,
+    /// The shape of the bottom left corner.
+    pub bottom_left: CornerShape,
+}
+
+impl CornerShapes {
+    /// Returns the shapes of the four corners, in the same order as [`BorderRadius::new`].
+    pub const fn new(
+        top_left: CornerShape,
+        top_right: CornerShape,
+        bottom_right: CornerShape,
+        bottom_left: CornerShape,
+    ) -> Self {
+        Self { top_left, top_right, bottom_right, bottom_left }
+    }
+
+    /// Returns the same shape for all four corners.
+    pub const fn new_uniform(shape: CornerShape) -> Self {
+        Self::new(shape, shape, shape, shape)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lengths::{LogicalBorderRadius, LogicalLength, PhysicalPx, ScaleFactor};
