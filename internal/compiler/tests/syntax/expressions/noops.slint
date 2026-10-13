@@ -16,41 +16,41 @@ export component Test {
         if (cond) {
             if (!cond) {
                 43
-//              >warning{Expression has no effect!}
+//              >warning{Expression has no effect}
             }
-//         <warning{Expression has no effect!}
+//         <warning{Expression has no effect}
             42
-//          >warning{Expression has no effect!}
+//          >warning{Expression has no effect}
         }
-//     <warning{Expression has no effect!}
+//     <warning{Expression has no effect}
         else {
             41
-//          >warning{Expression has no effect!}
+//          >warning{Expression has no effect}
         }
-//     <warning{Expression has no effect!}
+//     <warning{Expression has no effect}
         "hello world";
-//      >           <warning{Expression has no effect!}
+//      >           <warning{Expression has no effect}
         123;
-//      > <warning{Expression has no effect!}
+//      > <warning{Expression has no effect}
         true;
-//      >  <warning{Expression has no effect!}
+//      >  <warning{Expression has no effect}
         MyEnum.One;
-//      >        <warning{Expression has no effect!}
+//      >        <warning{Expression has no effect}
         { x: 32, };
-//      >        <warning{Expression has no effect!}
+//      >        <warning{Expression has no effect}
         { x: another_function(), };
 
         let x = true;
         x;
-//      ^warning{Expression has no effect!}
+//      ^warning{Expression has no effect}
         true && false;
-//      >           <warning{Expression has no effect!}
+//      >           <warning{Expression has no effect}
         [1, 2, 3][4];
-//      >          <warning{Expression has no effect!}
+//      >          <warning{Expression has no effect}
         +1;
-//      ><warning{Expression has no effect!}
+//      ><warning{Expression has no effect}
         @image-url("../../../../../logo/slint-logo-full-dark.png");
-//      >                                                        <warning{Expression has no effect!}
+//      >                                                        <warning{Expression has no effect}
 
         another_function();
 
@@ -71,13 +71,13 @@ export component Test {
         if cond {
             another_function();
             accept;
-//          >    <warning{Expression has no effect!}
+//          >    <warning{Expression has no effect}
         } else if !cond {
             another_function();
             if cond {
                 another_function();
                 reject;
-//              >    <warning{Expression has no effect!}
+//              >    <warning{Expression has no effect}
             }
         } else {
         }
@@ -90,9 +90,9 @@ export component Test {
 
     function discarded_branch_shapes(cond: bool) -> int {
         cond ? another_function() : 1;
-//                                  ^warning{Expression has no effect!}
+//                                  ^warning{Expression has no effect}
         cond ? 2 : another_function();
-//             ><warning{Expression has no effect!}
+//             ><warning{Expression has no effect}
         if cond {
             another_function();
             let x = 4;
@@ -104,11 +104,11 @@ export component Test {
         if !cond {
             return another_function();
             5;
-//          ^warning{Expression has no effect!}
+//          ^warning{Expression has no effect}
         }
         if another_function() == 6 {
             7;
-//          ^warning{Expression has no effect!}
+//          ^warning{Expression has no effect}
         }
         8
     }

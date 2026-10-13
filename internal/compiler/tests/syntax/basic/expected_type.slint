@@ -55,7 +55,7 @@ export component Test inherits Rectangle {
 
     // a statement that isn't the last one still resolves against the type of the block
     property<color> discarded: { red; blue };
-//                               > <warning{Expression has no effect!}
+//                               > <warning{Expression has no effect}
 
     // `accept` in an `if` that isn't the last statement used to be an unknown identifier
     FocusScope {
@@ -63,7 +63,7 @@ export component Test inherits Rectangle {
             if event.text == "q" {
                 self.clear-focus();
                 accept;
-//              >    <warning{Expression has no effect!}
+//              >    <warning{Expression has no effect}
             }
             reject
         }
