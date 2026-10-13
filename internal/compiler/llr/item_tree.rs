@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::Type;
+use crate::native_class::NativeClass;
 use derive_more::{From, Into};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
@@ -984,12 +985,12 @@ pub struct PublicProperty {
     pub display_name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
-    pub visibility: crate::object_tree::PropertyVisibility,
+    pub visibility: crate::native_class::PropertyVisibility,
 }
 
 impl PublicProperty {
     pub fn read_only(&self) -> bool {
-        self.visibility == crate::object_tree::PropertyVisibility::Output
+        self.visibility == crate::native_class::PropertyVisibility::Output
     }
 }
 /// Public properties of a component or global, keyed by the normalized

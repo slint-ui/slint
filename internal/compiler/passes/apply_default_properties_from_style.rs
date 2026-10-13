@@ -6,8 +6,9 @@
 //! Note that the layout default properties are handled in the lower_layout pass
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::object_tree::Component;
 use smol_str::SmolStr;
 use std::rc::Rc;

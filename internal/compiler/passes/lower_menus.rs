@@ -97,9 +97,11 @@
 //! ```
 //!
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use core::cell::RefCell;
 use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;

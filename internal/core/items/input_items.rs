@@ -15,12 +15,13 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::{ItemTreeVTable, MouseCursorInner};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
+use crate::once_box::OnceBox;
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property};
-use alloc::{boxed::Box, rc::Rc, vec::Vec};
+use alloc::{rc::Rc, vec::Vec};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -516,40 +517,6 @@ impl Item for KeyBinding {
     }
 }
 
-/// An optimized ShortcutList that is only initialized when it is
-/// first accessed.
-#[repr(C)]
-#[derive(Default)] // results in a null pointer, which we will initialize on first access
-pub struct MaybeKeyBindingList(Cell<*const KeyBindingList>);
-
-impl MaybeKeyBindingList {
-    fn ensure_init(&self) {
-        // This would be a race condition in Multi-threaded code, but
-        // this type isn't Sync, so this function cannot race with another thread.
-        if self.0.get().is_null() {
-            self.0.set(Box::leak(Box::default()));
-        }
-    }
-}
-
-impl Drop for MaybeKeyBindingList {
-    fn drop(&mut self) {
-        let ptr = self.0.replace(core::ptr::null());
-        if !ptr.is_null() {
-            // SAFETY: Must be a pointer returned by `Box::leak`, which is guaranteed by `ensure_init`.
-            drop(unsafe { Box::from_raw(ptr as *mut KeyBindingList) });
-        }
-    }
-}
-
-impl MaybeKeyBindingList {
-    fn deref_pin(self: Pin<&Self>) -> Pin<&KeyBindingList> {
-        self.ensure_init();
-        // SAFETY: Must be non-null and properly aligned, which is guaranteed by `ensure_init`.
-        unsafe { Pin::new_unchecked(&*self.get_ref().0.get()) }
-    }
-}
-
 #[derive(Default)]
 #[pin_project::pin_project]
 pub struct KeyBindingList {
@@ -574,7 +541,7 @@ pub struct FocusScope {
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
-    pub key_bindings: MaybeKeyBindingList,
+    pub key_bindings: OnceBox<KeyBindingList>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -585,8 +552,7 @@ impl FocusScope {
         self_rc: &ItemRc,
         mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, KeyBinding>) -> Option<R>,
     ) -> Option<R> {
-        let list = Self::FIELD_OFFSETS.key_bindings().apply_pin(self);
-        let list = list.deref_pin();
+        let list = self.key_bindings.get_or_init_pin(Default::default);
 
         list.project_ref().property_tracker.evaluate_if_dirty(|| {
             let mut found = list.found.borrow_mut();
@@ -1089,23 +1055,6 @@ mod ffi {
             let self_rc = ItemRc::new(self_component.clone(), self_index);
             s.cancel(window_adapter, &self_rc);
         }
-    }
-
-    /// # Safety
-    /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-    /// hold a MaybeKeybindingList
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_key_binding_list_init(list: *mut MaybeKeyBindingList) {
-        unsafe {
-            core::ptr::write(list, MaybeKeyBindingList::default());
-        }
-    }
-
-    /// # Safety
-    /// This must be called using a non-null pointer pointing to an initialized MaybeKeybindingList
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_key_binding_list_free(list: *mut MaybeKeyBindingList) {
-        unsafe { core::ptr::drop_in_place(list) };
     }
 }
 

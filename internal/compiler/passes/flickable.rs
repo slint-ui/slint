@@ -10,8 +10,10 @@
 //! This pass must be called before the materialize_fake_properties as it going to be generate
 //! binding reference to fake properties
 
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
+use crate::langtype::Type;
 use crate::layout::{MergedFixedSize, Orientation, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;

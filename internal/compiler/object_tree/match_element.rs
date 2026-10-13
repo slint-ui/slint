@@ -7,7 +7,8 @@ use std::collections::HashSet;
 
 use smol_str::SmolStr;
 
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
 use crate::langtype::{EnumerationValue, Type};
 
 #[derive(Clone, PartialEq)]
@@ -79,11 +80,12 @@ pub enum MatchSubjectDomain {
     Unknown,
     Exhaustive(Vec<CaseValue>),
     Unbounded,
+    Unsupported,
 }
 
 impl MatchSubjectDomain {
     pub fn of(subject_type: &Type) -> Self {
-        match &subject_type {
+        match subject_type {
             Type::Bool => {
                 MatchSubjectDomain::Exhaustive(vec![CaseValue::Bool(true), CaseValue::Bool(false)])
             }
@@ -98,8 +100,18 @@ impl MatchSubjectDomain {
                     .collect();
                 MatchSubjectDomain::Exhaustive(values)
             }
+            Type::Int32
+            | Type::Float32
+            | Type::String
+            | Type::Color
+            | Type::Duration
+            | Type::PhysicalLength
+            | Type::LogicalLength
+            | Type::Rem
+            | Type::Angle
+            | Type::Percent => MatchSubjectDomain::Unbounded,
             Type::Invalid => MatchSubjectDomain::Unknown,
-            _ => MatchSubjectDomain::Unbounded,
+            _ => MatchSubjectDomain::Unsupported,
         }
     }
 }

@@ -24,11 +24,11 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
     RectLengths,
 };
+use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::{Coord, Property};
-use alloc::boxed::Box;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
@@ -60,7 +60,7 @@ pub struct Path {
     pub clip: Property<bool>,
     pub anti_alias: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
-    fitted_path: FittedPathBox,
+    fitted_path: OnceBox<FittedPathInner>,
     tracker: crate::properties::PropertyTracker,
 }
 
@@ -201,15 +201,16 @@ impl Path {
         self_rc: &ItemRc,
         t: f32,
     ) -> Option<(Point2D<f32, LogicalPx>, f32)> {
+        let fitted_path = &self.fitted_path.0;
         if let Some(new_path) =
             Path::FIELD_OFFSETS.tracker().apply_pin(self).evaluate_if_dirty(|| {
                 let (offset, elements_iter) = self.fitted_path_events(self_rc)?;
                 Some(elements_iter.to_fitted_path(offset))
             })
         {
-            *self.fitted_path.borrow_mut() = new_path;
+            *fitted_path.borrow_mut() = new_path;
         }
-        self.fitted_path.borrow().as_ref()?.sample_at(t)
+        fitted_path.borrow().as_ref()?.sample_at(t)
     }
 
     pub fn point_at(self: Pin<&Self>, self_rc: &ItemRc, t: f32) -> Point2D<f32, LogicalPx> {
@@ -225,60 +226,8 @@ impl ItemConsts for Path {
         Path::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
+#[derive(Default)]
 struct FittedPathInner(RefCell<Option<FittedPath>>);
-
-/// Opaque box holding the FittedPath, allocated lazily on first use
-#[repr(C)]
-pub struct FittedPathBox(core::cell::Cell<*mut FittedPathInner>);
-
-impl Default for FittedPathBox {
-    fn default() -> Self {
-        FittedPathBox(core::cell::Cell::new(core::ptr::null_mut()))
-    }
-}
-impl FittedPathBox {
-    fn get_or_init(&self) -> &FittedPathInner {
-        if self.0.get().is_null() {
-            self.0.set(Box::leak(Box::new(FittedPathInner(Default::default()))));
-        }
-        // Safety: the pointer is guaranteed non-null above, and was created from a Box::leak
-        unsafe { &*self.0.get() }
-    }
-}
-impl Drop for FittedPathBox {
-    fn drop(&mut self) {
-        let ptr = self.0.get();
-        if !ptr.is_null() {
-            // Safety: ptr was constructed from a Box::leak in get_or_init
-            drop(unsafe { Box::from_raw(ptr) });
-        }
-    }
-}
-impl core::ops::Deref for FittedPathBox {
-    type Target = RefCell<Option<FittedPath>>;
-    fn deref(&self) -> &Self::Target {
-        &self.get_or_init().0
-    }
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a FittedPathBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_fitted_cache_init(cache: *mut FittedPathBox) {
-    unsafe { core::ptr::write(cache, FittedPathBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized FittedPathBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_path_fitted_cache_free(cache: *mut FittedPathBox) {
-    unsafe {
-        core::ptr::drop_in_place(cache);
-    }
-}
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]

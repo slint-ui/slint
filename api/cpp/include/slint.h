@@ -607,40 +607,12 @@ inline bool select_bundled_translation(std::string_view language)
 }
 
 #if !defined(DOXYGEN)
-cbindgen_private::Flickable::Flickable()
+template<typename T>
+cbindgen_private::OnceBox<T>::~OnceBox()
 {
-    slint_flickable_data_init(&data);
-}
-cbindgen_private::Flickable::~Flickable()
-{
-    slint_flickable_data_free(&data);
-}
-
-cbindgen_private::Path::Path()
-{
-    slint_path_fitted_cache_init(&fitted_path);
-}
-cbindgen_private::Path::~Path()
-{
-    slint_path_fitted_cache_free(&fitted_path);
-}
-
-cbindgen_private::SystemTrayIcon::SystemTrayIcon()
-{
-    slint_system_tray_icon_data_init(&data);
-}
-cbindgen_private::SystemTrayIcon::~SystemTrayIcon()
-{
-    slint_system_tray_icon_data_free(&data);
-}
-
-cbindgen_private::FocusScope::FocusScope()
-{
-    slint_maybe_key_binding_list_init(&key_bindings);
-}
-cbindgen_private::FocusScope::~FocusScope()
-{
-    slint_maybe_key_binding_list_free(&key_bindings);
+    if (alloc.ptr) {
+        cbindgen_private::slint_once_box_drop(alloc.ptr);
+    }
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)

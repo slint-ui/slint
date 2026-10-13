@@ -622,6 +622,7 @@ fn gen_corelib(
         "LogicalSize",
         "LogicalLength",
         "MouseEvent",
+        "OnceBox",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -1007,29 +1008,6 @@ fn gen_corelib(
     ~WindowEvent() {}"
             .into(),
     );
-    config
-        .export
-        .body
-        .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config
-        .export
-        .pre_body
-        .insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
-    config
-        .export
-        .body
-        .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
-    config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
-    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
-    config.export.body.insert(
-        "SystemTrayIcon".to_owned(),
-        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
-    );
-    config
-        .export
-        .pre_body
-        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
     // cbindgen only derives the special member functions and equality for tagged enums in the
     // separate special-config pass, not for the types generated here, so they are provided by
     // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
@@ -1097,7 +1075,7 @@ fn gen_corelib(
         .with_include("private/slint_data_transfer_internal.h")
         .with_include("private/slint_data_transfer.h")
         .with_after_include(
-            r"
+            r#"
 namespace slint {
     namespace private_api { class WindowAdapterRc; }
     namespace cbindgen_private {
@@ -1123,9 +1101,20 @@ namespace slint {
             Option() noexcept = default;
             Option(T *p) noexcept : ptr(p) {}
         };
+
+        // See OnceBox in internal/core/once_box.rs
+        template<typename T>
+        struct OnceBox {
+            // Points at Rust's OnceBoxAlloc<T>, not at a T: only null-check it and pass it to slint_once_box_drop
+            Option<T *> alloc;
+            OnceBox() noexcept = default;
+            OnceBox(const OnceBox &) = delete;
+            OnceBox &operator=(const OnceBox &) = delete;
+            ~OnceBox();
+        };
     }
     template<typename ModelData> class Model;
-}",
+}"#,
         )
         .with_trailer(gen_item_declarations(&items))
         .generate()

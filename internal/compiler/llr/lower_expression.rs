@@ -14,9 +14,9 @@ use super::lower_layout_expression::{
 };
 use super::lower_to_item_tree::{LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
-use crate::expression_tree::{
-    BuiltinFunction, Callable, Expression as tree_Expression, MouseCursorInner,
-};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_tree::{Callable, Expression as tree_Expression};
+use crate::expression_types::MouseCursorInner;
 use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;

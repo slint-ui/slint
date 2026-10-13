@@ -484,7 +484,9 @@ fn visit_element_for_position(
         // `inner_components` — descend explicitly. The wrapper's root
         // element carries the same source node as the repeated element.
         let base = match &element.borrow().base_type {
-            i_slint_compiler::langtype::ElementType::Component(c) => Some(c.root_element.clone()),
+            i_slint_compiler::element_type::ElementType::Component(c) => {
+                Some(c.root_element.clone())
+            }
             _ => None,
         };
         if let Some(root) = base {

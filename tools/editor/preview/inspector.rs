@@ -298,7 +298,8 @@ fn fill_value(
     name: &str,
     fill: &ui::FillData,
 ) -> Option<slint_interpreter::Value> {
-    use i_slint_compiler::langtype::{PropertyLookupMode, Type};
+    use i_slint_compiler::element_type::PropertyLookupMode;
+    use i_slint_compiler::langtype::Type;
     if !fill.angle.is_finite()
         || !fill.center_x.is_finite()
         || !fill.center_y.is_finite()

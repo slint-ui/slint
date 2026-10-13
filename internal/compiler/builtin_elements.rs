@@ -63,12 +63,15 @@
 //! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`BUILTIN_ELEMENTS`] runs
 //! them.
 
-use crate::expression_tree::{BuiltinFunction, Unit};
-use crate::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ConstantExpression,
-    DefaultSizeBinding, ElementDocEntry, ElementType, Function, NativeClass, Type,
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementDocEntry, ElementType};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
+use crate::langtype::{BuiltinStruct, ConstantExpression, Function, Type};
+use crate::native_class::{
+    BuiltinPropertyDefault, BuiltinPropertyInfo, NativeClass, PropertyVisibility,
 };
-use crate::object_tree::{Component, Element, PropertyVisibility};
+use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -307,7 +310,7 @@ impl Builder {
                 self.class.class_name
             );
             debug_assert_eq!(
-                default.to_expression().ty(),
+                Expression::from_constant(&default).ty(),
                 info.ty,
                 "the default value of {}::{name} has the wrong type",
                 self.class.class_name

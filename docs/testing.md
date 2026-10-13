@@ -101,6 +101,16 @@ or
 tests/run_tests.sh rust layout
 ```
 
+The test cases in `tests/cases/widgets` run once per widget style.
+Set `SLINT_TEST_STYLES` to a comma-separated list of styles to only run them with these styles.
+The build fails for an unknown style name. `qt` is skipped where Qt isn't available.
+This works for every driver.
+Example: to run the widget tests with the Fluent style only:
+
+```
+SLINT_TEST_FILTER=widgets SLINT_TEST_STYLES=fluent cargo test --manifest-path tests/Cargo.toml -p test-driver-rust
+```
+
 Instead of putting everything in a slint! macro, it's possible to tell the driver to do the
 compilation in the build.rs, with the build-time feature:
 

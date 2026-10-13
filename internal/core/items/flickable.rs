@@ -43,6 +43,7 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PointLengths, RectLengths,
 };
+use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -126,7 +127,7 @@ pub struct Flickable {
 
     pub flicked: Callback<VoidArg>,
 
-    data: FlickableDataBox,
+    data: OnceBox<FlickableData>,
 
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -428,30 +429,6 @@ impl Flickable {
             }
         }
         geometry
-    }
-}
-
-#[repr(C)]
-/// Wraps the internal data structure for the Flickable
-pub struct FlickableDataBox(core::ptr::NonNull<FlickableData>);
-
-impl Default for FlickableDataBox {
-    fn default() -> Self {
-        FlickableDataBox(Box::leak(Box::<FlickableData>::default()).into())
-    }
-}
-impl Drop for FlickableDataBox {
-    fn drop(&mut self) {
-        // Safety: the self.0 was constructed from a Box::leak in FlickableDataBox::default
-        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
-    }
-}
-
-impl core::ops::Deref for FlickableDataBox {
-    type Target = FlickableData;
-    fn deref(&self) -> &Self::Target {
-        // Safety: initialized in FlickableDataBox::default
-        unsafe { self.0.as_ref() }
     }
 }
 
@@ -1488,25 +1465,6 @@ fn inside_bounds(flick: Pin<&Flickable>, p: LogicalPoint, geo: &LogicalRect) -> 
     let inside_bounds_y = p.y >= (h - ch).get().min(0 as Coord) && p.y <= 0 as Coord;
 
     (inside_bounds_x, inside_bounds_y)
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a FlickableDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
-    unsafe { core::ptr::write(data, FlickableDataBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
-    unsafe {
-        core::ptr::drop_in_place(data);
-    }
 }
 
 #[cfg(feature = "ffi")]

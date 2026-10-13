@@ -473,10 +473,9 @@ pub mod cpp_ast {
 }
 
 use crate::CompilerConfiguration;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
-use crate::langtype::{
-    BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
-};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_types::{EasingCurve, MinMaxOp};
+use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
 use crate::llr::lower_layout_expression::{
@@ -487,6 +486,7 @@ use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
     TypeResolutionContext as _,
 };
+use crate::native_class::NativeClass;
 use crate::object_tree::Document;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
@@ -4177,19 +4177,19 @@ fn shared_string_literal(string: &str) -> String {
     format!(r#"slint::SharedString(u8"{}")"#, escape_string(string))
 }
 
-impl std::fmt::Display for crate::expression_tree::ImageReference {
+impl std::fmt::Display for crate::expression_types::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
-            crate::expression_tree::ImageReference::Source(path) => write!(
+            crate::expression_types::ImageReference::None => write!(f, r#"slint::Image()"#),
+            crate::expression_types::ImageReference::Source(path) => write!(
                 f,
                 r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
                 escape_string(&path.to_string())
             ),
-            crate::expression_tree::ImageReference::DataUri(_) => {
+            crate::expression_types::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
-            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+            crate::expression_types::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format!("slint_embedded_resource_{resource_id}");
                 write!(
                     f,
@@ -4197,7 +4197,7 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
                     escape_string(extension)
                 )
             }
-            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+            crate::expression_types::ImageReference::EmbeddedTexture { resource_id } => {
                 write!(
                     f,
                     "slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})"

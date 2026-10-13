@@ -20,19 +20,19 @@ impl Display for PropertyContainer {
     }
 }
 
-fn has_getter(visibility: &i_slint_compiler::object_tree::PropertyVisibility) -> bool {
+fn has_getter(visibility: &i_slint_compiler::native_class::PropertyVisibility) -> bool {
     matches!(
         visibility,
-        i_slint_compiler::object_tree::PropertyVisibility::Output
-            | i_slint_compiler::object_tree::PropertyVisibility::InOut
+        i_slint_compiler::native_class::PropertyVisibility::Output
+            | i_slint_compiler::native_class::PropertyVisibility::InOut
     )
 }
 
-fn has_setter(visibility: &i_slint_compiler::object_tree::PropertyVisibility) -> bool {
+fn has_setter(visibility: &i_slint_compiler::native_class::PropertyVisibility) -> bool {
     matches!(
         visibility,
-        i_slint_compiler::object_tree::PropertyVisibility::Input
-            | i_slint_compiler::object_tree::PropertyVisibility::InOut
+        i_slint_compiler::native_class::PropertyVisibility::Input
+            | i_slint_compiler::native_class::PropertyVisibility::InOut
     )
 }
 
@@ -54,7 +54,7 @@ pub struct PreviewDataKey {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreviewData {
     pub ty: i_slint_compiler::langtype::Type,
-    pub visibility: i_slint_compiler::object_tree::PropertyVisibility,
+    pub visibility: i_slint_compiler::native_class::PropertyVisibility,
     pub value: Option<slint_interpreter::Value>,
 }
 
@@ -86,7 +86,7 @@ pub fn get_preview_data(
                 String,
                 (
                     i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
+                    i_slint_compiler::native_class::PropertyVisibility,
                 ),
             ),
         >,
@@ -126,7 +126,7 @@ pub fn query_preview_data_properties_and_callbacks(
                 String,
                 (
                     i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
+                    i_slint_compiler::native_class::PropertyVisibility,
                 ),
             ),
         >,
@@ -172,7 +172,7 @@ fn find_component_properties_and_callbacks<'a>(
                     String,
                     (
                         i_slint_compiler::langtype::Type,
-                        i_slint_compiler::object_tree::PropertyVisibility,
+                        i_slint_compiler::native_class::PropertyVisibility,
                     ),
                 ),
             > + 'a,
@@ -375,7 +375,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Input,
                     value: Some(slint_interpreter::Value::Number(65.0)),
                 }
             )
@@ -389,7 +389,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::InOut,
                     value: Some(slint_interpreter::Value::Number(260.0))
                 }
             )
@@ -403,7 +403,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Output,
                     value: Some(slint_interpreter::Value::Number(130.0))
                 }
             )
@@ -424,7 +424,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Input,
                     value: Some(slint_interpreter::Value::Number(1.0))
                 }
             )
@@ -438,7 +438,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::InOut,
                     value: Some(slint_interpreter::Value::Number(4.0))
                 }
             )
@@ -452,7 +452,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Output,
                     value: Some(slint_interpreter::Value::Number(2.0))
                 }
             )
@@ -474,7 +474,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Input,
                     value: Some(slint_interpreter::Value::Number(8.0))
                 }
             )
@@ -488,7 +488,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::InOut,
                     value: Some(slint_interpreter::Value::Number(32.0))
                 }
             )
@@ -502,7 +502,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Output,
                     value: Some(slint_interpreter::Value::Number(16.0))
                 }
             )
@@ -523,7 +523,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Input,
                     value: Some(slint_interpreter::Value::Number(64.0))
                 }
             )
@@ -537,7 +537,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::InOut,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::InOut,
                     value: Some(slint_interpreter::Value::Number(256.0))
                 }
             )
@@ -551,7 +551,7 @@ mod tests {
                 },
                 &PreviewData {
                     ty: i_slint_compiler::langtype::Type::Int32,
-                    visibility: i_slint_compiler::object_tree::PropertyVisibility::Output,
+                    visibility: i_slint_compiler::native_class::PropertyVisibility::Output,
                     value: Some(slint_interpreter::Value::Number(128.0))
                 }
             )

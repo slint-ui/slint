@@ -3,6 +3,7 @@
 
 import { ElementKind } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { Icons } from "icons.slint";
 
 export struct ElementPresentation {
     icon: image,
@@ -35,7 +36,7 @@ export global ElementVisuals {
         }
         if kind == ElementKind.image {
             return {
-                icon: EditorTreeIcons.image,
+                icon: Icons.image,
                 preview-size: { width: 160px, height: 96px },
                 corner-radius: 16px,
                 show-thumbnail: true,

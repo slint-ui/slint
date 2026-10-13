@@ -6,7 +6,8 @@
 //! If an expression does a single property access or less, it can be inlined
 //! in the calling expression
 
-use crate::expression_tree::{BuiltinFunction, ImageReference};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_types::ImageReference;
 use crate::langtype::Type;
 use crate::llr::{CompilationUnit, ContextMap, EvaluationContext, Expression};
 

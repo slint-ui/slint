@@ -6,7 +6,8 @@
 
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_tree::Expression;
 use crate::object_tree::Component;
 
 pub fn lower_absolute_coordinates(component: &Rc<Component>) {

@@ -9,7 +9,7 @@ use smol_str::SmolStr;
 
 use super::lower_to_item_tree::LoweredElement;
 use super::{GridLayoutRepeatedElement, LayoutRepeatedElement};
-use crate::expression_tree::MinMaxOp;
+use crate::expression_types::MinMaxOp;
 use crate::langtype::{BuiltinStruct, EnumerationValue, Type};
 use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
@@ -973,7 +973,7 @@ fn flexbox_layout_data(
             return Some(width_override.cloned().unwrap_or_else(|| {
                 crate::expression_tree::Expression::NumberLiteral(
                     f32::MAX as f64,
-                    crate::expression_tree::Unit::Px,
+                    crate::expression_types::Unit::Px,
                 )
             }));
         }
@@ -1786,7 +1786,7 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
         || matches!(
             &elem_b.base_type,
-            crate::langtype::ElementType::Component(base_comp)
+            crate::element_type::ElementType::Component(base_comp)
                 if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
         );
     if has_constrained_layoutinfo_v {
@@ -1880,7 +1880,7 @@ pub(crate) fn get_root_layout_info_v(
     let measure_width = Expression::Condition {
         condition: Box::new(Expression::BinaryExpression {
             lhs: Box::new(width.clone()),
-            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_tree::Unit::Px)),
+            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_types::Unit::Px)),
             op: '>',
             source_location: None,
         }),
@@ -2349,7 +2349,7 @@ pub fn get_layout_info_v_constrained_for_repeated(
     let width_constraint = default_cross_axis_constraint(element).unwrap_or_else(|| {
         crate::expression_tree::Expression::NumberLiteral(
             f32::MAX as f64,
-            crate::expression_tree::Unit::Px,
+            crate::expression_types::Unit::Px,
         )
     });
     Some(get_flex_cell_layout_info(

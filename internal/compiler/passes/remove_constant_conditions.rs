@@ -22,7 +22,7 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
         // permanent false repeater that must survive as the embed slot.
         // For a repeated element, the grid_layout_cell sits on the repeater component's root.
         let is_grid_cell = e.grid_layout_cell.is_some()
-            || matches!(&e.base_type, crate::langtype::ElementType::Component(c)
+            || matches!(&e.base_type, crate::element_type::ElementType::Component(c)
                 if c.root_element.borrow().grid_layout_cell.is_some());
         if e.repeated.as_ref().is_some_and(|r| {
             r.is_conditional_element && matches!(r.model, Expression::BoolLiteral(false))
@@ -56,7 +56,7 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
     // root, so a stale debug snapshot below is left still naming it.
     let mut dead_roots = std::collections::HashSet::new();
     for c in &dead {
-        if let crate::langtype::ElementType::Component(base) = &c.borrow().base_type {
+        if let crate::element_type::ElementType::Component(base) = &c.borrow().base_type {
             dead_roots.insert(Rc::as_ptr(&base.root_element));
         }
     }

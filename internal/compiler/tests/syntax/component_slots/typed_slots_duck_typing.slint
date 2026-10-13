@@ -53,7 +53,7 @@ export component Valid {
 export component MissingMembers {
     Host {
         control << Rectangle { }
-//                 >           <error{Cannot implement 'ValueControl'.↵- missing 'callback changed(int);'↵- missing 'pure public function doubled() -> int { }'↵- missing 'in-out property <int> value;'}
+//                 >           <error{Cannot implement 'ValueControl'.↵- missing 'callback changed(value: int);'↵- missing 'pure public function doubled() -> int { }'↵- missing 'in-out property <int> value;'}
     }
 }
 
@@ -88,14 +88,14 @@ export component InvalidVisibility {
 component WrongSignature {
     in-out property <int> value;
     callback changed(value: string);
-//                          >    <note{'WrongSignature' declares 'changed' here, 'ValueControl' expects 'callback changed(int);'}
+//                          >    <note{'WrongSignature' declares 'changed' here, 'ValueControl' expects 'callback changed(value: int);'}
     public pure function doubled() -> int { root.value * 2 }
 }
 
 export component InvalidSignature {
     Host {
         control << WrongSignature { }
-//                 >                <error{Cannot implement 'ValueControl'.↵- 'changed' must be 'callback changed(int);' (found 'callback changed(string);')}
+//                 >                <error{Cannot implement 'ValueControl'.↵- 'changed' must be 'callback changed(value: int);' (found 'callback changed(value: string);')}
     }
 }
 

@@ -87,3 +87,19 @@ export component ColorCast {
         *: {}
     }
 }
+
+export component FractionalCaseOnInt {
+    in property <int> num: 1;
+
+    match num {
+        1: Rectangle { }
+        1.0: Rectangle { }
+//      > <error{Duplicate case value}
+        1.5: Rectangle { }
+//      > <error{'1.5' is not an integer, so it never matches an 'int' subject}
+        -1.5: Rectangle { }
+//      >  <error{'-1.5' is not an integer, so it never matches an 'int' subject}
+        2.0: Rectangle { }
+        *: Rectangle { }
+    }
+}

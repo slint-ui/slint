@@ -5,7 +5,7 @@
 
 use crate::{DocumentCache, editing::PropertyChange};
 #[cfg(feature = "preview-engine")]
-use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::element_type::ElementType;
 use i_slint_compiler::parser::TextSize;
 use lsp_types::CompletionItemKind;
 

@@ -1478,7 +1478,7 @@ impl ComponentDefinition {
     ) -> impl Iterator<
         Item = (
             String,
-            (i_slint_compiler::langtype::Type, i_slint_compiler::object_tree::PropertyVisibility),
+            (i_slint_compiler::langtype::Type, i_slint_compiler::native_class::PropertyVisibility),
         ),
     > + '_ {
         self.inner
@@ -1530,7 +1530,7 @@ impl ComponentDefinition {
                 String,
                 (
                     i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
+                    i_slint_compiler::native_class::PropertyVisibility,
                 ),
             ),
         > + '_,

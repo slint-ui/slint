@@ -19,12 +19,13 @@
 //!    Exception: transform properties are marked non-synthetic, as they must force the transform
 //!    pass to inject a wrapper element for the transform.
 
+use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::Expression;
-use crate::langtype::PropertyLookupMode;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
 };
-use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc, PropertyVisibility};
+use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use std::rc::Rc;
 
@@ -219,7 +220,7 @@ fn property_defaults(
 /// would hold the value the property has before that, which the state can no longer reach.
 fn base_state_binds(element: &ElementRc, property_name: &str) -> bool {
     let mut base_type = element.borrow().base_type.clone();
-    while let crate::langtype::ElementType::Component(component) = base_type {
+    while let crate::element_type::ElementType::Component(component) = base_type {
         let root = component.root_element.clone();
         let mut found = false;
         object_tree::recurse_elem(&root, &(), &mut |elem, _| {
@@ -544,7 +545,7 @@ mod tests {
                 "{what}: hook id must use the instance element hash"
             );
             assert!(
-                matches!(borrowed.base_type, crate::langtype::ElementType::Component(_)),
+                matches!(borrowed.base_type, crate::element_type::ElementType::Component(_)),
                 "{what}: component boundary must remain"
             );
         };
@@ -644,8 +645,11 @@ mod tests {
         assert!(!second_references.is_empty());
         assert!(first_references.is_subset(&declarations));
         assert!(second_references.is_subset(&declarations));
-        assert!(matches!(first.borrow().base_type, crate::langtype::ElementType::Component(_)));
-        assert!(matches!(second.borrow().base_type, crate::langtype::ElementType::Component(_)));
+        assert!(matches!(first.borrow().base_type, crate::element_type::ElementType::Component(_)));
+        assert!(matches!(
+            second.borrow().base_type,
+            crate::element_type::ElementType::Component(_)
+        ));
     }
 
     #[test]
@@ -666,7 +670,7 @@ mod tests {
 
         assert!(item.borrow().binding_cell_including_synthetic("linked").is_none());
         assert!(item.borrow().binding_cell_including_synthetic("target").is_none());
-        assert!(matches!(item.borrow().base_type, crate::langtype::ElementType::Component(_)));
+        assert!(matches!(item.borrow().base_type, crate::element_type::ElementType::Component(_)));
     }
 
     /// Direct unit tests for the synthetic-hook rules in `BindingExpression::merge_with`

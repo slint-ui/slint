@@ -5,8 +5,9 @@
 //! For example `f := Foo { opacity: <some float>; }` is mapped to `Opacity { opacity <=> f.opacity; f := Foo { ... } }`
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
