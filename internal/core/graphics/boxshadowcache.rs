@@ -73,14 +73,14 @@ impl BoxShadowOptions {
         euclid::point2(self.blur.get(), self.blur.get())
     }
 
-    /// The corner radii of the shadow shape: `max(0, radius + spread)`.
+    /// The corner radii of the shadow shape: the radii grown by the spread.
     pub fn outer_radius(&self) -> PhysicalBorderRadius {
-        (self.radius + PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+        self.radius.spread(self.spread.get())
     }
 
-    /// The corner radii of the hole an inset shadow leaves: `max(0, radius - spread)`.
+    /// The corner radii of the hole an inset shadow leaves: the radii shrunk by the spread.
     pub fn inner_radius(&self) -> PhysicalBorderRadius {
-        (self.radius - PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+        self.radius.spread(-self.spread.get())
     }
 
     /// The Gaussian sigma corresponding to the CSS blur radius.
@@ -129,9 +129,7 @@ impl BoxShadowOptions {
                 // lets us inset the fill, but shrinking both independently opens a gap.
                 layout.background_rect =
                     euclid::Rect::from_size(layout.brush_size).inflate(spread, spread);
-                layout.background_radius = (layout.outer_radius
-                    + PhysicalBorderRadius::new_uniform(spread))
-                .max(Default::default());
+                layout.background_radius = layout.outer_radius.spread(spread);
             }
             if layout.border_width.get() > 0. {
                 layout.border_width =

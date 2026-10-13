@@ -121,8 +121,7 @@ impl<'a> SkiaItemRenderer<'a> {
         );
 
         if let Some(radius) = shadow_options.opaque_source_radius() {
-            let radius = (radius + PhysicalBorderRadius::new_uniform(shadow_options.spread.get()))
-                .max(Default::default());
+            let radius = radius.spread(shadow_options.spread.get());
             let rounded_rect = to_skia_rrect(
                 &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
                 &radius,
