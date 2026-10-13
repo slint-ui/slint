@@ -37,6 +37,7 @@ pub struct WGPUBackend {
     surface: RefCell<Option<wgpu::Surface<'static>>>,
     alpha_modes: RefCell<Vec<wgpu::CompositeAlphaMode>>,
     snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
+    pre_present_callback: RefCell<Option<Box<dyn Fn()>>>,
 }
 
 pub enum WGPUWindowSurface {
@@ -198,6 +199,7 @@ impl GraphicsBackend for WGPUBackend {
             surface: Default::default(),
             alpha_modes: Default::default(),
             snapshot_output: Default::default(),
+            pre_present_callback: Default::default(),
         }
     }
 
@@ -276,6 +278,9 @@ impl GraphicsBackend for WGPUBackend {
         surface: Self::WindowSurface,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let WGPUWindowSurface::Surface(st) = surface {
+            if let Some(callback) = self.pre_present_callback.borrow().as_ref() {
+                callback();
+            }
             self.queue.borrow().as_ref().unwrap().present(st);
         }
         Ok(())
@@ -391,6 +396,12 @@ impl FemtoVGRenderer<WGPUBackend> {
                 surface.configure(device, surface_config);
             }
         });
+    }
+
+    /// Set the callback invoked right before a frame is presented, used by
+    /// windowing backends that want to notify the window system first.
+    pub fn set_pre_present_callback(&self, callback: Option<Box<dyn Fn()>>) {
+        *self.graphics_backend.pre_present_callback.borrow_mut() = callback;
     }
 
     /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
