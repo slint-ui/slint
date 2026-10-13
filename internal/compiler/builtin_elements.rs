@@ -1647,6 +1647,12 @@ fn build(l: &mut Loader) {
         /// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
         /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
         /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
+        ///
+        /// ## Scrolling Programmatically
+        ///
+        /// Call `scroll-to()` to scroll to a position in the content.
+        /// To bring an element inside the `Flickable` into view, call
+        /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
         /// \group:gestures
         @expands_to_parent_geometry
         Flickable: Flickable
