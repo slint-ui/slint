@@ -88,13 +88,13 @@ macro_rules! for_each_builtin_function {
                 with_window_adapter(&text_input.rc, |w| text_input.item.select_all(w, &text_input.rc))
             }
             TextInputClearSelection: impure fn text_input_clear_selection(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.clear_selection(w, &text_input.rc))
+                text_input.item.clear_selection()
             }
             TextInputCut: impure fn text_input_cut(text_input: ItemArg<TextInput> => ElementReference) -> () {
                 with_window_adapter(&text_input.rc, |w| text_input.item.cut(w, &text_input.rc))
             }
             TextInputCopy: impure fn text_input_copy(text_input: ItemArg<TextInput> => ElementReference) -> () {
-                with_window_adapter(&text_input.rc, |w| text_input.item.copy(w, &text_input.rc))
+                with_window_adapter(&text_input.rc, |w| text_input.item.copy(w))
             }
             TextInputPaste: impure fn text_input_paste(text_input: ItemArg<TextInput> => ElementReference) -> () {
                 with_window_adapter(&text_input.rc, |w| text_input.item.paste(w, &text_input.rc))
@@ -191,13 +191,13 @@ macro_rules! for_each_builtin_function {
             #[strum(disabled)]
             ImplicitLayoutInfo(Orientation): pure fn(element: ElementReference, constraint: f32) -> LayoutInfo
             SwipeGestureHandlerCancel: impure fn swipe_gesture_handler_cancel(handler: ItemArg<SwipeGestureHandler> => ElementReference) -> () {
-                with_window_adapter(&handler.rc, |w| handler.item.cancel(w, &handler.rc))
+                handler.item.cancel()
             }
             ContextMenuClose: impure fn context_menu_close(menu: ItemArg<ContextMenu> => ElementReference) -> () {
                 with_window_adapter(&menu.rc, |w| menu.item.close(w, &menu.rc))
             }
             ContextMenuIsOpen: pure fn context_menu_is_open(menu: ItemArg<ContextMenu> => ElementReference) -> bool {
-                with_window_adapter(&menu.rc, |w| menu.item.is_open(w, &menu.rc))
+                with_window_adapter(&menu.rc, |w| menu.item.is_open(w))
             }
             WindowClose: impure fn window_close(window: ItemArg<WindowItem> => ElementReference) -> bool {
                 with_window_adapter(&window.rc, |w| window.item.close(w, &window.rc))

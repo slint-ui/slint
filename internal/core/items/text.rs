@@ -1091,7 +1091,7 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy if !self.is_password() => {
-                            self.copy(window_adapter, self_rc);
+                            self.copy(window_adapter);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
@@ -1993,7 +1993,7 @@ impl TextInput {
         if self.is_password() {
             return;
         }
-        self.copy(window_adapter, self_rc);
+        self.copy(window_adapter);
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
@@ -2035,7 +2035,7 @@ impl TextInput {
         );
     }
 
-    pub fn clear_selection(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+    pub fn clear_selection(self: Pin<&Self>) {
         self.as_ref().anchor_position_byte_offset.set(self.as_ref().cursor_position_byte_offset());
     }
 
@@ -2081,8 +2081,8 @@ impl TextInput {
         );
     }
 
-    pub fn copy(self: Pin<&Self>, w: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.copy_clipboard(w, Clipboard::DefaultClipboard);
+    pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
     }
 
     fn copy_clipboard(

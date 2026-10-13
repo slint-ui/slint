@@ -1719,7 +1719,7 @@ impl ContextMenu {
         }
     }
 
-    pub fn is_open(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _: &ItemRc) -> bool {
+    pub fn is_open(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> bool {
         self.popup_id.get().is_some_and(|id| {
             WindowInner::from_pub(window_adapter.window())
                 .active_popups()
