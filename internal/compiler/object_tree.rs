@@ -2407,6 +2407,9 @@ impl Element {
             if let Some(csn) = sig_decl.TwoWayBinding() {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("Callback aliases are", &csn);
+                if is_interface {
+                    diag.push_error("Interface callbacks cannot be aliases".into(), &csn);
+                }
                 r.bindings
                     .0
                     .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
