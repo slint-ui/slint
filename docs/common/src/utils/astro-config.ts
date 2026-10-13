@@ -11,7 +11,6 @@ export function defineSlintDocsConfig(config: AstroUserConfig) {
                 environments: {
                     prerender: {
                         resolve: {
-                            // #13989: Hoisted YAML versions differ between Starlight and Node tooling.
                             noExternal: ["js-yaml"],
                         },
                     },
