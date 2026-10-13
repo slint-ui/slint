@@ -70,6 +70,13 @@ export interface DefaultPropertyBindings {
 //                                  >                   <error{Interface properties cannot have default bindings}
 }
 
+// Interface callbacks may not alias another callback.
+export interface AliasedCallback {
+    callback a(int);
+    callback b <=> a;
+//             >   <error{Interface callbacks cannot be aliases}
+}
+
 // An interface may not contain a binding statement.
 export interface BindingStatement {
     in property <int> in-property;
