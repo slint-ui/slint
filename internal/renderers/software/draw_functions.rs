@@ -293,8 +293,16 @@ pub(super) fn draw_texture_line(
             TexturePixelFormat::AlphaMap => {
                 for pix in line_buffer {
                     let pos = pos(1).0;
+                    let alpha = ((data[pos] as u16 * alpha as u16) / 255) as u8;
+                    if alpha == 0 {
+                        continue;
+                    }
+                    if alpha == u8::MAX {
+                        *pix = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
+                        continue;
+                    }
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
+                        alpha,
                         color.red(),
                         color.green(),
                         color.blue(),
@@ -1389,4 +1397,55 @@ fn atan2_turns_accuracy() {
     }
     assert_eq!(atan2_turns(0., 0.), 0.);
     assert_eq!(atan2_turns(-0., -0.), 0.);
+}
+
+#[test]
+fn alpha_map_matches_scalar_blending() {
+    fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
+        let coverage: [u8; 256] = core::array::from_fn(|i| i as u8);
+        let span = PhysicalRect::new(super::PhysicalPoint::new(0, 0), super::PhysicalSize::new(256, 1));
+        for color in [
+            Color::from_rgb_u8(0, 0, 0),
+            Color::from_rgb_u8(255, 255, 255),
+            Color::from_rgb_u8(17, 83, 219),
+            Color::from_rgb_u8(248, 252, 248),
+        ] {
+            for alpha in 0..=255 {
+                let texture = super::SceneTexture {
+                    data: &coverage,
+                    format: TexturePixelFormat::AlphaMap,
+                    pixel_stride: 256,
+                    extra: super::SceneTextureExtra {
+                        dx: Fixed::from_integer(1),
+                        dy: Fixed::from_integer(1),
+                        off_x: Fixed::from_integer(0),
+                        off_y: Fixed::from_integer(0),
+                        colorize: color,
+                        alpha,
+                        rotation: super::RenderingRotation::NoRotation,
+                    },
+                };
+                let mut actual = [initial; 256];
+                draw_texture_line(&span, PhysicalLength::new(0), &texture, &mut actual, 0, 0);
+                let mut expected = [initial; 256];
+                for (pixel, coverage) in expected.iter_mut().zip(coverage) {
+                    pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        (coverage as u16 * alpha as u16 / 255) as u8,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    )));
+                }
+                assert_eq!(
+                    bytemuck::cast_slice::<Pixel, u8>(&actual),
+                    bytemuck::cast_slice::<Pixel, u8>(&expected),
+                    "global alpha {alpha}, color {color:?}",
+                );
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
 }
