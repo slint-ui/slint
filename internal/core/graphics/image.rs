@@ -13,6 +13,8 @@ use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 #[cfg(any(
     feature = "image-decoders",
@@ -1762,6 +1764,31 @@ pub fn scalable_render_size(
     (!size.is_empty()).then_some(size)
 }
 
+/// The pixel size to rasterize a scalable image (an SVG) at when a transform, such as `transform-scale`, magnifies it by `transform_scale`.
+/// `render_size` is its size without that transform, as returned by [`scalable_render_size`].
+/// Scaling up the image rasterized at `render_size` would make it look blocky.
+///
+/// The magnification is rounded up to a power of two,
+/// so that animating the scale rarely requires rasterizing the image again.
+/// The result stays within 2048 pixels on its longest side, a texture size that GPUs commonly support.
+///
+/// Rasterizing keeps the image's aspect ratio, so the rasterized image can be smaller than the returned size in one direction.
+/// An image rasterized for a smaller magnification is smaller in both directions.
+pub fn transformed_scalable_render_size(
+    render_size: euclid::Size2D<u32, PhysicalPx>,
+    transform_scale: f32,
+) -> euclid::Size2D<u32, PhysicalPx> {
+    const MAX_MAGNIFIED_SIZE: f32 = 2048.;
+    if transform_scale.is_nan() || transform_scale <= 1. {
+        return render_size;
+    }
+    // Tolerate rounding errors in the transform, so that a scale of 2 doesn't become 4.
+    let power_of_two = (transform_scale.log2() - 0.001).ceil().exp2();
+    let longest_side = render_size.width.max(render_size.height) as f32;
+    let scale = power_of_two.min(MAX_MAGNIFIED_SIZE / longest_side);
+    if scale > 1. { (render_size.cast::<f32>() * scale).round().cast() } else { render_size }
+}
+
 /// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
@@ -2041,6 +2068,24 @@ mod tests {
         // Four bytes per pixel read as three, the same mistake the other way around.
         let rgba = [0u8; 8 * 8 * 4];
         SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::clone_from_slice(&rgba, 8, 8);
+    }
+
+    #[test]
+    fn test_transformed_scalable_render_size() {
+        use super::transformed_scalable_render_size;
+        let size = |width, height| euclid::size2::<u32, crate::lengths::PhysicalPx>(width, height);
+        // Without magnification, the image is rasterized at its usual size.
+        assert_eq!(transformed_scalable_render_size(size(100, 50), 1.), size(100, 50));
+        assert_eq!(transformed_scalable_render_size(size(100, 50), 0.5), size(100, 50));
+        assert_eq!(transformed_scalable_render_size(size(100, 50), f32::NAN), size(100, 50));
+        // The magnification is rounded up to a power of two, ignoring rounding errors.
+        assert_eq!(transformed_scalable_render_size(size(100, 50), 2.), size(200, 100));
+        assert_eq!(transformed_scalable_render_size(size(100, 50), 2.000_001), size(200, 100));
+        assert_eq!(transformed_scalable_render_size(size(100, 50), 3.), size(400, 200));
+        // It stops at 2048 pixels on the longest side...
+        assert_eq!(transformed_scalable_render_size(size(1000, 500), 4.), size(2048, 1024));
+        // ...but never shrinks an image that's already larger.
+        assert_eq!(transformed_scalable_render_size(size(3000, 100), 4.), size(3000, 100));
     }
 
     #[test]

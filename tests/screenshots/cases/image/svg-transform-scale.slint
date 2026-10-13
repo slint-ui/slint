@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: software, anyrender, vello_cpu
+
+// An SVG magnified by `transform-scale` is rasterized at the magnified size,
+// so its edges stay smooth instead of turning blocky (#10903)
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Image {
+        x: 0px;
+        y: 0px;
+        width: 16px;
+        height: 16px;
+        source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        transform-scale: 4;
+        transform-origin: { x: 0px, y: 0px };
+    }
+}
