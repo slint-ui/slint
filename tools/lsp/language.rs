@@ -1851,15 +1851,14 @@ pub mod tests {
 
     use crate::language::test::{
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
-        loaded_document_cache_with_file_name, preview_capture,
+        loaded_document_cache_with_file_name,
     };
     use i_slint_compiler::diagnostics::BuildDiagnostics;
-    use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
         ApplyWorkspaceEditResponse, MessageActionItem, WorkspaceEdit, WorkspaceFolder,
     };
-    use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+    use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
     struct TestLspClient {
         receiver: crossbeam_channel::Receiver<Message>,
@@ -2125,8 +2124,10 @@ pub mod tests {
         assert_eq!(poll_future(future.as_mut()), std::task::Poll::Ready(vec![expected]));
     }
 
-    fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
-        let (capture, messages) = preview_capture();
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    fn mock_context_with_preview_capture()
+    -> (Context, crate::editor_preview::test::CapturedPreviewMessages) {
+        let (capture, messages) = test::preview_capture();
         let mut ctx = test::mock_context();
         ctx.session.primary_preview_mut().to_preview = capture;
         (ctx, messages)
@@ -3062,10 +3063,11 @@ export component My_Component { }
         assert_eq!(titles("My_Component"), ["import { My-Component } from \"types.slint\""]);
     }
 
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
     fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
         let (mut ctx, messages) = mock_context_with_preview_capture();
-        ctx.session.preview_config = PreviewConfig {
+        ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
             style: "custom-style".into(),
             include_paths: vec![PathBuf::from("/includes")],
