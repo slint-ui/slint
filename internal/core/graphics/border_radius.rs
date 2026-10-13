@@ -208,6 +208,22 @@ impl<T, U> BorderRadius<T, U> {
         )
         .max(Self::zero())
     }
+
+    /// Returns the radii of an outline grown by `spread`, or shrunk by a negative `spread`,
+    /// as CSS spreads a box shadow: a corner without a radius stays sharp, and the others
+    /// are min-clamped to zero.
+    pub fn spread(&self, spread: T) -> Self
+    where
+        T: Copy + PartialOrd + Add<T, Output = T> + Zero,
+    {
+        let corner = |r: T| if r > T::zero() { max(r + spread, T::zero()) } else { T::zero() };
+        BorderRadius::new(
+            corner(self.top_left),
+            corner(self.top_right),
+            corner(self.bottom_right),
+            corner(self.bottom_left),
+        )
+    }
 }
 
 /// Trait for testing approximate equality
@@ -685,6 +701,13 @@ mod tests {
             CornerShapes::new_uniform(CornerShape::Superellipse(2.)),
             CornerShapes::new_uniform(CornerShape::Squircle)
         );
+    }
+
+    #[test]
+    fn test_spread() {
+        let radius = BorderRadius::new(0., 2., 5., 10.);
+        assert_eq!(radius.spread(4.), BorderRadius::new(0., 6., 9., 14.));
+        assert_eq!(radius.spread(-4.), BorderRadius::new(0., 0., 1., 6.));
     }
 
     #[test]
