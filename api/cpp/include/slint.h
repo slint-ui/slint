@@ -640,6 +640,14 @@ inline bool select_bundled_translation(std::string_view language)
 }
 
 #if !defined(DOXYGEN)
+template<typename T>
+cbindgen_private::OnceBox<T>::~OnceBox()
+{
+    if (alloc.ptr) {
+        cbindgen_private::slint_once_box_drop(alloc.ptr);
+    }
+}
+
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
 {
     slint_native_style_metrics_init(this);
