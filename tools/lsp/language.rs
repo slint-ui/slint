@@ -461,7 +461,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         )
         .and_then(|(token, _)| {
             let capabilities = ctx.init_param.capabilities.clone();
-            code_actions::get_code_actions(&mut ctx.session.document_cache, token, &capabilities)
+            code_actions::get_code_actions(&ctx.session.document_cache, token, &capabilities)
         });
         Ok(result)
     });

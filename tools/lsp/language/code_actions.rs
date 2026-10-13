@@ -7,12 +7,69 @@
 pub mod test;
 
 use super::completion;
-use crate::{editor_preview, util};
+use crate::editor_preview::{self, DocumentCache};
+use crate::util;
 
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::QualifiedTypeName;
-use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
-use lsp_types::{ClientCapabilities, CodeActionOrCommand, TextEdit};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
+
+struct Context<'a> {
+    document_cache: &'a DocumentCache,
+    token: SyntaxToken,
+    node: SyntaxNode,
+    uri: Url,
+    component: Option<syntax_nodes::Component>,
+    snippets: bool,
+}
+
+impl<'a> Context<'a> {
+    fn new(
+        document_cache: &'a DocumentCache,
+        token: SyntaxToken,
+        client_capabilities: &ClientCapabilities,
+    ) -> Option<Self> {
+        let node = token.parent();
+        let uri = token.source_file.path().to_url()?;
+        let component = syntax_nodes::Component::new(node.clone())
+            .or_else(|| {
+                syntax_nodes::DeclaredIdentifier::new(node.clone())
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Component::new)
+            })
+            .or_else(|| {
+                syntax_nodes::QualifiedName::new(node.clone())
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Element::new)
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Component::new)
+            })
+            .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
+            .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
+        let snippets = has_experimental_client_capability(client_capabilities, "snippetTextEdit");
+        Some(Self { document_cache, token, node, uri, component, snippets })
+    }
+
+    fn push_edit(
+        &self,
+        result: &mut Vec<CodeActionOrCommand>,
+        title: impl Into<String>,
+        kind: Option<CodeActionKind>,
+        edits: Vec<TextEdit>,
+    ) {
+        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+            title: title.into(),
+            kind,
+            edit: editor_preview::editing::create_workspace_edit_from_path(
+                self.document_cache,
+                self.token.source_file.path(),
+                edits,
+            ),
+            ..Default::default()
+        }));
+    }
+}
 
 fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &str) -> bool {
     capabilities
@@ -23,39 +80,24 @@ fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &
 }
 
 pub fn get_code_actions(
-    document_cache: &mut editor_preview::DocumentCache,
+    document_cache: &DocumentCache,
     token: SyntaxToken,
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    let node = token.parent();
-    let uri = token.source_file.path().to_url()?;
+    let ctx = Context::new(document_cache, token, client_capabilities)?;
+    let token = &ctx.token;
+    let node = &ctx.node;
     let mut result = Vec::new();
-
-    let component = syntax_nodes::Component::new(node.clone())
-        .or_else(|| {
-            syntax_nodes::DeclaredIdentifier::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })
-        .or_else(|| {
-            syntax_nodes::QualifiedName::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Element::new)
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })
-        .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
-        .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     {
-        if let Some(component) = &component
+        if let Some(component) = &ctx.component
             && let Some(component_name) =
                 i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
         {
             result.push(CodeActionOrCommand::Command(super::create_show_preview_command(
                 false,
-                &uri,
+                &ctx.uri,
                 &component_name,
             )))
         }
@@ -71,15 +113,7 @@ pub fn get_code_actions(
             TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
             TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
         ];
-        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-            title: "Wrap in `@tr()`".into(),
-            edit: editor_preview::editing::create_workspace_edit_from_path(
-                document_cache,
-                token.source_file.path(),
-                edits,
-            ),
-            ..Default::default()
-        }));
+        ctx.push_edit(&mut result, "Wrap in `@tr()`", None, edits);
     } else if token.kind() == SyntaxKind::Identifier
         && node.kind() == SyntaxKind::QualifiedName
         && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
@@ -98,31 +132,27 @@ pub fn get_code_actions(
             // of a separator the file used.
             let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_component_import_statements_edits(
-                &token,
+                token,
                 document_cache,
                 &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
                 &mut |name, file, edit| {
-                    result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("import {{ {name} }} from \"{file}\""),
-                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: editor_preview::editing::create_workspace_edit_from_path(
-                            document_cache,
-                            token.source_file.path(),
-                            vec![edit],
-                        ),
-                        ..Default::default()
-                    }))
+                    ctx.push_edit(
+                        &mut result,
+                        format!("import {{ {name} }} from \"{file}\""),
+                        Some(CodeActionKind::QUICKFIX),
+                        vec![edit],
+                    )
                 },
             );
         }
 
-        if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
+        if ctx.snippets {
             let r = util::text_range_to_lsp_range(
                 &token.source_file,
                 node.parent().unwrap().text_range(),
                 document_cache.format,
             );
-            let element = document_cache.element_at_position(&uri, &r.start);
+            let element = document_cache.element_at_position(&ctx.uri, &r.start);
             let element_indent = element.as_ref().and_then(util::find_element_indent);
             let indented_lines = node
                 .parent()
@@ -140,16 +170,7 @@ pub fn get_code_actions(
                     indented_lines.join("\n")
                 ),
             )];
-            result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Wrap in element".into(),
-                kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                edit: editor_preview::editing::create_workspace_edit_from_path(
-                    document_cache,
-                    token.source_file.path(),
-                    edits,
-                ),
-                ..Default::default()
-            }));
+            ctx.push_edit(&mut result, "Wrap in element", Some(CodeActionKind::REFACTOR), edits);
 
             // Collect all normal, repeated, and conditional sub-elements and any
             // whitespace in between for substituting the parent element with its
@@ -176,7 +197,7 @@ pub fn get_code_actions(
                 })
                 .collect::<Vec<_>>();
 
-            if match component {
+            if match ctx.component {
                 // A top-level component element can only be removed if it contains
                 // exactly one sub-element (without any condition or assignment)
                 // that can substitute the component element.
@@ -208,16 +229,7 @@ pub fn get_code_actions(
                     lsp_types::Range::new(r.start, r.end),
                     unindented_lines.concat(),
                 )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Remove element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
+                ctx.push_edit(&mut result, "Remove element", Some(CodeActionKind::REFACTOR), edits);
             }
 
             // We have already checked that the node is a qualified name of an element.
@@ -235,31 +247,18 @@ pub fn get_code_actions(
                     lsp_types::Range::new(r.start, r.start),
                     "for ${1:name}[index] in ${0:model} : ".to_string(),
                 )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Repeat element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
+                ctx.push_edit(&mut result, "Repeat element", Some(CodeActionKind::REFACTOR), edits);
 
                 let edits = vec![TextEdit::new(
                     lsp_types::Range::new(r.start, r.start),
                     "if ${0:condition} : ".to_string(),
                 )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Make conditional".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
+                ctx.push_edit(
+                    &mut result,
+                    "Make conditional",
+                    Some(CodeActionKind::REFACTOR),
+                    edits,
+                );
             }
         }
     } else if token.kind() == SyntaxKind::Identifier
@@ -282,20 +281,16 @@ pub fn get_code_actions(
             // See the component quick-fix above for why the token is normalized.
             let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_type_import_statements_edits(
-                &token,
+                token,
                 document_cache,
                 &mut |type_info| type_info.name == text,
                 &mut |_type_info, name, file, edit| {
-                    result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("import {{ {name} }} from \"{file}\""),
-                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: editor_preview::editing::create_workspace_edit_from_path(
-                            document_cache,
-                            token.source_file.path(),
-                            vec![edit],
-                        ),
-                        ..Default::default()
-                    }))
+                    ctx.push_edit(
+                        &mut result,
+                        format!("import {{ {name} }} from \"{file}\""),
+                        Some(CodeActionKind::QUICKFIX),
+                        vec![edit],
+                    )
                 },
             );
         }
@@ -324,16 +319,12 @@ pub fn get_code_actions(
                 document_cache.format,
             );
             for suggestion in suggestions {
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: format!("Qualify as '{suggestion}'"),
-                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        vec![TextEdit::new(range, suggestion.to_string())],
-                    ),
-                    ..Default::default()
-                }));
+                ctx.push_edit(
+                    &mut result,
+                    format!("Qualify as '{suggestion}'"),
+                    Some(CodeActionKind::QUICKFIX),
+                    vec![TextEdit::new(range, suggestion.to_string())],
+                );
             }
         }
     } else if token.kind() == SyntaxKind::Identifier
@@ -352,7 +343,7 @@ pub fn get_code_actions(
             implement_statement.text_range(),
             document_cache.format,
         );
-        if let Some(element) = document_cache.element_at_position(&uri, &r.start) {
+        if let Some(element) = document_cache.element_at_position(&ctx.uri, &r.start) {
             let missing =
                 i_slint_compiler::object_tree::missing_interface_members(&element.element);
             if let Some(missing_entry) = missing
@@ -372,24 +363,17 @@ pub fn get_code_actions(
                 );
                 let interface_name =
                     QualifiedTypeName::from_node(implement_statement.QualifiedName());
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: format!("Add the missing declarations for '{interface_name}'"),
-                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        vec![TextEdit::new(
-                            lsp_types::Range::new(insert_pos, insert_pos),
-                            insertion,
-                        )],
-                    ),
-                    ..Default::default()
-                }));
+                ctx.push_edit(
+                    &mut result,
+                    format!("Add the missing declarations for '{interface_name}'"),
+                    Some(CodeActionKind::QUICKFIX),
+                    vec![TextEdit::new(lsp_types::Range::new(insert_pos, insert_pos), insertion)],
+                );
             }
         }
     }
 
-    completion::match_element::add_code_actions(document_cache, &token, &mut result);
+    completion::match_element::add_code_actions(document_cache, token, &mut result);
 
     (!result.is_empty()).then_some(result)
 }
