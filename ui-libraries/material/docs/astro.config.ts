@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import starlight from "@astrojs/starlight";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import {
@@ -15,7 +15,7 @@ import { unified } from "@astrojs/markdown-remark";
 const base = process.env.MATERIAL_DOCS_BASE_PATH || "/";
 
 // https://astro.build/config
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: "https://material.slint.dev",
     base,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,

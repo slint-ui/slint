@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import starlightSidebarTopics from "starlight-sidebar-topics";
@@ -33,7 +33,7 @@ const sidebarHref = (/** @type {string} */ url) =>
     url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
 
 // https://astro.build/config
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,

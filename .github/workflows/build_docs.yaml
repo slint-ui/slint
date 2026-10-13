@@ -168,6 +168,8 @@ jobs:
               uses: taiki-e/install-action@cargo-llvm-cov
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: Test shared docs utilities and prerendering
+              run: pnpm -C docs/common test
             - name: Extract Version from Cargo.toml
               id: version
               run: |
