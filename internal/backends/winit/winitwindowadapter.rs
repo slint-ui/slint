@@ -1783,7 +1783,7 @@ impl WinitWindowAdapter {
             // winit doesn't guarantee a RedrawRequested for a window shown after the event loop
             // started: on iOS the only initial one is delivered during `resumed`, and on Wayland
             // none comes when the initial configure matches the requested size and scale.
-            if !self.first_frame_presented.get() || cfg!(ios_and_friends) {
+            if !self.first_frame_presented.get() {
                 self.request_redraw();
             }
 
