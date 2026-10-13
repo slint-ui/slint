@@ -19,6 +19,7 @@ use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{
     LogicalPoint, LogicalRect, LogicalSize as CoreLogicalSize, LogicalVector,
 };
+use i_slint_core::platform::Clipboard;
 use i_slint_editor_preview::{
     ElementRcNode,
     component_catalog::{self, ComponentInformation},
@@ -1458,6 +1459,70 @@ fn wrap_selected_element_in_layout(layout: SharedString) {
             SelectionNotification::AfterUpdate,
         );
     }
+}
+
+fn copy_selected_element() -> bool {
+    let Some(selected_node) = selected_element().and_then(|s| s.as_element_node()) else {
+        return false;
+    };
+    let text = drop_location::element_clipboard_text(&selected_node);
+    i_slint_backend_selector::with_platform(|platform| {
+        platform.set_clipboard_text(&text, Clipboard::DefaultClipboard);
+        Ok(())
+    })
+    .inspect_err(|err| tracing::warn!("Failed to copy element to clipboard: {err}"))
+    .is_ok()
+}
+
+fn cut_selected_element() {
+    if copy_selected_element() {
+        delete_selected_element();
+    }
+}
+
+fn paste_element(at_pointer: bool, x: f32, y: f32) {
+    let Some(document_cache) = document_cache() else { return };
+    let Some(text) = i_slint_backend_selector::with_platform(|platform| {
+        Ok(platform.clipboard_text(Clipboard::DefaultClipboard))
+    })
+    .ok()
+    .flatten() else {
+        return;
+    };
+
+    let paste_edit = if at_pointer {
+        drop_location::create_paste_element_at_workspace_edit(
+            &document_cache,
+            LogicalPoint::new(x, y),
+            &text,
+            &get_component_info,
+        )
+    } else {
+        selected_element().and_then(|s| s.as_element_node()).and_then(|selected_node| {
+            drop_location::create_paste_element_workspace_edit(
+                &document_cache,
+                &selected_node,
+                &text,
+                &get_component_info,
+            )
+        })
+    };
+    let Some((edit, drop_data)) = paste_edit else {
+        return;
+    };
+    if drop_location::workspace_edit_compiles(&document_cache, &edit)
+        != CompilationResult::ChangeCompiles
+    {
+        return;
+    }
+
+    element_selection::select_element_at_source_code_position(
+        drop_data.path,
+        drop_data.selection_offset,
+        None,
+        SelectionNotification::AfterUpdate,
+    );
+    send_workspace_edit("Paste element".to_string(), edit, false);
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
