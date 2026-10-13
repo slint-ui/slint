@@ -5,7 +5,7 @@
 
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{Function, Type};
-use i_slint_compiler::object_tree::PropertyVisibility;
+use i_slint_compiler::native_class::PropertyVisibility;
 use i_slint_compiler::typeloader::TypeLoader;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::BTreeMap;
@@ -82,8 +82,8 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
         }
 
         let e = match &elem.borrow().base_type {
-            i_slint_compiler::langtype::ElementType::Component(r) => r.root_element.clone(),
-            i_slint_compiler::langtype::ElementType::Builtin(b) => {
+            i_slint_compiler::element_type::ElementType::Component(r) => r.root_element.clone(),
+            i_slint_compiler::element_type::ElementType::Builtin(b) => {
                 let builtins = i_slint_compiler::typeregister::reserved_properties()
                     .map(|x| x.0.to_smolstr())
                     .collect::<HashSet<_>>();
@@ -128,9 +128,9 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 }
                 break;
             }
-            i_slint_compiler::langtype::ElementType::Error => unreachable!(),
-            i_slint_compiler::langtype::ElementType::Global => break,
-            i_slint_compiler::langtype::ElementType::Interface(_) => break,
+            i_slint_compiler::element_type::ElementType::Error => unreachable!(),
+            i_slint_compiler::element_type::ElementType::Global => break,
+            i_slint_compiler::element_type::ElementType::Interface(_) => break,
         };
         elem = e;
     }

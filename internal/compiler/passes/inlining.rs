@@ -6,8 +6,10 @@
 #![allow(clippy::mutable_key_type)] // pass uses identity-based keys backed by interior mutability
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use smol_str::SmolStr;

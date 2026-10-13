@@ -1780,11 +1780,12 @@ impl WinitWindowAdapter {
                 self.draw()?;
             };
 
-            // On iOS making an already-created window visible doesn't generate a fresh
-            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
-            // created (during `resumed`), so a window first shown later misses it and stays blank.
-            #[cfg(ios_and_friends)]
-            self.request_redraw();
+            // winit doesn't guarantee a RedrawRequested for a window shown after the event loop
+            // started: on iOS the only initial one is delivered during `resumed`, and on Wayland
+            // none comes when the initial configure matches the requested size and scale.
+            if !self.first_frame_presented.get() {
+                self.request_redraw();
+            }
 
             Ok(())
         } else {
@@ -1948,9 +1949,7 @@ impl WindowAdapter for WinitWindowAdapter {
             ));
         }
         winit_window_or_none.set_title(&properties.title());
-        winit_window_or_none.set_decorations(
-            !window_item.no_frame() || winit_window_or_none.fullscreen().is_some(),
-        );
+        winit_window_or_none.set_decorations(!window_item.no_frame());
 
         // Follow a background brush that changes while the window is up. The renderer has to
         // come along: its surface keeps or discards the scene's alpha to match the window.

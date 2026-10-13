@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::{Component, recurse_elem};
 
 pub fn collect_init_code(component: &Rc<Component>) {

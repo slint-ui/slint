@@ -583,16 +583,13 @@ impl NodeCollection {
             inner_item_rc.map_to_window(inner_geometry.origin) + window_position.to_vector();
         let physical_origin = (inner_absolute_origin * scale_factor).cast::<f64>();
 
-        let mut update =
-            TreeUpdate { nodes: Vec::new(), tree: None, tree_id: TreeId::ROOT, focus: NodeId(0) };
-
         // Borrows the font context itself, so we must not be holding it here.
         let emitted_runs = state.emit(
             window_adapter.renderer().as_core_renderer(),
             text_input.as_pin_ref(),
             &inner_item_rc,
             inner_geometry.size,
-            &mut update,
+            text_run_nodes,
             wrapper_node,
             wrapper_id,
             (physical_origin.x, physical_origin.y),
@@ -606,8 +603,6 @@ impl NodeCollection {
         {
             wrapper_node.add_action(Action::SetTextSelection);
         }
-
-        text_run_nodes.extend(update.nodes);
     }
 
     fn tree_info(&self, root: NodeId) -> Tree {

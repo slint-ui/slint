@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# cSpell: ignore rustls thiserror
+# cSpell: ignore capi mozjs rustls thiserror
 
 # This example has its own workspace: servo's font stack links against a
 # different major version of the native freetype library than `font-kit` (which
@@ -58,11 +58,14 @@ wio = "0.2"
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"
 
+# Slint is pinned to the last revision before parley 0.12, which needs ICU4X 2.3.
+# mozjs pins icu_capi to 2.1.2; switch back to path dependencies once
+# https://github.com/servo/mozjs/issues/831 is resolved.
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-30"] }
+slint = { git = "https://github.com/slint-ui/slint", rev = "5fa335de646b0b0ef22f7dc500810da78354e6df", features = ["backend-android-activity-06", "unstable-wgpu-30"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-030", "unstable-wgpu-30", "renderer-femtovg-wgpu"] }
+slint = { git = "https://github.com/slint-ui/slint", rev = "5fa335de646b0b0ef22f7dc500810da78354e6df", features = ["unstable-winit-030", "unstable-wgpu-30", "renderer-femtovg-wgpu"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6.3"
@@ -73,7 +76,8 @@ objc2-metal = { version = "0.3.2", features = ["MTLDevice", "MTLAllocation", "MT
 [build-dependencies]
 # need to add to for all host to generate gl_bindings for android
 gl_generator = "0.14.0"
-slint-build = { path = "../../api/rs/build" }
+# Pinned like `slint` above.
+slint-build = { git = "https://github.com/slint-ui/slint", rev = "5fa335de646b0b0ef22f7dc500810da78354e6df" }
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"

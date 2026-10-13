@@ -8,15 +8,16 @@
 // cSpell: ignore qualname
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{
-    self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
-};
+use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
+use crate::expression_tree::{self, BindingExpression, Callable, ConditionLocation, Expression};
+use crate::expression_types::Unit;
+use crate::generator::accessor_names::DeclarationKind;
 use crate::langtype::{
-    BuiltinElement, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
+    ConstantExpression, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
 };
-use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
+use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
@@ -37,6 +38,7 @@ pub(crate) mod interfaces;
 mod match_element;
 pub(crate) mod typed_slots;
 
+pub use interfaces::{MissingMembers, missing_interface_members};
 pub use match_element::{CaseValue, MatchSubjectDomain, missing_case_values};
 
 macro_rules! unwrap_or_continue {
@@ -772,38 +774,6 @@ impl Component {
     /// Panics if the Self::parent_element member is currently mutably borrowed
     pub fn parent_element(&self) -> Option<ElementRc> {
         self.parent_element.borrow().upgrade()
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
-pub enum PropertyVisibility {
-    #[default]
-    Private,
-    Input,
-    Output,
-    InOut,
-    /// for builtin properties that must be known at compile time and cannot be changed at runtime
-    Constexpr,
-    /// For builtin properties that are meant to just be bindings but cannot be read or written
-    /// (eg, Path's `commands`)
-    Fake,
-    /// For functions, not properties
-    Public,
-    Protected,
-}
-
-impl Display for PropertyVisibility {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PropertyVisibility::Private => f.write_str("private"),
-            PropertyVisibility::Input => f.write_str("in"),
-            PropertyVisibility::Output => f.write_str("out"),
-            PropertyVisibility::InOut => f.write_str("in-out"),
-            PropertyVisibility::Constexpr => f.write_str("constexpr"),
-            PropertyVisibility::Public => f.write_str("public"),
-            PropertyVisibility::Protected => f.write_str("protected"),
-            PropertyVisibility::Fake => f.write_str("fake"),
-        }
     }
 }
 
@@ -3207,7 +3177,9 @@ impl Element {
         if let Some(internal_name) = self.shadowing_members.get(name) {
             return self.property_declarations.get_key_value(internal_name);
         }
-        self.property_declarations.get_key_value(name).filter(|(_, d)| d.shadowed_name.is_none())
+        self.property_declarations
+            .get_key_value(name)
+            .filter(|(_, d)| d.shadowed_name.is_none() && !d.synthesized)
     }
 
     /// Source names of shadowing declarations that are visible from outside the component, so they
@@ -3259,7 +3231,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = existing.property_type.member_kind();
+                let kind = member_kind(&existing.property_type);
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }
@@ -3291,6 +3263,20 @@ impl Element {
             }
             base = c.root_element.borrow().base_type.clone();
         }
+    }
+
+    /// [`crate::lookup::did_you_mean`] among the properties that a binding can set.
+    fn did_you_mean_property(&self, name: &str) -> String {
+        let declared = self.property_declarations.iter().map(|(k, d)| d.declared_name(k).clone());
+        let inherited = self.base_type.property_list().into_iter().map(|(name, _)| name);
+        let reserved =
+            crate::typeregister::reserved_properties().map(|(name, ..)| SmolStr::new_static(name));
+        let candidates = declared.chain(inherited).chain(reserved).filter(|candidate| {
+            self.lookup_property(candidate, PropertyLookupMode::ComponentLocal)
+                .property_type
+                .is_property_type()
+        });
+        crate::lookup::did_you_mean(name, candidates)
     }
 
     fn lookup_result_for_declaration<'a>(
@@ -3335,10 +3321,13 @@ impl Element {
                             if self.base_type != ElementType::Error {
                                 let msg = if let Some(suggestion) = css_property_suggestion(&unresolved_name, &self.base_type) {
                                     suggestion
-                                } else if self.base_type.to_smolstr() == "Empty" {
-                                    format!( "Unknown property {unresolved_name}")
                                 } else {
-                                    format!( "Unknown property {unresolved_name} in {}", self.base_type)
+                                    let hint = self.did_you_mean_property(&unresolved_name);
+                                    if self.base_type.to_smolstr() == "Empty" {
+                                        format!( "Unknown property {unresolved_name}{hint}")
+                                    } else {
+                                        format!( "Unknown property {unresolved_name} in {}{hint}", self.base_type)
+                                    }
                                 };
                                 diag.push_error(msg, &name_token);
                             }
@@ -3388,7 +3377,7 @@ impl Element {
                 lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
             {
                 diag.push_member_deprecation_warning(
-                    lookup_result.property_type.member_kind(),
+                    member_kind(&lookup_result.property_type),
                     &unresolved_name,
                     message,
                     &name_token,
@@ -3954,7 +3943,7 @@ pub(crate) fn apply_default_type_properties(element: &mut Element) {
             if element.property_declarations.contains_key(prop) {
                 continue;
             }
-            if let Some(expr) = info.default_value.expr_without_element() {
+            if let Some(expr) = Expression::from_builtin_default(&info.default_value, None) {
                 element.bindings.0.entry(prop.clone()).or_insert_with(|| {
                     let mut binding = BindingExpression::from(expr);
                     binding.priority = i32::MAX;
@@ -4090,7 +4079,7 @@ fn resolve_struct_field_default_value(
     if has_invalid {
         return None;
     }
-    let constant = crate::langtype::ConstantExpression::from_expression(&expr);
+    let constant = constant_from_expression(&expr);
     if constant.is_none() {
         let reason = non_constant_expression_reason(&expr)
             .map_or_else(Default::default, |reason| format!(": {reason}"));
@@ -4102,10 +4091,57 @@ fn resolve_struct_field_default_value(
     constant
 }
 
+fn constant_from_expression(expression: &Expression) -> Option<ConstantExpression> {
+    Some(match expression {
+        Expression::StringLiteral(s) => ConstantExpression::StringLiteral(s.clone()),
+        Expression::NumberLiteral(n, unit) => ConstantExpression::NumberLiteral(*n, *unit),
+        Expression::BoolLiteral(b) => ConstantExpression::BoolLiteral(*b),
+        Expression::EnumerationValue(e) => ConstantExpression::EnumerationValue(e.clone()),
+        Expression::Cast { from, to } => {
+            // Converting a number to a string depends on the locale's decimal separator.
+            // The constant propagation folds the cases that render the same in every
+            // locale into a string literal, so a cast that's still here isn't constant
+            // (see `Expression::is_constant`).
+            if *to == Type::String {
+                return None;
+            }
+            ConstantExpression::Cast {
+                from: Box::new(constant_from_expression(from)?),
+                to: to.clone(),
+            }
+        }
+        Expression::UnaryOp { sub, op } => {
+            ConstantExpression::UnaryOp { sub: Box::new(constant_from_expression(sub)?), op: *op }
+        }
+        Expression::Struct { ty, values } => ConstantExpression::Struct {
+            ty: ty.clone(),
+            values: values
+                .iter()
+                .map(|(k, v)| Some((k.clone(), constant_from_expression(v)?)))
+                .collect::<Option<_>>()?,
+        },
+        Expression::Array { element_ty, values } => ConstantExpression::Array {
+            element_ty: element_ty.clone(),
+            values: values.iter().map(constant_from_expression).collect::<Option<_>>()?,
+        },
+        _ => return None,
+    })
+}
+
+fn member_kind(ty: &Type) -> &'static str {
+    match ty {
+        Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
+        Type::Function { .. } => DeclarationKind::Function,
+        _ => DeclarationKind::Property,
+    }
+    .label()
+}
+
 /// A user-facing explanation of what makes the expression non-constant, if there is
 /// a better one than "it is not in the supported subset"
 fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
-    use crate::expression_tree::{BuiltinFunction, Callable};
+    use crate::builtin_functions::BuiltinFunction;
+    use crate::expression_tree::Callable;
     let mut reason = None;
     expr.visit_recursive(&mut |e| {
         if reason.is_some() {

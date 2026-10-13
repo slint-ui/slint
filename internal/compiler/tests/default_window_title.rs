@@ -5,8 +5,9 @@
 //! runtime answers with the name of the running program.
 //! A title the source decides is left alone, an empty one included.
 
+use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::expression_tree::{BuiltinFunction, Callable, Expression};
+use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};

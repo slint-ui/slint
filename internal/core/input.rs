@@ -658,8 +658,6 @@ pub fn make_keys(
 #[cfg(feature = "ffi")]
 #[allow(unsafe_code)]
 pub(crate) mod ffi {
-    use crate::api::ToSharedString as _;
-
     use super::*;
 
     #[unsafe(no_mangle)]
@@ -684,11 +682,6 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_keys_debug_string(shortcut: &Keys, out: &mut SharedString) {
         *out = crate::format!("{shortcut:?}");
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_keys_to_string(shortcut: &Keys, out: &mut SharedString) {
-        *out = shortcut.to_shared_string();
     }
 
     #[unsafe(no_mangle)]
@@ -1351,6 +1344,9 @@ pub enum FocusEvent {
     FocusOut(FocusReason),
 }
 
+/// The default delay according to <https://en.wikipedia.org/wiki/Double-click#Speed_and_timing>
+pub const DEFAULT_CLICK_INTERVAL: core::time::Duration = core::time::Duration::from_millis(500);
+
 /// This state is used to count the clicks separated by [`crate::platform::Platform::click_interval`]
 #[derive(Default)]
 pub struct ClickState {
@@ -1384,10 +1380,10 @@ impl ClickState {
     /// Takes the context rather than just the interval: the timestamps it compares have to
     /// come from the same clock, which only the context can name.
     pub fn check_repeat(&self, mouse_event: MouseEvent, ctx: &crate::SlintContext) -> MouseEvent {
-        let click_interval = ctx.platform().click_interval();
         match mouse_event {
             MouseEvent::Pressed { position, button, touch_finger_id, event_time, .. } => {
                 let instant_now = crate::animations::Instant::now(ctx);
+                let click_interval = ctx.platform().click_interval();
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
                     if instant_now - click_count_time_stamp < click_interval

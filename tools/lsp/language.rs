@@ -1387,6 +1387,57 @@ fn get_code_actions(
                 }));
             }
         }
+    } else if token.kind() == SyntaxKind::Identifier
+        && let Some(implement_statement) = match node.kind() {
+            SyntaxKind::ImplementStatement => syntax_nodes::ImplementStatement::new(node.clone()),
+            SyntaxKind::QualifiedName | SyntaxKind::DeclaredIdentifier
+                if node.parent().map(|n| n.kind()) == Some(SyntaxKind::ImplementStatement) =>
+            {
+                node.parent().and_then(syntax_nodes::ImplementStatement::new)
+            }
+            _ => None,
+        }
+    {
+        let r = util::text_range_to_lsp_range(
+            &token.source_file,
+            implement_statement.text_range(),
+            document_cache.format,
+        );
+        if let Some(element) = document_cache.element_at_position(&uri, &r.start) {
+            let missing =
+                i_slint_compiler::object_tree::missing_interface_members(&element.element);
+            if let Some(missing_entry) = missing
+                .into_iter()
+                .find(|entry| entry.statement.text_range() == implement_statement.text_range())
+            {
+                let indent = util::find_indent(&implement_statement).unwrap_or_default();
+                let insertion: String = missing_entry
+                    .declarations
+                    .iter()
+                    .map(|decl| format!("\n{indent}{decl}"))
+                    .collect();
+                let insert_pos = util::text_size_to_lsp_position(
+                    &token.source_file,
+                    implement_statement.text_range().end(),
+                    document_cache.format,
+                );
+                let interface_name =
+                    QualifiedTypeName::from_node(implement_statement.QualifiedName());
+                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                    title: format!("Add the missing declarations for '{interface_name}'"),
+                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                    edit: editor_preview::editing::create_workspace_edit_from_path(
+                        document_cache,
+                        token.source_file.path(),
+                        vec![TextEdit::new(
+                            lsp_types::Range::new(insert_pos, insert_pos),
+                            insertion,
+                        )],
+                    ),
+                    ..Default::default()
+                }));
+            }
+        }
     }
 
     completion::match_element::add_code_actions(document_cache, &token, &mut result);
@@ -1799,8 +1850,8 @@ pub mod tests {
     use super::*;
 
     use crate::language::test::{
-        complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
-        preview_capture,
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_experimental,
+        loaded_document_cache_with_file_name, preview_capture,
     };
     use i_slint_compiler::diagnostics::BuildDiagnostics;
     use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
@@ -2775,6 +2826,187 @@ export component TestWindow inherits Window {
                 get_code_actions(&mut document_cache_with_import, token, &capabilities)
             });
         assert_eq!(action2, None, "import action should not appear when type is already imported");
+    }
+
+    const IMPLEMENT_LINE: u32 = 8;
+    const SIGNATURE_INTERFACE: &str = r#"interface Signature {
+    in property <bool> checkable;
+    in property <string> text;
+    callback clicked();
+    public function add(a: int, b: int) -> int;
+}
+
+"#;
+
+    #[test]
+    fn test_implement_missing_members_inserts_all_declarations() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();\n    in property <string> text;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_includes_inherited_members() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(
+            r#"interface A {
+    out property <int> speed;
+}
+interface B inherits A {
+    out property <float> direction;
+}
+export component TestCase {
+    implement B <=> self;
+}
+"#
+            .into(),
+        );
+        let action = token_descr(&dc, &url, &Position::new(7, 14)).and_then(|(token, _)| {
+            get_code_actions(&mut dc, token, &ClientCapabilities::default())
+        });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'B'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(
+                                    Position::new(7, 25),
+                                    Position::new(7, 25)
+                                ),
+                                "\n    out property <float> direction;\n    out property <int> speed;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_offers_nothing_when_satisfied() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            r#"{SIGNATURE_INTERFACE}export component TestCase {{
+    implement Signature <=> self;
+
+    in property <bool> checkable;
+    in property <string> text;
+    callback clicked();
+    public function add(a: int, b: int) -> int {{ 0 }}
+}}
+"#
+        ));
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(action, None, "no action once every member is declared");
+    }
+
+    #[test]
+    fn test_implement_missing_members_skips_members_with_wrong_type() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <int> checkable;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    callback clicked();\n    in property <string> text;".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+    }
+
+    #[test]
+    fn test_implement_missing_members_skips_members_with_invalid_type() {
+        let (mut dc, url, _) = loaded_document_cache_with_experimental(format!(
+            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement Signature <=> self;\n\n    in property <Nonexistent> text;\n}}\n"
+        ));
+        let statement_end = Position::new(IMPLEMENT_LINE, 33);
+        let action =
+            token_descr(&dc, &url, &Position::new(IMPLEMENT_LINE, 14)).and_then(|(token, _)| {
+                get_code_actions(&mut dc, token, &ClientCapabilities::default())
+            });
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "Add the missing declarations for 'Signature'".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: url.clone(),
+                            },
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(statement_end, statement_end),
+                                "\n    public function add(a: int, b: int) -> int { }\n    in property <bool> checkable;\n    callback clicked();".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
     }
 
     #[test]

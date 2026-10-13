@@ -9,12 +9,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::expression_tree::BuiltinFunction;
-use crate::langtype::{
-    BuiltinElement, BuiltinStruct, ElementType, Enumeration, Function, PropertyLookupResult,
-    Struct, Type,
-};
-use crate::object_tree::{Component, PropertyVisibility};
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
+use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::Component;
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -89,7 +88,7 @@ fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
         public,
         values: values
             .iter()
-            .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())
+            .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
         node: None,
@@ -476,7 +475,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: false,
-                        property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                        property_visibility: crate::native_class::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
                         is_slint_sc: false,
@@ -773,18 +772,9 @@ pub mod builtin_structs {
 
     #[rustfmt::skip]
     macro_rules! map_type {
-        ($pub_type:ident, bool) => { Type::Bool };
-        ($pub_type:ident, i32) => { Type::Int32 };
-        ($pub_type:ident, f32) => { Type::Float32 };
-        ($pub_type:ident, SharedString) => { Type::String };
-        ($pub_type:ident, Image) => { Type::Image };
-        ($pub_type:ident, Coord) => { Type::LogicalLength };
-        ($pub_type:ident, Keys) => { Type::Keys };
-        ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
-        ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
         ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
-        ($pub_type:ident, $enum:ident) => { Type::Enumeration(BUILTIN.enums.$enum.clone()) };
+        ($pub_type:ident, $ty:ident) => { builtin_type!($ty) };
     }
 
     #[rustfmt::skip]
@@ -795,7 +785,7 @@ pub mod builtin_structs {
         ($enum:ident :: $value:ident) => {
             Some(ConstantExpression::EnumerationValue(
                 BUILTIN.enums.$enum.clone()
-                    .try_value_from_string(&crate::generator::to_kebab_case(stringify!($value)))
+                    .try_value_from_string(&crate::names::to_kebab_case(stringify!($value)))
                     .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value))),
             ))
         };

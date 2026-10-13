@@ -10,8 +10,10 @@
 //! with path embedding only as part of the property assignment.
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::{BuiltinElement, ElementType};
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinElement, BuiltinStruct, ElementType, Type};
+use crate::expression_types::Unit;
+use crate::langtype::{BuiltinStruct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::rc::Rc;

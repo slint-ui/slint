@@ -189,6 +189,10 @@ component SelectedCanvasFrame inherits Rectangle {
             frame.width: root.geometry-drag-size.width;
             frame.height: root.geometry-drag-size.height;
         }
+        nudging when root.primary && CanvasView.nudging: {
+            frame.x: CanvasView.nudge-position.x * CanvasView.zoom;
+            frame.y: CanvasView.nudge-position.y * CanvasView.zoom;
+        }
         rotation-dragging when root.rotation-active: {
             frame.rotation: root.pending-rotation;
         }

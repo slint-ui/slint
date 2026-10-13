@@ -6,9 +6,10 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype::ElementType;
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, follow_two_way_bindings,
     forward_inherited_expression, rebase_expression_to_instance,

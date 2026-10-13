@@ -4,11 +4,10 @@
 //! This module contains the implementation of the builtin macros.
 //! They are just transformations that convert into some more complicated expression tree
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MinMaxOp,
-    MouseCursorInner, Unit,
-};
+use crate::expression_tree::{BuiltinMacroFunction, Callable, Expression};
+use crate::expression_types::{EasingCurve, MinMaxOp, MouseCursorInner, Unit};
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
 use crate::symbol_counters::SymbolCounters;
@@ -254,6 +253,8 @@ fn mod_macro(
         lhs_ty
     } else if matches!(rhs_ty, Type::UnitProduct(_)) {
         rhs_ty
+    } else if lhs_ty == Type::Int32 && rhs_ty == Type::Int32 {
+        Type::Int32
     } else {
         Type::Float32
     };

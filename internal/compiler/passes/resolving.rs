@@ -9,13 +9,14 @@
 //!
 //! Most of the code for the resolving actually lies in the expression_tree module
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype;
-use crate::langtype::{
-    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
-};
+use crate::expression_types::{ImageReference, OperatorClass, Unit, operator_class};
+use crate::langtype::{self, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
@@ -148,6 +149,16 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        let domain = MatchSubjectDomain::of(&case_type);
+        if matches!(domain, MatchSubjectDomain::Unsupported) {
+            diag.push_error(
+                format!(
+                    "Cannot match on '{case_type}'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value"
+                ),
+                &match_element.node.Expression(),
+            );
+            continue;
+        }
         if CaseValue::new(&match_element.subject).is_some() {
             diag.push_warning(
                 "Match subject is a literal, so the same case always applies".into(),
@@ -175,7 +186,7 @@ fn resolve_match_elements(
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
-        check_exhaustiveness(match_element, &values, diag);
+        check_exhaustiveness(match_element, domain, &values, diag);
 
         let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
         let subject = std::mem::replace(
@@ -210,7 +221,15 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         diag.push_warning("Floating point comparison is not recommended".into(), node);
     }
 
-    if is_literal || is_valid_cast {
+    if let Expression::Cast { from, to: Type::Int32, .. } = value
+        && let Some((number, _)) = as_number_literal(from)
+        && number.fract() != 0.0
+    {
+        diag.push_error(
+            format!("'{number}' is not an integer, so it never matches an 'int' subject"),
+            node,
+        );
+    } else if is_literal || is_valid_cast {
         // pass
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
@@ -269,6 +288,7 @@ fn check_duplicate_cases(
 /// Reports a match element that does not cover every value its subject can take
 fn check_exhaustiveness(
     match_element: &MatchElementInfo,
+    domain: MatchSubjectDomain,
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
@@ -284,11 +304,8 @@ fn check_exhaustiveness(
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
-    let expected = match MatchSubjectDomain::of(&subject_type) {
-        MatchSubjectDomain::Unknown => {
-            // The subject expression failed to resolve, so an error was already reported
-            return;
-        }
+    let expected = match domain {
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return,
         MatchSubjectDomain::Exhaustive(case_values) => case_values,
         MatchSubjectDomain::Unbounded => {
             diag.push_error(
@@ -749,7 +766,7 @@ impl Expression {
                             Ok((value, unit)) => {
                                 #[cfg(feature = "slint-sc")]
                                 {
-                                    use crate::expression_tree::WrittenUnit;
+                                    use crate::expression_types::WrittenUnit;
                                     match unit {
                                         WrittenUnit::Px if value.fract() != 0. => ctx
                                             .diag
@@ -1728,7 +1745,7 @@ impl Expression {
             LookupResult::Expression { expression, .. } => expression,
             // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
             LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
-                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
+                Expression::EasingCurve(crate::expression_types::EasingCurve::Spring(0.))
             }
             LookupResult::Callable(c) => {
                 let what = match c {
@@ -2614,7 +2631,7 @@ fn lookup_qualified_name_node(
                     .map(|s| format!("'{s}'"))
                     .collect::<Vec<_>>();
                 let hint = match parts.pop() {
-                    None => String::new(),
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
                     Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
                 };
@@ -2855,6 +2872,7 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
+        let suggestion = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
                 ElementType::Global | ElementType::Interface(_) => {
@@ -2889,7 +2907,7 @@ fn continue_lookup_within_element(
                 return None;
             }
         }
-        err("");
+        err(&suggestion);
         None
     }
 }
@@ -2914,6 +2932,7 @@ fn maybe_lookup_object(
                     return None;
                 }
 
+                let suggestion = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,
@@ -2921,33 +2940,28 @@ fn maybe_lookup_object(
                     LookupResult::Callable(..) => {
                         ctx.diag.push_error("Cannot access fields of a function".into(), &next)
                     }
-                    LookupResult::Enumeration(enumeration) => {
-                        let kebab = crate::generator::to_kebab_case(&next_str);
-                        let suggestion = enumeration
-                            .for_each_entry(ctx, &mut |v, _| {
-                                (crate::generator::to_kebab_case(v) == kebab).then(|| v.clone())
-                            })
-                            .map(|v| format!(". Did you mean '{v}'?"))
-                            .unwrap_or_default();
-                        ctx.diag.push_error(
-                            format!(
-                                "'{}' is not a member of the enum {}{suggestion}",
-                                next.text(),
-                                enumeration.name
-                            ),
-                            &next,
-                        )
-                    }
+                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
+                        format!(
+                            "'{}' is not a member of the enum {}{suggestion}",
+                            next.text(),
+                            enumeration.name
+                        ),
+                        &next,
+                    ),
 
                     LookupResult::Namespace(ns) => {
                         ctx.diag.push_error(
-                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
+                            format!(
+                                "'{}' is not a member of the namespace {}{suggestion}",
+                                next.text(),
+                                ns
+                            ),
                             &next,
                         );
                     }
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
-                            Type::Struct { .. } => String::new(),
+                            Type::Struct { .. } => suggestion,
                             Type::Float32
                                 if ctx.property_type == Type::Model
                                     && matches!(
@@ -2962,7 +2976,7 @@ fn maybe_lookup_object(
                                 )
                             }
 
-                            ty => format!(" of {ty}"),
+                            ty => format!(" of {ty}{suggestion}"),
                         };
                         ctx.diag.push_error(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),

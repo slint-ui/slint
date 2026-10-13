@@ -80,7 +80,7 @@ pub fn add_code_actions(
 
     let cases = analyze(document_cache, &match_element, None)?;
     let (title, values) = match MatchSubjectDomain::of(&cases.subject_type) {
-        MatchSubjectDomain::Unknown => return None,
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return None,
         MatchSubjectDomain::Unbounded => ("Add '*' case", vec!["*".to_string()]),
         MatchSubjectDomain::Exhaustive(domain) => {
             if cases.has_non_literal_case {
@@ -213,7 +213,7 @@ pub fn case_value_completions(
         .map(|value| value.text_range());
     let cases = analyze(document_cache, match_element, skip)?;
     match MatchSubjectDomain::of(&cases.subject_type) {
-        MatchSubjectDomain::Unknown => None,
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => None,
         MatchSubjectDomain::Unbounded => {
             if match_element.WildcardMatchCase().is_some() {
                 return None;
@@ -347,6 +347,20 @@ export component Test {{
         .unwrap();
         assert_eq!(labels(&results), ["*"]);
         assert_eq!(results[0].kind, Some(CompletionItemKind::KEYWORD));
+    }
+
+    #[test]
+    fn match_case_values_unsupported_subject() {
+        let results = get_completions_experimental(
+            r#"export component Test {
+    in-out property <brush> fill;
+
+    match fill { 🔺 }
+}
+"#,
+        )
+        .unwrap_or_default();
+        assert!(!labels(&results).contains(&"*"));
     }
 
     #[test]
@@ -584,6 +598,21 @@ export component Test {{
                 )]
             )]
         );
+    }
+
+    #[test]
+    fn test_code_actions_no_wildcard_for_unsupported_subject() {
+        let (mut dc, url) = match_document(
+            r#"export component Test {
+    in-out property <brush> fill;
+
+    match fill {
+        #123: Rectangle { }
+    }
+}
+"#,
+        );
+        assert_eq!(code_action_edits(&mut dc, &url, Position::new(3, 10)), vec![]);
     }
 
     #[test]

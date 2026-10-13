@@ -6,7 +6,7 @@
 use crate::embedded_resources::EmbeddedResourcesIdx;
 use crate::source_path::SourcePath;
 use crate::{
-    expression_tree::{BuiltinFunction, Expression, Unit},
+    builtin_functions::BuiltinFunction, expression_tree::Expression, expression_types::Unit,
     object_tree::*,
 };
 use std::collections::{BTreeSet, HashMap};

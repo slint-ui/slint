@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::element_type::ElementType;
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding};
+use i_slint_compiler::expression_types::Unit;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::native_class::PropertyVisibility;
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -352,7 +355,7 @@ fn insert_property_definitions(
             ElementType::Builtin(b) => b
                 .properties
                 .get(prop)
-                .and_then(|p| p.default_value.expr(element))
+                .and_then(|p| Expression::from_builtin_default(&p.default_value, Some(element)))
                 .unwrap_or_default(),
             _ => Expression::Invalid,
         }
@@ -429,7 +432,10 @@ pub(super) fn get_properties(
                         visibility: t.property_visibility,
                         declared_at: None,
                         defined_at: None,
-                        default_value: t.default_value.expr(&current_element),
+                        default_value: Expression::from_builtin_default(
+                            &t.default_value,
+                            Some(&current_element),
+                        ),
                         group: b.name.clone(),
                         group_priority: depth,
                     })

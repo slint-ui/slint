@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::*;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::collections::HashMap;

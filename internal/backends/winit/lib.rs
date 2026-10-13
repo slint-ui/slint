@@ -1042,6 +1042,26 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     #[cfg(target_os = "windows")]
+    fn click_interval(&self) -> core::time::Duration {
+        let ms = unsafe { windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime() };
+        core::time::Duration::from_millis(ms as u64)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn click_interval(&self) -> core::time::Duration {
+        let seconds = objc2_app_kit::NSEvent::doubleClickInterval();
+        core::time::Duration::try_from_secs_f64(seconds)
+            .ok()
+            .filter(|interval| !interval.is_zero())
+            .unwrap_or(i_slint_core::input::DEFAULT_CLICK_INTERVAL)
+    }
+
+    #[cfg(xdg_desktop_settings)]
+    fn click_interval(&self) -> core::time::Duration {
+        self.shared_data.desktop_settings.click_interval.get()
+    }
+
+    #[cfg(target_os = "windows")]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
         use windows::Win32::UI::WindowsAndMessaging::GetCaretBlinkTime;
         let ms = unsafe { GetCaretBlinkTime() };

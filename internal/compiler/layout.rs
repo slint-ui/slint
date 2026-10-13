@@ -3,9 +3,12 @@
 
 //! Datastructures used to represent layouts in the compiler
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::{Component, Element, ElementRc, PropertyDeclaration};
 
 use smol_str::{SmolStr, ToSmolStr};
@@ -1005,7 +1008,7 @@ pub fn implicit_layout_info_call(
             ElementType::Builtin(base_type)
                 if filter == BuiltinFilter::SkipNonImplicit
                     && base_type.default_size_binding
-                        != crate::langtype::DefaultSizeBinding::ImplicitSize =>
+                        != crate::element_type::DefaultSizeBinding::ImplicitSize =>
             {
                 None
             }

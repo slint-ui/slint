@@ -268,7 +268,7 @@ macro_rules! declare_value_conversion {
         )*
     };
 }
-declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
+declare_value_conversion!(Number => [u8, u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Image => [Image] );
@@ -353,6 +353,10 @@ declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalSize { width, height });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct i_slint_core::graphics::HsvaColor { hue, saturation, value, alpha });
+declare_value_struct_conversion!(struct i_slint_core::graphics::OklchColor { lightness, chroma, hue, alpha });
+use i_slint_core::graphics::RgbaColorU8;
+declare_value_struct_conversion!(struct RgbaColorU8 { red, green, blue, alpha });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 
@@ -1474,7 +1478,7 @@ impl ComponentDefinition {
     ) -> impl Iterator<
         Item = (
             String,
-            (i_slint_compiler::langtype::Type, i_slint_compiler::object_tree::PropertyVisibility),
+            (i_slint_compiler::langtype::Type, i_slint_compiler::native_class::PropertyVisibility),
         ),
     > + '_ {
         self.inner
@@ -1526,7 +1530,7 @@ impl ComponentDefinition {
                 String,
                 (
                     i_slint_compiler::langtype::Type,
-                    i_slint_compiler::object_tree::PropertyVisibility,
+                    i_slint_compiler::native_class::PropertyVisibility,
                 ),
             ),
         > + '_,

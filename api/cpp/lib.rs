@@ -9,10 +9,8 @@ extern crate alloc;
 extern crate std;
 
 use alloc::rc::Rc;
-use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
-use i_slint_core::items::OperatingSystemType;
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
@@ -81,14 +79,6 @@ mod android {
         i_slint_backend_selector::init_testing_backends();
         unsafe { slint_main() };
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_context_accent_color(
-    root: &i_slint_core::item_tree::ItemTreeRc,
-    out: &mut i_slint_core::graphics::Color,
-) {
-    *out = i_slint_core::window::context_for_root(root).accent_color();
 }
 
 #[unsafe(no_mangle)]
@@ -224,11 +214,6 @@ pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_string_character_count(string: &SharedString) -> usize {
-    unicode_segmentation::UnicodeSegmentation::graphemes(string.as_str(), true).count()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_usize(string: &SharedString, value: &mut usize) -> bool {
     match string.as_str().parse::<usize>() {
         Ok(v) => {
@@ -304,11 +289,6 @@ pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
-    i_slint_core::detect_operating_system()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_parse_markdown(
     format_string: &SharedString,
     args: Slice<StyledText>,
@@ -318,28 +298,8 @@ pub extern "C" fn slint_parse_markdown(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_open_url(
-    url: &SharedString,
-    win: *const WindowAdapterRcOpaque,
-) -> bool {
-    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
-    let ctx = i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context();
-    i_slint_core::open_url(url, ctx).is_ok()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_macos_bring_all_windows_to_front() {
     i_slint_core::macos_bring_all_windows_to_front()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_color_to_styled_text(color: &i_slint_core::Color, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::color_to_styled_text(*color);
 }
 
 // Translator API is currently considered experimental due to discussions

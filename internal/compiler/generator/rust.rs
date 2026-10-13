@@ -14,8 +14,9 @@ Some convention used in the generated code:
 
 use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::SourceLocation;
-use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
 use crate::layout::Orientation;
 use crate::llr::lower_expression::lower_constant_expression;
@@ -364,7 +365,7 @@ pub(super) fn generate_module_header() -> TokenStream {
 
         use slint::private_unstable_api::re_exports as sp;
         #[allow(unused_imports)]
-        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _, Float as _};
+        use sp::{RepeatedItemTree as _, ModelExt as _, Model as _};
     }
 }
 
@@ -1849,13 +1850,14 @@ fn generate_sub_component(
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            let context = access_context(&ctx);
             quote!(
                 let millis = if #running { (#interval) as i64 } else { -1 };
                 if millis >= 0 {
                     let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
-                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                        #context.start_timer(&self.#ident, sp::TimerMode::Repeated, interval, move || {
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
                                 #callback
@@ -3608,17 +3610,17 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
-impl quote::ToTokens for crate::expression_tree::ImageReference {
+impl quote::ToTokens for crate::expression_types::ImageReference {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
-            crate::expression_tree::ImageReference::None => {
+            crate::expression_types::ImageReference::None => {
                 quote!(sp::Image::default())
             }
-            crate::expression_tree::ImageReference::Source(SourcePath::File(path)) => {
+            crate::expression_types::ImageReference::Source(SourcePath::File(path)) => {
                 let path = path.to_string_lossy();
                 quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
             }
-            crate::expression_tree::ImageReference::Source(url) => {
+            crate::expression_types::ImageReference::Source(url) => {
                 let url = url.to_string();
                 // URL image references only work on the web, where the browser fetches them.
                 quote!({
@@ -3628,15 +3630,15 @@ impl quote::ToTokens for crate::expression_tree::ImageReference {
                     { sp::Image::default() }
                 })
             }
-            crate::expression_tree::ImageReference::DataUri(_) => {
+            crate::expression_types::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
-            crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+            crate::expression_types::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                 quote!(sp::load_image_from_embedded_data(#symbol.into(), sp::Slice::from_slice(#format)))
             }
-            crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
+            crate::expression_types::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
                 quote!(
                     sp::Image::from(sp::ImageInner::StaticTextures(&#symbol))
@@ -4216,25 +4218,13 @@ fn compile_binary_operator(
         let maybe_negate = if op == '!' { quote!(!) } else { quote!() };
         quote!(#maybe_negate sp::ApproxEq::<f64>::approx_eq(&(#lhs as f64), &(#rhs as f64)))
     } else {
-        let (conv1, conv2) = match crate::expression_tree::operator_class(op) {
+        let (conv1, conv2) = match crate::expression_types::operator_class(op) {
             OperatorClass::ArithmeticOp => match lhs_ty {
                 Type::String => (None, Some(quote!(.as_str()))),
                 Type::Struct { .. } => (None, None),
                 _ => (Some(quote!(as f64)), Some(quote!(as f64))),
             },
-            OperatorClass::ComparisonOp
-                if matches!(
-                    lhs_ty,
-                    Type::Int32
-                        | Type::Float32
-                        | Type::Duration
-                        | Type::PhysicalLength
-                        | Type::LogicalLength
-                        | Type::Angle
-                        | Type::Percent
-                        | Type::Rem
-                ) =>
-            {
+            OperatorClass::ComparisonOp if lhs_ty.as_unit_product().is_some() => {
                 (Some(quote!(as f64)), Some(quote!(as f64)))
             }
             _ => (None, None),
@@ -4586,6 +4576,20 @@ fn compile_builtin_function_call(
 ) -> TokenStream {
     let mut a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     match function {
+        runtime_builtin_function!() => {
+            let name = format_ident!("{}", function.runtime_function().unwrap());
+            let ty = function.ty();
+            let context = function.runtime_function_takes_context().then(|| {
+                let context = access_context(ctx);
+                quote!(&#context)
+            });
+            let args = arguments.iter().zip(ty.args.iter()).map(|(a, ty)| {
+                let a = compile_expression_to_value(a, ctx);
+                if ty.as_unit_product().is_some() { quote!((#a) as _) } else { a }
+            });
+            let args = context.into_iter().chain(args);
+            quote!(sp::builtin_functions::#name(#(#args),*))
+        }
         BuiltinFunction::SetFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let window_tokens = access_window_adapter_field(ctx);
@@ -5035,110 +5039,6 @@ fn compile_builtin_function_call(
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
         }
-        BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
-        BuiltinFunction::DecimalSeparator => {
-            let context = access_context(ctx);
-            quote!(sp::SharedString::from(#context.locale_decimal_separator()))
-        }
-        BuiltinFunction::Mod => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
-        }
-        BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
-        BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
-        BuiltinFunction::Floor => quote!((#(#a)* as f64).floor()),
-        BuiltinFunction::Sqrt => quote!((#(#a)* as f64).sqrt()),
-        BuiltinFunction::Abs => quote!((#(#a)* as f64).abs()),
-        BuiltinFunction::Sin => quote!((#(#a)* as f64).to_radians().sin()),
-        BuiltinFunction::Cos => quote!((#(#a)* as f64).to_radians().cos()),
-        BuiltinFunction::Tan => quote!((#(#a)* as f64).to_radians().tan()),
-        BuiltinFunction::ASin => quote!((#(#a)* as f64).asin().to_degrees()),
-        BuiltinFunction::ACos => quote!((#(#a)* as f64).acos().to_degrees()),
-        BuiltinFunction::ATan => quote!((#(#a)* as f64).atan().to_degrees()),
-        BuiltinFunction::ATan2 => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).atan2(#a2 as f64).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).log(#a2 as f64))
-        }
-        BuiltinFunction::Ln => quote!((#(#a)* as f64).ln()),
-        BuiltinFunction::Pow => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!((#a1 as f64).powf(#a2 as f64))
-        }
-        BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
-        BuiltinFunction::ToFixed => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            let context = access_context(ctx);
-            quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
-        }
-        BuiltinFunction::ToPrecision => {
-            let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            let context = access_context(ctx);
-            quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
-        }
-        BuiltinFunction::ToStringUnlocalized => {
-            let a1 = a.next().unwrap();
-            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
-        }
-        BuiltinFunction::StringToFloat => {
-            let context = access_context(ctx);
-            quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
-        }
-        BuiltinFunction::StringIsFloat => {
-            let context = access_context(ctx);
-            quote!(#context.parse_number(#(#a)*.as_str()).is_some())
-        }
-        BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
-        BuiltinFunction::StringCharacterCount => {
-            quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
-        }
-        BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
-        BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
-        BuiltinFunction::StringStartsWith => {
-            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
-            quote!(#s.starts_with(#pat.as_str()))
-        }
-        BuiltinFunction::StringEndsWith => {
-            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
-            quote!(#s.ends_with(#pat.as_str()))
-        }
-        BuiltinFunction::StringReplaceAll => {
-            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_replace_all(&#s, #from.as_str(), #to.as_str()))
-        }
-        BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
-        BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
-        BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
-        BuiltinFunction::ColorOklchStruct => quote!( #(#a)*.to_oklch()),
-        BuiltinFunction::ColorBrighter => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.brighter(#factor as f32))
-        }
-        BuiltinFunction::ColorDarker => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.darker(#factor as f32))
-        }
-        BuiltinFunction::ColorTransparentize => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.transparentize(#factor as f32))
-        }
-        BuiltinFunction::ColorMix => {
-            let x = a.next().unwrap();
-            let y = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.mix(&#y.into(), #factor as f32))
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            let x = a.next().unwrap();
-            let alpha = a.next().unwrap();
-            quote!(#x.with_alpha(#alpha as f32))
-        }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {
             quote!(match &#(#a)* { x => {
@@ -5185,37 +5085,6 @@ fn compile_builtin_function_call(
                 sp::report_model_error(&#context, "insert", None, result);
             })
         }
-        BuiltinFunction::Rgb => {
-            let (r, g, b, a) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let r: u8 = (#r as u32).min(255) as u8;
-                let g: u8 = (#g as u32).min(255) as u8;
-                let b: u8 = (#b as u32).min(255) as u8;
-                let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
-                sp::Color::from_argb_u8(a, r, g, b)
-            })
-        }
-        BuiltinFunction::Hsv => {
-            let (h, s, v, a) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let s: f32 = (#s as f32).max(0.).min(1.) as f32;
-                let v: f32 = (#v as f32).max(0.).min(1.) as f32;
-                let a: f32 = (1. * (#a as f32)).max(0.).min(1.) as f32;
-                sp::Color::from_hsva(#h as f32, s, v, a)
-            })
-        }
-        BuiltinFunction::Oklch => {
-            let (l, c, h, alpha) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!({
-                let l: f32 = (#l as f32).max(0.).min(1.) as f32;
-                let c: f32 = (#c as f32).max(0.) as f32;
-                let alpha: f32 = (#alpha as f32).max(0.).min(1.) as f32;
-                sp::Color::from_oklch(l, c, #h as f32, alpha)
-            })
-        }
         BuiltinFunction::ColorScheme => {
             // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
             // resolves against the tray's own scheme; everything else falls back to the
@@ -5226,10 +5095,6 @@ fn compile_builtin_function_call(
                 let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
                 #context.color_scheme(Some(&_root))
             })
-        }
-        BuiltinFunction::AccentColor => {
-            let context = access_context(ctx);
-            quote!(#context.accent_color())
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -5366,23 +5231,6 @@ fn compile_builtin_function_call(
                 #system_tray.set_menu(&#system_tray_rc, menu_vrc);
             })
         }
-        BuiltinFunction::MonthDayCount => {
-            let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::month_day_count(#m as u32, #y as i32).unwrap_or(0))
-        }
-        BuiltinFunction::MonthOffset => {
-            let (m, y) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::month_offset(#m as u32, #y as i32))
-        }
-        BuiltinFunction::FormatDate => {
-            let (f, d, m, y) =
-                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(sp::format_date(&#f, #d as u32, #m as u32, #y as i32))
-        }
-        BuiltinFunction::ValidDate => {
-            let (d, f) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::parse_date(#d.as_str(), #f.as_str()).is_some())
-        }
         BuiltinFunction::ParseDate => {
             let (d, f) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::ModelRc::new(sp::parse_date(#d.as_str(), #f.as_str()).map(|d| sp::VecModel::from_slice(&d)).unwrap_or_default()))
@@ -5402,9 +5250,6 @@ fn compile_builtin_function_call(
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
         }
-        BuiltinFunction::Use24HourFormat => {
-            quote!(slint::private_unstable_api::use_24_hour_format())
-        }
         BuiltinFunction::ItemAbsolutePosition => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 item_owner(pr).map_or_default(|owner| {
@@ -5421,9 +5266,6 @@ fn compile_builtin_function_call(
         BuiltinFunction::UpdateTimers => {
             quote!(_self.update_timers())
         }
-        BuiltinFunction::DetectOperatingSystem => {
-            quote!(sp::detect_operating_system())
-        }
         // start and stop are unreachable because they are lowered to simple assignment of running
         BuiltinFunction::StartTimer => unreachable!(),
         BuiltinFunction::StopTimer => unreachable!(),
@@ -5434,11 +5276,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
-        BuiltinFunction::OpenUrl => {
-            let url = a.next().unwrap();
-            let context = access_context(ctx);
-            quote!(sp::open_url(&#url, &#context).is_ok())
-        }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             quote!(sp::macos_bring_all_windows_to_front())
         }
@@ -5446,14 +5283,6 @@ fn compile_builtin_function_call(
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
             quote!(sp::parse_markdown(&#format_string, &#args))
-        }
-        BuiltinFunction::StringToStyledText => {
-            let string = a.next().unwrap();
-            quote!(sp::string_to_styled_text(#string.to_string()))
-        }
-        BuiltinFunction::ColorToStyledText => {
-            let color = a.next().unwrap();
-            quote!(sp::color_to_styled_text(#color))
         }
         BuiltinFunction::PathPointAt => {
             if let [Expression::PropertyReference(pr), t] = arguments {

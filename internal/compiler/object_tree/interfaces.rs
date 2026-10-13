@@ -11,12 +11,13 @@ use itertools::Itertools;
 use smol_str::SmolStr;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{BindingExpression, Callable, Expression};
-use crate::langtype::{ElementType, Function, PropertyLookupMode, PropertyLookupResult, Type};
+use crate::langtype::{Function, Type};
 use crate::namedreference::NamedReference;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::{
-    Element, ElementRc, PropertyDeclaration, PropertyVisibility, QualifiedTypeName,
-    find_element_by_id,
+    Element, ElementRc, PropertyDeclaration, QualifiedTypeName, find_element_by_id,
 };
 use crate::parser::{self, SyntaxNode, SyntaxToken};
 use crate::parser::{SyntaxKind, syntax_nodes};
@@ -349,6 +350,30 @@ pub(super) fn disallow_implement_in_non_root(
     }
 }
 
+pub struct MissingMembers {
+    pub statement: syntax_nodes::ImplementStatement,
+    pub declarations: Vec<String>,
+}
+
+pub fn missing_interface_members(root: &ElementRc) -> Vec<MissingMembers> {
+    let element = root.borrow();
+    element
+        .implement_statements
+        .iter()
+        .filter(|stmt| stmt.binding == ImplementBinding::OnSelf)
+        .filter_map(|stmt| {
+            let declarations: Vec<String> = declared_members(&stmt.interface)
+                .into_iter()
+                .filter(|(_, member)| member.declaration.property_type != Type::Invalid)
+                .filter(|(name, _)| member_is_absent(&element, name))
+                .map(|(name, member)| syntax_for_declaration(&member.declaration, &name))
+                .collect();
+            (!declarations.is_empty())
+                .then(|| MissingMembers { statement: stmt.node.clone(), declarations })
+        })
+        .collect()
+}
+
 /// A two-way binding written without a type only gets one in `infer_aliases_types`.
 /// This runs as a pass after it rather than while the object tree is built.
 pub(crate) fn validate_implement_statements(
@@ -518,7 +543,7 @@ fn validate_interface_member_implementation(
 
     let lookup_result = element.lookup_property(member_name, PropertyLookupMode::ComponentLocal);
     let Err(violations) =
-        property_matches_interface(&lookup_result, interface_member, member_name, binding)
+        property_matches_interface(element, &lookup_result, interface_member, member_name, binding)
     else {
         return None;
     };
@@ -794,7 +819,14 @@ fn property_type_matches_for_interface(lhs: &Type, rhs: &Type) -> bool {
     }
 }
 
+fn member_is_absent(element: &Element, name: &SmolStr) -> bool {
+    element.declaration(name).is_none()
+        && element.lookup_property(name, PropertyLookupMode::ComponentLocal).property_type
+            == Type::Invalid
+}
+
 fn property_matches_interface(
+    element: &Element,
     property: &PropertyLookupResult,
     interface_declaration: &PropertyDeclaration,
     name: &SmolStr,
@@ -802,11 +834,15 @@ fn property_matches_interface(
 ) -> Result<(), Vec<MemberViolation>> {
     let expected_syntax = syntax_for_declaration(interface_declaration, name);
     if property.property_type == Type::Invalid {
-        return Err(vec![MemberViolation {
-            error: missing_type_error(name, interface_declaration),
-            expected_syntax,
-            anchor: DeclarationAnchor::Name,
-        }]);
+        return if member_is_absent(element, name) {
+            Err(vec![MemberViolation {
+                error: missing_type_error(name, interface_declaration),
+                expected_syntax,
+                anchor: DeclarationAnchor::Name,
+            }])
+        } else {
+            Ok(())
+        };
     }
 
     // Checked in `validate_implement_statements` once the type has been resolved by `infer_aliases_types`.

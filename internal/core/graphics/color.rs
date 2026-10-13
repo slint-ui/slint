@@ -18,6 +18,7 @@ use num_traits::Float;
 /// is 0 to 255.
 /// This is merely a helper class for use with [`Color`].
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
+#[repr(C)]
 pub struct RgbaColor<T> {
     /// The alpha component.
     pub alpha: T,
@@ -28,6 +29,10 @@ pub struct RgbaColor<T> {
     /// The blue channel.
     pub blue: T,
 }
+
+/// `RgbaColor<u8>` in a single token, for macros
+#[doc(hidden)]
+pub type RgbaColorU8 = RgbaColor<u8>;
 
 #[cfg(feature = "32-bit-color")]
 type Channel = f32;
@@ -440,6 +445,7 @@ impl core::fmt::Display for Color {
 /// This is merely a helper struct for use with [`Color`].
 #[derive(Copy, Clone, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct HsvaColor {
     /// The hue component in degrees between 0 and 360.
     pub hue: f32,
@@ -538,6 +544,7 @@ impl From<Color> for HsvaColor {
 /// Reference: <https://bottosson.github.io/posts/oklab/>
 #[derive(Copy, Clone, PartialOrd, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct OklchColor {
     /// The lightness component, between 0 (black) and 1 (white).
     pub lightness: f32,
@@ -852,33 +859,8 @@ pub(crate) mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_color_mix(
-        col1: &Color,
-        col2: &Color,
-        factor: f32,
-        out: *mut Color,
-    ) {
-        unsafe { core::ptr::write(out, col1.mix(col2, factor)) }
-    }
-
-    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
         unsafe { core::ptr::write(out, col.with_alpha(alpha)) }
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_color_to_hsva(
-        col: &Color,
-        h: &mut f32,
-        s: &mut f32,
-        v: &mut f32,
-        a: &mut f32,
-    ) {
-        let hsv = col.to_hsva();
-        *h = hsv.hue;
-        *s = hsv.saturation;
-        *v = hsv.value;
-        *a = hsv.alpha;
     }
 
     #[unsafe(no_mangle)]
@@ -889,20 +871,5 @@ pub(crate) mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_color_from_oklch(l: f32, c: f32, h: f32, a: f32) -> Color {
         Color::from_oklch(l, c, h, a)
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn slint_color_to_oklch(
-        col: &Color,
-        l: &mut f32,
-        c: &mut f32,
-        h: &mut f32,
-        a: &mut f32,
-    ) {
-        let oklch = col.to_oklch();
-        *l = oklch.lightness;
-        *c = oklch.chroma;
-        *h = oklch.hue;
-        *a = oklch.alpha;
     }
 }

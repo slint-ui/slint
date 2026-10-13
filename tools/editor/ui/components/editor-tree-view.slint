@@ -6,7 +6,7 @@ import { DropLocation, OutlineTreeNode } from "../api.slint";
 import { AppState } from "index.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { OutlineDragRow } from "drag-preview.slint";
-import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { Icons } from "icons.slint";
 
 import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
@@ -312,7 +312,7 @@ component EditorTreeRow {
                                 height: Metrics.icon-small;
                                 x: 0px;
                                 y: (parent.height - self.height) / 2;
-                                source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                                source: root.node.is-expanded ? Icons.chevron-down : Icons.chevron-right;
                                 colorize: root.style.row.muted;
                             }
                         }

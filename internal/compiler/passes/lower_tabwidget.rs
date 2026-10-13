@@ -9,8 +9,10 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::HashSet;
@@ -177,7 +179,7 @@ fn process_tabwidget(
                 Type::Int32 | Type::Float32 => r.model.clone(),
                 _ => Expression::FunctionCall {
                     function: Callable::Builtin(
-                        crate::expression_tree::BuiltinFunction::ArrayLength,
+                        crate::builtin_functions::BuiltinFunction::ArrayLength,
                     ),
                     arguments: vec![r.model.clone()],
                     source_location: None,

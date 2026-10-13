@@ -4,8 +4,8 @@
 use std::collections::HashSet;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
+use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::{Callable, Expression, NamedReference};
-use crate::langtype::PropertyLookupMode;
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {

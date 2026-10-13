@@ -8,12 +8,12 @@ use std::sync::Arc;
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use super::native_class_selection::{dropped_defaults, select_native_class};
 use crate::CompilerConfiguration;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{
-    BuiltinStruct, ElementType, NativeClass, PropertyLookupMode, Struct, StructName, Type,
-};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
+use crate::native_class::{NativeClass, PropertyVisibility};
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -95,7 +95,7 @@ fn public_facing_type_names(
             Either::Right(ty) => collect(ty),
             Either::Left(component) => {
                 for pd in component.root_element.borrow().property_declarations.values() {
-                    if pd.visibility != object_tree::PropertyVisibility::Private {
+                    if pd.visibility != PropertyVisibility::Private {
                         collect(&pd.property_type);
                     }
                 }

@@ -7,8 +7,9 @@
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::langtype::ElementType;
-use crate::object_tree::{Component, Document, ExportedName, PropertyVisibility};
+use crate::element_type::ElementType;
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Component, Document, ExportedName};
 use crate::{CompilerConfiguration, ComponentSelection};
 use itertools::Either;
 
@@ -119,7 +120,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     let mut root_elem = root_component.root_element.borrow_mut();
     let root_elem = &mut *root_elem;
     let mut pa = root_elem.property_analysis.borrow_mut();
-    root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
+    root_elem.property_declarations.iter_mut().filter(|(_, d)| !d.synthesized).for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
             if d.visibility == PropertyVisibility::Private {
                 root_component.private_properties.borrow_mut().push((d.declared_name(n).clone(), d.property_type.clone()));
@@ -158,4 +159,32 @@ fn component_selected_by_either_of_its_names() {
 
     assert_eq!(selected("Foo").as_deref(), Some("Foo"));
     assert_eq!(selected("Bob").as_deref(), Some("Foo"));
+}
+
+#[test]
+fn synthesized_properties_stay_out_of_public_api() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    config.enable_experimental = true;
+    let mut diags = BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+export component Foo {
+    in-out property <bool> cond;
+    property <int> hidden;
+    match cond {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+}"#
+        .into(),
+        Some(crate::source_path::SourcePath::new("test.slint")),
+        &mut diags,
+    );
+    let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+    assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
+    let component = doc.last_exported_component().unwrap();
+    let private_names: Vec<_> =
+        component.private_properties.borrow().iter().map(|(n, _)| n.clone()).collect();
+    assert_eq!(private_names, ["hidden"]);
 }

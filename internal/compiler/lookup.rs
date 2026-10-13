@@ -1,19 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore widht widthh wodth xyzzy
+
 //! Helper to do lookup in expressions
 
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, Callable, EasingCurve, Expression, MouseCursorInner,
-    Unit,
-};
-use crate::langtype::{ElementType, Enumeration, EnumerationValue, PropertyLookupMode, Type};
+use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::expression_tree::{BuiltinMacroFunction, Callable, Expression};
+use crate::expression_types::{EasingCurve, MouseCursorInner, Unit};
+use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{ElementRc, PropertyVisibility};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::ElementRc;
 use crate::parser::{NodeOrToken, TextRange, TextSize};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
@@ -794,6 +797,113 @@ pub fn enum_or_color_suggestions(ctx: &LookupCtx, name: &str) -> Vec<SmolStr> {
     result.sort();
     result.dedup();
     result
+}
+
+/// [`did_you_mean`] among the entries of `lookup` that aren't deprecated.
+pub fn did_you_mean_entry(ctx: &LookupCtx, lookup: &impl LookupObject, name: &str) -> String {
+    let mut candidates = Vec::new();
+    lookup.for_each_entry(ctx, &mut |entry, result| {
+        if result.deprecated().is_none() {
+            candidates.push(entry.clone());
+        }
+        None::<()>
+    });
+    did_you_mean(name, candidates)
+}
+
+/// Return a hint such as ". Did you mean 'width'?" for a diagnostic, naming the candidate close
+/// enough to `name` to be what a typo meant, or an empty string if there is none.
+/// Names are compared in kebab case, so `WordWrap` matches `word-wrap` exactly.
+pub fn did_you_mean(name: &str, candidates: impl IntoIterator<Item = SmolStr>) -> String {
+    let kebab_case = |s: &str, out: &mut Vec<char>| {
+        out.clear();
+        for c in s.chars() {
+            if c.is_ascii_uppercase() {
+                if !out.is_empty() {
+                    out.push('-');
+                }
+                out.push(c.to_ascii_lowercase());
+            } else {
+                out.push(c);
+            }
+        }
+    };
+    let (mut key, mut candidate_key, mut rows) = (Vec::new(), Vec::new(), Default::default());
+    kebab_case(name, &mut key);
+    let max_distance = (key.len() / 3).min(3);
+
+    let mut best: Option<(usize, SmolStr)> = None;
+    for candidate in candidates {
+        if candidate == name {
+            continue;
+        }
+        kebab_case(&candidate, &mut candidate_key);
+        let max = best.as_ref().map_or(max_distance, |(distance, _)| *distance);
+        if let Some(distance) = edit_distance(&key, &candidate_key, max, &mut rows)
+            && best.as_ref().is_none_or(|best| (distance, &candidate) < (best.0, &best.1))
+        {
+            best = Some((distance, candidate));
+        }
+    }
+    best.map(|(_, candidate)| format!(". Did you mean '{candidate}'?")).unwrap_or_default()
+}
+
+/// The Levenshtein distance, where swapping two adjacent characters also counts as one edit,
+/// or `None` if it's over `max`. `rows` is scratch space that's reused between calls.
+fn edit_distance(a: &[char], b: &[char], max: usize, rows: &mut [Vec<usize>; 3]) -> Option<usize> {
+    if a.len().abs_diff(b.len()) > max {
+        return None;
+    }
+    let [before_previous, previous, current] = rows;
+    before_previous.resize(b.len() + 1, 0);
+    current.resize(b.len() + 1, 0);
+    previous.clear();
+    previous.extend(0..=b.len());
+    for i in 1..=a.len() {
+        current[0] = i;
+        for j in 1..=b.len() {
+            let substitution = previous[j - 1] + usize::from(a[i - 1] != b[j - 1]);
+            current[j] = substitution.min(previous[j] + 1).min(current[j - 1] + 1);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                current[j] = current[j].min(before_previous[j - 2] + 1);
+            }
+        }
+        if current[..=b.len()].iter().all(|&distance| distance > max) {
+            return None;
+        }
+        std::mem::swap(before_previous, previous);
+        std::mem::swap(previous, current);
+    }
+    Some(previous[b.len()]).filter(|&distance| distance <= max)
+}
+
+#[test]
+fn test_edit_distance() {
+    let distance = |a: &str, b: &str, max| {
+        let [a, b] = [a, b].map(|s| s.chars().collect::<Vec<_>>());
+        edit_distance(&a, &b, max, &mut Default::default())
+    };
+    assert_eq!(distance("", "", 3), Some(0));
+    assert_eq!(distance("", "abc", 3), Some(3));
+    assert_eq!(distance("width", "width", 3), Some(0));
+    assert_eq!(distance("with", "width", 3), Some(1));
+    assert_eq!(distance("widthh", "width", 3), Some(1));
+    assert_eq!(distance("wodth", "width", 3), Some(1));
+    assert_eq!(distance("widht", "width", 3), Some(1));
+    assert_eq!(distance("kitten", "sitting", 3), Some(3));
+    assert_eq!(distance("kitten", "sitting", 2), None);
+    assert_eq!(distance("width", "height", 2), None);
+}
+
+#[test]
+fn test_did_you_mean() {
+    let candidates = || ["width", "height", "word-wrap", "x", "se-resize"].map(SmolStr::new_static);
+    assert_eq!(did_you_mean("widht", candidates()), ". Did you mean 'width'?");
+    assert_eq!(did_you_mean("WordWrap", candidates()), ". Did you mean 'word-wrap'?");
+    assert_eq!(did_you_mean("y", candidates()), "");
+    assert_eq!(did_you_mean("width", candidates()), "");
+    assert_eq!(did_you_mean("xyzzy", candidates()), "");
+    assert_eq!(did_you_mean("square-resize", candidates()), "");
 }
 
 pub struct KeysLookup;

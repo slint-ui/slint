@@ -18,11 +18,15 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 mod builtin_elements;
+#[macro_use]
+pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod element_type;
 pub mod embedded_resources;
 pub mod expression_tree;
+pub mod expression_types;
 pub mod fileaccess;
 pub mod generator;
 pub mod langtype;
@@ -32,6 +36,8 @@ pub mod literals;
 pub mod llr;
 pub mod lookup;
 pub mod namedreference;
+pub mod names;
+pub mod native_class;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;

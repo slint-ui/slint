@@ -244,6 +244,7 @@ export component EditorUi inherits Window {
 
     function apply-history(redo: bool) {
         if !Diagnostics.preview-editable { return; }
+        CanvasView.nudging = false;
         FillSession.apply-history(redo);
     }
 
@@ -279,6 +280,11 @@ export component EditorUi inherits Window {
                     title: @tr("Clear Recent Projects");
                     activated => { Project.clear-recent-projects(); }
                 }
+            }
+            MenuItem {
+                title: @tr("Close Project");
+                enabled: !Api.startup-wizard-visible;
+                activated => { Project.close-project(); }
             }
             // The macOS application menu already provides Quit.
             if Platform.os != OperatingSystemType.macos: MenuSeparator { }
@@ -354,9 +360,56 @@ export component EditorUi inherits Window {
     VerticalLayout {
         if !Api.startup-wizard-visible: editor := FocusScope {
             property <bool> shift-pressed: false;
+            property <bool> nudge-key-held;
+            property <bool> nudge-write-pending;
+            property <Point> nudge-origin;
+            property <bool> nudge-caught-up: !self.nudge-key-held
+                && (CanvasView.selection.x - CanvasView.nudge-position.x).abs() < 0.01px
+                && (CanvasView.selection.y - CanvasView.nudge-position.y).abs() < 0.01px;
+            property <string> current-element: Api.current-element.source-uri + ":" + Api.current-element.offset;
+
+            changed nudge-caught-up => {
+                if self.nudge-caught-up {
+                    CanvasView.nudging = false;
+                }
+            }
+            changed current-element => {
+                self.nudge-write-pending = false;
+                CanvasView.nudging = false;
+            }
 
             init => {
                 self.focus();
+            }
+
+            function is-arrow-key(text: string) -> bool {
+                text == Key.LeftArrow || text == Key.RightArrow || text == Key.UpArrow || text == Key.DownArrow
+            }
+
+            function write-nudge() {
+                if self.nudge-write-pending {
+                    self.nudge-write-pending = false;
+                    if !Api.persist-selected-element-geometry() {
+                        CanvasView.nudging = false;
+                    }
+                }
+            }
+
+            function cancel-nudge() {
+                self.nudge-write-pending = false;
+                CanvasView.nudging = false;
+                Api.override-selected-element-geometry(
+                    self.nudge-origin.x,
+                    self.nudge-origin.y,
+                    CanvasView.selection.width,
+                    CanvasView.selection.height);
+            }
+
+            // Several edits in flight at once get lost, so quick taps share one write.
+            nudge-timer := Timer {
+                interval: 300ms;
+                running: editor.nudge-write-pending && !editor.nudge-key-held;
+                triggered => { editor.write-nudge(); }
             }
 
             capture-key-pressed(event) => {
@@ -383,6 +436,9 @@ export component EditorUi inherits Window {
                     self.shift-pressed = false;
                     return reject;
                 }
+                if self.is-arrow-key(event.text) && self.nudge-key-held {
+                    self.nudge-key-held = false;
+                }
                 reject
             }
 
@@ -394,6 +450,11 @@ export component EditorUi inherits Window {
                 }
                 let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
                 if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
+                    if self.nudge-write-pending || self.nudge-key-held {
+                        self.nudge-key-held = false;
+                        self.cancel-nudge();
+                        return accept;
+                    }
                     root.apply-history(event.modifiers.shift || redo-y);
                     return accept;
                 }
@@ -406,10 +467,38 @@ export component EditorUi inherits Window {
                     Api.selected-element-delete();
                     return accept;
                 }
+                if self.is-arrow-key(event.text) && Diagnostics.preview-editable
+                    && Api.selection.highlight-index >= 0 && Api.selection.is-moveable
+                    && CanvasView.selection.describes-element
+                    && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                    Hover.element = {};
+                    if !CanvasView.nudging {
+                        CanvasView.nudging = true;
+                        CanvasView.nudge-position = { x: CanvasView.selection.x, y: CanvasView.selection.y };
+                    }
+                    if !self.nudge-write-pending {
+                        self.nudge-origin = CanvasView.nudge-position;
+                    }
+                    self.nudge-key-held = true;
+                    self.nudge-write-pending = true;
+                    let step = event.modifiers.shift ? 10px : 1px;
+                    CanvasView.nudge-position = {
+                        x: CanvasView.nudge-position.x + (event.text == Key.LeftArrow ? -step : event.text == Key.RightArrow ? step : 0px),
+                        y: CanvasView.nudge-position.y + (event.text == Key.UpArrow ? -step : event.text == Key.DownArrow ? step : 0px),
+                    };
+                    Api.override-selected-element-geometry(
+                        CanvasView.nudge-position.x,
+                        CanvasView.nudge-position.y,
+                        CanvasView.selection.width,
+                        CanvasView.selection.height);
+                    return accept;
+                }
                 reject
             }
 
             focus-lost => {
+                self.nudge-key-held = false;
+                self.write-nudge();
                 self.shift-pressed = false;
                 CanvasView.space-pressed = false;
                 CanvasView.panning = false;
