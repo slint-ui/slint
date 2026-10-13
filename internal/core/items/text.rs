@@ -567,6 +567,41 @@ impl StyledTextItem {
         }
     }
 
+    /// Selects the text between two byte offsets, clamped to the raw text.
+    pub fn set_selection_offsets(
+        self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        anchor: i32,
+        focus: i32,
+    ) {
+        let styled = self.text();
+        let text = crate::styled_text::get_raw_text(&styled);
+        self.anchor_position_byte_offset.set(safe_byte_offset(anchor, &text) as i32);
+        self.cursor_position_byte_offset.set(safe_byte_offset(focus, &text) as i32);
+    }
+
+    /// Selects all the text.
+    pub fn select_all(
+        self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) {
+        let styled = self.text();
+        let text = crate::styled_text::get_raw_text(&styled);
+        self.anchor_position_byte_offset.set(0);
+        self.cursor_position_byte_offset.set(text.len() as i32);
+    }
+
+    /// Clears the selection, leaving the cursor where it is.
+    pub fn clear_selection(
+        self: Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) {
+        self.anchor_position_byte_offset.set(self.cursor_position_byte_offset());
+    }
+
     /// Pressing and dragging selects; a double click selects a word, a triple click a paragraph.
     /// A click that doesn't drag follows a link under it, as without `text-selectable`.
     /// `None` for the events the selection doesn't handle.
