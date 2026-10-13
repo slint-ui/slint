@@ -35,11 +35,11 @@ impl ElementRcNodeExt for i_slint_editor_preview::ElementRcNode {
         self.with_element_debug(|di| match &di.layout {
             Some(layout::Layout::GridLayout(_)) => ui::LayoutKind::Grid,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Horizontal,
+                orientation: i_slint_compiler::expression_types::Orientation::Horizontal,
                 ..
             })) => ui::LayoutKind::Horizontal,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Vertical,
+                orientation: i_slint_compiler::expression_types::Orientation::Vertical,
                 ..
             })) => ui::LayoutKind::Vertical,
             _ => ui::LayoutKind::None,
