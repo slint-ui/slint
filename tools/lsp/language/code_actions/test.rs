@@ -76,7 +76,7 @@ impl CodeActionRequest {
         )
         .unwrap();
         let actions =
-            super::get_code_actions(&mut document_cache, token, &capabilities).unwrap_or_default();
+            super::get_code_actions(&document_cache, token, &capabilities).unwrap_or_default();
         CodeActions { document_cache, url, cursor: self.cursor, actions }
     }
 }
