@@ -1282,6 +1282,22 @@ impl Rgb565BigEndianPixel {
 }
 
 impl TargetPixel for Rgb565BigEndianPixel {
+    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
+        if color.alpha == u8::MAX {
+            let pixel = Self::from_rgb(color.red, color.green, color.blue).0;
+            let pixels: &mut [u16] = bytemuck::cast_slice_mut(slice);
+            // The aligned middle covers pairs of the original u16 pixels.
+            let (prefix, words, suffix) = bytemuck::pod_align_to_mut::<u16, u32>(pixels);
+            prefix.fill(pixel);
+            words.fill(pixel as u32 | ((pixel as u32) << 16));
+            suffix.fill(pixel);
+        } else {
+            for pixel in slice {
+                pixel.blend(color);
+            }
+        }
+    }
+
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         // Reuse the canonical native-endian Rgb565Pixel::blend by decoding
         // from BE byte order, blending, and re-encoding. On targets with a
@@ -1551,4 +1567,36 @@ fn unit_alpha_map_matches_scalar_sampling_with_clipping_and_tiling() {
     check(Rgb565Pixel::from_rgb(41, 119, 213));
     check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
     check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
+}
+
+#[test]
+fn big_endian_word_fill_matches_pixel_fill_without_touching_neighbors() {
+    for value in 0..=u16::MAX {
+        let native = Rgb565Pixel(value);
+        let color = PremultipliedRgbaColor {
+            red: native.red(),
+            green: native.green(),
+            blue: native.blue(),
+            alpha: 255,
+        };
+        for start in 0..2 {
+            for len in [0, 1, 2, 3, 8, 9, 31] {
+                let mut actual = [Rgb565BigEndianPixel(0xa55a); 34];
+                let mut expected = actual;
+                Rgb565BigEndianPixel::blend_slice(&mut actual[start..start + len], color);
+                expected[start..start + len].fill(Rgb565BigEndianPixel(value.to_be()));
+                assert_eq!(actual, expected, "color {value}, start {start}, length {len}");
+            }
+        }
+    }
+    for alpha in 0..255 {
+        let color = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(alpha, 91, 237, 53));
+        let mut actual = [Rgb565BigEndianPixel(0xa55a); 33];
+        let mut expected = actual;
+        Rgb565BigEndianPixel::blend_slice(&mut actual[1..32], color);
+        for pixel in &mut expected[1..32] {
+            pixel.blend(color);
+        }
+        assert_eq!(actual, expected, "alpha {alpha}");
+    }
 }
