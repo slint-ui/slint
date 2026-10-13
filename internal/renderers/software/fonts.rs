@@ -232,13 +232,19 @@ where
 }
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
-    BITMAP_FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
+    BITMAP_FONTS.with(|fonts| {
+        let mut fonts = fonts.borrow_mut();
+        if !fonts.iter().any(|font| core::ptr::eq(*font, font_data)) {
+            fonts.push(font_data);
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use i_slint_core::lengths::LogicalLength;
+    use i_slint_core::slice::Slice;
     use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
 
     struct TestFont;
@@ -275,6 +281,26 @@ mod tests {
         fn glyph_for_char(&self, _ch: char) -> Option<Glyph<Self::Length>> {
             None
         }
+    }
+
+    #[test]
+    fn registering_a_font_again_keeps_one_entry() {
+        static FONT: BitmapFont = BitmapFont {
+            family_name: Slice::from_slice(b"Test"),
+            character_map: Slice::from_slice(&[]),
+            units_per_em: 1.,
+            ascent: 0.,
+            descent: 0.,
+            x_height: 0.,
+            cap_height: 0.,
+            glyphs: Slice::from_slice(&[]),
+            weight: 400,
+            italic: false,
+            sdf: false,
+        };
+        register_bitmap_font(&FONT);
+        register_bitmap_font(&FONT);
+        assert_eq!(BITMAP_FONTS.with(|fonts| fonts.borrow().len()), 1);
     }
 
     #[test]
