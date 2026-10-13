@@ -1,6 +1,6 @@
 ---
 title: Other
-description: The keys, easing, data-transfer, and mouse cursor types.
+description: The keys, easing, data-transfer, mouse cursor, and corner-shape types.
 ---
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
@@ -171,5 +171,42 @@ TouchArea {
 ```
 
 <BuiltInMouseCursor />
+
+</SlintProperty>
+
+## Geometry
+
+### corner-shape
+<SlintProperty propName="border-corner-shape" typeName="corner-shape" defaultValue="round">
+
+A `corner-shape` is the shape of a <Link type="Rectangle" /> corner.
+The corner's border radius sets its size, so a corner with no radius stays sharp whatever its shape.
+Slint follows CSS `corner-shape`, where every shape is a superellipse of exponent `k`.
+
+Set one of the named shapes, or `superellipse(k)` for any other exponent:
+
+```slint
+Rectangle {
+    border-radius: 16px;
+    border-corner-shape: bevel;
+}
+
+Rectangle {
+    border-radius: 16px;
+    border-corner-shape: superellipse(3);
+}
+```
+
+- `round`: a quarter circle, `superellipse(1)`. This is the default.
+- `squircle`: a smooth transition between round and square, `superellipse(2)`.
+- `bevel`: a straight diagonal cut, `superellipse(0)`.
+- `scoop`: a quarter circle cut into the corner, `superellipse(-1)`.
+- `notch`: a square cut into the corner, the limit of `superellipse(k)` as `k` goes to negative infinity.
+- `square`: a sharp corner, the limit of `superellipse(k)` as `k` goes to infinity.
+- `superellipse(k)`: a positive `k` bulges the corner outward, a negative `k` cuts into it.
+
+Use `corner-shape` within Slint code.
+The generated Rust and C++ code exposes a public `corner-shape` property through an internal type that may change in any release,
+and JavaScript and Python can't read or set it.
 
 </SlintProperty>

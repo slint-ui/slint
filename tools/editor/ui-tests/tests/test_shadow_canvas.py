@@ -784,24 +784,16 @@ def test_shadow_switches_enable_independently_and_support_keyboard_undo(
             ("offset-x", "0px"),
             ("offset-y", "8px"),
         ]
-        if shadow_family.name == "inner":
-            anchor = b"        background: #e5eaff;"
-            bindings = b"".join(
-                f"        {shadow_family.prefix}{name}: {value};\n".encode()
-                for name, value in properties
-            )
-            expected = baseline.replace(anchor, bindings + anchor)
-        else:
-            anchor = b"        height: 160px;"
-            bindings = b"".join(
-                f"        {shadow_family.prefix}{name}: {value};\n".encode()
-                for name, value in properties
-                if name != "blur"
-            )
-            expected = baseline.replace(anchor, bindings + anchor).replace(
-                b"        border-radius: 12px;",
-                b"        border-radius: 12px;\n        drop-shadow-blur: 16px;",
-            )
+        anchor = (
+            b"        background: #e5eaff;"
+            if shadow_family.name == "inner"
+            else b"        height: 160px;"
+        )
+        bindings = b"".join(
+            f"        {shadow_family.prefix}{name}: {value};\n".encode()
+            for name, value in properties
+        )
+        expected = baseline.replace(anchor, bindings + anchor)
         snapshot.wait_for_applied(expected)
         assert added == expected
         expect(control).to_be_enabled()

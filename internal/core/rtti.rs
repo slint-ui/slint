@@ -39,6 +39,7 @@ macro_rules! declare_ValueType {
             f64,
             crate::SharedString,
             crate::graphics::Image,
+            crate::graphics::CornerShape,
             crate::Color,
             PathData,
             crate::SharedVector<crate::Coord>,

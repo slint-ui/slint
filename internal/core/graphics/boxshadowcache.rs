@@ -9,6 +9,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use std::cell::{Cell, RefCell};
 
+use crate::graphics::CornerShapes;
 use crate::items::ItemRc;
 use crate::{
     Color,
@@ -32,6 +33,8 @@ pub struct BoxShadowOptions {
     pub blur: euclid::Length<f32, PhysicalPx>,
     /// The radii of the box shadow.
     pub radius: PhysicalBorderRadius,
+    /// The shape of each corner of the box shadow.
+    pub corner_shape: CornerShapes,
     /// The spread radius in physical pixels. Positive grows the shadow shape, negative shrinks it.
     pub spread: euclid::Length<f32, PhysicalPx>,
     /// Whether the shadow is rendered inside the element's geometry.
@@ -144,6 +147,7 @@ impl BoxShadowOptions {
             color,
             blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
             radius: box_shadow.logical_border_radius() * scale_factor,
+            corner_shape: box_shadow.logical_corner_shape(),
             spread: box_shadow.spread() * scale_factor,
             inset,
             offset_x_inset,
