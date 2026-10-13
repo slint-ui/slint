@@ -57,6 +57,10 @@ pub mod boxshadowcache;
 pub mod border_radius;
 pub use border_radius::*;
 
+pub mod corner_geometry;
+#[cfg(feature = "path")]
+pub mod corner_path;
+
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29;
 #[cfg(feature = "wgpu-30")]
