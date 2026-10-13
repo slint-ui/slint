@@ -311,9 +311,9 @@ SCENARIO("Component Compiler")
     {
         compiler.set_file_loader(
                 [](const std::filesystem::path &path) -> std::optional<std::string> {
-                    if (path.string() == "/loader/foo.slint") {
+                    if (path.generic_string() == "/loader/foo.slint") {
                         return "export component Foo {}";
-                    } else if (path.string() == "/loader/error.slint") {
+                    } else if (path.generic_string() == "/loader/error.slint") {
                         throw std::runtime_error("This will fail");
                     }
                     return std::nullopt;
