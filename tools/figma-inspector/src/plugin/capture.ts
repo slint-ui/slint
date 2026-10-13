@@ -1068,7 +1068,19 @@ export async function captureSource(
         return result;
     }
     source.root = await visit(root, false);
-    if (scope === "raster") source.root.type = "VECTOR";
+    if (scope === "raster") {
+        if (["SECTION", "TABLE", "TABLE_CELL"].includes(source.root.type)) {
+            for (const [key, value] of Object.entries({
+                opacity: 1,
+                rotation: 0,
+                visible: true,
+            })) {
+                if (!(key in source.root.properties))
+                    source.root.properties[key] = value;
+            }
+        }
+        source.root.type = "VECTOR";
+    }
     const definitions: ComponentLibrary<SourceNode<Bytes>>["definitions"] = [];
     const processedVariants = new Map<string, Set<string>>();
     // Visit only variants required by the selected tree. Each visit can
