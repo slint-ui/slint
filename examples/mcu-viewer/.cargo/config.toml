@@ -1,0 +1,9 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# cSpell: ignore TLSF
+
+[env]
+# With esp-alloc's default first-fit allocator, every design loaded fragments the heap,
+# and creating and rendering the next one gets slower
+ESP_ALLOC_CONFIG_HEAP_ALGORITHM = "TLSF"
