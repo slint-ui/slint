@@ -372,6 +372,8 @@ pub struct SkiaRenderer {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    shaped_border_cache: itemrenderer::ShapedBorderCache,
+    shaped_clip_cache: itemrenderer::ShapedClipCache,
     box_shadow_cache: itemrenderer::SkiaBoxShadowCache,
     text_layout_cache: sharedparley::TextLayoutCache,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
@@ -419,6 +421,8 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
+            shaped_border_cache: Default::default(),
+            shaped_clip_cache: Default::default(),
             box_shadow_cache: Default::default(),
             text_layout_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
@@ -548,6 +552,8 @@ impl SkiaRenderer {
         self.image_cache.clear_all();
         self.layer_cache.clear_all();
         self.path_cache.clear_all();
+        self.shaped_border_cache.clear_all();
+        self.shaped_clip_cache.clear_all();
         self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
     }
@@ -744,6 +750,8 @@ impl SkiaRenderer {
 
         self.image_cache.clear_cache_if_scale_factor_changed(window);
         self.path_cache.clear_cache_if_scale_factor_changed(window);
+        self.shaped_border_cache.clear_cache_if_scale_factor_changed(window);
+        self.shaped_clip_cache.clear_cache_if_scale_factor_changed(window);
         self.box_shadow_cache.clear_cache_if_scale_factor_changed(window);
 
         let mut skia_item_renderer = itemrenderer::SkiaItemRenderer::new(
@@ -753,6 +761,8 @@ impl SkiaRenderer {
             &self.image_cache,
             &self.layer_cache,
             &self.path_cache,
+            &self.shaped_border_cache,
+            &self.shaped_clip_cache,
             &self.text_layout_cache,
             &self.box_shadow_cache,
         );
@@ -960,6 +970,8 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.component_destroyed(component);
         self.layer_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
+        self.shaped_border_cache.component_destroyed(component);
+        self.shaped_clip_cache.component_destroyed(component);
         self.text_layout_cache.component_destroyed(component);
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
