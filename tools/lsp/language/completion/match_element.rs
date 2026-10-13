@@ -249,8 +249,8 @@ pub fn case_value_completions(
 
 #[cfg(test)]
 mod tests {
+    use crate::language::code_actions::test::CodeActionRequest;
     use crate::language::completion::tests::{get_completions, get_completions_experimental};
-    use crate::language::test::CodeActionRequest;
     use lsp_types::{CompletionItem, CompletionItemKind};
 
     fn match_body(body: &str) -> String {
