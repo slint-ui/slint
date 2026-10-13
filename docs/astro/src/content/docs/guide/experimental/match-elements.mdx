@@ -168,4 +168,22 @@ The match element feature is in its early stages. The following restrictions app
 
 - `@children` cannot appear inside a match case.
 
+- A `match` can't be the element of a `for` or an `if`, just as an `if` or `for` can't.
+  Wrap it in an element instead:
+
+  ```slint
+  export component StatusList {
+      in property <[int]> statuses: [0, 1, -1];
+
+      VerticalLayout {
+          for status in statuses: HorizontalLayout {
+              match status {
+                  0: Rectangle { background: green; }
+                  *: Rectangle { background: gray; }
+              }
+          }
+      }
+  }
+  ```
+
 - `match` cannot appear in global components or interfaces. Only regular components support match elements.
