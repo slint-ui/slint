@@ -13,10 +13,12 @@ use crate::editor_preview;
 use crate::editor_preview::LspToPreviews;
 
 // Fixtures for the shared document model live with it.
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub use i_slint_editor_preview::test::preview_capture;
 pub use i_slint_editor_preview::test::{
     complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
     loaded_document_cache, loaded_document_cache_with_experimental,
-    loaded_document_cache_with_file_name, preview_capture,
+    loaded_document_cache_with_file_name,
 };
 
 use super::Context;
