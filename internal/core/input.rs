@@ -1437,7 +1437,8 @@ pub(crate) struct DragData {
 /// See "Delayed Event Handling" in `docs/development/input-event-system.md`.
 struct DelayedPress {
     /// Replays `event_for_children` when it fires; dropping it cancels the replay.
-    _timer: crate::timers::Timer,
+    /// `None` once it fired without a claim, leaving only the replay on release.
+    _timer: Option<crate::timers::Timer>,
     /// The press in the delaying item's local frame, replayed to its children when `timer` fires.
     event_for_children: MouseEvent,
     /// The press in `root`'s frame, replayed from `root` on release.
@@ -1857,11 +1858,10 @@ pub(crate) fn process_delayed_event(
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     // the take bellow will also destroy the Timer
-    let (event, original_event) = match mouse_input_state.delayed.take() {
-        Some(DelayedPress { event_for_children, original_event, .. }) => {
-            (event_for_children, original_event)
-        }
-        None => return mouse_input_state,
+    let Some(DelayedPress { event_for_children: event, original_event, root, .. }) =
+        mouse_input_state.delayed.take()
+    else {
+        return mouse_input_state;
     };
 
     let top_item = match mouse_input_state.top_item() {
@@ -1890,11 +1890,15 @@ pub(crate) fn process_delayed_event(
             )
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
-    vtable::VRc::borrow_pin(top_item.item_tree()).as_ref().visit_children_item(
+    let r = vtable::VRc::borrow_pin(top_item.item_tree()).as_ref().visit_children_item(
         top_item.index() as isize,
         crate::item_tree::TraversalOrder::FrontToBack,
         actual_visitor,
     );
+    if !r.has_aborted() {
+        mouse_input_state.delayed =
+            Some(DelayedPress { _timer: None, event_for_children: event, original_event, root });
+    }
     mouse_input_state.send_delayed_exit_events(window_adapter);
     mouse_input_state
 }
@@ -2022,7 +2026,7 @@ fn send_mouse_event_to_item(
                 },
             );
             result.delayed = Some(DelayedPress {
-                _timer: timer,
+                _timer: Some(timer),
                 event_for_children: event_for_children.clone(),
                 original_event: original_event.clone(),
                 root: root.downgrade(),
