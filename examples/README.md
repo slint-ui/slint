@@ -33,6 +33,7 @@ These examples demonstrate specialized features or integrations:
 
 | Example | Description |
 | --- | --- |
+| [corner-shape-studio](./corner-shape-studio/) | Frameless interface with corner shapes, clipped artwork, and an adjustable inset |
 | [fancy_demo](./fancy_demo/) | Custom widget implementations built from scratch (buttons, sliders, checkboxes, MDI windows) |
 | [fancy-switches](./fancy-switches/) | Fancy toggle switch animations |
 | [dial](./dial/) | Rotary dial control |
