@@ -3,6 +3,8 @@
 
 // cSpell: ignore rfind unindented
 
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+mod show_preview;
 #[cfg(test)]
 pub mod test;
 
@@ -90,18 +92,7 @@ pub fn get_code_actions(
     let mut result = Vec::new();
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    {
-        if let Some(component) = &ctx.component
-            && let Some(component_name) =
-                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
-        {
-            result.push(CodeActionOrCommand::Command(super::create_show_preview_command(
-                false,
-                &ctx.uri,
-                &component_name,
-            )))
-        }
-    }
+    show_preview::add(&ctx, &mut result);
 
     if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
         let r = util::text_range_to_lsp_range(
@@ -589,30 +580,6 @@ export component Test {
 "#,
             )
             .compiles();
-    }
-
-    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    #[test]
-    fn test_code_action_show_preview() {
-        const SOURCE: &str = "export component TestWindow inherits Window { }\n";
-        let url = crate::editor_preview::test::main_test_file_name().to_url().unwrap();
-        for offset in [
-            SOURCE.find("export").unwrap(),
-            SOURCE.find("component").unwrap(),
-            SOURCE.find("TestWindow").unwrap(),
-            SOURCE.rfind("Window").unwrap(),
-        ] {
-            let actions = CodeActionRequest::at_offset(SOURCE, offset).load();
-            assert_eq!(actions.titles(), ["Show Preview"], "offset {offset}");
-            assert_eq!(
-                actions.command("Show Preview"),
-                &lsp_types::Command::new(
-                    "Show Preview".into(),
-                    crate::language::SHOW_PREVIEW_COMMAND.into(),
-                    Some(vec![url.as_str().into(), "TestWindow".into()]),
-                )
-            );
-        }
     }
 
     #[test]
