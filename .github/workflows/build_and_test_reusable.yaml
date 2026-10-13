@@ -58,6 +58,11 @@ on:
                 required: false
                 type: boolean
                 default: true
+            test_styles:
+                description: 'Comma-separated widget styles to run the widget tests with (default: all)'
+                required: false
+                type: string
+                default: ""
             check_deterministic_output:
                 description: 'Check that the Rust driver compiles each test case to the same code twice'
                 required: false
@@ -87,6 +92,7 @@ jobs:
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
             SLINT_EMIT_DEBUG_INFO: 1
+            SLINT_TEST_STYLES: ${{ inputs.test_styles }}
             CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
             SLINT_TEST_DETERMINISTIC_OUTPUT: ${{ inputs.check_deterministic_output && '1' || '' }}
 
