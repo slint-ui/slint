@@ -3263,6 +3263,20 @@ impl Element {
         }
     }
 
+    /// [`crate::lookup::did_you_mean`] among the properties that a binding can set.
+    fn did_you_mean_property(&self, name: &str) -> String {
+        let declared = self.property_declarations.iter().map(|(k, d)| d.declared_name(k).clone());
+        let inherited = self.base_type.property_list().into_iter().map(|(name, _)| name);
+        let reserved =
+            crate::typeregister::reserved_properties().map(|(name, ..)| SmolStr::new_static(name));
+        let candidates = declared.chain(inherited).chain(reserved).filter(|candidate| {
+            self.lookup_property(candidate, PropertyLookupMode::ComponentLocal)
+                .property_type
+                .is_property_type()
+        });
+        crate::lookup::did_you_mean(name, candidates)
+    }
+
     fn lookup_result_for_declaration<'a>(
         &self,
         resolved_name: std::borrow::Cow<'a, str>,
@@ -3305,10 +3319,13 @@ impl Element {
                             if self.base_type != ElementType::Error {
                                 let msg = if let Some(suggestion) = css_property_suggestion(&unresolved_name, &self.base_type) {
                                     suggestion
-                                } else if self.base_type.to_smolstr() == "Empty" {
-                                    format!( "Unknown property {unresolved_name}")
                                 } else {
-                                    format!( "Unknown property {unresolved_name} in {}", self.base_type)
+                                    let hint = self.did_you_mean_property(&unresolved_name);
+                                    if self.base_type.to_smolstr() == "Empty" {
+                                        format!( "Unknown property {unresolved_name}{hint}")
+                                    } else {
+                                        format!( "Unknown property {unresolved_name} in {}{hint}", self.base_type)
+                                    }
                                 };
                                 diag.push_error(msg, &name_token);
                             }
