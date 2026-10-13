@@ -1370,6 +1370,8 @@ impl CompilationResult {
 ///
 /// The ComponentDefinition acts as a factory to create new instances. When you've finished
 /// creating the instances it is safe to drop the ComponentDefinition.
+///
+/// Clones of a ComponentDefinition share the same underlying data, so cloning is cheap.
 #[derive(Clone)]
 pub struct ComponentDefinition {
     pub(crate) inner: std::rc::Rc<crate::component::ComponentDefinitionInner>,
