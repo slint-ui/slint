@@ -45,8 +45,82 @@ export component App inherits Rectangle {
 ```
 
 Assigning an untyped slot is optional.
-An unassigned untyped slot renders nothing.
+An unassigned untyped slot renders its default content, or nothing if no default is declared.
 [Typed slots](#typed-slots) require a supplied component.
+
+## Default Content
+
+Put elements inside an untyped slot placeholder to supply defaults.
+Supplying the slot replaces all default elements and removes their layout constraints.
+
+```slint
+export component CardWithDefault inherits Rectangle {
+    slot heading;
+    VerticalLayout {
+        heading {
+            Text { text: "Untitled"; }
+        }
+        @children
+    }
+}
+
+export component App inherits Window {
+    CardWithDefault {
+        heading << Text { text: "Project"; }
+        Text { text: "Details"; }
+    }
+}
+```
+
+The compiler rejects references to elements inside a slot's defaults from outside those defaults.
+For example, the following binding is a compiler error because replacing `bar` removes `i-text`:
+
+```slint no-test
+component Foo {
+    slot bar;
+    Text { text: i-text.text; }
+    bar {
+        i-text := Text { text: "Default"; }
+    }
+}
+```
+
+References between elements inside the same slot's defaults are allowed.
+For shared state, declare a property on the host component and bind both the defaults and other elements to it.
+
+Wrap bindings, conditional elements, or repeated elements in a default component or layout.
+Slot placeholders can't appear inside another slot's default content.
+Inheritance and forwarding preserve unassigned defaults.
+Typed slots require supplied content and don't support defaults.
+
+### Overriding Inherited Defaults
+
+Place a placeholder for an inherited untyped slot at the derived component's root to replace its defaults.
+Redeclaring an inherited slot is a compiler error.
+The slot keeps its inherited position and remains available to callers.
+An empty placeholder removes the inherited defaults.
+
+```slint
+component Base {
+    slot content;
+    VerticalLayout {
+        content { Text { text: "Base default"; } }
+    }
+}
+
+component Derived inherits Base {
+    content { Text { text: "Derived default"; } }
+}
+
+export component Example inherits Window {
+    Derived {
+        content << Text { text: "Caller replacement"; }
+    }
+}
+```
+
+Use a concrete slot assignment when the derived component should consume the slot instead.
+Don't combine a default placeholder and a concrete assignment for the same slot.
 
 ## Referencing a slot
 
