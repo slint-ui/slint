@@ -234,6 +234,8 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
+        // Also releases the winit window the callback holds on to.
+        self.renderer.set_pre_present_callback(None);
         self.renderer.clear_graphics_context()
     }
 
@@ -287,6 +289,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
                 Ok(())
             },
         )?;
+
+        self.renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || winit_window.pre_present_notify()
+        })));
 
         Ok(winit_window)
     }
