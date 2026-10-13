@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBoxPopupSurface } from "combo_box_base.slint";
+
+export component ComboBoxPopupBase {
+    implement ComboBoxPopupSurface <=> self;
+    in property <bool> enabled: true;
+    in property <[string]> model;
+    out property <int> count: root.model.length;
+    in property <int> current-index;
+    in property <int> highlighted-index;
+    in property <length> anchor-height;
+    in property <length> popup-width;
+    in property <length> popup-height;
+    in property <length> popup-padding: 4px;
+    in property <length> item-height: 32px;
+    in property <int> maximum-visible-items: 8;
+    out property <bool> opened: window.is-open;
+    out property <bool> focused: root.opened && root.popup-focused;
+    callback highlight(index: int);
+    callback selected(index: int);
+    callback key-event(event: KeyEvent) -> EventResult;
+    private property <bool> popup-focused;
+    x: 0px;
+    y: 0px;
+    width: 0px;
+    height: 0px;
+
+    public function open() {
+        if root.enabled && root.model.length > 0 { window.show(); }
+    }
+    public function close() { window.close(); }
+    changed enabled => { if !root.enabled { window.close(); } }
+
+    window := PopupWindow {
+        x: 0px;
+        y: root.anchor-height + 2px;
+        width: root.popup-width;
+        height: root.popup-height;
+        close-policy: close-on-click-outside;
+        forward-focus: popup-keys;
+        popup-keys := FocusScope {
+            focus-changed-event => { root.popup-focused = self.has-focus; }
+            capture-key-pressed(event) => { return root.key-event(event); }
+            @children
+        }
+    }
+}
