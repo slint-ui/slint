@@ -235,12 +235,7 @@ fn create_backdrop_blur_element(
         ..Default::default()
     };
     element.set_binding(SmolStr::new_static("blur"), binding);
-    bind_corners(
-        &mut element,
-        sibling_element,
-        "border-radius",
-        super::border_radius::BORDER_RADIUS_PROPERTIES,
-    );
+    bind_corners_to_sibling(&mut element, sibling_element);
     Some(element)
 }
 
