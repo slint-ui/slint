@@ -13,7 +13,7 @@ const firstSource = await readFixture("fixtures/button.slint");
 const secondSource = await readFixture("fixtures/frame.slint");
 
 test.each([false, true])(
-    "a valid preview cannot publish an invalid reusable export (unchanged preview: %s)",
+    "a valid preview survives an invalid reusable export (unchanged preview: %s)",
     async (warm) => {
         const p = await mountPreview();
         if (warm) {
@@ -40,10 +40,14 @@ test.each([false, true])(
         expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(
             true,
         );
+        await p.ready(2);
         expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(
-            true,
+            false,
         );
-        expect(p.element("#source-view").textContent).toBe("");
+        await expect
+            .poll(() => p.element("#source-view").textContent)
+            .toBe(firstSource);
+        expect(p.element("#preview-canvas").style.visibility).toBe("visible");
         p.send({
             type: "preview-source",
             revision: 3,

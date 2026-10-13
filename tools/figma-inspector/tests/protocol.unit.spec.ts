@@ -182,3 +182,15 @@ describe("milestone7", () => {
         expect(isUiToPluginMessage({ type: "ui-ready" })).toBe(false);
     });
 });
+
+test("preview source can omit export while malformed export packages are rejected", () => {
+    const message = {
+        type: "preview-source",
+        revision: 1,
+        source: "export component Preview inherits Window {}",
+    };
+    expect(isPluginToUiMessage(message)).toBe(true);
+    for (const exportPackage of [null, {}, { source: 42, files: [] }]) {
+        expect(isPluginToUiMessage({ ...message, exportPackage })).toBe(false);
+    }
+});

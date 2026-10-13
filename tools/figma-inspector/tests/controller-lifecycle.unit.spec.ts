@@ -62,7 +62,12 @@ function setup() {
         getContext: vi.fn().mockReturnValue(context),
     };
     const status = { dataset: {} as Record<string, string>, textContent: "" };
-    const diagnostics = { dataset: {}, hidden: true, textContent: "" };
+    const diagnostics = {
+        dataset: {} as Record<string, string>,
+        hidden: true,
+        textContent: "",
+        replaceChildren: vi.fn(),
+    };
     const controller = new PreviewController(
         canvas as unknown as HTMLCanvasElement,
         status as unknown as HTMLElement,
@@ -199,3 +204,43 @@ test("releases the failed instance and compilation wrappers when show rejects", 
     expect(status.dataset).toEqual({ state: "error", revision: "1" });
     expect(canvas.style.visibility).toBe("hidden");
 });
+
+test.each(["diagnostic", "rejection"])(
+    "export compiler %s preserves the shown preview",
+    async (failure) => {
+        const { controller, canvas, status, diagnostics } = setup();
+        vi.stubGlobal("document", {
+            createElement: () => ({ append: vi.fn(), textContent: "" }),
+        });
+        const preview = compiled();
+        runtime.compile.mockResolvedValueOnce(preview.result);
+        if (failure === "diagnostic")
+            runtime.compile.mockResolvedValueOnce({
+                component: undefined,
+                error_string: "Invalid export",
+                free: vi.fn(),
+            });
+        else
+            runtime.compile.mockRejectedValueOnce(
+                Error("Export compiler rejected"),
+            );
+        await controller.initialize("preview", 1, undefined, [], "export");
+        expect(runtime.compile.mock.calls.map((call) => call[0])).toEqual([
+            "preview",
+            "export",
+        ]);
+        expect(preview.instance.show).toHaveBeenCalledOnce();
+        expect(status.dataset).toEqual({ state: "ready", revision: "1" });
+        expect(canvas.style.visibility).toBe("visible");
+        expect(diagnostics.dataset.severity).toBe("warning");
+        expect(canvas.dispatchEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: "preview-export-error",
+                detail: expect.objectContaining({ revision: 1 }),
+            }),
+        );
+        expect(canvas.dispatchEvent).not.toHaveBeenCalledWith(
+            expect.objectContaining({ type: "preview-error" }),
+        );
+    },
+);

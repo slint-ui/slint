@@ -412,38 +412,56 @@ export class PreviewController {
             );
             return;
         }
-        if (
-            validationSource !== undefined &&
-            validationSource !== source &&
-            validationSource !== this.validatedSource
-        ) {
-            this.setState("compiling", revision);
-            const validationStart = defaultClock.monotonicNow();
-            const validation = await compile_from_string(
-                validationSource,
-                "",
-                undefined,
-            );
-            try {
-                const component = validation.component;
-                component?.free();
-                const error = validation.error_string.trim();
-                if (error !== "")
-                    throw Error(`Export compilation failed:\n${error}`);
-                if (component === undefined)
-                    throw Error(
-                        "Slint compiler did not return an export component",
+        const renderWarnings = [...warnings];
+        const completePreview = async (
+            outcome: "unchanged" | "rendered",
+        ): Promise<void> => {
+            if (
+                validationSource !== undefined &&
+                validationSource !== source &&
+                validationSource !== this.validatedSource
+            ) {
+                const validationStart = defaultClock.monotonicNow();
+                let validation:
+                    | Awaited<ReturnType<typeof compile_from_string>>
+                    | undefined;
+                try {
+                    validation = await compile_from_string(
+                        validationSource,
+                        "",
+                        undefined,
                     );
-                this.validatedSource = validationSource;
-            } finally {
-                validation.free();
-                if (workingTrace)
-                    workingTrace.phases.slintCompilation =
-                        (workingTrace.phases.slintCompilation ?? 0) +
-                        Math.max(
-                            0,
-                            defaultClock.monotonicNow() - validationStart,
+                    const component = validation.component;
+                    component?.free();
+                    const error = validation.error_string.trim();
+                    if (error !== "")
+                        throw Error(`Export compilation failed:\n${error}`);
+                    if (component === undefined)
+                        throw Error(
+                            "Slint compiler did not return an export component",
                         );
+                    this.validatedSource = validationSource;
+                } catch (error) {
+                    renderWarnings.push({
+                        severity: "warning",
+                        code: "EXPORT_COMPILATION_ERROR",
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                    });
+                    if (this.isCurrentRevision(revision))
+                        this.dispatch("preview-export-error", revision);
+                } finally {
+                    validation?.free();
+                    if (workingTrace)
+                        workingTrace.phases.slintCompilation =
+                            (workingTrace.phases.slintCompilation ?? 0) +
+                            Math.max(
+                                0,
+                                defaultClock.monotonicNow() - validationStart,
+                            );
+                }
             }
             if (!this.isCurrentRevision(revision)) {
                 finishTrace(
@@ -454,17 +472,18 @@ export class PreviewController {
                 );
                 return;
             }
-        }
-        if (this.instance !== undefined && this.renderedSource === source) {
-            this.showWarnings(warnings);
+            this.showWarnings(renderWarnings);
             this.setState("ready", revision);
             const finished = finishTrace(
                 workingTrace,
-                "unchanged",
+                outcome,
                 acceptedAtMonotonicMs,
                 this.onTrace,
             );
             this.dispatch("preview-rendered", revision, finished);
+        };
+        if (this.instance !== undefined && this.renderedSource === source) {
+            await completePreview("unchanged");
             return;
         }
         if (workingTrace !== undefined) {
@@ -590,15 +609,8 @@ export class PreviewController {
                     );
                     return;
                 }
-                this.showWarnings(warnings);
-                this.setState("ready", revision);
-                const finished = finishTrace(
-                    workingTrace,
-                    "rendered",
-                    acceptedAtMonotonicMs,
-                    this.onTrace,
-                );
-                this.dispatch("preview-rendered", revision, finished);
+                this.canvas.style.visibility = "visible";
+                await completePreview("rendered");
             } catch (error) {
                 if (instance !== undefined) this.freeInstance(instance);
                 throw error;
