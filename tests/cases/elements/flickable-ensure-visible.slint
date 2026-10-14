@@ -1,145 +1,257 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Button } from "std-widgets.slint";
 export component TestCase inherits Window {
     width: 500phx;
     height: 500phx;
+    no-frame: false;
 
-    public function reveal(index: int, behavior: ScrollBehavior) {
-        if index == 0 {
-            red-rectangle.ensure-visible(behavior);
-        } else if index == 1 {
-            blue-rectangle.ensure-visible(behavior);
-        } else if index == 2 {
-            green-rectangle.ensure-visible(behavior);
+    callback ensure_visible_(int, ScrollBehavior);
+    ensure_visible_(rectangle_index, mode) => {
+        if rectangle-index == 0 {
+            r1.ensure_visible(mode);
+        } else if rectangle-index == 1 {
+            r2.ensure_visible(mode);
+        } else if rectangle-index == 2 {
+            r3.ensure_visible(mode);
         }
     }
 
-    f := Flickable {
-        content_width: 1000phx;
-        content_height: 1000phx;
-
-        red-rectangle := Rectangle {
-            x: 0px;
-            y: 0px;
-            width: 100px;
-            height: 100px;
-            background: red;
+    VerticalLayout {
+        Button {
+            property <int> counter: 0;
+            text: "Press";
+            clicked => {
+                root.ensure_visible_(counter, ScrollBehavior.instant);
+                counter = mod(counter + 1, 3);
+            }
         }
 
-        blue-rectangle := Rectangle {
-            x: 300px;
-            y: 300px;
-            width: 100px;
-            height: 100px;
-            background: blue;
-        }
+        f := Flickable {
+            content_width: 1000phx;
+            content_height: 1000phx;
 
-        green-rectangle := Rectangle {
-            x: 700px;
-            y: 700px;
-            width: 100px;
-            height: 100px;
-            background: green;
+            r1 := Rectangle {
+                x: 0px;
+                y: 0px;
+                width: 100px;
+                height: 100px;
+                background: red;
+            }
+
+            r2 := Rectangle {
+                x: 300px;
+                y: 300px;
+                width: 100px;
+                height: 100px;
+                background: blue;
+            }
+
+            r3 := Rectangle {
+                x: 700px;
+                y: 700px;
+                width: 100px;
+                height: 100px;
+                background: green;
+            }
         }
     }
 
-    out property <length> offset_x: -f.content_x;
-    out property <length> offset_y: -f.content_y;
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
+    out property <length> flickable_width: f.width;
+    out property <length> flickable_height: f.height;
 }
 
 /*
 
+/// Instant scrolling
 ```rust
 use slint::language::ScrollBehavior;
+use slint::LogicalPosition;
 
-const RED: i32 = 0;
-const BLUE: i32 = 1;
-const GREEN: i32 = 2;
+let instance = TestCase::new().unwrap();
 
-for behavior in [ScrollBehavior::Instant, ScrollBehavior::Smooth] {
-    let instance = TestCase::new().unwrap();
+const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
+const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
+const GREEN_RECTANGLE_WIDTH: f32 = 100.;
+const GREEN_RECTANGLE_HEIGHT: f32 = 100.;
+const SCROLL_BEHAVIOR: ScrollBehavior = ScrollBehavior::Instant;
+const RED_RECTANGLE_INDEX: i32 = 0;
+const BLUE_RECTANGLE_INDEX: i32 = 1;
+const GREEN_RECTANGLE_INDEX: i32 = 2;
 
-    // Already in view
-    instance.invoke_reveal(RED, behavior);
-    instance.invoke_reveal(BLUE, behavior);
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq!(instance.get_offset_x(), 0., "{behavior:?}");
-    assert_eq!(instance.get_offset_y(), 0., "{behavior:?}");
 
-    // Scrolls until the bottom right corner is in view
-    instance.invoke_reveal(GREEN, behavior);
-    if behavior == ScrollBehavior::Smooth {
-        assert_eq!(instance.get_offset_x(), 0., "The animation didn't start yet");
-        assert_eq!(instance.get_offset_y(), 0., "The animation didn't start yet");
-    }
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq!(instance.get_offset_x(), 300., "{behavior:?}");
-    assert_eq!(instance.get_offset_y(), 300., "{behavior:?}");
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
 
-    // Scrolls back until the top left corner is in view
-    instance.invoke_reveal(RED, behavior);
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq!(instance.get_offset_x(), 0., "{behavior:?}");
-    assert_eq!(instance.get_offset_y(), 0., "{behavior:?}");
-}
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
+
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+
+assert_eq!(instance.get_offset_x(), POS_GREEN_RECTANGLE.x + GREEN_RECTANGLE_WIDTH - instance.get_flickable_width(), "The flickable scrolls until the right edge of the green rectangle is in view");
+assert_eq!(instance.get_offset_y(), POS_GREEN_RECTANGLE.y + GREEN_RECTANGLE_HEIGHT - instance.get_flickable_height(), "The flickable scrolls until the bottom edge of the green rectangle is in view");
+
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+
+assert_eq!(instance.get_offset_x(), POS_RED_RECTANGLE.x, "The flickable scrolls until the left edge of the red rectangle is in view");
+assert_eq!(instance.get_offset_y(), POS_RED_RECTANGLE.y, "The flickable scrolls until the top edge of the red rectangle is in view");
 ```
 
+/// Smooth scrolling
+```rust
+use slint::language::ScrollBehavior;
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+
+const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
+const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
+const GREEN_RECTANGLE_WIDTH: f32 = 100.;
+const GREEN_RECTANGLE_HEIGHT: f32 = 100.;
+const SCROLL_BEHAVIOR: ScrollBehavior = ScrollBehavior::Smooth;
+const RED_RECTANGLE_INDEX: i32 = 0;
+const BLUE_RECTANGLE_INDEX: i32 = 1;
+const GREEN_RECTANGLE_INDEX: i32 = 2;
+
+
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
+
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+assert_eq!(instance.get_offset_x(), 0., "The flickable did not scroll yet");
+assert_eq!(instance.get_offset_y(), 0., "The flickable did not scroll yet");
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), POS_GREEN_RECTANGLE.x + GREEN_RECTANGLE_WIDTH - instance.get_flickable_width(), "The flickable scrolls until the right edge of the green rectangle is in view");
+assert_eq!(instance.get_offset_y(), POS_GREEN_RECTANGLE.y + GREEN_RECTANGLE_HEIGHT - instance.get_flickable_height(), "The flickable scrolls until the bottom edge of the green rectangle is in view");
+
+
+let offset_x = instance.get_offset_x();
+let offset_y = instance.get_offset_y();
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_BEHAVIOR);
+assert_eq!(instance.get_offset_x(), offset_x, "The flickable did not scroll yet");
+assert_eq!(instance.get_offset_y(), offset_y, "The flickable did not scroll yet");
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), POS_RED_RECTANGLE.x, "The flickable scrolls until the left edge of the red rectangle is in view");
+assert_eq!(instance.get_offset_y(), POS_RED_RECTANGLE.y, "The flickable scrolls until the top edge of the red rectangle is in view");
+```
+
+/// Instant scrolling
 ```cpp
 using slint::language::ScrollBehavior;
 
-for (auto behavior : { ScrollBehavior::Instant, ScrollBehavior::Smooth }) {
-    auto handle = TestCase::create();
-    const TestCase &instance = *handle;
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
 
-    instance.invoke_reveal(0, behavior);
-    instance.invoke_reveal(1, behavior);
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq(instance.get_offset_x(), 0.);
-    assert_eq(instance.get_offset_y(), 0.);
+instance.invoke_ensure_visible_(0, ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
 
-    instance.invoke_reveal(2, behavior);
-    if (behavior == ScrollBehavior::Smooth) {
-        assert_eq(instance.get_offset_x(), 0.);
-        assert_eq(instance.get_offset_y(), 0.);
-    }
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq(instance.get_offset_x(), 300.);
-    assert_eq(instance.get_offset_y(), 300.);
+instance.invoke_ensure_visible_(1, ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
 
-    instance.invoke_reveal(0, behavior);
-    slint_testing::mock_elapsed_time(5000);
-    assert_eq(instance.get_offset_x(), 0.);
-    assert_eq(instance.get_offset_y(), 0.);
-}
+instance.invoke_ensure_visible_(2, ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 800. - instance.get_flickable_width());
+assert_eq(instance.get_offset_y(), 800. - instance.get_flickable_height());
+
+instance.invoke_ensure_visible_(0, ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
 ```
 
+/// Smooth scrolling
+```cpp
+using slint::language::ScrollBehavior;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_ensure_visible_(0, ScrollBehavior::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(1, ScrollBehavior::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_ensure_visible_(2, ScrollBehavior::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 800. - instance.get_flickable_width());
+assert_eq(instance.get_offset_y(), 800. - instance.get_flickable_height());
+
+auto offset_x = instance.get_offset_x();
+auto offset_y = instance.get_offset_y();
+instance.invoke_ensure_visible_(0, ScrollBehavior::Smooth);
+assert_eq(instance.get_offset_x(), offset_x);
+assert_eq(instance.get_offset_y(), offset_y);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+```
+
+/// Instant scrolling
 ```js
-const EPSILON = 0.001;
+var instance = new slint.TestCase({});
 
-for (const behavior of ["instant", "smooth"]) {
-    var instance = new slint.TestCase({});
+instance.ensure_visible_(0, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
 
-    instance.reveal(0, behavior);
-    instance.reveal(1, behavior);
-    slintlib.private_api.mock_elapsed_time(5000);
-    assert(Math.abs(instance.offset_x) < EPSILON, `${behavior}: ${instance.offset_x}`);
-    assert(Math.abs(instance.offset_y) < EPSILON, `${behavior}: ${instance.offset_y}`);
+instance.ensure_visible_(1, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
 
-    instance.reveal(2, behavior);
-    if (behavior === "smooth") {
-        assert(Math.abs(instance.offset_x) < EPSILON, `${behavior}: ${instance.offset_x}`);
-        assert(Math.abs(instance.offset_y) < EPSILON, `${behavior}: ${instance.offset_y}`);
-    }
-    slintlib.private_api.mock_elapsed_time(5000);
-    assert(Math.abs(instance.offset_x - 300) < EPSILON, `${behavior}: ${instance.offset_x}`);
-    assert(Math.abs(instance.offset_y - 300) < EPSILON, `${behavior}: ${instance.offset_y}`);
+instance.ensure_visible_(2, "instant");
+assert(instance.offset_x === 800 - instance.flickable_width, instance.offset_x);
+assert(instance.offset_y === 800 - instance.flickable_height, instance.offset_y);
 
-    instance.reveal(0, behavior);
-    slintlib.private_api.mock_elapsed_time(5000);
-    assert(Math.abs(instance.offset_x) < EPSILON, `${behavior}: ${instance.offset_x}`);
-    assert(Math.abs(instance.offset_y) < EPSILON, `${behavior}: ${instance.offset_y}`);
-}
+instance.ensure_visible_(0, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
 ```
 
+/// Smooth scrolling
+```js
+var instance = new slint.TestCase({});
+
+instance.ensure_visible_(0, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(1, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.ensure_visible_(2, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 800 - instance.flickable_width, instance.offset_x);
+assert(instance.offset_y === 800 - instance.flickable_height, instance.offset_y);
+
+let offset_x = instance.offset_x;
+let offset_y = instance.offset_y;
+instance.ensure_visible_(0, "smooth");
+assert(instance.offset_x === offset_x, instance.offset_x);
+assert(instance.offset_y === offset_y, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+```
 */
