@@ -738,7 +738,6 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            reads_project_file: true,
             project_file_loader: None,
             resource_loader: None,
         };
@@ -771,7 +770,6 @@ impl ComponentCompiler {
         let compiler = Compiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
-            reads_project_file: true,
             project_file_loader: None,
             resource_loader: None,
         };
@@ -801,7 +799,6 @@ impl ComponentCompiler {
 pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,
-    reads_project_file: bool,
     project_file_loader: Option<i_slint_compiler::OpenImportCallback>,
     resource_loader: Option<crate::component::ResourceLoader>,
 }
@@ -814,7 +811,6 @@ impl Default for Compiler {
         Self {
             config,
             overrides: Default::default(),
-            reads_project_file: true,
             project_file_loader: None,
             resource_loader: None,
         }
@@ -825,14 +821,6 @@ impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Sets whether this compiler looks for a `slint-project.json` for the files it compiles.
-    /// The live preview turns this off, since the editor sends it the project's settings.
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub fn set_reads_project_file(&mut self, reads_project_file: bool) {
-        self.reads_project_file = reads_project_file;
     }
 
     #[doc(hidden)]
@@ -1100,11 +1088,10 @@ impl Compiler {
                 },
             ) as i_slint_compiler::OpenImportCallback
         };
-        let resolves_project = self.reads_project_file
-            && (input.as_native_path().is_some()
-                || self.project_file_loader.is_some()
-                || (input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME)
-                    && source_code.is_some()));
+        let resolves_project = input.as_native_path().is_some()
+            || self.project_file_loader.is_some()
+            || (input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME)
+                && source_code.is_some());
         let resolved = if resolves_project {
             i_slint_compiler::project_file::resolve_input_with_file_loader(
                 input.clone(),
@@ -3442,7 +3429,6 @@ mod project_file_tests {
             ] {
                 for static_compilation in [false, true] {
                     let mut compiler = Compiler::default();
-                    compiler.set_reads_project_file(false);
                     compiler.compiler_configuration(i_slint_core::InternalToken).include_paths =
                         vec![include_directory.clone()];
                     compiler.set_include_paths(Vec::new());
@@ -3544,29 +3530,6 @@ mod project_file_tests {
             assert_eq!(
                 definition.map(|definition| definition.name().to_string()),
                 Some("Main".into())
-            );
-        });
-    }
-
-    #[test]
-    #[cfg(feature = "internal")]
-    fn a_compiler_can_ignore_the_project_file() {
-        with_project("{", |root| {
-            let mut compiler = Compiler::default();
-            compiler.set_reads_project_file(false);
-            let main = root.join("main.slint");
-            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
-
-            let from_path = spin_on::spin_on(compiler.build_from_path(&main));
-            assert!(!from_path.has_errors(), "{:?}", from_path.diagnostics().collect::<Vec<_>>());
-            let from_source = spin_on::spin_on(
-                compiler
-                    .build_from_source("export component Main inherits Window { }".into(), main),
-            );
-            assert!(
-                !from_source.has_errors(),
-                "{:?}",
-                from_source.diagnostics().collect::<Vec<_>>()
             );
         });
     }

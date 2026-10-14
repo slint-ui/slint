@@ -951,7 +951,13 @@ mod tests {
         let component = component();
         controller.send(&LspToPreviewMessage::SetConfiguration {
             config: i_slint_live_preview::protocol::PreviewConfig {
-                style: "fluent".into(),
+                overrides: i_slint_compiler::project_file::Overrides {
+                    project: i_slint_compiler::project_file::ProjectFileData {
+                        style: Some("fluent".into()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         });
@@ -985,6 +991,43 @@ mod tests {
         };
         let instance = compilation.component_definition().unwrap().create().unwrap();
         assert_eq!(i32::try_from(instance.get_property("marker").unwrap()).unwrap(), marker);
+    }
+
+    #[tokio::test]
+    async fn loopback_manifest_delivery_and_override_replacement_rebuild() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new().run_until(async {
+            let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+            let (controller, mut upstream, discovered) = controller("echo_child");
+            controller.start();
+            discover(&controller, &discovered, remote::tests::service("Manifest", viewer.connection.local_port())).await;
+            select(&controller, 1);
+            accept_plaintext(&controller).await;
+            initial_request(&mut upstream).await;
+            let directory = tempfile::tempdir().unwrap();
+            let source = lsp_types::Url::from_file_path(directory.path().join("main.slint")).unwrap();
+            let manifest = lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
+            let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window {}".into() });
+            controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
+            viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
+            assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"style":"no-such-style"}"#.into() });
+            viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
+            assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
+            for (style, succeeds) in [(Some("fluent"), true), (None, false)] {
+                let mut config = i_slint_live_preview::protocol::PreviewConfig::default();
+                config.overrides.project.style = style.map(String::from);
+                config.overrides.debug_info = Some(true);
+                controller.send(&LspToPreviewMessage::SetConfiguration { config });
+                viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
+                assert_eq!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)), succeeds);
+            }
+            while let Ok(message) = upstream.try_recv() {
+                assert!(!matches!(message, PreviewToLspMessage::RequestState { files, .. } if !files.is_empty()));
+            }
+            controller.close();
+        }).await;
     }
 
     async fn accept_plaintext(controller: &Springboard) {
