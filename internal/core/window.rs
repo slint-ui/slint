@@ -2332,6 +2332,30 @@ impl WindowInner {
         }
     }
 
+    /// If this window shows a popup, closes that popup through its parent window and returns true.
+    ///
+    /// The platform may close a popup window on its own, for example a Wayland compositor
+    /// when the user starts moving the parent window.
+    pub fn close_as_popup(&self) -> bool {
+        let window_adapter = self.window_adapter();
+        let Some(parent_adapter) = window_adapter
+            .internal(crate::InternalToken)
+            .and_then(|internal| internal.get_parent())
+        else {
+            return false;
+        };
+        let parent = WindowInner::from_pub(parent_adapter.window());
+        let popup_id = parent.active_popups.borrow().iter().find_map(|p| match &p.location {
+            PopupWindowLocation::TopLevel(wa) if Rc::ptr_eq(wa, &window_adapter) => {
+                Some(p.popup_id)
+            }
+            _ => None,
+        });
+        let Some(popup_id) = popup_id else { return false };
+        parent.close_popup(popup_id);
+        true
+    }
+
     /// Close all active popups.
     pub fn close_all_popups(&self) {
         for popup in self.active_popups.take() {
