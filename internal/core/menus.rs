@@ -129,29 +129,22 @@ impl MenuFromItemTree {
                     let id = next_id.to_shared_string();
                     let item = ItemRc::new(item_tree.clone(), index);
                     let children = self.update_shadow_tree_recursive(&item);
-                    let has_sub_menu = !children.is_empty();
-                    let enabled = menu_item.enabled();
-                    let checkable = menu_item.checkable();
-                    let checked = menu_item.checked();
-                    let icon = menu_item.icon();
-                    let shortcut = menu_item.shortcut();
-                    let kind = menu_item.kind();
-                    self.item_cache.borrow_mut().insert(
-                        id.clone(),
-                        ShadowTreeNode { item: ItemRc::downgrade(&item), children },
-                    );
-                    result.push(MenuEntry {
-                        title,
-                        id,
-                        has_sub_menu,
-                        is_separator,
-                        enabled,
-                        checkable,
-                        checked,
-                        icon,
-                        shortcut,
-                        kind,
-                    });
+                    let entry =
+                        menu_item.get_standard_menu_entry(id.clone()).unwrap_or(MenuEntry {
+                            title,
+                            id: id.clone(),
+                            has_sub_menu: !children.is_empty(),
+                            is_separator,
+                            enabled: menu_item.enabled(),
+                            checkable: menu_item.checkable(),
+                            checked: menu_item.checked(),
+                            icon: menu_item.icon(),
+                            shortcut: menu_item.shortcut(),
+                        });
+                    self.item_cache
+                        .borrow_mut()
+                        .insert(id, ShadowTreeNode { item: ItemRc::downgrade(&item), children });
+                    result.push(entry);
                 }
                 VisitChildrenResult::CONTINUE
             };
@@ -218,6 +211,77 @@ pub struct MenuItem {
     pub icon: Property<Image>,
     pub shortcut: Property<Keys>,
     pub kind: Property<StandardMenuItemKind>,
+}
+
+impl MenuItem {
+    fn get_standard_menu_entry(self: Pin<&Self>, id: SharedString) -> Option<MenuEntry> {
+        fn new_standard(title: &str, id: SharedString, enabled: bool, shortcut: Keys) -> MenuEntry {
+            MenuEntry {
+                title: title.into(),
+                icon: Image::default(),
+                id,
+                enabled,
+                checkable: false,
+                checked: false,
+                has_sub_menu: false,
+                is_separator: false,
+                shortcut,
+            }
+        }
+
+        match self.kind() {
+            StandardMenuItemKind::Empty => None,
+            StandardMenuItemKind::Copy => Some(new_standard(
+                "Copy",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "c"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::Cut => Some(new_standard(
+                "Cut",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "x"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::Paste => Some(new_standard(
+                "Paste",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "v"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::SelectAll => Some(new_standard(
+                "Select All",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "a"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::Undo => Some(new_standard(
+                "Undo",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "z"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::Redo => Some(new_standard(
+                "Redo",
+                id,
+                self.enabled(),
+                Keys::from_parts(["Control", "Shift", "z"]).expect("should always be valid"),
+            )),
+            StandardMenuItemKind::Quit => {
+                let shortcut = {
+                    #[cfg(target_os = "macos")]
+                    {
+                        Keys::from_parts(["Control", "q"]).expect("should always be valid")
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        Keys::from_parts(["Alt", "F4"]).expect("should always be valid")
+                    }
+                };
+                Some(new_standard("Quit", id, self.enabled(), shortcut))
+            }
+        }
+    }
 }
 
 impl crate::items::Item for MenuItem {

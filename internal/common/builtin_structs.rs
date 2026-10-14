@@ -198,8 +198,6 @@ macro_rules! for_each_builtin_structs {
                 is_separator: bool,
                 /// The shortcut keys
                 shortcut: Keys,
-                /// If this is standard menu item, the kind of it; `Empty` otherwise
-                kind: StandardMenuItemKind,
             }
 
             /// A structure representing the four edges of an axis-aligned rectangle

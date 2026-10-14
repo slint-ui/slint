@@ -143,42 +143,24 @@ macro_rules! for_each_enums {
                 Ignore,
             }
 
-            // todo: comment on `About` and `Separator`
+            /// The kind of the standard menu item. Sets predefined shortcuts and titles of the standard menu items
             enum StandardMenuItemKind {
                 /// Not used
                 Empty,
-                /// Copy
+                /// Copy selection to the clipboard (Ctrl/Cmd+c)
                 Copy,
-                /// Cut
+                /// Cut selection to the clipboard (Ctrl/Cmd+x)
                 Cut,
-                /// Paste
+                /// Paste selection from the clipboard (Ctrl/Cmd+v)
                 Paste,
-                /// SelectAll
+                /// Select all contents (Ctrl/Cmd+a)
                 SelectAll,
-                /// Undo
+                /// Undo last action (Ctrl/Cmd+z)
                 Undo,
-                /// Redo
+                /// Redo last action (Ctrl/Cmd+Shift+z)
                 Redo,
-                /// Minimize
-                Minimize,
-                /// Maximize
-                Maximize,
-                /// Fullscreen
-                Fullscreen,
-                /// Hide
-                Hide,
-                /// HideOthers
-                HideOthers,
-                /// ShowAll
-                ShowAll,
-                /// CloseWindow
-                CloseWindow,
-                /// Quit
+                /// Quit the application (Alt+F4/Cmd+q)
                 Quit,
-                /// Services
-                Services,
-                /// BringAllToFront
-                BringAllToFront,
             }
 
             /// This enum represents the value of the `dialog-button-role` property which can be added to
