@@ -6,17 +6,18 @@ use alloc::{vec, vec::Vec};
 pub const BACKGROUND: [u8; 3] = [5, 9, 20];
 pub const COLORS: [[u8; 3]; 3] = [[255, 156, 16], [255, 56, 108], [20, 192, 255]];
 const BLACK_GLOW: [[u8; 3]; 3] = [[218, 234, 255], [94, 203, 236], [203, 157, 224]];
-pub const PARTICLES: usize = 40;
+pub const PARTICLES: usize = if cfg!(feature = "box-ink-particles") { 32 } else { 40 };
+const MAX_PARTICLES: usize = (PARTICLES * 13).div_ceil(10);
 
 pub struct FrameState {
     size: (usize, usize),
     level: Option<u16>,
-    bounds: [[u16; 4]; PARTICLES],
+    bounds: [[u16; 4]; MAX_PARTICLES],
 }
 
 impl Default for FrameState {
     fn default() -> Self {
-        Self { size: (0, 0), level: None, bounds: [[0; 4]; PARTICLES] }
+        Self { size: (0, 0), level: None, bounds: [[0; 4]; MAX_PARTICLES] }
     }
 }
 
@@ -135,6 +136,7 @@ pub struct Vial {
     rim: Vec<u8>,
     surface: usize,
     level: u16,
+    held_since: Option<u64>,
     colors: [[u16; 33]; 3],
 }
 
@@ -160,6 +162,7 @@ impl Vial {
             rim: vec![0; width * height],
             surface: height,
             level: u16::MAX,
+            held_since: None,
             colors,
         };
         for y in 0..height {
@@ -285,6 +288,14 @@ impl Vial {
         }
     }
 
+    pub fn set_held(&mut self, held: bool, tick: u64) {
+        if held {
+            self.held_since.get_or_insert(tick);
+        } else {
+            self.held_since = None;
+        }
+    }
+
     pub fn draw<P: Pixel>(&self, tick: u64, pixels: &mut [P]) {
         self.restore(pixels);
         self.stamp(tick, pixels);
@@ -317,15 +328,20 @@ impl Vial {
         state.bounds = self.stamp(tick, pixels);
     }
 
-    pub fn stamp<P: Pixel>(&self, tick: u64, pixels: &mut [P]) -> [[u16; 4]; PARTICLES] {
-        let mut bounds = [[0; 4]; PARTICLES];
+    pub fn stamp<P: Pixel>(&self, tick: u64, pixels: &mut [P]) -> [[u16; 4]; MAX_PARTICLES] {
+        let mut bounds = [[0; 4]; MAX_PARTICLES];
         if self.height.saturating_sub(self.surface) < 8 {
             return bounds;
         }
         let population = PARTICLES as u32 * self.level as u32 / 4;
+        let base_count = self.particle_count();
+        let extra_population = if self.held_since.is_some() { population * 3 / 10 } else { 0 };
+        let extra_count = extra_population.div_ceil(256) as usize;
         let travel_q8 = (self.height - self.surface - 6) as u32 * 256;
         let phase = (tick % travel_q8 as u64) as u32;
-        for index in 0..self.particle_count() {
+        for slot in 0..base_count + extra_count {
+            let extra = slot >= base_count;
+            let index = if extra { PARTICLES + slot - base_count } else { slot };
             let seed = seed(index, self.index);
             let radius = if index % 8 == 0 {
                 5
@@ -342,9 +358,28 @@ impl Vial {
             let cx = home as i32 * 16
                 + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
             let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
-            let distance = vertical_distance(phase, seed, speed_q8, travel_q8);
+            let (distance, visibility) = if extra {
+                let age = tick.saturating_sub(self.held_since.unwrap());
+                let birth = (slot - base_count) as u64 * 6;
+                if age < birth {
+                    continue;
+                }
+                (
+                    vertical_distance(
+                        ((age - birth) % travel_q8 as u64) as u32,
+                        0,
+                        speed_q8,
+                        travel_q8,
+                    ),
+                    extra_population.saturating_sub((slot - base_count) as u32 * 256).min(256),
+                )
+            } else {
+                (
+                    vertical_distance(phase, seed, speed_q8, travel_q8),
+                    population.saturating_sub(index as u32 * 256).min(256),
+                )
+            };
             let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
-            let visibility = population.saturating_sub(index as u32 * 256).min(256);
             let opacity =
                 (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
             let width = radius * 2 + 1;
@@ -370,7 +405,7 @@ impl Vial {
             let top = y0.max(self.surface as i32 + 2).min(self.height as i32);
             let right = (x0 + width as i32).max(left).min(self.width as i32);
             let bottom = (y0 + width as i32).max(top).min(self.height as i32);
-            bounds[index] = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
+            bounds[slot] = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
             for y in 0..width {
                 let py = y0 + y as i32;
                 if py < self.surface as i32 + 2 || py < 0 || py >= self.height as i32 {
@@ -485,9 +520,66 @@ mod tests {
     #[test]
     fn density_scales_with_fill_level() {
         let mut vial = Vial::new(51, 134, 0);
-        for (level, count) in [(0, 0), (204, 8), (409, 16), (512, 20), (819, 32), (1024, 40)] {
+        let cases = if PARTICLES == 32 {
+            [(0, 0), (204, 7), (409, 13), (512, 16), (819, 26), (1024, 32)]
+        } else {
+            [(0, 0), (204, 8), (409, 16), (512, 20), (819, 32), (1024, 40)]
+        };
+        for (level, count) in cases {
             vial.set_level(level);
             assert_eq!(vial.particle_count(), count);
+        }
+    }
+
+    #[test]
+    fn held_bubbles_emerge_from_bottom_and_preserve_existing_motion() {
+        let cases = if PARTICLES == 32 {
+            [(0, 409, 4), (1, 665, 7), (2, 512, 5), (3, 819, 8), (3, 1024, 10)]
+        } else {
+            [(0, 409, 5), (1, 665, 8), (2, 512, 6), (3, 819, 10), (3, 1024, 12)]
+        };
+        for (index, level, extra) in cases {
+            let mut vial = Vial::new(48, 140, index);
+            vial.set_level(level);
+            let base = vial.particle_count();
+            let mut pixels = vec![0; 48 * 140];
+            let original = vial.stamp(100, &mut pixels);
+            vial.set_held(true, 100);
+            let born = vial.stamp(100, &mut pixels);
+            assert_eq!(&born[..base], &original[..base]);
+            assert!(born[base][1] as usize >= vial.height - 10);
+            assert!(born[base + 1..].iter().all(|b| *b == [0; 4]));
+            vial.set_held(true, 200);
+            let held = vial.stamp(200, &mut pixels);
+            assert!(held[base..base + extra].iter().all(|b| b[2] > 0 && b[3] > 0));
+            assert!(held[base + extra..].iter().all(|b| *b == [0; 4]));
+            vial.set_held(false, 200);
+            let released = vial.stamp(200, &mut pixels);
+            assert_eq!(&held[..base], &released[..base]);
+            assert!(released[base..].iter().all(|b| *b == [0; 4]));
+            vial.set_held(true, 201);
+            let restarted = vial.stamp(201, &mut pixels);
+            assert!(restarted[base][1] as usize >= vial.height - 10);
+            assert!(restarted[base + 1..].iter().all(|b| *b == [0; 4]));
+        }
+    }
+
+    #[test]
+    fn release_restores_both_cached_buffers_to_the_original_population() {
+        for index in 0..4 {
+            let mut vial = Vial::new(48, 140, index);
+            vial.set_level([409, 665, 512, 819][index]);
+            let mut buffers = [vec![0; 48 * 140], vec![0; 48 * 140]];
+            let mut states = [FrameState::default(), FrameState::default()];
+            let mut reference = vec![0; 48 * 140];
+            for tick in 0..600 {
+                vial.set_held(tick % 150 < 100, tick);
+                let back = tick as usize % 2;
+                vial.restore_cached(&mut buffers[back], &mut states[back]);
+                vial.stamp_cached(tick, &mut buffers[back], &mut states[back]);
+                vial.draw(tick, &mut reference);
+                assert_eq!(buffers[back], reference, "vial {index}, tick {tick}");
+            }
         }
     }
 

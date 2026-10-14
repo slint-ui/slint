@@ -30,5 +30,16 @@ The benchmark reports packet deadlines and bounded traces, then captures the fra
 It stops injecting gestures after the capture, leaving the UI interactive.
 Keep benchmark flags disabled in firmware distributed to users.
 
+For Ink, set `BOX_BENCH_INK_HOLD` to `yellow`, `red`, `cyan`, or `black` to exercise a sustained touch hold.
+Use `all` to stress all four vials simultaneously through their shared hold state.
+Each held vial adds 30% more bubbles without reducing the normal population.
+Additional bubbles emerge from the bottom, and release restores the normal count.
+Set `BOX_BENCH_WORKLOAD=pulse` to alternate 90 panel ticks held and 30 released, including the input transitions in the measurements.
+Hold runs capture both the boosted image and the restored image after release.
+The BOX build uses a 32-bubble full-vial density budget; other builds retain 40.
+Bubble counts scale with each fill level, and holding adds 30% to that vial.
+The smaller BOX budget reserves time for touch transitions while keeping bubble size, color, and speed unchanged.
+See [the hold performance report](INK-HOLD-PERFORMANCE.md) for measurements and qualification limits.
+
 For Settings flick profiling, set `BOX_BENCH_TOUCH_X=300` to use the empty right gutter.
 The default center path also exercises controls and popup transitions, so report its results separately from pure scrolling.

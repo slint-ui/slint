@@ -15,7 +15,19 @@ pub fn start(window: &MainWindow, queue: &PrinterQueueData) -> slint::Timer {
     let Some(scene) = option_env!("BOX_BENCH_SCENE") else { return timer };
     assert!(matches!(scene, "queue" | "settings" | "ink"), "unknown BOX benchmark scene");
     let workload = option_env!("BOX_BENCH_WORKLOAD").unwrap_or("held");
-    assert!(matches!(workload, "held" | "flick" | "replay"), "unknown BOX benchmark workload");
+    let ink_hold = option_env!("BOX_BENCH_INK_HOLD");
+    let ink_vial = ink_hold
+        .and_then(|name| ["yellow", "red", "cyan", "black"].iter().position(|&v| v == name));
+    assert!(ink_hold.is_none() || scene == "ink", "ink hold requires the Ink scene");
+    assert!(
+        ink_hold.is_none() || ink_vial.is_some() || ink_hold == Some("all"),
+        "unknown ink hold"
+    );
+    assert!(
+        matches!(workload, "held" | "flick" | "replay" | "pulse"),
+        "unknown BOX benchmark workload"
+    );
+    assert!(workload != "pulse" || ink_hold.is_some(), "pulse requires an ink hold");
     assert!(workload != "replay" || scene == "queue", "replay is a Queue fixture");
     let windows = option_env!("BOX_BENCH_WINDOWS").unwrap_or("3").parse::<u64>().unwrap();
     assert!((1..=3).contains(&windows), "benchmark trace holds at most three windows");
@@ -32,6 +44,7 @@ pub fn start(window: &MainWindow, queue: &PrinterQueueData) -> slint::Timer {
     let last_case = Cell::new(u64::MAX);
     let pressed = Cell::new(false);
     let done = Cell::new(false);
+    let released = Cell::new(false);
     let replay_cursor = Cell::new(0usize);
     let replay_cycle = Cell::new(u64::MAX);
     let origin = Cell::new(0u64);
@@ -47,12 +60,32 @@ pub fn start(window: &MainWindow, queue: &PrinterQueueData) -> slint::Timer {
         }
         let case = (elapsed - 3_000_000) / 11_000_000;
         let (x, y) = if scene == "queue" { (240., 190.) } else { (180., 150.) };
-        let x = touch_x.unwrap_or(x);
+        let x = ink_vial.map_or(touch_x.unwrap_or(x), |index| 91. + index as f32 * 62.);
+        let y = if ink_hold.is_some() { 170. } else { y };
         let touch = |phase, y| {
-            dispatch_touch_event(window.window(), slint::LogicalPosition::new(x, y), phase)
+            dispatch_touch_event(window.window(), slint::LogicalPosition::new(x, y), phase);
         };
+        if released.get() {
+            if pressed.replace(false) {
+                if ink_hold == Some("all") {
+                    window.global::<crate::InkParticles>().set_held([false; 4].into());
+                } else {
+                    touch(TouchPhase::Ended, y);
+                }
+            } else {
+                assert!(window.global::<crate::InkParticles>().get_held().iter().all(|held| !held));
+                done.set(true);
+                mcu_board_support::profile_capture();
+            }
+            return;
+        }
         if case >= windows {
             mcu_board_support::profile_mode(0);
+            if ink_hold.is_some() {
+                released.set(true);
+                mcu_board_support::profile_capture();
+                return;
+            }
             if pressed.replace(false) {
                 touch(TouchPhase::Ended, y);
             }
@@ -80,6 +113,22 @@ pub fn start(window: &MainWindow, queue: &PrinterQueueData) -> slint::Timer {
         let measuring = (elapsed - 3_000_000) % 11_000_000 >= 1_000_000;
         mcu_board_support::profile_mode(if measuring { case as u32 + 1 } else { 0 });
         if scene == "ink" {
+            if ink_hold.is_some() {
+                let held = workload != "pulse" || (tick - origin.get()) % 120 < 90;
+                if pressed.replace(held) == held {
+                    for index in 0..4 {
+                        assert_eq!(
+                            window.global::<crate::InkParticles>().get_held().row_data(index),
+                            Some(held && (ink_hold == Some("all") || ink_vial == Some(index))),
+                            "ink hold did not reach the vial",
+                        );
+                    }
+                } else if ink_hold == Some("all") {
+                    window.global::<crate::InkParticles>().set_held([held; 4].into());
+                } else {
+                    touch(if held { TouchPhase::Started } else { TouchPhase::Ended }, y);
+                }
+            }
             return;
         }
         if workload == "replay" {

@@ -112,6 +112,9 @@ export component InkPage inherits Rectangle {
                 image-fit: fill;
                 image-rendering: pixelated;
             }
+            TouchArea {
+                changed pressed => { InkParticles.held[index] = self.pressed; }
+            }
             Text {
                 y: parent.height + 6px;
                 width: parent.width;

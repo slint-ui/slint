@@ -68,6 +68,7 @@ export struct InkLevel  {
 export global InkParticles {
     in property <bool> enabled: false;
     in property <[image]> frames;
+    in-out property <[bool]> held: [false, false, false, false];
     callback resize(int, int);
 }
 

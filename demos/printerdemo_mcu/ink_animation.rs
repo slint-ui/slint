@@ -66,8 +66,12 @@ pub fn start(window: &MainWindow) -> slint::Timer {
         }
     });
     let leaving = animation.clone();
+    let leaving_window = window.as_weak();
     window.global::<PrinterState>().on_before_page_change(move |page| {
         if page != Pages::Ink {
+            if let Some(window) = leaving_window.upgrade() {
+                window.global::<InkParticles>().set_held([false; 4].into());
+            }
             // Free fast memory before the next page constructs its items.
             leaving.borrow_mut().release_inactive_images();
         }
@@ -79,6 +83,9 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             && window.global::<PrinterState>().get_active_subpage() == SubPage::None;
         let mut animation = animation.borrow_mut();
         if !active {
+            if animation.entered.is_some() {
+                window.global::<InkParticles>().set_held([false; 4].into());
+            }
             animation.release_inactive_images();
             return;
         }
@@ -105,6 +112,10 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 states: core::array::from_fn(|_| FrameState::default()),
             });
             tile.vial.set_level(((level.clamp(0., 1.) * reveal as f32) as u16).min(1024));
+            tile.vial.set_held(
+                window.global::<InkParticles>().get_held().row_data(index).unwrap_or(false),
+                tick,
+            );
             let pixels = tile.buffers[tile.back].make_mut_slice();
             tile.vial.restore_cached(pixels, &mut tile.states[tile.back]);
             tile.vial.stamp_cached(tick, pixels, &mut tile.states[tile.back]);
@@ -114,9 +125,9 @@ pub fn start(window: &MainWindow) -> slint::Timer {
         }
     };
     let timer = slint::Timer::default();
-    #[cfg(feature = "box-ink-particles")]
+    #[cfg(all(feature = "box-ink-particles", target_arch = "xtensa"))]
     mcu_board_support::set_animation_frame_handler(render);
-    #[cfg(not(feature = "box-ink-particles"))]
+    #[cfg(not(all(feature = "box-ink-particles", target_arch = "xtensa")))]
     {
         let tick = core::cell::Cell::new(0u64);
         timer.start(slint::TimerMode::Repeated, core::time::Duration::from_millis(16), move || {
