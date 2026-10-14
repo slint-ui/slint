@@ -113,6 +113,7 @@ fn can_optimize(elem: &ElementRc) -> bool {
         && element.accessibility_props.0.is_empty()
 }
 
+/// We cannot optimize out a rectangle if there is a ensure-visible function on it
 #[test]
 fn keeps_elements_that_ensure_visible_refers_to() {
     let compiler_config =
