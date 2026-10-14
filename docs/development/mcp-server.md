@@ -87,6 +87,8 @@ through `ItemTreeVTable::element_testable_properties` and `element_testable_prop
 Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
 `mcp_server.rs::convert_testable_property_values` retypes them into JSON booleans and
 numbers for both `get_element_properties` and `get_element_tree`.
+`query_element_descendants` compares against the same strings,
+so `stringify_testable_property_matches` turns typed `matchElementTestableProperty` values back into them.
 The table exists only when the application was compiled with debug info.
 An item tree whose generator doesn't implement the entries reports "unsupported",
 which surfaces as a `note` instead of an empty list.
@@ -128,7 +130,9 @@ Tool calls arrive as `tools/call` JSON-RPC methods. The `handle_tool_call()` fun
 
 ### MCP Instructions
 
-The `initialize` response includes a detailed `instructions` field that guides MCP clients through the workflow, handle format, enum values, and query syntax. This is the primary documentation that AI clients see when connecting.
+The `initialize` response includes a detailed `instructions` field that guides MCP clients through the workflow, handle format, and enum values. This is the primary documentation that AI clients see when connecting.
+The query syntax is in `query_element_descendants`' input schema, so a client that lists the tools reads it once.
+`QUERY_STACK_FIELD_DESCRIPTIONS` adds only what the schema's field names and enums don't say, such as the id format.
 
 ## Proto Build Pipeline (`build.rs`)
 
