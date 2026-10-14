@@ -1674,6 +1674,14 @@ pub(crate) fn handle_mouse_grab(
         }
         InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
             mouse_input_state.grabbed = false;
+            if matches!(mouse_event, MouseEvent::Released { .. }) && mouse_event.is_from_touch() {
+                // A lifted touch has no hover position to hit-test.
+                // Its following Exit event tears down the retained path and observers.
+                return MouseGrabResult {
+                    event: None,
+                    accepted: input_result == InputEventResult::EventAccepted,
+                };
+            }
             // Return a move event so that the new position can be registered properly
             MouseGrabResult {
                 event: Some(mouse_event.position().map_or(MouseEvent::Exit, |position| {
@@ -1976,12 +1984,14 @@ fn send_mouse_event_to_item(
     original_event: &MouseEvent,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
-    let geom = item_rc.geometry();
+    let is_exit = matches!(mouse_event, MouseEvent::Exit);
+    // Exit has no coordinates, but clipping filters and observers still need dispatch.
+    let geom = if is_exit { Default::default() } else { item_rc.geometry() };
     // translated in our coordinate
     let mut event_for_children = mouse_event.clone();
     // Unapply the translation to go from 'world' space to local space
     event_for_children.translate(-geom.origin.to_vector());
-    if window_adapter.renderer().supports_transformations() {
+    if !is_exit && window_adapter.renderer().supports_transformations() {
         // Unapply other transforms.
         if let Some(inverse_transform) = item_rc.inverse_children_transform() {
             event_for_children.transform(inverse_transform);

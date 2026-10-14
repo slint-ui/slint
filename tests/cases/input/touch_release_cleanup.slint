@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 240px;
+    out property <bool> first-hover <=> first.has-hover;
+    out property <bool> second-hover <=> second.has-hover;
+    out property <bool> first-pressed <=> first.pressed;
+    in-out property <int> clicks;
+    in-out property <int> cancels;
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 100px;
+        height: 100px;
+        clip: true;
+        first := TouchArea {
+            clicked => { root.clicks += 1; }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.cancel { root.cancels += 1; }
+            }
+        }
+    }
+    second := TouchArea { x: 160px; y: 0; width: 100px; height: 100px; }
+}
+
+/*
+```rust
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
+let instance = TestCase::new().unwrap();
+let touch = |phase, x| instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch {
+    id: 0, position: LogicalPoint::new(x, 20.), phase,
+    event_time: None, history: Default::default(),
+}));
+
+touch(TouchPhase::Started, 20.);
+assert!(instance.get_first_pressed());
+touch(TouchPhase::Ended, 20.);
+assert_eq!(instance.get_clicks(), 1);
+assert!(!instance.get_first_pressed());
+assert!(!instance.get_first_hover());
+assert!(!instance.get_second_hover());
+
+touch(TouchPhase::Started, 20.);
+touch(TouchPhase::Moved, 180.);
+touch(TouchPhase::Ended, 180.);
+assert_eq!(instance.get_clicks(), 1);
+assert!(!instance.get_first_pressed());
+assert!(!instance.get_first_hover());
+assert!(!instance.get_second_hover());
+
+let button = PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20., 20.), button });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(180., 20.), button });
+assert!(instance.get_second_hover());
+instance.window().dispatch_event(WindowEvent::PointerExited);
+assert!(!instance.get_first_hover());
+assert!(!instance.get_second_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20., 20.), button });
+let previous_cancels = instance.get_cancels();
+instance.window().dispatch_event(WindowEvent::PointerExited);
+assert!(!instance.get_first_pressed());
+assert!(instance.get_cancels() > previous_cancels);
+```
+*/
