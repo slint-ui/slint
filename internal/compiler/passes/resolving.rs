@@ -209,12 +209,13 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
                 | Expression::BoolLiteral(..)
                 | Expression::EnumerationValue(..)
         );
-    let is_valid_cast = matches!(
-        value,
-        Expression::Cast { from, to, .. }
-            if as_number_literal(from).is_some()
-                && matches!(to, Type::Color | Type::Int32)
-    );
+    let is_valid_cast = match value {
+        Expression::Cast { from, to: Type::Brush } => is_color_literal(from),
+        Expression::Cast { from, to: Type::Color | Type::Int32 } => {
+            as_number_literal(from).is_some()
+        }
+        _ => false,
+    };
 
     if let Some((number, Unit::None)) = as_number_literal(value)
         && number.fract() != 0.0
@@ -245,6 +246,10 @@ fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
         Expression::UnaryOp { sub, op: '-' } => as_number_literal(sub).map(|(n, u)| (-n, u)),
         _ => None,
     }
+}
+
+fn is_color_literal(value: &Expression) -> bool {
+    matches!(value, Expression::Cast { from, to: Type::Color } if as_number_literal(from).is_some())
 }
 
 fn is_literal_only(expr: &Expression) -> bool {
