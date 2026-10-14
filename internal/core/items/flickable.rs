@@ -499,6 +499,8 @@ struct FlickableDataInner {
     running_animation: Option<RunningSimulation>,
 
     retained_velocity: Velocity,
+
+    pending_flicked: bool,
 }
 
 impl FlickableDataInner {
@@ -752,7 +754,7 @@ impl FlickableDataInner {
                     });
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
-                        (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                        self.pending_flicked = true;
                     }
 
                     self.running_animation = Some(RunningSimulation {
@@ -782,7 +784,7 @@ impl FlickableDataInner {
         }
 
         if flicked {
-            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+            self.pending_flicked = true;
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
@@ -1048,7 +1050,7 @@ impl FlickableDataInner {
                 release_simulation(Dimension::Y, estimated_velocity.map(|v| v.y), inside_bounds_y);
 
             if x_simulation.is_some() || y_simulation.is_some() {
-                (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                self.pending_flicked = true;
             }
 
             self.running_animation =
@@ -1310,7 +1312,7 @@ impl FlickableData {
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
-        match event {
+        let result = match event {
             MouseEvent::Pressed { .. } => {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 inner.capture_momentum();
@@ -1387,9 +1389,7 @@ impl FlickableData {
                             &content_x,
                             &content_y,
                         );
-                        if flicked {
-                            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-                        }
+                        inner.pending_flicked |= flicked;
                         inner.capture_events = Some(CaptureEvents::MouseMove);
 
                         InputEventResult::GrabMouse
@@ -1415,7 +1415,13 @@ impl FlickableData {
                 InputEventResult::EventIgnored
             }
             MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
+        };
+        let flicked = core::mem::take(&mut inner.pending_flicked);
+        drop(inner);
+        if flicked {
+            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
         }
+        result
     }
 }
 
