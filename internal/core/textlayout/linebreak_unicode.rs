@@ -29,11 +29,8 @@ impl LineBreakIterator<'_> {
             )
         });
         let text_len = text.len();
-        let iterator = unicode_linebreak::linebreaks(text).filter(move |(offset, opportunity)| {
-            *offset != text_len
-                || !matches!(opportunity, BreakOpportunity::Mandatory)
-                || ends_on_break
-        });
+        let iterator = unicode_linebreak::linebreaks(text)
+            .filter(move |(offset, _)| ends_on_break || *offset != text_len);
 
         Self { breaks: iterator.collect(), pos: 0, phantom: Default::default() }
     }
