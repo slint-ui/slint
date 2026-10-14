@@ -13,7 +13,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
-use crate::{ElementHandle, ElementRoot, LayoutKind};
+use crate::{ElementHandle, ElementRoot, LayoutKind, TextMatch};
 
 slotmap::new_key_type! {
     pub(crate) struct ArenaIndex;
@@ -791,9 +791,36 @@ pub(crate) fn query_element_descendants(
                         .ok_or_else(|| "Unknown accessibility role".to_string())?,
                 )
             }
+            Instruction::MatchElementAccessibleProperty(matcher) => {
+                use proto::AccessibleStringProperty as Property;
+                let property = Property::try_from(matcher.property).map_err(|_| {
+                    format!("invalid AccessibleStringProperty value: {}", matcher.property)
+                })?;
+                let text = convert_from_proto_text_match(matcher.value, matcher.mode)?;
+                query = match property {
+                    Property::Label => query.match_accessible_label(text),
+                    Property::Value => query.match_accessible_value(text),
+                    Property::Description => query.match_accessible_description(text),
+                    Property::PlaceholderText => query.match_accessible_placeholder_text(text),
+                    Property::Id => query.match_accessible_id(text),
+                }
+            }
+            Instruction::MatchElementTestableProperty(matcher) => {
+                let value = convert_from_proto_text_match(matcher.value, matcher.mode)?;
+                query = query.match_testable_property(matcher.name, value)
+            }
         }
     }
     Ok(if find_all { query.find_all() } else { query.find_first().into_iter().collect() })
+}
+
+fn convert_from_proto_text_match(text: String, mode: i32) -> Result<TextMatch, String> {
+    let mode = proto::TextMatchMode::try_from(mode)
+        .map_err(|_| format!("invalid TextMatchMode value: {mode}"))?;
+    Ok(match mode {
+        proto::TextMatchMode::Exact => TextMatch::Exact(text.into()),
+        proto::TextMatchMode::ContainsIgnoringCase => TextMatch::ContainsIgnoringCase(text.into()),
+    })
 }
 
 pub(crate) fn invoke_element_accessibility_action(
@@ -1192,6 +1219,65 @@ fn test_query_element_descendants_by_accessible_label() {
     };
     let results = query_element_descendants(app.root_element(), vec![instruction], true).unwrap();
     assert_eq!(results.len(), 1);
+}
+
+#[test]
+fn test_query_element_descendants_by_property_matchers() {
+    use crate::ElementRoot;
+    use proto::element_query_instruction::Instruction;
+
+    crate::init_no_event_loop();
+    slint::slint! {
+        component Item {
+            @testable in property <string> state: "idle";
+        }
+        export component App inherits Window {
+            VerticalLayout {
+                Item { state: "Loading data"; }
+                Item { }
+                TextInput { text: "hello"; accessible-id: "greeting"; }
+            }
+        }
+    }
+    let app = App::new().unwrap();
+    let query = |instruction| {
+        let instruction = proto::ElementQueryInstruction { instruction: Some(instruction) };
+        query_element_descendants(app.root_element(), vec![instruction], true).map(|r| r.len())
+    };
+    let accessible =
+        |property: proto::AccessibleStringProperty, value: &str, mode: proto::TextMatchMode| {
+            query(Instruction::MatchElementAccessibleProperty(proto::AccessiblePropertyMatch {
+                property: property.into(),
+                value: value.into(),
+                mode: mode.into(),
+            }))
+        };
+    let testable = |name: &str, value: &str, mode: proto::TextMatchMode| {
+        query(Instruction::MatchElementTestableProperty(proto::TestablePropertyMatch {
+            name: name.into(),
+            value: value.into(),
+            mode: mode.into(),
+        }))
+    };
+    use proto::AccessibleStringProperty::{Id, Value};
+    use proto::TextMatchMode::{ContainsIgnoringCase, Exact};
+
+    assert_eq!(accessible(Value, "hello", Exact), Ok(1));
+    assert_eq!(accessible(Value, "HELL", ContainsIgnoringCase), Ok(1));
+    assert_eq!(accessible(Value, "hell", Exact), Ok(0));
+    assert_eq!(accessible(Id, "greeting", Exact), Ok(1));
+    assert_eq!(testable("state", "idle", Exact), Ok(1));
+    assert_eq!(testable("state", "loading", ContainsIgnoringCase), Ok(1));
+
+    assert!(
+        query(Instruction::MatchElementTestableProperty(proto::TestablePropertyMatch {
+            name: "state".into(),
+            value: "idle".into(),
+            mode: 42,
+        }))
+        .unwrap_err()
+        .contains("TextMatchMode")
+    );
 }
 
 #[test]

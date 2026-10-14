@@ -118,13 +118,104 @@ impl<T: ComponentHandle> ElementRoot for T {
 
 impl<T: ComponentHandle> Sealed for T {}
 
+/// How an [`ElementQuery`] compares one of an element's strings with the expected text.
+///
+/// A string converts into [`TextMatch::Exact`],
+/// so the `match_*` functions take either a plain string or a `TextMatch`:
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// # slint::slint!{ export component App { Text { text: "Save File"; } } }
+/// # let app = App::new().unwrap();
+/// use i_slint_backend_testing::{ElementRoot, TextMatch};
+/// let root = app.root_element();
+/// assert!(root.query_descendants().match_accessible_label("Save File").find_first().is_some());
+/// assert!(root
+///     .query_descendants()
+///     .match_accessible_label(TextMatch::ContainsIgnoringCase("save".into()))
+///     .find_first()
+///     .is_some());
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TextMatch {
+    /// Matches a string equal to the text.
+    Exact(SharedString),
+    /// Matches a string that contains the text, ignoring case.
+    ContainsIgnoringCase(SharedString),
+}
+
+impl From<&str> for TextMatch {
+    fn from(text: &str) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<&String> for TextMatch {
+    fn from(text: &String) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<String> for TextMatch {
+    fn from(text: String) -> Self {
+        Self::Exact(text.into())
+    }
+}
+
+impl From<&SharedString> for TextMatch {
+    fn from(text: &SharedString) -> Self {
+        Self::Exact(text.clone())
+    }
+}
+
+impl From<SharedString> for TextMatch {
+    fn from(text: SharedString) -> Self {
+        Self::Exact(text)
+    }
+}
+
+enum TextMatcher {
+    Exact(SharedString),
+    ContainsFolded(String),
+}
+
+impl From<TextMatch> for TextMatcher {
+    fn from(text: TextMatch) -> Self {
+        match text {
+            TextMatch::Exact(text) => Self::Exact(text),
+            TextMatch::ContainsIgnoringCase(text) => Self::ContainsFolded(fold_case(&text)),
+        }
+    }
+}
+
+impl TextMatcher {
+    fn matches(&self, candidate: &str) -> bool {
+        match self {
+            Self::Exact(text) => candidate == text.as_str(),
+            Self::ContainsFolded(text) => fold_case(candidate).contains(text.as_str()),
+        }
+    }
+}
+
+// Approximates Unicode case folding. `str::to_lowercase` keeps `ß` apart from `SS`,
+// and turns a word-final `Σ` into `ς` rather than `σ`.
+fn fold_case(text: &str) -> String {
+    text.chars()
+        .flat_map(char::to_lowercase)
+        .flat_map(char::to_uppercase)
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
 #[allow(clippy::enum_variant_names)]
 enum SingleElementMatch {
     MatchById { id: String, root_base: Option<String> },
     MatchByTypeName(String),
     MatchByTypeNameOrBase(String),
     MatchByAccessibleRole(crate::AccessibleRole),
-    MatchByAccessibleLabel(String),
+    MatchByString { read: fn(&ElementHandle) -> Option<SharedString>, text: TextMatcher },
+    MatchByTestableProperty { name: SharedString, value: TextMatcher },
     MatchByPredicate(Box<dyn Fn(&ElementHandle) -> bool>),
 }
 
@@ -156,9 +247,12 @@ impl SingleElementMatch {
             SingleElementMatch::MatchByAccessibleRole(role) => {
                 element.accessible_role() == Some(*role)
             }
-            SingleElementMatch::MatchByAccessibleLabel(label) => {
-                element.accessible_label().is_some_and(|candidate_label| candidate_label == label)
+            SingleElementMatch::MatchByString { read, text } => {
+                read(element).is_some_and(|candidate| text.matches(&candidate))
             }
+            SingleElementMatch::MatchByTestableProperty { name, value } => element
+                .testable_property_value(name)
+                .is_some_and(|candidate| value.matches(&candidate)),
             SingleElementMatch::MatchByPredicate(predicate) => (predicate)(element),
         }
     }
@@ -284,10 +378,76 @@ impl ElementQuery {
         self
     }
 
-    /// Include only elements in the results where [`ElementHandle::accessible_label()`] is equal to the provided `label`.
-    pub fn match_accessible_label(mut self, label: impl Into<String>) -> Self {
+    /// Include only elements in the results where [`ElementHandle::accessible_label()`] matches `label`.
+    pub fn match_accessible_label(self, label: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_label, label.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_value()`] matches `value`.
+    pub fn match_accessible_value(self, value: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_value, value.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_description()`] matches `description`.
+    pub fn match_accessible_description(self, description: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_description, description.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_placeholder_text()`] matches `text`.
+    pub fn match_accessible_placeholder_text(self, text: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_placeholder_text, text.into())
+    }
+
+    /// Include only elements in the results where [`ElementHandle::accessible_id()`] matches `id`.
+    pub fn match_accessible_id(self, id: impl Into<TextMatch>) -> Self {
+        self.match_string(ElementHandle::accessible_id, id.into())
+    }
+
+    /// Include only elements in the results that have a `@testable` property `name`
+    /// whose [`ElementHandle::testable_property_value()`] matches `value`.
+    ///
+    /// ```rust
+    /// # i_slint_backend_testing::init_no_event_loop();
+    /// slint::slint!{
+    ///
+    /// component Item {
+    ///     @testable in property <bool> selected;
+    /// }
+    ///
+    /// export component App {
+    ///     Item { }
+    ///     Item { selected: true; }
+    /// }
+    ///
+    /// }
+    ///
+    /// let app = App::new().unwrap();
+    /// use i_slint_backend_testing::ElementRoot;
+    /// let selected =
+    ///     app.root_element().query_descendants().match_testable_property("selected", "true");
+    /// assert_eq!(selected.find_all().len(), 1);
+    /// ```
+    pub fn match_testable_property(
+        mut self,
+        name: impl Into<SharedString>,
+        value: impl Into<TextMatch>,
+    ) -> Self {
         self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
-            SingleElementMatch::MatchByAccessibleLabel(label.into()),
+            SingleElementMatch::MatchByTestableProperty {
+                name: name.into(),
+                value: TextMatcher::from(value.into()),
+            },
+        ));
+        self
+    }
+
+    fn match_string(
+        mut self,
+        read: fn(&ElementHandle) -> Option<SharedString>,
+        text: TextMatch,
+    ) -> Self {
+        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+            SingleElementMatch::MatchByString { read, text: text.into() },
         ));
         self
     }
@@ -1413,6 +1573,105 @@ fn test_matches() {
     assert_eq!(elem.accessible_role().unwrap(), crate::AccessibleRole::Text);
 
     assert_eq!(root.query_descendants().match_inherits("Base").find_all().len(), 1);
+}
+
+#[test]
+fn test_text_matchers() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        component Row {
+            in property <string> title;
+            @testable in property <bool> selected;
+            @testable in property <string> status: "Draft";
+            accessible-role: list-item;
+            accessible-label: title;
+        }
+
+        export component App inherits Window {
+            Row { title: "Save File"; }
+            Row { title: "Save As…"; selected: true; status: "Published"; }
+            search := TextInput {
+                accessible-placeholder-text: "Search files";
+                accessible-description: "Filters the list below";
+                accessible-id: "search-box";
+                text: "report";
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+    let root = app.root_element();
+    let count = |query: ElementQuery| query.find_all().len();
+    let search = || root.query_descendants().match_id("App::search");
+
+    assert_eq!(count(root.query_descendants().match_accessible_label("Save")), 0);
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_accessible_label(TextMatch::ContainsIgnoringCase("save".into()))
+        ),
+        2
+    );
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_accessible_label(TextMatch::ContainsIgnoringCase("AS…".into()))
+        ),
+        1
+    );
+
+    assert_eq!(count(search().match_accessible_value("report")), 1);
+    assert_eq!(count(search().match_accessible_value("repo")), 0);
+    assert_eq!(count(search().match_accessible_placeholder_text("Search files")), 1);
+    assert_eq!(count(search().match_accessible_description("Filters the list below")), 1);
+    assert_eq!(
+        count(
+            search().match_accessible_description(TextMatch::ContainsIgnoringCase("LIST".into()))
+        ),
+        1
+    );
+    assert_eq!(count(root.query_descendants().match_accessible_id("search-box")), 1);
+    assert_eq!(count(root.query_descendants().match_accessible_id("search")), 0);
+
+    assert_eq!(count(root.query_descendants().match_testable_property("selected", "true")), 1);
+    assert_eq!(count(root.query_descendants().match_testable_property("selected", "false")), 1);
+    assert_eq!(
+        root.query_descendants()
+            .match_testable_property("selected", "true")
+            .find_first()
+            .and_then(|row| row.accessible_label())
+            .unwrap_or_default(),
+        "Save As…"
+    );
+    assert_eq!(
+        count(
+            root.query_descendants().match_testable_property(
+                "status",
+                TextMatch::ContainsIgnoringCase("publish".into())
+            )
+        ),
+        1
+    );
+    assert_eq!(
+        count(
+            root.query_descendants()
+                .match_testable_property("missing", TextMatch::ContainsIgnoringCase("".into()))
+        ),
+        0
+    );
+}
+
+#[test]
+fn test_contains_ignoring_case_folds_case() {
+    let contains = |candidate: &str, text: &str| {
+        TextMatcher::from(TextMatch::ContainsIgnoringCase(text.into())).matches(candidate)
+    };
+    assert!(contains("STRASSE", "straße"));
+    assert!(contains("Straße", "SS"));
+    assert!(contains("ΟΔΟΣ", "Σ"));
+    assert!(contains("ΟΔΟΣΑ", "οδος"));
+    assert!(!contains("ΟΔΟΣ", "x"));
 }
 
 #[test]

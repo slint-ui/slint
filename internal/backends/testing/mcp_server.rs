@@ -76,7 +76,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "query_element_descendants",
-        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, {\"matchElementAccessibleRole\": \"Button\"}, or {\"matchElementAccessibleLabel\": \"...\"}. More efficient than get_element_tree for targeted lookups.",
+        description: "Search descendants of an element using a query pipeline: queryStack, an array of instructions applied in order. More efficient than get_element_tree for targeted lookups.",
         request_type: "RequestQueryElementDescendants",
         optional_fields: &["findAll"],
     },
@@ -189,6 +189,25 @@ fn annotate_handle_fields(schema: &mut Value) {
     }
 }
 
+/// Keyed by JSON pointer below the `queryStack` property.
+const QUERY_STACK_FIELD_DESCRIPTIONS: &[(&str, &str)] = &[
+    ("", "Each instruction is an object with exactly one field."),
+    (
+        "/items/properties/matchDescendants",
+        "Search recursively. Without it, only direct children match.",
+    ),
+    ("/items/properties/matchElementId", "A qualified id, such as \"App::ok-button\"."),
+    ("/items/properties/matchElementAccessibleLabel", "An exact accessible label."),
+    (
+        "/items/properties/matchElementAccessibleProperty",
+        "Compared as a string, also for a slider's Value.",
+    ),
+    (
+        "/items/properties/matchElementTestableProperty",
+        "The value is typed as get_element_properties reports it, such as true or 42.",
+    ),
+];
+
 fn tool_definitions() -> Value {
     let tools: Vec<Value> = TOOLS
         .iter()
@@ -199,6 +218,22 @@ fn tool_definitions() -> Value {
                 });
 
             annotate_handle_fields(&mut schema);
+
+            // See stringify_testable_property_matches.
+            if let Some(value) = schema.pointer_mut(
+                "/properties/queryStack/items/properties/matchElementTestableProperty/properties/value",
+            ) {
+                *value = serde_json::json!({ "type": ["string", "number", "boolean"] });
+            }
+
+            for (pointer, description) in QUERY_STACK_FIELD_DESCRIPTIONS {
+                if let Some(field) = schema
+                    .pointer_mut(&format!("/properties/queryStack{pointer}"))
+                    .and_then(Value::as_object_mut)
+                {
+                    field.insert("description".into(), (*description).into());
+                }
+            }
 
             // Add "required" array: all fields except those listed as optional
             if let Some(all_fields) = mcp_schemas::proto_field_names(def.request_type) {
@@ -233,7 +268,7 @@ fn tool_definitions() -> Value {
 // ============================================================================
 
 fn deserialize_params<T: serde::de::DeserializeOwned>(args: &Value) -> Result<T, String> {
-    serde_json::from_value(args.clone()).map_err(|e| format!("Invalid parameters: {e}"))
+    T::deserialize(args).map_err(|e| format!("Invalid parameters: {e}"))
 }
 
 /// Tool call result: either a JSON value (rendered as text) or an image with optional metadata.
@@ -275,6 +310,32 @@ fn convert_testable_property_values(element_node: &mut Value) {
         if let Some(converted) = converted {
             obj.insert("value".into(), converted);
         }
+    }
+}
+
+/// The inverse of [`convert_testable_property_values`], for `matchElementTestableProperty` values.
+fn stringify_testable_property_matches(query_stack: &mut Value) {
+    let Some(instructions) = query_stack.as_array_mut() else { return };
+    for instruction in instructions {
+        let Some(value) = ["matchElementTestableProperty", "match_element_testable_property"]
+            .into_iter()
+            .find(|key| instruction.get(key).is_some())
+            .and_then(|key| instruction[key].get_mut("value"))
+        else {
+            continue;
+        };
+        let encoded = match value {
+            Value::Bool(b) => i_slint_core::debug_info::format_bool(*b),
+            Value::Number(n) => match n.as_i64() {
+                Some(n) => i_slint_core::debug_info::format_integer(n),
+                None => match n.as_f64() {
+                    Some(n) => i_slint_core::debug_info::format_float(n as f32),
+                    None => continue,
+                },
+            },
+            _ => continue,
+        };
+        *value = Value::String(encoded.into());
     }
 }
 
@@ -381,7 +442,11 @@ async fn handle_tool_call(
             Ok(ToolResult::Json(response))
         }
         "query_element_descendants" => {
-            let p: proto::RequestQueryElementDescendants = deserialize_params(args)?;
+            let mut args = args.clone();
+            if let Some(query_stack) = args.get_mut("queryStack") {
+                stringify_testable_property_matches(query_stack);
+            }
+            let p: proto::RequestQueryElementDescendants = deserialize_params(&args)?;
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
@@ -693,7 +758,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "1. list_windows → get window handles\n",
                     "2. get_window_properties → get size, position, and the rootElementHandle\n",
                     "3. get_element_tree (start with maxElements=50) → flat list of the UI hierarchy with types, IDs, accessibility info, handles, and each element's parentHandle and depth\n",
-                    "4. Drill down: use query_element_descendants to search by type, ID, or accessible role; or find_elements_by_id for known IDs\n",
+                    "4. Drill down: use query_element_descendants to search by type, ID, accessible role or property, or @testable property value; or find_elements_by_id for known IDs\n",
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
@@ -737,17 +802,13 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- KeyEventType: PressAndRelease, Press, Release\n",
                     "- RecordedEventResult: Unspecified, Accepted, Rejected (Unspecified appears only on malformed data)\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
+                    "- AccessibleStringProperty: Label, Value, Description, PlaceholderText, Id\n",
+                    "- TextMatchMode: Exact, ContainsIgnoringCase\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
                     "# Query instructions\n\n",
-                    "query_element_descendants takes a queryStack array. Each entry is an object with exactly one field:\n",
-                    "- {\"matchDescendants\": true} — search recursively (without this, only direct children match)\n",
-                    "- {\"matchElementId\": \"MyComponent::button1\"} — match by qualified element ID\n",
-                    "- {\"matchElementTypeName\": \"Button\"} — match by exact Slint type name\n",
-                    "- {\"matchElementTypeNameOrBase\": \"TouchArea\"} — match by type or inherited base\n",
-                    "- {\"matchElementAccessibleRole\": \"Button\"} — match by accessible role (PascalCase)\n",
-                    "- {\"matchElementAccessibleLabel\": \"OK\"} — match by exact accessible label\n",
-                    "Instructions are applied in order to build a query pipeline.\n\n",
+                    "query_element_descendants takes a queryStack array of instructions, applied in order to build a query pipeline. ",
+                    "Its input schema describes each instruction.\n\n",
 
                     "# Tips\n\n",
                     "- Start with get_element_tree to understand the UI structure before making targeted queries.\n",
@@ -1593,6 +1654,98 @@ mod tests {
     }
 
     #[test]
+    fn test_stringify_testable_property_matches() {
+        let mut query_stack = serde_json::json!([
+            { "matchDescendants": true },
+            { "matchElementTestableProperty": { "name": "b", "value": true } },
+            { "matchElementTestableProperty": { "name": "n", "value": 42 } },
+            { "matchElementTestableProperty": { "name": "f", "value": 12.5 } },
+            { "matchElementTestableProperty": { "name": "w", "value": 3.0 } },
+            { "matchElementTestableProperty": { "name": "s", "value": "text", "mode": "ContainsIgnoringCase" } },
+            { "match_element_testable_property": { "name": "b", "value": false } },
+        ]);
+        stringify_testable_property_matches(&mut query_stack);
+        let value = |index: usize| &query_stack[index]["matchElementTestableProperty"]["value"];
+        assert_eq!(query_stack[0], serde_json::json!({ "matchDescendants": true }));
+        assert_eq!(value(1), "true");
+        assert_eq!(value(2), "42");
+        assert_eq!(value(3), "12.5");
+        assert_eq!(value(4), "3");
+        assert_eq!(value(5), "text");
+        assert_eq!(query_stack[6]["match_element_testable_property"]["value"], "false");
+    }
+
+    #[test]
+    fn test_query_element_descendants_by_property_values() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            component Item {
+                @testable in property <bool> selected;
+                @testable in property <float> amount;
+            }
+            export component App inherits Window {
+                VerticalLayout {
+                    Item { selected: true; amount: 2.5; }
+                    Item { }
+                    TextInput { accessible-placeholder-text: "Search files"; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        let root = index_to_handle(
+            state.root_element_handle(state.window_handles()[0]).expect("root element handle"),
+        );
+
+        let query = |instruction: Value| {
+            let result = block_on(handle_tool_call(
+                &state,
+                "query_element_descendants",
+                &serde_json::json!({
+                    "elementHandle": serde_json::to_value(root).unwrap(),
+                    "queryStack": [{ "matchDescendants": true }, instruction],
+                    "findAll": true,
+                }),
+            ))
+            .expect("query_element_descendants failed");
+            let ToolResult::Json(value) = result else { panic!("expected a json result") };
+            value["elementHandles"].as_array().map_or(0, Vec::len)
+        };
+
+        let testable = |name: &str, value: Value| {
+            query(serde_json::json!({
+                "matchElementTestableProperty": { "name": name, "value": value }
+            }))
+        };
+        assert_eq!(testable("selected", serde_json::json!(true)), 1);
+        assert_eq!(testable("selected", serde_json::json!("false")), 1);
+        assert_eq!(testable("amount", serde_json::json!(2.5)), 1);
+        assert_eq!(testable("amount", serde_json::json!(0)), 1);
+        assert_eq!(
+            query(serde_json::json!({
+                "match_element_testable_property": { "name": "selected", "value": true }
+            })),
+            1
+        );
+
+        assert_eq!(
+            query(serde_json::json!({
+                "matchElementAccessibleProperty": {
+                    "property": "PlaceholderText",
+                    "value": "FILES",
+                    "mode": "ContainsIgnoringCase"
+                }
+            })),
+            1
+        );
+    }
+
+    #[test]
     fn test_pointer_tools_hold_modifiers() {
         use slint::ComponentHandle;
 
@@ -1808,6 +1961,45 @@ mod tests {
             assert!(tool.get("name").and_then(|v| v.as_str()).is_some());
             assert!(tool.get("description").and_then(|v| v.as_str()).is_some());
             assert_eq!(tool["inputSchema"]["type"], "object");
+        }
+    }
+
+    #[test]
+    fn test_query_schema_types_match_values() {
+        let defs = tool_definitions();
+        let query = defs["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "query_element_descendants")
+            .unwrap();
+        let instruction = &query["inputSchema"]["properties"]["queryStack"]["items"]["properties"];
+        assert_eq!(
+            instruction["matchElementTestableProperty"]["properties"]["value"]["type"],
+            serde_json::json!(["string", "number", "boolean"])
+        );
+        assert_eq!(
+            instruction["matchElementAccessibleProperty"]["properties"]["value"]["type"],
+            "string"
+        );
+    }
+
+    #[test]
+    fn test_query_stack_field_descriptions_apply() {
+        let defs = tool_definitions();
+        let query = defs["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "query_element_descendants")
+            .unwrap();
+        let query_stack = &query["inputSchema"]["properties"]["queryStack"];
+        for (pointer, description) in QUERY_STACK_FIELD_DESCRIPTIONS {
+            assert_eq!(
+                query_stack.pointer(&format!("{pointer}/description")),
+                Some(&Value::from(*description)),
+                "no field at {pointer:?}"
+            );
         }
     }
 
