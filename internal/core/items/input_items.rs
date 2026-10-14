@@ -854,7 +854,7 @@ impl Item for SwipeGestureHandler {
     ) -> InputEventFilterResult {
         if !self.enabled() {
             if self.pressed.get() {
-                self.cancel_impl();
+                self.cancel();
             }
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -871,7 +871,7 @@ impl Item for SwipeGestureHandler {
                 )
             }
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventFilterResult::ForwardAndIgnore
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
@@ -917,7 +917,7 @@ impl Item for SwipeGestureHandler {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventResult::EventIgnored
             }
             MouseEvent::Released { position, .. } => {
@@ -1012,11 +1012,7 @@ impl ItemConsts for SwipeGestureHandler {
 }
 
 impl SwipeGestureHandler {
-    pub fn cancel(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.cancel_impl();
-    }
-
-    fn cancel_impl(self: Pin<&Self>) {
+    pub fn cancel(self: Pin<&Self>) {
         if !self.pressed.replace(false) {
             debug_assert!(!self.swiping());
             return;
@@ -1036,25 +1032,6 @@ impl SwipeGestureHandler {
             || (self.handle_swipe_up() && dy < -threshold && dy < -dx.abs() / 2 as Coord)
             || (self.handle_swipe_left() && dx < -threshold && dx < -dy.abs() / 2 as Coord)
             || (self.handle_swipe_right() && dx > threshold && dx > dy.abs() / 2 as Coord)
-    }
-}
-
-#[cfg(feature = "ffi")]
-mod ffi {
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
-        s: Pin<&SwipeGestureHandler>,
-        window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-        self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-        self_index: u32,
-    ) {
-        unsafe {
-            let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-            let self_rc = ItemRc::new(self_component.clone(), self_index);
-            s.cancel(window_adapter, &self_rc);
-        }
     }
 }
 

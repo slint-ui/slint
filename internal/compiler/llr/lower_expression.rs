@@ -330,15 +330,6 @@ fn lower_function_call(
             let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
             llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
         }
-        Callable::Function(nr)
-            if nr
-                .element()
-                .borrow()
-                .builtin_type()
-                .is_some_and(|b| b.properties.contains_key(nr.name())) =>
-        {
-            llr_Expression::ItemMemberFunctionCall { function: ctx.map_property_reference(nr) }
-        }
         Callable::Function(nr) => {
             let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
             llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }

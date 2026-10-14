@@ -38,7 +38,6 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
         Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
-        Expression::ItemMemberFunctionCall { function } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
@@ -133,8 +132,19 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
-        BuiltinFunction::SetSelectionOffsets => isize::MAX,
-        BuiltinFunction::HasSelection => PROPERTY_ACCESS_COST,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => isize::MAX,
+        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,

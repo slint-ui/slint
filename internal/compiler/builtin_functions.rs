@@ -11,13 +11,13 @@ use std::sync::Arc;
 macro_rules! declare_builtin_functions {
     ($(
         $(#[$attr:meta])*
-        $Name:ident $(($Payload:ident))? :
+        $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
             $purity:ident fn $($runtime:ident)?
-                ($(& $context:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*)
+                ($(& $context:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*)
                 -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
     )*) => {
         /// A function built into the run-time.
-        /// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
+        /// The functions of builtin elements name their variant in `builtin_elements.rs`.
         #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
         pub enum BuiltinFunction {
             $($(#[$attr])* $Name $(($Payload))?,)*

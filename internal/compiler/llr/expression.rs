@@ -130,9 +130,6 @@ pub enum Expression {
         function: MemberReference,
         arguments: Vec<Expression>,
     },
-    ItemMemberFunctionCall {
-        function: MemberReference,
-    },
 
     /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
     /// TODO: merge in BuiltinFunctionCall
@@ -400,6 +397,22 @@ pub fn binary_expression_ty(op: char, lhs_ty: impl FnOnce() -> Type) -> Type {
     if operator_class(op) != OperatorClass::ArithmeticOp { Type::Bool } else { lhs_ty() }
 }
 
+/// Splits the arguments of a call to `function` into the element it takes first, if any,
+/// and the other arguments.
+pub fn split_element_argument<'a>(
+    function: &BuiltinFunction,
+    arguments: &'a [Expression],
+) -> (Option<&'a MemberReference>, &'a [Expression]) {
+    match arguments {
+        [Expression::PropertyReference(element), arguments @ ..]
+            if function.ty().args.first() == Some(&Type::ElementReference) =>
+        {
+            (Some(element), arguments)
+        }
+        _ => (None, arguments),
+    }
+}
+
 impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
         Some(match ty {
@@ -503,10 +516,6 @@ impl Expression {
                 _ => Type::Invalid,
             },
             Self::FunctionCall { function, .. } => ctx.property_ty(function).clone(),
-            Self::ItemMemberFunctionCall { function } => match ctx.property_ty(function) {
-                Type::Function(function) => function.return_type.clone(),
-                _ => Type::Invalid,
-            },
             Self::ExtraBuiltinFunctionCall { return_ty, .. } => return_ty.clone(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
@@ -568,7 +577,6 @@ macro_rules! visit_impl {
             Expression::BuiltinFunctionCall { arguments, .. }
             | Expression::CallBackCall { arguments, .. }
             | Expression::FunctionCall { arguments, .. } => arguments.$iter().for_each($visitor),
-            Expression::ItemMemberFunctionCall { function: _ } => {}
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
                 arguments.$iter().for_each($visitor)
             }
@@ -1285,7 +1293,6 @@ impl ContextMap {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
             | Expression::FunctionCall { function: p, .. }
-            | Expression::ItemMemberFunctionCall { function: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
             | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
