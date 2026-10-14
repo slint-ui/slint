@@ -4,9 +4,9 @@
 use lsp_types::{CodeActionOrCommand, Url};
 
 use crate::editor_preview;
-use crate::language::test::{empty_document_cache, empty_document_cache_with_experimental};
-
-const CURSOR_EMOJI: char = '🔺';
+use crate::language::test::{
+    CURSOR_EMOJI, empty_document_cache, empty_document_cache_with_experimental,
+};
 
 pub struct CodeActionRequest {
     source: String,

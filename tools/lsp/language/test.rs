@@ -23,6 +23,8 @@ pub use i_slint_editor_preview::test::{
 
 use super::Context;
 
+pub const CURSOR_EMOJI: char = '🔺';
+
 pub fn mock_context() -> Context {
     mock_context_with_document_cache(empty_document_cache())
 }
