@@ -139,7 +139,8 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// and you would like to convert it for use in Slint.
     ///
     /// The slice must hold exactly `width * height * bytes_per_pixel` bytes,
-    /// where `bytes_per_pixel` is the size of the target pixel type: 4 for [`Rgba8Pixel`], 3 for [`Rgb8Pixel`].
+    /// where `bytes_per_pixel` is the size of the target pixel type:
+    /// 4 for [`Rgba8Pixel`], 3 for [`Rgb8Pixel`], and 1 for [`Gray8Pixel`].
     /// This panics otherwise.
     #[track_caller]
     pub fn clone_from_slice<SourcePixelType>(
@@ -167,8 +168,33 @@ pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
 pub type Rgba8Pixel = rgb::RGBA8;
-/// Convenience alias for a single-channel grayscale pixel encoded as u8.
-pub type Gray8Pixel = rgb::Gray<u8>;
+/// A grayscale pixel: a single luminance channel encoded as u8,
+/// between 0 (black) and 255 (white).
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Gray8Pixel(pub u8);
+
+impl From<Gray8Pixel> for Rgb8Pixel {
+    fn from(pixel: Gray8Pixel) -> Self {
+        Self { r: pixel.0, g: pixel.0, b: pixel.0 }
+    }
+}
+
+impl From<Gray8Pixel> for Rgba8Pixel {
+    fn from(pixel: Gray8Pixel) -> Self {
+        Self { r: pixel.0, g: pixel.0, b: pixel.0, a: 255 }
+    }
+}
+
+impl rgb::AsPixels<Gray8Pixel> for [u8] {
+    fn as_pixels(&self) -> &[Gray8Pixel] {
+        bytemuck::cast_slice(self)
+    }
+
+    fn as_pixels_mut(&mut self) -> &mut [Gray8Pixel] {
+        bytemuck::cast_slice_mut(self)
+    }
+}
 
 impl From<crate::Color> for Rgb8Pixel {
     fn from(value: crate::Color) -> Self {
@@ -1858,15 +1884,6 @@ pub(crate) mod ffi {
         a: u8,
     }
 
-    // Expand Gray8Pixel so that cbindgen can see it. (is in fact rgb::Gray<u8>)
-    /// Represents a grayscale pixel.
-    #[cfg(all(cbindgen, feature = "image-pixel-format-gray8"))]
-    #[repr(C)]
-    struct Gray8Pixel {
-        /// luminance value (between 0 and 255)
-        v: u8,
-    }
-
     // Keep the cfg free of target_arch: cbindgen maps target_arch = wasm32 to a C macro and
     // would guard the declaration, but the C++ API is native only and relies on it being there.
     #[cfg(all(feature = "std", feature = "image-decoders"))]
@@ -2113,8 +2130,8 @@ mod tests {
     #[test]
     fn test_image_from_gray8() {
         let mut buffer = SharedPixelBuffer::<super::Gray8Pixel>::new(2, 1);
-        buffer.make_mut_slice()[0] = super::Gray8Pixel::new(0x00);
-        buffer.make_mut_slice()[1] = super::Gray8Pixel::new(0xff);
+        buffer.make_mut_slice()[0] = super::Gray8Pixel(0x00);
+        buffer.make_mut_slice()[1] = super::Gray8Pixel(0xff);
         let image = Image::from_gray8(buffer);
         assert_eq!(image.size(), crate::graphics::IntSize::new(2, 1));
 
@@ -2130,6 +2147,14 @@ mod tests {
         // Gray8 has no alpha, so the premultiplied form is the same.
         let premultiplied = image.to_rgba8_premultiplied().unwrap();
         assert_eq!(premultiplied.as_slice(), rgba.as_slice());
+    }
+
+    #[cfg(feature = "image-pixel-format-gray8")]
+    #[test]
+    fn test_gray8_from_luminance_bytes() {
+        let buffer =
+            SharedPixelBuffer::<super::Gray8Pixel>::clone_from_slice(&[0x10u8, 0x80], 2, 1);
+        assert_eq!(buffer.as_slice(), &[super::Gray8Pixel(0x10), super::Gray8Pixel(0x80)]);
     }
 
     #[test]

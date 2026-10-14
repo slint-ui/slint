@@ -568,7 +568,6 @@ fn gen_corelib(
         "StandardListViewItem",
         "Rgb8Pixel",
         "Rgba8Pixel",
-        "Gray8Pixel",
     ];
 
     config.export.exclude = [
@@ -739,7 +738,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -883,6 +882,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
+            "Gray8Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
@@ -953,11 +953,6 @@ fn gen_corelib(
     public_config.export.body.insert(
         "Rgba8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
-            .into(),
-    );
-    public_config.export.body.insert(
-        "Gray8Pixel".to_owned(),
-        "/// \\private\nfriend bool operator==(const Gray8Pixel&, const Gray8Pixel&) = default;"
             .into(),
     );
 
