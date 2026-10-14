@@ -833,6 +833,8 @@ public:
 ///
 /// The ComponentDefinition acts as a factory to create new instances. When you've finished
 /// creating the instances it is safe to destroy the ComponentDefinition.
+///
+/// Copies of a ComponentDefinition share the same underlying data, so copying is cheap.
 class ComponentDefinition
 {
     friend class ComponentCompiler;

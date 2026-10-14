@@ -856,6 +856,8 @@ impl std::error::Error for LoadImageError {}
 /// An image type that can be displayed by the Image element. You can construct
 /// Image objects from a path to an image file on disk, using [`Self::load_from_path`].
 ///
+/// Clones of an Image share the same underlying data, so cloning is cheap.
+///
 /// Another typical use-case is to render the image content with Rust code.
 /// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
 /// and pass the mutable slice to your rendering function. Afterwards you can create an
