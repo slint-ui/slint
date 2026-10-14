@@ -16,14 +16,17 @@ name = "printerdemo_mcu"
 
 [features]
 simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
-default = ["simulator"]
+default = ["simulator", "ink-particles"]
 box-pixel-snap = []
 box-line-damage = ["mcu-board-support/box-line-damage"]
 box-pie-fill = ["box-line-damage", "mcu-board-support/box-pie-fill"]
+ink-particles = ["slint/image-pixel-format-rgb565", "dep:bytemuck"]
+box-ink-particles = ["ink-particles", "mcu-board-support/box-parallel"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../../examples/mcu-board-support" }
+bytemuck = { version = "1.13.1", optional = true }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

@@ -4276,6 +4276,7 @@ dependencies = [
 name = "printerdemo_mcu"
 version = "1.19.0"
 dependencies = [
+ "bytemuck",
  "divan",
  "mcu-board-support",
  "slint",

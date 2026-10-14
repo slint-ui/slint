@@ -65,6 +65,12 @@ export struct InkLevel  {
     level: float,
 }
 
+export global InkParticles {
+    in property <bool> enabled: false;
+    in property <[image]> frames;
+    callback resize(int, int);
+}
+
 export global PrinterState {
     in-out property <Pages> active-page: Pages.home;
     in-out property <SubPage> active-subpage: SubPage.none;
