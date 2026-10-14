@@ -38,8 +38,6 @@ on:
           required: true
         READ_WRITE_PRIVATE_KEY:
           required: true
-        SLINT_TESTING_TOKEN:
-          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -122,18 +120,17 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
+            - name: Get a testing.slint.dev token
+              if: matrix.run_ui_tests
+              uses: slint-ui/ui-testing-auth@v1
+              with:
+                  account-url: https://account-staging.slint.dev
             - name: Install UI test dependencies
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
-                  UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
-                  SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
-              # GitHub withholds secrets from pull requests from forks.
-              # Until the OIDC setup is ready, those fetch a throwaway token instead.
-              run: |
-                  token="${SLINT_TESTING_TOKEN:-$(curl -fsSL https://gist.githubusercontent.com/ogoffart/2404d9d20e3c3edc38f33645987a52bb/raw/slint-testing-token)}"
-                  UV_INDEX_SLINT_PRIVATE_PASSWORD="$token" uv sync --locked
+              run: uv sync --locked
             # ty needs slint-testing installed, so this also needs the private package.
             - name: Check visual editor UI tests
               if: matrix.run_ui_tests
