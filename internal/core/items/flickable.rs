@@ -1100,7 +1100,6 @@ impl FlickableDataInner {
                     RefCell::new(SpringFlick::new(
                         deflection,
                         limit,
-                        0.,
                         SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
                     ))
                 })
