@@ -1,10 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rfind
-
 mod element;
 mod import;
+mod qualify;
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 mod show_preview;
 #[cfg(test)]
@@ -99,41 +98,9 @@ pub fn get_code_actions(
     translate::add(&ctx, &mut result);
     import::add(&ctx, &mut result);
     element::add(&ctx, &mut result);
+    qualify::add(&ctx, &mut result);
 
     if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Expression)
-        && node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).count() == 1
-    {
-        // Qualify a bare identifier that doesn't resolve but is an enum value or named color
-        // (`red` -> `Colors.red`). Like the import action above, re-derive the lookup error rather
-        // than reading diagnostics, so nothing is offered when the identifier does resolve.
-        use i_slint_compiler::lookup::LookupObject;
-        let suggestions = util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
-            let name = i_slint_compiler::parser::normalize_identifier(token.text());
-            if i_slint_compiler::lookup::global_lookup().lookup(ctx, &name).is_none() {
-                i_slint_compiler::lookup::enum_or_color_suggestions(ctx, token.text())
-            } else {
-                Vec::new()
-            }
-        })
-        .unwrap_or_default();
-        if !suggestions.is_empty() {
-            let range = util::text_range_to_lsp_range(
-                &token.source_file,
-                token.text_range(),
-                document_cache.format,
-            );
-            for suggestion in suggestions {
-                ctx.push_edit(
-                    &mut result,
-                    format!("Qualify as '{suggestion}'"),
-                    Some(CodeActionKind::QUICKFIX),
-                    vec![TextEdit::new(range, suggestion.to_string())],
-                );
-            }
-        }
-    } else if token.kind() == SyntaxKind::Identifier
         && let Some(implement_statement) = match node.kind() {
             SyntaxKind::ImplementStatement => syntax_nodes::ImplementStatement::new(node.clone()),
             SyntaxKind::QualifiedName | SyntaxKind::DeclaredIdentifier
@@ -324,48 +291,5 @@ export component TestCase {
 "#
             ),
         ).skip_compile("the invalid member stays");
-    }
-    #[test]
-    fn test_qualify_named_color() {
-        CodeActionRequest::at("export component TestCase {\n    init => { debug(🔺red); }\n}\n")
-            .load()
-            .assert(
-                "Qualify as 'Colors.red'",
-                Some(lsp_types::CodeActionKind::QUICKFIX),
-                "export component TestCase {\n    init => { debug(Colors.red); }\n}\n",
-            )
-            .compiles();
-    }
-
-    #[test]
-    fn test_no_qualify_for_resolved_color() {
-        CodeActionRequest::at("export component TestCase {\n    property <color> c: 🔺red;\n}\n")
-            .load()
-            .assert_empty();
-    }
-
-    #[test]
-    fn test_qualify_value_shared_by_enums() {
-        const SOURCE: &str = r#"enum EA { shared_value }
-enum EB { shared_value }
-export component TestCase {
-    init => { debug(shared_value); }
-}
-"#;
-        let actions =
-            CodeActionRequest::at_offset(SOURCE, SOURCE.rfind("shared_value").unwrap()).load();
-        assert_eq!(
-            actions.titles(),
-            ["Qualify as 'EA.shared-value'", "Qualify as 'EB.shared-value'"]
-        );
-        for qualified in ["EA.shared-value", "EB.shared-value"] {
-            actions
-                .assert(
-                    &format!("Qualify as '{qualified}'"),
-                    Some(lsp_types::CodeActionKind::QUICKFIX),
-                    &SOURCE.replace("(shared_value)", &format!("({qualified})")),
-                )
-                .compiles();
-        }
     }
 }
