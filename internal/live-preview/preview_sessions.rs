@@ -206,9 +206,8 @@ impl PreviewSession {
                 if !is_supported(&url) {
                     return true;
                 }
-                if let Some(CacheEntry::Loading(senders)) =
-                    self.file_cache.borrow_mut().remove(&url)
-                {
+                let removed = self.file_cache.borrow_mut().remove(&url);
+                if let Some(CacheEntry::Loading(senders)) = removed {
                     for sender in senders {
                         let _ = sender.send(Err(std::io::Error::new(
                             std::io::ErrorKind::NotFound,
@@ -313,6 +312,23 @@ impl PreviewSession {
             return Err(std::io::Error::other(error.to_string()));
         }
         receiver.await.map_err(std::io::Error::other)?
+    }
+
+    #[cfg(test)]
+    fn manifest_contents(&self, path: &SourcePath) -> std::io::Result<String> {
+        let url = path.to_url().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Not an absolute file path: {path}"),
+            )
+        })?;
+        self.dependencies.borrow_mut().insert(url.clone());
+        match self.file_cache.borrow().get(&url) {
+            Some(CacheEntry::Ready(file_content)) => {
+                Ok(String::from_utf8_lossy(&file_content.contents).to_string())
+            }
+            _ => Err(std::io::ErrorKind::NotFound.into()),
+        }
     }
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
@@ -657,7 +673,75 @@ fn install_debug_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::VersionedUrl;
 
+    #[derive(Default)]
+    struct CaptureToEditor(RefCell<Vec<PreviewToLspMessage>>);
+
+    impl PreviewToLsp for CaptureToEditor {
+        fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
+            self.0.borrow_mut().push(message.clone());
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn manifest_loader_uses_only_cache_and_reloads_on_updates() {
+        let capture = Rc::new(CaptureToEditor::default());
+        let session = Rc::new(PreviewSession {
+            file_cache: Default::default(),
+            dependencies: Default::default(),
+            compiler: Default::default(),
+            configuration: Default::default(),
+            to_editor: capture.clone(),
+        });
+        let root = tempfile::tempdir().unwrap();
+        let manifest_path = root.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest_path, r#"{"style":"disk"}"#).unwrap();
+        let manifest = SourcePath::new(&manifest_path);
+        let url = manifest.to_url().unwrap();
+        let error = session.manifest_contents(&manifest).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+        assert!(session.dependencies.borrow().contains(&url));
+        assert!(capture.0.borrow().is_empty());
+        for (contents, rebuild) in [
+            (Some("{}"), true),
+            (Some("{}"), true),
+            (Some("{broken"), true),
+            (None, true),
+            (None, true),
+        ] {
+            let message = if let Some(contents) = contents {
+                LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: contents.into(),
+                }
+            } else {
+                LspToPreviewMessage::ForgetFile { url: url.clone() }
+            };
+            let mut deadline = None;
+            assert!(session.process_message(message, &|_| {}, &mut deadline));
+            assert_eq!(deadline.is_some(), rebuild);
+            let loaded = session.manifest_contents(&manifest);
+            if let Some(contents) = contents {
+                assert_eq!(loaded.unwrap(), contents);
+            } else {
+                assert_eq!(loaded.unwrap_err().kind(), std::io::ErrorKind::NotFound);
+            }
+        }
+        let unrelated = Url::from_file_path(root.path().join("unrelated.slint")).unwrap();
+        let mut deadline = None;
+        session.process_message(
+            LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(unrelated, None),
+                contents: b"export component Other {}".to_vec(),
+            },
+            &|_| {},
+            &mut deadline,
+        );
+        assert!(deadline.is_none());
+        assert!(capture.0.borrow().is_empty());
+    }
     #[tokio::test]
     async fn empty_style_keeps_the_default_widget_style() {
         let mut compiler = slint_interpreter::Compiler::default();

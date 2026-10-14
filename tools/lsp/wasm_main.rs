@@ -436,7 +436,12 @@ impl SlintServer {
     pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        ctx.session.close_document(uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        let diagnostics = ctx
+            .session
+            .close_document(uri)
+            .await
+            .map_err(|error| JsError::new(&error.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 

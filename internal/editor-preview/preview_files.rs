@@ -13,7 +13,6 @@
 
 use crate::DocumentCache;
 use i_slint_compiler::source_path::clean_path;
-use i_slint_live_preview::protocol::PreviewConfig;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -42,19 +41,16 @@ pub(crate) struct PreviewFileAccess {
 }
 
 impl PreviewFileAccess {
-    pub(crate) fn new(
-        workspace_folders: &[PathBuf],
-        preview_config: &PreviewConfig,
-        document_cache: &DocumentCache,
-    ) -> Self {
+    pub(crate) fn new(workspace_folders: &[PathBuf], document_cache: &DocumentCache) -> Self {
         let project_files = document_cache.all_paths_to_watch();
+        let compiler_config = document_cache.compiler_configuration().compiler_config;
 
         // Deduplicated before canonicalizing: a project has many more files
         // than directories, and each candidate costs a system call.
         let mut candidates: HashSet<PathBuf> = workspace_folders
             .iter()
-            .chain(&preview_config.include_paths)
-            .chain(preview_config.library_paths.values())
+            .chain(&compiler_config.include_paths)
+            .chain(compiler_config.library_paths.values())
             .cloned()
             .collect();
         candidates
@@ -108,17 +104,26 @@ mod tests {
     use super::*;
     use crate::test::empty_document_cache;
 
-    fn access(preview_config: PreviewConfig, document_cache: &DocumentCache) -> PreviewFileAccess {
-        PreviewFileAccess::new(&[], &preview_config, document_cache)
+    fn access(document_cache: &DocumentCache) -> PreviewFileAccess {
+        PreviewFileAccess::new(&[], document_cache)
+    }
+
+    fn cache_with_paths(
+        include_paths: Vec<PathBuf>,
+        library_paths: std::collections::HashMap<String, PathBuf>,
+    ) -> DocumentCache {
+        let mut config = empty_document_cache().compiler_configuration();
+        config.compiler_config.include_paths = include_paths;
+        config.compiler_config.library_paths = library_paths;
+        DocumentCache::new(config)
     }
 
     #[test]
     fn reads_only_project_files_within_the_roots() {
         let root = tempfile::tempdir().unwrap();
         let elsewhere = tempfile::tempdir().unwrap();
-        let preview_config =
-            PreviewConfig { include_paths: vec![root.path().to_path_buf()], ..Default::default() };
-        let access = access(preview_config, &empty_document_cache());
+        let cache = cache_with_paths(vec![root.path().to_path_buf()], Default::default());
+        let access = access(&cache);
 
         // Assets the sources reference, whatever the extension's case.
         let asset = root.path().join("logo.PNG");
@@ -151,7 +156,7 @@ mod tests {
 
         let mut session = crate::test::session_with(empty_document_cache());
         crate::test::load(&mut session, &source, contents);
-        let access = access(PreviewConfig::default(), &session.document_cache);
+        let access = access(&session.document_cache);
 
         assert!(access.allows(&source));
         // ... but a file beside it that the compiler never loaded is refused.
@@ -168,11 +173,9 @@ mod tests {
         let logo = library.path().join("logo.png");
         std::fs::write(&logo, []).unwrap();
 
-        let preview_config = PreviewConfig {
-            library_paths: [("widgets".to_string(), entry_point)].into_iter().collect(),
-            ..Default::default()
-        };
-        let access = access(preview_config, &empty_document_cache());
+        let cache =
+            cache_with_paths(vec![], [("widgets".to_string(), entry_point)].into_iter().collect());
+        let access = access(&cache);
 
         // `@widgets` imports lib.slint, which references the files beside it.
         assert!(access.allows(&logo));
@@ -226,11 +229,7 @@ mod tests {
         std::fs::write(&logo, []).unwrap();
 
         let document_cache = empty_document_cache();
-        let access = PreviewFileAccess::new(
-            &[workspace.path().to_path_buf()],
-            &PreviewConfig::default(),
-            &document_cache,
-        );
+        let access = PreviewFileAccess::new(&[workspace.path().to_path_buf()], &document_cache);
 
         assert!(access.allows(&logo));
     }

@@ -2039,6 +2039,11 @@ fn previewed_component_changed() {
         let mut document_cache = document_cache.snapshot().unwrap();
 
         for (url, cache_entry) in &source_code {
+            if SourcePath::from_url(url).file_name()
+                == Some(i_slint_compiler::project_file::FILE_NAME)
+            {
+                continue;
+            }
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
                 i_slint_editor_preview::util::poll_once(document_cache.load_url(
@@ -3114,6 +3119,83 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn component_catalog_snapshot_excludes_project_manifests() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let main = Url::parse("file:///snapshot/main.slint").unwrap();
+        let manifest = Url::parse("file:///snapshot/slint-project.json").unwrap();
+        let extra = Url::parse("file:///snapshot/extra.slint").unwrap();
+        let mut cache = i_slint_editor_preview::test::empty_document_cache();
+        spin_on::spin_on(cache.load_url(
+            &main,
+            Some(1),
+            "export component Main {}".into(),
+            &mut diagnostics::BuildDiagnostics::default(),
+        ))
+        .unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(PreviewComponent {
+                url: main.clone(),
+                component: Some("Main".into()),
+            });
+            state.document_cache.replace(Some(Rc::new(cache)));
+            for (url, source) in
+                [(manifest.clone(), "{}"), (extra.clone(), "export component Extra {}")]
+            {
+                state
+                    .source_code
+                    .insert(url, SourceCodeCacheEntry { version: Some(2), code: source.into() });
+            }
+        });
+        previewed_component_changed();
+        let snapshot = document_cache().unwrap();
+        assert!(snapshot.get_document(&extra).is_some());
+        assert!(snapshot.get_document(&manifest).is_none());
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn manifest_cache_changes_preserve_dependency_reload_behavior() {
+        reset_preview_state(Default::default());
+        let root = tempfile::tempdir().unwrap();
+        let manifest_path = root.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest_path, r#"{"style":"disk"}"#).unwrap();
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let component = PreviewComponent {
+            url: Url::from_file_path(root.path().join("main.slint")).unwrap(),
+            component: None,
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(component);
+            state.loading_state = PreviewFutureState::Loading;
+        });
+        assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
+        for (contents, reload) in [
+            (Some("{}"), true),
+            (Some("{}"), false),
+            (Some("{broken"), true),
+            (None, true),
+            (None, true),
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.loading_state = PreviewFutureState::Loading;
+                state.current_load_behavior = None;
+            });
+            if let Some(contents) = contents {
+                set_contents(&VersionedUrl::new(manifest.clone(), None), contents.into());
+            } else {
+                delete_document(&manifest);
+            }
+            PREVIEW_STATE.with_borrow(|state| {
+                assert_eq!(state.loading_state == PreviewFutureState::NeedsReload, reload);
+                assert_eq!(state.current_load_behavior.is_some(), reload);
+                assert!(state.dependencies.contains(&manifest));
+            });
+        }
+        reset_preview_state(Default::default());
     }
 
     fn availability_test_editor() -> ui::EditorUi {

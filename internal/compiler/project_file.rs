@@ -89,13 +89,19 @@ pub fn find_project_file_path(directory: &Path) -> std::io::Result<Option<PathBu
         return Ok(None);
     }
 
+    find_project_file_path_with_exists(directory, |path| path.try_exists())
+}
+
+pub fn find_project_file_path_with_exists(
+    directory: &Path,
+    mut file_exists: impl FnMut(&Path) -> std::io::Result<bool>,
+) -> std::io::Result<Option<PathBuf>> {
     for directory in directory.ancestors() {
         let candidate = directory.join(FILE_NAME);
-        if candidate.try_exists()? {
+        if file_exists(&candidate)? {
             return Ok(Some(candidate));
         }
     }
-
     Ok(None)
 }
 
@@ -768,6 +774,37 @@ mod tests {
             assert_eq!(compiler_config.style, default_config.style);
             assert_eq!(compiler_config.enable_experimental, default_config.enable_experimental);
         });
+    }
+
+    #[test]
+    fn existence_callback_probes_nearest_first_and_stops_at_a_match() {
+        let directory = Path::new("project/ui/widgets");
+        let target = Path::new("project/ui").join(FILE_NAME);
+        let mut probes = Vec::new();
+        let found = super::find_project_file_path_with_exists(directory, |path| {
+            probes.push(path.to_path_buf());
+            Ok(path == target)
+        })
+        .unwrap();
+        assert_eq!(found, Some(target.clone()));
+        assert_eq!(probes, [directory.join(FILE_NAME), target]);
+    }
+
+    #[test]
+    fn existence_callback_errors_stop_the_ancestor_search() {
+        let directory = Path::new("project/ui/widgets");
+        let mut probes = Vec::new();
+        let error = super::find_project_file_path_with_exists(directory, |path| {
+            probes.push(path.to_path_buf());
+            if probes.len() == 2 {
+                Err(std::io::ErrorKind::PermissionDenied.into())
+            } else {
+                Ok(false)
+            }
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(probes, [directory.join(FILE_NAME), Path::new("project/ui").join(FILE_NAME)]);
     }
 
     #[test]
