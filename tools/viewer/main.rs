@@ -352,27 +352,24 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.merge_overrides(
-        i_slint_compiler::project_file::Overrides {
-            project: i_slint_compiler::project_file::ProjectFileData {
-                include_paths: args.include_paths.as_ref().map(|paths| {
-                    paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect()
-                }),
-                library_paths: args.library_paths.as_ref().map(|entries| {
-                    entries
-                        .iter()
-                        .filter_map(|entry| {
-                            entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
-                        })
-                        .collect()
-                }),
-                style: args.style.clone(),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        i_slint_core::InternalToken,
-    );
+    if let Some(paths) = &args.include_paths {
+        compiler.set_include_paths(
+            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
+        );
+    }
+    if let Some(entries) = &args.library_paths {
+        compiler.set_library_paths(
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
+    if let Some(style) = &args.style {
+        compiler.set_style(style.clone());
+    }
 
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {
