@@ -111,24 +111,23 @@ pub unsafe fn make_vulkan_surface(
     }
 }
 
-/// Records the transition back to `PRESENT_SRC_KHR` and flushes it.
+/// Records the transition back to `layout` and flushes it.
 ///
-/// wgpu's tracker still believes the swapchain image is in its `PRESENT` state, because that is
-/// where wgpu itself left it before Skia took over. Leaving it in Skia's color-attachment layout
-/// would make the barrier `wgpu::Queue::present` emits name a source layout the image isn't in.
-pub fn release_vulkan_swapchain_surface(
+/// wgpu's tracker doesn't see what Skia does to an image.
+/// It still believes the image is in the layout wgpu itself left it in before Skia took over,
+/// such as `PRESENT_SRC_KHR` for a swapchain image.
+/// In any other layout, the next barrier wgpu emits would name the wrong source layout.
+pub fn release_vulkan_surface(
     gr_context: &mut skia_safe::gpu::DirectContext,
     skia_surface: &mut skia_safe::Surface,
+    layout: skia_safe::gpu::vk::ImageLayout,
     queue_family_index: u32,
 ) {
-    let present_state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(
-        skia_safe::gpu::vk::ImageLayout::PRESENT_SRC_KHR,
-        queue_family_index,
-    );
+    let state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(layout, queue_family_index);
     gr_context.flush_surface_with_texture_state(
         skia_surface,
         &skia_safe::gpu::FlushInfo::default(),
-        Some(&present_state),
+        Some(&state),
     );
 }
 

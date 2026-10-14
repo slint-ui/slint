@@ -2631,7 +2631,7 @@ fn lookup_qualified_name_node(
                     .map(|s| format!("'{s}'"))
                     .collect::<Vec<_>>();
                 let hint = match parts.pop() {
-                    None => String::new(),
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
                     Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
                 };
@@ -2872,6 +2872,7 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
+        let suggestion = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
                 ElementType::Global | ElementType::Interface(_) => {
@@ -2906,7 +2907,7 @@ fn continue_lookup_within_element(
                 return None;
             }
         }
-        err("");
+        err(&suggestion);
         None
     }
 }
@@ -2931,6 +2932,7 @@ fn maybe_lookup_object(
                     return None;
                 }
 
+                let suggestion = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,
@@ -2938,33 +2940,28 @@ fn maybe_lookup_object(
                     LookupResult::Callable(..) => {
                         ctx.diag.push_error("Cannot access fields of a function".into(), &next)
                     }
-                    LookupResult::Enumeration(enumeration) => {
-                        let kebab = crate::generator::to_kebab_case(&next_str);
-                        let suggestion = enumeration
-                            .for_each_entry(ctx, &mut |v, _| {
-                                (crate::generator::to_kebab_case(v) == kebab).then(|| v.clone())
-                            })
-                            .map(|v| format!(". Did you mean '{v}'?"))
-                            .unwrap_or_default();
-                        ctx.diag.push_error(
-                            format!(
-                                "'{}' is not a member of the enum {}{suggestion}",
-                                next.text(),
-                                enumeration.name
-                            ),
-                            &next,
-                        )
-                    }
+                    LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
+                        format!(
+                            "'{}' is not a member of the enum {}{suggestion}",
+                            next.text(),
+                            enumeration.name
+                        ),
+                        &next,
+                    ),
 
                     LookupResult::Namespace(ns) => {
                         ctx.diag.push_error(
-                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
+                            format!(
+                                "'{}' is not a member of the namespace {}{suggestion}",
+                                next.text(),
+                                ns
+                            ),
                             &next,
                         );
                     }
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
-                            Type::Struct { .. } => String::new(),
+                            Type::Struct { .. } => suggestion,
                             Type::Float32
                                 if ctx.property_type == Type::Model
                                     && matches!(
@@ -2979,7 +2976,7 @@ fn maybe_lookup_object(
                                 )
                             }
 
-                            ty => format!(" of {ty}"),
+                            ty => format!(" of {ty}{suggestion}"),
                         };
                         ctx.diag.push_error(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),
