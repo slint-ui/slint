@@ -7,6 +7,7 @@ use clap::Parser;
 use std::error::Error;
 use std::path::PathBuf;
 
+mod check_benchmarks;
 mod generate_cppdocs_headers;
 mod license;
 mod license_headers_check;
@@ -15,6 +16,8 @@ mod reuse_compliance_check;
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 pub enum TaskCommand {
+    #[command(name = "check_benchmarks")]
+    CheckBenchmarks(check_benchmarks::CheckBenchmarks),
     #[command(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
     #[command(name = "generate_cppdocs_headers")]
@@ -84,6 +87,7 @@ where
 
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
+        TaskCommand::CheckBenchmarks(cmd) => cmd.run()?,
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::GenerateCppDocsHeaders(cmd) => {
             generate_cppdocs_headers::generate(cmd.experimental)?
