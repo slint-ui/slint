@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rfind unindented
+// cSpell: ignore rfind
 
+mod element;
 mod import;
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 mod show_preview;
@@ -15,7 +16,7 @@ use crate::editor_preview::{self, DocumentCache};
 use crate::util;
 
 use i_slint_compiler::object_tree::QualifiedTypeName;
-use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
 
 struct Context<'a> {
@@ -97,127 +98,9 @@ pub fn get_code_actions(
 
     translate::add(&ctx, &mut result);
     import::add(&ctx, &mut result);
+    element::add(&ctx, &mut result);
 
     if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
-    {
-        if ctx.snippets {
-            let r = util::text_range_to_lsp_range(
-                &token.source_file,
-                node.parent().unwrap().text_range(),
-                document_cache.format,
-            );
-            let element = document_cache.element_at_position(&ctx.uri, &r.start);
-            let element_indent = element.as_ref().and_then(util::find_element_indent);
-            let indented_lines = node
-                .parent()
-                .unwrap()
-                .text()
-                .to_string()
-                .lines()
-                .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-                .collect::<Vec<String>>();
-            let edits = vec![TextEdit::new(
-                lsp_types::Range::new(r.start, r.end),
-                format!(
-                    "${{0:element}} {{\n{}{}\n}}",
-                    element_indent.unwrap_or("".into()),
-                    indented_lines.join("\n")
-                ),
-            )];
-            ctx.push_edit(&mut result, "Wrap in element", Some(CodeActionKind::REFACTOR), edits);
-
-            // Collect all normal, repeated, and conditional sub-elements and any
-            // whitespace in between for substituting the parent element with its
-            // sub-elements, dropping its own properties, callbacks etc.
-            fn is_sub_element(kind: SyntaxKind) -> bool {
-                matches!(
-                    kind,
-                    SyntaxKind::SubElement
-                        | SyntaxKind::RepeatedElement
-                        | SyntaxKind::ConditionalElement
-                )
-            }
-            let sub_elements = node
-                .parent()
-                .unwrap()
-                .children_with_tokens()
-                .skip_while(|n| !is_sub_element(n.kind()))
-                .filter(|n| match n {
-                    NodeOrToken::Node(_) => is_sub_element(n.kind()),
-                    NodeOrToken::Token(t) => {
-                        t.kind() == SyntaxKind::Whitespace
-                            && t.next_sibling_or_token().is_some_and(|n| is_sub_element(n.kind()))
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            if match ctx.component {
-                // A top-level component element can only be removed if it contains
-                // exactly one sub-element (without any condition or assignment)
-                // that can substitute the component element.
-                Some(_) => {
-                    sub_elements.len() == 1
-                        && sub_elements.first().and_then(|n| {
-                            n.as_node().unwrap().first_child_or_token().map(|n| n.kind())
-                        }) == Some(SyntaxKind::Element)
-                }
-                // Any other element can be removed in favor of one or more sub-elements.
-                None => sub_elements.iter().any(|n| n.kind() == SyntaxKind::SubElement),
-            } {
-                let unindented_lines = sub_elements
-                    .iter()
-                    .map(|n| match n {
-                        NodeOrToken::Node(n) => n
-                            .text()
-                            .to_string()
-                            .lines()
-                            .map(|line| line.strip_prefix("    ").unwrap_or(line).to_string())
-                            .collect::<Vec<_>>()
-                            .join("\n"),
-                        NodeOrToken::Token(t) => {
-                            t.text().strip_suffix("    ").unwrap_or(t.text()).to_string()
-                        }
-                    })
-                    .collect::<Vec<String>>();
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.end),
-                    unindented_lines.concat(),
-                )];
-                ctx.push_edit(&mut result, "Remove element", Some(CodeActionKind::REFACTOR), edits);
-            }
-
-            // We have already checked that the node is a qualified name of an element.
-            // Check whether the element is a direct sub-element of another element
-            // meaning that it can be repeated or made conditional.
-            if node // QualifiedName
-                .parent() // Element
-                .unwrap()
-                .parent()
-                .filter(|n| n.kind() == SyntaxKind::SubElement)
-                .and_then(|p| p.parent())
-                .is_some_and(|n| n.kind() == SyntaxKind::Element)
-            {
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.start),
-                    "for ${1:name}[index] in ${0:model} : ".to_string(),
-                )];
-                ctx.push_edit(&mut result, "Repeat element", Some(CodeActionKind::REFACTOR), edits);
-
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.start),
-                    "if ${0:condition} : ".to_string(),
-                )];
-                ctx.push_edit(
-                    &mut result,
-                    "Make conditional",
-                    Some(CodeActionKind::REFACTOR),
-                    edits,
-                );
-            }
-        }
-    } else if token.kind() == SyntaxKind::Identifier
         && node.kind() == SyntaxKind::QualifiedName
         && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Expression)
         && node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).count() == 1
@@ -304,177 +187,6 @@ pub fn get_code_actions(
 #[cfg(test)]
 mod tests {
     use super::test::CodeActionRequest;
-
-    const SUB_ELEMENT: &str = r#"export component Test {
-    Rectangle {
-        Text {
-            text: "Hello";
-        }
-    }
-}
-"#;
-
-    const CONDITIONAL_ELEMENT: &str = r#"export component Test {
-    if true: Rectangle {
-        background: red;
-
-        Text { text: "A"; }
-
-        Text {
-            text: "B";
-        }
-    }
-}
-"#;
-
-    #[test]
-    fn test_code_action_element_needs_snippet_support() {
-        for column in 0..=4 {
-            CodeActionRequest::at_offset(SUB_ELEMENT, SUB_ELEMENT.find("Text").unwrap() + column)
-                .load()
-                .assert_empty();
-        }
-        CodeActionRequest::at_offset(
-            CONDITIONAL_ELEMENT,
-            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
-        )
-        .load()
-        .assert_empty();
-    }
-
-    #[test]
-    fn test_code_action_sub_element() {
-        for column in 0..=4 {
-            let actions = CodeActionRequest::at_offset(
-                SUB_ELEMENT,
-                SUB_ELEMENT.find("Text").unwrap() + column,
-            )
-            .snippets()
-            .load();
-            assert_eq!(
-                actions.titles(),
-                ["Wrap in element", "Repeat element", "Make conditional"],
-                "column {column}"
-            );
-            actions
-                .assert(
-                    "Wrap in element",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        ${0:element} {
-            Text {
-                text: "Hello";
-            }
-}
-    }
-}
-"#,
-                )
-                .compiles_with(&[("element", "Rectangle")]);
-            actions
-                .assert(
-                    "Repeat element",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        for ${1:name}[index] in ${0:model} : Text {
-            text: "Hello";
-        }
-    }
-}
-"#,
-                )
-                .compiles_with(&[("name", "item"), ("model", "3")]);
-            actions
-                .assert(
-                    "Make conditional",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        if ${0:condition} : Text {
-            text: "Hello";
-        }
-    }
-}
-"#,
-                )
-                .compiles_with(&[("condition", "true")]);
-        }
-    }
-
-    #[test]
-    fn test_code_action_remove_element_of_conditional() {
-        let actions = CodeActionRequest::at_offset(
-            CONDITIONAL_ELEMENT,
-            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
-        )
-        .snippets()
-        .load();
-        assert_eq!(actions.titles(), ["Wrap in element", "Remove element"]);
-        actions
-            .assert(
-                "Wrap in element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
-    if true: ${0:element} {
-        Rectangle {
-            background: red;
-
-            Text { text: "A"; }
-
-            Text {
-                text: "B";
-            }
-        }
-}
-}
-"#,
-            )
-            .compiles_with(&[("element", "Rectangle")]);
-        actions
-            .assert(
-                "Remove element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
-    if true: Text { text: "A"; }
-
-    Text {
-        text: "B";
-    }
-}
-"#,
-            )
-            .compiles();
-    }
-
-    #[test]
-    fn test_code_action_remove_component_root() {
-        CodeActionRequest::at("export component Test inherits 🔺Rectangle {\n    Text { }\n}\n")
-            .snippets()
-            .load()
-            .assert(
-                "Remove element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                "export component Test inherits Text { }\n",
-            )
-            .compiles();
-    }
-
-    #[test]
-    fn test_code_action_remove_element_with_id() {
-        CodeActionRequest::at(
-            "export component Test {\n    input := 🔺Rectangle {\n        Text { }\n    }\n}\n",
-        )
-        .snippets()
-        .load()
-        .assert(
-            "Remove element",
-            Some(lsp_types::CodeActionKind::REFACTOR),
-            "export component Test {\n    input := Text { }\n}\n",
-        )
-        .compiles();
-    }
 
     #[test]
     fn test_code_action_no_show_preview_for_struct_or_global() {
