@@ -436,7 +436,11 @@ impl EditorSession {
         diagnostics.extend(removed.into_iter().map(|url| (url, None, Vec::new())));
         diagnostics.extend(project_diagnostics);
 
-        self.preview_config = preview_configuration(&compiler_config, overrides.hide_ui);
+        self.preview_config = PreviewConfig {
+            hide_ui: overrides.hide_ui,
+            overrides: overrides.compiler,
+            format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
+        };
         self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
             config: self.preview_config.clone(),
         });
@@ -549,11 +553,16 @@ impl EditorSession {
         roots.extend(self.project_main_urls());
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         roots.extend(self.previews.iter().filter_map(|preview| {
-            preview
-                .to_show
-                .as_ref()
-                .filter(|component| Self::project_file_source(&component.url).is_none())
-                .map(|component| component.url.clone())
+            preview.to_show.as_ref().and_then(|component| {
+                let path = SourcePath::from_url(&component.url);
+                if path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
+                    self.active_projects
+                        .get(&path.into_native_path()?)
+                        .and_then(|state| state.parsed.as_ref()?.entry()?.to_url())
+                } else {
+                    Some(component.url.clone())
+                }
+            })
         }));
         roots.into_iter().filter_map(|url| SourcePath::from_url(&url).to_url()).collect()
     }
@@ -994,6 +1003,21 @@ impl EditorSession {
             self.maybe_update_active_project(&url).await?
         };
 
+        let url = if SourcePath::from_url(&url).file_name()
+            == Some(i_slint_compiler::project_file::FILE_NAME)
+        {
+            let Some(entry) = SourcePath::from_url(&url)
+                .into_native_path()
+                .and_then(|path| self.active_projects.get(&path))
+                .and_then(|state| state.parsed.as_ref()?.entry()?.to_url())
+            else {
+                return Ok(configuration_diagnostics);
+            };
+            entry
+        } else {
+            url
+        };
+
         let mut diagnostics = BuildDiagnostics::default();
         let extra_files =
             self.reload_document_without_project_discovery(url, &mut diagnostics).await;
@@ -1290,6 +1314,48 @@ mod preview_tests {
                 ));
                 assert_eq!(sent, expected);
             }
+        }
+    }
+
+    #[test]
+    fn preview_configuration_sends_explicit_overrides_without_manifest_settings() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(
+            directory.path().join(i_slint_compiler::project_file::FILE_NAME),
+            r#"{"style":"material"}"#,
+        )
+        .unwrap();
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            compiler: Overrides { debug_info: Some(false), ..Default::default() },
+            hide_ui: Some(true),
+        });
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                const_scale_factor: Some(2.),
+                project: ProjectFileData { include_paths: Some(Vec::new()), ..Default::default() },
+                ..Default::default()
+            },
+            ..Default::default()
+        }))
+        .unwrap();
+        let url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        spin_on::spin_on(session.load_document(
+            "export component Main inherits Window {}".into(),
+            url,
+            None,
+        ))
+        .unwrap();
+        let expected = session.effective_config_overrides();
+        assert_eq!(session.preview_config.overrides, expected.compiler);
+        assert_eq!(session.preview_config.hide_ui, Some(true));
+        assert_eq!(session.preview_config.overrides.project.style, None);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
+            Some("material")
+        );
+        for messages in messages {
+            assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { config } if config.overrides == expected.compiler)));
         }
     }
 
@@ -2084,8 +2150,20 @@ mod tests {
         let mut session = session();
         load_document(&mut session, &document_path).unwrap();
 
-        assert_eq!(session.preview_config.style, "fluent");
-        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("include")]);
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .as_deref()
+                .unwrap_or_default(),
+            "fluent"
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("include")]
+        );
     }
 
     #[test]
@@ -2105,7 +2183,10 @@ mod tests {
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
         assert_eq!(diagnostics.len(), 2);
         assert!(diagnostics.iter().all(|(_, _, warnings)| warnings.is_empty()));
-        assert_eq!(session.preview_config.include_paths.len(), 2);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths.len(),
+            2
+        );
     }
 
     #[test]
@@ -2336,21 +2417,62 @@ mod tests {
                 ..Default::default()
             }))
             .unwrap();
-            assert_eq!(session.preview_config.include_paths, paths);
-            assert_eq!(session.preview_config.library_paths, libraries);
-            assert_eq!(session.preview_config.style, "cupertino");
-            assert!(!session.preview_config.enable_experimental);
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.include_paths,
+                paths
+            );
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.library_paths,
+                libraries
+            );
+            assert_eq!(
+                session
+                    .document_cache
+                    .compiler_configuration()
+                    .compiler_config
+                    .style
+                    .as_deref()
+                    .unwrap_or_default(),
+                "cupertino"
+            );
+            assert!(
+                !session
+                    .document_cache
+                    .compiler_configuration()
+                    .compiler_config
+                    .enable_experimental
+            );
         }
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
-        assert_eq!(session.preview_config.include_paths, startup_paths);
-        assert_eq!(session.preview_config.library_paths, startup_libraries);
-        assert_eq!(session.preview_config.style, "cosmic");
-        assert!(session.preview_config.enable_experimental);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            startup_paths
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
+            startup_libraries
+        );
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .as_deref()
+                .unwrap_or_default(),
+            "cosmic"
+        );
+        assert!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental
+        );
         session.set_startup_config_overrides(Default::default());
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
-        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("project")]);
         assert_eq!(
-            session.preview_config.library_paths,
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("project")]
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
             HashMap::from([("project".into(), temp.path().join("project-lib"))])
         );
         assert_eq!(session.preview_config.style, "fluent");
@@ -2399,11 +2521,11 @@ mod tests {
 
         // Both are equally deep, so the include paths keep the order they were discovered in.
         assert_eq!(
-            session.preview_config.include_paths,
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
             vec![project_a.join("include-a"), project_b.join("include-b")]
         );
         assert_eq!(
-            session.preview_config.library_paths,
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
             HashMap::from([("widgets".to_string(), project_b.join("lib.slint"))])
         );
         let (merged, _) = session.merged_project_data(Default::default());
@@ -2479,7 +2601,7 @@ mod tests {
         load_document(&mut session, &outer.join("main.slint")).unwrap();
 
         assert_eq!(
-            session.preview_config.library_paths,
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
             HashMap::from([("widgets".to_string(), outer.join("outer.slint"))])
         );
     }

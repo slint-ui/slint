@@ -2038,11 +2038,20 @@ enum {}
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
-            style: "custom-style".into(),
-            include_paths: vec![PathBuf::from("/includes")],
-            library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
+            overrides: i_slint_compiler::project_file::Overrides {
+                project: i_slint_compiler::project_file::ProjectFileData {
+                    style: Some("custom-style".into()),
+                    include_paths: Some(vec![PathBuf::from("/includes")]),
+                    library_paths: Some(HashMap::from([(
+                        "widgets".into(),
+                        PathBuf::from("/libraries/widgets"),
+                    )])),
+                    enable_experimental_features: Some(true),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             format_utf8: false,
-            enable_experimental: true,
         };
 
         // Configuration flows independently of user settings; a settings file

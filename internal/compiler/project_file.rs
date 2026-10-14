@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::source_path::SourcePath;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     error::Error,
     path::{Path, PathBuf},
 };
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ProjectFileData {
     /// The schema that editors validate the file against. The compiler ignores it.
@@ -260,20 +260,34 @@ impl ProjectFileData {
 }
 
 /// The settings that a caller set explicitly through an API, which win over the project file.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Overrides {
     pub project: ProjectFileData,
     pub style: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_supported_enum")]
     pub embed_resources: Option<crate::EmbedResourcesKind>,
     pub const_scale_factor: Option<f32>,
     #[cfg(feature = "bundle-translations")]
     pub bundled_translations_path: Option<PathBuf>,
+    #[serde(default, deserialize_with = "deserialize_supported_enum")]
     pub default_translation_context: Option<crate::DefaultTranslationContext>,
     pub debug_info: Option<bool>,
     pub library_name: Option<String>,
     pub rust_module: Option<String>,
     #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     pub use_sdf_fonts: Option<bool>,
+}
+
+fn deserialize_supported_enum<'de, D: serde::Deserializer<'de>, T: serde::de::DeserializeOwned>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match serde_json::from_value(value) {
+        Ok(value) => Ok(value),
+        Err(error) if error.to_string().starts_with("unknown variant") => Ok(None),
+        Err(error) => Err(serde::de::Error::custom(error)),
+    }
 }
 
 impl Overrides {
@@ -682,6 +696,35 @@ mod tests {
 
         // The blanked comments keep the offsets, so the error names line 4.
         assert!(error.to_string().contains("line 4"), "{error}");
+    }
+
+    #[test]
+    fn field_errors_keep_the_first_field_and_its_source_position() {
+        for (source, message, line, column) in [
+            (
+                r#"{
+  "style": 42,
+  "entry": "main.slint"
+}"#,
+                "invalid type",
+                2,
+                13,
+            ),
+            (
+                r#"{
+  "first-unknown": true,
+  "second-unknown": false
+}"#,
+                "unknown field `first-unknown`",
+                2,
+                17,
+            ),
+        ] {
+            let error = load_project_file(&source).unwrap_err();
+            let error = error.downcast_ref::<serde_json::Error>().unwrap();
+            assert!(error.to_string().contains(message), "{error}");
+            assert_eq!((error.line(), error.column()), (line, column), "{error}");
+        }
     }
 
     #[test]
