@@ -277,6 +277,11 @@ component FileTreeRow inherits Rectangle {
                     root.begin-rename();
                 }
             }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Copy Path");
+                activated => { Api.copy-file-path(root.node.path); }
+            }
         }
 
         touch := TouchArea {
@@ -294,8 +299,10 @@ component FileTreeRow inherits Rectangle {
             }
         }
     }
-    if root.diagnostic-description != "": Tooltip {
-        text: @markdown("\{root.diagnostic-description}");
+    Tooltip {
+        text: root.diagnostic-description != ""
+            ? @markdown("\{root.diagnostic-description}")
+            : @markdown("\{root.node.path}");
     }
 }
 
