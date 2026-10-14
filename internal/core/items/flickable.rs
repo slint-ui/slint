@@ -1076,10 +1076,15 @@ impl FlickableDataInner {
         }
         let deflection_x = (flick.content_x() - target.x_length()).0;
         let deflection_y = (flick.content_y() - target.y_length()).0;
+        Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
+        Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
 
         let simulation = |deflection: f32,
                           dimension: Dimension|
-         -> Rc<RefCell<dyn PositionSimulation>> {
+         -> Option<Rc<RefCell<dyn PositionSimulation>>> {
+            if deflection == 0. {
+                return None;
+            }
             let content = match dimension {
                 Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
                 Dimension::Y => Flickable::FIELD_OFFSETS.content_y(),
@@ -1089,7 +1094,7 @@ impl FlickableDataInner {
             let flick_velocity = if deflection < 0. { 1. } else { -1. };
             let limit = FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension);
 
-            if cfg!(target_os = "ios") {
+            Some(if cfg!(target_os = "ios") {
                 Rc::new_cyclic(|weak: &Weak<RefCell<EaseInOutSine>>| {
                     content.set_physic_animation_value(weak.clone());
                     RefCell::new(EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit))
@@ -1103,17 +1108,14 @@ impl FlickableDataInner {
                         SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
                     ))
                 })
-            }
+            })
         };
 
         let x_simulation = simulation(deflection_x as f32, Dimension::X);
         let y_simulation = simulation(deflection_y as f32, Dimension::Y);
 
-        self.running_animation = Some(RunningSimulation {
-            weak: flick_rc.downgrade(),
-            x_simulation: Some(x_simulation),
-            y_simulation: Some(y_simulation),
-        });
+        self.running_animation =
+            Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
     }
 }
 
