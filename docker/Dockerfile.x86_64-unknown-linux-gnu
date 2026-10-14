@@ -18,6 +18,7 @@ RUN mkdir -p /sysroot/usr/lib /sysroot/usr/share && \
     cp -a /usr/lib/x86_64-linux-gnu /usr/lib/gcc /sysroot/usr/lib/ && \
     cp -a /usr/lib64 /sysroot/usr/ && \
     cp -a /usr/share/pkgconfig /sysroot/usr/share/ && \
+    mkdir -p /sysroot/var/lib/dpkg && cp /var/lib/dpkg/status /sysroot/var/lib/dpkg/ && \
     ln -s usr/lib /sysroot/lib && \
     ln -s usr/lib64 /sysroot/lib64 && \
     find /sysroot -type l -lname '/*' -exec sh -c 'ln -sfr "/sysroot$(readlink "$1")" "$1"' _ {} \;
@@ -36,6 +37,11 @@ RUN apt-get update && \
     git config --global safe.directory '*'
 
 COPY --from=sysroot /sysroot /sysroot
+
+# For adding more target packages to the sysroot, see the script.
+COPY docker/sysroot-apt-install.sh /usr/local/bin/sysroot-apt-install
+ENV SYSROOT_DEB_ARCH=amd64 \
+    SYSROOT_APT_URI=http://archive.ubuntu.com/ubuntu
 
 ENV CROSS_SYSROOT=/sysroot \
     CROSS_MULTIARCH=x86_64-linux-gnu \

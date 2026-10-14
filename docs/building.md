@@ -1,4 +1,4 @@
-<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint winget -->
+<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint winget libsqlite -->
 # Slint Build Guide
 
 This page explains how to build and test Slint.
@@ -233,6 +233,26 @@ Finally on a shell on the Pi:
 ```sh
 DISPLAY=:0 ./printerdemo
 ```
+
+### Using the Slint Cross Images in Your Own Project
+
+The containers are published as `ghcr.io/slint-ui/slint/<target>`, for example
+`ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf`, and you can use them in the `Cross.toml` of your own
+project. The `latest` tag is rebuilt regularly from Slint's `master` branch, so we recommend pinning the
+image by its digest:
+
+```toml
+[target.armv7-unknown-linux-gnueabihf]
+image = "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf@sha256:<digest>"
+pre-build = ["sysroot-apt-install libsqlite3-dev"]
+```
+
+The images for the `*-linux-gnu*` targets compile against an Ubuntu 22.04 sysroot in `/sysroot`, so the
+binaries require glibc 2.35 or newer on the target device. Add the libraries your project needs to that
+sysroot with `sysroot-apt-install` in a `pre-build` step, as shown above: it installs the Ubuntu 22.04
+packages for the target architecture. The common `pre-build` recipe of `dpkg --add-architecture` and
+`apt-get install <package>:<arch>` doesn't work with these images. Tools that run on the build host,
+such as `protobuf-compiler`, are installed with a plain `apt-get install`.
 
 ## Examples
 
