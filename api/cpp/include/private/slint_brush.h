@@ -253,11 +253,10 @@ public:
     /// identical. Returns false if the brushes differ in what they hold or their respective color
     /// or gradient are not equal.
     ///
-    /// \note Radial and conic gradient brushes store center and radius as fake header stops whose
-    /// position fields use NaN as a sentinel for "use the bounding box default" and a negative
-    /// value for the default radius. Two brushes with default (NaN / negative) metadata compare
-    /// equal, matching the Rust \c PartialEq semantics. A plain memory comparison would treat
-    /// NaN != NaN and give incorrect results, hence this custom function.
+    /// \note Radial and conic gradient brushes store their center as fake header stops whose
+    /// position fields use NaN as a sentinel for "use the bounding box center". Two brushes with
+    /// a NaN center compare equal, matching the Rust \c PartialEq semantics. A plain memory
+    /// comparison would treat NaN != NaN and give incorrect results, hence this custom function.
     friend bool operator==(const Brush &a, const Brush &b)
     {
         return cbindgen_private::types::slint_brush_compare_equal(&a.data, &b.data);

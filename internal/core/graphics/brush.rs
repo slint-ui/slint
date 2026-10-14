@@ -363,6 +363,16 @@ impl RadialGradientBrush {
             && self.radius_x() != RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS
     }
 
+    #[doc(hidden)]
+    pub fn explicit_center(&self) -> Option<(f32, f32)> {
+        (!self.center_x().is_nan()).then(|| (self.center_x(), self.center_y()))
+    }
+
+    #[doc(hidden)]
+    pub fn explicit_radii(&self) -> Option<(f32, f32)> {
+        (self.radius_x() >= 0.0).then(|| (self.radius_x(), self.radius_y()))
+    }
+
     /// Sets an explicit center, returning `self` for chaining. `cx` and `cy` are in the
     /// element's local logical coordinate space.
     pub fn with_center(mut self, cx: f32, cy: f32) -> Self {
@@ -915,48 +925,44 @@ impl InterpolatedPropertyValue for Brush {
                 Self::interpolate(b, a, 1. - t)
             }
             (Brush::RadialGradient(lhs), Brush::RadialGradient(rhs)) => {
-                if lhs.0.len() < rhs.0.len() {
-                    Self::interpolate(target_value, self, 1. - t)
-                } else {
-                    let mut new_grad = lhs.clone();
-                    {
-                        let s = new_grad.0.make_mut_slice();
-                        // Center: interpolate when both sides are explicit. When one side is the
-                        // default (NaN), lhs wins for t < 1 and snaps to rhs at t == 1.
-                        if !lhs.center_x().is_nan() && !rhs.center_x().is_nan() {
-                            s[0].position = lhs.center_x().interpolate(&rhs.center_x(), t);
-                            s[1].position = lhs.center_y().interpolate(&rhs.center_y(), t);
-                        } else if t >= 1.0 {
-                            s[0].position = rhs.center_x();
-                            s[1].position = rhs.center_y();
-                        }
-                        // Radii: same snap behavior when one side is a default (negative).
-                        for (i, l, r) in [
-                            (2, lhs.radius_x(), rhs.radius_x()),
-                            (3, lhs.radius_y(), rhs.radius_y()),
-                        ] {
-                            if l >= 0.0 && r >= 0.0 {
-                                s[i].position = l.interpolate(&r, t);
-                            } else if t >= 1.0 {
-                                s[i].position = r;
-                            }
-                        }
-                        let mut rhs_stops = rhs.stops();
-                        let mut iter = s.iter_mut().skip(RadialGradientBrush::HEADER);
-                        let mut last_color = Color::default();
-                        for s2 in &mut rhs_stops {
-                            let s1 = iter.next().unwrap();
-                            last_color = s2.color;
-                            s1.color = s1.color.interpolate(&s2.color, t);
-                            s1.position = s1.position.interpolate(&s2.position, t);
-                        }
-                        for x in iter {
-                            x.position = x.position.interpolate(&1.0, t);
-                            x.color = x.color.interpolate(&last_color, t);
-                        }
+                // The stops interpolate from the gradient with more stops, so it may be swapped.
+                // The header always goes from lhs to rhs.
+                let (long, short, stops_t) =
+                    if lhs.0.len() < rhs.0.len() { (rhs, lhs, 1. - t) } else { (lhs, rhs, t) };
+                let mut new_grad = long.clone();
+                {
+                    let s = new_grad.0.make_mut_slice();
+                    let snap = |l: f32, r: f32| if t >= 1.0 { r } else { l };
+                    // Center: interpolate when both sides are explicit. When one side is the
+                    // default (NaN), lhs wins for t < 1 and snaps to rhs at t == 1.
+                    if !lhs.center_x().is_nan() && !rhs.center_x().is_nan() {
+                        s[0].position = lhs.center_x().interpolate(&rhs.center_x(), t);
+                        s[1].position = lhs.center_y().interpolate(&rhs.center_y(), t);
+                    } else {
+                        s[0].position = snap(lhs.center_x(), rhs.center_x());
+                        s[1].position = snap(lhs.center_y(), rhs.center_y());
                     }
-                    Brush::RadialGradient(new_grad)
+                    // Radii: same snap behavior when one side is a default (negative).
+                    for (i, l, r) in
+                        [(2, lhs.radius_x(), rhs.radius_x()), (3, lhs.radius_y(), rhs.radius_y())]
+                    {
+                        s[i].position =
+                            if l >= 0.0 && r >= 0.0 { l.interpolate(&r, t) } else { snap(l, r) };
+                    }
+                    let mut iter = s.iter_mut().skip(RadialGradientBrush::HEADER);
+                    let mut last_color = Color::default();
+                    for s2 in short.stops() {
+                        let s1 = iter.next().unwrap();
+                        last_color = s2.color;
+                        s1.color = s1.color.interpolate(&s2.color, stops_t);
+                        s1.position = s1.position.interpolate(&s2.position, stops_t);
+                    }
+                    for x in iter {
+                        x.position = x.position.interpolate(&1.0, stops_t);
+                        x.color = x.color.interpolate(&last_color, stops_t);
+                    }
                 }
+                Brush::RadialGradient(new_grad)
             }
             (Brush::SolidColor(col), Brush::ConicGradient(grad)) => {
                 let mut new_grad = grad.clone();
@@ -1582,6 +1588,28 @@ fn test_radial_gradient_interpolation_reaches_default_metadata() {
     } else {
         panic!("Expected RadialGradient");
     }
+}
+
+#[test]
+fn test_radial_gradient_interpolation_keeps_source_metadata_with_fewer_stops() {
+    let stop = |position, v| GradientStop { position, color: Color::from_rgb_u8(v, v, v) };
+    let source = RadialGradientBrush::new_circle([stop(0.0, 0), stop(1.0, 255)])
+        .with_center(10.0, 20.0)
+        .with_radius(30.0);
+    let target = RadialGradientBrush::new_ellipse([stop(0.0, 0), stop(0.5, 128), stop(1.0, 255)]);
+    let interpolate = |t| {
+        let Brush::RadialGradient(result) = Brush::RadialGradient(source.clone())
+            .interpolate(&Brush::RadialGradient(target.clone()), t)
+        else {
+            panic!("Expected RadialGradient");
+        };
+        result
+    };
+
+    let result = interpolate(0.5);
+    assert_eq!((result.center_x(), result.center_y()), (10.0, 20.0));
+    assert_eq!((result.radius_x(), result.radius_y()), (30.0, 30.0));
+    assert_eq!(interpolate(1.0), target);
 }
 
 #[test]

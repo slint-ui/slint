@@ -1331,6 +1331,22 @@ export component Test { in property <Foobar> test1; }"#,
         assert!(!result.value_resolved);
 
         let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(result.value_resolved);
+        assert!(result.fill.custom_radius);
+        assert_eq!(result.fill.radius, 40.);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(result.value_resolved);
+        assert!(result.fill.custom_radius);
+        assert_eq!(result.fill.radius, 0.);
+
+        let result = property_conversion_test(
             r#"global Foo {
                 out property <brush> ellipse: @radial-gradient(ellipse, #f00 0%, #00f 100%);
             }
