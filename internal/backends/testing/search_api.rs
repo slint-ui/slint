@@ -923,6 +923,9 @@ impl ElementHandle {
     /// Returns the value of the element's `accessible-role` property, if present. Use this property to
     /// locate elements by their type/role, i.e. buttons, checkboxes, etc.
     pub fn accessible_role(&self) -> Option<crate::AccessibleRole> {
+        if self.element_index != 0 {
+            return None;
+        }
         self.item.upgrade().map(|item| item.accessible_role())
     }
 
@@ -1457,6 +1460,33 @@ impl ElementHandle {
         i_slint_core::lengths::logical_position_to_api(
             item.map_to_native_window(item.geometry().center()),
         )
+    }
+
+    /// Like [`Self::absolute_center()`], for the element's origin.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn absolute_origin(&self) -> LogicalPosition {
+        let Some(item) = self.item.upgrade() else {
+            return Default::default();
+        };
+        i_slint_core::lengths::logical_position_to_api(
+            item.map_to_native_window(item.geometry().origin),
+        )
+    }
+
+    /// Returns true for a `TouchArea` or gesture handler with `enabled: false`.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn input_handler_disabled(&self) -> bool {
+        use i_slint_core::items::{
+            ItemRef, ScaleRotateGestureHandler, SwipeGestureHandler, TouchArea,
+        };
+        let Some(item) = self.item.upgrade() else {
+            return false;
+        };
+        ItemRef::downcast_pin::<TouchArea>(item.borrow()).is_some_and(|area| !area.enabled())
+            || ItemRef::downcast_pin::<SwipeGestureHandler>(item.borrow())
+                .is_some_and(|handler| !handler.enabled())
+            || ItemRef::downcast_pin::<ScaleRotateGestureHandler>(item.borrow())
+                .is_some_and(|handler| !handler.enabled())
     }
 
     pub fn scroll(&self, delta_x: f32, delta_y: f32) {
