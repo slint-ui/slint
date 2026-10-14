@@ -257,7 +257,7 @@ def test_dropped_text_keeps_caret_selection_and_grows_editing_bounds(
         inline_editor, dropped = drop_palette_text(window, snapshot)
         zoom_canvas(window, percent)
         initial_width = inline_editor.size.width
-        draft = "A longer replacement"
+        draft = "MMMMMMMMMMMM"
         press_keys(window, draft)
         wait_until(
             lambda: True if inline_editor.size.width > initial_width * 3 else None
@@ -365,13 +365,19 @@ def test_dropped_text_ends_editing_when_source_target_is_lost(
         assert not elements(
             window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
         )
-        element(window, "Text", role=slint_testing.AccessibleRole.Text)
+        element(
+            element(window, "Editor canvas"),
+            "Text",
+            role=slint_testing.AccessibleRole.Text,
+        )
 
 
+@pytest.mark.parametrize("text_width", ["180px", "50%"])
 def test_fixed_width_text_draft_survives_reload(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    text_width: str,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     source = source_file.read_bytes().replace(
@@ -382,6 +388,11 @@ def test_fixed_width_text_draft_survives_reload(
         b"            background: #e600b3;\n"
         b'            accessible-role: region; accessible-label: "Inline child";\n'
         b"        }",
+        1,
+    )
+    source = source.replace(
+        b'        width: 180px;\n        height: 48px;\n        text: "Fixture text";',
+        f'        width: {text_width};\n        height: 48px;\n        text: "Fixture text";'.encode(),
         1,
     )
     source_file.write_bytes(source)

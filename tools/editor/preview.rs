@@ -1253,14 +1253,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
         .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
-        element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
-            None,
-            SelectionNotification::AfterUpdate,
-        );
-
-        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+        submit_component_drop(edit, drop_data, component_name, kind);
     };
 }
 
@@ -1293,15 +1286,27 @@ fn drop_component_with_geometry(
             .map(|(edit, data)| (edit, data, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
-        element_selection::select_element_at_source_code_position(
-            drop_data.path,
-            drop_data.selection_offset,
-            None,
+        submit_component_drop(edit, drop_data, component_name, kind);
+    };
+}
+
+fn submit_component_drop(
+    edit: lsp_types::WorkspaceEdit,
+    drop_data: drop_location::DropData,
+    component_name: String,
+    kind: ui::ElementKind,
+) {
+    if send_workspace_edit(format!("Add element {component_name}"), edit, false) {
+        set_selected_element(
+            Some(ElementSelection {
+                path: drop_data.path,
+                offset: drop_data.selection_offset,
+                instance_index: 0,
+                editing_text: kind == ui::ElementKind::Text,
+            }),
             SelectionNotification::AfterUpdate,
         );
-
-        send_workspace_edit(format!("Add element {component_name}"), edit, false);
-    };
+    }
 }
 
 fn placeholder_node_text(selected: &i_slint_editor_preview::ElementRcNode) -> String {
@@ -3580,6 +3585,7 @@ mod tests {
                     path: i_slint_editor_preview::test::main_test_file_name(),
                     offset: 0.into(),
                     instance_index: 0,
+                    editing_text: false,
                 }),
                 notification,
             );
