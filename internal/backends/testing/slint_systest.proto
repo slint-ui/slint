@@ -159,6 +159,7 @@ enum AccessibleRole {
     Region = 27;
     Search = 28;
     WindowTitleBar = 29;
+    ScrollBar = 30;
 }
 
 enum RecordedEventResult {
