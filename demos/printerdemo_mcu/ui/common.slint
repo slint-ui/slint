@@ -68,6 +68,13 @@ export struct InkLevel  {
 export global PrinterState {
     in-out property <Pages> active-page: Pages.home;
     in-out property <SubPage> active-subpage: SubPage.none;
+    callback active-page-changed(Pages);
+    callback before-page-change(Pages);
+    public function show-page(page: Pages) {
+        self.before-page-change(page);
+        self.active-page = page;
+    }
+    changed active-page => { self.active-page-changed(self.active-page); }
 
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer

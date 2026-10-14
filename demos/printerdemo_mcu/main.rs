@@ -9,6 +9,40 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use alloc::rc::Rc;
+use core::cell::Cell;
+
+mod scroll_pause;
+use scroll_pause::ScrollGate;
+
+struct ScrollPause {
+    gate: Cell<ScrollGate>,
+    settle_timer: slint::Timer,
+}
+
+impl ScrollPause {
+    fn observe(self: &Rc<Self>, raw_y: f32) {
+        if !ScrollGate::observe_cell(&self.gate, raw_y) {
+            return;
+        }
+        let weak = Rc::downgrade(self);
+        self.settle_timer.start(
+            slint::TimerMode::SingleShot,
+            core::time::Duration::from_millis(200),
+            move || {
+                if let Some(pause) = weak.upgrade() {
+                    let mut gate = pause.gate.get();
+                    gate.settle();
+                    pause.gate.set(gate);
+                }
+            },
+        );
+    }
+
+    fn allow_progress(&self) -> bool {
+        self.gate.get().progress_tick()
+    }
+}
+
 use slint::Model;
 
 #[allow(unused_imports)]
@@ -19,6 +53,7 @@ slint::include_modules!();
 struct PrinterQueueData {
     data: Rc<slint::VecModel<PrinterQueueItem>>,
     print_progress_timer: slint::Timer,
+    scroll_pause: Rc<ScrollPause>,
 }
 
 impl PrinterQueueData {
@@ -49,13 +84,33 @@ fn main() -> ! {
         .into(),
     );
 
+    #[cfg(feature = "box-line-damage")]
+    {
+        let state = main_window.global::<PrinterState>();
+        mcu_board_support::set_line_damage_enabled(state.get_active_page() == Pages::Settings);
+        state.on_active_page_changed(|page| {
+            mcu_board_support::set_line_damage_enabled(page == Pages::Settings);
+        });
+    }
+
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
     let printer_queue = Rc::new(PrinterQueueData {
         data: Rc::new(slint::VecModel::from(default_queue.clone())),
         print_progress_timer: Default::default(),
+        scroll_pause: Rc::new(ScrollPause {
+            gate: Cell::new(ScrollGate::default()),
+            settle_timer: Default::default(),
+        }),
     });
     main_window.global::<PrinterQueue>().set_printer_queue(printer_queue.data.clone().into());
+    main_window.global::<QueueMotion>().set_pixel_snap(cfg!(feature = "box-pixel-snap"));
+    main_window.global::<SettingsMotion>().set_pixel_snap(cfg!(feature = "box-pixel-snap"));
+    printer_queue.scroll_pause.observe(main_window.global::<QueueMotion>().get_raw_y());
+    let pause = printer_queue.scroll_pause.clone();
+    main_window.global::<QueueMotion>().on_moved(move |raw_y| {
+        pause.observe(raw_y);
+    });
 
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]
@@ -73,11 +128,18 @@ fn main() -> ! {
     });
 
     let printer_queue_weak = Rc::downgrade(&printer_queue);
+    let progress_window = main_window.as_weak();
     printer_queue.print_progress_timer.start(
         slint::TimerMode::Repeated,
         core::time::Duration::from_secs(1),
         move || {
             if let Some(printer_queue) = printer_queue_weak.upgrade() {
+                if let Some(window) = progress_window.upgrade() {
+                    printer_queue.scroll_pause.observe(window.global::<QueueMotion>().get_raw_y());
+                }
+                if !printer_queue.scroll_pause.allow_progress() {
+                    return;
+                }
                 if printer_queue.data.row_count() > 0 {
                     let mut top_item = printer_queue.data.row_data(0).unwrap();
                     top_item.progress += 1;

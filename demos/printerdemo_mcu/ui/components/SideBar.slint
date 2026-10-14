@@ -52,7 +52,7 @@ export component SideBar inherits Rectangle {
 
             activate => {
                 PrinterState.active-subpage = SubPage.none;
-                PrinterState.active-page = page-data.enum;
+                PrinterState.show-page(page-data.enum);
             }
             icon: page-data.icon;
             active: PrinterState.active-page == page-data.enum;
@@ -61,7 +61,7 @@ export component SideBar inherits Rectangle {
 
     SideBarIcon {
         activate => {
-            PrinterState.active-page = Pages.settings;
+            PrinterState.show-page(Pages.settings);
             PrinterState.active-subpage = SubPage.none;
         }
 

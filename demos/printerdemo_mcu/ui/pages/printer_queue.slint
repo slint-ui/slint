@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 import { DemoPalette } from "../common.slint";
-import { PushButton, ShadowBox } from "../components/components.slint";
+import { ShadowBox } from "../components/components.slint";
+
+export global QueueMotion {
+    in-out property <length> raw-y: 0px;
+    in-out property <bool> pixel-snap: false;
+    callback moved(length);
+}
 
 export struct PrinterQueueItem  {
     status: string,
@@ -61,7 +67,6 @@ export global PrinterQueue {
 
     callback start-job(string);
     callback cancel-job(int);
-    callback pause-job(int);
 
     public pure function statusString(status: string) -> string {
         if (status == "printing") {
@@ -76,11 +81,6 @@ export global PrinterQueue {
 
 component NarrowPrintQueueElement {
     in property <PrinterQueueItem> queue-item;
-    in-out property <bool> expanded;
-
-    private property <float> expanded-opacity: 0;
-
-    callback cancel-job();
 
     height: layout.height + 16px;
 
@@ -116,18 +116,23 @@ component NarrowPrintQueueElement {
 
 export component NarrowPrinterQueueList inherits Flickable {
     content-width: self.width;
-    VerticalLayout {
-        alignment: start;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 8px;
+    content-y <=> QueueMotion.raw-y;
+    changed content-y => { QueueMotion.moved(self.content-y); }
+    content-height: queue-layout.preferred-height;
+    Rectangle {
+        width: root.width;
+        height: queue-layout.preferred-height;
+        y: QueueMotion.pixel-snap ? round(root.content-y / 1px) * 1px - root.content-y : 0px;
+        queue-layout := VerticalLayout {
+            height: parent.height;
+            alignment: start;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 8px;
 
-        for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
-            cancel-job => {
-                PrinterQueue.cancel-job(index)
+            for queue-item in PrinterQueue.printer-queue: NarrowPrintQueueElement {
+                queue-item: queue-item;
             }
-
-            queue-item: queue-item;
         }
     }
 }

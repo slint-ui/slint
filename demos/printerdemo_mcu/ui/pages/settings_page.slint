@@ -1,48 +1,45 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Label } from "../common.slint";
-import { ComboBox, CheckBox, SpinBox, Page } from "../components/components.slint";
+import { ComboBox, CheckBox, Page } from "../components/components.slint";
+
+export global SettingsMotion {
+    in-out property <length> raw-y;
+    in-out property <bool> pixel-snap: false;
+    callback moved(length);
+}
 
 export component SettingsPage inherits Page {
     header: "Settings";
 
-    Flickable {
-        VerticalLayout {
-            width: 90%;
-            padding: 12px;
-            spacing: 16px;
-            height: self.preferred-height;
-            ComboBox {
-                label: @tr("Quality");
-                choices: ["Best", "Medium", "Draft"];
-            }
+    scroll := Flickable {
+        content-width: self.width;
+        content-height: settings-layout.preferred-height;
+        content-y <=> SettingsMotion.raw-y;
+        changed content-y => { SettingsMotion.moved(self.content-y); }
+        Rectangle {
+            width: scroll.width;
+            height: settings-layout.preferred-height;
+            y: SettingsMotion.pixel-snap ? round(scroll.content-y / 1px) * 1px - scroll.content-y : 0px;
+            settings-layout := VerticalLayout {
+                width: 90%;
+                padding: 12px;
+                spacing: 16px;
+                height: self.preferred-height;
+                ComboBox {
+                    label: @tr("Quality");
+                    choices: ["Best", "Medium", "Draft"];
+                }
 
-            CheckBox {
-                text: @tr("TURBO mode");
-                checked: true;
-            }
+                CheckBox {
+                    text: @tr("TURBO mode");
+                    checked: true;
+                }
 
-            CheckBox {
-                text: @tr("Eco mode");
+                CheckBox {
+                    text: @tr("Eco mode");
+                }
             }
         }
     }
-    //     Row {
-    //         Label { text: "Color"; }
-    //         ComboBox {
-    //             value: "Grayscale";
-    //             choices: ["Grayscale", "Color"];
-    //             horizontal-stretch: 2;
-    //         }
-    //     }
-
-
-    // Image {
-    //     source: DemoPalette.night-mode ? @image-url("slint-logo-square-dark-80x80.png") : @image-url("slint-logo-square-light-80x80.png");
-    //     width: 80px;
-    //     height: 80px;
-    //     x: parent.width - self.width;
-    //     y: parent.height - self.height;
-    // }
 }

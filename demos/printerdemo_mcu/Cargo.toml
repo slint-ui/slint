@@ -17,6 +17,9 @@ name = "printerdemo_mcu"
 [features]
 simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
 default = ["simulator"]
+box-pixel-snap = []
+box-line-damage = ["mcu-board-support/box-line-damage"]
+box-pie-fill = ["box-line-damage", "mcu-board-support/box-pie-fill"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
