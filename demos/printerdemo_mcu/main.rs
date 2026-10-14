@@ -11,6 +11,8 @@ use alloc::vec::Vec;
 use alloc::rc::Rc;
 use core::cell::Cell;
 
+#[cfg(feature = "box-bench")]
+mod benchmark;
 #[cfg(feature = "ink-particles")]
 mod ink_animation;
 #[cfg(feature = "ink-particles")]
@@ -165,6 +167,9 @@ fn main() -> ! {
             }
         },
     );
+
+    #[cfg(feature = "box-bench")]
+    let _benchmark = benchmark::start(&main_window, &printer_queue);
 
     main_window.run().unwrap();
 

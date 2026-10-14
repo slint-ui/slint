@@ -20,6 +20,7 @@ default = ["simulator", "ink-particles"]
 box-pixel-snap = []
 box-line-damage = ["mcu-board-support/box-line-damage"]
 box-pie-fill = ["box-line-damage", "mcu-board-support/box-pie-fill"]
+box-bench = ["mcu-board-support/box-profile"]
 ink-particles = ["slint/image-pixel-format-rgb565", "dep:bytemuck"]
 box-ink-particles = ["ink-particles", "mcu-board-support/box-parallel"]
 
