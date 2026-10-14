@@ -396,7 +396,9 @@ impl ElementHandle {
                 None
             };
 
-        visit_attached_popups(&self_item, visitor);
+        if let Some(result) = visit_attached_popups(&self_item, visitor) {
+            return Some(result);
+        }
 
         self_item.visit_descendants(move |item_rc| {
             if !item_rc.is_visible() {
@@ -1553,6 +1555,34 @@ fn test_popups() {
             .collect::<Vec<_>>(),
         ["Nested", "Ok"]
     );
+}
+
+#[test]
+fn test_visit_descendants_stops_in_popup_of_start_element() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            public function show-popup() { popup.show(); }
+            popup := PopupWindow {
+                in-popup := Rectangle { }
+            }
+            after-popup := Rectangle { }
+        }
+    }
+
+    let app = App::new().unwrap();
+    app.invoke_show_popup();
+
+    let mut visited = 0;
+    let found = app.root_element().visit_descendants(|element| {
+        visited += 1;
+        ControlFlow::Break(element.id())
+    });
+    assert_eq!(found, Some(Some("App::in-popup".into())));
+    assert_eq!(visited, 1);
 }
 
 #[test]
