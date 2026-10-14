@@ -12,7 +12,7 @@ use crate::accessibility::{
 };
 use crate::items::{AccessibleRole, ItemRef, ItemVTable, ScrollBehavior};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
@@ -730,6 +730,7 @@ impl ItemRc {
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
     /// (does not add this item's x and y)
     /// Don't rely on any specific behavior if `self` isn't a descendant of `ancestor`.
+    #[cfg(test)]
     fn map_to_ancestor(&self, p: LogicalPoint, ancestor: &Self) -> LogicalPoint {
         self.map_to_item_tree_impl(p, |parent| parent == ancestor)
     }
@@ -1102,36 +1103,25 @@ impl ItemRc {
     /// Scrolls every `Flickable` ancestor up to the nearest popup by the smallest amount that brings `self` into view.
     /// Does nothing if no such ancestor is a `Flickable`.
     pub fn try_scroll_into_visible(&self, scroll_behavior: ScrollBehavior) {
-        let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
-        while let Some(item_rc) = parent.as_ref() {
-            let item_ref = item_rc.borrow();
-            if let Some(flickable) = vtable::VRef::downcast_pin::<crate::items::Flickable>(item_ref)
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        let geo = self.geometry();
+        let mut points = [geo.min(), geo.max()];
+        let mut current = self.clone();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if let Some(flickable) =
+                vtable::VRef::downcast_pin::<crate::items::Flickable>(parent.borrow())
             {
-                let geo = self.geometry();
-
-                flickable.reveal_points(
-                    item_rc,
-                    &[
-                        self.map_to_ancestor(
-                            LogicalPoint::new(
-                                geo.origin.x - flickable.content_x().0,
-                                geo.origin.y - flickable.content_y().0,
-                            ),
-                            item_rc,
-                        ),
-                        self.map_to_ancestor(
-                            LogicalPoint::new(
-                                geo.max_x() - flickable.content_x().0,
-                                geo.max_y() - flickable.content_y().0,
-                            ),
-                            item_rc,
-                        ),
-                    ],
-                    scroll_behavior,
-                );
+                let offset =
+                    LogicalVector::from_lengths(flickable.content_x(), flickable.content_y());
+                let content_points = points.map(|p| p - offset);
+                let target = flickable.reveal_points(&parent, &content_points, scroll_behavior);
+                points = content_points.map(|p| p + target);
             }
-
-            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
+            let step = parent.step_transform(supports_transformations);
+            points = points.map(|p| step.transform_point(p.cast()).cast());
+            current = parent;
         }
     }
 }

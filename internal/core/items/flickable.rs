@@ -299,12 +299,17 @@ impl Flickable {
         position: LogicalPosition,
         scroll_behavior: ScrollBehavior,
     ) {
-        self.as_ref().data.inner.borrow_mut().scroll_to(
-            self,
-            self_rc,
-            position.to_euclid(),
-            scroll_behavior,
-        );
+        self.scroll_to_point(self_rc, position.to_euclid(), scroll_behavior);
+    }
+
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
+    fn scroll_to_point(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
+        self.data.inner.borrow_mut().scroll_to(self, self_rc, position, scroll_behavior)
     }
 
     /// Overrides the scrolling physics that depend on the platform otherwise.
@@ -379,15 +384,16 @@ impl Flickable {
     }
 
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
-    /// The points have to be in the parent's coordinate space.
+    /// The points have to be in the content's coordinate space.
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
     pub(crate) fn reveal_points(
         self: Pin<&Self>,
         self_rc: &ItemRc,
         pts: &[LogicalPoint],
         scroll_behavior: ScrollBehavior,
-    ) {
+    ) -> LogicalVector {
         if pts.is_empty() {
-            return;
+            return LogicalVector::from_lengths(self.content_x(), self.content_y());
         }
 
         // visible viewport size from base Item
@@ -406,11 +412,7 @@ impl Flickable {
         let new_cx = cx + tx;
         let new_cy = cy + ty;
 
-        self.scroll_to(
-            self_rc,
-            LogicalPosition::from_euclid(LogicalPoint::new(new_cx, new_cy)),
-            scroll_behavior,
-        );
+        self.scroll_to_point(self_rc, LogicalPoint::new(new_cx, new_cy), scroll_behavior)
     }
 
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -1064,7 +1066,7 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
         position: LogicalPoint,
         scroll_behavior: ScrollBehavior,
-    ) {
+    ) -> LogicalVector {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
         let target = ensure_in_bound(flick, -position, &geo, false, false);
         if scroll_behavior == ScrollBehavior::Instant {
@@ -1072,7 +1074,7 @@ impl FlickableDataInner {
 
             flick.content_x.set(target.x_length());
             flick.content_y.set(target.y_length());
-            return;
+            return target.to_vector();
         }
         let deflection_x = (flick.content_x() - target.x_length()).0;
         let deflection_y = (flick.content_y() - target.y_length()).0;
@@ -1116,6 +1118,7 @@ impl FlickableDataInner {
 
         self.running_animation =
             Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
+        target.to_vector()
     }
 }
 
