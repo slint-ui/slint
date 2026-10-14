@@ -4,6 +4,7 @@
 mod element;
 mod implement;
 mod import;
+mod match_element;
 mod qualify;
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 mod show_preview;
@@ -11,7 +12,6 @@ mod show_preview;
 pub mod test;
 mod translate;
 
-use super::completion;
 use crate::editor_preview::{self, DocumentCache};
 
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
@@ -87,7 +87,6 @@ pub fn get_code_actions(
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let ctx = Context::new(document_cache, token, client_capabilities)?;
-    let token = &ctx.token;
     let mut result = Vec::new();
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
@@ -98,8 +97,7 @@ pub fn get_code_actions(
     element::add(&ctx, &mut result);
     qualify::add(&ctx, &mut result);
     implement::add(&ctx, &mut result);
-
-    completion::match_element::add_code_actions(document_cache, token, &mut result);
+    match_element::add(&ctx, &mut result);
 
     (!result.is_empty()).then_some(result)
 }
