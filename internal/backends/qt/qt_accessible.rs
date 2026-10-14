@@ -447,6 +447,7 @@ cpp! {{
         void clearFocus() {
             has_focus = false;
             has_focus_delegation = false;
+            m_last_focus_target = nullptr;
 
             for (int i = 0; i < rawChildCount(); ++i) {
                 static_cast<Slint_accessible *>(child(i))->clearFocus();
@@ -579,6 +580,7 @@ cpp! {{
     protected:
         mutable bool has_focus;
         mutable bool has_focus_delegation;
+        mutable QPointer<QObject> m_last_focus_target;
 
     private:
         QAccessible::Role m_role = QAccessible::NoRole;
@@ -642,17 +644,30 @@ cpp! {{
         void delegateFocus() const override {
             if (!has_focus) { return; }
 
+            // The timer can run before the render pass updates the cached children.
+            updateAccessibilityTree();
+
             auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
                 m_data.item.upgrade()
-                    .and_then(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
-                    .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
+                    .and_then(|item| {
+                        i_slint_core::accessibility::accessible_focus_delegate_position(&item)
+                    })
+                    .and_then(|position| i32::try_from(position).ok())
+                    .unwrap_or(-1)
             });
 
-            if (index >= 0 && index < rawChildCount()) {
-                static_cast<Slint_accessible_item*>(rawChild(index))->sendFocusChangeEvent();
-            } else {
-                sendFocusChangeEvent();
+            auto target = index >= 0 && index < rawChildCount()
+                ? static_cast<Slint_accessible*>(rawChild(index))
+                : static_cast<Slint_accessible*>(const_cast<Slint_accessible_item*>(this));
+            if (m_last_focus_target == target->object()) { return; }
+
+            if (m_last_focus_target) {
+                auto previous = dynamic_cast<Slint_accessible*>(QAccessible::queryAccessibleInterface(m_last_focus_target));
+                if (previous && previous != this) { previous->clearFocus(); }
             }
+            has_focus_delegation = false;
+            m_last_focus_target = target->object();
+            target->sendFocusChangeEvent();
         }
 
         // properties and state
