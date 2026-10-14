@@ -3139,9 +3139,9 @@ fn build(l: &mut Loader) {
         /// An odd number of entries is repeated to make the list even.
         /// An empty list draws the outline solid.
         /// \default []
-        @fake in property <[length]> stroke-dash-array;
+        @shadowable @fake in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
-        in property <length> stroke-dash-offset;
+        @shadowable in property <length> stroke-dash-offset;
         //! ### width
         //! <SlintProperty propName="width" typeName="length">
         //! If non-zero, the path will be scaled to fit into the specified width.
