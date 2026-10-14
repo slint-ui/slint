@@ -1,0 +1,427 @@
+[
+  {
+    "BoxShadow": {
+      "brush": {
+        "components": [
+          0.0,
+          0.0,
+          0.0,
+          0.7529
+        ]
+      },
+      "radius": 6.0,
+      "rect": {
+        "x0": 0.0,
+        "x1": 16.0,
+        "y0": 0.0,
+        "y1": 16.0
+      },
+      "std_dev": 5.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        24.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,6 C0,2.6863 2.6863,0 6,0 L10,0 C13.3137,0 16,2.6863 16,6 L16,10 C16,13.3137 13.3137,16 10,16 L6,16 C2.6863,16 0,13.3137 0,10 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        24.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "brush": {
+        "components": [
+          0.0,
+          0.0,
+          0.0,
+          0.7529
+        ]
+      },
+      "radius": 24.0,
+      "rect": {
+        "x0": 4.0,
+        "x1": 94.0,
+        "y0": 4.0,
+        "y1": 48.0
+      },
+      "std_dev": 4.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,22 C0,9.8497 9.8497,0 22,0 L82,0 C86.4183,0 90,3.5817 90,8 L90,22 C90,34.1503 80.1503,44 68,44 L8,44 C3.5817,44 0,40.4183 0,36 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        60.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            0.502
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M8,30 C8,17.8497 17.8497,8 30,8 L76,8 C88.1503,8 98,17.8497 98,30 L98,30 C98,42.1503 88.1503,52 76,52 L30,52 C17.8497,52 8,42.1503 8,30 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        180.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,22 C0,9.8497 9.8497,0 22,0 L82,0 C86.4183,0 90,3.5817 90,8 L90,22 C90,34.1503 80.1503,44 68,44 L8,44 C3.5817,44 0,40.4183 0,36 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        180.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L20,0 L20,20 L0,20 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        120.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 0.5,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "BoxShadow": {
+      "brush": {
+        "components": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "radius": 0.0,
+      "rect": {
+        "x0": 0.0,
+        "x1": 60.0,
+        "y0": 4.0,
+        "y1": 44.0
+      },
+      "std_dev": 4.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        70.0,
+        110.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L60,0 L60,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        70.0,
+        110.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "BoxShadow": {
+      "brush": {
+        "components": [
+          1.0,
+          0.0,
+          0.0,
+          0.7529
+        ]
+      },
+      "radius": 20.0,
+      "rect": {
+        "x0": 0.0,
+        "x1": 40.0,
+        "y0": 0.0,
+        "y1": 40.0
+      },
+      "std_dev": 16.0,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        200.0,
+        130.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,20 C0,8.9543 8.9543,0 20,0 L20,0 C31.0457,0 40,8.9543 40,20 L40,20 C40,31.0457 31.0457,40 20,40 L20,40 C8.9543,40 0,31.0457 0,20 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        200.0,
+        130.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-1,-1 L41,-1 L41,41 L-1,41 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        180.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            0.502
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L40,0 L40,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        180.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-1,-1 L41,-1 L41,41 L-1,41 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        180.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-1,-1 L41,-1 L41,41 L-1,41 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        180.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            0.502
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L40,0 L40,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        20.0,
+        180.0
+      ]
+    }
+  }
+]

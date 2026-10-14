@@ -15,6 +15,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod box_shadow;
 mod draw_functions;
 mod fixed;
 mod fonts;
@@ -23,6 +24,7 @@ mod minimal_software_window;
 mod path;
 mod scene;
 
+use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
 use self::fonts::GlyphRenderer;
 pub use self::minimal_software_window::MinimalSoftwareWindow;
 use self::scene::*;
@@ -36,6 +38,7 @@ use fixed::Fixed;
 use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
@@ -1764,6 +1767,16 @@ fn render_window_frame_by_line(
                                     extra_right_clip,
                                 );
                             }
+                            SceneCommand::BoxShadow { box_shadow_index } => {
+                                let shadow = &scene.vectors.box_shadows[box_shadow_index as usize];
+                                box_shadow::draw_box_shadow_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    shadow,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
                         }
                     }
                 },
@@ -1871,6 +1884,7 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand);
     #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
@@ -2319,6 +2333,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
+            box_shadow::draw_box_shadow_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &shadow,
+                buffer,
+                extra_left_clip,
+            );
+        });
+    }
 
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -2481,6 +2506,19 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::ConicGradient { conic_gradient_index },
+            });
+        }
+    }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let box_shadow_index = self.vectors.box_shadows.len() as u16;
+            self.vectors.box_shadows.push(shadow);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::BoxShadow { box_shadow_index },
             });
         }
     }
@@ -2947,6 +2985,30 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     }
 }
 
+/// CSS Backgrounds 3 "Overlapping Curves"
+fn scale_overlapping_radii(
+    radius: BorderRadius<f32, PhysicalPx>,
+    size: euclid::Size2D<f32, PhysicalPx>,
+) -> BorderRadius<f32, PhysicalPx> {
+    let radius = radius.max(Default::default());
+    let top = radius.top_left + radius.top_right;
+    let bottom = radius.bottom_left + radius.bottom_right;
+    let left = radius.top_left + radius.bottom_left;
+    let right = radius.top_right + radius.bottom_right;
+
+    // Skip divisions when nothing overflows
+    if top > size.width || bottom > size.width || left > size.height || right > size.height {
+        let scale =
+            [(size.width, top), (size.width, bottom), (size.height, left), (size.height, right)]
+                .into_iter()
+                .map(|(side, sum)| side / sum)
+                .fold(1.0, |acc, s| if s < acc { s } else { acc });
+        radius * scale
+    } else {
+        radius
+    }
+}
+
 fn alpha_color(color: Color, alpha: u8) -> Color {
     if alpha < 255 {
         Color::from_argb_u8(
@@ -3026,34 +3088,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     .cast()
                     .transformed(self.rotation);
 
-            let radius =
-                (rect.border_radius().cast() * self.scale_factor).transformed(self.rotation);
-
-            let width = geom.width_length().get();
-            let height = geom.height_length().get();
-            let positive = |r: f32| if r > 0. { r } else { 0. };
-            let mut tl = positive(radius.top_left);
-            let mut tr = positive(radius.top_right);
-            let mut bl = positive(radius.bottom_left);
-            let mut br = positive(radius.bottom_right);
-
-            let top = tl + tr;
-            let bottom = bl + br;
-            let left = tl + bl;
-            let right = tr + br;
-
-            // Skip divisions when nothing overflows
-            if top > width || bottom > width || left > height || right > height {
-                let scale = [(width, top), (width, bottom), (height, left), (height, right)]
-                    .into_iter()
-                    .map(|(side, sum)| side / sum)
-                    .fold(1.0, |acc, s| if s < acc { s } else { acc });
-
-                tl *= scale;
-                tr *= scale;
-                bl *= scale;
-                br *= scale;
-            }
+            let radius = scale_overlapping_radii(
+                (rect.border_radius().cast() * self.scale_factor).transformed(self.rotation),
+                geom.size,
+            );
 
             let border = rect.border_width().cast() * self.scale_factor;
             let border_color =
@@ -3064,10 +3102,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 y: geom.origin.y,
                 width: geom.size.width,
                 height: geom.size.height,
-                top_left_radius: tl,
-                top_right_radius: tr,
-                bottom_right_radius: br,
-                bottom_left_radius: bl,
+                top_left_radius: radius.top_left,
+                top_right_radius: radius.top_right,
+                bottom_right_radius: radius.bottom_right,
+                bottom_left_radius: radius.bottom_left,
                 border_width: border.get(),
                 background: rect.background(),
                 border: border_color,
@@ -3420,11 +3458,40 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
     fn draw_box_shadow(
         &mut self,
-        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
-        _: &ItemRc,
-        _size: LogicalSize,
+        box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) {
-        // TODO
+        if box_shadow.inset() {
+            return;
+        }
+        let offset = LogicalVector::from_lengths(box_shadow.offset_x(), box_shadow.offset_y());
+        if !self.should_draw(&drop_shadow_bounding_rect(
+            size.into(),
+            offset,
+            box_shadow.blur(),
+            box_shadow.spread(),
+        )) {
+            return;
+        }
+        let Some(options) = BoxShadowOptions::new(self_rc, box_shadow, self.scale_factor) else {
+            return;
+        };
+        let color = self.alpha_color(options.color);
+        let clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+        process_drop_shadow(
+            &mut self.processor,
+            &options,
+            (self.current_state.offset + offset).cast() * self.scale_factor,
+            color,
+            &clip,
+            self.rotation,
+        );
     }
 
     fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
@@ -3782,5 +3849,87 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
             self.processor.process_target_texture(&t, clipped_target.cast());
         }
+    }
+}
+
+/// Renders `draw` into a buffer of `screen_size`, limited to the dirty `region`.
+#[cfg(test)]
+fn render_region(
+    screen_size: PhysicalSize,
+    region: &[PhysicalRect],
+    scale_factor: ScaleFactor,
+    draw: impl FnOnce(&mut dyn ProcessScene),
+) -> Vec<PremultipliedRgbaColor> {
+    let pixel_count = screen_size.width as usize * screen_size.height as usize;
+    let mut data = alloc::vec![PremultipliedRgbaColor::default(); pixel_count];
+    let mut buffer = TargetPixelSlice { data: &mut data, pixel_stride: screen_size.width as usize };
+    let mut rectangles = [euclid::Box2D::default(); PHYSICAL_REGION_MAX_SIZE];
+    for (r, dst) in region.iter().zip(rectangles.iter_mut()) {
+        *dst = r.to_box2d();
+    }
+    let mut processor = RenderToBuffer {
+        buffer: &mut buffer,
+        dirty_range_cache: Vec::new(),
+        dirty_region: PhysicalRegion { rectangles, count: region.len() },
+        scale_factor,
+    };
+    draw(&mut processor);
+    data
+}
+
+/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region`
+/// as it does unclipped on the whole screen.
+#[cfg(test)]
+fn assert_partial_render_is_identical(
+    screen_size: PhysicalSize,
+    clip: PhysicalRect,
+    region: &[PhysicalRect],
+    draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
+) {
+    let screen = PhysicalRect::from_size(screen_size);
+    let scale_factor = ScaleFactor::new(1.);
+    let full =
+        render_region(screen_size, &[screen], scale_factor, |processor| draw(processor, &screen));
+    let partial =
+        render_region(screen_size, region, scale_factor, |processor| draw(processor, &clip));
+    let mut drawn = false;
+    for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
+        let p = PhysicalPoint::new(
+            (i % screen_size.width as usize) as i16,
+            (i / screen_size.width as usize) as i16,
+        );
+        if clip.contains(p) && region.iter().any(|r| r.contains(p)) {
+            assert_eq!(bytemuck::bytes_of(a), bytemuck::bytes_of(b), "{p:?}");
+            drawn |= a.alpha > 0;
+        }
+    }
+    assert!(drawn);
+}
+
+#[test]
+fn rounded_rectangle_partial_render_is_identical() {
+    let screen_size = PhysicalSize::new(100, 80);
+    // The clip and the regions cut through the anti-aliasing of the corner curves.
+    let clip = euclid::rect(17, 5, 60, 70);
+    let region = [euclid::rect(12, 8, 21, 19), euclid::rect(48, 33, 31, 30)];
+    for border_width in [0., 4.3] {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            x: 10.,
+            y: 11.,
+            width: 62.,
+            height: 45.,
+            top_left_radius: 17.,
+            top_right_radius: 9.5,
+            bottom_right_radius: 21.2,
+            bottom_left_radius: 6.,
+            border_width,
+            background: Brush::SolidColor(Color::from_argb_u8(200, 10, 20, 30)),
+            border: Brush::SolidColor(Color::from_argb_u8(230, 200, 100, 0)),
+            alpha: 255,
+            rotation: RenderingRotation::NoRotation,
+        };
+        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+            processor.process_rectangle(&args, *clip)
+        });
     }
 }
