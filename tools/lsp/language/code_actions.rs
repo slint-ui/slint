@@ -7,6 +7,7 @@
 mod show_preview;
 #[cfg(test)]
 pub mod test;
+mod translate;
 
 use super::completion;
 use crate::editor_preview::{self, DocumentCache};
@@ -94,18 +95,9 @@ pub fn get_code_actions(
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     show_preview::add(&ctx, &mut result);
 
-    if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
-        let r = util::text_range_to_lsp_range(
-            &token.source_file,
-            node.text_range(),
-            document_cache.format,
-        );
-        let edits = vec![
-            TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
-            TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
-        ];
-        ctx.push_edit(&mut result, "Wrap in `@tr()`", None, edits);
-    } else if token.kind() == SyntaxKind::Identifier
+    translate::add(&ctx, &mut result);
+
+    if token.kind() == SyntaxKind::Identifier
         && node.kind() == SyntaxKind::QualifiedName
         && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
     {
@@ -372,18 +364,6 @@ pub fn get_code_actions(
 #[cfg(test)]
 mod tests {
     use super::test::CodeActionRequest;
-
-    #[test]
-    fn test_code_action_wrap_string_in_tr() {
-        CodeActionRequest::at(r#"export component Test inherits Text { text: 🔺"Hello"; }"#)
-            .load()
-            .assert(
-                "Wrap in `@tr()`",
-                None,
-                r#"export component Test inherits Text { text: @tr("Hello"); }"#,
-            )
-            .compiles();
-    }
 
     const SUB_ELEMENT: &str = r#"export component Test {
     Rectangle {
