@@ -335,11 +335,9 @@ mod tests {
                 }
             }).await.unwrap();
             tokio::time::pause();
-            tokio::time::advance(PING_INTERVAL).await;
-            tokio::time::timeout(Duration::from_secs(1), ping_wait).await.unwrap().unwrap();
-            tokio::time::advance(PONG_TIMEOUT).await;
-            let ended = tokio::time::timeout(Duration::from_secs(1), connection.next_event()).await.unwrap().unwrap();
+            let ended = connection.next_event().await.unwrap();
             assert!(matches!(ended, ConnectionEvent::Ended { error: Some(message) } if message.contains("heartbeat")));
+            ping_wait.await.unwrap();
             drop(connection);
             peer.await.unwrap();
         }).await;
