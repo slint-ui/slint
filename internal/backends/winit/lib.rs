@@ -1202,9 +1202,9 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         &self,
     ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
 
-    /// Handles `event` as if winit had delivered it to this window.
+    /// Dispatches `event` as if winit had delivered it to this window.
     ///
-    /// Slint's winit event loop does this for every [`WindowEvent`] of the window.
+    /// Slint's winit event loop calls this for every [`WindowEvent`] of the window.
     /// Call it yourself to hand Slint an event it wouldn't receive otherwise,
     /// such as one that a [`CustomApplicationHandler`] held back with
     /// [`EventResult::PreventDefault`] and forwards later, or a synthesized event.
