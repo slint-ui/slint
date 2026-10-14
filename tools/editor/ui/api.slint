@@ -599,6 +599,11 @@ export global Api {
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
+    public function commit-code-binding(element: ElementInformation, name: string, value: string) -> bool {
+        return value != "" && element.source-uri != ""
+            && Api.test-code-binding(element.source-uri, element.source-version, element.offset, name, value)
+            && Api.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
+    }
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 

@@ -18,9 +18,10 @@ import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { ElementVisuals } from "components/element-presentation.slint";
 import { GradientOverlay } from "components/gradient-overlay.slint";
+import { ShadowOverlay } from "components/shadow-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
-import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, InspectorShadowPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
@@ -245,6 +246,7 @@ export component EditorUi inherits Window {
     function apply-history(redo: bool) {
         if !Diagnostics.preview-editable { return; }
         CanvasView.nudging = false;
+        ShadowSession.cancel();
         FillSession.apply-history(redo);
     }
 
@@ -361,6 +363,8 @@ export component EditorUi inherits Window {
 
     VerticalLayout {
         if !Api.startup-wizard-visible: editor := FocusScope {
+            private property <bool> shadow-open: ShadowSession.open;
+            changed shadow-open => { if !self.shadow-open { self.focus(); } }
             property <bool> shift-pressed: false;
             property <bool> nudge-key-held;
             property <bool> nudge-write-pending;
@@ -700,6 +704,40 @@ export component EditorUi inherits Window {
             }
 
             DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
+
+            shadow-layer := TouchArea {
+                visible: ShadowSession.open;
+                enabled: ShadowSession.open;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down { ShadowSession.close(); }
+                }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll(event, { x: x, y: y });
+                    }
+                    return reject;
+                }
+                Rectangle {
+                    visible: ShadowSession.canvas-active;
+                    x: canvas-viewport.absolute-position.x - shadow-layer.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - shadow-layer.absolute-position.y;
+                    width: canvas-viewport.width;
+                    height: canvas-viewport.height;
+                    clip: true;
+                    ShadowOverlay {
+                        x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                        y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                        width: FillSession.canvas-size.width;
+                        height: FillSession.canvas-size.height;
+                    }
+                }
+                InspectorShadowPicker {
+                    parent-origin: shadow-layer.absolute-position;
+                    color-accepted(text) => { return Api.commit-code-binding(Api.current-element, "drop-shadow-color", text); }
+                }
+            }
 
             fill-layer := TouchArea {
                 visible: FillSession.open;

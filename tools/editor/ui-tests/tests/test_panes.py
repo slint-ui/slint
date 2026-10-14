@@ -142,8 +142,8 @@ def test_pane_width_drag_limits_reset_and_persistence(
     [
         (
             "inspect-rectangle",
-            "Rectangle effect",
-            slint_testing.AccessibleRole.Combobox,
+            "Drop shadow",
+            slint_testing.AccessibleRole.Button,
         ),
         ("inspect-text", "Font family", slint_testing.AccessibleRole.TextInput),
         ("inspect-image", "Image fit", slint_testing.AccessibleRole.Combobox),

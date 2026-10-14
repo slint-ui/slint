@@ -40,6 +40,10 @@ def inspector_field(
     pane = element(
         window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
     )
+    if label.startswith("Shadow "):
+        fields = elements(window, label, role=role)
+        if len(fields) == 1:
+            return element(window, label, role=role)
     pane_rect = pane.absolute_rect
     position = slint_testing.LogicalPosition(
         x=pane_rect.x + pane_rect.width / 2,
@@ -61,6 +65,20 @@ def inspector_field(
             <= divider.absolute_position.y
         ):
             return element(pane, label, role=role)
+        if label.startswith("Shadow "):
+            controls = elements(
+                pane, "Drop shadow", role=slint_testing.AccessibleRole.Button
+            )
+            if len(controls) == 1 and (
+                pane.absolute_position.y
+                <= controls[0].absolute_position.y
+                <= controls[0].absolute_position.y + controls[0].size.height
+                <= divider.absolute_position.y
+            ):
+                controls[0].invoke_accessible_default_action()
+                return element(
+                    element(window, id="InspectorShadowPicker::panel"), label, role=role
+                )
     return element(window, label, role=role)
 
 
