@@ -2400,6 +2400,7 @@ async fn parse_source(
     bool,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
+    builder.set_reads_project_file(false);
     let named_component = component.is_some();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);

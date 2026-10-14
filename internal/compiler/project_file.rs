@@ -427,7 +427,7 @@ fn blank_out_comments(source: &mut [u8]) {
     }
 }
 
-fn normalize_project_file_path(path: SourcePath) -> SourcePath {
+pub fn normalize_project_file_path(path: SourcePath) -> SourcePath {
     match path {
         SourcePath::File(path) if !crate::source_path::is_absolute(&path.to_string_lossy()) => {
             SourcePath::new(std::env::current_dir().ok().unwrap_or_default())
