@@ -259,8 +259,10 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
-            fill.radius = g.radii_or_default(0., 0.).0;
-            fill.custom_radius = fill.radius == g.radii_or_default(2., 2.).0;
+            let radius = g.radii_or_default(0., 0.).0;
+            fill.custom_radius = radius == g.radii_or_default(2., 2.).0;
+            // `radii_or_default` resolves an explicit 0 to a tiny positive radius.
+            fill.radius = if radius <= 1e-3 { 0. } else { radius };
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {

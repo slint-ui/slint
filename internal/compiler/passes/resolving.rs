@@ -1000,56 +1000,54 @@ impl Expression {
             // — radius before center, no keyword.
             let mut idx = 1;
 
-            // Only consume the node when it actually resolves to a length-compatible type;
-            // a colour keyword like `blue` must not silently become a failed conversion.
-            // A percentage is returned as `Err`, so the caller can word the error.
-            let parse_radius =
-                |idx: usize,
-                 ctx: &mut LookupCtx|
-                 -> Option<Result<Box<Expression>, syntax_nodes::Expression>> {
-                    let n = all_subs.get(idx)?;
-                    if n.kind() != SyntaxKind::Expression
-                        || matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
-                    {
-                        return None;
-                    }
-                    let n_syn = syntax_nodes::Expression::from(n.as_node().unwrap().clone());
-                    let expr = Expression::from_expression_node(n_syn.clone(), ctx);
-                    match expr.ty() {
-                        Type::LogicalLength | Type::Float32 | Type::Int32 => {
-                            Some(Ok(Box::new(expr.maybe_convert_to(
-                                Type::LogicalLength,
-                                &n_syn,
-                                ctx.diag,
-                                &ctx.symbol_counters,
-                            ))))
-                        }
-                        Type::Percent => Some(Err(n_syn)),
-                        _ => None,
-                    }
-                };
+            let is_radius_node = |idx: usize| {
+                all_subs.get(idx).is_some_and(|n| {
+                    n.kind() == SyntaxKind::Expression
+                        && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+                })
+            };
             let percent_error = if is_ellipse {
                 "'ellipse' radii must be lengths such as '50px', not percentages"
             } else {
                 "'circle' radius must be a length such as '50px', not a percentage"
             };
-            let parse_length_radius = |idx: usize, ctx: &mut LookupCtx| {
-                parse_radius(idx, ctx).map(|r| {
-                    r.unwrap_or_else(|n| {
-                        ctx.diag.push_error(percent_error.into(), &n);
-                        Box::new(Expression::Invalid)
-                    })
-                })
+            // With `lenient`, a node that isn't length-like isn't consumed,
+            // so a color keyword like `blue` doesn't silently become a failed conversion.
+            let parse_radius = |idx: usize, ctx: &mut LookupCtx, lenient: bool| {
+                if !is_radius_node(idx) {
+                    return None;
+                }
+                let n_syn =
+                    syntax_nodes::Expression::from(all_subs[idx].as_node().unwrap().clone());
+                let expr = Expression::from_expression_node(n_syn.clone(), ctx);
+                let expr = match expr.ty() {
+                    Type::Percent => {
+                        ctx.diag.push_error(percent_error.into(), &n_syn);
+                        Expression::Invalid
+                    }
+                    ty if lenient
+                        && !matches!(ty, Type::LogicalLength | Type::Float32 | Type::Int32) =>
+                    {
+                        return None;
+                    }
+                    _ => expr.maybe_convert_to(
+                        Type::LogicalLength,
+                        &n_syn,
+                        ctx.diag,
+                        &ctx.symbol_counters,
+                    ),
+                };
+                Some(Box::new(expr))
             };
 
-            let radius = parse_length_radius(idx, ctx);
+            let radius = parse_radius(idx, ctx, true);
             if radius.is_some() {
                 idx += 1;
             }
             let shape = if is_ellipse {
                 match radius {
                     Some(rx) => {
-                        let Some(ry) = parse_length_radius(idx, ctx) else {
+                        let Some(ry) = parse_radius(idx, ctx, false) else {
                             ctx.diag.push_error(
                                 "'ellipse' needs a horizontal and a vertical radius, use 'circle' for a single radius".into(),
                                 &all_subs[idx - 1],
@@ -1062,7 +1060,7 @@ impl Expression {
                     None => RadialGradientShape::Ellipse(None),
                 }
             } else {
-                if radius.is_some() && parse_radius(idx, ctx).is_some() {
+                if radius.is_some() && is_radius_node(idx) {
                     ctx.diag.push_error(
                         "'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius".into(),
                         &all_subs[idx],

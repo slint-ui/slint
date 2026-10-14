@@ -52,4 +52,10 @@ export X := Rectangle {
 //                                                >  <error{'ellipse' must be followed by a comma, two radii, or 'at'}
     property<brush> g26: @radial-gradient(circle 10px 20%, red, blue);
 //                                                    > <error{'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius}
+    property<brush> g27: @radial-gradient(circle 10px foo, red, blue);
+//                                                    > <error{'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius}
+    property<brush> g28: @radial-gradient(ellipse 10px foo, red, blue);
+//                                                     > <error{Unknown unqualified identifier 'foo'}
+    property<brush> g29: @radial-gradient(ellipse 10px blue, red, blue);
+//                                                     >  <error{Cannot convert color to length}
 }

@@ -207,7 +207,6 @@ impl<E: Default> Default for MouseCursorInner<E> {
 
 /// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
 /// coordinate space. `None` means the shape's default size.
-/// Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]
 pub enum RadialGradientShape<E> {
     /// `circle [<radius>]`

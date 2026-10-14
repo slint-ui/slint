@@ -248,8 +248,6 @@ fn eval_expression(
             ))
         }
         Expression::RadialGradient { stops, center, shape } => {
-            use expression_types::RadialGradientShape;
-            use i_slint_core::graphics::RadialGradientBrush;
             let stops = stops
                 .iter()
                 .map(|(color, stop)| {
@@ -263,20 +261,11 @@ fn eval_expression(
             let mut number = |e: &Expression| -> f32 {
                 eval_expression(e, local_context, None).try_into().unwrap_or_default()
             };
-            let mut gradient = match shape {
-                RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
-                RadialGradientShape::Circle(Some(r)) => {
-                    RadialGradientBrush::new_circle(stops).with_radius(number(r))
-                }
-                RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
-                RadialGradientShape::Ellipse(Some((rx, ry))) => {
-                    RadialGradientBrush::new_ellipse(stops).with_radii(number(rx), number(ry))
-                }
-            };
-            if let Some((cx, cy)) = center {
-                gradient = gradient.with_center(number(cx), number(cy));
-            }
-            Value::Brush(slint::Brush::RadialGradient(gradient))
+            let shape = shape.map(&mut number);
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(slint::Brush::RadialGradient(slint_interpreter::radial_gradient_brush(
+                &shape, center, stops,
+            )))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(

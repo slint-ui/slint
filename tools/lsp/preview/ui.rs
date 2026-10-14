@@ -898,7 +898,12 @@ fn map_value_and_type(
                         ..Default::default()
                     });
                 }
-                slint::Brush::RadialGradient(rg) => {
+                // The brush editor writes a plain `circle`, so anything else is shown as code.
+                slint::Brush::RadialGradient(rg)
+                    if rg.is_circle()
+                        && rg.explicit_radii().is_none()
+                        && rg.explicit_center().is_none() =>
+                {
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
                         display_string: SharedString::from("Radial Gradient"),
@@ -937,9 +942,13 @@ fn map_value_and_type(
                     });
                 }
                 _ => {
+                    let display_string = match brush {
+                        slint::Brush::RadialGradient(_) => "Radial Gradient",
+                        _ => "Unknown Brush",
+                    };
                     mapping.headers.push(mapping.name_prefix.clone());
                     mapping.current_values.push(PropertyValue {
-                        display_string: SharedString::from("Unknown Brush"),
+                        display_string: SharedString::from(display_string),
                         kind: PropertyValueKind::Code,
                         value_kind: PropertyValueKind::Code,
                         value_string: SharedString::from("???"),
