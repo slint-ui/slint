@@ -96,8 +96,10 @@ fn can_optimize(elem: &ElementRc) -> bool {
 /// We cannot optimize out a rectangle if there is a ensure-visible function on it
 #[test]
 fn keeps_elements_that_ensure_visible_refers_to() {
-    let compiler_config =
+    let mut compiler_config =
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    // `SLINT_EMIT_DEBUG_INFO`, which CI sets, would skip the pass under test.
+    compiler_config.debug_info = false;
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
     let doc_node = crate::parser::parse(
         r#"
