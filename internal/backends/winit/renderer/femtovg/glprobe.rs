@@ -125,8 +125,7 @@ unsafe fn probe_device_context(hdc: HDC) -> Option<bool> {
         let available = wglMakeCurrent(hdc, context).is_ok().then(|| {
             let address = wglGetProcAddress(s!("glCreateShader")).map_or(0, |entry| entry as usize);
             let _ = wglMakeCurrent(previous_hdc, previous_context);
-            // Besides null, some drivers report a missing entry point as 1, 2, 3 or -1.
-            !matches!(address, 0 | 1 | 2 | 3 | usize::MAX)
+            is_valid_proc_address(address)
         });
 
         let _ = wglDeleteContext(context);
@@ -135,8 +134,21 @@ unsafe fn probe_device_context(hdc: HDC) -> Option<bool> {
     }
 }
 
+pub(super) fn is_valid_proc_address(address: usize) -> bool {
+    // Besides null, some drivers report a missing entry point as 1, 2, 3 or -1.
+    !matches!(address, 0 | 1 | 2 | 3 | usize::MAX)
+}
+
 #[test]
 fn probe_runs() {
     // The answer depends on the machine, so this only covers the probe running to completion.
     opengl_2_available();
+}
+
+#[test]
+fn proc_address_sentinels() {
+    for sentinel in [0, 1, 2, 3, usize::MAX] {
+        assert!(!is_valid_proc_address(sentinel));
+    }
+    assert!(is_valid_proc_address(0x1000));
 }
