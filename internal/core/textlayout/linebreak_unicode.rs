@@ -14,16 +14,20 @@ pub struct LineBreakIterator<'a> {
     phantom: PhantomData<&'a str>,
 }
 
-/// The characters UAX #14 gives a mandatory break of their own.
-/// These are the BK class, CR, LF and NEL.
-const MANDATORY_BREAK: [char; 7] =
-    ['\n', '\r', '\u{000b}', '\u{000c}', '\u{0085}', '\u{2028}', '\u{2029}'];
-
 impl LineBreakIterator<'_> {
     pub fn new(text: &str) -> Self {
         // unicode-linebreaks emits a mandatory break at the end of the text, per UAX #14 rule LB3.
         // That break is a separator's own when the text ends with one, and a line follows it.
-        let ends_on_break = text.ends_with(MANDATORY_BREAK);
+        let ends_on_break = text.chars().next_back().is_some_and(|c| {
+            use unicode_linebreak::BreakClass;
+            matches!(
+                unicode_linebreak::break_property(c as u32),
+                BreakClass::Mandatory
+                    | BreakClass::CarriageReturn
+                    | BreakClass::LineFeed
+                    | BreakClass::NextLine
+            )
+        });
         let text_len = text.len();
         let iterator = unicode_linebreak::linebreaks(text).filter(move |(offset, opportunity)| {
             *offset != text_len
