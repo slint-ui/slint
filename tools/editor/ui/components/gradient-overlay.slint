@@ -116,9 +116,6 @@ export component GradientOverlay inherits FocusScope {
     private property <bool> editing-angle: root.drag-kind == GradientGestureKind.end-handle
         || (!root.radial && !root.conic && root.drag-kind == GradientGestureKind.start-handle)
         || (root.conic && root.drag-kind == GradientGestureKind.axis);
-    private property <float> displayed-angle: root.radial
-        ? EditorAngles.normalize(FillSession.radial-direction + 90deg) / 1deg
-        : EditorAngles.normalize(FillSession.working-fill.angle * 1deg) / 1deg;
 
     pure function snap(value: float, coarse: float, fine: float) -> float {
         let step = root.shift-pressed ? coarse : root.control-pressed ? fine : 0;
@@ -218,9 +215,7 @@ export component GradientOverlay inherits FocusScope {
         }
         if root.drag-kind == GradientGestureKind.stop {
             let point = { x: root.original-stop.x + delta.x, y: root.original-stop.y + delta.y };
-            let position = root.radial ? Api.gradient-axis-position(root.axis, point)
-                : Api.linear-gradient-position(FillSession.working-fill.angle, FillSession.request.target.size, point);
-            FillSession.move-stop-position(root.snap(position, 0.05, 0.01));
+            FillSession.move-stop-position(root.snap(FillSession.stop-position(point), 0.05, 0.01));
             return;
         }
         let next = {
@@ -426,9 +421,10 @@ export component GradientOverlay inherits FocusScope {
 
     if root.dragging && (root.editing-angle || root.drag-kind == GradientGestureKind.stop): CanvasValueTooltip {
         private property <bool> stop: root.drag-kind == GradientGestureKind.stop;
+        private property <angle> angle: atan2((root.axis.end.x - root.axis.start.x) / 1px, (root.axis.start.y - root.axis.end.y) / 1px);
         label: self.stop ? @tr("Position") : @tr("Angle");
-        value: self.stop ? (FillSession.working-fill.stops[FillSession.selected-stop].position * (root.conic ? 360 : 100)).to-fixed(0)
-            : (EditorAngles.normalize(root.displayed-angle.round() * 1deg) / 1deg).to-fixed(0);
+        value: (self.stop ? FillSession.working-fill.stops[FillSession.selected-stop].position * (root.conic ? 360 : 100)
+            : EditorAngles.normalize((self.angle / 1deg).round() * 1deg) / 1deg).to-fixed(0);
         suffix: self.stop && !root.conic ? "%" : "°";
         value-label: self.stop ? @tr("Gradient stop position") : @tr("Gradient angle");
         pointer-position: { x: root.pointer.x - root.absolute-position.x, y: root.pointer.y - root.absolute-position.y };

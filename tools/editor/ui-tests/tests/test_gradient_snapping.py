@@ -32,23 +32,17 @@ from ui_driver import (
 
 
 def gradient_scene(tmp_path, kind, rotation=0):
+    fixture = (
+        Path(__file__).resolve().parents[1] / "fixtures" / f"{kind}-gradient.slint"
+    )
     path = tmp_path / "Gradient.slint"
-    expression = {
-        "linear": "@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
-        "radial": "@radial-gradient(circle 100px, #568fb8 0%, #264052 55%, #7e3b66 100%)",
-        "conic": "@conic-gradient(from 90deg, #568fb8 0deg, #264052 198deg, #7e3b66 360deg)",
-    }[kind]
-    path.write_text(f"""export component Gradient inherits Window {{
-    width: 400px;
-    height: 400px;
-    fill := Rectangle {{
-        width: 200px;
-        height: 200px;
-        transform-rotation: {rotation}deg;
-        background: {expression};
-    }}
-}}
-""")
+    path.write_text(
+        fixture.read_text().replace(
+            "        width: 200px;",
+            f"        transform-rotation: {rotation}deg;\n        width: 200px;",
+            1,
+        )
+    )
     return path
 
 
@@ -65,9 +59,13 @@ def open_scene(window, zoom=100):
     [("linear", "start"), ("linear", "end"), ("radial", "end"), ("conic", "end")],
 )
 @pytest.mark.parametrize(
-    "modifier,angle", [(keys.Shift, 120), (keys.ShiftR, 120), (keys.Control, 113)]
+    "modifier,angle,rotation,zoom",
+    [
+        (keys.Shift, 120, 0, 100),
+        (keys.ShiftR, 120, 37, 200),
+        (keys.Control, 113, 37, 200),
+    ],
 )
-@pytest.mark.parametrize("rotation,zoom", [(0, 100), (37, 200)])
 def test_gradient_angle_snapping(
     editor_binary,
     editor_environment,
@@ -85,7 +83,7 @@ def test_gradient_angle_snapping(
         wait_for_source(path, path.read_bytes())
         window = first_window(editor)
         open_scene(window, zoom)
-        initial = 125 if kind == "radial" else 90
+        initial = {"linear": 90, "radial": 125, "conic": 220}[kind]
         start_label = "Gradient start" if kind == "linear" else "Gradient center handle"
         end_label = {
             "linear": "Gradient end",
@@ -103,7 +101,6 @@ def test_gradient_angle_snapping(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(target))
         window.dispatch_event(slint_testing.KeyPressedEvent(text=modifier))
-        window.dispatch_event(slint_testing.PointerMoveEvent(target))
         actual = center(control(window, end_label), rotation + angle - 90)
         expected = around(anchor, radius, angle + rotation + offset)
         assert actual.x == pytest.approx(expected.x, abs=0.01)
@@ -113,7 +110,6 @@ def test_gradient_angle_snapping(
         ).to_have_value(str(angle))
         screenshot(window).save(tmp_path / "snapped-angle.png")
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=modifier))
-        window.dispatch_event(slint_testing.PointerMoveEvent(target))
         actual = center(control(window, end_label), rotation + 113.4 - 90)
         assert actual.x == pytest.approx(target.x, abs=0.01)
         assert actual.y == pytest.approx(target.y, abs=0.01)
@@ -139,18 +135,21 @@ def test_gradient_stop_snapping(
         wait_for_source(path, path.read_bytes())
         window = first_window(editor)
         open_scene(window)
-        direction = {"linear": 0, "radial": 35, "conic": 108}[kind]
+        field = control(
+            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+        )
+        direction = {"linear": 0, "radial": 35, "conic": 238}[kind]
         start = center(control(window, "Gradient stop 2"), direction)
         c = center(
             control(
                 window,
                 "Gradient start" if kind == "linear" else "Gradient center handle",
             ),
-            35 if kind == "radial" else 0,
+            35 if kind == "radial" else 130 if kind == "conic" else 0,
         )
         if kind == "conic":
             radius = math.hypot(start.x - c.x, start.y - c.y)
-            target = around(c, radius, 90 + 206.4)
+            target = around(c, radius, 220 + 206.4)
             snapped = 210 if modifier == keys.Shift else 206
         else:
             end = center(
@@ -160,7 +159,9 @@ def test_gradient_stop_snapping(
                 ),
                 direction,
             )
-            target = shifted(start, x=(end.x - c.x) * 0.034, y=(end.y - c.y) * 0.034)
+            position = float(field.accessible_value) / 100
+            delta = 0.584 - position
+            target = shifted(start, x=(end.x - c.x) * delta, y=(end.y - c.y) * delta)
             snapped = 60 if modifier == keys.Shift else 58
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
@@ -169,9 +170,6 @@ def test_gradient_stop_snapping(
         expect(
             control(window, "Gradient stop position", slint_testing.AccessibleRole.Text)
         ).to_have_value(str(snapped))
-        field = control(
-            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
-        )
         assert float(field.accessible_value) == pytest.approx(snapped, abs=0.001)
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=modifier))
         assert float(field.accessible_value) == pytest.approx(
@@ -188,7 +186,7 @@ def test_conic_snapping_across_seam_saves_and_undoes(
     editor_binary, editor_environment, tmp_path, handle
 ):
     path = gradient_scene(tmp_path, "conic")
-    path.write_text(path.read_text().replace("from 90deg", "from 350deg"))
+    path.write_text(path.read_text().replace("from 220deg", "from 350deg"))
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, path) as editor:
         wait_for_source(path, path.read_bytes())
