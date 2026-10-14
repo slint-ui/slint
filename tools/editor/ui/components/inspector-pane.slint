@@ -1214,6 +1214,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.text-word-wrap-label();
                             selected-index: root.text-word-wrap-index();
                             options: root.text-word-wrap-options;
+                            wide: true;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
                                 return text != "" && root.commit-code("wrap", text);
