@@ -1,0 +1,42 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Post to Mattermost when the full CI or the nightly snapshot fails on master.
+# MATTERMOST_WEBHOOK_URL is the URL of an incoming webhook of the channel.
+name: Notify CI Failure
+
+on:
+    workflow_run:
+        workflows: ["CI", "Nightly snapshot"]
+        types: [completed]
+        branches: [master]
+
+permissions:
+    actions: read
+
+jobs:
+    notify:
+        # Only the runs started by schedule_ci.yaml and schedule_nightly_snapshot.yaml.
+        if: >-
+            github.repository == 'slint-ui/slint' &&
+            github.event.workflow_run.conclusion == 'failure' &&
+            github.event.workflow_run.event == 'workflow_dispatch'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Post to Mattermost
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+                  WORKFLOW: ${{ github.event.workflow_run.name == 'CI' && 'Full CI' || github.event.workflow_run.name }}
+                  RUN_ID: ${{ github.event.workflow_run.id }}
+                  RUN_URL: ${{ github.event.workflow_run.html_url }}
+                  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+              run: |
+                  # Drop the matrix that a reusable workflow's job name repeats after " / ",
+                  # and the matrix that GitHub truncated with "...".
+                  failed_jobs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+                      -q '.jobs[] | select(.conclusion == "failure")
+                          | "- [\(.name | sub(" \\([^/]*/ "; " / ") | sub(" \\([^()]*\\.\\.\\.$"; ""))](\(.html_url))"')
+                  text=$(printf ':x: [%s failed on master](%s) at `%s`\n%s' "$WORKFLOW" "$RUN_URL" "${HEAD_SHA:0:10}" "$failed_jobs")
+                  jq -n --arg text "$text" '{text: $text}' \
+                      | curl --fail --silent --show-error --retry 3 --json @- "$WEBHOOK_URL"
