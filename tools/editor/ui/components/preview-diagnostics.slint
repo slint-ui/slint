@@ -10,12 +10,15 @@ import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component PreviewDiagnostics inherits Rectangle {
     in property <PreviewDiagnosticsStyle> style: Style.preview-diagnostics;
-    private property <bool> blocked: !Diagnostics.preview-editable;
+    private property <bool> blocked: !Diagnostics.preview-editable
+        && Diagnostics.preview-availability != PreviewAvailability.Refreshing;
     private property <bool> empty: Diagnostics.preview-availability == PreviewAvailability.NoComponent;
     private property <bool> stale: Diagnostics.preview-availability == PreviewAvailability.Stale;
     private property <bool> warnings-open;
     private property <string> title: root.empty ? "Nothing to preview"
         : root.stale ? "Preview paused" : "Couldn't preview this file";
+
+    if !Diagnostics.preview-editable: TouchArea { }
 
     if root.blocked: Rectangle {
         background: root.style.veil;

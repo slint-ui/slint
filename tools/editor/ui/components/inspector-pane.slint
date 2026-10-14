@@ -3,7 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { Diagnostics } from "../diagnostics.slint";
+import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
@@ -1265,9 +1265,10 @@ export component InspectorPane inherits Rectangle {
         drag-started => { root.outline-drag-started(); }
     }
     if !Diagnostics.preview-editable: Rectangle {
-        background: Colors.surface.with-alpha(0.75);
+        private property <bool> refreshing: Diagnostics.preview-availability == PreviewAvailability.Refreshing;
+        background: refreshing ? transparent : Colors.surface.with-alpha(0.75);
         TouchArea { }
-        Text {
+        if !refreshing: Text {
             width: parent.width - 2 * root.style.padding;
             text: "Editing paused until the preview is available";
             color: Colors.muted;

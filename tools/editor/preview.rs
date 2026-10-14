@@ -2289,8 +2289,11 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         match behavior {
             LoadBehavior::Reload => {
-                if preview_state.component_instance().is_some() {
-                    preview_state.set_preview_availability(ui::PreviewAvailability::Stale);
+                if let Some(editor_ui) = &preview_state.editor_ui {
+                    let diagnostics = editor_ui.global::<ui::Diagnostics>();
+                    if diagnostics.get_preview_availability() == ui::PreviewAvailability::Current {
+                        diagnostics.set_preview_availability(ui::PreviewAvailability::Refreshing);
+                    }
                 }
             }
             LoadBehavior::LoadWithoutLiveData | LoadBehavior::BringWindowToFront => {
@@ -3148,6 +3151,31 @@ mod tests {
         apply_availability_test_source(&editor, "export struct Data { value: int }", true);
         assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Stale);
         assert!(component_instance().is_some());
+        assert!(global.get_errors().row_count() > 0);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn scheduled_reload_preserves_the_preview_without_reporting_failure() {
+        let editor = availability_test_editor();
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle {}",
+            true,
+        );
+        let global = editor.global::<ui::Diagnostics>();
+        let retained = editor.global::<ui::Api>().get_preview_area();
+        let component = PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap());
+        load_preview(component.clone(), LoadBehavior::Reload);
+        assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Refreshing);
+        assert!(!global.get_preview_editable());
+        assert_eq!(global.get_errors().row_count(), 0);
+        assert_eq!(editor.global::<ui::Api>().get_preview_area(), retained);
+        assert!(component_instance().is_some());
+
+        apply_availability_test_source(&editor, "export component Main { invalid }", true);
+        load_preview(component, LoadBehavior::Reload);
+        assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Stale);
         assert!(global.get_errors().row_count() > 0);
         reset_preview_state(Default::default());
     }

@@ -62,7 +62,9 @@ export component EditorCanvas inherits TouchArea {
     }
 
     canvas-chrome := Rectangle {
-        visible: Diagnostics.preview-editable || Diagnostics.preview-availability == PreviewAvailability.Stale;
+        visible: Diagnostics.preview-availability == PreviewAvailability.Current
+            || Diagnostics.preview-availability == PreviewAvailability.Refreshing
+            || Diagnostics.preview-availability == PreviewAvailability.Stale;
         transform-origin: { x: 0px, y: 0px };
         transform-scale: CanvasView.zoom;
         x: root.canvas-origin.x;

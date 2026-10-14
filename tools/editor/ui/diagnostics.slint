@@ -16,7 +16,7 @@ export struct FileDiagnosticSummary {
     warning-count: int,
 }
 
-export enum PreviewAvailability { Unavailable, Current, Stale, NoComponent }
+export enum PreviewAvailability { Unavailable, Current, Refreshing, Stale, NoComponent }
 
 export global Diagnostics {
     in property <[Diagnostic]> entries: Platform.uses-mock-data ? DiagnosticsMock.entries : [];
