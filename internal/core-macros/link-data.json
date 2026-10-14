@@ -41,6 +41,9 @@
     "DragAndDrop": {
         "href": "guide/development/drag-and-drop/"
     },
+    "drop-shadows": {
+        "href": "reference/elements/rectangle/#drop-shadows"
+    },
     "data-transfer": {
         "href": "reference/property-types/other-types/#data-transfer"
     },
