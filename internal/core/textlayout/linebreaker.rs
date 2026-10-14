@@ -71,10 +71,9 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
     current_line: TextLine<Font::Length>,
     num_emitted_lines: usize,
     mandatory_line_break_on_next_iteration: bool,
-    /// Whether the fragment read most recently ends with a mandatory line break.
-    /// A text ending on one ends on an empty line that no fragment reports.
+    /// A text ending on a mandatory break ends on an empty line that no fragment reports.
     /// `TextFragmentIterator` folds a trailing separator into the fragment before it.
-    trailing_mandatory_break: bool,
+    last_line_ended_on_mandatory_break: bool,
     max_lines: Option<usize>,
     text_wrap: TextWrap,
     done: bool,
@@ -94,7 +93,7 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
             current_line: Default::default(),
             num_emitted_lines: 0,
             mandatory_line_break_on_next_iteration: false,
-            trailing_mandatory_break: false,
+            last_line_ended_on_mandatory_break: false,
             max_lines,
             text_wrap,
             done: false,
@@ -116,7 +115,11 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
             return None;
         }
 
+        let previous_line_ended_on_mandatory_break =
+            core::mem::take(&mut self.last_line_ended_on_mandatory_break);
+
         if core::mem::take(&mut self.mandatory_line_break_on_next_iteration) {
+            self.last_line_ended_on_mandatory_break = true;
             self.num_emitted_lines += 1;
             return Some(core::mem::take(&mut self.current_line));
         }
@@ -134,10 +137,6 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                     break None;
                 }
             };
-
-            // Every fragment that is read, not only one that is consumed.
-            // A fragment put back is read again before the iterator runs dry.
-            self.trailing_mandatory_break = fragment.trailing_mandatory_break;
 
             // As trailing_mandatory_break is only set if break_anywhere is false, the fragment must
             // be first processed with break_anywhere = false and if no mandatory break is found, the
@@ -165,6 +164,7 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                         // Just use it anywhere otherwise we would return many empty lines
                         self.fragments = fragments;
                         self.current_line.add_fragment(&fragment);
+                        self.last_line_ended_on_mandatory_break = fragment.trailing_mandatory_break;
                         break Some(core::mem::take(&mut self.current_line));
                     }
                 }
@@ -196,17 +196,17 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
             }
 
             if fragment.trailing_mandatory_break {
+                self.last_line_ended_on_mandatory_break = true;
                 break Some(core::mem::take(&mut self.current_line));
             }
         };
 
         // Emit at least one single line, and one more when the text ends on a mandatory break.
         // "Hello\n" is two lines, the way "Hello\n\nWorld" is four.
-        // Taking the flag emits that line once.
         if next_line.is_none()
             && (!self.current_line.byte_range.is_empty()
                 || self.num_emitted_lines == 0
-                || core::mem::take(&mut self.trailing_mandatory_break))
+                || previous_line_ended_on_mandatory_break)
         {
             next_line = Some(core::mem::take(&mut self.current_line));
         }
