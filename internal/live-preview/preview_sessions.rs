@@ -475,7 +475,9 @@ impl PreviewSession {
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
-    compiler.set_style(configuration.style.clone());
+    if !configuration.style.is_empty() {
+        compiler.set_style(configuration.style.clone());
+    }
     compiler.compiler_configuration(InternalToken).enable_experimental =
         configuration.enable_experimental;
 }
@@ -657,4 +659,28 @@ fn install_debug_handler(
         })))
     })?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_style_keeps_the_default_widget_style() {
+        let mut compiler = slint_interpreter::Compiler::default();
+        apply_configuration(&mut compiler, &PreviewConfig::default());
+        let result = compiler
+            .build_from_source(
+                r#"
+                import { Button } from "std-widgets.slint";
+                export component App inherits Window { Button { text: "ok"; } }
+                "#
+                .into(),
+                PathBuf::from("app.slint"),
+            )
+            .await;
+        let diagnostics: Vec<_> = result.diagnostics().map(|d| d.to_string()).collect();
+        assert!(!result.has_errors(), "{diagnostics:?}");
+        assert!(result.component("App").is_some());
+    }
 }
