@@ -408,6 +408,27 @@
   ],
   "overrides": [
     {
+      "filename": "demos/printerdemo_mcu/FLASHING-BOX-3.md",
+      "words": ["esptool", "Makerfabs", "usbmodem"]
+    },
+    {
+      "filename": "examples/mcu-board-support/esp32_s3_box_3/**",
+      "words": [
+        "addi",
+        "aoffset",
+        "bbcda",
+        "boffset",
+        "cpenable",
+        "isync",
+        "loopnez",
+        "movi",
+        "retw",
+        "rposition",
+        "rsil",
+        "scanline"
+      ]
+    },
+    {
       "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
       "words": ["uikit"]
     },
