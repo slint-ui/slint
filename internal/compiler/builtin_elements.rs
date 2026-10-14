@@ -1276,7 +1276,7 @@ fn build(l: &mut Loader) {
         /// The foreground color of the selection.
         in property <color> selection-foreground-color; // Palette.selection-foreground set in apply_default_properties_from_style
         /// `true` when text is selected.
-        out property <bool> has-selection { BuiltinFunction.HasSelection }
+        out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
         // Private: the byte offsets of the selection. `has-selection` and the
         // `set-selection-offsets` / `select-all` / `clear-selection` functions work on them.
         private property <int> anchor-position-byte-offset;
@@ -1286,13 +1286,13 @@ fn build(l: &mut Loader) {
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
         /// so `focus` may precede `anchor` to select backwards.
         /// Pass the same value for both to clear the selection.
-        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.SetSelectionOffsets }
+        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.StyledTextSetSelectionOffsets }
         /// Selects all text.
-        function select-all() { }
+        function select-all() { BuiltinFunction.StyledTextSelectAll }
         /// Clears the selection.
-        function clear-selection() { }
+        function clear-selection() { BuiltinFunction.StyledTextClearSelection }
         /// Copies the selected text to the clipboard.
-        function copy() { }
+        function copy() { BuiltinFunction.StyledTextCopy }
     } }
 
     element! {
