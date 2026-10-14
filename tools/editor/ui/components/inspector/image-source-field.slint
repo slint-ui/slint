@@ -17,7 +17,7 @@ export component InspectorImageSourceField inherits Rectangle {
 
         InspectorIconButton {
             kind: "folder";
-            label: "Choose image file";
+            label: @tr("Choose image file");
             focus-on-click: false;
             clicked => { root.browse(); }
         }
@@ -27,7 +27,7 @@ export component InspectorImageSourceField inherits Rectangle {
             border-radius: root.style.radius;
             background: root.style.appearance.normal.background;
             accessible-role: AccessibleRole.text;
-            accessible-label: "Image source";
+            accessible-label: @tr("Image source");
             accessible-value: root.value;
 
             HorizontalLayout {

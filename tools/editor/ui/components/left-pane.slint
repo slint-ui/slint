@@ -88,11 +88,11 @@ component FilesUnavailableNotice inherits Rectangle {
             alignment: center;
 
             BodyLabel {
-                text: "No files available";
+                text: @tr("No files available");
             }
 
             MutedLabel {
-                text: "Open a project file to browse siblings.";
+                text: @tr("Open a project file to browse siblings.");
                 wrap: word-wrap;
             }
         }
@@ -139,7 +139,7 @@ export component LeftPane inherits Rectangle {
     width: Style.panes.left-width;
     background: Colors.surface;
     accessible-role: AccessibleRole.navigation;
-    accessible-label: "Project and elements";
+    accessible-label: @tr("Project and elements");
 
     EdgeDivider {
         x: parent.width - self.width;
@@ -159,7 +159,7 @@ export component LeftPane inherits Rectangle {
 
             if root.can-collapse: SidebarToggleButton {
                 accessible-role: AccessibleRole.button;
-                accessible-label: "Collapse sidebars";
+                accessible-label: @tr("Collapse sidebars");
                 clicked => {
                     root.panes-collapsed();
                 }
@@ -171,12 +171,12 @@ export component LeftPane inherits Rectangle {
                 alignment: center;
 
                 BodyLabel {
-                    text: "Project";
+                    text: @tr("Project");
                     font-size: Typography.action.size;
                 }
 
                 MutedLabel {
-                    text: "Files and elements";
+                    text: @tr("Files and elements");
                 }
             }
         }
@@ -185,7 +185,7 @@ export component LeftPane inherits Rectangle {
             padding: Metrics.space-medium;
             padding-bottom: 0px;
             SectionTitle {
-                label: "FILES";
+                label: @tr("FILES");
 
                 NewSlintFileButton {
                     x: parent.width - self.width;
@@ -224,7 +224,7 @@ export component LeftPane inherits Rectangle {
         x: 0px;
         y: elements-divider-slot.absolute-position.y - root.absolute-position.y;
         width: root.width;
-        resize-label: "Elements pane resize";
+        resize-label: @tr("Elements pane resize");
         value: root.elements-height;
         value-maximum: max(Style.panes.minimum, root.height - Style.panes.files-minimum);
         drag-started => {

@@ -77,7 +77,7 @@ export component InspectorPickerPanel inherits Rectangle {
             width: max(0px, parent.width - close-button.width - Metrics.space-small);
             mouse-cursor: self.pressed ? grabbing : grab;
             accessible-role: button;
-            accessible-label: "Move " + root.title + " picker";
+            accessible-label: @tr("Move {} picker", root.title);
             pointer-event(event) => {
                 if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                     root.activated();
@@ -96,7 +96,7 @@ export component InspectorPickerPanel inherits Rectangle {
         close-button := InspectorIconButton {
             x: parent.width - self.width;
             kind: "close";
-            label: "Close " + root.title;
+            label: @tr("Close {}", root.title);
             clicked => { root.closed(); }
         }
     }

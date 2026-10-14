@@ -14,8 +14,8 @@ export component PreviewDiagnostics inherits Rectangle {
     private property <bool> empty: Diagnostics.preview-availability == PreviewAvailability.NoComponent;
     private property <bool> stale: Diagnostics.preview-availability == PreviewAvailability.Stale;
     private property <bool> warnings-open;
-    private property <string> title: root.empty ? "Nothing to preview"
-        : root.stale ? "Preview paused" : "Couldn't preview this file";
+    private property <string> title: root.empty ? @tr("Nothing to preview")
+        : root.stale ? @tr("Preview paused") : @tr("Couldn't preview this file");
 
     if root.blocked: Rectangle {
         background: root.style.veil;
@@ -31,7 +31,7 @@ export component PreviewDiagnostics inherits Rectangle {
             border-width: Metrics.border-width;
             border-radius: root.style.radius;
             accessible-role: AccessibleRole.region;
-            accessible-label: root.empty ? "No component to preview" : root.stale ? "Stale preview" : "Preview unavailable";
+            accessible-label: root.empty ? @tr("No component to preview") : root.stale ? @tr("Stale preview") : @tr("Preview unavailable");
 
             content := VerticalLayout {
                 padding: root.style.padding;
@@ -56,10 +56,10 @@ export component PreviewDiagnostics inherits Rectangle {
                 }
                 Text {
                     text: root.empty
-                        ? "No component is available for this preview. Select another file or component to continue."
+                        ? @tr("No component is available for this preview. Select another file or component to continue.")
                         : root.stale
-                        ? "Showing the last successful render. Fix the errors below to resume editing."
-                        : "Fix the errors below. The preview will update automatically when the file compiles.";
+                        ? @tr("Showing the last successful render. Fix the errors below to resume editing.")
+                        : @tr("Fix the errors below. The preview will update automatically when the file compiles.");
                     color: root.style.muted;
                     font-size: Typography.body.size;
                     wrap: word-wrap;
@@ -106,8 +106,8 @@ export component PreviewDiagnostics inherits Rectangle {
                 if !root.empty: HorizontalLayout {
                     alignment: start;
                     Button {
-                        text: "Copy diagnostics";
-                        accessible-label: "Copy preview diagnostics";
+                        text: @tr("Copy diagnostics");
+                        accessible-label: @tr("Copy preview diagnostics");
                         clicked => { Diagnostics.copy-to-clipboard(); }
                     }
                 }
@@ -125,8 +125,8 @@ export component PreviewDiagnostics inherits Rectangle {
         border-color: Colors.warning.with-alpha(0.6);
         border-radius: root.style.radius;
         accessible-role: AccessibleRole.region;
-        accessible-label: "Preview warnings";
-        accessible-description: "Warnings do not prevent editing";
+        accessible-label: @tr("Preview warnings");
+        accessible-description: @tr("Warnings do not prevent editing");
         warning-layout := VerticalLayout {
             padding: Metrics.space-medium;
             spacing: Metrics.space-small;
@@ -141,13 +141,13 @@ export component PreviewDiagnostics inherits Rectangle {
                     wrap: word-wrap;
                 }
                 Button {
-                    text: root.warnings-open ? "Hide" : "Details";
-                    accessible-label: "Toggle preview warning details";
+                    text: root.warnings-open ? @tr("Hide") : @tr("Details");
+                    accessible-label: @tr("Toggle preview warning details");
                     clicked => { root.warnings-open = !root.warnings-open; }
                 }
                 Button {
-                    text: "Copy";
-                    accessible-label: "Copy preview diagnostics";
+                    text: @tr("Copy");
+                    accessible-label: @tr("Copy preview diagnostics");
                     clicked => { Diagnostics.copy-to-clipboard(); }
                 }
             }

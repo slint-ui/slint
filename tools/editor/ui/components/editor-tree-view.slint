@@ -62,7 +62,7 @@ component EditorTreeRow {
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.row-label;
-    accessible-description: "Hierarchy level \{root.level-safe}";
+    accessible-description: @tr("Hierarchy level {}", root.level-safe);
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
     accessible-expanded: root.node.has-children && root.node.is-expanded;
@@ -355,7 +355,7 @@ component EditorTreeRow {
                             + (root.gap-target.indent-level + (root.gap-location == DropLocation.onto ? 1 : 0)) * root.style.row.toggle-width
                             + root.style.row.hit-size;
                         accessible-role: AccessibleRole.region;
-                        accessible-label: "Outline insertion preview";
+                        accessible-label: @tr("Outline insertion preview");
                     }
                 }
             }
