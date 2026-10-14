@@ -35,5 +35,5 @@ export component CanvasPanArea inherits TouchArea {
             };
         }
     }
-    scroll-event(event) => { return CanvasView.scroll({ x: event.delta-x, y: event.delta-y }); }
+    scroll-event(event) => { return CanvasView.scroll(event, { x: self.mouse-x, y: self.mouse-y }); }
 }

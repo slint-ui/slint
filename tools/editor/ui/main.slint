@@ -713,7 +713,7 @@ export component EditorUi inherits Window {
                     let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
                     let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
                     if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
-                        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+                        return CanvasView.scroll(event, { x: x, y: y });
                     }
                     return reject;
                 }

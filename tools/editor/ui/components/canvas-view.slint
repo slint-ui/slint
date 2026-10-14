@@ -73,26 +73,43 @@ export global CanvasView {
     public pure function to-preview(point: Point) -> Point {
         return { x: point.x / self.zoom, y: point.y / self.zoom };
     }
-    public function scroll(delta: Point) -> EventResult {
+    public function scroll(event: PointerScrollEvent, position: Point) -> EventResult {
         if !self.navigation-enabled || self.panning { return accept; }
-        self.pan = { x: self.pan.x + delta.x, y: self.pan.y + delta.y };
+        if event.modifiers.shift {
+            // Some platforms turn a shifted vertical wheel into a horizontal one.
+            let delta = event.delta-y != 0px ? event.delta-y : event.delta-x;
+            if delta > 0px {
+                self.zoom-at(self.next-zoom-level, position);
+            } else if delta < 0px {
+                self.zoom-at(self.previous-zoom-level, position);
+            }
+            return accept;
+        }
+        self.pan = { x: self.pan.x + event.delta-x, y: self.pan.y + event.delta-y };
         return accept;
     }
     public function set-zoom(level: ZoomLevel) {
         if !self.navigation-enabled || self.panning { return; }
-        let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
-        let point = self.to-preview({ x: center.x - self.canvas-origin(self.viewport-size).x, y: center.y - self.canvas-origin(self.viewport-size).y });
+        self.zoom-at(level, { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 });
+    }
+
+    function zoom-at(level: ZoomLevel, anchor: Point) {
+        let origin = self.canvas-origin(self.viewport-size);
+        let point = self.to-preview({ x: anchor.x - origin.x, y: anchor.y - origin.y });
         self.zoom-level = level;
-        self.center-point(point);
+        self.move-point-to(point, anchor);
     }
 
     function center-point(point: Point) {
-        let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
+        self.move-point-to(point, { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 });
+    }
+
+    function move-point-to(point: Point, target: Point) {
         let origin = self.canvas-origin(self.viewport-size);
         let scaled = self.to-view(point);
         self.pan = {
-            x: self.pan.x + center.x - scaled.x - origin.x,
-            y: self.pan.y + center.y - scaled.y - origin.y,
+            x: self.pan.x + target.x - scaled.x - origin.x,
+            y: self.pan.y + target.y - scaled.y - origin.y,
         };
     }
 

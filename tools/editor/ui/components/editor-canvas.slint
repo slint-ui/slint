@@ -47,7 +47,7 @@ export component EditorCanvas inherits TouchArea {
     callback real-element-selected();
 
     scroll-event(event) => {
-        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+        return CanvasView.scroll(event, { x: self.mouse-x, y: self.mouse-y });
     }
     Rectangle { background: root.style.background; }
 
