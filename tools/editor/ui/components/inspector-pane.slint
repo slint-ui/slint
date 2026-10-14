@@ -684,7 +684,7 @@ export component InspectorPane inherits Rectangle {
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text); }
                         }
                     }
-                    InspectorPropertyRow {
+                    if !root.is-root-selection(): InspectorPropertyRow {
                         label: "Rotation";
                         height: Metrics.control-large;
                         knob := InspectorRotationKnob {

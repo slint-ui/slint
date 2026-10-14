@@ -118,7 +118,7 @@ component SelectedCanvasFrame inherits Rectangle {
         active: !root.interaction-disabled;
         shift-pressed: root.shift-pressed;
         show-resize-handles: root.primary;
-        show-rotation-handles: root.primary;
+        show-rotation-handles: root.primary && Api.current-element.id != "root";
         show-outline-while-moving: root.show-outline-while-moving;
         enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
         independent-corner-radii: root.has-independent-corner-radii();
