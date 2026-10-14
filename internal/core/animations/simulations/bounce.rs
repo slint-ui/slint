@@ -22,9 +22,6 @@ use crate::animations::simulations::{Direction, Parameter, PositionSimulation, S
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-#[cfg(test)]
-use crate::animations::simulations::test_limit_property;
-
 /// iOS's `UIScrollView.decelerationRate` (`.normal`), expressed the way a
 /// friction simulation wants it: `0.998^1000 ≈ 0.135`, the fraction of
 /// velocity retained after one second.
@@ -100,11 +97,7 @@ impl BounceFlickParameters {
 
 impl Parameter for BounceFlickParameters {
     type Output = BounceFlick;
-    fn simulation(
-        self,
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    ) -> Self::Output {
+    fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
         BounceFlick::new(start_value, limit_value, self)
     }
 }
@@ -120,8 +113,8 @@ enum Approach {
 
 #[derive(Debug)]
 pub struct BounceFlick {
-    /// Limit property to determine when to bounce back
-    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+    /// The limit to bounce back at, applied to `limit` on the next step
+    limit_value: f32,
     limit: f32,
     direction: Direction,
     start_time: Instant,
@@ -135,21 +128,17 @@ pub struct BounceFlick {
 }
 
 impl BounceFlick {
-    pub fn new(
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        data: BounceFlickParameters,
-    ) -> Self {
+    pub fn new(start_value: f32, limit_value: f32, data: BounceFlickParameters) -> Self {
         Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
 
     fn new_internal(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         data: BounceFlickParameters,
         start_time: Instant,
     ) -> Self {
-        let limit = limit_value.as_ref().get();
+        let limit = limit_value;
         let mut velocity = data.initial_velocity;
         let direction = if start_value == limit {
             if velocity >= 0. { Direction::Increasing } else { Direction::Decreasing }
@@ -189,12 +178,12 @@ impl BounceFlick {
     /// return starts.
     pub fn new_overscroll_release(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         start_time: Instant,
         velocity: f32,
         drag_speed: f32,
     ) -> Self {
-        let limit = limit_value.as_ref().get();
+        let limit = limit_value;
         let overscroll = start_value - limit;
         let velocity = if velocity * overscroll > 0. { velocity } else { 0. };
         let delay = RETURN_DELAY.as_secs_f32();
@@ -324,7 +313,7 @@ impl BounceFlick {
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         let t = new_tick.duration_since(self.start_time).as_secs_f32();
-        let limit = self.limit_value.as_ref().get();
+        let limit = self.limit_value;
         if limit != self.limit || *current != self.last_position {
             let (_, velocity, _) = self.evaluate(self.last_time);
             let (spring_time, spring) =
@@ -366,6 +355,14 @@ impl PositionSimulation for BounceFlick {
             self.evaluate(now.duration_since(self.start_time).as_secs_f32());
         velocity
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    fn update_limit(&mut self, limit_value: f32) {
+        self.limit_value = limit_value;
+    }
 }
 
 #[cfg(test)]
@@ -380,7 +377,7 @@ mod tests {
             let time = Instant::default();
             let mut simulation = BounceFlick::new_internal(
                 sign * 10.,
-                test_limit_property(sign * 20.),
+                sign * 20.,
                 BounceFlickParameters::new(sign * 5000.),
                 time,
             );
@@ -401,7 +398,7 @@ mod tests {
                 let start = Instant::default();
                 let mut simulation = BounceFlick::new_internal(
                     0.,
-                    test_limit_property(sign * limit),
+                    sign * limit,
                     BounceFlickParameters::new(sign * initial_velocity),
                     start,
                 );
@@ -410,7 +407,7 @@ mod tests {
                 assert!(!simulation.step(&mut position, start + elapsed));
                 let velocity = simulation.remaining_velocity(start + elapsed);
 
-                simulation.limit_value.as_ref().set(sign * new_limit);
+                simulation.update_limit(sign * new_limit);
                 position += sign * offset;
                 let before = position;
                 assert!(!simulation.step(&mut position, start + elapsed));
@@ -433,20 +430,20 @@ mod tests {
             let start = Instant::default();
             let mut simulation = BounceFlick::new_internal(
                 0.,
-                test_limit_property(sign * 100.),
+                sign * 100.,
                 BounceFlickParameters::new(sign * 500.),
                 start,
             );
             let mut unbounded = BounceFlick::new_internal(
                 0.,
-                test_limit_property(sign * 1000.),
+                sign * 1000.,
                 BounceFlickParameters::new(sign * 500.),
                 start,
             );
             let mut position = 0.;
             let mut expected = 0.;
             assert!(!simulation.step(&mut position, start + Duration::from_millis(50)));
-            simulation.limit_value.as_ref().set(sign * 1000.);
+            simulation.update_limit(sign * 1000.);
             for millis in [50, 100, 300, 1000, 10_000] {
                 let tick = start + Duration::from_millis(millis);
                 let finished = simulation.step(&mut position, tick);
@@ -462,22 +459,14 @@ mod tests {
     #[test]
     fn remaining_distance_with_the_spring_is_measured_to_the_limit() {
         let time = Instant::default();
-        let increasing = BounceFlick::new_internal(
-            10.,
-            test_limit_property(20.),
-            BounceFlickParameters::new(5000.),
-            time,
-        );
+        let increasing =
+            BounceFlick::new_internal(10., 20., BounceFlickParameters::new(5000.), time);
         assert!((increasing.remaining_distance(time) - 10.).abs() < 1e-2);
         assert!(increasing.remaining_distance(time + Duration::from_millis(50)) < 0.);
         assert!(increasing.remaining_distance(time + Duration::from_secs(10)).abs() < 1e-2);
 
-        let decreasing = BounceFlick::new_internal(
-            20.,
-            test_limit_property(10.),
-            BounceFlickParameters::new(-5000.),
-            time,
-        );
+        let decreasing =
+            BounceFlick::new_internal(20., 10., BounceFlickParameters::new(-5000.), time);
         assert!((decreasing.remaining_distance(time) + 10.).abs() < 1e-2);
         assert!(decreasing.remaining_distance(time + Duration::from_millis(50)) > 0.);
         assert!(decreasing.remaining_distance(time + Duration::from_secs(10)).abs() < 1e-2);
@@ -489,8 +478,7 @@ mod tests {
 
         let parameters = BounceFlickParameters::new(0.);
         let time = Instant::default();
-        let mut simulation =
-            BounceFlick::new_internal(START_VALUE, test_limit_property(100.), parameters, time);
+        let mut simulation = BounceFlick::new_internal(START_VALUE, 100., parameters, time);
 
         let mut current = START_VALUE;
         assert_eq!(
@@ -505,12 +493,8 @@ mod tests {
     fn stops_where_the_speed_falls_to_the_stop_velocity() {
         let time = Instant::default();
         let velocity = 656.;
-        let mut simulation = BounceFlick::new_internal(
-            0.,
-            test_limit_property(5000.),
-            BounceFlickParameters::new(velocity),
-            time,
-        );
+        let mut simulation =
+            BounceFlick::new_internal(0., 5000., BounceFlickParameters::new(velocity), time);
         let stop_time = BounceFlick::friction_stop_time(velocity);
         let (_, before_stop, done) = simulation.evaluate(stop_time - 0.001);
         assert!(!done && (before_stop - DECELERATION_STOP_VELOCITY).abs() < 0.1, "{before_stop}");
@@ -534,19 +518,14 @@ mod tests {
         for sign in [-1., 1.] {
             for (new_limit, offset) in [(10., 0.), (20., 10.)] {
                 let start = start_time();
-                let mut simulation = BounceFlick::new_overscroll_release(
-                    sign * 30.,
-                    test_limit_property(sign * 20.),
-                    start,
-                    0.,
-                    0.,
-                );
+                let mut simulation =
+                    BounceFlick::new_overscroll_release(sign * 30., sign * 20., start, 0., 0.);
                 let elapsed = Duration::from_millis(50);
                 let mut position = sign * 30.;
                 assert!(!simulation.step(&mut position, start + elapsed));
                 let velocity = simulation.remaining_velocity(start + elapsed);
 
-                simulation.limit_value.as_ref().set(sign * new_limit);
+                simulation.update_limit(sign * new_limit);
                 position += sign * offset;
                 let before = position;
                 assert!(!simulation.step(&mut position, start + elapsed));
@@ -567,13 +546,8 @@ mod tests {
     fn remaining_velocity_matches_the_displayed_motion() {
         for (start, velocity) in [(-200., 0.), (-100., -600.), (20., 0.), (20., 600.), (200., 600.)]
         {
-            let simulation = BounceFlick::new_overscroll_release(
-                start,
-                test_limit_property(0.),
-                start_time(),
-                velocity,
-                0.,
-            );
+            let simulation =
+                BounceFlick::new_overscroll_release(start, 0., start_time(), velocity, 0.);
             assert_approx_eq!(simulation.remaining_distance(start_time()), -start);
             for millis in [50, 100, 200, 500] {
                 let t = start_time() + Duration::from_millis(millis);
@@ -591,15 +565,8 @@ mod tests {
 
     #[test]
     fn ignores_release_velocity_toward_the_limit() {
-        let still =
-            BounceFlick::new_overscroll_release(45., test_limit_property(0.), start_time(), 0., 0.);
-        let inward = BounceFlick::new_overscroll_release(
-            45.,
-            test_limit_property(0.),
-            start_time(),
-            -600.,
-            0.,
-        );
+        let still = BounceFlick::new_overscroll_release(45., 0., start_time(), 0., 0.);
+        let inward = BounceFlick::new_overscroll_release(45., 0., start_time(), -600., 0.);
         for millis in [0, 5, 50, 200] {
             let t = start_time() + Duration::from_millis(millis);
             assert_approx_eq!(inward.remaining_distance(t), still.remaining_distance(t));
@@ -610,13 +577,8 @@ mod tests {
     fn faster_drags_pull_back_less() {
         let peak = |drag_speed: f32| {
             let start = start_time();
-            let mut simulation = BounceFlick::new_overscroll_release(
-                45.,
-                test_limit_property(0.),
-                start,
-                600.,
-                drag_speed,
-            );
+            let mut simulation =
+                BounceFlick::new_overscroll_release(45., 0., start, 600., drag_speed);
             let mut position = 45.;
             let mut peak = position;
             for millis in (1..200).step_by(1) {

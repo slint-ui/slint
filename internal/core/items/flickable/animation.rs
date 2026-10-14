@@ -4,16 +4,14 @@
 //! Combines the Android-style (hard-clamped) and the bouncing (rubber-band
 //! overscroll) flick animation behind one type
 
-use alloc::boxed::Box;
 use core::pin::Pin;
 use core::time::Duration;
 
-use crate::Property;
 use crate::animations::Instant;
 use crate::animations::simulations::android::{AndroidFlick, AndroidFlickParameters};
 use crate::animations::simulations::bounce::{BounceFlick, BounceFlickParameters};
 use crate::animations::simulations::rubber_band;
-use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
+use crate::animations::simulations::{Direction, Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalVector, RectLengths};
 
@@ -51,6 +49,20 @@ impl PositionSimulation for FlickAnimation {
         match self {
             FlickAnimation::Android(s) => s.remaining_velocity(now),
             FlickAnimation::Bounce(s) => s.remaining_velocity(now),
+        }
+    }
+
+    fn direction(&self) -> Direction {
+        match self {
+            FlickAnimation::Android(s) => s.direction(),
+            FlickAnimation::Bounce(s) => s.direction(),
+        }
+    }
+
+    fn update_limit(&mut self, limit_value: f32) {
+        match self {
+            FlickAnimation::Android(s) => s.update_limit(limit_value),
+            FlickAnimation::Bounce(s) => s.update_limit(limit_value),
         }
     }
 }
@@ -160,7 +172,7 @@ impl FlickAnimation {
         animation_parameter: FlickAnimationParameter,
         bounce: AutoBool,
         start_value: f32,
-        limit_value: Pin<Box<Property<f32>>>,
+        limit_value: f32,
     ) -> FlickAnimation {
         if Self::use_bounce(bounce) {
             let params = match animation_parameter {
@@ -192,7 +204,7 @@ impl FlickAnimation {
 
     pub fn create_spring_animation(
         start_value: f32,
-        limit_value: Pin<Box<Property<f32>>>,
+        limit_value: f32,
         start_time: Instant,
         velocity: f32,
         drag_speed: f32,

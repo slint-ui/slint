@@ -1068,20 +1068,20 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
+            if (index < layout_state.item_index.row) {
+                if (index + count <= layout_state.item_index.row) {
                     // Entirely before the visible range: shift the offset.
-                    layout_state.offset += count;
+                    layout_state.item_index.row += count;
                     instances_changed();
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
                     return;
                 }
-                count -= layout_state.offset - index;
+                count -= layout_state.item_index.row - index;
                 index = 0;
             } else {
-                index -= layout_state.offset;
+                index -= layout_state.item_index.row;
             }
             if (count == 0 || index > data.size()) {
                 return;
@@ -1095,9 +1095,8 @@ class Repeater
         }
         void row_changed(size_t index) override
         {
-            if (index < layout_state.offset)
-                return;
-            const auto local = index - layout_state.offset;
+            const auto local =
+                    layout_state.item_index.instance_index + (index - layout_state.item_index.row);
             if (local >= data.size())
                 return;
             auto &c = data[local];
@@ -1111,21 +1110,21 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
+            if (index < layout_state.item_index.row) {
+                if (index + count <= layout_state.item_index.row) {
                     // Entirely before the visible range: shift the offset.
-                    layout_state.offset -= count;
+                    layout_state.item_index.row -= count;
                     instances_changed();
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
                     return;
                 }
-                count -= layout_state.offset - index;
-                layout_state.offset = index;
+                count -= layout_state.item_index.row - index;
+                layout_state.item_index.row = index;
                 index = 0;
             } else {
-                index -= layout_state.offset;
+                index -= layout_state.item_index.row;
             }
             if (count == 0 || index >= data.size()) {
                 return;
@@ -1271,7 +1270,7 @@ public:
     /// Same as ensure_updated but for a ListView.
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    bool ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const cbindgen_private::Flickable *flickable, const Parent *parent,
                                  const private_api::Property<float> *content_width,
                                  const private_api::Property<float> *content_height,
                                  const private_api::Property<float> *content_y,
@@ -1291,8 +1290,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), content_width, content_height,
-                content_y, listview_width, listview_height);
+                &ops, &inner->layout_state, m->row_count(), flickable, content_width,
+                content_height, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
@@ -1367,7 +1366,8 @@ public:
         track_model_changes();
         if (!inner)
             return;
-        const auto offset = inner->layout_state.offset;
+        const auto offset =
+                inner->layout_state.item_index.row - inner->layout_state.item_index.instance_index;
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
         }
@@ -1377,11 +1377,12 @@ public:
     {
         if (!inner)
             return {};
-        const auto offset = inner->layout_state.offset;
-        if (i < offset || i - offset >= inner->data.size()) {
+        const auto local = inner->layout_state.item_index.instance_index
+                + (i - inner->layout_state.item_index.row);
+        if (local >= inner->data.size()) {
             return {};
         }
-        const auto &x = inner->data.at(i - offset);
+        const auto &x = inner->data.at(local);
         if (!x.ptr)
             return {};
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
@@ -1391,8 +1392,10 @@ public:
     {
         if (!inner)
             return private_api::IndexRange { 0, 0 };
-        const auto offset = inner->layout_state.offset;
-        return private_api::IndexRange { offset, offset + inner->data.size() };
+        const auto num_before_index_row = inner->layout_state.item_index.instance_index;
+        const auto num_after_index_row = inner->data.size() - num_before_index_row;
+        return private_api::IndexRange { inner->layout_state.item_index.row - num_before_index_row,
+                                         inner->layout_state.item_index.row + num_after_index_row };
     }
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }

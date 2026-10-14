@@ -1445,6 +1445,7 @@ impl PropertyAnalysis {
 
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
+    pub flickable: NamedReference,
     pub content_y: NamedReference,
     /// `None` when the user explicitly sets `content-height` on the ListView;
     /// `Some` when the ListView computes it from the content.
@@ -2012,6 +2013,7 @@ impl Element {
             drop(parent_elem); // Drop the borrow before creating NamedReference
 
             let lvi = ListViewInfo {
+                flickable: NamedReference::new(parent, SmolStr::new_static("")),
                 content_y: NamedReference::new(parent, SmolStr::new_static("content-y")),
                 content_height: (!content_height_is_explicitly_set)
                     .then(|| NamedReference::new(parent, SmolStr::new_static("content-height"))),

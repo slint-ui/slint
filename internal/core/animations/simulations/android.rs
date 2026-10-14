@@ -40,18 +40,14 @@ impl AndroidFlickParameters {
 
 impl Parameter for AndroidFlickParameters {
     type Output = AndroidFlick;
-    fn simulation(
-        self,
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    ) -> Self::Output {
+    fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
         AndroidFlick::new(start_value, limit_value, self)
     }
 }
 
 #[derive(Debug)]
 pub struct AndroidFlick {
-    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+    limit_value: f32,
     data: AndroidFlickParameters,
     direction: Direction,
     start_time: Instant,
@@ -66,23 +62,19 @@ pub struct AndroidFlick {
 }
 
 impl AndroidFlick {
-    pub fn new(
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        data: AndroidFlickParameters,
-    ) -> Self {
+    pub fn new(start_value: f32, limit_value: f32, data: AndroidFlickParameters) -> Self {
         Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
     }
 
     fn new_internal(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         mut data: AndroidFlickParameters,
         start_time: Instant,
     ) -> Self {
-        let direction = if start_value == limit_value.as_ref().get() {
+        let direction = if start_value == limit_value {
             if data.initial_velocity >= 0. { Direction::Increasing } else { Direction::Decreasing }
-        } else if start_value < limit_value.as_ref().get() {
+        } else if start_value < limit_value {
             debug_assert!(data.initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
             data.initial_velocity = f32::abs(data.initial_velocity);
             Direction::Increasing
@@ -111,7 +103,7 @@ impl AndroidFlick {
     /// Covers `distance` in `duration` along Flutter's power curve, for wheel scrolling.
     pub fn new_with_distance(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         distance: f32,
         duration: Duration,
     ) -> Self {
@@ -159,7 +151,7 @@ impl AndroidFlick {
         // Apply increments: virtualized views may move the content between frames.
         *current += position - self.traveled;
         self.traveled = position;
-        let limit = self.limit_value.as_ref().get();
+        let limit = self.limit_value;
         let clamped = match self.direction {
             Direction::Increasing => *current >= limit,
             Direction::Decreasing => *current <= limit,
@@ -186,19 +178,26 @@ impl PositionSimulation for AndroidFlick {
     fn remaining_velocity(&self, now: Instant) -> f32 {
         self.sample(now.duration_since(self.start_time)).1
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    fn update_limit(&mut self, limit_value: f32) {
+        self.limit_value = limit_value;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::animations::simulations::test_limit_property;
 
     #[test]
     fn completion_at_exact_duration() {
         let start = Instant::default();
         let mut simulation = AndroidFlick::new_internal(
             0.,
-            test_limit_property(100_000.),
+            100_000.,
             AndroidFlickParameters::new_with_default_friction(1504.),
             start,
         );
@@ -218,8 +217,7 @@ mod tests {
 
         let parameters = AndroidFlickParameters::new_with_default_friction(0.);
         let time = Instant::default();
-        let mut simulation =
-            AndroidFlick::new_internal(START_VALUE, test_limit_property(100.), parameters, time);
+        let mut simulation = AndroidFlick::new_internal(START_VALUE, 100., parameters, time);
 
         let mut current = START_VALUE;
         assert_eq!(
