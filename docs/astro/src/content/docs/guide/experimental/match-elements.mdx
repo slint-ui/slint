@@ -109,7 +109,7 @@ match answer {
 A `match` must handle every value its subject can take.
 
 - For `bool` and enum subjects, either list all values explicitly or provide a `*` case. A missing value is an error (for example, `Non-exhaustive match on bool: missing 'false'`).
-- For all other types (`int`, `string`, `color`, `length`, …) the set of values is unbounded, so a `*` case is required.
+- For all other types (`int`, `string`, `color`, `brush`, `length`, …) the set of values is unbounded, so a `*` case is required.
 
 A literal subject (for example `match 1 { … }`) warns, because the same case always applies.
 
@@ -151,6 +151,10 @@ The match element feature is in its early stages. The following restrictions app
 - A `match` must contain at least one case.
 
 - Cases must be literal values. Computed expressions, property references, and function calls are not allowed as case values. Only plain literals (integers, floats, booleans, strings, enum variants, colors, lengths), optionally negated, are accepted.
+
+  A `brush` subject takes color cases.
+  Gradients can't be case values.
+  A brush holding a gradient never equals a color case, so it matches `*`.
 
   ```slint no-test
   // Property reference as a case value
