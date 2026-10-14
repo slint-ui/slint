@@ -333,7 +333,7 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     )?;
     writeln!(
         out,
-        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct FontMetrics; extern \"C\" {{"
+        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; extern \"C\" {{"
     )?;
     macro_rules! print_builtin_functions {
         ($(
@@ -348,17 +348,9 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
         (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
             let params = vec![
                 format!("{} *", rust_type_to_cpp(stringify!($Ret))),
-                $(format!("const {} *", cpp_param_type!($ty $(=> $as)?))),*
+                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
             ];
             writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
-        };
-    }
-    macro_rules! cpp_param_type {
-        ($item:ident => ElementReference) => {
-            "BuiltinItemArg"
-        };
-        ($ty:tt $(=> $as:tt)?) => {
-            rust_type_to_cpp(stringify!($ty))
         };
     }
     i_slint_common::for_each_builtin_function!(print_builtin_functions);
@@ -373,6 +365,8 @@ fn rust_type_to_cpp(rust_type: &str) -> &str {
         "f32" | "Coord" => "float",
         "f64" => "double",
         "RgbaColorU8" => "RgbaColor<uint8_t>",
+        // An `ItemArg<Item>` in Rust
+        "ItemArg" => "ItemRc",
         "()" => "void",
         other => other,
     }
@@ -521,7 +515,6 @@ fn gen_corelib(
         "ItemTreeVTable",
         "Slice",
         "WindowAdapterRcOpaque",
-        "BuiltinItemArg",
         "PropertyAnimation",
         "AnimationDirection",
         "EasingCurve",
