@@ -307,7 +307,7 @@ impl EditorSession {
                     schema: _,
                     main: _,
                 } = project.resolved_data();
-                let source = format!("project file {}", project.source_path().display());
+                let source = format!("project file {}", project.source_path());
                 let mut warn = |setting: String, selected: String, source: &str| {
                     diagnostics.push(lsp_types::Diagnostic {
                         range: lsp_types::Range::default(),
@@ -428,7 +428,8 @@ impl EditorSession {
         let reapply = match Self::discover_project_file_for_document_url(url)? {
             DiscoveredProjectFile::None => false,
             DiscoveredProjectFile::File(project_file) => {
-                let source_path = project_file.source_path().to_path_buf();
+                let source_path =
+                    project_file.source_path().as_native_path().unwrap().to_path_buf();
                 if !self.project_file_paths.contains(&source_path) {
                     insert_broadest_first(&mut self.project_file_paths, source_path.clone());
                 }
@@ -465,9 +466,7 @@ impl EditorSession {
     }
 
     fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
-        self.active_projects
-            .values()
-            .filter_map(|project| SourcePath::new(project.main()?).to_url())
+        self.active_projects.values().filter_map(|project| project.main()?.to_url())
     }
 
     fn document_roots(&self) -> HashSet<Url> {
@@ -1838,7 +1837,10 @@ mod tests {
         assert_eq!(merged.schema, None);
         assert_eq!(merged.main, None);
         assert_eq!(merged.enable_experimental_features, None);
-        assert_eq!(session.active_projects[&project_a.join(FILE_NAME)].main(), Some(document_a));
+        assert_eq!(
+            session.active_projects[&project_a.join(FILE_NAME)].main(),
+            Some(SourcePath::new(document_a))
+        );
     }
 
     #[test]
