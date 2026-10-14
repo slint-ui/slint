@@ -917,11 +917,7 @@ impl ElementHandle {
     pub fn absolute_position(&self) -> i_slint_core::api::LogicalPosition {
         self.item
             .upgrade()
-            .map(|item| {
-                let g = item.geometry();
-                let p = item.map_to_window(g.origin);
-                i_slint_core::lengths::logical_position_to_api(p)
-            })
+            .map(i_slint_core::builtin_functions::item_absolute_position)
             .unwrap_or_default()
     }
 

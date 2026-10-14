@@ -9,6 +9,7 @@ from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     elements,
     first_window,
@@ -103,9 +104,6 @@ def test_external_edit_invalidates_radial_session(
         assert radial_scene.read_text() == external
         open_radial(window)
         click(window, "Edit stop 1 color")
-        assert (
-            control(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "ABCDEF"
-        )
+        expect(
+            control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("ABCDEF")

@@ -1029,6 +1029,47 @@ def test_each_font_weight_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+@pytest.mark.parametrize("wrap", ("no-wrap", "word-wrap", "char-wrap"))
+def test_each_text_wrap_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    wrap: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    initial = "word-wrap" if wrap == "no-wrap" else "no-wrap"
+    starting_source = replace_once(
+        baseline,
+        b"        font-size: 20px;",
+        f"        font-size: 20px;\n        wrap: {initial};".encode(),
+    )
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        if wrap == "char-wrap":
+            open_combo_and_accept(
+                window,
+                "Text Wrap",
+                ("No wrap", "Word wrap", "Character wrap"),
+                wrap,
+            )
+        else:
+            edit_field(window, "Text Wrap", wrap, slint_testing.AccessibleRole.Combobox)
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        wrap: {initial};".encode(),
+                f"        wrap: {wrap};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
+
+
 @pytest.mark.parametrize(
     ("case", "value", "expected"),
     [

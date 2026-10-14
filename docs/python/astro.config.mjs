@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
@@ -29,7 +29,7 @@ const _pyBase = _pyAtRoot
     ? undefined
     : PYTHON_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: _pySite,
     ...(_pyBase ? { base: _pyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
 import {
@@ -28,7 +28,7 @@ const _safetyBase = _safetyAtRoot
     : SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 // https://astro.build/config
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: _safetySite,
     ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,

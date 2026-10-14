@@ -409,7 +409,7 @@ would mean predicting what `default_geometry`, `lower_layout` and
 accepts a height a layout still assigns, which is a binding loop at compile
 time. The root of a component used elsewhere answers no on its own, since each
 instance may override the height and is asked separately.
-`tests/cases/layout/flexbox_column_wrap_width.slint` pins both behaviors.
+`tests/cases/flexbox/flexbox_column_wrap_width.slint` pins both behaviors.
 
 ## Common Modification Patterns
 
@@ -419,7 +419,7 @@ instance may override the height and is asked separately.
 2. Handle in `LayoutGeometry` or `LayoutConstraints` in `internal/compiler/layout.rs`
 3. Update `lower_layout.rs` to extract and use the property
 4. Update runtime structs in `internal/core/layout.rs` if needed
-5. Add tests in `tests/cases/layout/`
+5. Add tests in `tests/cases/layout/`, or `tests/cases/flexbox/` for `FlexboxLayout`
 
 ### Debugging Layout Issues
 

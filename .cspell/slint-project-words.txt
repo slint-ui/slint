@@ -766,6 +766,7 @@ wordlike
 WQXGA
 writeback
 WRONLY
+Wtautological
 xbuild
 xcarchive
 xcassets

@@ -1693,7 +1693,7 @@ fn build(l: &mut Loader) {
         callback cancelled;
 
         /// Cancel any on-going swipe gesture recognition.
-        function cancel() { }
+        function cancel() { BuiltinFunction.SwipeGestureHandlerCancel }
     } }
 
     element! {
@@ -2068,8 +2068,8 @@ fn build(l: &mut Loader) {
         callback activated(entry: MenuEntry);
         callback sub-menu(entry: MenuEntry) -> [MenuEntry];
         callback show(position: Point);
-        function close() { }
-        @pure function is-open() -> bool { }
+        function close() { BuiltinFunction.ContextMenuClose }
+        @pure function is-open() -> bool { BuiltinFunction.ContextMenuIsOpen }
         in property <bool> enabled: true;
     } }
 
@@ -2141,7 +2141,7 @@ fn build(l: &mut Loader) {
             //! Close the context menu if it's currently open.
             // This is actually function as part of out interface, but a callback as much is the runtime concerned
             callback show(position: Point);
-            function close() { }
+            function close() { BuiltinFunction.ContextMenuClose }
 
 
             //! ### enabled
@@ -2220,10 +2220,10 @@ fn build(l: &mut Loader) {
         /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
-        @shadowable function close() -> bool { }
+        @shadowable function close() -> bool { BuiltinFunction.WindowClose }
         /// Hide this window. This also drops the strong reference on the window, so if this was
         /// the last reference, the event loop will quit.
-        @shadowable function hide() { }
+        @shadowable function hide() { BuiltinFunction.WindowHide }
     } }
 
     element! {
@@ -2419,19 +2419,19 @@ fn build(l: &mut Loader) {
         /// Pass the same value for both to place the text cursor at that offset without selecting anything.
         function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.SetSelectionOffsets }
         /// Selects all text.
-        function select-all() { }
+        function select-all() { BuiltinFunction.TextInputSelectAll }
         /// Clears the selection.
-        function clear-selection() { }
+        function clear-selection() { BuiltinFunction.TextInputClearSelection }
         /// Copies the selected text to the clipboard and removes it from the editable area.
-        function cut() { }
+        function cut() { BuiltinFunction.TextInputCut }
         /// Copies the selected text to the clipboard.
-        function copy() { }
+        function copy() { BuiltinFunction.TextInputCopy }
         /// Pastes the text content of the clipboard at the cursor position.
-        function paste() { }
+        function paste() { BuiltinFunction.TextInputPaste }
         /// Undoes the last text operation.
-        function undo() { }
+        function undo() { BuiltinFunction.TextInputUndo }
         /// Redoes the last undone text operation.
-        function redo() { }
+        function redo() { BuiltinFunction.TextInputRedo }
         //! ### focus()
         //! Call this function to focus the text input and make it receive future keyboard events.
         //!
