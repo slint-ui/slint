@@ -1249,6 +1249,16 @@ impl WindowInner {
         event_time: Option<crate::animations::Instant>,
         history: TouchHistory,
     ) -> Option<MouseDispatchResult> {
+        if phase == TouchPhase::Moved
+            && self.touch_state.borrow_mut().move_single_contact(id, position)
+        {
+            return self.process_mouse_input(MouseEvent::Moved {
+                position,
+                touch_finger_id: id + 1,
+                event_time,
+                history,
+            });
+        }
         let events =
             self.touch_state.borrow_mut().process(id, position, phase, event_time, history);
         let mut aggregate: Option<MouseDispatchResult> = None;

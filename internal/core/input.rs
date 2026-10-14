@@ -2366,6 +2366,19 @@ impl Default for TouchState {
 }
 
 impl TouchState {
+    /// Update the common single-contact move without constructing a gesture event buffer.
+    pub(crate) fn move_single_contact(&mut self, id: i32, position: LogicalPoint) -> bool {
+        if self.primary_touch_id != Some(id)
+            || self.active_touches.len() != 1
+            || !matches!(self.gesture_state, GestureRecognitionState::Idle)
+        {
+            return false;
+        }
+        let Some(point) = self.active_touches.get_mut(id) else { return false };
+        point.position = position;
+        true
+    }
+
     /// Minimum movement (in logical pixels) before two fingers are recognized as a pinch.
     const PINCH_THRESHOLD: f32 = 8.0;
 
@@ -2701,6 +2714,26 @@ mod touch_tests {
 
     fn pt(x: f32, y: f32) -> LogicalPoint {
         euclid::point2(x, y)
+    }
+
+    #[test]
+    fn single_contact_move_keeps_later_gesture_geometry_and_fallback() {
+        let mut state = TouchState::default();
+        state.process(0, pt(10., 20.), TouchPhase::Started, None, Default::default());
+        assert!(state.move_single_contact(0, pt(30., 20.)));
+        assert!(!state.move_single_contact(7, pt(999., 999.)));
+        assert_eq!(state.active_touches.get(0).unwrap().position, pt(30., 20.));
+
+        state.process(1, pt(100., 20.), TouchPhase::Started, None, Default::default());
+        assert_eq!(state.geometry_for((0, 1)).unwrap().0, 70.);
+        assert!(!state.move_single_contact(0, pt(40., 20.)));
+        assert!(!state.move_single_contact(1, pt(110., 20.)));
+        assert_eq!(state.active_touches.get(0).unwrap().position, pt(30., 20.));
+
+        state.process(1, pt(100., 20.), TouchPhase::Ended, None, Default::default());
+        assert!(state.move_single_contact(0, pt(40., 20.)));
+        state.process(0, pt(40., 20.), TouchPhase::Ended, None, Default::default());
+        assert!(!state.move_single_contact(0, pt(50., 20.)));
     }
 
     #[test]
