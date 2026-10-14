@@ -99,6 +99,7 @@ cfg_aliases = { workspace = true }
 
 [dev-dependencies]
 log = { workspace = true }
+nix = { version = "0.31.0", features = ["poll"] }
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 
 [package.metadata.docs.rs]

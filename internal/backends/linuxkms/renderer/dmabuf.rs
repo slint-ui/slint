@@ -92,6 +92,11 @@ pub(crate) unsafe fn vulkan_device(
 /// doesn't ask for it on its own, so this path adds it to the device.
 const QUEUE_FAMILY_FOREIGN: &std::ffi::CStr = c"VK_EXT_queue_family_foreign";
 
+/// The extension that exports a semaphore as a sync file, see `ScanoutBarriers::release`.
+/// KMS waits for the sync file before it flips the frame.
+/// wgpu doesn't ask for it on its own either.
+pub const EXTERNAL_SEMAPHORE_FD: &std::ffi::CStr = c"VK_KHR_external_semaphore_fd";
+
 /// Creates the Vulkan-backed wgpu device the dma-buf renderers draw with.
 pub fn init_wgpu(
     requested_graphics_api: Option<&RequestedGraphicsAPI>,
@@ -146,28 +151,28 @@ pub fn init_wgpu(
     Ok((instance, adapter, device, queue))
 }
 
-/// Opens the device with `VK_EXT_queue_family_foreign` where that's possible, see
-/// [`open_device_with_queue_family_foreign`], and the ordinary way elsewhere.
+/// Opens the device with [`QUEUE_FAMILY_FOREIGN`] and [`EXTERNAL_SEMAPHORE_FD`] where
+/// that's possible, see [`open_device_with_extensions`], and the ordinary way elsewhere.
 fn open_device(
     adapter: &wgpu::Adapter,
     descriptor: &wgpu::DeviceDescriptor<'_>,
 ) -> Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> {
-    open_device_with_queue_family_foreign(adapter, descriptor).unwrap_or_else(|| {
+    open_device_with_extensions(adapter, descriptor).unwrap_or_else(|| {
         i_slint_core::graphics::wgpu_30::poll_once(adapter.request_device(descriptor))
             .expect("internal error: wgpu setup is not expected to be async")
     })
 }
 
-/// Opens the device the way `request_device` would, with
-/// `VK_EXT_queue_family_foreign` added.
+/// Opens the device the way `request_device` would,
+/// adding [`QUEUE_FAMILY_FOREIGN`] and [`EXTERNAL_SEMAPHORE_FD`] where the adapter supports them.
 ///
-/// Returns `None` when the extension can't be added, because the adapter doesn't support
-/// it or isn't a Vulkan adapter after all.
-/// The caller then opens the device the ordinary way, and releases scanout buffers to
-/// `VK_QUEUE_FAMILY_EXTERNAL` instead.
+/// Returns `None` when neither can be added, or the adapter isn't a Vulkan adapter after all.
+/// The caller then opens the device the ordinary way.
+/// Without [`QUEUE_FAMILY_FOREIGN`], scanout buffers are released to `VK_QUEUE_FAMILY_EXTERNAL`.
+/// Without [`EXTERNAL_SEMAPHORE_FD`], the backend waits for the GPU before posting a frame.
 /// Also returns `None` for a descriptor the adapter can't meet,
 /// since opening the device this way skips the checks `request_device` reports those with.
-fn open_device_with_queue_family_foreign(
+fn open_device_with_extensions(
     adapter: &wgpu::Adapter,
     descriptor: &wgpu::DeviceDescriptor<'_>,
 ) -> Option<Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError>> {
@@ -180,23 +185,72 @@ fn open_device_with_queue_family_foreign(
     // Safety: the hal adapter is only used to open a device, within this scope.
     let open_device = unsafe {
         let hal_adapter = adapter.as_hal::<wgpu::hal::api::Vulkan>()?;
-        if !hal_adapter.physical_device_capabilities().supports_extension(QUEUE_FAMILY_FOREIGN) {
-            return None;
-        }
-        hal_adapter.open_with_callback(
-            descriptor.required_features,
-            &descriptor.required_limits,
-            &descriptor.memory_hints,
-            Some(Box::new(|args| args.extensions.push(QUEUE_FAMILY_FOREIGN))),
-        )
-    }
-    .inspect_err(|e| eprintln!("Error opening a Vulkan device with {QUEUE_FAMILY_FOREIGN:?}: {e}"))
-    .ok()?;
+        let capabilities = hal_adapter.physical_device_capabilities();
+        let foreign =
+            capabilities.supports_extension(QUEUE_FAMILY_FOREIGN).then_some(QUEUE_FAMILY_FOREIGN);
+        let sync_files = (cfg!(skia_wgpu_30)
+            && capabilities.supports_extension(EXTERNAL_SEMAPHORE_FD)
+            && exports_sync_file_semaphores(&hal_adapter))
+        .then_some(EXTERNAL_SEMAPHORE_FD);
+        let open = |extensions: Vec<&'static std::ffi::CStr>| {
+            hal_adapter
+                .open_with_callback(
+                    descriptor.required_features,
+                    &descriptor.required_limits,
+                    &descriptor.memory_hints,
+                    Some(Box::new({
+                        let extensions = extensions.clone();
+                        move |args| args.extensions.extend(extensions)
+                    })),
+                )
+                .inspect_err(|e| {
+                    eprintln!("Error opening a Vulkan device with {extensions:?}: {e}")
+                })
+                .ok()
+        };
+        sync_files
+            .and_then(|sync_files| open(foreign.into_iter().chain([sync_files]).collect()))
+            .or_else(|| foreign.and_then(|foreign| open(vec![foreign])))
+    }?;
 
     // Safety: `open_device` was just opened from this adapter with `descriptor`.
     Some(unsafe {
         adapter.create_device_from_hal::<wgpu::hal::api::Vulkan>(open_device, descriptor)
     })
+}
+
+/// Drivers can offer [`EXTERNAL_SEMAPHORE_FD`] for opaque file descriptors only.
+/// Needs Vulkan 1.1, where external semaphores, the extension's prerequisite, are core.
+///
+/// # Safety
+///
+/// The instance behind `hal_adapter` must be alive.
+unsafe fn exports_sync_file_semaphores(hal_adapter: &wgpu::hal::vulkan::Adapter) -> bool {
+    let instance = hal_adapter.shared_instance();
+    if instance.instance_api_version() < ash::vk::API_VERSION_1_1 {
+        return false;
+    }
+    // Safety: the physical device belongs to the instance, which outlives this call.
+    let device = unsafe {
+        instance.raw_instance().get_physical_device_properties(hal_adapter.raw_physical_device())
+    };
+    if device.api_version < ash::vk::API_VERSION_1_1 {
+        return false;
+    }
+    let info = ash::vk::PhysicalDeviceExternalSemaphoreInfo::default()
+        .handle_type(ash::vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
+    let mut properties = ash::vk::ExternalSemaphoreProperties::default();
+    // Safety: as above.
+    unsafe {
+        instance.raw_instance().get_physical_device_external_semaphore_properties(
+            hal_adapter.raw_physical_device(),
+            &info,
+            &mut properties,
+        );
+    }
+    properties
+        .external_semaphore_features
+        .contains(ash::vk::ExternalSemaphoreFeatureFlags::EXPORTABLE)
 }
 
 /// The queue family that a scanout buffer is released to, for the display controller.

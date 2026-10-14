@@ -86,9 +86,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGDmabufRendere
                     Some(draw_mouse_cursor_callback),
                 )
             })
-            .and_then(|()| self.barriers.release(index, texture));
+            .and_then(|()| self.barriers.release(index, texture, false).map(drop));
 
-        // wgpu-hal exports no sync fd for KMS to wait on, so wait for the GPU here.
         let waited = match &drawn {
             Ok(()) => wait_for_gpu(&self.device),
             Err(_) => self.barriers.wait_after_failure(),

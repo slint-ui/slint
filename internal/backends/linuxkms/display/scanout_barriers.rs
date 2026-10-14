@@ -19,16 +19,22 @@
 //! `COLOR_ATTACHMENT_OPTIMAL`, the layout the release expects and the acquire restores.
 //! Skia draws through its own Vulkan access, after wgpu recorded the image as a color target,
 //! see `transition_to_color_target` in the Skia renderer.
+//!
+//! A release can also signal a semaphore, where the device exports semaphores as sync files.
+//! [`ScanoutBarriers::release`] then returns the sync file, for the display to wait for.
+//! A semaphore serves once: NXP's Vivante driver exports an already signaled sync file
+//! from a semaphore signaled a second time.
 
-// cSpell: ignore dmabuf subresource unsignaled
+// cSpell: ignore dmabuf POLLIN subresource unsignaled Vivante
 
 use std::cell::{Cell, OnceCell};
+use std::os::fd::{FromRawFd, OwnedFd};
 
 use ash::vk;
 use i_slint_core::platform::PlatformError;
 use wgpu_30 as wgpu;
 
-use crate::renderer::dmabuf::{vulkan_device, wait_for_gpu};
+use crate::renderer::dmabuf::{EXTERNAL_SEMAPHORE_FD, vulkan_device, wait_for_gpu};
 
 const COLOR_SUBRESOURCE: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
     aspect_mask: vk::ImageAspectFlags::COLOR,
@@ -47,6 +53,7 @@ struct Slot {
     /// Whether a submitted release is still to signal `fence`.
     /// A failed submit leaves the fence unsignaled with nothing on the way to signal it.
     fence_pending: Cell<bool>,
+    semaphore: Cell<vk::Semaphore>,
 }
 
 pub struct ScanoutBarriers {
@@ -57,6 +64,8 @@ pub struct ScanoutBarriers {
     /// Who the image is released to, see
     /// [`scanout_queue_family_index`](crate::renderer::dmabuf::scanout_queue_family_index).
     scanout_queue_family_index: u32,
+    external_semaphore_fd: Option<ash::khr::external_semaphore_fd::Device>,
+    export_failed: Cell<bool>,
     /// The error that stopped rendering, see [`Self::wait_after_failure`].
     stopped: OnceCell<String>,
 }
@@ -72,6 +81,15 @@ impl ScanoutBarriers {
             let queue_family_index = hal_device.queue_family_index();
             let scanout_queue_family_index =
                 crate::renderer::dmabuf::scanout_queue_family_index(&hal_device);
+            let external_semaphore_fd = hal_device
+                .enabled_device_extensions()
+                .contains(&EXTERNAL_SEMAPHORE_FD)
+                .then(|| {
+                    ash::khr::external_semaphore_fd::Device::new(
+                        hal_device.shared_instance().raw_instance(),
+                        raw_device,
+                    )
+                });
 
             let command_pool = raw_device
                 .create_command_pool(
@@ -87,6 +105,8 @@ impl ScanoutBarriers {
                 slots: Vec::with_capacity(buffer_count),
                 queue_family_index,
                 scanout_queue_family_index,
+                external_semaphore_fd,
+                export_failed: Cell::new(false),
                 stopped: OnceCell::new(),
             };
 
@@ -108,6 +128,7 @@ impl ScanoutBarriers {
                     release: commands[1],
                     fence,
                     fence_pending: Cell::new(false),
+                    semaphore: Cell::new(vk::Semaphore::null()),
                 });
             }
             Ok(barriers)
@@ -150,6 +171,7 @@ impl ScanoutBarriers {
         self.submit_barrier(
             slot.acquire,
             None,
+            None,
             texture,
             barrier,
             vk::PipelineStageFlags::TOP_OF_PIPE,
@@ -161,9 +183,17 @@ impl ScanoutBarriers {
     /// controller.
     ///
     /// Submits after the renderer's work on wgpu's queue, so it is ordered behind it.
-    /// Wait for the queue before scanning the buffer out.
-    pub fn release(&self, index: usize, texture: &wgpu::Texture) -> Result<(), PlatformError> {
+    /// With `export_sync_file`, returns a sync file that becomes readable once the GPU finished
+    /// both, where the device exports one.
+    /// Otherwise, wait for the queue before scanning the buffer out.
+    pub fn release(
+        &self,
+        index: usize,
+        texture: &wgpu::Texture,
+        export_sync_file: bool,
+    ) -> Result<Option<OwnedFd>, PlatformError> {
         let slot = &self.slots[index];
+        let semaphore = if export_sync_file { self.renew_semaphore(slot)? } else { None };
         let barrier = vk::ImageMemoryBarrier::default()
             .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
             .dst_access_mask(vk::AccessFlags::empty())
@@ -175,13 +205,72 @@ impl ScanoutBarriers {
         self.submit_barrier(
             slot.release,
             Some(slot.fence),
+            semaphore,
             texture,
             barrier,
             vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             vk::PipelineStageFlags::BOTTOM_OF_PIPE,
         )?;
         slot.fence_pending.set(true);
-        Ok(())
+        Ok(semaphore.and_then(|semaphore| self.export(semaphore)))
+    }
+
+    fn renew_semaphore(&self, slot: &Slot) -> Result<Option<vk::Semaphore>, PlatformError> {
+        if !self.exports_sync_files() {
+            return Ok(None);
+        }
+        // Safety: the old semaphore was signaled by the release that `slot.fence` covers,
+        // which `acquire` waited for, so nothing uses it anymore.
+        unsafe {
+            let hal_device = vulkan_device(&self.device)?;
+            let raw_device = hal_device.raw_device();
+            raw_device.destroy_semaphore(slot.semaphore.replace(vk::Semaphore::null()), None);
+            let mut export = vk::ExportSemaphoreCreateInfo::default()
+                .handle_types(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
+            match raw_device
+                .create_semaphore(&vk::SemaphoreCreateInfo::default().push_next(&mut export), None)
+            {
+                Ok(semaphore) => {
+                    slot.semaphore.set(semaphore);
+                    Ok(Some(semaphore))
+                }
+                Err(e) => {
+                    self.fail_export(format!("Error creating a semaphore to export: {e}"));
+                    Ok(None)
+                }
+            }
+        }
+    }
+
+    /// The sync file of `semaphore`, whose signal is submitted.
+    /// `None` where it signaled already, or the export failed.
+    fn export(&self, semaphore: vk::Semaphore) -> Option<OwnedFd> {
+        let external_semaphore_fd = self.external_semaphore_fd.as_ref()?;
+        // Safety: the semaphore was created exportable as a sync file, and its signal is
+        // submitted. A file descriptor the call returns is new and owned by the caller.
+        unsafe {
+            let fd = external_semaphore_fd
+                .get_semaphore_fd(
+                    &vk::SemaphoreGetFdInfoKHR::default()
+                        .semaphore(semaphore)
+                        .handle_type(vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD),
+                )
+                .inspect_err(|e| {
+                    self.fail_export(format!("Error exporting a scanout barrier's sync file: {e}"))
+                })
+                .ok()?;
+            (fd >= 0).then(|| OwnedFd::from_raw_fd(fd))
+        }
+    }
+
+    /// Whether [`Self::release`] can return a sync file.
+    pub fn exports_sync_files(&self) -> bool {
+        self.external_semaphore_fd.is_some() && !self.export_failed.get()
+    }
+
+    fn fail_export(&self, error: String) {
+        eprintln!("{error}. The CPU waits for the GPU from now on");
+        self.export_failed.set(true);
     }
 
     /// Waits for the GPU after a frame failed,
@@ -206,6 +295,7 @@ impl ScanoutBarriers {
         &self,
         commands: vk::CommandBuffer,
         fence: Option<vk::Fence>,
+        signal: Option<vk::Semaphore>,
         texture: &wgpu::Texture,
         barrier: vk::ImageMemoryBarrier<'_>,
         src_stage: vk::PipelineStageFlags,
@@ -247,7 +337,9 @@ impl ScanoutBarriers {
             raw_device
                 .queue_submit(
                     hal_device.raw_queue(),
-                    &[vk::SubmitInfo::default().command_buffers(&[commands])],
+                    &[vk::SubmitInfo::default()
+                        .command_buffers(&[commands])
+                        .signal_semaphores(signal.as_slice())],
                     fence.unwrap_or_default(),
                 )
                 .map_err(error)?;
@@ -258,7 +350,7 @@ impl ScanoutBarriers {
 
 impl Drop for ScanoutBarriers {
     fn drop(&mut self) {
-        // Safety: the pool and the fences were created from this device in `new`.
+        // Safety: the pool, the fences, and the semaphores were created from this device.
         // They're only destroyed once the queue is idle, so none of them is still in use,
         // and leaked otherwise.
         unsafe {
@@ -267,6 +359,7 @@ impl Drop for ScanoutBarriers {
                 if raw_device.queue_wait_idle(hal_device.raw_queue()).is_ok() {
                     for slot in &self.slots {
                         raw_device.destroy_fence(slot.fence, None);
+                        raw_device.destroy_semaphore(slot.semaphore.get(), None);
                     }
                     raw_device.destroy_command_pool(self.command_pool, None);
                 }
@@ -345,7 +438,8 @@ mod tests {
             });
             queue.submit(Some(encoder.finish()));
 
-            barriers.release(index, texture).expect("release");
+            let sync_file = barriers.release(index, texture, false).expect("release");
+            assert!(sync_file.is_none(), "a sync file nobody asked for");
             wait_for_gpu(&device).expect("wait");
             assert_no_validation_errors(round);
         }
@@ -361,6 +455,7 @@ mod tests {
         let barriers = ScanoutBarriers::new(&device, 2).expect("barriers");
         let textures = stand_in_scanout_buffers(&device);
 
+        let mut sync_files = Vec::new();
         for round in 0..6 {
             let (index, texture) = (round % 2, &textures[round % 2]);
             barriers.acquire(index, texture).expect("acquire");
@@ -374,10 +469,22 @@ mod tests {
                 }),
             );
             queue.submit(Some(encoder.finish()));
-            barriers.release(index, texture).expect("release");
+            sync_files.extend(barriers.release(index, texture, true).expect("release"));
             assert_no_validation_errors(round);
         }
         wait_for_gpu(&device).expect("wait");
         assert_no_validation_errors(6);
+
+        // A driver may return no sync file for a semaphore that signaled already.
+        eprintln!("The device exported {} sync files", sync_files.len());
+        if barriers.exports_sync_files() {
+            assert!(!sync_files.is_empty(), "no sync file from a device that exports them");
+        }
+        for sync_file in &sync_files {
+            use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
+            use std::os::fd::AsFd;
+            let mut fds = [PollFd::new(sync_file.as_fd(), PollFlags::POLLIN)];
+            assert_eq!(poll(&mut fds, PollTimeout::ZERO), Ok(1), "a sync file still unsignaled");
+        }
     }
 }

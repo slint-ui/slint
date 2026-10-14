@@ -233,19 +233,24 @@ Each renderer reaches the screen one of four ways, three of them in `display/`:
 - `gbmdmabufdisplay.rs` — the fallback for the drivers that don't.
   GBM allocates a ring of scanout buffers, and wgpu imports each as a texture via dma-buf.
   Vulkan renders into the memory the display scans out,
-  and the backend posts it with the same page flip as the other paths.
+  and the backend posts it with the same page flip as the other paths, or an atomic commit.
 
 `renderer/skia.rs` and `renderer/femtovg_wgpu.rs` pick between the last two.
 They fall back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_acquire_drm_display`,
 or when creating the surface fails anyway.
 `SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
 
-KMS could wait for a dma-buf's rendering through the plane's `IN_FENCE_FD`,
-but wgpu-hal exports no sync fd, so the backend waits before each page flip itself.
-The Skia renderer flips a frame only after it drew the next one,
+The Skia renderer lets KMS wait for the GPU.
+Its scanout releases also signal a semaphore, which `display/scanout_barriers.rs` exports as a sync file.
+An atomic commit passes that as the plane's `IN_FENCE_FD`,
+so the frame flips once the GPU finished it, while the CPU draws the next one.
+This needs `VK_KHR_external_semaphore_fd` with sync files, and a driver that takes atomic commits.
+
+Without them, the backend waits for the GPU before each page flip itself.
+The Skia renderer then flips a frame only after it drew the next one,
 so the GPU finishes one frame while the CPU draws the next.
 When no frame follows right away, the event loop shows the last one through `FullscreenRenderer::flush_pending_frame`.
-The FemtoVG renderer still waits for the GPU right after each frame.
+The FemtoVG renderer always waits for the GPU right after each frame.
 
 Handing a buffer to the display controller is a Vulkan ownership release, which wgpu can't express.
 Both renderers draw into the buffer as an ordinary color target.
