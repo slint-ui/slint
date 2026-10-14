@@ -8,7 +8,7 @@ export component TabWidgetImpl inherits NativeTabWidget { }
 export component TabImpl inherits NativeTab {
     accessible-role: tab;
     accessible-enabled: root.enabled;
-    accessible-label <=> root.title;
+    accessible-label: root.title;
     accessible-item-index: root.tab-index;
     accessible-item-selectable: true;
     accessible-item-selected: root.tab-index == root.current;
