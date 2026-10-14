@@ -1754,7 +1754,8 @@ impl QtItemRenderer<'_> {
                     let actual_target_size = i_slint_core::graphics::fit(
                         image.image_fit(),
                         // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-                        (image.target_size() * scale_factor).cast(),
+                        item_rc.scale_size_to_item_tree(image.target_size(), item_rc.item_tree())
+                            * scale_factor,
                         IntRect::from_size(origin.cast()),
                         scale_factor,
                         Default::default(), // We only care about the size, so alignments don't matter

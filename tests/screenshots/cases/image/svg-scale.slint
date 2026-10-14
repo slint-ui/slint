@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 200px;
+
+    Rectangle {
+        transform-scale-x: 5;
+        transform-scale-y: 10;
+
+        Image {
+            width: 10px;
+            height: 10px;
+            transform-scale: 2;
+            source: @image-url("../../../../logo/slint-logo-small-light.svg");
+        }
+    }
+}
+
