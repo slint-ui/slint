@@ -1301,6 +1301,7 @@ fn gen_interpreter(
         "Value",
         "StructOpaque",
         "ModelNotifyOpaque",
+        "FileLoaderResult",
     ])
     .map(String::from)
     .collect();
