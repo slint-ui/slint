@@ -29,7 +29,7 @@ The MCP server is controlled by two layers:
 
 1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml`, forwarded through `internal/backends/selector/Cargo.toml`, and exposed as the public `slint/mcp` feature.
 
-2. **Environment variable `SLINT_MCP_PORT`** — Controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead.
+2. **Environment variables** — `SLINT_MCP_PORT` controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead. `SLINT_MCP_HOST` sets the bind address and defaults to `127.0.0.1`.
 
 ### Enabling for a Slint Application
 
@@ -100,9 +100,9 @@ The HTTP server is built directly on `async-net` (async TCP) and `httparse` (HTT
 
 ### Security
 
-- **Localhost only**: the server binds to `127.0.0.1`, not `0.0.0.0`.
-- **Origin validation**: cross-origin requests from non-localhost origins are rejected with 403.
-- **No authentication**: since the server is localhost-only and intended for development/testing, there is no auth mechanism.
+- **Bind address**: the server binds to `127.0.0.1` by default. Set `SLINT_MCP_HOST` to bind another address, such as `0.0.0.0`, when clients connect from outside the machine.
+- **Origin validation**: cross-origin requests from non-localhost origins are rejected with 403. This restricts browser clients to the same machine; non-browser clients send no `Origin` header and are unaffected.
+- **No authentication**: the server is intended for development and testing, so there is no auth mechanism.
 
 ### Tool Dispatch
 
