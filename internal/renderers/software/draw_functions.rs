@@ -997,17 +997,16 @@ fn draw_radial_gradient(
         g.radius >= 0.0,
         "radius must be resolved before constructing RadialGradientCommand"
     );
-    let max_radius = g.radius.max(f32::EPSILON);
+    let inv_radius = 1. / g.radius.max(f32::EPSILON);
 
-    let start_x = rect.min_x() + extra_left_clip;
     let dy = line.get() as f32 - center_y;
     let dy_squared = dy * dy;
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let x = start_x + i as i16;
-        let dx = x as f32 - center_x;
+    let mut dx = (rect.min_x() + extra_left_clip) as f32 - center_x;
+    for pixel in buffer {
         let distance = (dx * dx + dy_squared).sqrt();
-        blend_stops(&g.stops, pixel, distance / max_radius);
+        blend_stops(&g.stops, pixel, distance * inv_radius);
+        dx += 1.;
     }
 }
 
@@ -1028,7 +1027,6 @@ fn draw_conic_gradient(
     let center_x = rect.min_x() as f32 + g.center_x - 0.5;
     let center_y = rect.min_y() as f32 + g.center_y - 0.5;
 
-    let start_x = rect.min_x() + extra_left_clip;
     let dy = line.get() as f32 - center_y;
 
     // In turns, so that 0 is north, then normalized to [0, 1].
@@ -1038,8 +1036,8 @@ fn draw_conic_gradient(
         offset += 1.;
     }
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let dx = (start_x + i as i16) as f32 - center_x;
+    let mut dx = (rect.min_x() + extra_left_clip) as f32 - center_x;
+    for pixel in buffer {
         // position is in the range [-0.5, 1.5]
         let position = atan2_turns(dy, dx) + offset;
         // bits for integer compares
@@ -1055,6 +1053,7 @@ fn draw_conic_gradient(
         };
         // position is in [0, 1]
         blend_stops(&g.stops, pixel, position);
+        dx += 1.;
     }
 }
 
