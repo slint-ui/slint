@@ -26,6 +26,11 @@ crate::thread_local! {
         = const { core::cell::OnceCell::new() }
 }
 
+/// The part of a `SlintContext` that every context created with
+/// [`SlintContext::new_sharing_platform`] has in common:
+/// the platform, and what the windowing system reports for the whole process.
+/// A change made through one context is visible to all of them,
+/// so state that a context should keep to itself belongs on `SlintContextInner`.
 #[pin_project::pin_project]
 pub(crate) struct PlatformContext {
     platform: Box<dyn Platform>,
