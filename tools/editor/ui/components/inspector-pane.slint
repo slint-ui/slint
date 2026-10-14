@@ -1266,9 +1266,9 @@ export component InspectorPane inherits Rectangle {
         drag-started => { root.outline-drag-started(); }
     }
     if !Diagnostics.preview-editable: Rectangle {
-        background: Colors.surface.with-alpha(0.75);
+        background: Diagnostics.preview-status-visible ? Colors.surface.with-alpha(0.75) : transparent;
         TouchArea { }
-        Text {
+        if Diagnostics.preview-status-visible: Text {
             width: parent.width - 2 * root.style.padding;
             text: @tr("Editing paused until the preview is available");
             color: Colors.muted;

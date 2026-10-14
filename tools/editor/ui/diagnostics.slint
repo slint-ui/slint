@@ -25,6 +25,8 @@ export global Diagnostics {
     in property <bool> compiling;
     in property <PreviewAvailability> preview-availability: Platform.uses-mock-data ? DiagnosticsMock.availability : PreviewAvailability.Unavailable;
     out property <bool> preview-editable: self.preview-availability == PreviewAvailability.Current;
+    out property <bool> preview-status-visible: !self.preview-editable
+        && (self.errors.length > 0 || self.preview-availability == PreviewAvailability.NoComponent);
 
     pure callback file-diagnostics(path: string) -> FileDiagnosticSummary;
     file-diagnostics(path) => {
