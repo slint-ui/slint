@@ -5026,17 +5026,6 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
         }
-        BuiltinFunction::EnsureVisible => {
-            if let [llr::Expression::PropertyReference(pr), behavior] = arguments {
-                let behavior = compile_expression(behavior, ctx);
-                item_owner(pr).then(|owner| {
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
-                    format!("slint::cbindgen_private::slint_item_try_scroll_into_visible(&{item_rc}, {behavior})")
-                })
-            } else {
-                panic!("internal error: invalid args to EnsureVisible {arguments:?}")
-            }
-        }
         BuiltinFunction::ImageSize => {
             format!("{}.size()", a.next().unwrap())
         }
@@ -5354,20 +5343,6 @@ fn compile_builtin_function_call(
                 ", globals = ctx.generator_state.global_access)
             }
             })
-        }
-        BuiltinFunction::ScrollTo => {
-            if let [llr::Expression::PropertyReference(pr), pos, behavior] = arguments {
-                let pos = compile_expression(pos, ctx);
-                let behavior = compile_expression(behavior, ctx);
-                item_owner(pr).then(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
-                    format!(
-                        "[&]{{ auto pos = {pos}; slint::cbindgen_private::slint_flickable_scroll_to(&{item}, &{item_rc}, pos.x, pos.y, {behavior}); }}()"
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ScrollTo {arguments:?}")
-            }
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [llr::Expression::StringLiteral(path)] = arguments {

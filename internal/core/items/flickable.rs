@@ -1469,20 +1469,6 @@ fn inside_bounds(flick: Pin<&Flickable>, p: LogicalPoint, geo: &LogicalRect) -> 
     (inside_bounds_x, inside_bounds_y)
 }
 
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_flickable_scroll_to(
-    flickable: Pin<&Flickable>,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    x: Coord,
-    y: Coord,
-    scroll_behavior: ScrollBehavior,
-) {
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    flickable.scroll_to(&self_rc, LogicalPosition::new(x, y), scroll_behavior);
-}
-
 #[cfg(test)]
 mod velocity_history_tests {
     use super::*;

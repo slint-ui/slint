@@ -4930,31 +4930,6 @@ fn compile_builtin_function_call(
                 }
             })
         }
-        BuiltinFunction::ScrollTo => {
-            if let [Expression::PropertyReference(pr), pos, behavior] = arguments {
-                let pos = compile_expression(pos, ctx);
-                let behavior = compile_expression(behavior, ctx);
-                item_owner(pr).map_or_default(|owner| {
-                    let (item, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(
-                        #item.as_ref().scroll_to(&#item_rc, #pos, #behavior)
-                    )
-                })
-            } else {
-                panic!("internal error: invalid args to ScrollTo {arguments:?}")
-            }
-        }
-        BuiltinFunction::EnsureVisible => {
-            if let [Expression::PropertyReference(pr), behavior] = arguments {
-                item_owner(pr).then(|owner| {
-                    let behavior = compile_expression(behavior, ctx);
-                    let (_, item_rc) = native_item_from_owner(pr, ctx, &owner);
-                    quote!(#item_rc.try_scroll_into_visible(#behavior))
-                })
-            } else {
-                panic!("internal error: invalid args to EnsureVisible {arguments:?}")
-            }
-        }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);

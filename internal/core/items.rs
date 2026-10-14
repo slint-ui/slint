@@ -2377,13 +2377,3 @@ fn builtin_struct_field_defaults() {
     assert!(hints.auto_correct);
     assert!(hints.auto_complete);
 }
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_item_try_scroll_into_visible(
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    scroll_behavior: ScrollBehavior,
-) {
-    ItemRc::new(self_component.clone(), self_index).try_scroll_into_visible(scroll_behavior);
-}
