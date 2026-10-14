@@ -143,7 +143,7 @@ macro_rules! for_each_enums {
                 Ignore,
             }
 
-            /// The kind of the standard menu item. Sets predefined shortcuts and titles of the standard menu items
+            /// The kind of the standard menu item. Sets predefined shortcuts and titles of the standard menu items.
             enum StandardMenuItemKind {
                 /// Not used
                 Empty,
