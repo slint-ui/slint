@@ -60,13 +60,21 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    /// Include path for other .slint files or images.
+    /// Wins over the include paths of the project file; '-I ""' uses none.
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        value_parser = clap::value_parser!(std::ffi::OsString)
+    )]
+    include_paths: Option<Vec<std::ffi::OsString>>,
 
-    /// Specify Library location of the '@library' in the form 'library=/path/to/library'
+    /// Specify Library location of the '@library' in the form 'library=/path/to/library'.
+    /// Wins over the library paths of the project file; '-L ""' uses none.
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    library_paths: Option<Vec<String>>,
 
     /// The .slint file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
@@ -350,22 +358,27 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    if !args.include_paths.is_empty() {
-        compiler.set_include_paths(args.include_paths.clone());
-    }
-    if !args.library_paths.is_empty() {
-        compiler.set_library_paths(
-            args.library_paths
-                .iter()
-                .filter_map(|entry| {
-                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
-                })
-                .collect(),
-        );
-    }
-    if let Some(style) = &args.style {
-        compiler.set_style(style.clone());
-    }
+    compiler.merge_overrides(
+        i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths: args.include_paths.as_ref().map(|paths| {
+                    paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect()
+                }),
+                library_paths: args.library_paths.as_ref().map(|entries| {
+                    entries
+                        .iter()
+                        .filter_map(|entry| {
+                            entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                        })
+                        .collect()
+                }),
+                style: args.style.clone(),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        i_slint_core::InternalToken,
+    );
 
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {

@@ -852,6 +852,21 @@ impl Compiler {
         &mut self.config
     }
 
+    /// Adds `overrides` to the settings that win over the project file.
+    /// A setting that `overrides` doesn't supply keeps its current value.
+    ///
+    /// This is an internal function without any ABI or API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn merge_overrides(
+        &mut self,
+        overrides: i_slint_compiler::project_file::Overrides,
+        _: i_slint_core::InternalToken,
+    ) {
+        overrides.apply(None, &mut self.config);
+        self.overrides.merge(overrides);
+    }
+
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
     /// This wins over the include paths of the project file.

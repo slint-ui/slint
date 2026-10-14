@@ -338,6 +338,32 @@ fn project_file_library_paths_are_used() {
     assert_eq!(code, 0, "stderr was:\n{stderr}");
 }
 
+#[test]
+fn an_empty_include_path_wins_over_the_project_file() {
+    let project = project_with_shared_component(r#"{ "include-paths": ["shared"] }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(
+        &main,
+        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+    )
+    .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-I", "", main.to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn an_empty_library_path_wins_over_the_project_file() {
+    let project =
+        project_with_shared_component(r#"{ "library-paths": { "lib": "shared/shared.slint" } }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+        .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-L", "", main.to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
+}
+
 // --- Screenshot rendering ----------------------------------------------
 
 // Cases known to produce the same RGB output as their reference under both
