@@ -148,6 +148,7 @@ fn builtin_function_is_const(
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
             true
         }
+        BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
     }
 }
 

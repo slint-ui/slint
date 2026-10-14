@@ -68,6 +68,12 @@ macro_rules! for_each_builtin_function {
             ToStringUnlocalized: pure fn to_string_unlocalized(n: f64) -> SharedString { crate::string::shared_string_from_number_unlocalized(n) }
             SetFocusItem: impure fn(element: ElementReference) -> ()
             ClearFocusItem: impure fn(element: ElementReference) -> ()
+            ScrollTo: impure fn scroll_to(flickable: ItemArg<Flickable> => ElementReference, pos: LogicalPosition, behavior: ScrollBehavior) -> () {
+                flickable.item.scroll_to(&flickable.rc, pos, behavior)
+            }
+            EnsureVisible: impure fn ensure_visible(element: ItemRc => ElementReference, behavior: ScrollBehavior) -> () {
+                element.try_scroll_into_visible(behavior)
+            }
             ShowPopupWindow: impure fn(popup: ElementReference) -> ()
             ClosePopupWindow: impure fn(popup: ElementReference) -> ()
             /// Show a context popup menu.

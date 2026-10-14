@@ -13,7 +13,11 @@ use super::{
 use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
 use crate::animations::simulations::bounce::BounceFlick;
+use crate::animations::simulations::ease_in_out_sine::EaseInOutSine;
 use crate::animations::simulations::rubber_band;
+use crate::animations::simulations::spring::SpringPhysicalParameters;
+use crate::animations::simulations::spring_flick::SpringFlick;
+use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -21,6 +25,7 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
+use crate::items::ScrollBehavior;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -68,6 +73,13 @@ const VELOCITY_TRACKER_SAMPLES: usize = 20;
 /// How long a pause between two tracked move samples is still considered part of the same
 /// flick
 const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(100);
+
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/VectorizedAnimationSpec.kt#L801
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/AnimationSpec.kt#L144-L145
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/foundation/foundation/src/commonMain/kotlin/androidx/compose/foundation/Scroll.kt#L203-L205
+const ANDROID_SCROLL_TO_STIFFNESS: f32 = 1500.;
+// Measured on an iPhone
+const UIKIT_SCROLL_TO_DURATION: Duration = Duration::from_millis(300);
 
 // Linux and bare metal use the iOS tracker, which is cheaper than the least-squares fit.
 #[cfg(any(target_os = "ios", target_os = "linux", target_os = "none"))]
@@ -281,6 +293,25 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub fn scroll_to(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPosition,
+        scroll_behavior: ScrollBehavior,
+    ) {
+        self.scroll_to_point(self_rc, position.to_euclid(), scroll_behavior);
+    }
+
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
+    fn scroll_to_point(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
+        self.data.inner.borrow_mut().scroll_to(self, self_rc, position, scroll_behavior)
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
@@ -353,10 +384,16 @@ impl Flickable {
     }
 
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
-    /// The points have to be in the parent's coordinate space.
-    pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
+    /// The points have to be in the content's coordinate space.
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
+    pub(crate) fn reveal_points(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        pts: &[LogicalPoint],
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
         if pts.is_empty() {
-            return;
+            return LogicalVector::from_lengths(self.content_x(), self.content_y());
         }
 
         // visible viewport size from base Item
@@ -375,8 +412,7 @@ impl Flickable {
         let new_cx = cx + tx;
         let new_cy = cy + ty;
 
-        Self::FIELD_OFFSETS.content_x().apply_pin(self).set(euclid::Length::new(-new_cx));
-        Self::FIELD_OFFSETS.content_y().apply_pin(self).set(euclid::Length::new(-new_cy));
+        self.scroll_to_point(self_rc, LogicalPoint::new(new_cx, new_cy), scroll_behavior)
     }
 
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -465,6 +501,8 @@ struct FlickableDataInner {
     running_animation: Option<RunningSimulation>,
 
     retained_velocity: Velocity,
+
+    pending_flicked: bool,
 }
 
 impl FlickableDataInner {
@@ -718,7 +756,7 @@ impl FlickableDataInner {
                     });
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
-                        (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                        self.pending_flicked = true;
                     }
 
                     self.running_animation = Some(RunningSimulation {
@@ -748,7 +786,7 @@ impl FlickableDataInner {
         }
 
         if flicked {
-            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+            self.pending_flicked = true;
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
@@ -1014,12 +1052,73 @@ impl FlickableDataInner {
                 release_simulation(Dimension::Y, estimated_velocity.map(|v| v.y), inside_bounds_y);
 
             if x_simulation.is_some() || y_simulation.is_some() {
-                (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                self.pending_flicked = true;
             }
 
             self.running_animation =
                 Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
         }
+    }
+
+    fn scroll_to(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let target = ensure_in_bound(flick, -position, &geo, false, false);
+        if scroll_behavior == ScrollBehavior::Instant {
+            self.running_animation = None;
+
+            flick.content_x.set(target.x_length());
+            flick.content_y.set(target.y_length());
+            return target.to_vector();
+        }
+        let deflection_x = (flick.content_x() - target.x_length()).0;
+        let deflection_y = (flick.content_y() - target.y_length()).0;
+        Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
+        Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
+
+        let simulation = |deflection: f32,
+                          dimension: Dimension|
+         -> Option<Rc<RefCell<dyn PositionSimulation>>> {
+            if deflection == 0. {
+                return None;
+            }
+            let content = match dimension {
+                Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
+                Dimension::Y => Flickable::FIELD_OFFSETS.content_y(),
+            }
+            .apply_pin(flick);
+
+            let flick_velocity = if deflection < 0. { 1. } else { -1. };
+            let limit = FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension);
+
+            Some(if cfg!(target_os = "ios") {
+                Rc::new_cyclic(|weak: &Weak<RefCell<EaseInOutSine>>| {
+                    content.set_physic_animation_value(weak.clone());
+                    RefCell::new(EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit))
+                })
+            } else {
+                Rc::new_cyclic(|weak: &Weak<RefCell<SpringFlick>>| {
+                    content.set_physic_animation_value(weak.clone());
+                    RefCell::new(SpringFlick::new(
+                        deflection,
+                        limit,
+                        SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
+                    ))
+                })
+            })
+        };
+
+        let x_simulation = simulation(deflection_x as f32, Dimension::X);
+        let y_simulation = simulation(deflection_y as f32, Dimension::Y);
+
+        self.running_animation =
+            Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
+        target.to_vector()
     }
 }
 
@@ -1217,7 +1316,7 @@ impl FlickableData {
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
-        match event {
+        let result = match event {
             MouseEvent::Pressed { .. } => {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 inner.capture_momentum();
@@ -1294,9 +1393,7 @@ impl FlickableData {
                             &content_x,
                             &content_y,
                         );
-                        if flicked {
-                            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-                        }
+                        inner.pending_flicked |= flicked;
                         inner.capture_events = Some(CaptureEvents::MouseMove);
 
                         InputEventResult::GrabMouse
@@ -1317,7 +1414,13 @@ impl FlickableData {
                 InputEventResult::EventIgnored
             }
             MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
+        };
+        let flicked = core::mem::take(&mut inner.pending_flicked);
+        drop(inner);
+        if flicked {
+            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
         }
+        result
     }
 }
 

@@ -13,7 +13,8 @@ use crate::graphics::{Brush, Color, HsvaColor, OklchColor, RgbaColorU8};
 use crate::input::Keys;
 use crate::item_tree::ItemRc;
 use crate::items::{
-    ContextMenu, FontMetrics, OperatingSystemType, SwipeGestureHandler, TextInput, WindowItem,
+    ContextMenu, Flickable, FontMetrics, OperatingSystemType, ScrollBehavior, SwipeGestureHandler,
+    TextInput, WindowItem,
 };
 use crate::lengths::logical_position_to_api;
 use crate::string::ToSharedString;

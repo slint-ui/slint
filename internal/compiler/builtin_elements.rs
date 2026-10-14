@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs
+// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs scrollbehavior visiblebehavior
 
 //! The builtin elements of the language and the runtime items they lower to.
 //!
@@ -1569,6 +1569,13 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+
+        /// Scrolls so that the point `pos` of the content is at the top-left corner of the `Flickable`.
+        /// `pos` is in content coordinates, so it's positive where `content-x` and `content-y` are usually negative.
+        /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
+        /// A `pos` outside the scrollable range is clamped to it.
+        /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
+        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
@@ -1634,6 +1641,12 @@ fn build(l: &mut Loader) {
         /// It will scroll regardless of the `interactive` and `mouse-drag-pan-enabled` properties.
         /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
         /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
+        ///
+        /// ## Scrolling Programmatically
+        ///
+        /// Call `scroll-to()` to scroll to a position in the content.
+        /// To bring an element inside the `Flickable` into view, call
+        /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
         /// \group:gestures
         @expands_to_parent_geometry
         Flickable: Flickable
