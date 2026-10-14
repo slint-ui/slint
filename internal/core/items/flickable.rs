@@ -1300,11 +1300,6 @@ impl FlickableData {
                         inner.capture_events = Some(CaptureEvents::MouseMove);
 
                         InputEventResult::GrabMouse
-                    } else if abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD
-                        || abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD
-                    {
-                        // drag in a unsupported direction gives up the grab
-                        InputEventResult::EventIgnored
                     } else {
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point

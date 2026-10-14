@@ -1614,25 +1614,19 @@ fn build(l: &mut Loader) {
         ///
         /// 1. If the `Flickable`'s `interactive` property is `false`, all events are forwarded to elements underneath.
         ///    If `mouse-drag-pan-enabled` is `false`, only mouse events are forwarded this way, while touch events keep panning.
-        /// 2. If a press event is received where the event's coordinates interact with a `TouchArea`, the event is stored
-        ///    and any subsequent move and release events are handled as follows:
-        ///    1. If 100ms elapse without any events, the stored press event is delivered to the `TouchArea`.
-        ///    2. If a release event is received before 100ms have elapsed, the stored press event as well as the
-        ///       release event are immediately delivered to the `TouchArea` and the algorithm resets.
-        ///    3. Any move events received will start a flicking operation on the `Flickable` if all of the following
-        ///       conditions are met:
-        ///         1. The event is received before 500ms have elapsed since receiving the press event.
-        ///         2. The distance to the press event exceeds 8 logical pixels in an orientation in which we are allowed to move.
-        ///       If `Flickable` decides to flick, any press event sent previously to a `TouchArea`, is followed up
-        ///       by an exit event. During the phase of receiving move events, the flickable follows the coordinates.
-        /// 3. If the interaction of press, move, and release events begins at coordinates that do not intersect with
-        ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
-        ///    to the coordinates of the press event exceeds 8 logical pixels.
-        ///
-        /// A quick click is a press and release within 100ms that doesn't start a flick.
-        /// If no element inside the `Flickable` handles a quick click, the click goes to the elements behind the `Flickable`.
-        /// This happens whether or not the `Flickable` can scroll.
-        /// Once a flick starts, or if the release comes after 100ms, the click isn't passed on.
+        /// 2. If the `Flickable` can't scroll in either direction, presses aren't delayed.
+        ///    They go to the elements inside the `Flickable`, and then to the elements behind it.
+        /// 3. Otherwise, the `Flickable` holds back each press:
+        ///    1. After 100ms, it delivers the press to the elements inside it.
+        ///       Moves that don't start a flick don't reset or cancel this delay.
+        ///    2. If the release comes before the 100ms elapse, the press and the release are delivered right away.
+        ///    3. If no element inside the `Flickable` handles the press, and it doesn't start a flick,
+        ///       the click goes to the elements behind the `Flickable`.
+        ///       They receive the press together with the release.
+        /// 4. Dragging more than 8 logical pixels (10 on iOS) along an axis the `Flickable` can scroll starts a flick.
+        ///    If an element inside already received the press, the drag must start within 500ms of the press,
+        ///    and that element's press is canceled.
+        ///    After 500ms, the element keeps the press and the `Flickable` doesn't scroll.
         ///
         /// ## Wheel/Scroll Event Interaction
         ///
@@ -1735,9 +1729,8 @@ fn build(l: &mut Loader) {
         /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
-        /// A quick click is a press and release within 100ms, without moving the pointer.
-        /// If no child handles a quick click, the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
-        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
+        /// If no child handles a click, and the click doesn't start a swipe,
+        /// the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
