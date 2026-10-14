@@ -93,7 +93,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "query_element_descendants",
-        description: "Search descendants of an element using a query pipeline: queryStack, an array of instructions applied in order. More efficient than get_element_tree for targeted lookups. Only elements on screen match. With scrollIntoView, the search also covers content scrolled out of view and ListView rows that don't exist yet, by paging through each Flickable at or below the element that holds repeated elements, such as a ListView. It then scrolls the first match into view and returns only that match, or nothing if scrolling can't reveal it.",
+        description: "Search the descendants of an element, at any depth, using a query pipeline: queryStack, an array of instructions applied in order. More efficient than get_element_tree for targeted lookups. Only elements on screen match. With scrollIntoView, the search also covers content scrolled out of view and ListView rows that don't exist yet, by paging through each Flickable at or below the element that holds repeated elements, such as a ListView. It then scrolls the first match into view and returns only that match, or nothing if scrolling can't reveal it.",
         request_type: "RequestQueryElementDescendants",
         optional_fields: &["findAll", "scrollIntoView"],
         offers_snapshot: true,
@@ -240,7 +240,11 @@ const QUERY_STACK_FIELD_DESCRIPTIONS: &[(&str, &str)] = &[
     ("", "Each instruction is an object with exactly one field."),
     (
         "/items/properties/matchDescendants",
-        "Search recursively. Without it, only direct children match.",
+        "Continue the search below the elements matched so far, as in \
+         [{\"matchElementId\": \"App::list\"}, {\"matchDescendants\": true}, \
+         {\"matchElementAccessibleRole\": \"Checkbox\"}]. \
+         Don't start with it: the search already covers all descendants, \
+         and a second pass repeats results and misses direct children.",
     ),
     ("/items/properties/matchElementId", "A qualified id, such as \"App::ok-button\"."),
     ("/items/properties/matchElementAccessibleLabel", "An exact accessible label."),
@@ -2382,7 +2386,7 @@ mod tests {
                 "query_element_descendants",
                 &serde_json::json!({
                     "elementHandle": serde_json::to_value(root).unwrap(),
-                    "queryStack": [{ "matchDescendants": true }, instruction],
+                    "queryStack": [instruction],
                     "findAll": true,
                 }),
             ))
