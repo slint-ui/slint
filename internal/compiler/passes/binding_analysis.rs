@@ -1207,6 +1207,14 @@ fn recurse_expression(
                     }
                 }
             }
+            BuiltinFunction::EnsureVisible => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    vis(
+                        &NamedReference::new(&item.upgrade().unwrap(), SmolStr::default()).into(),
+                        P,
+                    );
+                }
+            }
             BuiltinFunction::ItemFontMetrics => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let item = item.upgrade().unwrap();

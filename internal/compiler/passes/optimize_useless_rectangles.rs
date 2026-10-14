@@ -6,20 +6,17 @@
 //! Rectangles which do not draw anything and have no x or y don't need to be in
 //! the item tree, we can just remove them.
 
-use crate::builtin_functions::BuiltinFunction;
 use crate::element_type::ElementType;
-use crate::expression_tree::{Callable, Expression};
 use crate::object_tree::*;
 use std::rc::Rc;
 
 pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
-    let ensured_visible = ensured_visible_elements(root_component);
     recurse_elem_including_sub_components(root_component, &(), &mut |parent_, _| {
         let mut parent = parent_.borrow_mut();
         let children = std::mem::take(&mut parent.children);
 
         for elem in children {
-            if ensured_visible.iter().any(|e| Rc::ptr_eq(e, &elem)) || !can_optimize(&elem) {
+            if !can_optimize(&elem) {
                 parent.children.push(elem);
                 continue;
             }
@@ -42,27 +39,6 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
             enclosing.optimized_elements.borrow_mut().push(elem);
         }
     });
-}
-
-fn ensured_visible_elements(root_component: &Component) -> Vec<ElementRc> {
-    let mut result = Vec::new();
-    recurse_elem_including_sub_components(root_component, &(), &mut |elem, _| {
-        visit_element_expressions(elem, |expr, _, _| {
-            expr.visit_recursive(&mut |expr| {
-                if let Expression::FunctionCall {
-                    function: Callable::Builtin(BuiltinFunction::EnsureVisible),
-                    arguments,
-                    ..
-                } = expr
-                    && let Some(Expression::ElementReference(element)) = arguments.first()
-                    && let Some(element) = element.upgrade()
-                {
-                    result.push(element);
-                }
-            })
-        });
-    });
-    result
 }
 
 /// Check that this is a element we can optimize
@@ -98,6 +74,10 @@ fn can_optimize(elem: &ElementRc) -> bool {
         }
     }
     if analysis.get("absolute-position").is_some_and(|a| a.is_read) {
+        return false;
+    }
+    // Read by `ensure-visible()`, which needs the element as an item
+    if analysis.get("").is_some_and(|a| a.is_read) {
         return false;
     }
 
