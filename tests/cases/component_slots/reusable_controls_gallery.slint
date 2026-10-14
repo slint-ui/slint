@@ -22,6 +22,52 @@ let find = |label: &str, role: AccessibleRole| {
         .find(|element| element.accessible_role() == Some(role))
         .unwrap_or_else(|| panic!("Missing {role:?} with label {label:?}"))
 };
+let select_size = |label: &str| {
+    find("Control size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+    find(label, AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+    slint::platform::update_timers_and_animations();
+    assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some(label));
+};
+assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some("Medium"));
+select_size("Small");
+let small_height = find("Primary", AccessibleRole::Button).size().height;
+select_size("Large");
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    assert!(find(label, AccessibleRole::Button).size().height > small_height);
+}
+select_size("Medium");
+
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(true));
+    assert_eq!(button.accessible_checkable(), Some(false));
+    assert_eq!(button.accessible_checked(), Some(false));
+}
+for label in ["Checkable", "Checked", "Inactive", "Button content alignment"] {
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().is_none());
+}
+find("Disable preview controls", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 0").next().is_some());
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(false));
+    button.invoke_accessible_default_action();
+}
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 0").next().is_some());
+find("ComboBox", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(find("Image fit", AccessibleRole::Combobox).accessible_enabled(), Some(true));
+for label in ["Control size", "Disable preview controls"] {
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().is_none());
+}
+find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some("Medium"));
+assert_eq!(find("Primary", AccessibleRole::Button).accessible_enabled(), Some(true));
+assert_eq!(find("Disable preview controls", AccessibleRole::Checkbox).accessible_checked(), Some(false));
+find("Primary", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 1").next().is_some());
+
 find("ComboBox", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 slint::platform::update_timers_and_animations();
 assert_eq!(instance.get_page(), 1);

@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ButtonSizes, ButtonStyles } from "../src/basic.slint";
+
+export component StyledButtonPreview inherits Window {
+    title: "Styled button";
+    width: 258px;
+    height: 82px;
+    background: white;
+
+    out property <int> activations;
+
+    Button {
+        text: "Button";
+        style: ButtonStyles.primary;
+        size: ButtonSizes.large;
+        width: 226px;
+        clicked => { root.activations += 1; }
+    }
+}
