@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CRTC crtcs htotal modeset vrefresh vtotal
+// cSpell: ignore CRTC crtcs htotal modeset NONBLOCK vrefresh vtotal
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
@@ -58,6 +58,36 @@ pub struct DrmOutput {
     crtc: drm::control::crtc::Handle,
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
     page_flip_state: Rc<RefCell<PageFlipState>>,
+    /// See [`Self::present_framebuffer_after`].
+    #[cfg(skia_wgpu_30)]
+    fenced_flips: Cell<FencedFlips>,
+}
+
+#[cfg(skia_wgpu_30)]
+#[derive(Clone, Copy, Default)]
+enum FencedFlips {
+    /// Not looked up yet.
+    #[default]
+    Unknown,
+    /// The display can't wait for a sync file,
+    /// or failed to [`FENCED_FLIP_ATTEMPTS`] times in a row.
+    Unsupported,
+    Supported {
+        flip: FencedFlip,
+        failures_in_a_row: u8,
+    },
+}
+
+#[cfg(skia_wgpu_30)]
+const FENCED_FLIP_ATTEMPTS: u8 = 3;
+
+/// The primary plane's properties an atomic commit sets to flip once a sync file signaled.
+#[cfg(skia_wgpu_30)]
+#[derive(Clone, Copy)]
+struct FencedFlip {
+    plane: drm::control::plane::Handle,
+    framebuffer: drm::control::property::Handle,
+    in_fence: drm::control::property::Handle,
 }
 
 impl DrmOutput {
@@ -215,6 +245,8 @@ impl DrmOutput {
             crtc,
             last_buffer: Cell::default(),
             page_flip_state: Default::default(),
+            #[cfg(skia_wgpu_30)]
+            fenced_flips: Default::default(),
         })
     }
 
@@ -240,6 +272,114 @@ impl DrmOutput {
         framebuffer_handle: drm::control::framebuffer::Handle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.post(framebuffer_handle, None)
+    }
+
+    /// Posts `framebuffer_handle` once `sync_file` signaled, without waiting for it:
+    /// the display waits instead.
+    /// Waits for the last flip to land first.
+    /// Returns `false` where it can't, without posting.
+    /// The caller then waits for the GPU and calls [`Self::present_framebuffer`].
+    ///
+    /// The caller must keep the buffer alive at least until the flip completes.
+    #[cfg(skia_wgpu_30)]
+    pub fn present_framebuffer_after(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+        sync_file: &OwnedFd,
+    ) -> bool {
+        use std::os::fd::AsRawFd;
+        if matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted) {
+            return false;
+        }
+        let FencedFlips::Supported { flip, failures_in_a_row } = self.fenced_flips() else {
+            return false;
+        };
+        self.wait_for_page_flip();
+        let mut request = drm::control::atomic::AtomicModeReq::new();
+        request.add_property(
+            flip.plane,
+            flip.framebuffer,
+            drm::control::property::Value::Framebuffer(Some(framebuffer_handle)),
+        );
+        // The kernel takes its own reference to the fence.
+        request.add_property(
+            flip.plane,
+            flip.in_fence,
+            drm::control::property::Value::SignedRange(sync_file.as_raw_fd().into()),
+        );
+        if let Err(e) = self.drm_device.atomic_commit(
+            drm::control::AtomicCommitFlags::NONBLOCK
+                | drm::control::AtomicCommitFlags::PAGE_FLIP_EVENT,
+            request,
+        ) {
+            let failures_in_a_row = failures_in_a_row + 1;
+            if failures_in_a_row < FENCED_FLIP_ATTEMPTS {
+                self.fenced_flips.set(FencedFlips::Supported { flip, failures_in_a_row });
+            } else {
+                eprintln!(
+                    "Error presenting frames with an in-fence, so the CPU waits for the GPU: {e}"
+                );
+                self.fenced_flips.set(FencedFlips::Unsupported);
+                let _ = self.drm_device.set_client_capability(drm::ClientCapability::Atomic, false);
+            }
+            return false;
+        }
+        self.fenced_flips.set(FencedFlips::Supported { flip, failures_in_a_row: 0 });
+        *self.page_flip_state.borrow_mut() =
+            PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: None };
+        true
+    }
+
+    #[cfg(skia_wgpu_30)]
+    pub fn takes_sync_files(&self) -> bool {
+        // The first frame sets the mode, see `post`.
+        !matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted)
+            && matches!(self.fenced_flips(), FencedFlips::Supported { .. })
+    }
+
+    #[cfg(skia_wgpu_30)]
+    fn fenced_flips(&self) -> FencedFlips {
+        if let FencedFlips::Unknown = self.fenced_flips.get() {
+            self.fenced_flips.set(match self.find_fenced_flip() {
+                Some(flip) => FencedFlips::Supported { flip, failures_in_a_row: 0 },
+                None => FencedFlips::Unsupported,
+            });
+        }
+        self.fenced_flips.get()
+    }
+
+    /// The primary plane of the CRTC and its properties for a fenced flip,
+    /// where the driver takes atomic commits.
+    #[cfg(skia_wgpu_30)]
+    fn find_fenced_flip(&self) -> Option<FencedFlip> {
+        let planes = self
+            .drm_device
+            .set_client_capability(drm::ClientCapability::Atomic, true)
+            .and_then(|()| self.drm_device.plane_handles())
+            .unwrap_or_default();
+        let flip = planes.into_iter().find_map(|plane| {
+            if self.drm_device.get_plane(plane).ok()?.crtc() != Some(self.crtc) {
+                return None;
+            }
+            let values = self.drm_device.get_properties(plane).ok()?;
+            let properties = values.as_hashmap(&self.drm_device).ok()?;
+            let type_handle = properties.get("type")?.handle();
+            let primary = values.iter().any(|(handle, value)| {
+                *handle == type_handle && *value == drm::control::PlaneType::Primary as u32 as u64
+            });
+            primary.then_some(FencedFlip {
+                plane,
+                framebuffer: properties.get("FB_ID")?.handle(),
+                in_fence: properties.get("IN_FENCE_FD")?.handle(),
+            })
+        });
+        if flip.is_none() {
+            let _ = self.drm_device.set_client_capability(drm::ClientCapability::Atomic, false);
+            eprintln!(
+                "The display takes no atomic commit with an in-fence, so the CPU waits for the GPU"
+            );
+        }
+        flip
     }
 
     fn post(

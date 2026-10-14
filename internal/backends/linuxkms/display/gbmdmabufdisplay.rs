@@ -5,7 +5,8 @@
 //!
 //! Vulkan never sees the display here.
 //! GBM allocates a ring of scanout buffers, and wgpu imports each as a texture via dma-buf.
-//! The frame reaches the screen through the DRM page flip the OpenGL and software paths use.
+//! The frame reaches the screen through the DRM page flip the OpenGL and software paths use,
+//! or, where the display can wait for the GPU, an atomic commit with an in-fence.
 //!
 //! See the presentation paths in `docs/development/window-backend-integration.md`
 //! for how this fits the rest of the linuxkms backend.
@@ -13,6 +14,8 @@
 // cSpell: ignore ADDFB dmabuf etnaviv LCDIF SCANOUT subresource
 
 use std::cell::Cell;
+#[cfg(skia_wgpu_30)]
+use std::os::fd::OwnedFd;
 
 use drm::control::Device;
 use i_slint_core::platform::PlatformError;
@@ -307,13 +310,15 @@ impl GbmDmabufDisplay {
 
 #[cfg(skia_wgpu_30)]
 impl GbmDmabufDisplay {
-    /// Posts the frame left pending by the last call, if any,
-    /// then leaves the back buffer pending until `submission` completed and advances the ring.
-    /// A frame that fails to post stays pending, and the back buffer stays the same.
+    /// Posts the back buffer once the GPU finished it, and advances the ring.
     ///
+    /// Where the display can wait for `sync_file`, the frame is posted right away.
+    /// Otherwise, it stays pending until the next call or [`Self::flush`] posts it,
+    /// once `submission` completed.
     /// Posting a frame only once the next one is drawn costs a frame of latency.
     /// In exchange, the GPU finishes the frame while the CPU draws the next one.
     /// Call [`Self::flush`] when no frame follows right away.
+    /// A pending frame that fails to post stays pending, and the back buffer stays the same.
     ///
     /// This needs four buffers: one being drawn into, one waiting for the GPU, one mid-flip,
     /// and one on screen.
@@ -321,11 +326,19 @@ impl GbmDmabufDisplay {
         &self,
         device: &wgpu::Device,
         submission: wgpu::SubmissionIndex,
+        sync_file: Option<OwnedFd>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug_assert!(self.buffers.len() >= 4, "see the buffers this needs");
         self.flush(device)?;
-        self.pending.set(Some((self.next.get(), submission)));
-        self.next.set((self.next.get() + 1) % self.buffers.len());
+        let index = self.next.get();
+        let framebuffer = self.buffers[index].framebuffer.handle;
+        let posted = sync_file.is_some_and(|sync_file| {
+            self.drm_output.present_framebuffer_after(framebuffer, &sync_file)
+        });
+        if !posted {
+            self.pending.set(Some((index, submission)));
+        }
+        self.next.set((index + 1) % self.buffers.len());
         Ok(())
     }
 

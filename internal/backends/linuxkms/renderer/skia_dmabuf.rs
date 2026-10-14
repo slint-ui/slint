@@ -77,27 +77,34 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     Some(draw_mouse_cursor_callback),
                 )
             })
-            .and_then(|()| self.barriers.release(index, texture));
+            .and_then(|()| {
+                let export_sync_file = self.barriers.exports_sync_files()
+                    && self.display.drm_output.takes_sync_files();
+                self.barriers.release(index, texture, export_sync_file)
+            });
 
-        if let Err(err) = drawn {
-            // A stopped renderer posts nothing more, see `ScanoutBarriers::wait_after_failure`.
-            if self.barriers.has_stopped() {
+        let sync_file = match drawn {
+            Ok(sync_file) => sync_file,
+            Err(err) => {
+                // A stopped renderer posts nothing more, see `ScanoutBarriers::wait_after_failure`.
+                if self.barriers.has_stopped() {
+                    return Err(err);
+                }
+                if let Err(wait_err) = self.barriers.wait_after_failure() {
+                    return Err(format!("{err}. {wait_err}").into());
+                }
+                if let Err(e) = self.display.flush(&self.device) {
+                    eprintln!("Error presenting the frame before a failed one: {e}");
+                }
                 return Err(err);
             }
-            if let Err(wait_err) = self.barriers.wait_after_failure() {
-                return Err(format!("{err}. {wait_err}").into());
-            }
-            if let Err(e) = self.display.flush(&self.device) {
-                eprintln!("Error presenting the frame before a failed one: {e}");
-            }
-            return Err(err);
-        }
+        };
 
         // Skia and the release submit to the queue directly, so this empty submission
         // is the first one known to wgpu that completes after the frame.
         let submission = self.queue.submit([]);
         self.display
-            .present_after(&self.device, submission)
+            .present_after(&self.device, submission, sync_file)
             .map_err(|e| format!("Error presenting dma-buf: {e}"))?;
         Ok(DrawOutcome::Success)
     }
