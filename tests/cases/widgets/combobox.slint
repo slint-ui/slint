@@ -372,6 +372,10 @@ assert_eq!(instance.get_init_value_found_value(), "Bbb");
 // too, consistent with the imperative not-found case.
 assert_eq!(instance.get_init_value_not_found_index(), -1);
 assert_eq!(instance.get_init_value_not_found_value(), "");
+
+instance.set_current_index(1);
+assert_eq!(combobox.accessible_item_index(), Some(1));
+assert_eq!(combobox.accessible_item_count(), Some(3));
 ```
 
 */
