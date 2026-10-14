@@ -8,7 +8,7 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
-use crate::scene::PremultipliedGradientStop;
+use crate::scene::{GradientFactor, GradientPosition, PremultipliedGradientStop};
 use derive_more::{Add, Mul, Sub};
 use i_slint_core::Color;
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
@@ -923,23 +923,22 @@ fn draw_linear_gradient(
     }
 }
 
+/// Blends the color at `position`, which is clamped to [0, 1].
 fn blend_stops(
     stops: &i_slint_core::SharedVector<PremultipliedGradientStop>,
     pixel: &mut impl TargetPixel,
     position: f32,
 ) {
+    let position = fixed_position(position);
     let mut fallback = stops.first().map(|s| s.color).unwrap_or_default();
 
     for [stop1, stop2] in stops.array_windows() {
         if position >= stop1.position && position <= stop2.position {
-            // Interpolate between the two stops
-            let t = if stop2.position == stop1.position {
-                0.0
-            } else {
-                (position - stop1.position) / (stop2.position - stop1.position)
-            };
+            let t = stop1.factor(position).0 as i32;
             let (c1, c2) = (stop1.color, stop2.color);
-            let lerp = |a: u8, b: u8| ((1.0 - t) * a as f32 + t * b as f32) as u8;
+            let lerp = |a: u8, b: u8| {
+                (a as i32 + (((b as i32 - a as i32) * t) >> GradientFactor::SHIFT)) as u8
+            };
 
             pixel.blend(super::PremultipliedRgbaColor {
                 alpha: lerp(c1.alpha, c2.alpha),
@@ -954,6 +953,27 @@ fn blend_stops(
         }
     }
     pixel.blend(fallback);
+}
+
+/// `position` clamped to [0, 1].
+///
+/// Converts through the bits, since a float conversion and each float compare are library calls
+/// without an FPU.
+fn fixed_position(position: f32) -> GradientPosition {
+    let bits = position.to_bits();
+    // position.min(0)
+    if bits >> 31 != 0 {
+        return Fixed(0);
+    }
+    // position.max(1)
+    if bits >= 1f32.to_bits() {
+        return Fixed::from_integer(1);
+    }
+    let exponent = (bits >> 23) as i32 - 127;
+    let mantissa = (bits & 0x7f_ffff) | 0x80_0000;
+    // The value is `mantissa * 2^(exponent - 23)`, and the exponent is negative here.
+    let shift = (23 - GradientPosition::SHIFT as i32 - exponent) as u32;
+    Fixed(mantissa.checked_shr(shift).unwrap_or(0) as i32)
 }
 
 /// Draw a radial gradient on a line
@@ -987,9 +1007,7 @@ fn draw_radial_gradient(
         let x = start_x + i as i16;
         let dx = x as f32 - center_x;
         let distance = (dx * dx + dy_squared).sqrt();
-        let position = (distance / max_radius).clamp(0.0, 1.0);
-
-        blend_stops(&g.stops, pixel, position);
+        blend_stops(&g.stops, pixel, distance / max_radius);
     }
 }
 
@@ -1389,4 +1407,52 @@ fn atan2_turns_accuracy() {
     }
     assert_eq!(atan2_turns(0., 0.), 0.);
     assert_eq!(atan2_turns(-0., -0.), 0.);
+}
+
+#[test]
+fn fixed_position_matches_float() {
+    let one = GradientPosition::from_integer(1);
+    for i in 0..=100_000 {
+        let position = i as f32 / 100_000.;
+        let expected = Fixed((position as f64 * one.0 as f64).floor() as i32);
+        assert_eq!(fixed_position(position), expected, "position {position}");
+    }
+    assert_eq!(fixed_position(-0.), Fixed(0));
+    assert_eq!(fixed_position(-0.5), Fixed(0));
+    assert_eq!(fixed_position(1.5), one);
+    assert_eq!(fixed_position(f32::INFINITY), one);
+    assert_eq!(fixed_position(f32::MIN_POSITIVE / 2.), Fixed(0));
+}
+
+#[test]
+fn blend_stops_interpolates_like_float() {
+    let color = |red, green, blue, alpha| PremultipliedRgbaColor { red, green, blue, alpha };
+    let stops = [
+        (color(0, 0, 0, 0), -0.25),
+        (color(200, 10, 80, 255), 0.3),
+        (color(20, 250, 0, 255), 0.3),
+        (color(120, 60, 255, 255), 0.9),
+        (color(30, 30, 30, 128), 2.),
+    ];
+    let fixed = PremultipliedGradientStop::collect(stops.iter().copied());
+    for i in 0..=1000 {
+        let position = i as f32 / 1000.;
+        let mut actual = PremultipliedRgbaColor::default();
+        blend_stops(&fixed, &mut actual, position);
+
+        let [(c1, p1), (c2, p2)] = *stops
+            .array_windows()
+            .find(|[(_, p1), (_, p2)]| position >= *p1 && position <= *p2)
+            .unwrap();
+        let t = if p1 == p2 { 0. } else { (position - p1) as f64 / (p2 - p1) as f64 };
+        let lerp = |a: u8, b: u8| (a as f64 + (b as f64 - a as f64) * t).floor();
+        let near = |actual: u8, a: u8, b: u8| (actual as f64 - lerp(a, b)).abs() <= 1.;
+        assert!(
+            near(actual.red, c1.red, c2.red)
+                && near(actual.green, c1.green, c2.green)
+                && near(actual.blue, c1.blue, c2.blue)
+                && near(actual.alpha, c1.alpha, c2.alpha),
+            "position {position}: {actual:?}"
+        );
+    }
 }
