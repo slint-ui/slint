@@ -3,6 +3,7 @@
 
 // cSpell: ignore rfind unindented
 
+mod import;
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 mod show_preview;
 #[cfg(test)]
@@ -13,7 +14,6 @@ use super::completion;
 use crate::editor_preview::{self, DocumentCache};
 use crate::util;
 
-use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::QualifiedTypeName;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
@@ -96,39 +96,12 @@ pub fn get_code_actions(
     show_preview::add(&ctx, &mut result);
 
     translate::add(&ctx, &mut result);
+    import::add(&ctx, &mut result);
 
     if token.kind() == SyntaxKind::Identifier
         && node.kind() == SyntaxKind::QualifiedName
         && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
     {
-        let is_lookup_error = {
-            let global_tr = document_cache.global_type_registry();
-            let tr = document_cache
-                .get_document_for_source_file(&token.source_file)
-                .map(|doc| &doc.local_registry)
-                .unwrap_or(&global_tr);
-            util::lookup_current_element_type(node.clone(), tr).is_none()
-        };
-        if is_lookup_error {
-            // Couldn't lookup the element, there is probably an error. Suggest an edit
-            // The catalog holds the normalized name, the token holds whichever spelling
-            // of a separator the file used.
-            let text = i_slint_compiler::parser::normalize_identifier(token.text());
-            completion::build_component_import_statements_edits(
-                token,
-                document_cache,
-                &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
-                &mut |name, file, edit| {
-                    ctx.push_edit(
-                        &mut result,
-                        format!("import {{ {name} }} from \"{file}\""),
-                        Some(CodeActionKind::QUICKFIX),
-                        vec![edit],
-                    )
-                },
-            );
-        }
-
         if ctx.snippets {
             let r = util::text_range_to_lsp_range(
                 &token.source_file,
@@ -243,39 +216,6 @@ pub fn get_code_actions(
                     edits,
                 );
             }
-        }
-    } else if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Type)
-    {
-        // Offer "Add import from ..." for unresolved type references in property/callback/
-        // function type annotations (e.g. `property <MyStruct> foo`).
-        let is_lookup_error =
-            syntax_nodes::QualifiedName::new(node.clone()).is_some_and(|qualified_name| {
-                let qual = QualifiedTypeName::from_node(qualified_name);
-                let global_tr = document_cache.global_type_registry();
-                let tr = document_cache
-                    .get_document_for_source_file(&token.source_file)
-                    .map(|doc| &doc.local_registry)
-                    .unwrap_or(&global_tr);
-                matches!(tr.lookup_qualified(&qual.members), Type::Invalid)
-            });
-        if is_lookup_error {
-            // See the component quick-fix above for why the token is normalized.
-            let text = i_slint_compiler::parser::normalize_identifier(token.text());
-            completion::build_type_import_statements_edits(
-                token,
-                document_cache,
-                &mut |type_info| type_info.name == text,
-                &mut |_type_info, name, file, edit| {
-                    ctx.push_edit(
-                        &mut result,
-                        format!("import {{ {name} }} from \"{file}\""),
-                        Some(CodeActionKind::QUICKFIX),
-                        vec![edit],
-                    )
-                },
-            );
         }
     } else if token.kind() == SyntaxKind::Identifier
         && node.kind() == SyntaxKind::QualifiedName
@@ -537,105 +477,11 @@ mod tests {
     }
 
     #[test]
-    fn test_code_action_import_unresolved_component() {
-        let actions = CodeActionRequest::at(
-            r#"import { Button } from "std-widgets.slint";
-
-export component Test {
-    input := 🔺LineEdit { }
-}
-"#,
-        )
-        .load();
-        assert_eq!(actions.titles(), ["import { LineEdit } from \"std-widgets.slint\""]);
-        actions
-            .assert(
-                "import { LineEdit } from \"std-widgets.slint\"",
-                Some(lsp_types::CodeActionKind::QUICKFIX),
-                r#"import { Button, LineEdit } from "std-widgets.slint";
-
-export component Test {
-    input := LineEdit { }
-}
-"#,
-            )
-            .compiles();
-    }
-
-    #[test]
     fn test_code_action_no_show_preview_for_struct_or_global() {
         CodeActionRequest::at("export struct 🔺NoPreviewForStruct { x: int }")
             .load()
             .assert_empty();
         CodeActionRequest::at("export global 🔺NoPreviewForGlobal {}").load().assert_empty();
-    }
-
-    const MY_POINT_TYPES: &str = "export struct MyPoint { x: int, y: int }\n";
-
-    #[test]
-    fn test_add_import_for_type_annotation() {
-        CodeActionRequest::at(
-            r#"export component TestWindow inherits Window {
-    property <🔺MyPoint> position;
-}
-"#,
-        )
-        .with_file("types.slint", MY_POINT_TYPES)
-        .load()
-        .assert(
-            "import { MyPoint } from \"types.slint\"",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"import { MyPoint } from "types.slint";
-export component TestWindow inherits Window {
-    property <MyPoint> position;
-}
-"#,
-        )
-        .compiles();
-    }
-
-    #[test]
-    fn test_no_import_for_imported_type_annotation() {
-        CodeActionRequest::at(
-            r#"import { MyPoint } from "types.slint";
-
-export component TestWindow inherits Window {
-    property <🔺MyPoint> position;
-}
-"#,
-        )
-        .with_file("types.slint", MY_POINT_TYPES)
-        .load()
-        .assert_empty();
-    }
-
-    #[test]
-    fn test_add_import_for_name_with_a_separator() {
-        const TYPES: &str =
-            "export struct My_Struct { x: int }\nexport component My_Component { }\n";
-        for (name, main) in [
-            (
-                "My-Struct",
-                "export component TestWindow inherits Window {\n    property <My_Struct> position;\n}\n",
-            ),
-            (
-                "My-Component",
-                "export component TestWindow inherits Window {\n    My_Component { }\n}\n",
-            ),
-        ] {
-            let title = format!("import {{ {name} }} from \"types.slint\"");
-            let actions = CodeActionRequest::at_offset(main, main.find("My_").unwrap())
-                .with_file("types.slint", TYPES)
-                .load();
-            assert_eq!(actions.titles(), [title.as_str()]);
-            actions
-                .assert(
-                    &title,
-                    Some(lsp_types::CodeActionKind::QUICKFIX),
-                    &format!("import {{ {name} }} from \"types.slint\";\n{main}"),
-                )
-                .compiles();
-        }
     }
 
     const SIGNATURE_INTERFACE: &str = r#"interface Signature {
