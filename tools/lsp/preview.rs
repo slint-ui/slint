@@ -1233,6 +1233,11 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         let mut document_cache = document_cache.snapshot().unwrap();
 
         for (url, cache_entry) in &source_code {
+            if SourcePath::from_url(url).file_name()
+                == Some(i_slint_compiler::project_file::FILE_NAME)
+            {
+                continue;
+            }
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
                 editor_preview::util::poll_once(document_cache.load_url(
@@ -2210,6 +2215,47 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn manifest_cache_changes_preserve_dependency_reload_behavior() {
+        reset_preview_state(Default::default());
+        let root = tempfile::tempdir().unwrap();
+        let manifest_path = root.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest_path, r#"{"style":"disk"}"#).unwrap();
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let component = PreviewComponent {
+            url: Url::from_file_path(root.path().join("main.slint")).unwrap(),
+            component: None,
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(component);
+            state.loading_state = PreviewFutureState::Loading;
+        });
+        assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
+        for (contents, reload) in [
+            (Some("{}"), true),
+            (Some("{}"), false),
+            (Some("{broken"), true),
+            (None, true),
+            (None, true),
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.loading_state = PreviewFutureState::Loading;
+                state.current_load_behavior = None;
+            });
+            if let Some(contents) = contents {
+                set_contents(&VersionedUrl::new(manifest.clone(), None), contents.into());
+            } else {
+                delete_document(&manifest);
+            }
+            PREVIEW_STATE.with_borrow(|state| {
+                assert_eq!(state.loading_state == PreviewFutureState::NeedsReload, reload);
+                assert_eq!(state.current_load_behavior.is_some(), reload);
+                assert!(state.dependencies.contains(&manifest));
+            });
+        }
+        reset_preview_state(Default::default());
     }
 
     #[test]

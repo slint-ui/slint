@@ -68,6 +68,10 @@ export function languageClientOptions(
     for (var scheme of schemes) {
         document_selector.push({ scheme: scheme, language: "slint" });
         document_selector.push({ scheme: scheme, language: "rust" });
+        document_selector.push({
+            scheme: scheme,
+            pattern: "**/slint-project.json",
+        });
     }
 
     return {

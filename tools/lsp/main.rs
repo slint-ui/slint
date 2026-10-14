@@ -777,7 +777,9 @@ async fn handle_notification(
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            ctx.session.close_document(params.text_document.uri).await
+            let diagnostics = ctx.session.close_document(params.text_document.uri).await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
