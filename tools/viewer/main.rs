@@ -60,8 +60,7 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Include path for other .slint files or images.
-    /// Wins over the include paths of the project file; '-I ""' uses none.
+    /// Include path for other .slint files or images
     #[arg(
         short = 'I',
         value_name = "include path",
@@ -71,8 +70,7 @@ struct Cli {
     )]
     include_paths: Option<Vec<std::ffi::OsString>>,
 
-    /// Specify Library location of the '@library' in the form 'library=/path/to/library'.
-    /// Wins over the library paths of the project file; '-L ""' uses none.
+    /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Option<Vec<String>>,
 
