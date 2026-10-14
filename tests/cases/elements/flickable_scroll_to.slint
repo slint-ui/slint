@@ -91,6 +91,29 @@ assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 500.);
 ```
 
+```rust
+// The mouse wheel adds to the distance that a smooth scroll has left.
+use slint::platform::WindowEvent;
+use slint::language::ScrollBehavior;
+use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_flickable_scroll_to(0., 300., ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(20);
+let offset_y = instance.get_offset_y();
+assert!(offset_y > 0. && offset_y < 300., "{offset_y}");
+
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(250., 250.),
+    delta_x: 0.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+}));
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert!((instance.get_offset_y() - 350.).abs() < 0.01, "{}", instance.get_offset_y());
+```
+
 ```cpp
 using slint::language::ScrollBehavior;
 

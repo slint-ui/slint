@@ -8,6 +8,7 @@
 //! `ease_in_out_sine` moves the position by a fixed distance in a fixed duration.
 //! `rubber_band` maps between the drag distance past a limit and the displayed overscroll.
 //! `spring` holds the spring math `bounce` builds on.
+//! `spring_flick` moves the position by a fixed distance with a spring.
 
 pub mod android;
 pub mod bounce;
