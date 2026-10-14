@@ -6,8 +6,29 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![no_std]
+#![cfg_attr(all(target_arch = "xtensa", feature = "box-pie-fill"), feature(asm_experimental_arch))]
 
 extern crate alloc;
+
+pub use i_slint_core::input::TouchPhase;
+
+/// Dispatch one single-finger touch update through Slint's touch recognition path.
+/// Ending the contact also sends the corresponding pointer cleanup.
+pub fn dispatch_touch_event(
+    window: &slint::Window,
+    position: slint::LogicalPosition,
+    phase: TouchPhase,
+) {
+    window.dispatch_event(slint::platform::WindowEvent::internal(
+        i_slint_core::platform::InternalEvent::Touch {
+            id: 0,
+            position: i_slint_core::lengths::logical_point_from_api(position),
+            phase,
+            event_time: None,
+            history: Default::default(),
+        },
+    ));
+}
 
 #[cfg(feature = "pico-st7789")]
 #[path = "pico_st7789/pico_st7789.rs"]

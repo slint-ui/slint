@@ -113,6 +113,15 @@ stm32h735g = [
   "slint/libm",
   "getrandom",
 ]
+box-profile = ["box-parallel"]
+box-frame-buffer = []
+box-dma = ["box-frame-buffer"]
+box-parallel = ["box-dma"]
+box-pie-fill = ["box-line-damage"]
+box-line-damage = ["box-parallel"]
+box-touch-irq = ["box-parallel"]
+box-touch-worker = ["box-touch-irq"]
+box-dma-backoff = ["box-dma"]
 esp32-s3-box-3 = [
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
