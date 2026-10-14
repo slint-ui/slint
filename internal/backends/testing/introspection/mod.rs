@@ -1645,8 +1645,7 @@ mod dispatch_result_tests {
     ) -> Vec<(WindowEvent, WindowEventDispatchResult)> {
         let (_guard, captured) = capture_hook();
         window.dispatch_event(event);
-        let recorded = captured.borrow().clone();
-        recorded
+        captured.borrow().clone()
     }
 
     #[test]
