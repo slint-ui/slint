@@ -13,7 +13,8 @@ use crate::graphics::{Brush, Color, HsvaColor, OklchColor, RgbaColorU8};
 use crate::input::Keys;
 use crate::item_tree::ItemRc;
 use crate::items::{
-    ContextMenu, FontMetrics, OperatingSystemType, SwipeGestureHandler, TextInput, WindowItem,
+    ContextMenu, FontMetrics, ItemRef, ItemVTable, OperatingSystemType, SwipeGestureHandler,
+    TextInput, WindowItem,
 };
 use crate::lengths::logical_position_to_api;
 use crate::string::ToSharedString;
@@ -24,6 +25,7 @@ use core::pin::Pin;
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
 use num_traits::ops::euclid::Euclid;
+use vtable::HasStaticVTable;
 
 /// Declares the functions of the builtins that have a body, and their C function for the C++ code:
 /// a pointer to the result comes first, then pointers to the arguments.
@@ -62,21 +64,14 @@ macro_rules! builtin_function {
 
 #[cfg(feature = "ffi")]
 macro_rules! ffi_param_type {
-    (($($ty:tt)*) ElementReference) => { BuiltinItemArg<'_> };
+    (($($ty:tt)*) ElementReference) => { ItemRc };
     (($($ty:tt)*) $($as:tt)?) => { $($ty)* };
 }
 
 #[cfg(feature = "ffi")]
 macro_rules! ffi_argument {
-    ($param:ident, (ItemRc) ElementReference) => {
-        ItemRc::new($param.item_tree.clone(), $param.index)
-    };
     ($param:ident, (ItemArg<$item:ident>) ElementReference) => {
-        ItemArg {
-            // SAFETY: the C++ code passes an item of the type of the builtin's parameter
-            item: unsafe { Pin::new_unchecked(&*($param.item as *const $item)) },
-            rc: ItemRc::new($param.item_tree.clone(), $param.index),
-        }
+        ItemArg::new($param).expect("the item has the type of the builtin's parameter")
     };
     ($param:ident, ($($ty:tt)*) $($as:tt)?) => {
         $param.clone()
@@ -84,10 +79,17 @@ macro_rules! ffi_argument {
 }
 
 /// An element passed to a builtin: its native item and the item's `ItemRc`.
-/// The generated code passes one to the builtins that only take the `ItemRc` too.
+/// The generated Rust code passes one to the builtins that only take the `ItemRc` too.
 pub struct ItemArg<'a, T> {
     pub item: Pin<&'a T>,
     pub rc: ItemRc,
+}
+
+impl<'a, T: HasStaticVTable<ItemVTable>> ItemArg<'a, T> {
+    /// The item of `rc`, if it's a `T`.
+    pub fn new(rc: &'a ItemRc) -> Option<Self> {
+        Some(Self { item: ItemRef::downcast_pin(rc.borrow())?, rc: rc.clone() })
+    }
 }
 
 impl<T> From<ItemArg<'_, T>> for ItemRc {
@@ -101,15 +103,6 @@ fn with_window_adapter<R: Default>(item: &ItemRc, f: impl FnOnce(&WindowAdapterR
     let mut window_adapter = None;
     vtable::VRc::borrow_pin(item.item_tree()).as_ref().window_adapter(true, &mut window_adapter);
     window_adapter.map(|window_adapter| f(&window_adapter)).unwrap_or_default()
-}
-
-/// An element passed to a builtin by the C++ code, see `ItemArg`.
-#[cfg(feature = "ffi")]
-#[repr(C)]
-pub struct BuiltinItemArg<'a> {
-    item: *const core::ffi::c_void,
-    item_tree: &'a vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    index: u32,
 }
 
 #[cfg(feature = "path")]

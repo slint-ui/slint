@@ -4980,10 +4980,8 @@ fn compile_builtin_function_call(
                 None => call(None),
                 Some(pr) => {
                     let call_with_item = |owner: &str| {
-                        let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
-                        call(Some(format!(
-                            "slint::cbindgen_private::BuiltinItemArg{{ &{item}, &{item_rc} }}"
-                        )))
+                        let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                        call(Some(format!("slint::cbindgen_private::ItemRc{{ {item_rc} }}")))
                     };
                     if function.ty().return_type == Type::Void {
                         item_owner(pr).then(call_with_item)
