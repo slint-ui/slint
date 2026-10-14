@@ -47,11 +47,7 @@ export component ComboBox {
     }
 
     TouchArea {
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.up) {
-                popup.show()
-            }
-        }
+        clicked => { popup.show(); }
 
         width: 100%;
         height: 100%;
