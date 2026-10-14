@@ -77,6 +77,8 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
     max_lines: Option<usize>,
     text_wrap: TextWrap,
     done: bool,
+    text_len: usize,
+    glyph_count: usize,
 }
 
 impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
@@ -97,6 +99,8 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
             max_lines,
             text_wrap,
             done: false,
+            text_len: text.len(),
+            glyph_count: shape_buffer.glyphs.len(),
         }
     }
 }
@@ -208,7 +212,12 @@ impl<Font: TextShaper> Iterator for TextLineBreaker<'_, Font> {
                 || self.num_emitted_lines == 0
                 || previous_line_ended_on_mandatory_break)
         {
-            next_line = Some(core::mem::take(&mut self.current_line));
+            let mut line = core::mem::take(&mut self.current_line);
+            if line.glyph_range.is_empty() {
+                line.byte_range = self.text_len..self.text_len;
+                line.glyph_range = self.glyph_count..self.glyph_count;
+            }
+            next_line = Some(line);
         }
 
         if next_line.is_some() {
@@ -399,7 +408,8 @@ fn test_forced_break_trailing() {
     assert_eq!(lines.len(), 3);
     assert_eq!(lines[0].line_text(text), "Hello");
     assert_eq!(lines[1].line_text(text), "World");
-    assert_eq!(lines[2].line_text(text), "");
+    assert_eq!(lines[2].byte_range, text.len()..text.len());
+    assert_eq!(lines[2].glyph_range, shape_buffer.glyphs.len()..shape_buffer.glyphs.len());
 }
 
 /// A text that is nothing but a separator is two empty lines.
