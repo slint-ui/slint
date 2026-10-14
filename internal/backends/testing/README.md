@@ -221,6 +221,8 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app --features
 `SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
 metadata into the compiled UI). `SLINT_MCP_PORT` controls which port the MCP server listens on.
 If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
+The server binds to `127.0.0.1` by default; set `SLINT_MCP_HOST` to bind another address,
+for example `0.0.0.0` to reach it from outside the machine.
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features`
 flag on the command line instead.
 

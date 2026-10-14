@@ -710,7 +710,9 @@ fn test_no_line_separators_characters_rendered() {
         None,
     );
 
-    assert_eq!(lines.len(), 2);
+    // The text ends with a separator, so it ends on an empty line.
+    // That line renders nothing, which is what this test is about.
+    assert_eq!(lines.len(), 3);
     let rendered_text = lines
         .iter()
         .map(|glyphs_per_line| {
@@ -724,7 +726,7 @@ fn test_no_line_separators_characters_rendered() {
                 .collect::<std::string::String>()
         })
         .collect::<Vec<_>>();
-    debug_assert_eq!(rendered_text, std::vec!["Hello", "World"]);
+    debug_assert_eq!(rendered_text, std::vec!["Hello", "World", ""]);
 }
 
 #[test]
@@ -955,6 +957,49 @@ fn byte_offset_for_empty_line() {
     };
 
     assert_eq!(paragraph.byte_offset_for_position((0., 10.)), 6);
+}
+
+#[test]
+fn byte_offset_for_trailing_empty_line() {
+    let font = FixedTestFont;
+    let text = "Hello\n";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
+        max_width: 100. * 10.,
+        max_height: 10. * 10.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+        max_lines: None,
+    };
+
+    assert_eq!(paragraph.byte_offset_for_position((0., 15.)), 6);
+    assert_eq!(paragraph.byte_offset_for_position((0., 50.)), 6);
+}
+
+#[test]
+fn cursor_position_on_trailing_empty_line_with_elide() {
+    let font = FixedTestFont;
+    let text = "Hello\n";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None, line_height: None },
+        max_width: 10. * 10.,
+        max_height: 2. * 10.,
+        horizontal_alignment: TextHorizontalAlignment::Right,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Elide,
+        single_line: false,
+        max_lines: None,
+    };
+
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(6), (10. * 10., 10.));
 }
 
 #[test]

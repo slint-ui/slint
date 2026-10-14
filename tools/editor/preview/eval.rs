@@ -345,9 +345,9 @@ fn handle_builtin_function(
 ) -> slint_interpreter::Value {
     use i_slint_compiler::builtin_functions::BuiltinFunction;
 
-    if f.is_pure() {
+    if f.is_pure() && f.runtime_function().is_some() {
         let context = f.runtime_function_takes_context().then(|| local_context.context()).flatten();
-        let args = arguments.iter().map(|a| eval_expression(a, local_context, None));
+        let args = arguments.iter().map(|a| eval_expression(a, local_context, None)).collect();
         if let Some(value) =
             slint_interpreter::call_runtime_builtin_function(f, context.as_ref(), None, args)
         {

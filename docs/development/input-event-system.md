@@ -360,10 +360,11 @@ InputEventFilterResult::DelayForwarding(duration_ms)
    delaying item itself, since the interaction might still become a drag. Every `DelayForwarding` item hit
    this way (not just the outermost one) falls back to its own `input_event` if unclaimed, exactly like a
    fresh `ForwardEvent` dispatch, so a nested `SwipeGestureHandler`/`Flickable` can grab the mouse to keep
-   watching for a swipe/drag of its own
+   watching for a swipe/drag of its own.
+   If nothing claims the press, the stored root-frame press stays for the release in step 4
 3. Any dispatch pass before release other than the eventual release itself can clear the stored delay as a
-   side effect of building a fresh `MouseInputState` for that pass: the timer firing with nothing claiming
-   the press, the delaying item grabbing the mouse on a `Moved` (a flick or swipe starting), or a `Moved`
+   side effect of building a fresh `MouseInputState` for that pass: a child claiming the press when the
+   timer fires, the delaying item grabbing the mouse on a `Moved` (a flick or swipe starting), or a `Moved`
    event that something *outside* the delaying item's own subtree accepts (e.g. an
    enclosing `TouchArea`'s hover tracking, after the delaying item itself ignored the move). A `Moved` that
    nothing accepts anywhere, that a nested child *inside* the delaying item accepts (e.g. press feedback),

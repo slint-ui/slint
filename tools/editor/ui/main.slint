@@ -259,12 +259,14 @@ export component EditorUi inherits Window {
             title: @tr("File");
             MenuItem {
                 title: @tr("New Slint File");
+                shortcut: @keys(Control + "n");
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
             MenuSeparator { }
             MenuItem {
                 title: @tr("Open...");
+                shortcut: @keys(Control + "o");
                 activated => { Project.open-existing-project(); }
             }
             Menu {
@@ -688,7 +690,7 @@ export component EditorUi inherits Window {
                         SidebarToggleButton {
                             active: true;
                             accessible-role: AccessibleRole.button;
-                            accessible-label: "Expand sidebars";
+                            accessible-label: @tr("Expand sidebars");
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }
