@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore fboid
+// cSpell: ignore fboid multisampled renderbuffer Veri
 use std::num::NonZeroU32;
 use std::{cell::RefCell, sync::Arc};
 
@@ -250,14 +250,15 @@ impl OpenGLSurface {
 
         glutin_surface.resize(&current_glutin_context, width, height);
 
+        let gl = unsafe {
+            glow::Context::from_loader_function_cstr(|name| {
+                current_glutin_context.display().get_proc_address(name) as *const _
+            })
+        };
+
         let fb_info = {
             use glow::HasContext;
 
-            let gl = unsafe {
-                glow::Context::from_loader_function_cstr(|name| {
-                    current_glutin_context.display().get_proc_address(name) as *const _
-                })
-            };
             let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
 
             skia_safe::gpu::gl::FramebufferInfo {
@@ -277,8 +278,12 @@ impl OpenGLSurface {
             "Skia Renderer: Internal Error: Could not create OpenGL Interface".to_string()
         })?;
 
+        let mut options = skia_safe::gpu::ContextOptions::new();
+        if resolves_multisampled_r8_on_cpu(&gl) {
+            options.internal_multisample_count = 0;
+        }
         let mut gr_context =
-            skia_safe::gpu::direct_contexts::make_gl(gl_interface, None).ok_or_else(|| {
+            skia_safe::gpu::direct_contexts::make_gl(gl_interface, Some(&options)).ok_or_else(|| {
                 "Skia Renderer: Internal Error: Could not create Skia Direct Context from GL interface".to_string()
             })?;
 
@@ -530,4 +535,22 @@ impl Drop for OpenGLSurface {
             self.gr_context.borrow_mut().abandon();
         }
     }
+}
+
+/// NXP's i.MX8 GL drivers resolve a multisampled GL_R8 renderbuffer on the CPU,
+/// which takes about 150 ms at 512x1024.
+/// Skia's atlas for anti-aliased paths is such a renderbuffer, resolved every frame,
+/// unless it's a GLES context with a multisampled-render-to-texture extension.
+fn resolves_multisampled_r8_on_cpu(gl: &glow::Context) -> bool {
+    use glow::HasContext;
+
+    let vendor = unsafe { gl.get_parameter_string(glow::VENDOR) };
+    if !vendor.contains("Vivante") && !vendor.contains("VeriSilicon") {
+        return false;
+    }
+    let extensions = gl.supported_extensions();
+    let renders_to_texture = gl.version().is_embedded
+        && (extensions.contains("GL_EXT_multisampled_render_to_texture")
+            || extensions.contains("GL_IMG_multisampled_render_to_texture"));
+    !renders_to_texture
 }
