@@ -194,6 +194,7 @@ impl Rgb565Pixel {
 
     /// Create a pixel from 8-bit red, green, and blue components.
     /// The low bits are truncated.
+    #[inline]
     pub const fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
     }
@@ -201,6 +202,7 @@ impl Rgb565Pixel {
     /// Return the red component as a u8.
     ///
     /// The value is scaled so that a full 5-bit component yields 255.
+    #[inline]
     pub const fn red(self) -> u8 {
         let r = (self.0 & Self::R_MASK) >> 11;
         ((r << 3) | (r >> 2)) as u8
@@ -208,6 +210,7 @@ impl Rgb565Pixel {
     /// Return the green component as a u8.
     ///
     /// The value is scaled so that a full 6-bit component yields 255.
+    #[inline]
     pub const fn green(self) -> u8 {
         let g = (self.0 & Self::G_MASK) >> 5;
         ((g << 2) | (g >> 4)) as u8
@@ -215,6 +218,7 @@ impl Rgb565Pixel {
     /// Return the blue component as a u8.
     ///
     /// The value is scaled so that a full 5-bit component yields 255.
+    #[inline]
     pub const fn blue(self) -> u8 {
         let b = self.0 & Self::B_MASK;
         ((b << 3) | (b >> 2)) as u8
