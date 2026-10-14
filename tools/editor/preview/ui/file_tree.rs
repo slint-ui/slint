@@ -111,16 +111,19 @@ pub fn setup(
     api.on_image_nine_slice_expression(format_nine_slice_expression);
     api.on_image_nine_slice_preview(nine_slice_preview_image);
 
-    api.on_copy_nine_slice_expression(|value| {
-        if let Err(err) = i_slint_backend_selector::with_platform(|platform| {
-            platform.set_clipboard_text(value.as_str(), Clipboard::DefaultClipboard);
-            Ok(())
-        }) {
-            tracing::warn!("Failed to copy nine-slice expression to clipboard: {err}");
-        }
-    });
+    api.on_copy_nine_slice_expression(|value| copy_to_clipboard(&value, "nine-slice expression"));
+    api.on_copy_file_path(|path| copy_to_clipboard(&path, "file path"));
 
     controller
+}
+
+fn copy_to_clipboard(text: &str, what: &str) {
+    if let Err(err) = i_slint_backend_selector::with_platform(|platform| {
+        platform.set_clipboard_text(text, Clipboard::DefaultClipboard);
+        Ok(())
+    }) {
+        tracing::warn!("Failed to copy {what} to clipboard: {err}");
+    }
 }
 
 pub(in crate::preview) struct FileTreeController {
