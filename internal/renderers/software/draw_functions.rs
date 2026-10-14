@@ -472,8 +472,8 @@ fn corner_radii_on_line(
 /// `y` is `r` minus the line's distance from the horizontal edge.
 /// Each crossing is `r - √(circle² - y²)`, from the circle equation.
 fn arc_crossing(r: Shifted, circle: Shifted, y: Shifted) -> (Shifted, Shifted) {
-    let x1 = r - (circle * circle).saturating_sub((y - Shifted::ONE) * (y - Shifted::ONE)).sqrt();
-    let x2 = r - (circle * circle).saturating_sub(y * y).sqrt();
+    let x1 = r - Shifted(rounded_corner_root(circle.floor(), (y - Shifted::ONE).floor()));
+    let x2 = r - Shifted(rounded_corner_root(circle.floor(), y.floor()));
     (x1, x2)
 }
 
@@ -557,6 +557,38 @@ fn unit_rgb565_sampling_preserves_offsets_clipping_and_alpha() {
     check(PremultipliedRgbaColor { red: 17, green: 41, blue: 53, alpha: 100 });
 }
 
+// Exact Q4 circle roots for small integer radii avoid repeated square roots.
+const MAX_CACHED_CORNER_RADIUS: u32 = 32;
+const CORNER_ROOT_COUNT: usize =
+    ((MAX_CACHED_CORNER_RADIUS + 1) * (MAX_CACHED_CORNER_RADIUS + 2) / 2) as usize;
+const CORNER_ROOTS: [u16; CORNER_ROOT_COUNT] = {
+    let mut roots = [0; CORNER_ROOT_COUNT];
+    let mut radius = 0;
+    while radius <= MAX_CACHED_CORNER_RADIUS {
+        let mut distance = 0;
+        while distance <= radius {
+            roots[(radius * (radius + 1) / 2 + distance) as usize] =
+                ((radius * radius - distance * distance) << 8).isqrt() as u16;
+            distance += 1;
+        }
+        radius += 1;
+    }
+    roots
+};
+#[inline(always)]
+fn rounded_corner_root(radius: u32, distance: u32) -> u32 {
+    if radius <= MAX_CACHED_CORNER_RADIUS && distance <= MAX_CACHED_CORNER_RADIUS {
+        if distance > radius {
+            return 0;
+        }
+        CORNER_ROOTS[(radius * (radius + 1) / 2 + distance) as usize] as u32
+    } else {
+        let r = radius << 4;
+        let d = distance << 4;
+        (r * r).saturating_sub(d * d).isqrt()
+    }
+}
+
 /// draw one line of the rounded rectangle in the line buffer
 #[allow(clippy::unnecessary_cast)] // Coord
 pub(super) fn draw_rounded_rectangle_line(
@@ -567,6 +599,7 @@ pub(super) fn draw_rounded_rectangle_line(
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
+
     let width = line_buffer.len();
     let shape = &rr.shape;
     let ((left_radius, left_y), (right_radius, right_y), y) =
@@ -1680,4 +1713,19 @@ fn big_endian_word_fill_matches_pixel_fill_without_touching_neighbors() {
         }
         assert_eq!(actual, expected, "alpha {alpha}");
     }
+}
+
+#[test]
+fn rounded_corner_roots_match_integer_equation() {
+    for radius in 0..=128u32 {
+        for distance in 0..=radius + 20 {
+            let r = radius << 4;
+            let d = distance << 4;
+            assert_eq!(
+                rounded_corner_root(radius, distance),
+                (r * r).saturating_sub(d * d).isqrt()
+            );
+        }
+    }
+    assert_eq!(core::mem::size_of_val(&CORNER_ROOTS), 1122);
 }
