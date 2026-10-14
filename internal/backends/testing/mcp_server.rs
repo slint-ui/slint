@@ -58,7 +58,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "get_element_tree",
-        description: "Get a flat list of elements in the subtree rooted at the given element. Each entry includes type names, IDs, accessibility properties, geometry, and a handle for further queries. Use maxElements to control the result size (default: 200, max: 1000). If truncated is true, there are more elements — use query_element_descendants for targeted searches instead.",
+        description: "Get a flat list of elements in the subtree rooted at the given element. Each entry includes type names, IDs, accessibility properties, geometry, and a handle for further queries. Each entry also has a depth (0 for the given element) and, except for the given element, a parentHandle: the handle of its nearest ancestor in the list. Use maxElements to control the result size (default: 200, max: 1000). If truncated is true, there are more elements — use query_element_descendants for targeted searches instead.",
         request_type: "RequestGetElementTree",
         optional_fields: &["maxElements"],
     },
@@ -278,6 +278,15 @@ fn convert_testable_property_values(element_node: &mut Value) {
     }
 }
 
+fn tree_depth(position: usize, parents: &[Option<usize>], depths: &mut [Option<usize>]) -> usize {
+    if let Some(depth) = depths[position] {
+        return depth;
+    }
+    let depth = parents[position].map_or(0, |parent| tree_depth(parent, parents, depths) + 1);
+    depths[position] = Some(depth);
+    depth
+}
+
 /// Assembles the `get_element_tree` response.
 ///
 /// Without debug info the walk yields no descendants and no names, so the response
@@ -396,41 +405,61 @@ async fn handle_tool_call(
             let root_index = handle_to_index(element_handle)?;
             let root_element = state.element("get_element_tree", root_index)?;
 
-            let mut elements: Vec<Value> = Vec::new();
+            let mut walked = vec![root_element.clone()];
             let mut truncated = false;
-
-            // Add root element
-            let root_props = introspection::element_properties(&root_element);
-            let mut root_node =
-                serde_json::to_value(root_props).map_err(|e| format!("serialize error: {e}"))?;
-            convert_testable_property_values(&mut root_node);
-            if let Some(obj) = root_node.as_object_mut() {
-                obj.insert(
-                    "handle".to_string(),
-                    serde_json::to_value(index_to_handle(root_index))
-                        .map_err(|e| format!("serialize error: {e}"))?,
-                );
-            }
-            elements.push(root_node);
-
             root_element.visit_descendants(|child| {
-                if elements.len() >= max_elements {
+                if walked.len() >= max_elements {
                     truncated = true;
                     return std::ops::ControlFlow::Break(());
                 }
-                let child_handle = state.element_to_handle(child.clone());
-                let props = introspection::element_properties(&child);
-                if let Ok(mut node) = serde_json::to_value(props) {
-                    convert_testable_property_values(&mut node);
-                    if let (Some(obj), Ok(handle_json)) =
-                        (node.as_object_mut(), serde_json::to_value(index_to_handle(child_handle)))
-                    {
-                        obj.insert("handle".to_string(), handle_json);
-                    }
-                    elements.push(node);
-                }
+                walked.push(child);
                 std::ops::ControlFlow::<()>::Continue(())
             });
+
+            let handles: Vec<_> =
+                walked.iter().map(|e| state.element_to_handle(e.clone())).collect();
+            let mut positions: std::collections::HashMap<_, Vec<usize>> = Default::default();
+            for (position, element) in walked.iter().enumerate() {
+                if let Some(hint) = element.identity_hint() {
+                    positions.entry(hint).or_default().push(position);
+                }
+            }
+            let position_of = |element: &crate::ElementHandle| {
+                positions
+                    .get(&element.identity_hint()?)?
+                    .iter()
+                    .copied()
+                    .find(|position| walked[*position].is_same_element(element))
+            };
+            let popups = root_element.active_popups();
+            let parents: Vec<Option<usize>> = std::iter::once(None)
+                .chain(walked[1..].iter().map(|element| {
+                    std::iter::successors(element.parent_element(&popups), |e| {
+                        e.parent_element(&popups)
+                    })
+                    .find_map(|ancestor| position_of(&ancestor))
+                }))
+                .collect();
+            let mut depths = vec![None; walked.len()];
+
+            let mut elements = Vec::with_capacity(walked.len());
+            for (position, element) in walked.iter().enumerate() {
+                let mut node = serde_json::to_value(introspection::element_properties(element))
+                    .map_err(|e| format!("serialize error: {e}"))?;
+                convert_testable_property_values(&mut node);
+                if let Some(obj) = node.as_object_mut() {
+                    let to_json = |index| {
+                        serde_json::to_value(index_to_handle(index))
+                            .map_err(|e| format!("serialize error: {e}"))
+                    };
+                    obj.insert("handle".into(), to_json(handles[position])?);
+                    if let Some(parent) = parents[position] {
+                        obj.insert("parentHandle".into(), to_json(handles[parent])?);
+                    }
+                    obj.insert("depth".into(), tree_depth(position, &parents, &mut depths).into());
+                }
+                elements.push(node);
+            }
 
             Ok(ToolResult::Json(element_tree_response(
                 elements,
@@ -663,7 +692,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "# Workflow\n\n",
                     "1. list_windows → get window handles\n",
                     "2. get_window_properties → get size, position, and the rootElementHandle\n",
-                    "3. get_element_tree (start with maxElements=50) → flat list of the UI hierarchy with types, IDs, accessibility info, and handles\n",
+                    "3. get_element_tree (start with maxElements=50) → flat list of the UI hierarchy with types, IDs, accessibility info, handles, and each element's parentHandle and depth\n",
                     "4. Drill down: use query_element_descendants to search by type, ID, or accessible role; or find_elements_by_id for known IDs\n",
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
@@ -1335,6 +1364,115 @@ mod tests {
         ))
         .expect("dispatch_pointer_scroll failed");
         assert_eq!(app.get_scrolled(), -100., "the second wheel event had no effect");
+    }
+
+    #[test]
+    fn test_get_element_tree_links_parents() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                public function show-popup() { popup.show(); }
+                outer := Rectangle {
+                    background: red;
+                    inner := Rectangle { background: blue; }
+                    for _ in 2: repeated := Rectangle { background: green; }
+                    popup := PopupWindow {
+                        in-popup := Rectangle { background: yellow; }
+                    }
+                }
+                clipper := Rectangle {
+                    clip: true;
+                    clipped := Rectangle {
+                        x: 200px;
+                        width: 10px;
+                        height: 10px;
+                        shown := Rectangle { x: -150px; width: 10px; height: 10px; }
+                    }
+                }
+            }
+        }
+
+        for native_popup in [false, true] {
+            let app = App::new().unwrap();
+            let adapter =
+                i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+            adapter
+                .internal(i_slint_core::InternalToken)
+                .and_then(|wa| {
+                    (wa as &dyn core::any::Any)
+                        .downcast_ref::<crate::testing_backend::TestingWindow>()
+                })
+                .expect("testing window")
+                .use_native_popup(native_popup);
+            app.invoke_show_popup();
+            let state = make_state();
+            state.add_window(&adapter);
+            let window_handle = index_to_handle(state.window_handles()[0]);
+            let root = index_to_handle(
+                state.root_element_handle(handle_to_index(window_handle).unwrap()).unwrap(),
+            );
+
+            let result = block_on(handle_tool_call(
+                &state,
+                "get_element_tree",
+                &serde_json::json!({ "elementHandle": serde_json::to_value(root).unwrap() }),
+            ))
+            .expect("get_element_tree failed");
+            let ToolResult::Json(tree) = result else { panic!("expected a json result") };
+            let elements = tree["elements"].as_array().expect("elements");
+
+            let with_id = |id: &str| -> Vec<&Value> {
+                elements
+                    .iter()
+                    .filter(|e| {
+                        e["typeNamesAndIds"].as_array().unwrap().iter().any(|t| t["id"] == id)
+                    })
+                    .collect()
+            };
+            let one = |id: &str| {
+                let found = with_id(id);
+                assert_eq!(found.len(), 1, "expected one element with id {id}");
+                found[0]
+            };
+            let parent_of = |element: &Value| -> Option<&Value> {
+                let handle = element.get("parentHandle")?;
+                Some(elements.iter().find(|e| e["handle"] == *handle).expect("parent is listed"))
+            };
+
+            let root_node = &elements[0];
+            assert!(parent_of(root_node).is_none());
+            assert_eq!(root_node["depth"], 0);
+            for element in &elements[1..] {
+                let parent = parent_of(element).unwrap_or_else(|| {
+                    panic!("no parentHandle with native_popup {native_popup}: {element}")
+                });
+                assert_eq!(
+                    element["depth"].as_u64().unwrap(),
+                    parent["depth"].as_u64().unwrap() + 1
+                );
+            }
+
+            let outer = one("App::outer");
+            assert_eq!(parent_of(outer), Some(root_node));
+            assert_eq!(parent_of(one("App::inner")), Some(outer));
+            let repeated = with_id("App::repeated");
+            assert_eq!(repeated.len(), 2);
+            for r in repeated {
+                assert_eq!(parent_of(r), Some(outer));
+            }
+            assert!(with_id("App::popup").is_empty());
+            assert_eq!(parent_of(one("App::in-popup")), Some(outer), "native_popup {native_popup}");
+            assert!(with_id("App::clipped").is_empty());
+            let clipper = one("App::clipper");
+            assert!(
+                std::iter::successors(Some(one("App::shown")), |e| parent_of(e))
+                    .any(|e| e == clipper)
+            );
+        }
     }
 
     #[test]

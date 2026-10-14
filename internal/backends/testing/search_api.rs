@@ -434,6 +434,22 @@ impl ElementHandle {
         self.item.upgrade().map(|item| (item.index(), self.element_index))
     }
 
+    /// Steps up the tree that [`Self::visit_descendants_impl`] walks with the same `active_popups`.
+    #[cfg(feature = "mcp")]
+    pub(crate) fn parent_element(
+        &self,
+        active_popups: &[(ItemRc, ItemTreeRc)],
+    ) -> Option<ElementHandle> {
+        let item = self.item.upgrade()?;
+        let parent = item.parent_item(ParentItemTraversalMode::StopAtPopups).or_else(|| {
+            active_popups
+                .iter()
+                .find(|(_, popup)| vtable::VRc::ptr_eq(popup, item.item_tree()))
+                .map(|(attached_to, _)| attached_to.clone())
+        })?;
+        Some(ElementHandle { item: parent.downgrade(), element_index: 0 })
+    }
+
     /// Returns whether the compiler emitted the debug info that type names, ids and
     /// descendant traversal need. See `MISSING_DEBUG_INFO_MESSAGE`.
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
@@ -1181,7 +1197,7 @@ impl ElementHandle {
         window.dispatch_event(WindowEvent::PointerScrolled { position: center, delta_x, delta_y });
     }
 
-    fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
+    pub(crate) fn active_popups(&self) -> Vec<(ItemRc, ItemTreeRc)> {
         self.item
             .upgrade()
             .and_then(|item| item.window_adapter())
