@@ -166,7 +166,12 @@ pub(super) fn notify_finished(accepted: bool) {
 }
 
 fn finish(accepted: bool, accepted_text: Option<SharedString>) {
-    let session = PREVIEW_STATE.with_borrow_mut(|state| state.text_edit_session.take());
+    let session = PREVIEW_STATE.with_borrow_mut(|state| {
+        if let Some(selection) = state.selected.as_mut() {
+            selection.editing_text = false;
+        }
+        state.text_edit_session.take()
+    });
     if let Some(session) = session {
         if let Some(text) = accepted_text
             && let Some(instance) = component_instance()
@@ -196,10 +201,12 @@ pub(super) fn selection_changed(
         {
             return false;
         }
-        state.text_edit_session.as_ref().is_some_and(|session| selection != Some(&session.target))
+        state.text_edit_session.as_ref().is_some_and(|session| {
+            selection.is_none_or(|selection| !session.target.same_element(selection))
+        })
     });
     if finish_session {
-        finish(false, None);
+        discard();
     }
 }
 
@@ -225,21 +232,39 @@ pub(super) fn refresh() {
         return;
     }
     let target = target();
+    let start = PREVIEW_STATE.with_borrow(|state| {
+        state.text_edit_session.is_none()
+            && state.selected.as_ref().is_some_and(|selection| selection.editing_text)
+            && !undo_redo::edit_pending(state)
+    });
+    if start {
+        if let Some(target) = &target {
+            start_session(target);
+        } else {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                if let Some(selection) = state.selected.as_mut() {
+                    selection.editing_text = false;
+                }
+            });
+        }
+    }
     let (editor, pending, active, obsolete_override) = PREVIEW_STATE.with_borrow_mut(|state| {
         let pending =
             state.text_edit_session.as_ref().is_some_and(|session| session.pending_edit.is_some());
-        let obsolete_override =
-            if target.is_none() && !pending && state.loading_state == PreviewFutureState::Pending {
-                state
-                    .text_edit_session
-                    .take()
-                    .map(|session| (session.color_override, session.stroke_override))
-            } else {
-                None
-            };
+        let obsolete_override = if target.is_none() && !pending && !undo_redo::edit_pending(state) {
+            if let Some(selection) = state.selected.as_mut() {
+                selection.editing_text = false;
+            }
+            state
+                .text_edit_session
+                .take()
+                .map(|session| (session.color_override, session.stroke_override))
+        } else {
+            None
+        };
         if let Some(session) = state.text_edit_session.as_mut()
             && let Some(target) = &target
-            && session.target == target.selection
+            && session.target.same_element(&target.selection)
         {
             session.color_override = target.color_override.clone();
             session.stroke_override = target.stroke_override.clone();
@@ -277,6 +302,24 @@ pub(super) fn refresh() {
     }
 }
 
+fn start_session(target: &Target) {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        if let Some(selection) = state.selected.as_mut() {
+            selection.editing_text = true;
+        }
+        let mut selection = target.selection.clone();
+        selection.editing_text = true;
+        state.text_edit_session = Some(Session {
+            target: selection,
+            initial_text: target.text.clone(),
+            original_color: target.color.clone(),
+            color_override: target.color_override.clone(),
+            stroke_override: target.stroke_override.clone(),
+            pending_edit: None,
+        });
+    });
+}
+
 fn begin() -> ui::InlineTextEditStart {
     if let Some((text, color)) = PREVIEW_STATE.with_borrow(|state| {
         state
@@ -292,16 +335,7 @@ fn begin() -> ui::InlineTextEditStart {
     let Some(target) = target() else { return ui::InlineTextEditStart::default() };
     let text = target.text.clone();
     let color = target.color.clone();
-    PREVIEW_STATE.with_borrow_mut(|state| {
-        state.text_edit_session = Some(Session {
-            target: target.selection,
-            initial_text: target.text,
-            original_color: target.color,
-            color_override: target.color_override,
-            stroke_override: target.stroke_override,
-            pending_edit: None,
-        })
-    });
+    start_session(&target);
     refresh();
     ui::InlineTextEditStart { success: true, text, color }
 }
@@ -458,6 +492,7 @@ export component Win inherits Window {
                 path: path.clone(),
                 offset: offset.into(),
                 instance_index: 0,
+                editing_text: false,
             });
             state.debug_hook_overrides.clone()
         });
@@ -657,6 +692,7 @@ export component Win inherits Window {
                 path: path.clone(),
                 offset: plain_offset.into(),
                 instance_index: 0,
+                editing_text: false,
             });
         });
         let plain_item =
@@ -685,11 +721,14 @@ export component Win inherits Window {
                 path: path.clone(),
                 offset: offset.into(),
                 instance_index: 0,
+                editing_text: false,
             });
         });
         assert!(begin().success);
-        PREVIEW_STATE.with_borrow_mut(|state| state.selected = None);
+        PREVIEW_STATE
+            .with_borrow_mut(|state| state.selected.as_mut().unwrap().offset = u32::MAX.into());
         refresh();
+        assert!(!selected_element().unwrap().editing_text);
         assert!(!editor.global::<ui::InlineTextEdit>().get_active());
         assert!(item.is_visible());
         assert_eq!(
@@ -701,8 +740,11 @@ export component Win inherits Window {
                 path: path.clone(),
                 offset: offset.into(),
                 instance_index: 0,
+                editing_text: false,
             });
         });
+        refresh();
+        assert!(!editor.global::<ui::InlineTextEdit>().get_active());
         assert!(begin().success);
         super::super::reset_project_state(path.to_url().unwrap());
         let global = editor.global::<ui::InlineTextEdit>();

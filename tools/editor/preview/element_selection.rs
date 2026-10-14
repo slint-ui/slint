@@ -19,9 +19,16 @@ pub struct ElementSelection {
     pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
+    pub editing_text: bool,
 }
 
 impl ElementSelection {
+    pub fn same_element(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.offset == other.offset
+            && self.instance_index == other.instance_index
+    }
+
     fn as_element_in(&self, component_instance: &ComponentInstance) -> Option<ElementRc> {
         let elements =
             component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
@@ -110,7 +117,7 @@ fn select_element_at_source_code_position_impl(
         .unwrap_or_default();
 
     super::set_selected_element(
-        Some(ElementSelection { path, offset, instance_index }),
+        Some(ElementSelection { path, offset, instance_index, editing_text: false }),
         editor_notification,
     );
 }
@@ -358,6 +365,7 @@ pub fn collect_all_element_nodes_covering(
                 path: source_file.path().clone(),
                 offset,
                 instance_index: candidate.instance_index,
+                editing_text: false,
             };
             let element = selection.as_element_node_in(component_instance)?;
             // TODO: This should use the LLR - remove the use of ElementRc
@@ -1278,6 +1286,7 @@ export component Demo inherits Window {{
             path: SourcePath::new(first.element_path.as_str()),
             offset: TextSize::from(first.element_offset as u32),
             instance_index: 1,
+            editing_text: false,
         };
         let selected_second = super::hovered_element_at_impl(
             &component_instance,
