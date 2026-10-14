@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! The point of compiling a reload on a worker thread is that the event loop
-//! keeps running while it happens. Check both halves: the new source is applied,
-//! and the loop ran something posted to it while the compilation was waiting on it.
+//! keeps running while it happens: a compilation that needs the loop to run
+//! something must still finish.
 
 #![cfg(feature = "live-component")]
 
@@ -30,30 +30,27 @@ fn compiling_a_reload_does_not_block_the_event_loop() {
     dir.write("lib.slint", "export global Lib { out property <int> base: 100; }");
     let file = dir.write("app.slint", &app(1));
 
-    // Once armed, loading the import holds the compilation until the event loop has
-    // run a closure the loader posted to it. A compilation on the event-loop thread
-    // can't get that closure run, so it waits out the timeout instead.
+    // The first build runs before the event loop does, so only reloads wait on it
     let armed = Arc::new(AtomicBool::new(false));
-    let loop_ran_during_compile = Arc::new(AtomicBool::new(false));
     let factory = {
         let armed = armed.clone();
-        let loop_ran_during_compile = loop_ran_during_compile.clone();
         move || {
-            let armed = armed.clone();
-            let loop_ran_during_compile = loop_ran_during_compile.clone();
             let mut compiler = Compiler::default();
             compiler.set_file_loader(move |_| {
+                let mut result = None;
                 if armed.load(Ordering::Relaxed) {
                     let (ran, ran_rx) = std::sync::mpsc::channel();
                     i_slint_core::api::invoke_from_event_loop(move || {
                         let _ = ran.send(());
                     })
                     .unwrap();
-                    if ran_rx.recv_timeout(harness::RELOAD_TIMEOUT).is_ok() {
-                        loop_ran_during_compile.store(true, Ordering::Relaxed);
+                    if ran_rx.recv_timeout(harness::RELOAD_TIMEOUT).is_err() {
+                        result = Some(Err(std::io::Error::other(
+                            "the event loop didn't run while the reload compiled",
+                        )));
                     }
                 }
-                Box::pin(std::future::ready(None))
+                Box::pin(std::future::ready(result))
             });
             compiler
         }
@@ -74,11 +71,6 @@ fn compiling_a_reload_does_not_block_the_event_loop() {
     assert_eq!(
         component.borrow().get_property("value"),
         Value::Number(102.),
-        "the worker's result should have been applied to the instance"
-    );
-    assert!(
-        loop_ran_during_compile.load(Ordering::Relaxed),
-        "the event loop did not run while the reload compiled, \
-         so the compilation was not running on the worker thread"
+        "the reload should have compiled while the event loop kept running"
     );
 }
