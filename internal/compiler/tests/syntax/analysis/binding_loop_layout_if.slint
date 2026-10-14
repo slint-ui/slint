@@ -6,23 +6,26 @@ component Wrapper {
     height: 100%;
 
     Rectangle {
-//  >        <error{The binding for the property 'layoutinfo-h' is part of a binding loop (Wrapper.width -> VerticalLayout -> Rectangle -> Wrapper -> HorizontalLayout -> Wrapper.width)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
         VerticalLayout {
-//      >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 8}
             if root.width > 200px: Rectangle { }
         }
     }
 }
 
 component WrapperInherited inherits Rectangle {
-//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout -> WrapperInherited.width -> VerticalLayout -> WrapperInherited -> HorizontalLayout -> VerticalLayout -> root -> VerticalLayout.width)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
     VerticalLayout {
-//  >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 17}
         if root.width > 200px: Rectangle { }
     }
 }
 
+// With layouts all the way up, nothing leaves the repeated child out, and the loop is reported.
+component WrapperLayout inherits VerticalLayout {
+//                               >             <error{The binding for the property 'layoutinfo-h' is part of a binding loop (WrapperLayout.width -> WrapperLayout -> WrapperLayout.width)}
+    if root.width > 200px: Rectangle { min-width: 300px; }
+}
+
 export component Test inherits Window {
+    Rectangle { x: 0; HorizontalLayout { WrapperLayout { } } }
 
     VerticalLayout {
         HorizontalLayout {

@@ -96,8 +96,9 @@ Other elements, including custom ones that don't inherit from a base, default to
 
 You can specify the preferred size of elements with the `preferred-width` and `preferred-height` properties.
 
-When not explicitly set, the preferred size depends on the children, and is the preferred size of the
-child that has the bigger preferred size, whose `x` and `y` property are not set.
+When not explicitly set, the preferred size depends on the children.
+It's the biggest preferred size among the children whose `x` and `y` properties aren't set,
+and whose constraints don't depend on the parent's own size.
 The preferred size is therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
 
 A special case is to set the preferred size to be the size of the parent using `100%` as value.

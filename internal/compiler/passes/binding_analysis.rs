@@ -20,7 +20,9 @@ use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::layout::{LayoutItem, Orientation};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
+use crate::object_tree::{
+    ChildLayoutInfo, Document, Element, ElementRc, PropertyAnimation, find_parent_element,
+};
 use derive_more as dm;
 
 use crate::CompilerConfiguration;
@@ -76,14 +78,94 @@ pub fn binding_analysis(
     mark_used_base_properties(doc);
     propagate_is_set_on_aliases(doc, &mut reverse_aliases);
     check_window_properties(doc, &mut global_analysis);
-    perform_binding_analysis(
-        doc,
-        &reverse_aliases,
-        &mut global_analysis,
-        compiler_config.error_on_binding_loop_with_window_layout,
-        diag,
-    );
+    let initial_global_analysis = global_analysis.clone();
+    let mut dropped = HashSet::new();
+    loop {
+        let mut probe = BuildDiagnostics::default();
+        let dropped_before = dropped.len();
+        perform_binding_analysis(
+            doc,
+            &reverse_aliases,
+            &mut global_analysis,
+            compiler_config.error_on_binding_loop_with_window_layout,
+            &mut dropped,
+            &mut probe,
+        );
+        if dropped.len() == dropped_before {
+            probe.into_iter().for_each(|d| diag.push_compiler_error(d));
+            break;
+        }
+        // The analysis is stale once a read is dropped, so start over without it.
+        reset_binding_analysis(doc);
+        global_analysis = initial_global_analysis.clone();
+    }
+    settle_child_layout_infos(doc, &dropped);
     global_analysis
+}
+
+/// Puts each child layout info back into the layout info of its parent, or leaves it out if
+/// it's in `dropped`, and removes its property.
+/// See [`crate::object_tree::PropertyDeclaration::child_layout_info`].
+fn settle_child_layout_infos(doc: &Document, dropped: &HashSet<NamedReference>) {
+    fn replace_term(expr: &mut Expression, prop: &NamedReference, by: Option<&Expression>) {
+        if let Expression::BinaryExpression { lhs, rhs, op: '+', .. } = expr
+            && matches!(&**rhs, Expression::PropertyReference(p) if p == prop)
+        {
+            match by {
+                Some(by) => **rhs = by.clone(),
+                None => *expr = std::mem::take(&mut **lhs),
+            }
+            replace_term(expr, prop, by);
+        } else {
+            expr.visit_mut(|e| replace_term(e, prop, by));
+        }
+    }
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |elem, _| {
+                let names = elem
+                    .borrow()
+                    .property_declarations
+                    .iter()
+                    .filter(|(_, d)| d.child_layout_info.is_some())
+                    .map(|(name, _)| name.clone())
+                    .collect::<Vec<_>>();
+                for name in &names {
+                    let prop = NamedReference::new(elem, name.clone());
+                    let elem = elem.borrow();
+                    let info = elem.binding(name).map(|b| b.expression.clone());
+                    let by = info.as_ref().filter(|_| !dropped.contains(&prop));
+                    for (_, binding) in elem.bindings_including_synthetic() {
+                        replace_term(&mut binding.borrow_mut().expression, &prop, by);
+                    }
+                }
+                let mut elem = elem.borrow_mut();
+                for name in &names {
+                    if !elem.named_references.is_referenced(name) {
+                        elem.take_binding(name);
+                        elem.property_declarations.remove(name);
+                        elem.property_analysis.borrow_mut().remove(name);
+                    }
+                }
+            },
+        )
+    });
+}
+
+fn reset_binding_analysis(doc: &Document) {
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |e, _| {
+                for (_, binding) in e.borrow().bindings_including_synthetic() {
+                    binding.borrow_mut().analysis = None;
+                }
+            },
+        )
+    });
 }
 /// A reference to a property which might be deep in a component path.
 /// eg: `foo.bar.baz.background`: `baz.background` is the `prop` and `foo` and `bar` are in elements
@@ -191,6 +273,10 @@ struct AnalysisContext<'a> {
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
     /// was an error.
     loop_reported_at: HashMap<(Option<SourcePath>, usize, usize), bool>,
+    /// The child layout infos that close a loop, to drop instead of reporting it.
+    /// The analysis doesn't follow a read of one.
+    /// See [`crate::object_tree::PropertyDeclaration::child_layout_info`].
+    dropped_layout_infos: &'a mut HashSet<NamedReference>,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -199,6 +285,7 @@ fn perform_binding_analysis(
     reverse_aliases: &ReverseAliases,
     global_analysis: &mut GlobalAnalysis,
     error_on_binding_loop_with_window_layout: bool,
+    dropped_layout_infos: &mut HashSet<NamedReference>,
     diag: &mut BuildDiagnostics,
 ) {
     let mut context = AnalysisContext {
@@ -208,6 +295,7 @@ fn perform_binding_analysis(
         window_layout_property: None,
         depth_limit_reported: false,
         loop_reported_at: HashMap::new(),
+        dropped_layout_infos,
         global_analysis,
     };
     doc.visit_all_used_components(|component| {
@@ -356,6 +444,9 @@ fn analyze_binding(
     let mut depends_on_external = DependsOnExternal(false);
     let element = current.prop.element();
     let name = current.prop.name();
+    if context.dropped_layout_infos.contains(&current.prop) {
+        return depends_on_external;
+    }
     if (context.currently_analyzing.last() == Some(current))
         && !element
             .borrow()
@@ -378,6 +469,11 @@ fn analyze_binding(
     }
 
     if context.currently_analyzing.contains(current) {
+        if drop_child_layout_info(current, context) {
+            // The bindings on the stack depend on themselves until the next round of the
+            // analysis, so none is free of external dependencies.
+            return DependsOnExternal(true);
+        }
         report_binding_loop(current, context, diag);
         return depends_on_external;
     }
@@ -561,6 +657,44 @@ fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
         return None;
     }
     element_name(&elem.borrow())
+}
+
+/// Drops the innermost child layout info of the cycle `current` closes, if it has one.
+/// That is the one closest to the child reading the size of an element above it.
+fn drop_child_layout_info(current: &PropertyPath, context: &mut AnalysisContext) -> bool {
+    let depth = |it: &PropertyPath| {
+        let mut depth = 0;
+        let mut elem = it.prop.element();
+        while let Some(parent) = find_parent_element(&elem) {
+            depth += 1;
+            elem = parent;
+        }
+        (it.elements.len(), depth)
+    };
+    let cycle = context.currently_analyzing.iter().skip_while(|it| *it != current);
+    // A loop through the window's layout from a static child stays a warning, so code that
+    // compiled keeps compiling: dropping the child can expose a loop the analysis hasn't seen yet,
+    // and report it as an error.
+    let through_window = !context.error_on_binding_loop_with_window_layout
+        && context.window_layout_property.as_ref().is_some_and(|w| cycle.clone().any(|it| it == w));
+    let Some(innermost) = cycle
+        .filter(|it| {
+            let elem = it.prop.element();
+            let kind = elem
+                .borrow()
+                .property_declarations
+                .get(it.prop.name())
+                .and_then(|d| d.child_layout_info);
+            kind.is_some_and(|k| !through_window || k == ChildLayoutInfo::Repeated)
+        })
+        .max_by_key(|it| depth(it))
+    else {
+        return false;
+    };
+    context.dropped_layout_infos.insert(innermost.prop.clone());
+    // What the analysis visited may close other loops through it, now that one is cut.
+    context.visited.clear();
+    true
 }
 
 /// Where a diagnostic would point, as a value two of them can be compared by.

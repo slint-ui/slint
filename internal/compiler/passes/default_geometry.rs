@@ -22,7 +22,7 @@ use crate::layout::{
     BuiltinFilter, LayoutConstraints, MergedFixedSize, Orientation, implicit_layout_info_call,
     repeated_element_layout_info,
 };
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{ChildLayoutInfo, Component, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::BTreeMap;
@@ -244,7 +244,7 @@ fn gen_layout_info_prop_from_children(
                             symbol_counters,
                         );
                     }
-                    (Some(h), Some(v))
+                    (Some(h), Some(v), ChildLayoutInfo::Static)
                 })
                 .or_else(|| {
                     if c.borrow().is_legacy_syntax {
@@ -272,6 +272,7 @@ fn gen_layout_info_prop_from_children(
                                 Orientation::Vertical,
                                 MergedFixedSize::Ignored,
                             )),
+                            ChildLayoutInfo::Repeated,
                         ));
                     }
                     let explicit_constraints =
@@ -289,8 +290,12 @@ fn gen_layout_info_prop_from_children(
                             )
                         }
                     };
-                    Some((compute(Orientation::Horizontal), compute(Orientation::Vertical)))
-                        .filter(|(a, b)| a.is_some() || b.is_some())
+                    Some((
+                        compute(Orientation::Horizontal),
+                        compute(Orientation::Vertical),
+                        ChildLayoutInfo::Static,
+                    ))
+                    .filter(|(a, b, _)| a.is_some() || b.is_some())
                 })
         })
         .collect::<Vec<_>>();
@@ -341,19 +346,15 @@ fn gen_layout_info_prop_from_children(
         );
     }
 
-    for child_info in child_infos {
-        if let Some(h) = child_info.0 {
-            expr_h = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut expr_h)),
-                rhs: Box::new(h),
-                op: '+',
-                source_location: None,
-            };
-        }
-        if let Some(v) = child_info.1 {
-            expr_v = Expression::BinaryExpression {
-                lhs: Box::new(std::mem::take(&mut expr_v)),
-                rhs: Box::new(v),
+    for (h, v, kind) in child_infos {
+        for (info, expr, name) in
+            [(h, &mut expr_h, "layoutinfo-h"), (v, &mut expr_v, "layoutinfo-v")]
+        {
+            let Some(info) = info else { continue };
+            let info = child_layout_info(elem, name, info, kind);
+            *expr = Expression::BinaryExpression {
+                lhs: Box::new(std::mem::take(expr)),
+                rhs: Box::new(Expression::PropertyReference(info)),
                 op: '+',
                 source_location: None,
             };
@@ -364,6 +365,26 @@ fn gen_layout_info_prop_from_children(
     li_v.element().borrow_mut().set_binding(li_v.name().clone(), expr_v);
     let expr_h = BindingExpression::new_with_span(expr_h, elem.borrow().to_source_location());
     li_h.element().borrow_mut().set_binding(li_h.name().clone(), expr_h);
+}
+
+/// Declares the property `elem`'s layout info reads a child's `info` from.
+fn child_layout_info(
+    elem: &ElementRc,
+    name: &'static str,
+    info: Expression,
+    kind: ChildLayoutInfo,
+) -> NamedReference {
+    let prop = crate::layout::create_new_prop(
+        elem,
+        format_smolstr!("child-{name}"),
+        crate::typeregister::layout_info_type().into(),
+    );
+    let mut e = elem.borrow_mut();
+    e.property_declarations.get_mut(prop.name()).unwrap().child_layout_info = Some(kind);
+    let span = e.to_source_location();
+    e.set_binding(prop.name().clone(), BindingExpression::new_with_span(info, span));
+    drop(e);
+    prop
 }
 
 fn merge_explicit_constraints(

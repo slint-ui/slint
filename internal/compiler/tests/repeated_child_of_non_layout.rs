@@ -56,25 +56,42 @@ export component Main inherits Window {{
     }
 }
 
-/// A child whose own layout info depends on the size it is laid out in closes a
-/// loop through its parent. That is reported for a static child, and a repeated
-/// child is no different now that it is merged the same way.
+/// A child whose own layout info depends on the size it is laid out in would make its
+/// parent's size depend on itself. Its parent leaves it out instead, static or repeated.
+/// Through the window's layout, a static child stays the deprecation warning it was.
 #[test]
-fn child_reading_an_enclosing_size_loops_either_way() {
-    let source = |child: &str| {
+fn child_reading_an_enclosing_size() {
+    let static_child = r#"Text { text: root.h / 1px; }"#;
+    let repeated_child = r#"if true: Text { text: root.h / 1px; }"#;
+    for child in [static_child, repeated_child] {
+        let source = format!(
+            r#"
+component Inner {{
+    out property <length> h: root.height;
+    Rectangle {{
+        {child}
+    }}
+}}
+export component Main inherits Window {{
+    Rectangle {{ x: 0; VerticalLayout {{ Inner {{ }} }} }}
+}}"#
+        );
+        let diagnostics = diagnostics(&source);
+        assert!(diagnostics.is_empty(), "{child}: {diagnostics:?}");
+    }
+
+    let in_window = |child: &str| {
         format!(
             r#"
 export component Main inherits Window {{
-    out property <length> win-height: root.height;
+    out property <length> h: root.height;
     Rectangle {{
         {child}
     }}
 }}"#
         )
     };
-    assert_binding_loop("static child", &source(r#"Text { text: root.win-height / 1px; }"#));
-    assert_binding_loop(
-        "repeated child",
-        &source(r#"if true: Text { text: root.win-height / 1px; }"#),
-    );
+    assert_binding_loop("static child", &in_window(static_child));
+    let diagnostics = diagnostics(&in_window(repeated_child));
+    assert!(diagnostics.is_empty(), "repeated child: {diagnostics:?}");
 }

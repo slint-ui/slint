@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A child whose constraints would make its parent's size depend on itself doesn't
+// constrain that parent, and isn't a binding loop (#13972).
+// That holds for a repeated child and a static one alike.
+
+component RepeatedCard {
+    in property <bool> cond: true;
+    out property <length> media-width: media.width;
+    VerticalLayout {
+        media := Rectangle {
+            height: 50px;
+            if cond: Rectangle {
+                width: parent.width;
+                height: parent.height;
+                VerticalLayout {
+                    Rectangle { width: parent.width; height: 26px; }
+                    Text { text: "paused"; }
+                }
+            }
+        }
+    }
+}
+
+component StaticCard {
+    out property <length> media-width: media.width;
+    VerticalLayout {
+        media := Rectangle {
+            height: 50px;
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                VerticalLayout {
+                    Rectangle { width: parent.width; height: 26px; }
+                    Text { text: "paused"; }
+                }
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 100px;
+    HorizontalLayout {
+        a := RepeatedCard { }
+        b := StaticCard { }
+    }
+    // A child without a loop still constrains its parent (#407).
+    other := Rectangle {
+        x: 0;
+        y: 0;
+        if true: Rectangle { min-width: 42px; }
+    }
+    out property <bool> test: a.width == 150px && b.width == 150px && a.media-width == 150px
+        && b.media-width == 150px && other.min-width == 42px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

@@ -256,6 +256,7 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
 
         let span = v_binding.span.clone().unwrap_or_else(|| elem.borrow().to_source_location());
         let mut body = v_binding.expression.clone();
+        expand_child_layout_infos(&mut body);
         let width_param =
             Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength };
         rewrite_layoutinfo_v_for_constraint(&mut body, &width_param);
@@ -264,6 +265,27 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
         has_v_cross
     }
     walk(&component.root_element);
+}
+
+/// Replaces each read of a child layout info by its binding, so that rewriting `expr` reaches
+/// the child's own layout info.
+/// See [`crate::object_tree::PropertyDeclaration::child_layout_info`].
+fn expand_child_layout_infos(expr: &mut Expression) {
+    if let Expression::PropertyReference(nr) = expr {
+        let elem = nr.element();
+        let elem = elem.borrow();
+        let expanded = elem
+            .property_declarations
+            .get(nr.name())
+            .is_some_and(|d| d.child_layout_info.is_some())
+            .then(|| elem.binding(nr.name()).map(|b| b.expression.clone()))
+            .flatten();
+        drop(elem);
+        if let Some(expanded) = expanded {
+            *expr = expanded;
+        }
+    }
+    expr.visit_mut(expand_child_layout_infos);
 }
 
 /// Lower all layouts and assign a LayoutConstraints to the component
@@ -2020,6 +2042,7 @@ fn lower_dialog_layout(
                                         moved_from: None,
                                         deprecated: None,
                                         synthesized: false,
+                                        child_layout_info: None,
                                     });
                             }
                         }

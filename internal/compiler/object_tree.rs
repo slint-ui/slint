@@ -798,6 +798,19 @@ pub struct PropertyDeclaration {
     /// Most come from [`crate::layout::create_new_prop`], which sets this.
     /// A pass that declares one by hand sets it too, unless it exposes the property to the source.
     pub synthesized: bool,
+    /// Set on a property holding the `LayoutInfo` of a child of a non-layout element,
+    /// which that element's layout info reads.
+    /// Binding analysis drops that read rather than report a binding loop through it,
+    /// and then removes the property.
+    pub child_layout_info: Option<ChildLayoutInfo>,
+}
+
+/// The child whose `LayoutInfo` a [`PropertyDeclaration::child_layout_info`] holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChildLayoutInfo {
+    Static,
+    /// An `if` or a `for`, whose instances' infos are merged (#407).
+    Repeated,
 }
 
 impl PropertyDeclaration {

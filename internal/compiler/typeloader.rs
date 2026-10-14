@@ -583,6 +583,7 @@ impl Snapshotter {
                     moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
                     synthesized: v.synthesized,
+                    child_layout_info: v.child_layout_info,
                 };
                 (k.clone(), decl)
             })

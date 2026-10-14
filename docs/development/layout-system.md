@@ -335,6 +335,14 @@ Where the width comes from differs per layout kind:
 
 A non-layout parent gets its `layoutinfo-*` from `default_geometry::gen_layout_info_prop`,
 which merges what each child reports.
+Each report goes through a property of its own, marked by `PropertyDeclaration::child_layout_info`.
+A report can depend on the parent's own size, such as with `width: parent.width` inside a nested layout (#13972).
+When binding analysis finds a loop through one, it drops the innermost child of the loop instead of reporting it.
+It then runs again, which only a document with such a loop pays for.
+In a loop through the window's layout, only a deprecation warning, a static child isn't dropped.
+Dropping it could expose a loop the analysis hadn't seen, and make code that compiled fail.
+`settle_child_layout_infos` then inlines the remaining reports into the parent and deletes the properties.
+`synthesize_layoutinfo_v_with_constraint` runs before the analysis, so it expands them itself, dropped ones included.
 A repeated child has no single `LayoutInfo` to read, so `repeated_element_layout_info`
 synthesizes a one-cell `BoxLayout` over it and folds every instance through
 `box_layout_info_ortho`, close to the merge two static siblings get: the box
