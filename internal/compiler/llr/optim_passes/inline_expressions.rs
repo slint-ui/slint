@@ -302,6 +302,127 @@ fn inline_simple_expressions_in_expression(
     };
 
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
+
+    fold_constant_expression(expr, ctx);
+}
+
+/// Fold a comparison of two literals to a `BoolLiteral`, and a `Condition` with
+/// a literal condition to the branch it takes.
+///
+/// Inlining a property replaces a read with its constant value, which can leave
+/// a comparison with no runtime input behind: in
+/// `orientation == Orientation.vertical ? a : b` the read of `orientation`
+/// becomes an `EnumerationValue`, so the comparison is now between two literals.
+/// The generators emit it verbatim, and the C++ backend then contains `a == a`,
+/// which `-Wtautological-compare` (part of `-Wall`, and the test driver builds
+/// with `-Werror`) rejects. `const_propagation` folds the same shapes on the
+/// element tree, but it runs before this pass and doesn't descend into layout
+/// expressions.
+fn fold_constant_expression(expr: &mut Expression, ctx: &EvaluationContext) {
+    if let Some(folded) = fold_constant_comparison(expr) {
+        *expr = folded;
+    } else {
+        fold_constant_condition(expr, ctx);
+    }
+}
+
+/// Fold a comparison of two literals to a `BoolLiteral`.
+fn fold_constant_comparison(expr: &Expression) -> Option<Expression> {
+    let Expression::BinaryExpression { lhs, op, rhs } = expr else { return None };
+    let value = match (&**lhs, *op, &**rhs) {
+        (Expression::BoolLiteral(a), '=', Expression::BoolLiteral(b)) => a == b,
+        (Expression::BoolLiteral(a), '!', Expression::BoolLiteral(b)) => a != b,
+        (Expression::EnumerationValue(a), '=', Expression::EnumerationValue(b)) => a == b,
+        (Expression::EnumerationValue(a), '!', Expression::EnumerationValue(b)) => a != b,
+        (Expression::NumberLiteral(a), '=', Expression::NumberLiteral(b)) => a == b,
+        (Expression::NumberLiteral(a), '!', Expression::NumberLiteral(b)) => a != b,
+        (Expression::NumberLiteral(a), '<', Expression::NumberLiteral(b)) => a < b,
+        (Expression::NumberLiteral(a), '>', Expression::NumberLiteral(b)) => a > b,
+        (Expression::NumberLiteral(a), '≤', Expression::NumberLiteral(b)) => a <= b,
+        (Expression::NumberLiteral(a), '≥', Expression::NumberLiteral(b)) => a >= b,
+        _ => return None,
+    };
+    Some(Expression::BoolLiteral(value))
+}
+
+/// Fold a `Condition` whose condition is a literal to the branch it takes.
+///
+/// Only folds when both branches share a type: the LLR `Condition`'s type is the
+/// false branch's, so folding one whose branches differ would change the type
+/// (lowering inserted a cast to `void` in that case).
+fn fold_constant_condition(expr: &mut Expression, ctx: &EvaluationContext) {
+    let replacement = match expr {
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let take_true = match &**condition {
+                Expression::BoolLiteral(b) => *b,
+                _ => return,
+            };
+            if true_expr.ty(ctx) != false_expr.ty(ctx) {
+                return;
+            }
+            let branch = if take_true { &mut **true_expr } else { &mut **false_expr };
+            std::mem::replace(branch, Expression::CodeBlock(Vec::new()))
+        }
+        _ => return,
+    };
+    *expr = replacement;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::langtype::{Enumeration, EnumerationValue};
+    use smol_str::SmolStr;
+    use std::sync::Arc;
+
+    /// The `Orientation` enum, as the LLR sees it. Comparisons of two
+    /// `EnumerationValue`s compare the enum by `Arc` identity, so a single
+    /// instance has to be shared.
+    fn orientation_enum() -> Arc<Enumeration> {
+        Arc::new(Enumeration {
+            name: SmolStr::new_static("Orientation"),
+            values: vec![SmolStr::new_static("horizontal"), SmolStr::new_static("vertical")],
+            default_value: 0,
+            node: None,
+            public: true,
+            rust_attributes: Vec::new(),
+        })
+    }
+
+    fn orientation(enumeration: &Arc<Enumeration>, value: usize) -> Expression {
+        Expression::EnumerationValue(EnumerationValue { value, enumeration: enumeration.clone() })
+    }
+
+    fn compare(lhs: Expression, op: char, rhs: Expression) -> Expression {
+        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+    }
+
+    #[test]
+    fn folds_constant_comparisons() {
+        let orientation_ty = orientation_enum();
+        let is = |e: &Expression, expected: bool| {
+            assert!(
+                matches!(fold_constant_comparison(e), Some(Expression::BoolLiteral(b)) if b == expected),
+                "{e:?} did not fold to {expected}"
+            );
+        };
+        is(&compare(orientation(&orientation_ty, 0), '=', orientation(&orientation_ty, 0)), true);
+        is(&compare(orientation(&orientation_ty, 0), '=', orientation(&orientation_ty, 1)), false);
+        is(&compare(orientation(&orientation_ty, 0), '!', orientation(&orientation_ty, 1)), true);
+        is(&compare(Expression::BoolLiteral(false), '=', Expression::BoolLiteral(false)), true);
+        is(&compare(Expression::NumberLiteral(1.), '<', Expression::NumberLiteral(2.)), true);
+
+        // A comparison that still reads a local at runtime stays as it is.
+        let dynamic = compare(
+            Expression::ReadLocalVariable {
+                name: SmolStr::new_static("x"),
+                ty: Type::Int32.into(),
+            },
+            '=',
+            orientation(&orientation_ty, 1),
+        );
+        assert!(fold_constant_comparison(&dynamic).is_none(), "{dynamic:?}");
+    }
 }
 
 /// Whether a function body can be moved to its single call site through `map`.
