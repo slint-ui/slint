@@ -1640,6 +1640,20 @@ fn override_selected_element_border_radius(
         override_selected_element_border_radius(ui::CanvasCorner::BottomLeft, length, true);
     }
 
+    set_selected_element_border_radius_override(
+        corner,
+        Some(slint_interpreter::Value::Number(length as f64)),
+    );
+}
+
+fn reset_selected_element_border_radius(corner: ui::CanvasCorner) {
+    set_selected_element_border_radius_override(corner, None);
+}
+
+fn set_selected_element_border_radius_override(
+    corner: ui::CanvasCorner,
+    value: Option<slint_interpreter::Value>,
+) {
     let Some(element_selection) = &selected_element() else { return };
     let Some(element_node) = element_selection.as_element_node() else { return };
     let Some(component_instance) = component_instance() else { return };
@@ -1672,7 +1686,7 @@ fn override_selected_element_border_radius(
             );
             return;
         };
-        (**property_override).set(Some(slint_interpreter::Value::Number(length as f64)));
+        (**property_override).set(value);
     });
 
     component_instance.window().request_redraw();
