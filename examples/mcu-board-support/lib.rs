@@ -79,6 +79,14 @@ pub use esp_hal::main as entry;
 #[cfg(feature = "m5stack-cores3")]
 pub use m5stack_cores3::*;
 
+#[cfg(feature = "m5stack-stopwatch")]
+#[path = "m5stack_stopwatch/m5stack_stopwatch.rs"]
+mod m5stack_stopwatch;
+#[cfg(feature = "m5stack-stopwatch")]
+pub use esp_hal::main as entry;
+#[cfg(feature = "m5stack-stopwatch")]
+pub use m5stack_stopwatch::*;
+
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "pico2-st7789",
@@ -89,7 +97,8 @@ pub use m5stack_cores3::*;
     feature = "esp32-s3-lcd-ev-board",
     feature = "esope-sld-c-w-s3",
     feature = "waveshare-esp32-s3-touch-amoled-1-8",
-    feature = "m5stack-cores3"
+    feature = "m5stack-cores3",
+    feature = "m5stack-stopwatch"
 )))]
 pub use i_slint_core_macros::identity as entry;
 
@@ -103,7 +112,8 @@ pub use i_slint_core_macros::identity as entry;
     feature = "esp32-s3-lcd-ev-board",
     feature = "esope-sld-c-w-s3",
     feature = "waveshare-esp32-s3-touch-amoled-1-8",
-    feature = "m5stack-cores3"
+    feature = "m5stack-cores3",
+    feature = "m5stack-stopwatch"
 )))]
 pub fn init() {}
 
@@ -116,7 +126,8 @@ pub mod prelude {
         feature = "esp32-s3-lcd-ev-board",
         feature = "esope-sld-c-w-s3",
         feature = "waveshare-esp32-s3-touch-amoled-1-8",
-        feature = "m5stack-cores3"
+        feature = "m5stack-cores3",
+        feature = "m5stack-stopwatch"
     ))]
     pub use esp_hal;
 }
