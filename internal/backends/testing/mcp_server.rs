@@ -76,9 +76,9 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "query_element_descendants",
-        description: "Search descendants of an element using a query pipeline: queryStack, an array of instructions applied in order. More efficient than get_element_tree for targeted lookups.",
+        description: "Search descendants of an element using a query pipeline: queryStack, an array of instructions applied in order. More efficient than get_element_tree for targeted lookups. Only elements on screen match. With scrollIntoView, the search also covers content scrolled out of view and ListView rows that don't exist yet, by paging through each Flickable at or below the element that holds repeated elements, such as a ListView. It then scrolls the first match into view and returns only that match, or nothing if scrolling can't reveal it.",
         request_type: "RequestQueryElementDescendants",
-        optional_fields: &["findAll"],
+        optional_fields: &["findAll", "scrollIntoView"],
     },
     ToolDef {
         name: "take_screenshot",
@@ -121,6 +121,12 @@ const TOOLS: &[ToolDef] = &[
         description: "Send a mouse wheel event at a position in the window, in logical coordinates. Use scroll_element to scroll an element by handle; use this for an arbitrary point.",
         request_type: "RequestPointerScroll",
         optional_fields: &["deltaX", "deltaY", "modifiers"],
+    },
+    ToolDef {
+        name: "scroll_element_into_view",
+        description: "Scroll the Flickables that contain an element, such as a ScrollView or ListView, as far as they can to make the element visible. Call it before clicking an element that is partially scrolled out of view. To find an element that is scrolled out of view, or a ListView row that doesn't exist yet, use query_element_descendants with scrollIntoView instead.",
+        request_type: "RequestScrollElementIntoView",
+        optional_fields: &[],
     },
     ToolDef {
         name: "invoke_accessibility_action",
@@ -455,6 +461,7 @@ async fn handle_tool_call(
                 element_index,
                 p.query_stack,
                 p.find_all,
+                p.scroll_into_view,
             )?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -619,6 +626,16 @@ async fn handle_tool_call(
             )?;
             Ok(ToolResult::Json(serde_json::json!({})))
         }
+        "scroll_element_into_view" => {
+            let p: proto::RequestScrollElementIntoView = deserialize_params(args)?;
+            let element_index = handle_to_index(
+                p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
+            )?;
+            let response = dispatch::scroll_element_into_view(state, element_index)?;
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
         "drag_element" => {
             let p: proto::RequestElementDrag = deserialize_params(args)?;
             let element_index = handle_to_index(
@@ -766,6 +783,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "   Hover without pressing: hover_element (an element's center) or move_pointer (a position). ",
                     "click_element and drag_element both press, so neither can produce a hover on its own. ",
                     "The pointer stays where it is left, so clear a hover with move_pointer to a point away from the element.\n",
+                    "   Scrolling into view: query_element_descendants with scrollIntoView finds an element scrolled out of view, or a ListView row that doesn't exist yet, and scrolls to it. ",
+                    "scroll_element_into_view scrolls to an element you already have a handle for.\n",
                     "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
                     "9. take_screenshot again to verify the visual effect\n\n",
 
@@ -1425,6 +1444,84 @@ mod tests {
         ))
         .expect("dispatch_pointer_scroll failed");
         assert_eq!(app.get_scrolled(), -100., "the second wheel event had no effect");
+    }
+
+    #[test]
+    fn test_query_scroll_into_view_creates_list_view_row() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            import { ListView } from "std-widgets.slint";
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                ListView {
+                    for row in 1000: Text { text: "Row " + row; height: 20px; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        let root = index_to_handle(state.root_element_handle(state.window_handles()[0]).unwrap());
+        let query = |scroll_into_view: bool| {
+            let result = block_on(handle_tool_call(
+                &state,
+                "query_element_descendants",
+                &serde_json::json!({
+                    "elementHandle": serde_json::to_value(root).unwrap(),
+                    "queryStack": [{ "matchElementAccessibleLabel": "Row 500" }],
+                    "findAll": true,
+                    "scrollIntoView": scroll_into_view,
+                }),
+            ))
+            .expect("query_element_descendants failed");
+            let ToolResult::Json(value) = result else { panic!("expected a json result") };
+            value["elementHandles"].as_array().cloned().unwrap_or_default()
+        };
+
+        assert!(query(false).is_empty());
+        let found = query(true);
+        assert_eq!(found.len(), 1, "paging didn't create the row");
+        assert_eq!(query(false), found, "the row isn't on screen after scrolling into view");
+    }
+
+    #[test]
+    fn test_scroll_element_into_view() {
+        use slint::ComponentHandle;
+
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                in-out property <length> content-y <=> flick.content-y;
+                flick := Flickable {
+                    content-height: 2000px;
+                    deep := Text { y: 1000px; height: 20px; text: "Deep"; }
+                }
+            }
+        }
+
+        let app = App::new().unwrap();
+        let adapter = i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter();
+        let state = make_state();
+        state.add_window(&adapter);
+        app.set_content_y(-1000.);
+        let deep = crate::ElementHandle::find_by_element_id(&app, "App::deep").next().unwrap();
+        let deep = index_to_handle(state.element_to_handle(deep));
+        app.set_content_y(0.);
+
+        block_on(handle_tool_call(
+            &state,
+            "scroll_element_into_view",
+            &serde_json::json!({ "elementHandle": serde_json::to_value(deep).unwrap() }),
+        ))
+        .expect("scroll_element_into_view failed");
+        assert_eq!(app.get_content_y(), -920.);
     }
 
     #[test]

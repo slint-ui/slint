@@ -176,6 +176,7 @@ impl TestingClient {
                 element_handle,
                 query_stack,
                 find_all,
+                scroll_into_view,
             }) => {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "run element query request missing element handle".to_string()
@@ -185,6 +186,18 @@ impl TestingClient {
                     element_index,
                     query_stack,
                     find_all,
+                    scroll_into_view,
+                )?)
+            }
+            Req::RequestScrollElementIntoView(proto::RequestScrollElementIntoView {
+                element_handle,
+            }) => {
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "scroll element into view request missing element handle".to_string()
+                })?)?;
+                Resp::ScrollElementIntoViewResponse(dispatch::scroll_element_into_view(
+                    &self.state,
+                    element_index,
                 )?)
             }
             Req::RequestEventLog(proto::RequestEventLog {
