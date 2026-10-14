@@ -222,7 +222,8 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app --features
 
 `SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
 metadata into the compiled UI).
-It also enables `testableProperties` in `get_element_properties` and `get_element_tree`:
+It also enables `testableProperties` in `get_element_properties` and `get_element_tree`,
+and the `@name=value` entries in `get_element_snapshot`:
 each element's `@testable` properties with name, type, and typed current value,
 so you can verify state without diffing screenshots.
 Only properties declared with the experimental `@testable` attribute are listed, whatever their visibility.
