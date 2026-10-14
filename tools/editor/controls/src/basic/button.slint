@@ -2,38 +2,44 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ButtonBase } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import {
+    ButtonStateStyle,
+    ButtonStyle,
+    ButtonSizeMetrics,
+    ButtonSizes,
+} from "button_style.slint";
+import { ButtonStyles } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
-    private property <bool> accented: root.primary || root.checked;
-    private property <brush> state-background: root.accented ? BasicTheme.accent : BasicTheme.background;
-    private property <brush> state-foreground: root.accented ? BasicTheme.accent-foreground : BasicTheme.foreground;
+    in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
+    in property <ButtonSizeMetrics> size: ButtonSizes.medium;
+    private property <ButtonStateStyle> current-style: root.style.rest;
 
-    in property <brush> background-color: root.state-background;
-    in property <brush> foreground: root.state-foreground;
-    in property <brush> border-color: root.has-focus ? BasicTheme.focus : BasicTheme.border;
-    in property <length> border-width: root.has-focus ? 2px : 1px;
-    in property <length> border-radius: 4px;
-    in property <length> font-size: 14px;
+    in property <brush> background-color: root.current-style.background-color;
+    in property <brush> foreground: root.current-style.foreground;
+    in property <brush> border-color: root.current-style.border-color;
+    in property <length> border-width: root.current-style.border-width;
+    in property <length> border-radius: root.style.border-radius;
+    in property <length> font-size: root.size.font-size;
     in property <int> font-weight: 400;
-    in property <length> spacing: 6px;
+    in property <length> spacing: root.size.spacing;
 
-    content-padding: 6px;
-    content-padding-left: 12px;
-    content-padding-right: 12px;
-    min-width: 64px;
-    min-height: 32px;
+    icon-size: root.size.icon-size;
+    content-padding: root.size.padding-vertical;
+    content-padding-left: root.size.padding-horizontal;
+    content-padding-right: root.size.padding-horizontal;
+    min-width: root.size.min-width;
+    min-height: root.size.min-height;
 
     states [
         disabled when !root.enabled: {
-            root.state-background: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
+            current-style: root.style.disabled;
         }
         pressed when root.pressed: {
-            root.state-background: root.accented ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+            current-style: root.style.pressed;
         }
         hover when root.hovered: {
-            root.state-background: root.accented ? BasicTheme.accent-hover : BasicTheme.hover-background;
+            current-style: root.style.hover;
         }
     ]
 
@@ -42,6 +48,25 @@ export component Button inherits ButtonBase {
         border-color: root.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
+
+        focus-outline := Rectangle {
+            private property <length> outset: root.style.focus-offset + root.style.focus-width;
+            x: -self.outset;
+            y: -self.outset;
+            width: parent.width + 2 * self.outset;
+            height: parent.height + 2 * self.outset;
+            visible: false;
+            background: transparent;
+            border-color: root.style.focus-color;
+            border-width: root.style.focus-width;
+            border-radius: root.border-radius + self.outset;
+
+            states [
+                focused when root.enabled && root.has-focus && root.style.focus-width > 0px: {
+                    visible: true;
+                }
+            ]
+        }
     }
 
     content << HorizontalLayout {

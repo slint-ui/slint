@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct ButtonStateStyle {
+    background-color: brush,
+    foreground: brush,
+    border-color: brush,
+    border-width: length = 1px,
+}
+
+export struct ButtonStyle {
+    rest: ButtonStateStyle,
+    hover: ButtonStateStyle,
+    pressed: ButtonStateStyle,
+    disabled: ButtonStateStyle,
+    focus-color: brush,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    border-radius: length = 4px,
+}
+
+export struct ButtonSizeMetrics {
+    min-height: length,
+    min-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    icon-size: length,
+    spacing: length,
+}
+
+export global ButtonSizes {
+    in-out property <ButtonSizeMetrics> small: {
+        min-height: 24px,
+        min-width: 48px,
+        padding-horizontal: 8px,
+        padding-vertical: 4px,
+        font-size: 12px,
+        icon-size: 16px,
+        spacing: 4px,
+    };
+    in-out property <ButtonSizeMetrics> medium: {
+        min-height: 32px,
+        min-width: 64px,
+        padding-horizontal: 12px,
+        padding-vertical: 6px,
+        font-size: 14px,
+        icon-size: 20px,
+        spacing: 6px,
+    };
+    in-out property <ButtonSizeMetrics> large: {
+        min-height: 40px,
+        min-width: 80px,
+        padding-horizontal: 16px,
+        padding-vertical: 8px,
+        font-size: 16px,
+        icon-size: 24px,
+        spacing: 8px,
+    };
+}

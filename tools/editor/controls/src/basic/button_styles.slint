@@ -1,0 +1,126 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonStyle } from "button_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global ButtonStyles {
+    in-out property <ButtonStyle> secondary: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+            border-width: 1px
+        },
+        hover: {
+            background-color: BasicTheme.hover-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+            border-width: 1px
+        },
+        pressed: {
+            background-color: BasicTheme.pressed-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+            border-width: 1px
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground: BasicTheme.disabled-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+        border-radius: 4px,
+    };
+
+    in-out property <ButtonStyle> primary: {
+        rest: {
+            background-color: BasicTheme.accent,
+            foreground: BasicTheme.accent-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        hover: {
+            background-color: BasicTheme.accent-hover,
+            foreground: BasicTheme.accent-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        pressed: {
+            background-color: BasicTheme.accent-pressed,
+            foreground: BasicTheme.accent-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        disabled: ButtonStyles.secondary.disabled,
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+        border-radius: 4px,
+    };
+
+    in-out property <ButtonStyle> danger: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground: BasicTheme.danger,
+            border-color: BasicTheme.border,
+            border-width: 1px
+        },
+        hover: {
+            background-color: BasicTheme.danger-hover,
+            foreground: BasicTheme.danger-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        pressed: {
+            background-color: BasicTheme.danger-pressed,
+            foreground: BasicTheme.danger-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground: BasicTheme.danger-disabled-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+        border-radius: 4px,
+    };
+
+    in-out property <ButtonStyle> invisible: {
+        rest: {
+            background-color: transparent,
+            foreground: BasicTheme.foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        hover: {
+            background-color: BasicTheme.invisible-hover-background,
+            foreground: BasicTheme.foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        pressed: {
+            background-color: BasicTheme.invisible-pressed-background,
+            foreground: BasicTheme.foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        disabled: {
+            background-color: transparent,
+            foreground: BasicTheme.disabled-foreground,
+            border-color: transparent,
+            border-width: 0px
+        },
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+        border-radius: 4px,
+    };
+}
