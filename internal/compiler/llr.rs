@@ -27,3 +27,20 @@ pub mod optim_passes {
         remove_unused::remove_unused(root);
     }
 }
+
+/// Compiles `source` and lowers it to the LLR, which runs the optimization passes.
+#[cfg(test)]
+pub(crate) fn lower_test_source(source: &str) -> CompilationUnit {
+    let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        source.into(),
+        Some(crate::source_path::SourcePath::new("t.slint")),
+        &mut diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+    assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+    lower_to_item_tree::lower_to_item_tree(&doc, &config)
+}

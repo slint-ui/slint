@@ -1,0 +1,87 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The parent sets the inputs of `Item` to constants, which get inlined into these comparisons.
+// The generated C++ used to compare literals such as `Vertical == Vertical`,
+// which clang rejects with `-Werror -Wtautological-compare`.
+
+component Item {
+    in property <Orientation> orientation: horizontal;
+    in property <int> level: 1;
+    in property <bool> flag;
+
+    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
+    out property <bool> is-horizontal: root.orientation != Orientation.vertical;
+    out property <bool> above-two: root.level > 2;
+    out property <bool> below-two: root.level < 2;
+    out property <bool> at-least-two: root.level >= 2;
+    out property <bool> at-most-two: root.level <= 2;
+    out property <bool> is-two: root.level == 2;
+    out property <bool> not-two: root.level != 2;
+    out property <bool> unflagged: root.flag != true;
+}
+
+export component TestCase inherits Window {
+    // Not constants, so the comparisons on `live` stay.
+    in property <Orientation> live-orientation: vertical;
+    in property <int> live-level: 2;
+    in property <bool> live-flag: true;
+
+    VerticalLayout {
+        alignment: start;
+        upright := Item { orientation: vertical; level: 2; flag: true; }
+        flat := Item { level: 5; }
+        live := Item { orientation: live-orientation; level: live-level; flag: live-flag; }
+    }
+
+    out property <bool> test: upright.height == 200px && flat.height == 32px && flat.y == 200px
+        && !upright.is-horizontal && flat.is-horizontal
+        && !upright.above-two && flat.above-two
+        && !upright.below-two && !flat.below-two
+        && upright.at-least-two && flat.at-least-two
+        && upright.at-most-two && !flat.at-most-two
+        && upright.is-two && !flat.is-two
+        && !upright.not-two && flat.not-two
+        && !upright.unflagged && flat.unflagged
+        && live.height == 200px && live.y == 232px && !live.is-horizontal
+        && !live.above-two && !live.below-two && live.at-least-two && live.at-most-two
+        && live.is-two && !live.not-two && !live.unflagged;
+
+    // The values of `live` after the test sets its inputs to horizontal, 5, and false.
+    out property <bool> live-changed: live.height == 32px && live.is-horizontal
+        && live.above-two && !live.below-two && live.at-least-two && !live.at-most-two
+        && !live.is-two && live.not-two && live.unflagged;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(!instance.get_live_changed());
+instance.set_live_orientation(slint::language::Orientation::Horizontal);
+instance.set_live_level(5);
+instance.set_live_flag(false);
+assert(instance.get_live_changed());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert!(!instance.get_live_changed());
+instance.set_live_orientation(slint::language::Orientation::Horizontal);
+instance.set_live_level(5);
+instance.set_live_flag(false);
+assert!(instance.get_live_changed());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+assert(!instance.live_changed);
+instance.live_orientation = "horizontal";
+instance.live_level = 5;
+instance.live_flag = false;
+assert(instance.live_changed);
+```
+*/

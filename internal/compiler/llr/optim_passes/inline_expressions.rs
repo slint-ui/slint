@@ -316,122 +316,61 @@ fn inline_simple_expressions_in_expression(
     fold_constant_expression(expr, ctx);
 }
 
-/// Fold a comparison of two literals to a `BoolLiteral`, and a `Condition` with
-/// a literal condition to the branch it takes.
-///
-/// Inlining a property replaces a read with its constant value, which can leave
-/// a comparison with no runtime input behind: in
-/// `orientation == Orientation.vertical ? a : b` the read of `orientation`
-/// becomes an `EnumerationValue`, so the comparison is now between two literals.
-/// The generators emit it verbatim, and the C++ backend then contains `a == a`,
-/// which `-Wtautological-compare` (part of `-Wall`, and the test driver builds
-/// with `-Werror`) rejects. `const_propagation` folds the same shapes on the
-/// element tree, but it runs before this pass and doesn't descend into layout
-/// expressions.
+/// Folds a comparison of two literals, and a condition on a literal,
+/// such as `vertical == vertical ? 200 : 32` once inlining replaced a constant property.
+/// clang rejects the C++ `Vertical == Vertical` with `-Wtautological-compare`.
 fn fold_constant_expression(expr: &mut Expression, ctx: &EvaluationContext) {
-    if let Some(folded) = fold_constant_comparison(expr) {
-        *expr = folded;
-    } else {
-        fold_constant_condition(expr, ctx);
-    }
-}
-
-/// Fold a comparison of two literals to a `BoolLiteral`.
-fn fold_constant_comparison(expr: &Expression) -> Option<Expression> {
-    let Expression::BinaryExpression { lhs, op, rhs } = expr else { return None };
-    let value = match (&**lhs, *op, &**rhs) {
-        (Expression::BoolLiteral(a), '=', Expression::BoolLiteral(b)) => a == b,
-        (Expression::BoolLiteral(a), '!', Expression::BoolLiteral(b)) => a != b,
-        (Expression::EnumerationValue(a), '=', Expression::EnumerationValue(b)) => a == b,
-        (Expression::EnumerationValue(a), '!', Expression::EnumerationValue(b)) => a != b,
-        (Expression::NumberLiteral(a), '=', Expression::NumberLiteral(b)) => a == b,
-        (Expression::NumberLiteral(a), '!', Expression::NumberLiteral(b)) => a != b,
-        (Expression::NumberLiteral(a), '<', Expression::NumberLiteral(b)) => a < b,
-        (Expression::NumberLiteral(a), '>', Expression::NumberLiteral(b)) => a > b,
-        (Expression::NumberLiteral(a), '≤', Expression::NumberLiteral(b)) => a <= b,
-        (Expression::NumberLiteral(a), '≥', Expression::NumberLiteral(b)) => a >= b,
-        _ => return None,
-    };
-    Some(Expression::BoolLiteral(value))
-}
-
-/// Fold a `Condition` whose condition is a literal to the branch it takes.
-///
-/// Only folds when both branches share a type: the LLR `Condition`'s type is the
-/// false branch's, so folding one whose branches differ would change the type
-/// (lowering inserted a cast to `void` in that case).
-fn fold_constant_condition(expr: &mut Expression, ctx: &EvaluationContext) {
-    let replacement = match expr {
+    match expr {
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            if let Some(value) = fold_literal_comparison(lhs, *op, rhs) {
+                *expr = Expression::BoolLiteral(value);
+            }
+        }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let take_true = match &**condition {
-                Expression::BoolLiteral(b) => *b,
-                _ => return,
-            };
+            let Expression::BoolLiteral(take_true) = **condition else { return };
             if true_expr.ty(ctx) != false_expr.ty(ctx) {
                 return;
             }
-            let branch = if take_true { &mut **true_expr } else { &mut **false_expr };
-            std::mem::replace(branch, Expression::CodeBlock(Vec::new()))
+            let taken = if take_true { true_expr } else { false_expr };
+            *expr = std::mem::replace(&mut **taken, Expression::CodeBlock(Vec::new()));
         }
-        _ => return,
-    };
-    *expr = replacement;
+        _ => {}
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::langtype::{Enumeration, EnumerationValue};
-    use smol_str::SmolStr;
-    use std::sync::Arc;
-
-    /// The `Orientation` enum, as the LLR sees it. Comparisons of two
-    /// `EnumerationValue`s compare the enum by `Arc` identity, so a single
-    /// instance has to be shared.
-    fn orientation_enum() -> Arc<Enumeration> {
-        Arc::new(Enumeration {
-            name: SmolStr::new_static("Orientation"),
-            values: vec![SmolStr::new_static("horizontal"), SmolStr::new_static("vertical")],
-            default_value: 0,
-            node: None,
-            public: true,
-            rust_attributes: Vec::new(),
-        })
-    }
-
-    fn orientation(enumeration: &Arc<Enumeration>, value: usize) -> Expression {
-        Expression::EnumerationValue(EnumerationValue { value, enumeration: enumeration.clone() })
-    }
-
-    fn compare(lhs: Expression, op: char, rhs: Expression) -> Expression {
-        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
-    }
-
-    #[test]
-    fn folds_constant_comparisons() {
-        let orientation_ty = orientation_enum();
-        let is = |e: &Expression, expected: bool| {
-            assert!(
-                matches!(fold_constant_comparison(e), Some(Expression::BoolLiteral(b)) if b == expected),
-                "{e:?} did not fold to {expected}"
-            );
+fn fold_literal_comparison(lhs: &Expression, op: char, rhs: &Expression) -> Option<bool> {
+    if let (Some(a), Some(b)) = (number_literal(lhs), number_literal(rhs)) {
+        let ordering = a.partial_cmp(&b)?;
+        return match op {
+            '=' => Some(ordering.is_eq()),
+            '!' => Some(ordering.is_ne()),
+            '<' => Some(ordering.is_lt()),
+            '>' => Some(ordering.is_gt()),
+            '≤' => Some(ordering.is_le()),
+            '≥' => Some(ordering.is_ge()),
+            _ => None,
         };
-        is(&compare(orientation(&orientation_ty, 0), '=', orientation(&orientation_ty, 0)), true);
-        is(&compare(orientation(&orientation_ty, 0), '=', orientation(&orientation_ty, 1)), false);
-        is(&compare(orientation(&orientation_ty, 0), '!', orientation(&orientation_ty, 1)), true);
-        is(&compare(Expression::BoolLiteral(false), '=', Expression::BoolLiteral(false)), true);
-        is(&compare(Expression::NumberLiteral(1.), '<', Expression::NumberLiteral(2.)), true);
+    }
+    let equal = match (lhs, rhs) {
+        (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+        (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+        _ => return None,
+    };
+    match op {
+        '=' => Some(equal),
+        '!' => Some(!equal),
+        _ => None,
+    }
+}
 
-        // A comparison that still reads a local at runtime stays as it is.
-        let dynamic = compare(
-            Expression::ReadLocalVariable {
-                name: SmolStr::new_static("x"),
-                ty: Type::Int32.into(),
-            },
-            '=',
-            orientation(&orientation_ty, 1),
-        );
-        assert!(fold_constant_comparison(&dynamic).is_none(), "{dynamic:?}");
+/// The value of a number literal, seen through the casts that int properties add.
+fn number_literal(expr: &Expression) -> Option<f64> {
+    match expr {
+        Expression::NumberLiteral(n) => Some(*n),
+        Expression::Cast { from, to: Type::Float32 } => number_literal(from),
+        // The generators convert with a saturating truncation, like `as i32`.
+        Expression::Cast { from, to: Type::Int32 } => number_literal(from).map(|n| n as i32 as f64),
+        _ => None,
     }
 }
 
@@ -492,4 +431,99 @@ fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {
             binding.use_count.set(use_count);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the comparisons and conditions left: those on literals, and the others.
+    /// The runtime ones come with their operator, `?` for a condition.
+    fn comparisons_left(source: &str) -> (Vec<String>, Vec<(char, String)>) {
+        let unit = crate::llr::lower_test_source(source);
+        fn is_literal(e: &Expression) -> bool {
+            match e {
+                Expression::Cast { from, .. } => is_literal(from),
+                _ => matches!(
+                    e,
+                    Expression::NumberLiteral(_)
+                        | Expression::BoolLiteral(_)
+                        | Expression::EnumerationValue(_)
+                ),
+            }
+        }
+        let (mut constant, mut runtime) = (Vec::new(), Vec::new());
+        unit.for_each_expression(&mut |e, ctx| {
+            e.borrow().visit_recursive(&mut |e| {
+                let text = || crate::llr::pretty_print::DisplayExpression(e, ctx).to_string();
+                match e {
+                    Expression::BinaryExpression { lhs, rhs, op } if "=!<>≤≥".contains(*op) => {
+                        if is_literal(lhs) && is_literal(rhs) {
+                            constant.push(text());
+                        } else {
+                            runtime.push((*op, text()));
+                        }
+                    }
+                    Expression::Condition { condition, .. } => {
+                        if matches!(**condition, Expression::BoolLiteral(_)) {
+                            constant.push(text());
+                        } else {
+                            runtime.push(('?', text()));
+                        }
+                    }
+                    _ => {}
+                }
+            })
+        });
+        (constant, runtime)
+    }
+
+    #[test]
+    fn folds_inlined_constants() {
+        // The parent sets the inputs of `upright` and `flat` to constants,
+        // which are inlined into the bindings of `Item`, and those of `live` to runtime values.
+        let source = r#"
+component Item {
+    in property <Orientation> orientation: horizontal;
+    in property <int> level: 1;
+    in property <bool> flag;
+    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
+    out property <bool> is-horizontal: root.orientation != Orientation.vertical;
+    out property <bool> above-two: root.level > 2;
+    out property <bool> below-two: root.level < 2;
+    out property <bool> at-least-two: root.level >= 2;
+    out property <bool> at-most-two: root.level <= 2;
+    out property <bool> is-two: root.level == 2;
+    out property <bool> not-two: root.level != 2;
+    out property <bool> unflagged: root.flag != true;
+}
+
+export component Foo {
+    in property <Orientation> live-orientation;
+    in property <int> live-level;
+    in property <bool> live-flag;
+    VerticalLayout {
+        upright := Item { orientation: vertical; level: 2; flag: true; }
+        flat := Item { level: 5; }
+        live := Item { orientation: root.live-orientation; level: root.live-level; flag: root.live-flag; }
+    }
+    out property <bool> result: !upright.is-horizontal && flat.is-horizontal
+        && !upright.above-two && flat.above-two && !upright.below-two && !flat.below-two
+        && upright.at-least-two && flat.at-least-two && upright.at-most-two && !flat.at-most-two
+        && upright.is-two && !flat.is-two && !upright.not-two && flat.not-two
+        && !upright.unflagged && flat.unflagged;
+    out property <bool> live-result: live.is-horizontal && live.above-two && live.below-two
+        && live.at-least-two && live.at-most-two && live.is-two && live.not-two && live.unflagged;
+}
+"#;
+        let (constant, runtime) = comparisons_left(source);
+        assert!(constant.is_empty(), "{constant:#?}");
+        for kept in ['=', '!', '<', '>', '≤', '≥', '?'] {
+            assert!(
+                runtime.iter().any(|(op, text)| *op == kept && text.contains("live-")),
+                "no '{kept}' on a `live` input left: {runtime:#?}"
+            );
+        }
+    }
 }
