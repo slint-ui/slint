@@ -84,7 +84,7 @@ pub fn scanline() -> Option<u16> {
     (scan < 350).then_some(scan)
 }
 
-/// Diagnostic readback only; the USB task holds the renderer while this runs.
+/// Read controller memory for diagnostics while the USB task holds the renderer.
 #[cfg(feature = "pico2-queue-profile")]
 pub fn memory_row(pixels: &mut [u16]) {
     with_read_pins(|| {

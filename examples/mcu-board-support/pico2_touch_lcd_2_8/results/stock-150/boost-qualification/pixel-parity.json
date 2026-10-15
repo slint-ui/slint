@@ -1,0 +1,26 @@
+{
+  "reference_file": "demos/printerdemo_mcu/ink_particles.rs",
+  "sizes": [
+    [
+      48,
+      140
+    ],
+    [
+      51,
+      134
+    ],
+    [
+      32,
+      96
+    ]
+  ],
+  "vials": 4,
+  "ticks_per_vial": 1600,
+  "native_assets_enabled": true,
+  "compared_frames": 19200,
+  "compared_pixels": 106406400,
+  "different_pixels": 0,
+  "events": "held at ticks 20..700 and 800..950; drain after release",
+  "reference_source_sha256": "ec1d33f1b0771d117423dc51c4fef3199f820c8deebe6b0a60a40ab7dc4307e3",
+  "reference_provenance": "Frozen pre-optimization renderer archived outside the branch; retained host tests compare the current shader with an independent coverage formula."
+}

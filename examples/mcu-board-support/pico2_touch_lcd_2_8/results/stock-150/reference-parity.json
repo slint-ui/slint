@@ -1,0 +1,32 @@
+[
+  {
+    "scene": "queue",
+    "offset": 12,
+    "changed_pixels": 0
+  },
+  {
+    "scene": "queue",
+    "offset": 13,
+    "changed_pixels": 0
+  },
+  {
+    "scene": "queue",
+    "offset": 14,
+    "changed_pixels": 0
+  },
+  {
+    "scene": "settings",
+    "offset": 12,
+    "changed_pixels": 0
+  },
+  {
+    "scene": "settings",
+    "offset": 13,
+    "changed_pixels": 0
+  },
+  {
+    "scene": "settings",
+    "offset": 14,
+    "changed_pixels": 0
+  }
+]

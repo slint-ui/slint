@@ -1,0 +1,122 @@
+[
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "auto",
+    "offset": 12,
+    "elapsed_seconds": 1.2095793330081506
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "auto",
+    "offset": 13,
+    "elapsed_seconds": 1.2103649579948978
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "auto",
+    "offset": 14,
+    "elapsed_seconds": 1.2126772920018993
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "settings-auto",
+    "offset": 12,
+    "elapsed_seconds": 1.1994939580035862
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "settings-auto",
+    "offset": 13,
+    "elapsed_seconds": 1.1982564170029946
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "settings-auto",
+    "offset": 14,
+    "elapsed_seconds": 1.2098987079953076
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink",
+    "offset": 12,
+    "elapsed_seconds": 1.1923679169995012
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink",
+    "offset": 13,
+    "elapsed_seconds": 1.1665252079983475
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink",
+    "offset": 14,
+    "elapsed_seconds": 1.1660980419983389
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink-boost",
+    "offset": 12,
+    "elapsed_seconds": 1.191599583995412
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink-boost",
+    "offset": 13,
+    "elapsed_seconds": 1.166489958006423
+  },
+  {
+    "checked_pixels": 76800,
+    "mismatches": 0,
+    "first_index": 0,
+    "expected": 0,
+    "actual": 0,
+    "workload": "ink-boost",
+    "offset": 14,
+    "elapsed_seconds": 1.1652854999992996
+  }
+]

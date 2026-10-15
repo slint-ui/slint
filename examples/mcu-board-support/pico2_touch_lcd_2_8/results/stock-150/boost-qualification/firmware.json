@@ -1,0 +1,161 @@
+{
+  "elf_sha256": "a1de2736bff6a9a0d113724fb5ba5027480509477cf587dc247ab1ea3dcace0c",
+  "cpu_mhz": 150,
+  "lto": "thin",
+  "codegen_units": 1,
+  "main_static_end": "0x2007a6b0",
+  "main_stack_top": "0x20080000",
+  "main_stack_link_gap_bytes": 22864,
+  "required_main_stack_bytes": 20480,
+  "sections": {
+    ".vector_table": {
+      "bytes": 276,
+      "address": "0x10000000"
+    },
+    ".start_block": {
+      "bytes": 40,
+      "address": "0x10000114"
+    },
+    ".text": {
+      "bytes": 923620,
+      "address": "0x10000140"
+    },
+    ".bi_entries": {
+      "bytes": 0,
+      "address": "0x100e1924"
+    },
+    ".rodata": {
+      "bytes": 829724,
+      "address": "0x100e1928"
+    },
+    ".data": {
+      "bytes": 67140,
+      "address": "0x20000000"
+    },
+    ".gnu.sgstubs": {
+      "bytes": 0,
+      "address": "0x101bc8a0"
+    },
+    ".bss": {
+      "bytes": 434280,
+      "address": "0x20010648"
+    },
+    ".uninit": {
+      "bytes": 0,
+      "address": "0x2007a6b0"
+    },
+    ".end_block": {
+      "bytes": 0,
+      "address": "0x101bc8a0"
+    },
+    ".core1_stack": {
+      "bytes": 8192,
+      "address": "0x20080000"
+    },
+    ".defmt": {
+      "bytes": 33,
+      "address": "0x0"
+    },
+    ".comment": {
+      "bytes": 153,
+      "address": "0x0"
+    },
+    ".ARM.attributes": {
+      "bytes": 74,
+      "address": "0x0"
+    }
+  },
+  "hardware_qualified": true,
+  "board_serial": "BFC13272EF67B96D",
+  "spi_hz": 48000000,
+  "toolchain": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "native_size": [
+    320,
+    240
+  ],
+  "normal_build_passed": true,
+  "optional_240_build_passed": true,
+  "rebuilt_load_parity": {
+    "all_load_segments_identical": true,
+    "segments": 6,
+    "flashed_elf_sha256": "a1de2736bff6a9a0d113724fb5ba5027480509477cf587dc247ab1ea3dcace0c",
+    "rebuilt_elf_sha256": "881d049c71c0e335892ec85a6b8315d9b1651947aa38470b99ca8c6d43a0697e",
+    "load_segments_sha256": "75dfe0f49a508dd610e5f432a707f91522d4b9b33a148506c5375c245fe9347b"
+  },
+  "source_fingerprint": {
+    "base_commit": "fde5adee22a5624017b53e1ef39c73ae139d3ed1",
+    "algorithm": "SHA-256 of sorted UTF-8 paths, NUL, file bytes, NUL",
+    "sha256": "ce48ec86b0f8c7a6ec44d93323fc19410f048361ef23a48bd781af484b502817",
+    "paths": [
+      "api/rs/slint/tests/partial_renderer.rs",
+      "demos/Cargo.lock",
+      "demos/printerdemo_mcu/Cargo.toml",
+      "demos/printerdemo_mcu/build.rs",
+      "demos/printerdemo_mcu/ink_animation.rs",
+      "demos/printerdemo_mcu/ink_particles.rs",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-0-empty.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-0-liquid.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-0-mask.alpha",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-1-empty.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-1-liquid.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-1-mask.alpha",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-2-empty.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-2-liquid.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-2-mask.alpha",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-3-empty.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-3-liquid.rgb565",
+      "demos/printerdemo_mcu/ink_particles/assets/vial-3-mask.alpha",
+      "demos/printerdemo_mcu/ink_particles/native_assets.rs",
+      "demos/printerdemo_mcu/kiosk.rs",
+      "demos/printerdemo_mcu/kiosk_motion.rs",
+      "demos/printerdemo_mcu/main.rs",
+      "demos/printerdemo_mcu/queue_profile.rs",
+      "demos/printerdemo_mcu/tools/generate-ink-assets.rs",
+      "demos/printerdemo_mcu/ui/common.slint",
+      "demos/printerdemo_mcu/ui/pages/ink_page.slint",
+      "demos/printerdemo_mcu/ui/pages/printer_queue.slint",
+      "demos/printerdemo_mcu/ui/pages/settings_page.slint",
+      "demos/printerdemo_mcu/ui/printerdemo.slint",
+      "examples/mcu-board-support/Cargo.toml",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/boot_guard.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/capture-printer.py",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/check-printer-panel.py",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/flash-printer.sh",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/frame_crc.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/frame_queue.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/memory.x",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/overclock.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/packet_slot.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/panel_scan.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/panel_sync.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/pico2_touch_lcd_2_8.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/printer_protocol.py",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/profile-kiosk.py",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/profile-printer.py",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/profile.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/profile_run.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/scan_budget.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/scan_phase.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/stock_clock.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/tests/kiosk-host/Cargo.toml",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/tests/kiosk-host/build.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/tests/kiosk-host/src/main.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/touch_packet.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/uniform_tiles.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/usb.rs",
+      "examples/mcu-board-support/pico2_touch_lcd_2_8/wire_format.rs",
+      "internal/core/Cargo.toml",
+      "internal/core/input.rs",
+      "internal/core/items/text.rs",
+      "internal/core/partial_renderer.rs",
+      "internal/core/window.rs",
+      "internal/renderers/software/Cargo.toml",
+      "internal/renderers/software/draw_functions.rs",
+      "internal/renderers/software/embedded_profile.rs",
+      "internal/renderers/software/fonts.rs",
+      "internal/renderers/software/fonts/pixelfont.rs",
+      "internal/renderers/software/fonts/prepared_text.rs",
+      "internal/renderers/software/lib.rs"
+    ]
+  }
+}
