@@ -1973,12 +1973,42 @@ fn eval_translation_reference(
     ))
 }
 
+/// Unlike `From<_> for Value`, this isn't public API.
+trait IntoBuiltinValue {
+    fn into_value(self) -> Value;
+}
+
+impl<T: Into<Value>> IntoBuiltinValue for T {
+    fn into_value(self) -> Value {
+        self.into()
+    }
+}
+
+macro_rules! declare_builtin_struct_result {
+    (struct $name:path { $($field:ident),* }) => {
+        impl IntoBuiltinValue for $name {
+            fn into_value(self) -> Value {
+                let $name { $($field),* } = self;
+                Value::Struct(
+                    [$((stringify!($field).into(), Value::Number($field.into()))),*]
+                        .into_iter()
+                        .collect(),
+                )
+            }
+        }
+    };
+}
+
+declare_builtin_struct_result!(struct i_slint_core::graphics::RgbaColorU8 { red, green, blue, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::HsvaColor { hue, saturation, value, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::OklchColor { lightness, chroma, hue, alpha });
+
 macro_rules! call_runtime_function {
     ($context:ident, $item:ident, $args:ident, ($($params:tt)*)) => { None };
     ($context:ident, $item:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) $body:block) => {{
         $(let Some($ctx) = $context else { return Some(Value::Void) };)?
         $(let $param = runtime_function_argument!($item, $args, ($ty $(<$gen>)?) $($as)?);)*
-        Some(Value::from(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*)))
+        Some(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*).into_value())
     }};
 }
 
