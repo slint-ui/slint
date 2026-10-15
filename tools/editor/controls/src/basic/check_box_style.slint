@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct CheckBoxStateStyle {
+    indicator-color: brush,
+    checkmark-color: brush,
+    foreground: brush,
+    indicator-border-color: brush,
+    indicator-border-width: length = 1px,
+}
+
+export struct CheckBoxStateStyles {
+    rest: CheckBoxStateStyle,
+    hover: CheckBoxStateStyle,
+    pressed: CheckBoxStateStyle,
+    disabled: CheckBoxStateStyle,
+}
+
+export struct CheckBoxStyle {
+    unchecked: CheckBoxStateStyles,
+    checked: CheckBoxStateStyles,
+    focus-color: brush,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    indicator-radius: length = 4px,
+}
+
+export struct CheckBoxSizeMetrics {
+    min-height: length,
+    indicator-size: length,
+    checkmark-padding: length,
+    checkmark-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    spacing: length,
+}
+
+export global CheckBoxSizes {
+    in-out property <CheckBoxSizeMetrics> small: {
+        min-height: 24px,
+        indicator-size: 16px,
+        checkmark-padding: 2px,
+        checkmark-width: 1.5px,
+        padding-horizontal: 4px,
+        padding-vertical: 4px,
+        font-size: 12px,
+        spacing: 4px,
+    };
+    in-out property <CheckBoxSizeMetrics> medium: {
+        min-height: 32px,
+        indicator-size: 20px,
+        checkmark-padding: 3px,
+        checkmark-width: 2px,
+        padding-horizontal: 6px,
+        padding-vertical: 6px,
+        font-size: 14px,
+        spacing: 6px,
+    };
+    in-out property <CheckBoxSizeMetrics> large: {
+        min-height: 40px,
+        indicator-size: 24px,
+        checkmark-padding: 4px,
+        checkmark-width: 2.5px,
+        padding-horizontal: 8px,
+        padding-vertical: 8px,
+        font-size: 16px,
+        spacing: 8px,
+    };
+}

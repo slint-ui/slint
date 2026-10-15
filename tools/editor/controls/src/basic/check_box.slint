@@ -2,37 +2,50 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CheckBoxBase } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import {
+    CheckBoxStyle,
+    CheckBoxStateStyle,
+    CheckBoxStateStyles,
+    CheckBoxSizeMetrics,
+    CheckBoxSizes,
+} from "check_box_style.slint";
+import { CheckBoxStyles } from "check_box_styles.slint";
+import { FocusOutline } from "focus_outline.slint";
 
 export component CheckBox inherits CheckBoxBase {
-    in property <length> indicator-size: 20px;
-    private property <brush> state-indicator: root.checked ? BasicTheme.accent : BasicTheme.background;
-    private property <brush> state-foreground: BasicTheme.foreground;
-    in property <brush> indicator-color: root.state-indicator;
-    in property <brush> indicator-border-color: !root.enabled ? BasicTheme.disabled-foreground
-        : root.checked ? root.indicator-color : BasicTheme.border;
-    in property <length> indicator-border-width: 1px;
-    in property <length> indicator-radius: 4px;
-    in property <brush> checkmark-color: root.enabled ? BasicTheme.accent-foreground : BasicTheme.disabled-foreground;
-    in property <brush> foreground: root.state-foreground;
+    in property <CheckBoxStyle> style: CheckBoxStyles.standard;
+    in property <CheckBoxSizeMetrics> size: CheckBoxSizes.medium;
+    private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
+    private property <CheckBoxStateStyle> current-style: root.selected-styles.rest;
+    in property <length> indicator-size: root.size.indicator-size;
+    in property <brush> indicator-color: root.current-style.indicator-color;
+    in property <brush> indicator-border-color: root.current-style.indicator-border-color;
+    in property <length> indicator-border-width: root.current-style.indicator-border-width;
+    in property <length> indicator-radius: root.style.indicator-radius;
+    in property <brush> checkmark-color: root.current-style.checkmark-color;
+    in property <length> checkmark-padding: root.size.checkmark-padding;
+    in property <length> checkmark-width: root.size.checkmark-width;
 
     indicator-width: root.indicator-size;
     indicator-height: root.indicator-size;
-    content-padding: 6px;
-    font-size: 14px;
+    font-size: root.size.font-size;
     font-weight: 400;
-    min-height: 32px;
+    in property <brush> foreground: root.current-style.foreground;
+    spacing: root.size.spacing;
+    content-padding: root.size.padding-vertical;
+    content-padding-left: root.size.padding-horizontal;
+    content-padding-right: root.size.padding-horizontal;
+    min-height: root.size.min-height;
 
     states [
         disabled when !root.enabled: {
-            root.state-indicator: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
+            current-style: root.selected-styles.disabled;
         }
         pressed when root.pressed: {
-            root.state-indicator: root.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+            current-style: root.selected-styles.pressed;
         }
         hover when root.hovered: {
-            root.state-indicator: root.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
+            current-style: root.selected-styles.hover;
         }
     ]
 
@@ -43,14 +56,14 @@ export component CheckBox inherits CheckBoxBase {
         border-radius: root.indicator-radius;
 
         if root.checked: Path {
-            x: 3px;
-            y: 3px;
-            width: parent.width - 6px;
-            height: parent.height - 6px;
+            x: root.checkmark-padding;
+            y: root.checkmark-padding;
+            width: max(0px, parent.width - 2 * root.checkmark-padding);
+            height: max(0px, parent.height - 2 * root.checkmark-padding);
             viewbox-width: 16;
             viewbox-height: 16;
             stroke: root.checkmark-color;
-            stroke-width: 2px;
+            stroke-width: root.checkmark-width;
             MoveTo {
                 x: 2;
                 y: 8;
@@ -67,14 +80,14 @@ export component CheckBox inherits CheckBoxBase {
             }
         }
 
-        if root.enabled && root.has-focus: Rectangle {
-            x: -3px;
-            y: -3px;
-            width: parent.width + 6px;
-            height: parent.height + 6px;
-            border-width: 2px;
-            border-color: BasicTheme.focus;
-            border-radius: root.indicator-radius + 2px;
+        FocusOutline {
+            active: root.enabled && root.has-focus;
+            outline-color: root.style.focus-color;
+            target-width: parent.width;
+            target-height: parent.height;
+            line-width: root.style.focus-width;
+            offset: root.style.focus-offset;
+            radius: root.indicator-radius;
         }
     }
 

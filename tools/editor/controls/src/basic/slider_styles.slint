@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SliderStyle } from "slider_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global SliderStyles {
+    in-out property <SliderStyle> standard: {
+        rest: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent,
+            handle-border-color: BasicTheme.border,
+        },
+        hover: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent-hover,
+            handle-border-color: BasicTheme.border,
+        },
+        pressed: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent-pressed,
+            handle-border-color: BasicTheme.border,
+        },
+        disabled: {
+            track-color: BasicTheme.disabled-background,
+            fill-color: BasicTheme.disabled-foreground,
+            handle-color: BasicTheme.disabled-foreground,
+            handle-border-color: BasicTheme.border,
+        },
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+    };
+}

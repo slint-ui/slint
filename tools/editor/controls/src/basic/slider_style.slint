@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SliderStateStyle {
+    track-color: brush,
+    fill-color: brush,
+    handle-color: brush,
+    handle-border-color: brush,
+    handle-border-width: length = 1px,
+}
+
+export struct SliderStyle {
+    rest: SliderStateStyle,
+    hover: SliderStateStyle,
+    pressed: SliderStateStyle,
+    disabled: SliderStateStyle,
+    focus-color: brush,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+}
+
+export struct SliderSizeMetrics {
+    preferred-length: length,
+    min-thickness: length,
+    handle-width: length,
+    handle-height: length,
+    track-thickness: length,
+}
+
+export global SliderSizes {
+    in-out property <SliderSizeMetrics> small: {
+        preferred-length: 160px,
+        min-thickness: 24px,
+        handle-width: 16px,
+        handle-height: 16px,
+        track-thickness: 3px,
+    };
+    in-out property <SliderSizeMetrics> medium: {
+        preferred-length: 200px,
+        min-thickness: 32px,
+        handle-width: 20px,
+        handle-height: 20px,
+        track-thickness: 4px,
+    };
+    in-out property <SliderSizeMetrics> large: {
+        preferred-length: 240px,
+        min-thickness: 40px,
+        handle-width: 24px,
+        handle-height: 24px,
+        track-thickness: 6px,
+    };
+}

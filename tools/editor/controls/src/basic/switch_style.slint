@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SwitchStateStyle {
+    track-color: brush,
+    thumb-color: brush,
+    foreground: brush,
+    track-border-color: brush,
+    track-border-width: length = 1px,
+}
+
+export struct SwitchStateStyles {
+    rest: SwitchStateStyle,
+    hover: SwitchStateStyle,
+    pressed: SwitchStateStyle,
+    disabled: SwitchStateStyle,
+}
+
+export struct SwitchStyle {
+    unchecked: SwitchStateStyles,
+    checked: SwitchStateStyles,
+    focus-color: brush,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+}
+
+export struct SwitchSizeMetrics {
+    min-height: length,
+    track-width: length,
+    track-height: length,
+    thumb-size: length,
+    thumb-padding: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    spacing: length,
+}
+
+export global SwitchSizes {
+    in-out property <SwitchSizeMetrics> small: {
+        min-height: 24px,
+        track-width: 32px,
+        track-height: 18px,
+        thumb-size: 12px,
+        thumb-padding: 3px,
+        padding-horizontal: 4px,
+        padding-vertical: 3px,
+        font-size: 12px,
+        spacing: 4px,
+    };
+    in-out property <SwitchSizeMetrics> medium: {
+        min-height: 32px,
+        track-width: 40px,
+        track-height: 22px,
+        thumb-size: 16px,
+        thumb-padding: 3px,
+        padding-horizontal: 6px,
+        padding-vertical: 5px,
+        font-size: 14px,
+        spacing: 6px,
+    };
+    in-out property <SwitchSizeMetrics> large: {
+        min-height: 40px,
+        track-width: 48px,
+        track-height: 26px,
+        thumb-size: 20px,
+        thumb-padding: 3px,
+        padding-horizontal: 8px,
+        padding-vertical: 7px,
+        font-size: 16px,
+        spacing: 8px,
+    };
+}

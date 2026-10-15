@@ -6,24 +6,42 @@ import {
     ComboBoxPopupBase,
     ButtonBase,
 } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import {
+    ComboBoxStyle,
+    ComboBoxStateStyle,
+    ComboBoxPopupStyle,
+    ComboBoxItemStyle,
+    ComboBoxSizeMetrics,
+    ComboBoxSizes,
+} from "combo_box_style.slint";
+import { ComboBoxStyles } from "combo_box_styles.slint";
+import { FocusOutline } from "focus_outline.slint";
 
 export component ComboBoxPopup inherits ComboBoxPopupBase {
-    in property <brush> popup-color: BasicTheme.background;
-    in property <brush> popup-border-color: BasicTheme.border;
-    in property <length> border-radius: 4px;
-    in property <length> font-size: 14px;
-    in property <int> font-weight: 400;
-    in property <brush> item-foreground: BasicTheme.foreground;
-    in property <brush> highlighted-background: BasicTheme.accent;
-    in property <brush> highlighted-foreground: BasicTheme.accent-foreground;
-    in property <brush> selected-background: BasicTheme.hover-background;
-    in property <length> item-padding-inline: 12px;
+    in property <ComboBoxPopupStyle> style: ComboBoxStyles.standard.popup;
+    in property <ComboBoxSizeMetrics> size: ComboBoxSizes.medium;
+    in property <brush> popup-color: root.style.background-color;
+    in property <brush> popup-border-color: root.style.border-color;
+    in property <length> popup-border-width: root.style.border-width;
+    in property <length> border-radius: root.style.border-radius;
+    in property <length> font-size: root.size.font-size;
+    in property <int> font-weight: root.style.rest.font-weight;
+    in property <brush> item-background: root.style.rest.background-color;
+    in property <brush> item-foreground: root.style.rest.foreground;
+    in property <brush> highlighted-background: root.style.highlighted.background-color;
+    in property <brush> highlighted-foreground: root.style.highlighted.foreground;
+    in property <brush> selected-background: root.style.selected.background-color;
+    in property <brush> selected-foreground: root.style.selected.foreground;
+    in property <brush> disabled-background: root.style.disabled.background-color;
+    in property <brush> disabled-foreground: root.style.disabled.foreground;
+    in property <length> item-padding-inline: root.size.item-padding-inline;
+    item-height: root.size.item-height;
+    popup-padding: root.size.popup-padding;
 
     Rectangle {
         background: root.popup-color;
         border-color: root.popup-border-color;
-        border-width: 1px;
+        border-width: root.popup-border-width;
         border-radius: root.border-radius;
     }
 
@@ -49,6 +67,34 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
             width: items.width;
             height: root.item-height;
             enabled: root.enabled;
+            private property <ComboBoxItemStyle> current-style: {
+                background-color: root.item-background,
+                foreground: root.item-foreground,
+                font-weight: root.font-weight,
+            };
+            states [
+                disabled when !root.enabled: {
+                    current-style: {
+                        background-color: root.disabled-background,
+                        foreground: root.disabled-foreground,
+                        font-weight: root.style.disabled.font-weight
+                    };
+                }
+                highlighted when index == root.highlighted-index: {
+                    current-style: {
+                        background-color: root.highlighted-background,
+                        foreground: root.highlighted-foreground,
+                        font-weight: root.style.highlighted.font-weight
+                    };
+                }
+                selected when index == root.current-index: {
+                    current-style: {
+                        background-color: root.selected-background,
+                        foreground: root.selected-foreground,
+                        font-weight: root.style.selected.font-weight
+                    };
+                }
+            ]
             text: value;
             accessible-role: list-item;
             accessible-checked: index == root.current-index;
@@ -57,15 +103,14 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
             clicked => { root.selected(index); }
             changed hovered => { if self.hovered { root.highlight(index); } }
             background << Rectangle {
-                background: index == root.highlighted-index ? root.highlighted-background
-                    : index == root.current-index ? root.selected-background : transparent;
+                background: item.current-style.background-color;
                 border-radius: root.border-radius;
             }
             content << Text {
                 text: value;
-                color: index == root.highlighted-index ? root.highlighted-foreground : root.item-foreground;
+                color: item.current-style.foreground;
                 font-size: root.font-size;
-                font-weight: index == root.current-index ? 600 : root.font-weight;
+                font-weight: item.current-style.font-weight;
                 vertical-alignment: center;
                 overflow: elide;
             }
@@ -74,39 +119,47 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
 }
 
 export component ComboBox inherits ComboBoxBase {
-    min-width: 120px;
-    min-height: 32px;
-    preferred-width: 200px;
-    content-padding: 6px;
-    content-padding-left: 12px;
-    content-padding-right: 12px;
-    private property <brush> state-background: BasicTheme.background;
-    private property <brush> state-foreground: BasicTheme.foreground;
-    in property <brush> background-color: root.state-background;
-    in property <brush> foreground: root.state-foreground;
-    in property <brush> border-color: root.has-focus || root.expanded ? BasicTheme.focus : BasicTheme.border;
-    in property <length> border-width: root.has-focus || root.expanded ? 2px : 1px;
-    in property <length> border-radius: 4px;
-    in property <length> font-size: 14px;
-    in property <int> font-weight: 400;
-    in property <brush> popup-color: BasicTheme.background;
-    in property <brush> popup-border-color: BasicTheme.border;
-    in property <brush> item-foreground: BasicTheme.foreground;
-    in property <brush> highlighted-background: BasicTheme.accent;
-    in property <brush> highlighted-foreground: BasicTheme.accent-foreground;
-    in property <brush> selected-background: BasicTheme.hover-background;
-    in property <length> item-padding-inline: 12px;
+    in property <ComboBoxStyle> style: ComboBoxStyles.standard;
+    in property <ComboBoxSizeMetrics> size: ComboBoxSizes.medium;
+    private property <ComboBoxStateStyle> current-style: root.style.rest;
+    min-width: root.size.min-width;
+    min-height: root.size.min-height;
+    preferred-width: root.size.preferred-width;
+    content-padding: root.size.padding-vertical;
+    content-padding-left: root.size.padding-horizontal;
+    content-padding-right: root.size.padding-horizontal;
+    indicator-width: root.size.indicator-width;
+    spacing: root.size.spacing;
+    item-height: root.size.item-height;
+    popup-padding: root.size.popup-padding;
+    in property <brush> background-color: root.current-style.background-color;
+    in property <brush> foreground: root.current-style.foreground;
+    in property <brush> border-color: root.current-style.border-color;
+    in property <length> border-width: root.current-style.border-width;
+    in property <length> border-radius: root.style.border-radius;
+    in property <length> font-size: root.size.font-size;
+    in property <int> font-weight: root.style.popup.rest.font-weight;
+    in property <brush> popup-color: root.style.popup.background-color;
+    in property <brush> popup-border-color: root.style.popup.border-color;
+    in property <length> popup-border-width: root.style.popup.border-width;
+    in property <length> popup-border-radius: root.style.popup.border-radius;
+    in property <brush> item-background: root.style.popup.rest.background-color;
+    in property <brush> item-foreground: root.style.popup.rest.foreground;
+    in property <brush> highlighted-background: root.style.popup.highlighted.background-color;
+    in property <brush> highlighted-foreground: root.style.popup.highlighted.foreground;
+    in property <brush> selected-background: root.style.popup.selected.background-color;
+    in property <brush> selected-foreground: root.style.popup.selected.foreground;
+    in property <length> item-padding-inline: root.size.item-padding-inline;
 
     states [
         disabled when !root.enabled: {
-            root.state-background: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
+            current-style: root.style.disabled;
         }
         pressed when root.pressed || root.expanded: {
-            root.state-background: BasicTheme.pressed-background;
+            current-style: root.style.pressed;
         }
         hover when root.hovered: {
-            root.state-background: BasicTheme.hover-background;
+            current-style: root.style.hover;
         }
     ]
     background << Rectangle {
@@ -114,6 +167,16 @@ export component ComboBox inherits ComboBoxBase {
         border-color: root.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
+
+        FocusOutline {
+            active: root.enabled && (root.has-focus || root.expanded);
+            outline-color: root.style.focus-color;
+            target-width: parent.width;
+            target-height: parent.height;
+            line-width: root.style.focus-width;
+            offset: root.style.focus-offset;
+            radius: root.border-radius;
+        }
     }
 
     content << Text {
@@ -150,15 +213,20 @@ export component ComboBox inherits ComboBoxBase {
     }
 
     popup << ComboBoxPopup {
+        style: root.style.popup;
+        size: root.size;
         popup-color: root.popup-color;
         popup-border-color: root.popup-border-color;
-        border-radius: root.border-radius;
+        popup-border-width: root.popup-border-width;
+        border-radius: root.popup-border-radius;
         font-size: root.font-size;
         font-weight: root.font-weight;
+        item-background: root.item-background;
         item-foreground: root.item-foreground;
         highlighted-background: root.highlighted-background;
         highlighted-foreground: root.highlighted-foreground;
         selected-background: root.selected-background;
+        selected-foreground: root.selected-foreground;
         item-padding-inline: root.item-padding-inline;
     }
 }

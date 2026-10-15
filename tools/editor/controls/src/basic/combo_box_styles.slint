@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBoxStyle } from "combo_box_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global ComboBoxStyles {
+    in-out property <ComboBoxStyle> standard: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        hover: {
+            background-color: BasicTheme.hover-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        pressed: {
+            background-color: BasicTheme.pressed-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground: BasicTheme.disabled-foreground,
+            border-color: BasicTheme.border,
+        },
+        popup: {
+            background-color: BasicTheme.background,
+            border-color: BasicTheme.border,
+            rest: {
+                background-color: transparent,
+                foreground: BasicTheme.foreground,
+                font-weight: 400,
+            },
+            highlighted: {
+                background-color: BasicTheme.accent,
+                foreground: BasicTheme.accent-foreground,
+                font-weight: 400,
+            },
+            selected: {
+                background-color: BasicTheme.hover-background,
+                foreground: BasicTheme.foreground,
+                font-weight: 600,
+            },
+            disabled: {
+                background-color: transparent,
+                foreground: BasicTheme.disabled-foreground,
+                font-weight: 400,
+            },
+        },
+        focus-color: BasicTheme.focus,
+        focus-width: 2px,
+        focus-offset: 2px,
+        border-radius: 4px,
+    };
+}
