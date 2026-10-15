@@ -1,6 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import type { SourceBytes, SourceCapture, SourceNode } from "./source";
+
+export function reusableCapture(source: SourceCapture<SourceBytes>): boolean {
+    const seen = new Set<string>();
+    const reusable = (node: SourceNode<SourceBytes>): boolean => {
+        if (seen.has(node.id)) return true;
+        seen.add(node.id);
+        if (
+            node.errors.length ||
+            node.exports?.png?.error ||
+            node.exports?.svg.error ||
+            (node.type === "TEXT" && node.exports !== undefined)
+        )
+            return false;
+        return (node.children ?? []).every(reusable);
+    };
+    return (
+        Object.values(source.images).every(
+            (image) => image.value !== undefined,
+        ) &&
+        reusable(source.root) &&
+        (source.components?.definitions ?? []).every((definition) =>
+            definition.variants.every((variant) => reusable(variant.root)),
+        )
+    );
+}
+
 export class CaptureCancelled extends Error {
     public constructor() {
         super("Capture cancelled");
@@ -8,28 +35,6 @@ export class CaptureCancelled extends Error {
 }
 
 export type CaptureScheduler = <T>(operation: () => Promise<T>) => Promise<T>;
-
-export async function withCaptureTimeoutFallback<T>(
-    timeoutMs: number,
-    primary: (cancelled: () => boolean) => Promise<T>,
-    fallback: () => Promise<T>,
-): Promise<{ value: T; fellBack: boolean }> {
-    let timedOut = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const primaryOutcome = primary(() => timedOut).then(
-        (value) => ({ kind: "value" as const, value }),
-        (error) => ({ kind: "error" as const, error }),
-    );
-    const timeout = new Promise<{ kind: "timeout" }>((resolve) => {
-        timer = setTimeout(() => resolve({ kind: "timeout" }), timeoutMs);
-    });
-    const first = await Promise.race([primaryOutcome, timeout]);
-    if (timer !== undefined) clearTimeout(timer);
-    if (first.kind === "value") return { value: first.value, fellBack: false };
-    if (first.kind === "error") throw first.error;
-    timedOut = true;
-    return { value: await fallback(), fellBack: true };
-}
 
 /** Session-only, bounded cache. Rejections and results from invalidated runs are not retained. */
 export class CaptureCache {
@@ -53,12 +58,6 @@ export class CaptureCache {
         this.entries.clear();
         this.pending.clear();
         this.retained = 0;
-    }
-    // Timed-out host calls cannot be aborted and may never settle. A fallback
-    // can reuse completed values without waiting for abandoned promises.
-    public discardPending(): void {
-        this.generation++;
-        this.pending.clear();
     }
     public async get<T>(
         key: string,

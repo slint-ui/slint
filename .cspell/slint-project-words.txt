@@ -762,6 +762,7 @@ wakeup
 walkdir
 wasmbind
 Waveshare
+wdth
 weakref
 weatherdemo
 weathericons

@@ -418,7 +418,7 @@ describe("source", () => {
                     ? { children: node.children.map(materialize) }
                     : {}),
             }) as SceneNode;
-        const capture = async (planned: boolean, fail = false) => {
+        const capture = async (fail = false) => {
             const calls: string[] = [];
             const result = await captureSource(
                 materialize(fixture.root),
@@ -437,35 +437,48 @@ describe("source", () => {
                 4,
                 undefined,
                 undefined,
-                planned ? "tree" : "flattened",
+                "tree",
             );
             return { calls, source: result.source };
         };
         // Native rectangular clipping must still export the vector it contains.
-        expect((await capture(true)).calls).toEqual([content.id]);
+        expect((await capture()).calls).toEqual([content.id]);
         mask.properties.maskType = "LUMINANCE";
         for (const fail of [false, true]) {
-            const baseline = await capture(false, fail);
-            const planned = await capture(true, fail);
-            expect(baseline.calls).toEqual([content.id, fixture.root.id]);
+            const planned = await capture(fail);
             expect(planned.calls).toEqual([fixture.root.id]);
             expect(
                 planned.source.root.children?.map((n) => n.properties),
-            ).toEqual(baseline.source.root.children?.map((n) => n.properties));
-            const before = await normalizeSource(baseline.source);
-            const after = await normalizeSource(planned.source);
-            // Capture metrics contain export counts; compare render contract and diagnostics.
-            expect({ ...after, captureMetrics: undefined }).toEqual({
-                ...before,
-                captureMetrics: undefined,
-            });
-            if (after.ok && !after.empty && before.ok && !before.empty)
-                expect(convertSnapshot(after.snapshot)).toEqual(
-                    convertSnapshot(before.snapshot),
+            ).toEqual(fixture.root.children?.map((n) => n.properties));
+            const normalized = await normalizeSource(planned.source);
+            if (fail) {
+                expect(normalized).toMatchObject({
+                    ok: false,
+                    diagnostics: expect.arrayContaining([
+                        expect.objectContaining({
+                            code: "MASK_COMPOSITION_OMITTED",
+                        }),
+                        expect.objectContaining({
+                            code: "UNRENDERABLE_SELECTION",
+                        }),
+                    ]),
+                });
+            } else {
+                expect(normalized.ok).toBe(true);
+                if (!normalized.ok || normalized.empty)
+                    throw Error("Missing mask snapshot");
+                expect(normalized.warnings).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            code: "MASK_IMAGE_SUBSTITUTED",
+                        }),
+                    ]),
                 );
+                expect(convertSnapshot(normalized.snapshot).ok).toBe(true);
+            }
         }
         mask.properties.visible = false;
-        expect((await capture(true)).calls).toEqual([content.id]);
+        expect((await capture()).calls).toEqual([content.id]);
     });
 
     test("source encoding preserves values the render contract cannot accept", () => {
@@ -849,6 +862,10 @@ test.each(["TEXT", "VECTOR"])(
         if (!label) throw Error("Expected captured label");
         source.root = label;
         source.root.type = type;
+        source.root.properties.fontName = {
+            family: "Example Font",
+            style: "Regular",
+        };
         source.pngEnabled = false;
         source.root.exports = {
             svg: {
@@ -883,3 +900,29 @@ test.each(["TEXT", "VECTOR"])(
         });
     },
 );
+
+test("encoding reads each field once and retains own prototype-named data", () => {
+    let reads = 0;
+    const raw = {
+        get field() {
+            reads++;
+            return { values: [1, undefined, SOURCE_MIXED] };
+        },
+        ignored: () => {},
+    };
+    Object.defineProperty(raw, "__proto__", {
+        value: { safe: true },
+        enumerable: true,
+    });
+    const encoded = encodeValue(raw);
+    expect(reads).toBe(1);
+    const decoded = decodeValue(JSON.parse(JSON.stringify(encoded))) as Record<
+        string,
+        unknown
+    >;
+    expect(decoded.field).toEqual({ values: [1, undefined, SOURCE_MIXED] });
+    expect(Object.hasOwn(decoded, "__proto__")).toBe(true);
+    expect(decoded.__proto__).toEqual({ safe: true });
+    expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
+    expect(decoded).not.toHaveProperty("ignored");
+});

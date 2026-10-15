@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cspell:words wdth
 
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { readFile } from "node:fs/promises";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { CaptureCache } from "../src/plugin/capture-work";
 import {
     type CaptureInstrumentation,
@@ -1681,6 +1682,7 @@ test("native vector SVG exports preserve the complete node box", async () => {
     } as unknown as SceneNode;
     const captured = await captureSource(node, Symbol("mixed"));
     expect(settings).toEqual([
+        { format: "JSON_REST_V1" },
         expect.objectContaining({
             format: "SVG_STRING",
             contentsOnly: true,
@@ -2870,8 +2872,9 @@ test("returns stable diagnostics for selection and unsupported-node failures", a
 test("unavailable fonts always export complete text layers", async () => {
     const mixed = Symbol("mixed");
     for (const [family, style, characters, kind] of [
-        ["Roboto", "Regular", "Hello", "svg"],
-        ["Roboto", "Regular", "Hello\nWorld", "svg"],
+        ["Roboto", "Regular", "Hello", "text"],
+        ["Example Font", "Regular", "Hello", "svg"],
+        ["Roboto", "Regular", "Hello\nWorld", "text"],
         ["Inter", "Bold Italic", "Hello", "svg"],
         [" inter ", "Regular", "Hello", "text"],
         ["Roboto", "Regular", "", "text"],
@@ -2981,7 +2984,7 @@ test("unavailable font conversion reports unresolved mixed fonts and invalid ima
             await captureSource(
                 {
                     ...text,
-                    fontName: { family: "Roboto", style: "Regular" },
+                    fontName: { family: "Example Font", style: "Regular" },
                 } as unknown as SceneNode,
                 mixed,
                 async () => "<svg><text>Hello</text></svg>",
@@ -3645,102 +3648,6 @@ describe("milestone7", () => {
     });
 });
 
-test.each(["SECTION", "TABLE", "TABLE_CELL"])(
-    "%s raster fallback preserves its type for geometry defaults and validation",
-    async (type) => {
-        const png = new Uint8Array(
-            await readFile("fixtures/authored/odd-size.png"),
-        );
-        const section = {
-            type,
-            id: "section:raster",
-            name: "Raster section",
-            x: -2679,
-            y: 0,
-            width: 40,
-            height: 30,
-            fills: [],
-            children: [],
-        };
-        const capture = async (properties = {}) =>
-            (
-                await captureSource(
-                    { ...section, ...properties } as unknown as SceneNode,
-                    Symbol("mixed"),
-                    async () => "",
-                    async () => undefined,
-                    async () => png,
-                    1,
-                    false,
-                    undefined,
-                    undefined,
-                    4,
-                    undefined,
-                    undefined,
-                    "raster",
-                )
-            ).source;
-        const source = await capture();
-        expect(source.root).toMatchObject({
-            type,
-        });
-        expect(source).toHaveProperty("rasterized", true);
-        expect(source.root.properties).not.toHaveProperty("opacity");
-        expect(source.root.properties).not.toHaveProperty("rotation");
-        expect(source.root.properties).not.toHaveProperty("visible");
-        const normalized = await normalizeSource(source);
-        expect(normalized).toMatchObject({
-            ok: true,
-            snapshot: {
-                root: { kind: "svg", x: -2679, y: 0, width: 40, height: 30 },
-            },
-        });
-        if (!normalized.ok || normalized.empty)
-            throw Error("Missing raster snapshot");
-        const converted = convertSnapshot(normalized.snapshot);
-        expect(converted.ok).toBe(true);
-        const defaults = await normalizeSource(
-            await capture({
-                x: undefined,
-                y: undefined,
-                width: undefined,
-                height: undefined,
-            }),
-        );
-        expect(defaults).toMatchObject({
-            ok: true,
-            snapshot: {
-                root: {
-                    x: 0,
-                    y: 0,
-                    width: 0,
-                    height: 0,
-                    opacity: 1,
-                    rotation: 0,
-                    visible: true,
-                },
-            },
-        });
-        for (const properties of [
-            { opacity: 2 },
-            { rotation: Number.NaN },
-            { x: Number.NaN },
-            { y: Number.NaN },
-            { width: -1 },
-            { height: -1 },
-        ]) {
-            expect(
-                await normalizeSource(await capture(properties)),
-            ).toMatchObject({
-                ok: false,
-                diagnostics: expect.arrayContaining([
-                    expect.objectContaining({ code: "INVALID_GEOMETRY" }),
-                ]),
-            });
-        }
-    },
-);
-
 test.each([false, true])(
     "captures vector and bitmap assets from hidden masters (already in the selected tree: %s)",
     async (inTree) => {
@@ -3840,3 +3747,691 @@ test.each([false, true])(
         );
     },
 );
+
+test("uniform SVG vectors reuse resolved paths without reading their vector network", async () => {
+    const cache = new CaptureCache();
+    const children = Array.from({ length: 100 }, (_, index) => ({
+        ...text,
+        id: `vector-${index}`,
+        type: "VECTOR",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        vectorPaths: [{ windingRule: "NONZERO", data: "M 0 0 L 24 24" }],
+        get vectorNetwork() {
+            throw Error("Network unavailable");
+        },
+    }));
+    const root = {
+        id: "root",
+        name: "Icons",
+        type: "FRAME",
+        visible: true,
+        children,
+    } as unknown as SceneNode;
+    let exports = 0;
+    const captured = await captureSource(
+        root,
+        Symbol("mixed"),
+        async () => {
+            exports++;
+            return '<svg width="24" height="24"/>';
+        },
+        undefined,
+        async () => {
+            throw Error("PNG must not run");
+        },
+        1,
+        false,
+        undefined,
+        undefined,
+        4,
+        cache,
+    );
+    expect(exports).toBe(1);
+    expect(captured.work).toMatchObject({
+        capturedNodes: 101,
+        svgExports: 1,
+        pngExports: 0,
+    });
+});
+
+test("Material Roboto labels retain native text without any host exports", async () => {
+    const node = {
+        ...text,
+        fontName: {
+            family: "Roboto",
+            style: "Regular",
+            variationSettings: { wdth: 100, wght: 400 },
+        },
+        getStyledTextSegments: () => [],
+    } as unknown as SceneNode;
+    const captured = await captureSource(
+        node,
+        Symbol("mixed"),
+        async () => {
+            throw Error("Roboto must not export SVG");
+        },
+        undefined,
+        async () => {
+            throw Error("Roboto must not export PNG");
+        },
+    );
+    expect(captured.work).toMatchObject({ pngExports: 0, svgExports: 0 });
+    expect(captured.fontMetrics).toEqual({
+        requests: 0,
+        exports: 0,
+        cacheHits: 0,
+    });
+    const normalized = await normalizeSource(captured.source);
+    expect(normalized).toMatchObject({
+        ok: true,
+        snapshot: { root: { kind: "text", fontFamily: "Roboto" } },
+    });
+});
+
+test("complete component families are inventoried once instead of once per variant", async () => {
+    let childReads = 0;
+    const variants = Array.from({ length: 400 }, (_, index) =>
+        componentLikeNode("COMPONENT", `variant-${index}`, [], {
+            variantProperties: { State: String(index) },
+            componentPropertyDefinitions: {},
+        }),
+    );
+    const owner = {
+        type: "COMPONENT_SET",
+        id: "owner",
+        name: "Buttons",
+        componentPropertyDefinitions: {
+            Icon: { type: "INSTANCE_SWAP", defaultValue: "unused" },
+            State: {
+                type: "VARIANT",
+                defaultValue: "0",
+                variantOptions: variants.map((_, index) => String(index)),
+            },
+        },
+        get children() {
+            childReads++;
+            return variants;
+        },
+    };
+    for (const variant of variants)
+        Object.defineProperty(variant, "parent", { value: owner });
+    const root = {
+        ...componentLikeNode("COMPONENT", "root", variants),
+        type: "FRAME",
+    };
+    const captured = await captureSource(
+        root as unknown as SceneNode,
+        Symbol("mixed"),
+        async () => "",
+    );
+    expect(captured.source.components?.definitions[0].variants).toHaveLength(
+        400,
+    );
+    expect(captured.source.components?.definitions[0].scope).toBe("complete");
+    expect(childReads).toBeLessThan(10);
+});
+
+test("solid icon paths capture fully without any host export", async () => {
+    const children = Array.from({ length: 400 }, (_, index) => ({
+        ...text,
+        id: `solid-${index}`,
+        type: "VECTOR",
+        effects: [],
+        strokes: [],
+        cornerRadius: 0,
+        fills: [solid(1, 0, 0)],
+        width: 24,
+        height: 24,
+        absoluteTransform: [
+            [1, 0, index * 30],
+            [0, 1, 0],
+        ],
+        vectorPaths: [
+            { windingRule: "NONZERO", data: "M 0 0 L 24 0 L 24 24 Z" },
+        ],
+        exportAsync() {
+            throw Error("Solid paths must not call Figma exportAsync");
+        },
+    }));
+    const root = {
+        id: "icons",
+        name: "Icons",
+        type: "FRAME",
+        visible: true,
+        effects: [],
+        children,
+    } as unknown as SceneNode;
+    const captured = await captureSource(root, Symbol("mixed"));
+    expect(captured.work).toMatchObject({
+        capturedNodes: 401,
+        svgExports: 0,
+        pngExports: 0,
+    });
+    expect(captured.source.root.children).toHaveLength(400);
+    for (const child of captured.source.root.children!)
+        expect(child.exports?.svg.value).toContain('fill="#ff0000"');
+});
+
+test("unmasked containers do not reread every child property to plan a mask", async () => {
+    let fillReads = 0;
+    const children = Array.from({ length: 200 }, (_, index) => {
+        const child = {
+            ...text,
+            type: "RECTANGLE",
+            id: `unmasked-${index}`,
+            isMask: false,
+        };
+        Object.defineProperty(child, "fills", {
+            get() {
+                fillReads++;
+                return [solid(1, 0, 0)];
+            },
+        });
+        return child;
+    });
+    const root = {
+        ...componentLikeNode("COMPONENT", "unmasked", children),
+        type: "FRAME",
+    };
+    const captured = await captureSource(
+        root as unknown as SceneNode,
+        Symbol("mixed"),
+        async () => "",
+    );
+    expect(captured.source.root.children).toHaveLength(200);
+    expect(fillReads).toBe(200);
+});
+
+test("bulk metadata preserves normalized appearance while avoiding matching API reads", async () => {
+    let fillReads = 0;
+    const child = {
+        ...text,
+        type: "RECTANGLE",
+        id: "bulk-child",
+        isMask: false,
+    };
+    Object.defineProperty(child, "fills", {
+        get() {
+            fillReads++;
+            return [solid(1, 0, 0)];
+        },
+    });
+    const rootFields = {
+        ...componentLikeNode("COMPONENT", "bulk", [child]),
+        type: "FRAME",
+    };
+    const root = {
+        ...rootFields,
+        exportAsync: async () => ({
+            document: {
+                ...rootFields,
+                id: "bulk",
+                type: "FRAME",
+                fills: [solid(0.12, 0.32, 0.84)],
+                children: [
+                    {
+                        id: "bulk-child",
+                        type: "RECTANGLE",
+                        fills: [
+                            {
+                                type: "SOLID",
+                                color: { r: 1, g: 0, b: 0, a: 1 },
+                                opacity: 1,
+                            },
+                        ],
+                    },
+                ],
+            },
+        }),
+    };
+    const direct = await captureSource(
+        root as unknown as SceneNode,
+        Symbol("mixed"),
+        async () => "",
+    );
+    expect(fillReads).toBe(1);
+    fillReads = 0;
+    const bulk = await captureSource(
+        root as unknown as SceneNode,
+        Symbol("mixed"),
+    );
+    expect(fillReads).toBe(0);
+    expect(bulk.timings.operations.bulkJson.count).toBe(1);
+    expect(bulk.timings.operations.nodeReads.count).toBeGreaterThan(0);
+    expect(direct.timings.operations.bulkJson.count).toBe(0);
+    expect(await normalizeSource(bulk.source)).toEqual(
+        await normalizeSource(direct.source),
+    );
+});
+
+test("instances sharing a bulk component identity resolve their master once", async () => {
+    let resolutions = 0;
+    const master = {
+        ...componentLikeNode("COMPONENT", "shared-master", []),
+    };
+    const children = Array.from({ length: 200 }, (_, index) => ({
+        ...componentLikeNode("INSTANCE", `shared-${index}`, []),
+        getMainComponentAsync: async () => {
+            resolutions++;
+            return master;
+        },
+    }));
+    const root = {
+        ...componentLikeNode("COMPONENT", "shared-root", children),
+        type: "FRAME",
+        exportAsync: async () => ({
+            document: {
+                id: "shared-root",
+                type: "FRAME",
+                children: children.map((child) => ({
+                    id: child.id,
+                    type: "INSTANCE",
+                    componentId: master.id,
+                })),
+            },
+        }),
+    };
+    const captured = await captureSource(
+        root as unknown as SceneNode,
+        Symbol("mixed"),
+    );
+    expect(resolutions).toBe(1);
+    expect(captured.source.root.children).toHaveLength(200);
+    expect(
+        Object.keys(captured.source.components?.references ?? {}),
+    ).toHaveLength(201);
+    expect(
+        new Set(
+            Object.values(captured.source.components?.references ?? {}).map(
+                (ref) => ref.variantId,
+            ),
+        ),
+    ).toEqual(new Set([master.id]));
+});
+
+test("appearance capture starts while component discovery waits and still retains the master", async () => {
+    const master = { ...componentLikeNode("COMPONENT", "overlap-master", []) };
+    let resolveMaster!: (node: ComponentNode) => void;
+    const lookup = new Promise<ComponentNode>((resolve) => {
+        resolveMaster = resolve;
+    });
+    const svg = vi
+        .fn()
+        .mockResolvedValue(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>',
+        );
+    const child = {
+        ...text,
+        type: "VECTOR",
+        id: "overlap-vector",
+        name: "Icon",
+        width: 16,
+        height: 16,
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        effects: [],
+    };
+    const instance = {
+        ...componentLikeNode("INSTANCE", "overlap", [child]),
+        getMainComponentAsync: () => lookup,
+    };
+    const capture = captureSource(
+        instance as unknown as SceneNode,
+        Symbol("mixed"),
+        svg,
+    );
+    await vi.waitFor(() => expect(svg).toHaveBeenCalled());
+    resolveMaster(master as unknown as ComponentNode);
+    const result = await capture;
+    expect(result.source.components?.references.overlap).toMatchObject({
+        definitionId: "overlap-master",
+    });
+    expect(result.source.root.children?.[0].exports?.svg.value).toContain(
+        "<svg",
+    );
+});
+
+test("solid boolean fill geometry avoids host exports and retains operand metadata", async () => {
+    const exported = vi
+        .fn()
+        .mockRejectedValue(Error("Host export should not run"));
+    const operand = {
+        ...text,
+        id: "operand",
+        type: "VECTOR",
+        fills: [solid(1, 0, 0)],
+    };
+    const node = {
+        ...text,
+        id: "boolean",
+        type: "BOOLEAN_OPERATION",
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        effects: [],
+        cornerRadius: 0,
+        width: 16,
+        height: 16,
+        children: [operand],
+        fillGeometry: [{ windingRule: "EVENODD", data: "M0 0 L16 0 L16 16 Z" }],
+        exportAsync: exported,
+    };
+    const captured = await captureSource(
+        node as unknown as SceneNode,
+        Symbol("mixed"),
+    );
+    expect(captured.source.root.exports?.svg.value).toContain(
+        'fill-rule="evenodd"',
+    );
+    expect(captured.source.root.children).toHaveLength(1);
+    expect(captured.source.root.children?.[0].id).toBe("operand");
+    expect(captured.work.pngExports).toBe(0);
+    expect(captured.work.svgExports).toBe(0);
+    expect(
+        exported.mock.calls.every(
+            ([settings]) => settings.format === "JSON_REST_V1",
+        ),
+    ).toBe(true);
+});
+
+test("parallel component lookup rejection remains a capture error even without an error object", async () => {
+    const instance = {
+        ...componentLikeNode("INSTANCE", "failed-lookup", []),
+        getMainComponentAsync: async () => {
+            throw undefined;
+        },
+    };
+    const result = await captureSelectionSource(
+        [instance as unknown as SceneNode],
+        Symbol("mixed"),
+        async () => "",
+    );
+    expect(result).toMatchObject({
+        ok: false,
+        diagnostics: [{ code: "CAPTURE_ERROR", message: "undefined" }],
+    });
+});
+
+test("empty-painted vector icons retain dimensions and skip failed SVG plus blank PNG exports", async () => {
+    const exported = vi
+        .fn()
+        .mockRejectedValue(Error("This node may not have any visible layers"));
+    const node = {
+        ...text,
+        id: "unpainted-icon",
+        type: "VECTOR",
+        fills: [],
+        strokes: [],
+        effects: [],
+        cornerRadius: 0,
+        fillStyleId: "",
+        width: 20,
+        height: 20,
+        vectorPaths: [{ windingRule: "NONZERO", data: "M0 0 L20 20 Z" }],
+        vectorNetwork: {
+            vertices: [],
+            segments: [],
+            regions: [{ fills: [], fillStyleId: "" }],
+        },
+        exportAsync: exported,
+    };
+    const captured = await captureSource(
+        node as unknown as SceneNode,
+        Symbol("mixed"),
+    );
+    expect(captured.source.root.exports?.svg.value).toContain(
+        'width="20" height="20"/>',
+    );
+    expect(captured.work).toMatchObject({ pngExports: 0, svgExports: 0 });
+    expect(
+        exported.mock.calls.every(
+            ([settings]) => settings.format === "JSON_REST_V1",
+        ),
+    ).toBe(true);
+});
+
+test("hidden master revisits reuse metadata and still capture visible definition assets", async () => {
+    let fills = 0;
+    const icon = {
+        ...rectangle,
+        id: "revisit:icon",
+        type: "VECTOR",
+        get fills() {
+            fills++;
+            return [solid(1, 0, 0)];
+        },
+    };
+    const master = {
+        ...componentLikeNode("COMPONENT", "revisit:master", [icon], {
+            visible: false,
+        }),
+    };
+    const instance = componentLikeNode("INSTANCE", "revisit:instance", [], {
+        getMainComponentAsync: async () => master,
+    });
+    const root = {
+        ...group,
+        id: "revisit:root",
+        children: [master, instance],
+    } as unknown as SceneNode;
+    const exports: string[] = [];
+    const result = await captureSource(
+        root,
+        Symbol("mixed"),
+        async (node) => {
+            exports.push(node.id);
+            return '<svg width="24" height="24"><path d="M0 0H24V24H0Z" fill="red"/></svg>';
+        },
+        undefined,
+        undefined,
+        1,
+        true,
+    );
+    expect(fills).toBe(1);
+    expect(exports).toEqual(["revisit:icon"]);
+    expect(
+        result.source.components?.definitions[0].variants[0].root.children?.[0]
+            .exports?.svg.value,
+    ).toContain('fill="red"');
+    expect(await normalizeSource(result.source, "export")).toMatchObject({
+        ok: true,
+    });
+});
+
+test("independent required variants start before another variant's lookup completes", async () => {
+    let release!: () => void;
+    const blocked = new Promise<null>((resolve) => {
+        release = () => resolve(null);
+    });
+    const requested: string[] = [];
+    const child = (id: string) =>
+        componentLikeNode("INSTANCE", id, [], {
+            getMainComponentAsync: () => {
+                requested.push(id);
+                return blocked;
+            },
+        });
+    const first = componentLikeNode("COMPONENT", "parallel:a", []);
+    const second = componentLikeNode("COMPONENT", "parallel:b", [child("b")]);
+    const third = componentLikeNode("COMPONENT", "parallel:c", [child("c")]);
+    const owner = {
+        id: "parallel:owner",
+        name: "Family",
+        type: "COMPONENT_SET",
+        children: [first, second, third],
+        componentPropertyDefinitions: {
+            State: {
+                type: "VARIANT",
+                defaultValue: "a",
+                variantOptions: ["a", "b", "c"],
+            },
+        },
+    };
+    for (const [index, variant] of [first, second, third].entries()) {
+        Object.defineProperty(variant, "parent", { value: owner });
+        Object.defineProperty(variant, "variantProperties", {
+            value: { State: ["a", "b", "c"][index] },
+        });
+    }
+    const pending = captureSource(first, Symbol("mixed"), async () => "");
+    await vi.waitFor(() => expect(requested).toEqual(["b", "c"]));
+    release();
+    const result = await pending;
+    expect(
+        result.source.components?.definitions[0].variants.map(
+            (variant) => variant.id,
+        ),
+    ).toEqual(["parallel:a", "parallel:b", "parallel:c"]);
+});
+
+test("capture reuses exact transforms and untransformed bulk bounds without geometry getters", async () => {
+    const reads: string[] = [];
+    const node = {
+        ...rectangle,
+        boundVariables: {},
+        relativeTransform: [
+            [1, 0, 10],
+            [0, 1, 20],
+        ],
+        absoluteTransform: [
+            [1, 0, 100],
+            [0, 1, 200],
+        ],
+        exportAsync: async () => ({
+            document: {
+                id: rectangle.id,
+                type: "RECTANGLE",
+                fills: [],
+                absoluteBoundingBox: { x: 100, y: 200, width: 240, height: 72 },
+            },
+        }),
+    };
+    for (const key of ["x", "y", "width", "height", "resolvedVariableModes"])
+        Object.defineProperty(node, key, {
+            get() {
+                reads.push(key);
+                throw Error(`Unexpected ${key}`);
+            },
+        });
+    const result = await captureSource(
+        node as unknown as SceneNode,
+        Symbol("mixed"),
+    );
+    expect(reads).toEqual([]);
+    expect(result.source.root.errors).toEqual([]);
+    expect(result.source.root.properties).toMatchObject({
+        x: 10,
+        y: 20,
+        width: 240,
+        height: 72,
+    });
+    expect(result.timings.propertyReads?.RECTANGLE).not.toHaveProperty(
+        "resolvedVariableModes",
+    );
+    const normalized = await normalizeSource(result.source);
+    expect(normalized.ok).toBe(true);
+});
+
+test.each(["rotated", "scaled", "missing", "mismatched"])(
+    "%s bulk bounds retain live dimensions",
+    async (kind) => {
+        const reads: string[] = [];
+        const node = {
+            ...rectangle,
+            relativeTransform: [
+                [1, 0, 10],
+                [0, 1, 20],
+            ],
+            absoluteTransform:
+                kind === "rotated"
+                    ? [
+                          [0, -1, 100],
+                          [1, 0, 200],
+                      ]
+                    : kind === "scaled"
+                      ? [
+                            [2, 0, 100],
+                            [0, 2, 200],
+                        ]
+                      : [
+                            [1, 0, 100],
+                            [0, 1, 200],
+                        ],
+            exportAsync: async () => ({
+                document: {
+                    id: rectangle.id,
+                    type: "RECTANGLE",
+                    absoluteBoundingBox:
+                        kind === "missing"
+                            ? null
+                            : {
+                                  x: kind === "mismatched" ? 99 : 100,
+                                  y: 200,
+                                  width: 999,
+                                  height: 999,
+                              },
+                },
+            }),
+        };
+        for (const key of ["width", "height"] as const)
+            Object.defineProperty(node, key, {
+                get() {
+                    reads.push(key);
+                    return rectangle[key];
+                },
+            });
+        const result = await captureSource(
+            node as unknown as SceneNode,
+            Symbol("mixed"),
+        );
+        expect(reads).toEqual(["height", "width"]);
+        expect(result.source.root.properties).toMatchObject({
+            width: 240,
+            height: 72,
+        });
+    },
+);
+
+test("bound nodes retain inherited modes while unbound nodes avoid mode getters", async () => {
+    const nodes = [
+        { ...rectangle, id: "plain", boundVariables: {} },
+        {
+            ...rectangle,
+            id: "bound",
+            boundVariables: { width: { type: "VARIABLE_ALIAS", id: "size" } },
+        },
+        {
+            ...rectangle,
+            id: "paint",
+            fills: [
+                {
+                    ...solid(1, 0, 0),
+                    boundVariables: {
+                        color: { type: "VARIABLE_ALIAS", id: "theme" },
+                    },
+                },
+            ],
+        },
+    ];
+    for (const node of nodes) {
+        const modes = vi.fn(() => ({ theme: "dark" }));
+        Object.defineProperty(node, "resolvedVariableModes", { get: modes });
+        const result = await captureSource(
+            node as unknown as SceneNode,
+            Symbol("mixed"),
+            async () => "",
+        );
+        if (node.id === "plain") {
+            expect(modes).not.toHaveBeenCalled();
+            expect(result.source.root.properties).not.toHaveProperty(
+                "resolvedVariableModes",
+            );
+        } else {
+            expect(modes).toHaveBeenCalledOnce();
+            expect(result.source.root.properties.resolvedVariableModes).toEqual(
+                { theme: "dark" },
+            );
+        }
+    }
+});

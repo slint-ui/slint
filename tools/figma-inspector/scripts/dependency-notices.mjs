@@ -105,6 +105,9 @@ export async function dependencyNotices(moduleIds) {
             `## ${id}\nLicense: ${pkg.license ?? "SEE LICENSE FILE"}\n\n${texts.join("\n\n")}`,
         );
     }
+    sections.push(
+        `## Roboto\n\n${await readFile(resolve(repoRoot, "ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf.license"), "utf8")}`,
+    );
     // Include upstream license texts, including fonts and vendored components.
     for (const name of (await readdir(resolve(repoRoot, "LICENSES"))).sort())
         sections.push(

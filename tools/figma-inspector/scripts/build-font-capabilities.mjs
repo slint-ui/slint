@@ -14,10 +14,17 @@ const paths = [
     ...source.matchAll(/include_bytes!\("sharedfontique\/([^"]+)"\)/g),
 ].map((match) => match[1]);
 if (!paths.length) throw Error("No embedded runtime fonts found");
-const fonts = [...new Set(paths)].map((path) => {
-    const data = readFileSync(
+const fontPaths = [
+    ...paths.map((path) =>
         resolve(repoRoot, "internal/common/sharedfontique", path),
-    );
+    ),
+    resolve(
+        repoRoot,
+        "ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf",
+    ),
+];
+const fonts = [...new Set(fontPaths)].map((path) => {
+    const data = readFileSync(path);
     const tables = new Map();
     for (let i = 0; i < data.readUInt16BE(4); i++) {
         const entry = 12 + i * 16;

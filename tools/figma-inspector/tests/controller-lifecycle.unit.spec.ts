@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { TimingTraceBuilder } from "../src/performance/timing";
 import { PreviewController } from "../src/preview/controller";
 
 const runtime = vi.hoisted(() => ({
     initialize: vi.fn(),
     compile: vi.fn(),
     run: vi.fn(),
+    registerFont: vi.fn(),
 }));
 
 vi.mock("@interpreter/slint_wasm_interpreter_bg.wasm?url&inline", () => ({
@@ -17,6 +19,7 @@ vi.mock("@interpreter/slint_wasm_interpreter.js", () => ({
     default: runtime.initialize,
     compile_from_string: runtime.compile,
     run_event_loop: runtime.run,
+    register_font_from_memory: runtime.registerFont,
 }));
 
 function deferred<T>() {
@@ -57,7 +60,9 @@ function setup() {
     };
     const canvas = {
         id: "preview",
-        style: { visibility: "" },
+        width: 240,
+        height: 72,
+        style: { visibility: "", setProperty: vi.fn() },
         dispatchEvent: vi.fn(),
         getContext: vi.fn().mockReturnValue(context),
     };
@@ -225,12 +230,14 @@ test("export diagnostics preserve the preview, release compiler wrappers, and ar
             expect(canvas.style.visibility).toBe("visible");
             return compilation.promise;
         });
-    const initial = controller.initialize(
-        "preview",
-        1,
-        undefined,
-        [],
+    await controller.initialize("preview", 1);
+    const exportPackage = {};
+    const initial = controller.validateExport(
         "export",
+        1,
+        [],
+        undefined,
+        exportPackage,
     );
     await vi.waitFor(() => expect(runtime.compile).toHaveBeenCalledTimes(2));
     expect(status.dataset).toEqual({ state: "compiling", revision: "1" });
@@ -239,23 +246,31 @@ test("export diagnostics preserve the preview, release compiler wrappers, and ar
     expect(validation.free).toHaveBeenCalledOnce();
     expect(status.dataset).toEqual({ state: "ready", revision: "1" });
     expect(diagnostics.dataset.severity).toBe("warning");
-    controller.requestRender("preview", 2, undefined, [], "export");
+    controller.requestRender("preview", 2);
     await vi.waitFor(() =>
         expect(status.dataset).toEqual({ state: "ready", revision: "2" }),
     );
+    expect(
+        await controller.validateExport(
+            undefined,
+            2,
+            [],
+            undefined,
+            exportPackage,
+        ),
+    ).toBe(false);
     expect(runtime.compile).toHaveBeenCalledTimes(2);
-    expect(canvas.dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-            type: "preview-export-error",
-            detail: expect.objectContaining({ revision: 2 }),
-        }),
-    );
     const revalidation = deferred<typeof validation>();
     runtime.compile.mockReturnValueOnce(revalidation.promise);
-    controller.requestRender("preview", 3, undefined, [], "different export");
+    controller.requestRender("preview", 3);
+    await vi.waitFor(() =>
+        expect(status.dataset).toEqual({ state: "ready", revision: "3" }),
+    );
+    const revalidated = controller.validateExport("different export", 3, []);
     await vi.waitFor(() => expect(runtime.compile).toHaveBeenCalledTimes(3));
     expect(status.dataset).toEqual({ state: "compiling", revision: "3" });
     revalidation.resolve(validation);
+    expect(await revalidated).toBe(false);
     await vi.waitFor(() =>
         expect(status.dataset).toEqual({ state: "ready", revision: "3" }),
     );
@@ -267,7 +282,8 @@ test("export compiler rejection reports a runtime failure and blocks further run
     runtime.compile
         .mockResolvedValueOnce(preview.result)
         .mockRejectedValueOnce(new WebAssembly.RuntimeError("unreachable"));
-    await controller.initialize("preview", 1, undefined, [], "export");
+    await controller.initialize("preview", 1);
+    expect(await controller.validateExport("export", 1, [])).toBe(false);
     expect(status.dataset).toEqual({ state: "error", revision: "1" });
     expect(canvas.style.visibility).toBe("hidden");
     expect(diagnostics.textContent).toContain("Export compiler failed");
@@ -278,4 +294,190 @@ test("export compiler rejection reports a runtime failure and blocks further run
     );
     expect(diagnostics.textContent).toContain("Export compiler failed");
     expect(runtime.compile).toHaveBeenCalledTimes(2);
+});
+
+test("registers the bundled font before compiling selected text", async () => {
+    const { controller } = setup();
+    runtime.compile.mockResolvedValue(compiled().result);
+    await controller.initialize(
+        'export component Preview inherits Window { Text { text: "Label"; font-family: "Roboto"; } }',
+        1,
+    );
+    expect(runtime.registerFont).toHaveBeenCalledOnce();
+    expect(
+        (runtime.registerFont.mock.calls[0][0] as Uint8Array).byteLength,
+    ).toBeGreaterThan(100_000);
+    expect(runtime.registerFont.mock.invocationCallOrder[0]).toBeLessThan(
+        runtime.compile.mock.invocationCallOrder[0],
+    );
+});
+
+test("export validation preserves the shown preview and serializes a newer render", async () => {
+    const { controller, canvas, status } = setup();
+    const preview = compiled(),
+        later = compiled();
+    const validation = deferred<ReturnType<typeof compiled>["result"]>();
+    runtime.compile
+        .mockResolvedValueOnce(preview.result)
+        .mockReturnValueOnce(validation.promise)
+        .mockResolvedValueOnce(later.result);
+    await controller.initialize("preview", 1);
+    const result = controller.validateExport("native export", 1, []);
+    await vi.waitFor(() => expect(runtime.compile).toHaveBeenCalledTimes(2));
+    expect(canvas.style.visibility).toBe("visible");
+    expect(status.dataset.state).toBe("compiling");
+    controller.requestRender("newer preview", 2);
+    expect(runtime.compile).toHaveBeenCalledTimes(2);
+    validation.resolve(compiled().result);
+    expect(await result).toBe(false);
+    await vi.waitFor(() => expect(later.instance.show).toHaveBeenCalledOnce());
+    expect(runtime.compile).toHaveBeenCalledTimes(3);
+});
+
+test("export timings distinguish compilation, cached validation, and skipped validation", async () => {
+    const { controller } = setup();
+    let now = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    try {
+        runtime.compile.mockResolvedValue(compiled().result);
+        await controller.initialize("preview", 1);
+        const onTiming = vi.fn();
+        const pkg = {};
+        runtime.compile.mockImplementationOnce(async () => {
+            now += 17;
+            return compiled().result;
+        });
+        expect(
+            await controller.validateExport("export", 1, [], onTiming, pkg),
+        ).toBe(true);
+        expect(onTiming).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                compilationMs: 17,
+                totalMs: 17,
+                cacheHit: false,
+                outcome: "valid",
+            }),
+        );
+        expect(
+            await controller.validateExport("export", 1, [], onTiming, pkg),
+        ).toBe(true);
+        expect(onTiming).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                compilationMs: 0,
+                cacheHit: true,
+                outcome: "valid",
+            }),
+        );
+        expect(
+            await controller.validateExport(undefined, 1, [], onTiming),
+        ).toBe(true);
+        expect(onTiming).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                compilationMs: 0,
+                cacheHit: false,
+                outcome: "skipped",
+            }),
+        );
+        expect(runtime.compile).toHaveBeenCalledTimes(2);
+    } finally {
+        clock.mockRestore();
+    }
+});
+
+test("runtime warmup overlaps capture and the first source shares its initialization", async () => {
+    const { controller } = setup();
+    const runtimeReady = deferred<void>();
+    runtime.initialize.mockReturnValueOnce(runtimeReady.promise);
+    const warm = controller.warmup();
+    runtime.compile.mockResolvedValueOnce(compiled().result);
+    const render = controller.initialize("preview", 1);
+    expect(runtime.initialize).toHaveBeenCalledOnce();
+    expect(runtime.compile).not.toHaveBeenCalled();
+    runtimeReady.resolve();
+    await warm;
+    await render;
+    expect(runtime.registerFont).toHaveBeenCalledOnce();
+    expect(controller.currentInstance).toBeDefined();
+});
+
+test("compiled previews reuse definitions and retain assets until bounded eviction", async () => {
+    const { controller } = setup();
+    const a = compiled(),
+        b = compiled(),
+        c = compiled();
+    const releaseA = vi.fn(),
+        releaseB = vi.fn(),
+        releaseC = vi.fn();
+    runtime.compile
+        .mockResolvedValueOnce(a.result)
+        .mockResolvedValueOnce(b.result)
+        .mockResolvedValueOnce(c.result);
+    await controller.initialize("A", 1, undefined, [], () => releaseA);
+    controller.requestRender("B", 2, undefined, [], () => releaseB);
+    await vi.waitFor(() => expect(b.instance.show).toHaveBeenCalledOnce());
+    controller.requestRender("A", 3, undefined, [], () => releaseA);
+    await vi.waitFor(() =>
+        expect(a.component.create_with_existing_window).toHaveBeenCalledOnce(),
+    );
+    expect(runtime.compile).toHaveBeenCalledTimes(2);
+    expect(a.component.free).not.toHaveBeenCalled();
+    controller.requestRender("C", 4, undefined, [], () => releaseC);
+    await vi.waitFor(() => expect(c.instance.show).toHaveBeenCalledOnce());
+    expect(releaseB).toHaveBeenCalledOnce();
+    expect(b.component.free).toHaveBeenCalledOnce();
+    controller.releaseCompiledPreviews();
+    expect(releaseA).toHaveBeenCalledOnce();
+    expect(releaseC).toHaveBeenCalledOnce();
+});
+
+test("immutable export package validation is reused across section changes", async () => {
+    const { controller } = setup();
+    runtime.compile.mockResolvedValue(compiled().result);
+    await controller.initialize("preview", 1);
+    const a = {},
+        b = {};
+    const timing = vi.fn();
+    expect(await controller.validateExport("native A", 1, [], timing, a)).toBe(
+        true,
+    );
+    expect(await controller.validateExport("native B", 1, [], timing, b)).toBe(
+        true,
+    );
+    expect(controller.hasValidatedExport(a)).toBe(true);
+    expect(await controller.validateExport(undefined, 1, [], timing, a)).toBe(
+        true,
+    );
+    expect(timing).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+            cacheHit: true,
+            compilationMs: 0,
+            outcome: "valid",
+        }),
+    );
+    expect(runtime.compile).toHaveBeenCalledTimes(3);
+});
+
+test("the current canvas is visible during presentation and a newer selection hides it", async () => {
+    const { controller, canvas, status } = setup();
+    runtime.compile.mockResolvedValue(compiled().result);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+        frames.push(callback);
+        return frames.length;
+    });
+    const trace = new TimingTraceBuilder(1, "initial").toTrace();
+    const initializing = controller.initialize("first", 1, trace);
+    await vi.waitFor(() => expect(frames).toHaveLength(1));
+    expect(canvas.style.visibility).toBe("visible");
+    expect(status.dataset.state).toBe("compiling");
+    frames.shift()!(0);
+    await vi.waitFor(() => expect(frames).toHaveLength(1));
+    controller.reserveRevision(2);
+    expect(canvas.style.visibility).toBe("hidden");
+    frames.shift()!(0);
+    await initializing;
+    expect(canvas.style.visibility).toBe("hidden");
+    const events = canvas.dispatchEvent.mock.calls.map(([event]) => event);
+    const stale = events.find((event) => event.type === "preview-rendered");
+    expect(stale).toBeUndefined();
 });

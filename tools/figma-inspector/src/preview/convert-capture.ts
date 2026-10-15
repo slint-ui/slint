@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { hydrateBulkSource } from "../plugin/bulk-source";
 import { generateExport } from "../export/generate";
 import { unpackCaptureAssets } from "../asset-transport";
 import {
@@ -13,6 +14,7 @@ import { createSourceNormalizer } from "../plugin/normalize";
 import type { Diagnostic, FigmaSnapshot } from "../plugin/snapshot";
 import type { SourceBytes, SourceCapture } from "../plugin/source";
 import { packPreviewAssets } from "../asset-transport";
+import { scalePreview } from "./scale-preview";
 import { convertSnapshot } from "./converter";
 import { exportFailure } from "./export-diagnostic";
 
@@ -27,6 +29,9 @@ export type ConvertedMessage = Extract<
 
 export type CaptureConversionState = {
     snapshot?: FigmaSnapshot;
+    bulkNodes?: Map<string, Record<string, unknown>>;
+    bulkDocuments?: Set<string>;
+    bulkIndexMs?: number;
 };
 
 export function captureSnapshotJson(state: CaptureConversionState): string {
@@ -38,6 +43,9 @@ export function captureSnapshotJson(state: CaptureConversionState): string {
 export async function convertCapture(
     request: CaptureMessage,
     state: CaptureConversionState = {},
+    onPreview?: (
+        message: Extract<ConvertedMessage, { type: "preview-source" }>,
+    ) => void,
 ): Promise<ConvertedMessage> {
     const original =
         request.trace ??
@@ -74,12 +82,32 @@ export async function convertCapture(
                       )) as SourceCapture<SourceBytes>,
         );
         const start = defaultClock.monotonicNow();
-        const normalizer = createSourceNormalizer(source);
+        const hydrationStarted = defaultClock.monotonicNow();
+        const normalizer = createSourceNormalizer(
+            source.bulkDocuments
+                ? hydrateBulkSource(
+                      source,
+                      state.bulkNodes,
+                      state.bulkDocuments,
+                  )
+                : source,
+        );
+        trace.phases.bulkHydration =
+            defaultClock.monotonicNow() - hydrationStarted;
         const normalized = await normalizer.normalize();
-        trace.phases.normalization = defaultClock.monotonicNow() - start;
+        trace.phases.normalization =
+            defaultClock.monotonicNow() - start - trace.phases.bulkHydration;
         trace.captureMetrics = {
             ...normalized.captureMetrics,
             ...original.captureMetrics,
+            ...(original.captureMetrics?.timings
+                ? {
+                      timings: {
+                          ...original.captureMetrics.timings,
+                          bulkWorkerIndexMs: state.bulkIndexMs ?? 0,
+                      },
+                  }
+                : {}),
             durationMs:
                 original.captureMetrics?.durationMs ??
                 normalized.captureMetrics.durationMs,
@@ -93,9 +121,21 @@ export async function convertCapture(
             };
         if (normalized.empty) return { ...common, type: "preview-clear" };
         state.snapshot = normalized.snapshot;
-        const render = measure("slintConversion", () =>
-            convertSnapshot(normalized.snapshot, { specialize: true }),
-        );
+        const render = measure("slintConversion", () => {
+            const converted = convertSnapshot(normalized.snapshot, {
+                specialize: true,
+            });
+            if (!converted.ok) return converted;
+            const scale = Math.min(
+                1,
+                2048 / Math.max(converted.width, converted.height),
+            );
+            return scale === 1
+                ? converted
+                : convertSnapshot(scalePreview(normalized.snapshot, scale), {
+                      specialize: true,
+                  });
+        });
         if (!render.ok)
             return {
                 ...common,
@@ -103,6 +143,20 @@ export async function convertCapture(
                 diagnostics: render.diagnostics,
                 trace: { ...trace, outcome: "conversion-error" },
             };
+        const packed = measure("assetPacking", () =>
+            packPreviewAssets(render.source),
+        );
+        onPreview?.({
+            ...common,
+            type: "preview-source",
+            source: packed.assets.length ? packed : render.source,
+            warnings: [
+                ...normalized.warnings,
+                ...render.warnings,
+                ...(request.warnings ?? []),
+            ],
+            trace: { ...trace, phases: { ...trace.phases } },
+        });
         let exportPackage: ExportPackage | undefined;
         let exportWarnings: readonly Diagnostic[] = [];
         try {
@@ -144,9 +198,6 @@ export async function convertCapture(
         } catch (error) {
             exportWarnings = [exportFailure(error)];
         }
-        const packed = measure("assetPacking", () =>
-            packPreviewAssets(render.source),
-        );
         return {
             ...common,
             type: "preview-source",

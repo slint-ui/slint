@@ -14,6 +14,12 @@ import {
 } from "./capture-work";
 import { maskComposition } from "./mask-composition";
 import {
+    CaptureTimingCollector,
+    type CaptureTimings,
+} from "../performance/capture-timing";
+import { solidVectorSvg, unpaintedVectorSvg } from "./vector-svg";
+import { restProperty, REST_UNAVAILABLE } from "./rest-properties";
+import {
     type CaptureInstrumentation,
     type ImageResolver,
     type PngExporter,
@@ -30,6 +36,7 @@ import {
     type SourceCapture,
     type SourceNode,
     type SourceResult,
+    type SourceValue,
     sourceImageHashes,
 } from "./source";
 
@@ -43,7 +50,7 @@ export type {
 // Running host exports cannot be aborted. Keep their slots occupied across
 // interactive revisions so superseded captures cannot multiply host work.
 const selectionExportScheduler = captureScheduler(4);
-export type CaptureScope = "tree" | "flattened" | "raster" | "root-only";
+export type CaptureScope = "tree" | "root-only";
 
 /** Watch off-page component definitions without loading or observing every page. */
 export function observeComponentDependencies(
@@ -363,14 +370,31 @@ export async function captureSource(
     cache?: CaptureCache,
     schedule = captureScheduler(concurrency),
     scope: CaptureScope = "tree",
+    onBulkDocument?: (document: Record<string, unknown>) => void,
 ): Promise<{
     source: SourceCapture<Uint8Array>;
     durationMs: number;
     fontMetrics: { requests: number; exports: number; cacheHits: number };
     work: CaptureWork;
+    timings: CaptureTimings;
 }> {
     type Bytes = Uint8Array;
+    const timings = new CaptureTimingCollector();
+    const encode = (value: unknown) =>
+        timings.measure("encoding", () => encodeValue(value, mixed));
+    const identities = new WeakMap<object, string>();
+    const idOf = (node: { id: string }): string => {
+        const old = identities.get(node);
+        if (old !== undefined) return old;
+        const id = node.id;
+        identities.set(node, id);
+        return id;
+    };
+    const colorProfile =
+        typeof figma === "undefined" ? "LEGACY" : captureColorProfile();
     const fontMetrics = { requests: 0, exports: 0, cacheHits: 0 };
+    const pngByType: Record<string, number> = {};
+    const svgByType: Record<string, number> = {};
     const work: { -readonly [Key in keyof CaptureWork]: CaptureWork[Key] } = {
         capturedNodes: 0,
         componentFamilies: 0,
@@ -378,20 +402,94 @@ export async function captureSource(
         pngExports: 0,
         svgExports: 0,
         textCacheHits: 0,
+        pngByType,
+        svgByType,
     };
+    const propertyKeysByType = new Map<
+        string,
+        readonly (typeof sourceProperties)[number][]
+    >();
+    const restNodes = new Map<string, Record<string, unknown>>();
+    const restLoads = new Map<string, Promise<void>>();
+    const restDocuments: Record<string, unknown>[] = [];
+    const loadRest = (node: SceneNode): Promise<void> => {
+        if (
+            exportSvgNode !== exportSvg ||
+            scope !== "tree" ||
+            !("exportAsync" in node)
+        )
+            return Promise.resolve();
+        const id = idOf(node);
+        const old = restLoads.get(id);
+        if (old) return old;
+        const pending = timings.measureAsync("bulkJson", async () => {
+            try {
+                const response = await node.exportAsync({
+                    format: "JSON_REST_V1",
+                });
+                const data = response as {
+                    document?: Record<string, unknown>;
+                    nodes?: Record<
+                        string,
+                        { document?: Record<string, unknown> }
+                    >;
+                };
+                const document = data.document ?? data.nodes?.[id]?.document;
+                if (!document) return;
+                if (onBulkDocument) {
+                    restDocuments.push(document);
+                    timings.measure("bulkDispatch", () =>
+                        onBulkDocument(document),
+                    );
+                }
+                const collect = (data: Record<string, unknown>) => {
+                    if (
+                        typeof data.id !== "string" ||
+                        typeof data.type !== "string"
+                    )
+                        return;
+                    restNodes.set(data.id, data);
+                    if (Array.isArray(data.children))
+                        for (const child of data.children) collect(child);
+                };
+                timings.measure("bulkIndex", () => collect(document));
+            } catch {
+                // JSON export is unavailable for some Figma node types and editor versions.
+            }
+        });
+        restLoads.set(id, pending);
+        return pending;
+    };
+    await loadRest(root);
     const fontTiming = captureBusyTime();
+    const queued: CaptureScheduler = async (operation) => {
+        const stop = timings.start("exportQueue");
+        let started = false;
+        try {
+            return await schedule(() => {
+                started = true;
+                stop();
+                return operation();
+            });
+        } finally {
+            if (!started) stop();
+        }
+    };
     const rawPng =
         exportPngNode ?? (exportSvgNode === exportSvg ? exportPng : undefined);
     const png: PngExporter | undefined =
         rawPng &&
         ((node, scale) =>
-            schedule(async () => {
+            queued(async () => {
                 if (cancelled?.()) throw new CaptureCancelled();
                 const stop =
                     node.type === "TEXT" ? fontTiming.start() : undefined;
                 try {
                     work.pngExports++;
-                    return await rawPng(node, scale);
+                    pngByType[node.type] = (pngByType[node.type] ?? 0) + 1;
+                    return await timings.measureAsync("pngExports", () =>
+                        rawPng(node, scale),
+                    );
                 } finally {
                     stop?.();
                 }
@@ -400,25 +498,27 @@ export async function captureSource(
         node: Parameters<SvgExporter>[0],
         useAbsoluteBounds?: boolean,
     ): Promise<string> =>
-        schedule(async () => {
+        queued(async () => {
             if (cancelled?.()) throw new CaptureCancelled();
             const stop = node.type === "TEXT" ? fontTiming.start() : undefined;
             try {
                 work.svgExports++;
-                return await (exportSvgNode === exportSvg &&
-                useAbsoluteBounds !== undefined
-                    ? node.exportAsync({
-                          ...svgExportSettings,
-                          useAbsoluteBounds,
-                      })
-                    : exportSvgNode(node));
+                svgByType[node.type] = (svgByType[node.type] ?? 0) + 1;
+                return await timings.measureAsync("svgExports", () =>
+                    exportSvgNode === exportSvg &&
+                    useAbsoluteBounds !== undefined
+                        ? node.exportAsync({
+                              ...svgExportSettings,
+                              useAbsoluteBounds,
+                          })
+                        : exportSvgNode(node),
+                );
             } finally {
                 stop?.();
             }
         });
     const source: SourceCapture<Bytes> = {
         sourceVersion: 1,
-        ...(scope === "flattened" ? { flattened: true } : {}),
         root: undefined as unknown as SourceNode<Bytes>,
         images: {},
         exportScale,
@@ -437,10 +537,16 @@ export async function captureSource(
                             const image = cache
                                 ? await cache.get(
                                       `image:${hash}`,
-                                      () => imageResolver(hash),
+                                      () =>
+                                          timings.measureAsync(
+                                              "imageReads",
+                                              () => imageResolver(hash),
+                                          ),
                                       (value) => value?.bytes.byteLength ?? 0,
                                   )
-                                : await imageResolver(hash);
+                                : await timings.measureAsync("imageReads", () =>
+                                      imageResolver(hash),
+                                  );
                             source.images[hash] = image
                                 ? {
                                       value: {
@@ -468,6 +574,23 @@ export async function captureSource(
     const references: ComponentLibrary<SourceNode<Bytes>>["references"] = {};
     type ComponentPropertyDefinitions =
         ComponentNode["componentPropertyDefinitions"];
+    const ownerChildren = new Map<string, readonly ComponentNode[]>();
+    const ownerVariants = (
+        owner: ComponentNode | ComponentSetNode,
+    ): readonly ComponentNode[] => {
+        const id = idOf(owner);
+        const cached = ownerChildren.get(id);
+        if (cached) return cached;
+        const children =
+            owner.type === "COMPONENT_SET"
+                ? owner.children.filter(
+                      (child): child is ComponentNode =>
+                          child.type === "COMPONENT",
+                  )
+                : [owner];
+        ownerChildren.set(id, children);
+        return children;
+    };
     const componentDefinitions = new Map<
         string,
         ComponentPropertyDefinitions | null
@@ -491,14 +614,14 @@ export async function captureSource(
         owner: ComponentNode | ComponentSetNode,
         node: SourceNode<Bytes>,
     ): ComponentPropertyDefinitions | undefined => {
-        const cached = componentDefinitions.get(owner.id);
+        const cached = componentDefinitions.get(idOf(owner));
         if (cached !== undefined) return cached ?? undefined;
         try {
             const definitions = owner.componentPropertyDefinitions ?? {};
-            componentDefinitions.set(owner.id, definitions);
+            componentDefinitions.set(idOf(owner), definitions);
             return definitions;
         } catch (error) {
-            componentDefinitions.set(owner.id, null);
+            componentDefinitions.set(idOf(owner), null);
             recordReadFailure(
                 node,
                 "componentPropertyDefinitions",
@@ -513,25 +636,25 @@ export async function captureSource(
         owner: ComponentNode | ComponentSetNode,
         variantId: string,
     ) => {
-        componentOwners.set(owner.id, owner);
-        let required = requiredVariants.get(owner.id);
+        componentOwners.set(idOf(owner), owner);
+        let required = requiredVariants.get(idOf(owner));
         if (!required) {
             required = new Set();
-            requiredVariants.set(owner.id, required);
+            requiredVariants.set(idOf(owner), required);
         }
         required.add(variantId);
     };
     const requireCompleteOwner = (owner: ComponentNode | ComponentSetNode) => {
-        componentOwners.set(owner.id, owner);
-        completeOwners.add(owner.id);
+        if (completeOwners.has(idOf(owner))) return;
+        componentOwners.set(idOf(owner), owner);
+        completeOwners.add(idOf(owner));
         const required = new Set<string>();
-        for (const child of owner.type === "COMPONENT_SET"
-            ? owner.children
-            : [owner])
-            if (child.type === "COMPONENT") required.add(child.id);
-        requiredVariants.set(owner.id, required);
+        for (const child of ownerVariants(owner))
+            if (child.type === "COMPONENT") required.add(idOf(child));
+        requiredVariants.set(idOf(owner), required);
     };
     const mainComponents = new Map<string, Promise<ComponentNode | null>>();
+    const mainOwners = new Map<string, ComponentNode | ComponentSetNode>();
     async function readComponent(
         node: SceneNode,
         captured: SourceNode<Bytes>,
@@ -540,7 +663,7 @@ export async function captureSource(
         if (node.type === "COMPONENT_SET") {
             if (!readComponentDefinitions(node, captured)) return;
             if (node === root) requireCompleteOwner(node);
-            else componentOwners.set(node.id, node);
+            else componentOwners.set(idOf(node), node);
             return;
         }
         if (node.type === "COMPONENT") main = node;
@@ -549,16 +672,28 @@ export async function captureSource(
             "getMainComponentAsync" in node &&
             typeof node.getMainComponentAsync === "function"
         ) {
-            let pending = mainComponents.get(node.id);
+            const componentId = restNodes.get(captured.id)?.componentId;
+            const key =
+                typeof componentId === "string"
+                    ? `component:${componentId}`
+                    : captured.id;
+            let pending = mainComponents.get(key);
             if (!pending) {
-                pending = node.getMainComponentAsync();
-                mainComponents.set(node.id, pending);
+                pending = timings.measureAsync("componentLookup", () =>
+                    node.getMainComponentAsync(),
+                );
+                mainComponents.set(key, pending);
             }
             main = await pending;
         }
         if (!main) return;
-        const owner =
-            main.parent?.type === "COMPONENT_SET" ? main.parent : main;
+        let owner = mainOwners.get(idOf(main));
+        if (!owner) {
+            const parent = main.parent;
+            owner = parent?.type === "COMPONENT_SET" ? parent : main;
+            mainOwners.set(idOf(main), owner);
+        }
+        if (!restNodes.has(idOf(owner))) await loadRest(owner);
         const definitions = readComponentDefinitions(owner, captured);
         if (!definitions) return;
         const hasInstanceSwapContract = Object.values(definitions).some(
@@ -567,7 +702,7 @@ export async function captureSource(
         if (node === root && node.type === "COMPONENT")
             requireCompleteOwner(owner);
         else if (hasInstanceSwapContract) requireCompleteOwner(owner);
-        else requireVariant(owner, main.id);
+        else requireVariant(owner, idOf(main));
         let properties: Record<string, string | boolean> | undefined;
         if (node.type === "INSTANCE")
             try {
@@ -583,19 +718,36 @@ export async function captureSource(
                     `${errorMessage(error)}; instance overrides are unavailable but the captured appearance is retained`,
                 );
             }
-        references[node.id] = {
-            definitionId: owner.id,
-            variantId: main.id,
+        references[idOf(node)] = {
+            definitionId: idOf(owner),
+            variantId: idOf(main),
             ...(properties ? { properties } : {}),
         };
     }
     const hiddenCaptures = new Set<string>();
+    const metadataById = new Map<
+        string,
+        {
+            properties: SourceNode<Bytes>["properties"];
+            errors: SourceNode<Bytes>["errors"];
+            segments?: SourceNode<Bytes>["segments"];
+            cells?: SourceNode<Bytes>["cells"];
+            contextProperties: Record<string, unknown>;
+            requiredByProperty: boolean;
+            bulkProperties?: readonly string[];
+        }
+    >();
+    const componentReads = new Map<
+        string,
+        Promise<SourceNode<Bytes>["errors"]>
+    >();
+    const childrenById = new Map<string, readonly SceneNode[]>();
     async function visit(
         node: SceneNode,
         {
             hidden = false,
             suppressed = false,
-            ancestors = "",
+            ancestors = [] as readonly Record<string, unknown>[],
             cacheableContext = true,
             requiredByAncestor = false,
             svgContextSafe = true,
@@ -603,40 +755,87 @@ export async function captureSource(
         }: {
             hidden?: boolean;
             suppressed?: boolean;
-            ancestors?: string;
+            ancestors?: readonly Record<string, unknown>[];
             cacheableContext?: boolean;
             requiredByAncestor?: boolean;
             svgContextSafe?: boolean;
             definitionRoot?: boolean;
         } = {},
     ): Promise<SourceNode<Bytes>> {
-        const raw = node as unknown as Record<string, unknown>;
+        const { nodeType, raw, ownRequiredByProperty, result } =
+            timings.measure("nodeReads", () => {
+                const nodeType = node.type;
+                const raw = node as unknown as Record<string, unknown>;
+                const ownRequiredByProperty =
+                    "componentPropertyReferences" in raw &&
+                    typeof (
+                        raw.componentPropertyReferences as
+                            | { visible?: unknown }
+                            | undefined
+                    )?.visible === "string";
+                const result: SourceNode<Bytes> = {
+                    id: idOf(node),
+                    name: node.name,
+                    type: nodeType,
+                    properties: {},
+                    errors: [],
+                };
+                return { nodeType, raw, ownRequiredByProperty, result };
+            });
+        const oldMetadata = metadataById.get(result.id);
         const requiredByProperty =
             requiredByAncestor ||
-            ("componentPropertyReferences" in raw &&
-                typeof (
-                    raw.componentPropertyReferences as
-                        | { visible?: unknown }
-                        | undefined
-                )?.visible === "string");
-        const result: SourceNode<Bytes> = {
-            id: node.id,
-            name: node.name,
-            type: node.type,
-            properties: {},
-            errors: [],
-        };
-        capturedNodes.set(node.id, result);
+            (oldMetadata?.requiredByProperty ?? ownRequiredByProperty);
+        capturedNodes.set(result.id, result);
+        work.capturedNodes = capturedNodes.size;
+        let discoveryError: unknown;
+        let discoveryFailed = false;
+        let discovery: Promise<void> | undefined;
         if (
             scope === "tree" &&
-            ["COMPONENT", "COMPONENT_SET", "INSTANCE"].includes(node.type)
-        )
-            await readComponent(node, result);
-        const invisible =
-            hidden ||
-            (!definitionRoot && "visible" in node && node.visible === false);
-        if (invisible) hiddenCaptures.add(node.id);
-        else hiddenCaptures.delete(node.id);
+            ["COMPONENT", "COMPONENT_SET", "INSTANCE"].includes(nodeType)
+        ) {
+            let pending = componentReads.get(result.id);
+            if (!pending) {
+                const component = { ...result, errors: [] };
+                pending = timings.measureAsync(
+                    "componentDiscovery",
+                    async () => {
+                        await readComponent(node, component);
+                        return component.errors;
+                    },
+                );
+                componentReads.set(result.id, pending);
+            }
+            discovery = pending
+                .then((errors) => {
+                    for (const error of errors)
+                        recordReadFailure(
+                            result,
+                            error.property,
+                            error.message,
+                        );
+                })
+                .catch((error) => {
+                    discoveryFailed = true;
+                    discoveryError = error;
+                });
+        }
+        const complete = async () => {
+            await discovery;
+            if (discoveryFailed) throw discoveryError;
+            return result;
+        };
+        const invisible = timings.measure(
+            "nodeReads",
+            () =>
+                hidden ||
+                (!definitionRoot &&
+                    "visible" in node &&
+                    node.visible === false),
+        );
+        if (invisible) hiddenCaptures.add(idOf(node));
+        else hiddenCaptures.delete(idOf(node));
         const captureMaskRaster = async () => {
             let raster: SourceResult<Bytes>;
             try {
@@ -661,32 +860,229 @@ export async function captureSource(
             }
         };
         let maskExport: Promise<void> | undefined;
-        if (cancelled?.()) return result;
-        for (const key of sourceProperties) {
-            try {
-                if (key in raw)
-                    result.properties[key] = encodeValue(raw[key], mixed);
-            } catch (error) {
-                result.properties[key] = { $source: "unavailable" };
-                result.errors.push({
-                    property: key,
-                    message: String(
-                        error instanceof Error ? error.message : error,
-                    ),
+        if (cancelled?.()) return complete();
+        if (oldMetadata) {
+            result.properties = oldMetadata.properties;
+            result.errors.push(...oldMetadata.errors);
+            result.segments = oldMetadata.segments;
+            result.cells = oldMetadata.cells;
+            result.bulkProperties = oldMetadata.bulkProperties;
+        } else {
+            timings.measure("metadata", () => {
+                let propertyKeys = propertyKeysByType.get(nodeType);
+                if (!propertyKeys) {
+                    propertyKeys = timings.measure("nodeReads", () =>
+                        sourceProperties.filter((key) => key in raw),
+                    );
+                    if (exportSvgNode === exportSvg)
+                        propertyKeysByType.set(nodeType, propertyKeys);
+                }
+                const rest = restNodes.get(result.id);
+                const bulkProperties: string[] = [];
+                const values: Record<string, unknown> = {};
+                const live: string[] = [];
+                for (const key of propertyKeys) {
+                    const cached =
+                        rest &&
+                        (rest.type === nodeType ||
+                            (nodeType === "INSTANCE" && rest.type === "FRAME"))
+                            ? restProperty(rest, key)
+                            : REST_UNAVAILABLE;
+                    if (cached === REST_UNAVAILABLE) live.push(key);
+                    else if (onBulkDocument) {
+                        result.properties[key] = cached as SourceValue;
+                        bulkProperties.push(key);
+                    } else values[key] = cached;
+                }
+                timings.measure("nodeReads", () => {
+                    const reads: string[] = [];
+                    const read = (key: string) => {
+                        reads.push(key);
+                        return raw[key];
+                    };
+                    for (const key of [
+                        "relativeTransform",
+                        "absoluteTransform",
+                    ])
+                        if (live.includes(key)) {
+                            try {
+                                values[key] = read(key);
+                            } catch (error) {
+                                result.properties[key] = {
+                                    $source: "unavailable",
+                                };
+                                result.errors.push({
+                                    property: key,
+                                    message: errorMessage(error),
+                                });
+                            }
+                        }
+                    const relative = values.relativeTransform as
+                        | number[][]
+                        | undefined;
+                    const absolute = values.absoluteTransform as
+                        | number[][]
+                        | undefined;
+                    const position =
+                        Array.isArray(relative) &&
+                        relative.length === 2 &&
+                        Array.isArray(relative[0]) &&
+                        relative[0].length === 3 &&
+                        Array.isArray(relative[1]) &&
+                        relative[1].length === 3 &&
+                        Number.isFinite(relative[0][2]) &&
+                        Number.isFinite(relative[1][2])
+                            ? [relative[0][2], relative[1][2]]
+                            : undefined;
+                    const box = rest?.absoluteBoundingBox as
+                        | {
+                              x?: number;
+                              y?: number;
+                              width?: number;
+                              height?: number;
+                          }
+                        | undefined;
+                    const dimensions =
+                        [
+                            "FRAME",
+                            "INSTANCE",
+                            "COMPONENT",
+                            "COMPONENT_SET",
+                            "RECTANGLE",
+                            "SECTION",
+                        ].includes(nodeType) &&
+                        Array.isArray(absolute) &&
+                        absolute.length === 2 &&
+                        Array.isArray(absolute[0]) &&
+                        absolute[0].length === 3 &&
+                        Array.isArray(absolute[1]) &&
+                        absolute[1].length === 3 &&
+                        absolute[0][0] === 1 &&
+                        absolute[0][1] === 0 &&
+                        absolute[1][0] === 0 &&
+                        absolute[1][1] === 1 &&
+                        box &&
+                        Number.isFinite(box.x) &&
+                        Number.isFinite(box.y) &&
+                        box.x === absolute[0][2] &&
+                        box.y === absolute[1][2] &&
+                        typeof box.width === "number" &&
+                        Number.isFinite(box.width) &&
+                        box.width > 0 &&
+                        typeof box.height === "number" &&
+                        Number.isFinite(box.height) &&
+                        box.height > 0;
+                    for (const key of live) {
+                        if (
+                            key === "relativeTransform" ||
+                            key === "absoluteTransform" ||
+                            key === "resolvedVariableModes"
+                        )
+                            continue;
+                        try {
+                            // Figma defines x and y as the relative matrix's translation.
+                            // https://developers.figma.com/docs/plugins/api/properties/nodes-x/
+                            if ((key === "x" || key === "y") && position)
+                                values[key] = position[key === "x" ? 0 : 1];
+                            else if (
+                                (key === "width" || key === "height") &&
+                                dimensions
+                            )
+                                values[key] = box![key];
+                            else values[key] = read(key);
+                        } catch (error) {
+                            result.properties[key] = { $source: "unavailable" };
+                            result.errors.push({
+                                property: key,
+                                message: errorMessage(error),
+                            });
+                        }
+                    }
+                    if (live.includes("resolvedVariableModes")) {
+                        const bindings =
+                            values.boundVariables ??
+                            result.properties.boundVariables;
+                        const fills = values.fills ?? result.properties.fills;
+                        const empty = (value: unknown) =>
+                            value === undefined ||
+                            (value !== null &&
+                                typeof value === "object" &&
+                                !Array.isArray(value) &&
+                                Object.keys(value).length === 0);
+                        const unbound =
+                            empty(bindings) &&
+                            (fills === undefined ||
+                                (Array.isArray(fills) &&
+                                    fills.every(
+                                        (paint) =>
+                                            paint &&
+                                            typeof paint === "object" &&
+                                            empty(paint.boundVariables),
+                                    )));
+                        if (!unbound) {
+                            try {
+                                values.resolvedVariableModes = read(
+                                    "resolvedVariableModes",
+                                );
+                            } catch (error) {
+                                result.properties.resolvedVariableModes = {
+                                    $source: "unavailable",
+                                };
+                                result.errors.push({
+                                    property: "resolvedVariableModes",
+                                    message: errorMessage(error),
+                                });
+                            }
+                        }
+                    }
+                    timings.recordPropertyReads(nodeType, reads);
+                    if (nodeType === "TEXT") {
+                        const bounds = overflowingPaintBounds(node);
+                        if (bounds) values.textPaintBounds = bounds;
+                    }
                 });
-            }
-        }
-        if (node.type === "TEXT") {
-            const bounds = overflowingPaintBounds(node);
-            if (bounds)
-                result.properties.textPaintBounds = encodeValue(bounds, mixed);
+                timings.measure("encoding", () => {
+                    for (const [key, value] of Object.entries(values))
+                        result.properties[key] = encodeValue(value, mixed);
+                });
+                if (bulkProperties.length)
+                    result.bulkProperties = bulkProperties;
+            });
         }
         // Backdrop/mask composition needs pixels outside this subtree. Do not
         // treat a metadata fingerprint as proof that those pixels are unchanged.
-        const contextProperties = decodeValue(result.properties) as Record<
-            string,
-            unknown
-        >;
+        const contextProperties =
+            oldMetadata?.contextProperties ??
+            timings.measure("encoding", () => {
+                const decoded: Record<string, unknown> = {};
+                const bulk = new Set(result.bulkProperties);
+                const keys =
+                    nodeType === "TEXT"
+                        ? Object.keys(result.properties)
+                        : [
+                              "width",
+                              "height",
+                              "opacity",
+                              "isMask",
+                              "blendMode",
+                              "effects",
+                              "fills",
+                              "strokes",
+                              "cornerRadius",
+                              "topLeftRadius",
+                              "topRightRadius",
+                              "bottomLeftRadius",
+                              "bottomRightRadius",
+                              "clipsContent",
+                              "absoluteTransform",
+                              "relativeTransform",
+                          ];
+                for (const key of keys) {
+                    const value = result.properties[key];
+                    decoded[key] = bulk.has(key) ? value : decodeValue(value);
+                }
+                return decoded;
+            });
         const rasterContextSafe =
             cacheableContext &&
             result.errors.length === 0 &&
@@ -701,45 +1097,74 @@ export async function captureSource(
                         effect.type === "BACKGROUND_BLUR",
                 )
             );
-        if (node.type === "TEXT" && "getStyledTextSegments" in node) {
-            try {
-                result.segments = {
-                    value: encodeValue(
-                        node.getStyledTextSegments(
-                            styledTextSegmentFields as never,
-                        ),
-                        mixed,
-                    ),
-                };
-            } catch (error) {
-                result.segments = {
-                    error: String(
-                        error instanceof Error ? error.message : error,
-                    ),
-                };
-            }
-        }
-        if (scope === "tree" && node.type === "TABLE" && "cellAt" in node) {
-            result.cells = [];
-            for (let row = 0; row < node.numRows; row++)
-                for (let column = 0; column < node.numColumns; column++) {
+        if (!oldMetadata) {
+            timings.measure("metadata", () => {
+                if (nodeType === "TEXT" && "getStyledTextSegments" in node) {
                     try {
-                        const cell = node.cellAt(row, column);
-                        const data: Record<string, unknown> = {};
-                        for (const key of sourceProperties)
-                            if (key in cell)
-                                data[key] = (
-                                    cell as unknown as Record<string, unknown>
-                                )[key];
-                        result.cells.push(encodeValue(data, mixed));
+                        timings.recordPropertyReads(nodeType, [
+                            "getStyledTextSegments",
+                        ]);
+                        result.segments = {
+                            value: encode(
+                                timings.measure("nodeReads", () =>
+                                    node.getStyledTextSegments(
+                                        styledTextSegmentFields as never,
+                                    ),
+                                ),
+                            ),
+                        };
                     } catch (error) {
-                        result.cells.push(null);
-                        result.errors.push({
-                            property: `cellAt(${row},${column})`,
-                            message: String(error),
-                        });
+                        result.segments = {
+                            error: String(
+                                error instanceof Error ? error.message : error,
+                            ),
+                        };
                     }
                 }
+                if (
+                    scope === "tree" &&
+                    nodeType === "TABLE" &&
+                    "cellAt" in node
+                ) {
+                    result.cells = [];
+                    for (let row = 0; row < node.numRows; row++)
+                        for (
+                            let column = 0;
+                            column < node.numColumns;
+                            column++
+                        ) {
+                            try {
+                                const cell = node.cellAt(row, column);
+                                const data: Record<string, unknown> = {};
+                                for (const key of sourceProperties)
+                                    if (key in cell)
+                                        data[key] = (
+                                            cell as unknown as Record<
+                                                string,
+                                                unknown
+                                            >
+                                        )[key];
+                                result.cells.push(encode(data));
+                            } catch (error) {
+                                result.cells.push(null);
+                                result.errors.push({
+                                    property: `cellAt(${row},${column})`,
+                                    message: String(error),
+                                });
+                            }
+                        }
+                }
+            });
+            if (!result.errors.length && !result.segments?.error)
+                metadataById.set(result.id, {
+                    properties: result.properties,
+                    errors: [...result.errors],
+                    segments: result.segments,
+                    cells: result.cells,
+                    contextProperties,
+                    requiredByProperty: ownRequiredByProperty,
+                    bulkProperties: result.bulkProperties,
+                });
         }
         if (
             (!invisible ||
@@ -748,36 +1173,29 @@ export async function captureSource(
             (!suppressed || requiredByProperty) &&
             !cancelled?.()
         ) {
-            if (scope !== "raster") {
-                await readImages(result.properties);
-                if (result.segments?.value)
-                    await readImages(result.segments.value);
-            }
-            if (cancelled?.()) return result;
+            await readImages(result.properties);
+            if (result.segments?.value) await readImages(result.segments.value);
+            if (cancelled?.()) return complete();
             // Root snippets use native text. Container exports would bake in
             // descendants; boolean operands instead define the selected shape.
-            const rasterFallback = scope === "raster" && node === root;
             if (
-                rasterFallback ||
-                ((scope === "tree" ||
-                    (node.type !== "TEXT" &&
+                (scope === "tree" ||
+                    (nodeType !== "TEXT" &&
                         (!("children" in node) ||
-                            node.type === "BOOLEAN_OPERATION"))) &&
-                    requiresVisualExport(
-                        {
-                            ...decodeValue(result.properties),
-                            type: result.type,
-                        },
-                        result.segments?.error
-                            ? { error: result.segments.error }
-                            : result.segments
-                              ? {
-                                    segments: decodeValue(
-                                        result.segments.value,
-                                    ),
-                                }
-                              : undefined,
-                    ))
+                            nodeType === "BOOLEAN_OPERATION"))) &&
+                requiresVisualExport(
+                    {
+                        ...contextProperties,
+                        type: result.type,
+                    },
+                    result.segments?.error
+                        ? { error: result.segments.error }
+                        : result.segments
+                          ? {
+                                segments: decodeValue(result.segments.value),
+                            }
+                          : undefined,
+                )
             ) {
                 async function attempt<T>(
                     operation: () => Promise<T>,
@@ -793,109 +1211,309 @@ export async function captureSource(
                         };
                     }
                 }
-                const paintBounds = overflowingPaintBounds(node);
-                const visualKey =
-                    !rasterFallback &&
-                    cache &&
+                const vectorSvg =
+                    nodeType === "VECTOR" &&
+                    !("children" in node) &&
                     rasterContextSafe &&
-                    (node.type === "TEXT" ||
-                        (node.type === "VECTOR" && !("children" in node)))
-                        ? (() => {
-                              try {
-                                  const geometry =
-                                      node.type === "VECTOR"
-                                          ? [
-                                                raw.vectorPaths,
-                                                raw.vectorNetwork,
-                                                raw.strokeCap,
-                                                raw.strokeJoin,
-                                                raw.strokeMiterLimit,
-                                            ]
-                                          : [];
-                                  if (
-                                      node.type === "VECTOR" &&
-                                      (geometry[0] === undefined ||
-                                          geometry[1] === undefined)
-                                  )
-                                      return undefined;
-                                  if (
-                                      result.segments?.error ||
-                                      (node.type === "TEXT" &&
-                                          "hasMissingFont" in node &&
-                                          node.hasMissingFont)
-                                  )
-                                      return undefined;
-                                  return JSON.stringify([
-                                      geometry,
-                                      ancestors,
-                                      result.id,
-                                      result.properties,
-                                      result.segments,
-                                      paintBounds,
-                                      "resolvedVariableModes" in node
-                                          ? node.resolvedVariableModes
-                                          : null,
-                                  ]);
-                              } catch {
-                                  return undefined;
-                              }
-                          })()
-                        : undefined;
-                const rasterKey = visualKey
-                    ? `png:${exportScale}:${visualKey}`
-                    : undefined;
-                if (!rasterFallback && node.type === "TEXT") {
-                    fontMetrics.requests++;
-                    fontMetrics.exports++;
+                    svgContextSafe &&
+                    hasUntransformedBounds(node) &&
+                    hasNoEffects(contextProperties.effects) &&
+                    [contextProperties.fills, contextProperties.strokes].every(
+                        (paints) =>
+                            Array.isArray(paints) &&
+                            paints.every(
+                                (paint: {
+                                    type?: string;
+                                    blendMode?: string;
+                                }) =>
+                                    [
+                                        "SOLID",
+                                        "GRADIENT_LINEAR",
+                                        "GRADIENT_RADIAL",
+                                    ].includes(paint.type ?? "") &&
+                                    (paint.blendMode === undefined ||
+                                        paint.blendMode === "NORMAL"),
+                            ),
+                    );
+                if (
+                    vectorSvg &&
+                    exportSvgNode === exportSvg &&
+                    colorProfile !== "DISPLAY_P3"
+                ) {
+                    try {
+                        const inline =
+                            solidVectorSvg(
+                                contextProperties,
+                                raw.vectorPaths,
+                            ) ??
+                            unpaintedVectorSvg(
+                                {
+                                    ...contextProperties,
+                                    fills: raw.fills,
+                                    strokes: raw.strokes,
+                                    fillStyleId: raw.fillStyleId,
+                                },
+                                raw.vectorNetwork,
+                            );
+
+                        if (inline !== undefined) {
+                            result.exports = {
+                                svg: { value: inline },
+                                pngOmitted: "svg",
+                            };
+                            return complete();
+                        }
+                    } catch {
+                        // Figma can reject optional path reads while still allowing exportAsync.
+                    }
                 }
-                const operation = async () => {
-                    const readSvg = () =>
-                        attempt(() =>
-                            scheduledSvg(node as Parameters<SvgExporter>[0]),
+                if (
+                    exportSvgNode === exportSvg &&
+                    colorProfile !== "DISPLAY_P3" &&
+                    rasterContextSafe &&
+                    svgContextSafe &&
+                    [
+                        "BOOLEAN_OPERATION",
+                        "ELLIPSE",
+                        "POLYGON",
+                        "STAR",
+                    ].includes(nodeType) &&
+                    hasUntransformedBounds(node) &&
+                    overflowingPaintBounds(node) === undefined
+                ) {
+                    try {
+                        const inline = solidVectorSvg(
+                            contextProperties,
+                            raw.fillGeometry,
                         );
-                    const readPng = () =>
-                        png
-                            ? attempt(async () => {
-                                  const load = async () => {
-                                      const value = await png(
-                                          node as Parameters<PngExporter>[0],
-                                          exportScale,
-                                      );
+                        if (inline !== undefined)
+                            result.exports = {
+                                svg: { value: inline },
+                                pngOmitted: "svg",
+                            };
+                    } catch {
+                        /* Figma can reject optional geometry reads while still allowing image export. */
+                    }
+                }
+                if (!result.exports) {
+                    const paintBounds = overflowingPaintBounds(node);
+                    const visualKey =
+                        cache &&
+                        rasterContextSafe &&
+                        (nodeType === "TEXT" ||
+                            (["VECTOR", "ELLIPSE", "LINE"].includes(nodeType) &&
+                                !("children" in node)))
+                            ? (() => {
+                                  try {
+                                      const geometry =
+                                          nodeType === "VECTOR"
+                                              ? [
+                                                    raw.vectorPaths,
+                                                    vectorSvg
+                                                        ? undefined
+                                                        : raw.vectorNetwork,
+                                                    raw.strokeCap,
+                                                    raw.strokeJoin,
+                                                    raw.strokeMiterLimit,
+                                                ]
+                                              : nodeType === "ELLIPSE" ||
+                                                  nodeType === "LINE"
+                                                ? [
+                                                      nodeType,
+                                                      raw.arcData,
+                                                      raw.strokeCap,
+                                                      raw.strokeJoin,
+                                                      raw.strokeMiterLimit,
+                                                  ]
+                                                : [];
                                       if (
-                                          !isPngByteArray(value) ||
-                                          pngDimensions(value) === undefined
+                                          nodeType === "VECTOR" &&
+                                          (geometry[0] === undefined ||
+                                              (!vectorSvg &&
+                                                  geometry[1] === undefined))
                                       )
-                                          throw Error(
+                                          return undefined;
+                                      if (
+                                          result.segments?.error ||
+                                          (nodeType === "TEXT" &&
+                                              "hasMissingFont" in node &&
+                                              node.hasMissingFont)
+                                      )
+                                          return undefined;
+                                      return JSON.stringify([
+                                          colorProfile,
+                                          geometry,
+                                          ancestors.map((ancestor) => {
+                                              const { origin, ...context } =
+                                                  ancestor;
+                                              const transform =
+                                                  contextProperties.absoluteTransform as
+                                                      | number[][]
+                                                      | undefined;
+                                              const clipOrigin = origin as
+                                                  | number[]
+                                                  | undefined;
+                                              return {
+                                                  ...context,
+                                                  ...(clipOrigin && transform
+                                                      ? {
+                                                            origin: [
+                                                                clipOrigin[0] -
+                                                                    transform[0][2],
+                                                                clipOrigin[1] -
+                                                                    transform[1][2],
+                                                            ],
+                                                        }
+                                                      : {}),
+                                              };
+                                          }),
+                                          hasUntransformedBounds(node)
+                                              ? undefined
+                                              : result.id,
+                                          Object.fromEntries(
+                                              Object.entries(
+                                                  result.properties,
+                                              ).filter(
+                                                  ([key]) =>
+                                                      ![
+                                                          "x",
+                                                          "y",
+                                                          "absoluteTransform",
+                                                          "relativeTransform",
+                                                          "componentPropertyReferences",
+                                                      ].includes(key),
+                                              ),
+                                          ),
+                                          hasUntransformedBounds(node)
+                                              ? (
+                                                    contextProperties.absoluteTransform as
+                                                        | number[][]
+                                                        | undefined
+                                                )?.map(
+                                                    (row) =>
+                                                        (((row[2] *
+                                                            exportScale) %
+                                                            1) +
+                                                            1) %
+                                                        1,
+                                                )
+                                              : [
+                                                    contextProperties.absoluteTransform,
+                                                    contextProperties.relativeTransform,
+                                                ],
+                                          result.segments,
+                                          paintBounds,
+                                          "resolvedVariableModes" in node
+                                              ? node.resolvedVariableModes
+                                              : null,
+                                      ]);
+                                  } catch {
+                                      return undefined;
+                                  }
+                              })()
+                            : undefined;
+                    const rasterKey = visualKey
+                        ? `png:${exportScale}:${visualKey}`
+                        : undefined;
+                    if (nodeType === "TEXT") {
+                        fontMetrics.requests++;
+                        fontMetrics.exports++;
+                    }
+                    const operation = async () => {
+                        const readSvg = () =>
+                            attempt(() =>
+                                scheduledSvg(
+                                    node as Parameters<SvgExporter>[0],
+                                ),
+                            );
+                        const readPng = () =>
+                            png
+                                ? attempt(async () => {
+                                      const load = async () => {
+                                          const value = await png(
+                                              node as Parameters<PngExporter>[0],
+                                              exportScale,
+                                          );
+                                          if (
+                                              !isPngByteArray(value) ||
+                                              pngDimensions(value) === undefined
+                                          )
+                                              throw Error(
+                                                  "PNG export did not return valid PNG bytes",
+                                              );
+                                          return value;
+                                      };
+                                      const bytes =
+                                          cache && rasterKey
+                                              ? await cache.get(
+                                                    `raster:${rasterKey}`,
+                                                    load,
+                                                    (value) => value.byteLength,
+                                                    () => {
+                                                        if (
+                                                            nodeType === "TEXT"
+                                                        ) {
+                                                            fontMetrics.cacheHits++;
+                                                            work.textCacheHits++;
+                                                            fontMetrics.exports--;
+                                                        }
+                                                    },
+                                                )
+                                              : await load();
+                                      if (
+                                          !isPngByteArray(bytes) ||
+                                          pngDimensions(bytes) === undefined
+                                      )
+                                          throw new Error(
                                               "PNG export did not return valid PNG bytes",
                                           );
-                                      return value;
-                                  };
-                                  const bytes =
-                                      cache && rasterKey
-                                          ? await cache.get(
-                                                `raster:${rasterKey}`,
-                                                load,
-                                                (value) => value.byteLength,
-                                                () => {
-                                                    if (node.type === "TEXT") {
-                                                        fontMetrics.cacheHits++;
-                                                        work.textCacheHits++;
-                                                        fontMetrics.exports--;
-                                                    }
-                                                },
-                                            )
-                                          : await load();
-                                  if (
-                                      !isPngByteArray(bytes) ||
-                                      pngDimensions(bytes) === undefined
-                                  )
-                                      throw new Error(
-                                          "PNG export did not return valid PNG bytes",
-                                      );
-                                  return bytes;
-                              })
-                            : undefined;
-                    if (rasterFallback) {
+                                      return bytes;
+                                  })
+                                : undefined;
+                        if (png === undefined) {
+                            const [svg, raster] = await Promise.all([
+                                readSvg(),
+                                readPng(),
+                            ]);
+                            result.exports = {
+                                svg,
+                                ...(raster ? { png: raster } : {}),
+                            };
+                            return;
+                        }
+                        if (vectorSvg) {
+                            const svg = await attempt(async () => {
+                                const load = async () => {
+                                    const value = (
+                                        await scheduledSvg(
+                                            node as Parameters<SvgExporter>[0],
+                                            paintBounds === undefined,
+                                        )
+                                    ).trim();
+                                    if (!validSvgDocument(value))
+                                        throw Error(
+                                            "SVG export did not return a valid SVG document",
+                                        );
+                                    return value;
+                                };
+                                return cache && visualKey
+                                    ? cache.get(
+                                          `svg:${visualKey}`,
+                                          load,
+                                          (value) => value.length * 2,
+                                      )
+                                    : load();
+                            });
+                            if (svg.value !== undefined) {
+                                result.exports = {
+                                    svg,
+                                    pngOmitted: "svg",
+                                };
+                                if (paintBounds)
+                                    result.exports.svgBounds = paintBounds;
+                                return;
+                            }
+                        }
                         const raster = await readPng();
                         result.exports = {
                             svg: {},
@@ -904,135 +1522,62 @@ export async function captureSource(
                                 error: "PNG exporter is unavailable",
                             },
                         };
-                        return;
-                    }
-                    if (png === undefined) {
-                        const [svg, raster] = await Promise.all([
-                            readSvg(),
-                            readPng(),
-                        ]);
-                        result.exports = {
-                            svg,
-                            ...(raster ? { png: raster } : {}),
-                        };
-                        return;
-                    }
-                    const vectorSvg =
-                        node.type === "VECTOR" &&
-                        !("children" in node) &&
-                        rasterContextSafe &&
-                        svgContextSafe &&
-                        hasUntransformedBounds(node) &&
-                        hasNoEffects(contextProperties.effects) &&
-                        [
-                            contextProperties.fills,
-                            contextProperties.strokes,
-                        ].every(
-                            (paints) =>
-                                Array.isArray(paints) &&
-                                paints.every(
-                                    (paint: {
-                                        type?: string;
-                                        blendMode?: string;
-                                    }) =>
-                                        [
-                                            "SOLID",
-                                            "GRADIENT_LINEAR",
-                                            "GRADIENT_RADIAL",
-                                        ].includes(paint.type ?? "") &&
-                                        (paint.blendMode === undefined ||
-                                            paint.blendMode === "NORMAL"),
-                                ),
-                        );
-                    if (vectorSvg) {
-                        const svg = await attempt(async () => {
-                            const load = async () => {
-                                const value = (
-                                    await scheduledSvg(
-                                        node as Parameters<SvgExporter>[0],
-                                        paintBounds === undefined,
-                                    )
-                                ).trim();
-                                if (!validSvgDocument(value))
-                                    throw Error(
-                                        "SVG export did not return a valid SVG document",
-                                    );
-                                return value;
-                            };
-                            return cache && visualKey
-                                ? cache.get(
-                                      `svg:${visualKey}`,
-                                      load,
-                                      (value) => value.length * 2,
-                                  )
-                                : load();
-                        });
-                        if (svg.value !== undefined) {
-                            result.exports = {
-                                svg,
-                                pngOmitted: "svg",
-                            };
-                            if (paintBounds)
-                                result.exports.svgBounds = paintBounds;
-                            return;
-                        }
-                    }
-                    const raster = await readPng();
-                    result.exports = {
-                        svg: {},
-                        svgOmitted: "png",
-                        png: raster ?? { error: "PNG exporter is unavailable" },
                     };
-                };
-                if (
-                    instrumentation &&
-                    (node.type === "CONNECTOR" ||
-                        node.type === "SHAPE_WITH_TEXT")
-                )
-                    await instrumentation.measureFontToImageConversion(
-                        operation,
-                    );
-                else await operation();
+                    if (
+                        instrumentation &&
+                        (nodeType === "CONNECTOR" ||
+                            nodeType === "SHAPE_WITH_TEXT")
+                    )
+                        await instrumentation.measureFontToImageConversion(
+                            operation,
+                        );
+                    else await operation();
+                }
                 if (result.exports?.png?.value) {
                     const bounds = overflowingPaintBounds(node);
                     if (bounds) result.exports.rasterBounds = bounds;
                 }
             }
         }
-        if (cancelled?.()) return result;
+        if (cancelled?.()) return complete();
         if ("children" in node) result.children = [];
-        if (scope !== "root-only" && scope !== "raster" && "children" in node) {
+        if (scope !== "root-only" && "children" in node) {
             let children: readonly SceneNode[] = [];
             try {
-                children = node.children;
+                children =
+                    childrenById.get(result.id) ??
+                    timings.measure("nodeReads", () => node.children);
+                childrenById.set(result.id, children);
             } catch (error) {
                 result.errors.push({
                     property: "children",
                     message: String(error),
                 });
             }
-            const visibleChildren = children.filter((child) => {
-                if (
-                    includeHidden ||
-                    !("visible" in child) ||
-                    child.visible !== false
-                )
-                    return true;
-                if (scope === "flattened") return false;
-                // A hidden child can still be part of the public boolean
-                // contract. Keep it so native export can evaluate the
-                // binding even though the preview omits its pixels.
-                const refs =
-                    "componentPropertyReferences" in child
-                        ? child.componentPropertyReferences
-                        : undefined;
-                return (
-                    !!refs &&
-                    typeof refs === "object" &&
-                    !Array.isArray(refs) &&
-                    typeof (refs as { visible?: unknown }).visible === "string"
-                );
-            });
+            const visibleChildren = timings.measure("nodeReads", () =>
+                children.filter((child) => {
+                    if (
+                        includeHidden ||
+                        !("visible" in child) ||
+                        child.visible !== false
+                    )
+                        return true;
+                    // A hidden child can still be part of the public boolean
+                    // contract. Keep it so native export can evaluate the
+                    // binding even though the preview omits its pixels.
+                    const refs =
+                        "componentPropertyReferences" in child
+                            ? child.componentPropertyReferences
+                            : undefined;
+                    return (
+                        !!refs &&
+                        typeof refs === "object" &&
+                        !Array.isArray(refs) &&
+                        typeof (refs as { visible?: unknown }).visible ===
+                            "string"
+                    );
+                }),
+            );
             const planMaskExports = scope === "tree";
             const masks =
                 planMaskExports && !includeHidden && !invisible && !suppressed
@@ -1043,9 +1588,42 @@ export async function captureSource(
             // Keep full descendant metadata for offline diagnostics.
             if (planMaskExports && masks && !result.exports && !cancelled?.())
                 maskExport = captureMaskRaster();
-            const childAncestors = cache
-                ? ancestors + JSON.stringify(result.properties)
-                : "";
+            const childContext: Record<string, unknown> = {};
+            if (
+                contextProperties.opacity !== undefined &&
+                contextProperties.opacity !== 1
+            )
+                childContext.opacity = contextProperties.opacity;
+            if (contextProperties.clipsContent === true) {
+                for (const key of [
+                    "width",
+                    "height",
+                    "cornerRadius",
+                    "topLeftRadius",
+                    "topRightRadius",
+                    "bottomLeftRadius",
+                    "bottomRightRadius",
+                ])
+                    childContext[key] = contextProperties[key];
+                const transform = contextProperties.absoluteTransform as
+                    | number[][]
+                    | undefined;
+                if (transform)
+                    childContext.origin = [transform[0][2], transform[1][2]];
+                else childContext.id = result.id;
+            }
+            if (!svgContextSafe)
+                childContext.effects = contextProperties.effects;
+            if (!hasUntransformedBounds(node))
+                childContext.transform = (
+                    contextProperties.absoluteTransform as
+                        | number[][]
+                        | undefined
+                )?.map((row) => row.slice(0, 2));
+            const childAncestors =
+                cache && Object.keys(childContext).length
+                    ? [...ancestors, childContext]
+                    : ancestors;
             result.children = await mapCaptureChildren(
                 visibleChildren,
                 concurrency,
@@ -1063,7 +1641,13 @@ export async function captureSource(
                         svgContextSafe:
                             svgContextSafe &&
                             (contextProperties.effects === undefined ||
-                                hasNoEffects(contextProperties.effects)),
+                                (Array.isArray(contextProperties.effects) &&
+                                    contextProperties.effects.every((effect) =>
+                                        [
+                                            "DROP_SHADOW",
+                                            "INNER_SHADOW",
+                                        ].includes(effect.type),
+                                    ))),
                     }),
                 cancelled,
             );
@@ -1081,246 +1665,245 @@ export async function captureSource(
         ) {
             await captureMaskRaster();
         }
-        return result;
+        return complete();
     }
     source.root = await visit(root);
-    if (scope === "raster") source.rasterized = true;
     const definitions: ComponentLibrary<SourceNode<Bytes>>["definitions"] = [];
     const processedVariants = new Map<string, Set<string>>();
     // Visit only variants required by the selected tree. Each visit can
     // discover another instance family, so this is a fixed-point queue rather
     // than an eager expansion of every known component set.
-    while (true) {
-        if (cancelled?.()) throw new CaptureCancelled();
-        const owner = [...componentOwners.values()]
-            .filter((n) => {
-                const required = requiredVariants.get(n.id);
-                const processed = processedVariants.get(n.id);
-                return (
-                    required !== undefined &&
-                    [...required].some((id) => !processed?.has(id))
-                );
-            })
-            .sort((a, b) => (a.id < b.id ? -1 : 1))[0];
-        if (!owner) break;
-        const processed =
-            processedVariants.get(owner.id) ??
-            (() => {
-                const value = new Set<string>();
-                processedVariants.set(owner.id, value);
-                return value;
-            })();
-        const required = requiredVariants.get(owner.id) ?? new Set<string>();
-        const ownerVariants =
-            owner.type === "COMPONENT_SET"
-                ? owner.children.filter(
-                      (n): n is ComponentNode => n.type === "COMPONENT",
-                  )
-                : [owner];
-        const byId = new Map(
-            ownerVariants.map((variant) => [variant.id, variant]),
-        );
-        for (const variantId of [...required].sort()) {
-            if (processed.has(variantId)) continue;
-            const variant = byId.get(variantId);
-            if (!variant) {
-                // A stale registry entry must never become a phantom source
-                // node or silently disappear from the native export graph.
-                throw Error(
-                    `Component reachability failed: missing variant ${variantId} in family ${owner.id}`,
-                );
-            }
-            if (
-                !capturedNodes.has(variant.id) ||
-                hiddenCaptures.has(variant.id)
-            )
-                await visit(variant, { definitionRoot: true });
-            processed.add(variantId);
-        }
-    }
-    for (const owner of [...componentOwners.values()].sort((a, b) =>
-        a.id < b.id ? -1 : 1,
-    )) {
-        const processed = processedVariants.get(owner.id);
-        if (!processed?.size) continue;
-        const metadata = componentDefinitions.get(owner.id);
-        if (!metadata) continue;
-        const retainedVariants = (
-            owner.type === "COMPONENT_SET"
-                ? owner.children.filter(
-                      (node): node is ComponentNode =>
-                          node.type === "COMPONENT",
-                  )
-                : [owner]
-        )
-            .filter((candidate) => processed.has(candidate.id))
-            .sort((a, b) => (a.id < b.id ? -1 : 1));
-        const retainedValues = new Map<ComponentNode, Record<string, string>>();
-        let invalidValues: string | undefined;
-        for (const variant of retainedVariants)
-            try {
-                retainedValues.set(variant, variant.variantProperties ?? {});
-            } catch (error) {
-                invalidValues = errorMessage(error);
-                break;
-            }
-        if (invalidValues) {
-            recordReadFailure(
-                source.root,
-                "variantProperties",
-                `${invalidValues}; ${owner.name} is retained as static visual content`,
+    while (!cancelled?.()) {
+        const pending: ComponentNode[] = [];
+        for (const owner of [...componentOwners.values()].sort((a, b) =>
+            idOf(a) < idOf(b) ? -1 : 1,
+        )) {
+            const processed =
+                processedVariants.get(idOf(owner)) ?? new Set<string>();
+            processedVariants.set(idOf(owner), processed);
+            const variants = ownerVariants(owner);
+            const byId = new Map(
+                variants.map((variant) => [idOf(variant), variant]),
             );
-            for (const [id, reference] of Object.entries(references))
-                if (reference.definitionId === owner.id) delete references[id];
-            continue;
+            for (const id of [
+                ...(requiredVariants.get(idOf(owner)) ?? []),
+            ].sort()) {
+                if (processed.has(id)) continue;
+                const variant = byId.get(id);
+                if (!variant)
+                    throw Error(
+                        `Component reachability failed: missing variant ${id} in family ${idOf(owner)}`,
+                    );
+                processed.add(id);
+                if (!capturedNodes.has(id) || hiddenCaptures.has(id))
+                    pending.push(variant);
+            }
         }
-        const axes: ComponentLibrary<
-            SourceNode<Bytes>
-        >["definitions"][number]["axes"] = {};
-        for (const [key, property] of Object.entries(metadata)) {
-            if (
-                property.type === "VARIANT" &&
-                typeof property.defaultValue === "string"
-            )
-                axes[key] = {
-                    defaultValue: property.defaultValue,
-                    options: [...(property.variantOptions ?? [])],
-                };
-        }
-        const contract: NonNullable<
-            ComponentLibrary<
+        if (!pending.length) break;
+        await mapCaptureChildren(
+            pending,
+            concurrency,
+            (variant) => visit(variant, { definitionRoot: true }),
+            cancelled,
+        );
+    }
+    if (cancelled?.()) throw new CaptureCancelled();
+    timings.measure("componentAssembly", () => {
+        for (const owner of [...componentOwners.values()].sort((a, b) =>
+            idOf(a) < idOf(b) ? -1 : 1,
+        )) {
+            const processed = processedVariants.get(idOf(owner));
+            if (!processed?.size) continue;
+            const metadata = componentDefinitions.get(idOf(owner));
+            if (!metadata) continue;
+            const retainedVariants = ownerVariants(owner)
+                .filter((candidate) => processed.has(idOf(candidate)))
+                .sort((a, b) => (idOf(a) < idOf(b) ? -1 : 1));
+            const retainedValues = new Map<
+                ComponentNode,
+                Record<string, string>
+            >();
+            let invalidValues: string | undefined;
+            for (const variant of retainedVariants)
+                try {
+                    retainedValues.set(
+                        variant,
+                        timings.measure(
+                            "nodeReads",
+                            () => variant.variantProperties ?? {},
+                        ),
+                    );
+                } catch (error) {
+                    invalidValues = errorMessage(error);
+                    break;
+                }
+            if (invalidValues) {
+                recordReadFailure(
+                    source.root,
+                    "variantProperties",
+                    `${invalidValues}; ${owner.name} is retained as static visual content`,
+                );
+                for (const [id, reference] of Object.entries(references))
+                    if (reference.definitionId === idOf(owner))
+                        delete references[id];
+                continue;
+            }
+            const axes: ComponentLibrary<
                 SourceNode<Bytes>
-            >["definitions"][number]["contract"]
-        > = { version: 1, properties: {}, bindings: {} };
-        for (const [key, property] of Object.entries(metadata)) {
-            if (
-                property.type === "TEXT" ||
-                property.type === "BOOLEAN" ||
-                property.type === "INSTANCE_SWAP"
-            )
-                contract.properties[key] = {
-                    type: property.type,
-                    defaultValue: property.defaultValue,
-                };
-        }
-        const collectBindings = (node: SourceNode<Bytes>) => {
-            const refs = node.properties.componentPropertyReferences;
-            if (refs && typeof refs === "object" && !Array.isArray(refs)) {
-                const bindings = Object.fromEntries(
-                    Object.entries(refs).filter(
-                        ([, key]) =>
-                            typeof key === "string" &&
-                            key in contract.properties,
-                    ),
-                );
-                if (Object.keys(bindings).length)
-                    contract.bindings[node.id] = bindings;
+            >["definitions"][number]["axes"] = {};
+            for (const [key, property] of Object.entries(metadata)) {
+                if (
+                    property.type === "VARIANT" &&
+                    typeof property.defaultValue === "string"
+                )
+                    axes[key] = {
+                        defaultValue: property.defaultValue,
+                        options: [...(property.variantOptions ?? [])],
+                    };
             }
-            for (const child of node.children ?? []) collectBindings(child);
-        };
-        const variants = [];
-        for (const variant of retainedVariants) {
-            const captured = capturedNodes.get(variant.id);
-            if (!captured) continue;
-            collectBindings(captured);
-            variants.push({
-                id: variant.id,
-                values: retainedValues.get(variant) ?? {},
-                root: captured,
-            });
-        }
-        if (variants.length)
-            definitions.push({
-                id: owner.id,
-                name: owner.name,
-                scope: completeOwners.has(owner.id) ? "complete" : "private",
-                axes,
-                contract,
-                variants,
-            });
-    }
-    if (definitions.length) {
-        const selectedOwner =
-            root.type === "COMPONENT_SET"
-                ? [...componentOwners.values()].find(
-                      (owner) => owner.id === root.id,
-                  )
-                : root.type === "COMPONENT"
-                  ? [...componentOwners.values()].find(
-                        (owner) =>
-                            owner.id === references[root.id]?.definitionId,
-                    )
-                  : undefined;
-        const plan = planReachableVariants(
-            { version: 1, definitions, references },
-            source.root,
-            {
-                kind:
-                    root.type === "COMPONENT_SET"
-                        ? "component-set"
-                        : root.type === "COMPONENT"
-                          ? "component"
-                          : root.type === "INSTANCE"
-                            ? "instance"
-                            : "frame",
-                definitionId: selectedOwner?.id,
-            },
-        );
-        if (plan.diagnostics.length)
-            throw Error(
-                `Component reachability failed: ${plan.diagnostics.join("; ")}`,
-            );
-        const plannedDefinitions = definitions
-            .map((definition) => {
-                const retained = plan.variants.get(definition.id);
-                if (!retained) return undefined;
-                const axes = plan.completeFamilies.has(definition.id)
-                    ? definition.axes
-                    : Object.fromEntries(plan.axes.get(definition.id) ?? []);
-                return {
-                    ...definition,
-                    axes,
-                    variants: definition.variants.filter((variant) =>
-                        retained.has(variant.id),
-                    ),
-                };
-            })
-            .filter(
-                (
-                    definition,
-                ): definition is ComponentLibrary<
+            const contract: NonNullable<
+                ComponentLibrary<
                     SourceNode<Bytes>
-                >["definitions"][number] =>
-                    definition !== undefined && definition.variants.length > 0,
+                >["definitions"][number]["contract"]
+            > = { version: 1, properties: {}, bindings: {} };
+            for (const [key, property] of Object.entries(metadata)) {
+                if (
+                    property.type === "TEXT" ||
+                    property.type === "BOOLEAN" ||
+                    property.type === "INSTANCE_SWAP"
+                )
+                    contract.properties[key] = {
+                        type: property.type,
+                        defaultValue: property.defaultValue,
+                    };
+            }
+            const collectBindings = (node: SourceNode<Bytes>) => {
+                const refs = node.properties.componentPropertyReferences;
+                if (refs && typeof refs === "object" && !Array.isArray(refs)) {
+                    const bindings = Object.fromEntries(
+                        Object.entries(refs).filter(
+                            ([, key]) =>
+                                typeof key === "string" &&
+                                key in contract.properties,
+                        ),
+                    );
+                    if (Object.keys(bindings).length)
+                        contract.bindings[idOf(node)] = bindings;
+                }
+                for (const child of node.children ?? []) collectBindings(child);
+            };
+            const variants = [];
+            for (const variant of retainedVariants) {
+                const captured = capturedNodes.get(idOf(variant));
+                if (!captured) continue;
+                collectBindings(captured);
+                variants.push({
+                    id: idOf(variant),
+                    values: retainedValues.get(variant) ?? {},
+                    root: captured,
+                });
+            }
+            if (variants.length)
+                definitions.push({
+                    id: idOf(owner),
+                    name: owner.name,
+                    scope: completeOwners.has(idOf(owner))
+                        ? "complete"
+                        : "private",
+                    axes,
+                    contract,
+                    variants,
+                });
+        }
+        if (definitions.length) {
+            const selectedOwner =
+                root.type === "COMPONENT_SET"
+                    ? [...componentOwners.values()].find(
+                          (owner) => idOf(owner) === idOf(root),
+                      )
+                    : root.type === "COMPONENT"
+                      ? [...componentOwners.values()].find(
+                            (owner) =>
+                                idOf(owner) ===
+                                references[idOf(root)]?.definitionId,
+                        )
+                      : undefined;
+            const plan = timings.measure("componentPlanning", () =>
+                planReachableVariants(
+                    { version: 1, definitions, references },
+                    source.root,
+                    {
+                        kind:
+                            root.type === "COMPONENT_SET"
+                                ? "component-set"
+                                : root.type === "COMPONENT"
+                                  ? "component"
+                                  : root.type === "INSTANCE"
+                                    ? "instance"
+                                    : "frame",
+                        definitionId: selectedOwner && idOf(selectedOwner),
+                    },
+                ),
             );
-        const plannedDefinitionIds = new Set(
-            plannedDefinitions.map((definition) => definition.id),
-        );
-        const retainedNodeIds = new Set<string>();
-        const collectNodeIds = (node: SourceNode<Bytes>) => {
-            retainedNodeIds.add(node.id);
-            for (const child of node.children ?? []) collectNodeIds(child);
-        };
-        collectNodeIds(source.root);
-        for (const definition of plannedDefinitions)
-            for (const variant of definition.variants)
-                collectNodeIds(variant.root);
-        const plannedReferences = Object.fromEntries(
-            Object.entries(references).filter(
-                ([nodeId, reference]) =>
-                    retainedNodeIds.has(nodeId) &&
-                    plannedDefinitionIds.has(reference.definitionId) &&
-                    !!plan.variants
-                        .get(reference.definitionId)
-                        ?.has(reference.variantId),
-            ),
-        );
-        source.components = {
-            version: 1,
-            definitions: plannedDefinitions,
-            references: plannedReferences,
-        };
-    }
+            if (plan.diagnostics.length)
+                throw Error(
+                    `Component reachability failed: ${plan.diagnostics.join("; ")}`,
+                );
+            const plannedDefinitions = definitions
+                .map((definition) => {
+                    const retained = plan.variants.get(definition.id);
+                    if (!retained) return undefined;
+                    const axes = plan.completeFamilies.has(definition.id)
+                        ? definition.axes
+                        : Object.fromEntries(
+                              plan.axes.get(definition.id) ?? [],
+                          );
+                    return {
+                        ...definition,
+                        axes,
+                        variants: definition.variants.filter((variant) =>
+                            retained.has(idOf(variant)),
+                        ),
+                    };
+                })
+                .filter(
+                    (
+                        definition,
+                    ): definition is ComponentLibrary<
+                        SourceNode<Bytes>
+                    >["definitions"][number] =>
+                        definition !== undefined &&
+                        definition.variants.length > 0,
+                );
+            const plannedDefinitionIds = new Set(
+                plannedDefinitions.map((definition) => definition.id),
+            );
+            const retainedNodeIds = new Set<string>();
+            const collectNodeIds = (node: SourceNode<Bytes>) => {
+                retainedNodeIds.add(idOf(node));
+                for (const child of node.children ?? []) collectNodeIds(child);
+            };
+            collectNodeIds(source.root);
+            for (const definition of plannedDefinitions)
+                for (const variant of definition.variants)
+                    collectNodeIds(variant.root);
+            const plannedReferences = Object.fromEntries(
+                Object.entries(references).filter(
+                    ([nodeId, reference]) =>
+                        retainedNodeIds.has(nodeId) &&
+                        plannedDefinitionIds.has(reference.definitionId) &&
+                        !!plan.variants
+                            .get(reference.definitionId)
+                            ?.has(reference.variantId),
+                ),
+            );
+            source.components = {
+                version: 1,
+                definitions: plannedDefinitions,
+                references: plannedReferences,
+            };
+        }
+    });
 
     // Variable identities and mode values are captured once; conversion remains offline.
     if (definitions.length && typeof figma !== "undefined" && figma.variables) {
@@ -1394,7 +1977,7 @@ export async function captureSource(
                     needed.add(id);
                 });
                 const modes = node.properties.resolvedVariableModes;
-                variables.bindings[node.id] = {
+                variables.bindings[idOf(node)] = {
                     fields,
                     modes:
                         modes &&
@@ -1412,7 +1995,9 @@ export async function captureSource(
         }
         for (const id of needed) {
             if (cancelled?.()) throw new CaptureCancelled();
-            const variable = await figma.variables.getVariableByIdAsync(id);
+            const variable = await timings.measureAsync("variableReads", () =>
+                figma.variables.getVariableByIdAsync(id),
+            );
             if (!variable) throw Error(`Bound variable ${id} is unavailable`);
             if (
                 variable.resolvedType !== "COLOR" &&
@@ -1437,10 +2022,13 @@ export async function captureSource(
                 )
                     needed.add(value.id);
             if (!variables.collections[variable.variableCollectionId]) {
-                const collection =
-                    await figma.variables.getVariableCollectionByIdAsync(
-                        variable.variableCollectionId,
-                    );
+                const collection = await timings.measureAsync(
+                    "variableReads",
+                    () =>
+                        figma.variables.getVariableCollectionByIdAsync(
+                            variable.variableCollectionId,
+                        ),
+                );
                 if (!collection)
                     throw Error(
                         `Variable collection ${variable.variableCollectionId} is unavailable`,
@@ -1471,7 +2059,63 @@ export async function captureSource(
         (count, definition) => count + definition.variants.length,
         0,
     );
-    return { source, durationMs: fontTiming.duration(), fontMetrics, work };
+    if (restDocuments.length) {
+        const seen = new Set<SourceNode<Bytes>>();
+        const records = new Map<string, Record<string, unknown>>();
+        const sets = new Map<string, number>();
+        source.bulkPropertySets = [];
+        const compact = (node: SourceNode<Bytes>) => {
+            if (seen.has(node)) return;
+            seen.add(node);
+            if (node.bulkProperties?.length) {
+                const rest = restNodes.get(idOf(node))!;
+                const fields = [
+                    ...node.bulkProperties,
+                    "rectangleCornerRadii",
+                    "strokeDashes",
+                ];
+                records.set(idOf(node), {
+                    id: idOf(node),
+                    type: rest.type,
+                    ...Object.fromEntries(
+                        fields
+                            .filter((key) => key in rest)
+                            .map((key) => [key, rest[key]]),
+                    ),
+                });
+                const signature = node.bulkProperties.join(",");
+                let index = sets.get(signature);
+                if (index === undefined) {
+                    index = source.bulkPropertySets!.length;
+                    sets.set(signature, index);
+                    source.bulkPropertySets!.push([...node.bulkProperties]);
+                }
+                node.bulkPropertySet = index;
+                node.properties = { ...node.properties };
+                for (const key of node.bulkProperties)
+                    delete node.properties[key];
+                delete node.bulkProperties;
+            }
+            for (const child of node.children ?? []) compact(child);
+        };
+        compact(source.root);
+        for (const definition of source.components?.definitions ?? [])
+            for (const variant of definition.variants) compact(variant.root);
+        source.bulkDocuments = [
+            {
+                id: `capture-bulk:${source.root.id}`,
+                type: "FRAME",
+                children: [...records.values()],
+            },
+        ];
+    }
+    return {
+        source,
+        durationMs: fontTiming.duration(),
+        fontMetrics,
+        work,
+        timings: timings.snapshot(),
+    };
 }
 
 export type SourceCaptureResult =
@@ -1497,6 +2141,7 @@ export async function captureSelectionSource(
     selectionNodeIds?: readonly string[],
     scope: CaptureScope = "tree",
     schedule: CaptureScheduler = selectionExportScheduler,
+    onBulkDocument?: (document: Record<string, unknown>) => void,
 ): Promise<SourceCaptureResult> {
     const captureMetrics = {
         durationMs: 0,
@@ -1537,6 +2182,7 @@ export async function captureSelectionSource(
             cache,
             schedule,
             scope,
+            onBulkDocument,
         );
         return {
             ok: true,
@@ -1566,6 +2212,7 @@ export async function captureSelectionSource(
                 ...captured.fontMetrics,
                 durationMs: captured.durationMs,
                 work: captured.work,
+                timings: captured.timings,
             },
         };
     } catch (error) {
@@ -1622,4 +2269,61 @@ export async function captureCodegenVariables(
             return { field, ...(await variables.get(id)) };
         }),
     );
+}
+
+/** Recheck variable definitions because variable edits need not change node bindings. */
+export async function sourceVariablesUnchanged(
+    source: SourceCapture<SourceBytes>,
+): Promise<boolean> {
+    if (!source.variables)
+        return !JSON.stringify(source, (_key, value) =>
+            value instanceof Uint8Array ? null : value,
+        ).includes('"VARIABLE_ALIAS"');
+    try {
+        const variables = await Promise.all(
+            Object.entries(source.variables.variables).map(
+                async ([id, captured]) => {
+                    const current =
+                        await figma.variables.getVariableByIdAsync(id);
+                    return (
+                        current !== null &&
+                        current.name === captured.name &&
+                        current.resolvedType === captured.type &&
+                        current.variableCollectionId ===
+                            captured.collectionId &&
+                        JSON.stringify(current.valuesByMode) ===
+                            JSON.stringify(captured.values)
+                    );
+                },
+            ),
+        );
+        const collections = await Promise.all(
+            Object.entries(source.variables.collections).map(
+                async ([id, captured]) => {
+                    const current =
+                        await figma.variables.getVariableCollectionByIdAsync(
+                            id,
+                        );
+                    return (
+                        current !== null &&
+                        current.name === captured.name &&
+                        current.defaultModeId === captured.defaultModeId &&
+                        JSON.stringify(
+                            current.modes.map((mode) => ({
+                                id: mode.modeId,
+                                name: mode.name,
+                            })),
+                        ) === JSON.stringify(captured.modes)
+                    );
+                },
+            ),
+        );
+        return variables.every(Boolean) && collections.every(Boolean);
+    } catch {
+        return false;
+    }
+}
+
+export function captureColorProfile(): string {
+    return figma.root?.documentColorProfile ?? "LEGACY";
 }

@@ -37,6 +37,8 @@ export type SourceNode<Bytes extends SourceBytes = number[]> = {
     name: string;
     type: string;
     properties: { [key: string]: SourceValue };
+    bulkProperties?: readonly string[];
+    bulkPropertySet?: number;
     children?: SourceNode<Bytes>[];
     segments?: SourceResult<SourceValue>;
     cells?: SourceValue[];
@@ -53,9 +55,8 @@ export type SourceNode<Bytes extends SourceBytes = number[]> = {
 };
 export type SourceCapture<Bytes extends SourceBytes = number[]> = {
     sourceVersion: 1;
-    /** A visible-tree fallback without reusable component metadata or text rasters. */
-    flattened?: true;
-    rasterized?: true;
+    bulkDocuments?: readonly Record<string, unknown>[];
+    bulkPropertySets?: string[][];
     components?: ComponentLibrary<SourceNode<Bytes>>;
     variables?: VariableLibrary;
     root: SourceNode<Bytes>;
@@ -107,12 +108,22 @@ export function encodeValue(
     )
         return value;
     if (Array.isArray(value)) return value.map((v) => encodeValue(v, mixed));
-    if (typeof value === "object")
-        return Object.fromEntries(
-            Object.entries(value)
-                .filter(([, v]) => typeof v !== "function")
-                .map(([k, v]) => [k, encodeValue(v, mixed)]),
-        );
+    if (typeof value === "object") {
+        const encoded: Record<string, SourceValue> = {};
+        for (const key of Object.keys(value)) {
+            const field = (value as Record<string, unknown>)[key];
+            if (typeof field === "function") continue;
+            if (key === "__proto__")
+                Object.defineProperty(encoded, key, {
+                    value: encodeValue(field, mixed),
+                    enumerable: true,
+                    configurable: true,
+                    writable: true,
+                });
+            else encoded[key] = encodeValue(field, mixed);
+        }
+        return encoded;
+    }
     return { $source: "unavailable" };
 }
 export function decodeValue(value: {
@@ -128,9 +139,18 @@ export function decodeValue(value: SourceValue | undefined): unknown {
         if (value.$source === "NaN") return Number.NaN;
         if (value.$source === "Infinity") return Number.POSITIVE_INFINITY;
         if (value.$source === "-Infinity") return Number.NEGATIVE_INFINITY;
-        return Object.fromEntries(
-            Object.entries(value).map(([k, v]) => [k, decodeValue(v)]),
-        );
+        const decoded: Record<string, unknown> = {};
+        for (const key of Object.keys(value)) {
+            if (key === "__proto__")
+                Object.defineProperty(decoded, key, {
+                    value: decodeValue(value[key]),
+                    enumerable: true,
+                    configurable: true,
+                    writable: true,
+                });
+            else decoded[key] = decodeValue(value[key]);
+        }
+        return decoded;
     }
     return value;
 }
@@ -141,8 +161,6 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
         !Number.isFinite(value.exportScale) ||
         value.exportScale <= 0 ||
         typeof value.pngEnabled !== "boolean" ||
-        (value.flattened !== undefined && value.flattened !== true) ||
-        (value.rasterized !== undefined && value.rasterized !== true) ||
         !value.images
     )
         throw new Error("Invalid source capture contract");
