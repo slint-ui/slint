@@ -87,6 +87,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::DashArray(_) => ALLOC_COST,
         // Don't inline: that could duplicate or relocate the hook.
         Expression::DebugHook { .. } => return isize::MAX,
+        Expression::CornerShape(_) => 1,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));
@@ -170,6 +171,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
+        BuiltinFunction::CornerShapeSuperellipse => 50,
         BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,

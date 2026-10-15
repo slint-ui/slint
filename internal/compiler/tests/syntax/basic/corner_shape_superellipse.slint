@@ -1,0 +1,14 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+    property <corner-shape> a: CornerShape.superellipse(3);
+    property <float> k: 2;
+    property <corner-shape> b: CornerShape.superellipse(k);
+    property <corner-shape> c: CornerShape.superellipse();
+//                                         >          <error{'superellipse()' expects exactly one argument}
+    property <corner-shape> d: CornerShape.superellipse(1, 2);
+//                                         >          <error{'superellipse()' expects exactly one argument}
+    property <corner-shape> e: CornerShape.superellipse("string");
+//                                                      >      <error{Cannot convert string to float}
+}

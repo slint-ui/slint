@@ -9,7 +9,7 @@ use super::GlobalAnalysis;
 use crate::builtin_functions::BuiltinFunction;
 use crate::element_type::ElementType;
 use crate::expression_tree::*;
-use crate::expression_types::{MinMaxOp, Unit};
+use crate::expression_types::{CornerShape, MinMaxOp, Unit};
 use crate::langtype::{BuiltinStruct, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -235,6 +235,15 @@ fn fold_binary_expression(
         }
         ('=' | '!', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
             Some(Expression::BoolLiteral((a == b) == (op == '=')))
+        }
+        ('=' | '!', Expression::CornerShape(a), Expression::CornerShape(b)) => {
+            let eq = match (&*a, &*b) {
+                (CornerShape::Superellipse(a), CornerShape::Superellipse(b)) => {
+                    a == b || (a.is_nan() && b.is_nan())
+                }
+                _ => std::mem::discriminant(a) == std::mem::discriminant(b),
+            };
+            Some(Expression::BoolLiteral(eq == (op == '=')))
         }
         // TODO: more types and more comparison operators
 

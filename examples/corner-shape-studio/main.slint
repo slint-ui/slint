@@ -1,0 +1,509 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cspell:ignore Neue
+
+import { Colors, CornerButton, CornerSlider, PresetTile } from "controls.slint";
+
+struct ShapePreset { label: string, exponent: float, shape: corner-shape }
+
+export component ShapeStudio inherits Window {
+    title: "FORM · Corner Studio";
+    no-frame: true;
+    background: transparent;
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    min-width: 1180px;
+    min-height: 760px;
+    resize-border-width: root.maximized ? 0px : 6px;
+    default-font-family: "Helvetica Neue";
+    default-font-size: 13px;
+
+    private property <[ShapePreset]> presets: [
+        { label: "Round", exponent: 1, shape: round },
+        { label: "Squircle", exponent: 2, shape: squircle },
+        { label: "Bevel", exponent: 0, shape: bevel },
+        { label: "Scoop", exponent: -1, shape: scoop },
+        { label: "Notch", exponent: -5, shape: notch },
+        { label: "Square", exponent: 5, shape: square },
+    ];
+    in-out property <int> preset: 1;
+    in-out property <float> exponent: 2;
+    in-out property <float> radius: 64;
+    in-out property <bool> docked: false;
+    in-out property <float> inset-exponent: -5;
+    in-out property <bool> showcase-running: false;
+    private property <length> inset-size: 112px;
+    private property <bool> animate-shape: true;
+    private property <float> animated-exponent: root.exponent;
+    private property <length> corner-radius: root.radius * 1px;
+    private property <float> dock-progress: root.docked ? 1 : 0;
+    private property <float> dock-exponent: root.docked ? root.inset-exponent : root.exponent;
+    private property <corner-shape> shape: root.shape-from-exponent(root.animated-exponent);
+    private property <corner-shape> dock-shape: root.shape-from-exponent(root.dock-exponent);
+    private property <string> shape-code: root.preset < 0 ? "superellipse(\{round(root.exponent * 100) / 100})"
+        : root.presets[root.preset].label;
+    pure function shape-from-exponent(value: float) -> corner-shape {
+        return value <= -4.99 ? CornerShape.notch : value >= 4.99 ? CornerShape.square : CornerShape.superellipse(value);
+    }
+    animate animated-exponent, dock-exponent {
+        duration: root.animate-shape ? 700ms : 0ms;
+        easing: ease-in-out;
+    }
+    animate dock-progress {
+        duration: 700ms;
+        easing: ease-in-out;
+    }
+    function begin-slider-input() {
+        root.animate-shape = false;
+        root.showcase-running = false;
+    }
+    function select-preset(index: int) {
+        root.animate-shape = true;
+        root.preset = index;
+        root.exponent = root.presets[index].exponent;
+    }
+    function next-scene() {
+        if root.preset == 5 && !root.docked { root.select-preset(1); root.docked = true; }
+        else if root.docked { root.docked = false; root.select-preset(0); }
+        else { root.select-preset(mod(root.preset + 1, 6)); }
+    }
+    Timer {
+        running: root.showcase-running;
+        interval: 2600ms;
+        triggered => { root.next-scene(); }
+    }
+
+    shell := Rectangle {
+        x: root.maximized ? 0px : 8px;
+        y: root.maximized ? 0px : 8px;
+        width: root.width - 2 * self.x;
+        height: root.height - 2 * self.y;
+        background: Colors.paper;
+        border-radius: root.corner-radius;
+        border-corner-shape: root.shape;
+        border-bottom-left-radius: root.corner-radius + root.dock-progress * root.inset-size;
+        border-bottom-left-corner-shape: root.dock-shape;
+        border-width: 1px;
+        border-color: #ffffff80;
+        clip: true;
+        VerticalLayout {
+            titlebar := Rectangle {
+                height: max(80px, root.corner-radius + 24px);
+                background: Colors.paper;
+                accessible-role: window-title-bar;
+                accessible-label: root.title;
+                titlebar-move := WindowMoveArea {
+                    TouchArea {
+                        double-clicked => { root.maximized = !root.maximized; }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: max(32px, root.corner-radius + 8px);
+                    padding-right: max(32px, root.corner-radius + 8px);
+                    spacing: 20px;
+                    Text {
+                        text: "FORM";
+                        color: Colors.ink;
+                        font-size: 25px;
+                        letter-spacing: 6px;
+                        font-weight: 400;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 1px;
+                        height: 22px;
+                        background: Colors.line;
+                        cross-axis-self-alignment: center;
+                    }
+
+                    Text {
+                        text: "SHAPE APPS. SOUND BETTER.";
+                        color: Colors.ink;
+                        font-size: 8px;
+                        letter-spacing: 2px;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+
+                    Text {
+                        text: "STUDIO  /  EXPERIMENT 001";
+                        color: Colors.muted;
+                        font-size: 9px;
+                        letter-spacing: 1px;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 1px;
+                        height: 22px;
+                        background: Colors.line;
+                        cross-axis-self-alignment: center;
+                    }
+
+                    HorizontalLayout {
+                        width: 116px;
+                        height: 36px;
+                        spacing: 4px;
+                        cross-axis-self-alignment: center;
+                        minimize-button := CornerButton {
+                            icon-only: true;
+                            label: "Minimize";
+                            icon: "M 5 12 L 19 12";
+                            shape: root.shape;
+                            radius: root.corner-radius * 0.3;
+                            clicked => { root.minimized = true; }
+                        }
+
+                        maximize-button := CornerButton {
+                            icon-only: true;
+                            label: root.maximized ? "Restore" : "Maximize";
+                            icon: root.maximized ? "M 5 8 L 16 8 L 16 19 L 5 19 Z M 8 8 L 8 5 L 19 5 L 19 16 L 16 16" : "M 5 5 L 19 5 L 19 19 L 5 19 Z";
+                            shape: root.shape;
+                            radius: root.corner-radius * 0.3;
+                            clicked => { root.maximized = !root.maximized; }
+                        }
+
+                        close-button := CornerButton {
+                            icon-only: true;
+                            label: "Close";
+                            icon: "M 6 6 L 18 18 M 18 6 L 6 18";
+                            shape: root.shape;
+                            radius: root.corner-radius * 0.3;
+                            clicked => { root.close(); }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 32px;
+                padding-right: 32px;
+                padding-top: 12px;
+                padding-bottom: 28px;
+                spacing: 24px;
+                VerticalLayout {
+                    width: 124px;
+                    spacing: 16px;
+                    alignment: start;
+                    Rectangle {
+                        height: 44px;
+                        background: Colors.ink;
+                        border-radius: root.corner-radius * 0.3;
+                        border-corner-shape: root.shape;
+                        Text {
+                            text: "Now playing";
+                            color: Colors.paper;
+                            font-size: 11px;
+                        }
+                    }
+
+                    Text {
+                        text: "STUDIO SESSIONS";
+                        color: Colors.muted;
+                        font-size: 8px;
+                        letter-spacing: 1px;
+                    }
+
+                    Text {
+                        text: "01  Outside the lines";
+                        color: Colors.ink;
+                        font-size: 10px;
+                    }
+
+                    Text {
+                        text: "A space to listen.\nA shape to explore.";
+                        color: Colors.muted;
+                        font-size: 11px;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Colors.line;
+                    }
+
+                    dock-button := CornerButton {
+                        label: root.docked ? "Restore form" : "Make space";
+                        icon: "M 5 7 L 17 7 L 17 19 M 7 17 L 17 7";
+                        outlined: true;
+                        shape: root.shape;
+                        radius: root.corner-radius * 0.3;
+                        clicked => { root.animate-shape = true; root.showcase-running = false; root.docked = !root.docked; }
+                    }
+                }
+
+                Rectangle {
+                    width: 1px;
+                    background: Colors.line;
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 24px;
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+                        spacing: 32px;
+                        album := Rectangle {
+                            horizontal-stretch: 1;
+                            min-width: 280px;
+                            background: Colors.surface;
+                            border-radius: root.corner-radius;
+                            border-corner-shape: root.shape;
+                            clip: true;
+                            Image {
+                                x: 0;
+                                y: 0;
+                                width: 100%;
+                                height: 100%;
+                                source: @image-url("album-art.jpg");
+                                image-fit: cover;
+                            }
+                        }
+
+                        VerticalLayout {
+                            width: 256px;
+                            spacing: 20px;
+                            Text {
+                                text: "STUDIO SESSIONS / VOL. 01";
+                                color: Colors.muted;
+                                font-size: 9px;
+                                letter-spacing: 2px;
+                            }
+
+                            Text {
+                                text: "Outside\nthe lines";
+                                color: Colors.ink;
+                                font-family: "Georgia";
+                                font-size: 56px;
+                                font-weight: 400;
+                            }
+
+                            Rectangle {
+                                height: 22px;
+                            }
+
+                            Rectangle {
+                                width: 28px;
+                                height: 1px;
+                                background: Colors.ink;
+                            }
+
+                            Text {
+                                text: "Find a different rhythm.\nGive your interface room to move.";
+                                color: Colors.muted;
+                                font-size: 12px;
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                            }
+
+                            HorizontalLayout {
+                                height: 68px;
+                                spacing: 3px;
+                                for i in 45: Rectangle {
+                                    height: (14 + mod(i * 17, 47)) * 1px;
+                                    background: i < 27 ? Colors.ink : Colors.line;
+                                    border-radius: 1px;
+                                }
+                            }
+
+                            Text {
+                                text: root.showcase-running ? "Shape showcase playing" : "Play the shape showcase";
+                                color: Colors.muted;
+                                font-size: 11px;
+                                horizontal-alignment: right;
+                            }
+
+                            HorizontalLayout {
+                                height: 64px;
+                                alignment: center;
+                                tour-button := CornerButton {
+                                    icon-only: true;
+                                    width: 64px;
+                                    height: 64px;
+                                    label: root.showcase-running ? "Pause showcase" : "Play showcase";
+                                    icon: root.showcase-running ? "M 8 5 L 8 19 M 16 5 L 16 19" : "M 7 5 L 19 12 L 7 19 Z";
+                                    dark: true;
+                                    shape: root.shape;
+                                    radius: root.corner-radius * 0.65;
+                                    clicked => { root.showcase-running = !root.showcase-running; }
+                                }
+                            }
+
+                            Rectangle {
+                                height: 8px;
+                            }
+                        }
+                    }
+
+                    player-bar := Rectangle {
+                        height: 84px;
+                        background: Colors.surface;
+                        border-radius: root.corner-radius * 0.65;
+                        border-corner-shape: root.shape;
+                        border-width: 1px;
+                        border-color: Colors.line;
+                        HorizontalLayout {
+                            padding: 16px;
+                            spacing: 16px;
+                            Rectangle {
+                                width: 50px;
+                                height: 50px;
+                                border-radius: root.corner-radius * 0.3;
+                                border-corner-shape: root.shape;
+                                clip: true;
+                                Image {
+                                    source: @image-url("album-art.jpg");
+                                    width: 100%;
+                                    height: 100%;
+                                    image-fit: cover;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 6px;
+                                Text {
+                                    text: "Outside the lines";
+                                    font-family: "Georgia";
+                                    font-size: 18px;
+                                    color: Colors.ink;
+                                }
+
+                                Text {
+                                    text: "Studio Sessions / Vol. 01";
+                                    color: Colors.muted;
+                                    font-size: 10px;
+                                }
+                            }
+
+                            Rectangle {
+                                horizontal-stretch: 1;
+                            }
+
+                            Text {
+                                text: "\{root.shape-code}";
+                                color: Colors.muted;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 1px;
+                    background: Colors.line;
+                }
+
+                VerticalLayout {
+                    width: 232px;
+                    spacing: 14px;
+                    Text {
+                        text: "Corner Studio";
+                        font-family: "Georgia";
+                        font-size: 25px;
+                        color: Colors.ink;
+                    }
+
+                    Text {
+                        text: "Change the shape. Change the feeling.";
+                        color: Colors.muted;
+                        font-size: 11px;
+                    }
+
+                    VerticalLayout {
+                        height: 176px;
+                        spacing: 8px;
+                        for row in 2: HorizontalLayout {
+                            spacing: 8px;
+                            for col in 3: PresetTile {
+                                label: root.presets[row * 3 + col].label;
+                                shape: root.presets[row * 3 + col].shape;
+                                selected: root.preset == row * 3 + col;
+                                clicked => { root.showcase-running = false; root.select-preset(row * 3 + col); }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Colors.line;
+                    }
+
+                    exponent-slider := CornerSlider {
+                        label: "Corner character";
+                        minimum: -5;
+                        maximum: 5;
+                        step: 0.1;
+                        value: root.exponent;
+                        readout: root.exponent <= -4.99 ? "−∞" : root.exponent >= 4.99 ? "+∞" : "\{round(root.exponent * 100) / 100}";
+                        edited(value) => { root.begin-slider-input(); root.exponent = value; root.preset = -1; }
+                    }
+
+                    radius-slider := CornerSlider {
+                        label: "Corner size";
+                        value: root.radius;
+                        edited(value) => { root.begin-slider-input(); root.radius = value; }
+                    }
+
+                    if root.docked: inset-slider := CornerSlider {
+                        label: "Inset shape";
+                        minimum: -5;
+                        maximum: 0;
+                        step: 0.1;
+                        value: root.inset-exponent;
+                        readout: root.inset-exponent <= -4.99 ? "Notch"
+                            : abs(root.inset-exponent + 1) < 0.05 ? "Scoop"
+                            : root.inset-exponent >= -0.01 ? "Bevel" : "\{round(root.inset-exponent * 100) / 100}";
+                        edited(value) => { root.begin-slider-input(); root.inset-exponent = value; }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if root.dock-progress > 0: mini-player := Rectangle {
+        x: 20px;
+        y: root.height - root.inset-size - 20px;
+        width: root.inset-size;
+        height: root.inset-size;
+        opacity: root.dock-progress;
+        border-radius: root.corner-radius * 0.4;
+        border-corner-shape: root.shape;
+        background: Colors.ink;
+        clip: true;
+        Rectangle {
+            x: 12px;
+            y: 12px;
+            width: 88px;
+            height: 68px;
+            border-radius: root.corner-radius * 0.3;
+            border-corner-shape: root.shape;
+            clip: true;
+            Image {
+                source: @image-url("album-art.jpg");
+                width: 100%;
+                height: 100%;
+                image-fit: cover;
+            }
+        }
+
+        Text {
+            y: 88px;
+            text: "FORM / 01";
+            color: Colors.paper;
+            font-size: 9px;
+            letter-spacing: 1px;
+        }
+    }
+}

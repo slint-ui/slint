@@ -6,7 +6,7 @@
 
 use super::items::*;
 use crate::graphics::{
-    Color, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
+    Color, CornerShapes, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
 };
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
@@ -348,6 +348,7 @@ pub trait RenderBorderRectangle {
     fn background(self: Pin<&Self>) -> Brush;
     fn border_width(self: Pin<&Self>) -> LogicalLength;
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius;
+    fn border_corner_shape(self: Pin<&Self>) -> CornerShapes;
     fn border_color(self: Pin<&Self>) -> Brush;
 }
 
@@ -359,6 +360,8 @@ pub trait RenderBorderRectangle {
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the border box, before adjusting for the border width.
+    pub radius: PhysicalBorderRadius,
     /// The corner radii of the outer border box, adjusted for the border width.
     pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
@@ -369,6 +372,10 @@ pub struct BorderRectLayout {
     pub border_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `border_rect`.
     pub border_radius: PhysicalBorderRadius,
+    /// The shape of each corner. Corners that don't draw as a rounded rectangle, see
+    /// [`CornerShapes::rounded_rect_radius`], are drawn with [`Self::shaped_paths`] instead
+    /// of `background_rect` and `border_rect`.
+    pub corner_shape: CornerShapes,
     /// The stroke width of the border; zero for transparent borders.
     pub border_width: euclid::Length<f32, PhysicalPx>,
     /// The border brush.
@@ -384,27 +391,41 @@ impl BorderRectLayout {
         scale_factor: ScaleFactor,
     ) -> Option<Self> {
         // `cast()`: the logical Coord type can be i32, the physical geometry is f32.
-        let mut geometry = euclid::Rect::from_size(size.cast() * scale_factor);
+        Self::from_parts(
+            size.cast() * scale_factor,
+            rect.border_radius().cast() * scale_factor,
+            rect.border_corner_shape(),
+            rect.border_width().cast() * scale_factor,
+            rect.border_color(),
+        )
+    }
+
+    /// Computes the layout for a rectangle of `size` with the given corners and border, or
+    /// `None` when the geometry is empty.
+    pub fn from_parts(
+        size: euclid::Size2D<f32, PhysicalPx>,
+        radius: PhysicalBorderRadius,
+        corner_shape: CornerShapes,
+        border_width: euclid::Length<f32, PhysicalPx>,
+        border_color: Brush,
+    ) -> Option<Self> {
+        let mut geometry = euclid::Rect::from_size(size);
         if geometry.is_empty() {
             return None;
         }
         let brush_size = geometry.size;
+        let radius = corner_shape.rounded_rect_radius(radius).unwrap_or(radius);
 
-        let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
-        let mut border_width = if border_color.is_transparent() {
-            euclid::Length::new(0.)
-        } else {
-            rect.border_width().cast() * scale_factor
-        };
+        let mut border_width =
+            if border_color.is_transparent() { euclid::Length::new(0.) } else { border_width };
 
         // The stroke is centered on the path (50% inside, 50% outside), while in CSS the
         // border is entirely inside the geometry. Ensure positive corner radii are at
         // least half the border width, so that the outer edge keeps a radius at all;
         // this is incorrect when the radius is smaller than that, but that can't be
         // helped - better a radius a bit too big than no radius.
-        let fill_radius = (rect.border_radius().cast() * scale_factor)
-            .outer(border_width / 2. + euclid::Length::new(0.01));
+        let fill_radius = radius.outer(border_width / 2. + euclid::Length::new(0.01));
         let border_radius = fill_radius.inner(border_width / 2.);
 
         let (background_rect, background_radius) = if opaque_border {
@@ -422,14 +443,43 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            radius,
             outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
             border_radius,
+            corner_shape,
             border_width,
             border_color,
         })
+    }
+
+    /// The background and border paths, for a layout whose corners don't draw as a rounded
+    /// rectangle, grown by `spread` as for a box shadow's
+    /// [`source`](crate::graphics::boxshadowcache::BoxShadowOptions::source).
+    /// Fill both with the nonzero rule; the border path is `None` without a border.
+    #[cfg(feature = "path")]
+    pub fn shaped_paths(&self, spread: f32) -> (lyon_path::Path, Option<lyon_path::Path>) {
+        use crate::graphics::corner_geometry::{border_contours, offset_outline};
+        use crate::graphics::corner_path::{border_path, contour_path};
+        let rect = euclid::Rect::from_size(self.brush_size).to_untyped();
+        let outline = |distance: f32| {
+            contour_path(&offset_outline(rect, self.radius, self.corner_shape, distance))
+        };
+        let border_width = self.border_width.get();
+        if border_width <= 0. {
+            return (outline(spread), None);
+        }
+        let contours = border_contours(rect, self.radius, self.corner_shape, border_width, spread);
+        let background = if self.background_rect == self.border_rect {
+            // Under an opaque border, the background ends in the middle of the border, where
+            // neither antialiased edge shows the other.
+            outline(spread - border_width / 2.)
+        } else {
+            contour_path(&contours.outer)
+        };
+        (background, Some(border_path(&contours)))
     }
 }
 
@@ -672,13 +722,17 @@ pub trait ItemRenderer {
     fn visit_clip(
         &mut self,
         clip_item: Pin<&Clip>,
-        _item_rc: &ItemRc,
+        item_rc: &ItemRc,
         size: LogicalSize,
     ) -> RenderingResult {
         if clip_item.clip() {
-            let (clip_rect, clip_radius) =
-                clip_content_box(size, clip_item.logical_border_radius(), clip_item.border_width());
-            let clip_region_valid = self.combine_clip(clip_rect, clip_radius);
+            let clip_region_valid = self.combine_shaped_clip(
+                item_rc,
+                size,
+                clip_item.logical_border_radius(),
+                clip_item.border_width(),
+                clip_item.logical_corner_shape(),
+            );
 
             // If clipping is enabled but the clip element is outside the visible range, then we don't
             // need to bother doing anything, not even rendering the children.
@@ -694,6 +748,24 @@ pub trait ItemRenderer {
     /// Returns a boolean indicating the state of the new clip region: true if the clip region covers
     /// an area; false if the clip region is empty.
     fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool;
+
+    /// Clips further calls until `restore_state` to the inside of the border of `item_rc`,
+    /// an item of `size` with corners of `radius` and `shape` and a border of `border_width`.
+    /// Returns whether the clip region covers an area, like [`Self::combine_clip`].
+    ///
+    /// The default clips to [`clip_content_box`] with [`Self::combine_clip`], so every
+    /// corner is round.
+    fn combine_shaped_clip(
+        &mut self,
+        _item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        _shape: CornerShapes,
+    ) -> bool {
+        let (rect, radius) = clip_content_box(size, radius, border_width);
+        self.combine_clip(rect, radius)
+    }
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> LogicalRect;
 

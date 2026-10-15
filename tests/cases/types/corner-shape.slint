@@ -1,0 +1,43 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct ShapeProp {
+    corner-shape: corner-shape,
+    unset: corner-shape,
+}
+
+global G {
+    in-out property <corner-shape> a: CornerShape.notch;
+    in-out property <ShapeProp> p: { corner-shape: CornerShape.scoop };
+}
+
+export component TestCase inherits Window {
+    in-out property <corner-shape> corner-shape: bevel;
+    in-out property <corner-shape> unset;
+    in-out property <float> k: 3;
+    out property <corner-shape> constant-superellipse: CornerShape.superellipse(3);
+    out property <corner-shape> bound-superellipse: CornerShape.superellipse(k);
+
+    out property <bool> test: corner-shape == CornerShape.bevel && corner-shape != CornerShape.round
+        && G.p.corner-shape == CornerShape.scoop
+        && unset == CornerShape.round && G.p.unset == CornerShape.round
+        && constant-superellipse == bound-superellipse
+        && constant-superellipse != CornerShape.superellipse(2);
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_k(2.);
+assert!(!instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_k(2.);
+assert(!instance.get_test());
+```
+*/

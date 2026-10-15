@@ -235,6 +235,7 @@ pub fn lower_expression(
             expression: Box::new(lower_expression(expression, ctx)),
         },
         tree_Expression::DashArray(dash_array) => llr_Expression::DashArray(dash_array.clone()),
+        tree_Expression::CornerShape(x) => llr_Expression::CornerShape(x.clone()),
     }
 }
 

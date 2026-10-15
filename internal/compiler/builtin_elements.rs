@@ -620,6 +620,11 @@ fn build(l: &mut Loader) {
         /// The size of the radius. This single value is applied to all four corners.
         /// \default 0
         in property <length> border-radius;
+        /// The shape of all four corners, sized by the border radius.
+        /// See <Link type="corner-shape" label="corner-shape" /> for the available shapes.
+        /// Only the Skia renderer draws corner shapes; the other renderers draw every corner round.
+        /// \default round
+        in property <corner-shape> border-corner-shape;
     } }
 
     item! { BorderRectangle: BasicBorderRectangle {
@@ -632,6 +637,14 @@ fn build(l: &mut Loader) {
         in property <length> border-bottom-left-radius;
         ///
         in property <length> border-bottom-right-radius;
+        /// The shape of the top left corner.
+        in property <corner-shape> border-top-left-corner-shape;
+        /// The shape of the top right corner.
+        in property <corner-shape> border-top-right-corner-shape;
+        /// The shape of the bottom left corner.
+        in property <corner-shape> border-bottom-left-corner-shape;
+        /// The shape of the bottom right corner.
+        in property <corner-shape> border-bottom-right-corner-shape;
         //! ## Drop Shadows
         //!
         //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
@@ -702,7 +715,7 @@ fn build(l: &mut Loader) {
         //!
         //! Use `backdrop-blur` to blur what's drawn underneath a rectangle, so that it looks like translucent glass.
         //! Give the rectangle a translucent `background` so the blurred backdrop shows through.
-        //! The blur covers the rectangle's area, follows its border radius, and corresponds to CSS `backdrop-filter: blur()`.
+        //! The blur covers the rectangle's area, follows its border radius and corner shape, and corresponds to CSS `backdrop-filter: blur()`.
         //! Unlike CSS, it also picks up content just outside the rectangle, which makes its edges look more natural.
         //! This reaches up to three times the `backdrop-blur` value beyond the rectangle's edges.
         //! Like in CSS, inside an element with an `opacity` below 1 or with `cache-rendering-hint`,
@@ -2296,6 +2309,10 @@ fn build(l: &mut Loader) {
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
         in property <length> border-bottom-right-radius;
+        in property <corner-shape> border-top-left-corner-shape;
+        in property <corner-shape> border-top-right-corner-shape;
+        in property <corner-shape> border-bottom-left-corner-shape;
+        in property <corner-shape> border-bottom-right-corner-shape;
         in property <length> offset-x;
         in property <length> offset-y;
         in property <color> color;
@@ -2315,6 +2332,10 @@ fn build(l: &mut Loader) {
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
         in property <length> border-bottom-right-radius;
+        in property <corner-shape> border-top-left-corner-shape;
+        in property <corner-shape> border-top-right-corner-shape;
+        in property <corner-shape> border-bottom-left-corner-shape;
+        in property <corner-shape> border-bottom-right-corner-shape;
     } }
 
     element! {
@@ -2487,6 +2508,10 @@ fn build(l: &mut Loader) {
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
         in property <length> border-bottom-right-radius;
+        in property <corner-shape> border-top-left-corner-shape;
+        in property <corner-shape> border-top-right-corner-shape;
+        in property <corner-shape> border-bottom-left-corner-shape;
+        in property <corner-shape> border-bottom-right-corner-shape;
         in property <length> border-width;
         in property <bool> clip;
         in property <bool> is-visibility-clip;

@@ -135,6 +135,7 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::CornerShape => matches!(value, Value::CornerShape(_)),
     }
 }
 

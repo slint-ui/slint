@@ -314,6 +314,9 @@ fn eval_expression(
                 expression_types::MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
+        Expression::CornerShape(shape) => {
+            Value::CornerShape(slint_interpreter::corner_shape(shape))
+        }
         _ => Value::Void,
     }
 }

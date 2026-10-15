@@ -440,8 +440,8 @@ fn ts_type_name(ty: &Type) -> SmolStr {
         Type::Keys => SmolStr::new_static("slint.Keys"),
         Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
         Type::ComponentFactory => SmolStr::new_static("any"),
-        // The Node.js bindings have no JavaScript representation for a mouse cursor value.
-        Type::MouseCursor => SmolStr::new_static("void"),
+        // The Node.js bindings have no JavaScript representation for these values.
+        Type::MouseCursor | Type::CornerShape => SmolStr::new_static("void"),
         ty => unimplemented!("unimplemented type conversion {:#?}", ty),
     }
 }

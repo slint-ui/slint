@@ -1,0 +1,198 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export global Colors {
+    out property <color> paper: #ece9e4;
+    out property <color> ink: #25282a;
+    out property <color> muted: #82817e;
+    out property <color> line: #d0cdc8;
+    out property <color> surface: #e3dfd9;
+}
+
+component ButtonBase inherits Rectangle {
+    in property <string> label;
+    in property <bool> dark;
+    in property <bool> selected;
+    in property <bool> outlined;
+    in property <corner-shape> shape: round;
+    in property <length> radius: 12px;
+    out property <color> foreground: root.dark || root.selected ? Colors.paper : Colors.ink;
+    callback clicked;
+    height: 36px;
+    background: root.dark || root.selected ? Colors.ink : touch.has-hover ? Colors.surface : Colors.paper;
+    border-radius: min(root.radius, min(self.width, self.height) * 0.35);
+    border-corner-shape: root.shape;
+    border-width: root.outlined || focus.has-focus ? 1px : 0px;
+    border-color: root.selected || focus.has-focus ? Colors.ink : Colors.line;
+    opacity: touch.pressed ? 0.65 : 1;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { focus.focus(); root.clicked(); }
+    }
+}
+
+export component CornerButton inherits ButtonBase {
+    in property <string> icon;
+    in property <bool> icon-only;
+    HorizontalLayout {
+        padding-left: root.icon-only ? 0px : 12px;
+        padding-right: root.icon-only ? 0px : 12px;
+        spacing: 8px;
+        alignment: center;
+        if root.icon != "": Path {
+            width: root.icon-only ? 16px : 14px;
+            height: self.width;
+            cross-axis-self-alignment: center;
+            viewbox-width: 24;
+            viewbox-height: 24;
+            commands: root.icon;
+            stroke: root.foreground;
+            stroke-width: 1.5px;
+        }
+        if !root.icon-only: Text {
+            text: root.label;
+            color: root.foreground;
+            font-size: 11px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component CornerSlider inherits Rectangle {
+    in property <string> label;
+    in property <string> readout: "\{round(root.value * 100) / 100}";
+    in property <float> minimum;
+    in property <float> maximum: 96;
+    in property <float> step: 1;
+    in property <float> value;
+    callback edited(float);
+    height: 50px;
+    forward-focus: focus;
+    accessible-role: slider;
+    accessible-label: root.label;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-action-set-value(v) => { if v.is-float() { root.set-value(v.to-float()); } }
+    accessible-action-increment => { root.set-value(root.value + root.step); }
+    accessible-action-decrement => { root.set-value(root.value - root.step); }
+    function set-value(v: float) { root.edited(clamp(v, root.minimum, root.maximum)); }
+    function from-pointer() {
+        root.set-value(root.minimum + clamp((touch.mouse-x - 8px) / (root.width - 16px), 0, 1) * (root.maximum - root.minimum));
+    }
+    HorizontalLayout {
+        y: 0;
+        height: 14px;
+        Text {
+            text: root.label;
+            color: Colors.ink;
+            font-size: 11px;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.readout;
+            color: Colors.muted;
+            font-size: 11px;
+        }
+    }
+
+    Rectangle {
+        x: 8px;
+        y: 36px;
+        width: parent.width - 16px;
+        height: 3px;
+        background: Colors.line;
+        border-radius: 1.5px;
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: clamp((root.value - root.minimum) / (root.maximum - root.minimum), 0, 1) * parent.width;
+            background: Colors.ink;
+        }
+    }
+
+    Rectangle {
+        x: clamp((root.value - root.minimum) / (root.maximum - root.minimum), 0, 1) * (parent.width - 16px);
+        y: 29px;
+        width: 16px;
+        height: 16px;
+        background: Colors.ink;
+        border-radius: 8px;
+        border-width: focus.has-focus ? 2px : 0px;
+        border-color: Colors.muted;
+        Rectangle {
+            width: 5px;
+            height: 5px;
+            background: Colors.paper;
+            border-radius: 2.5px;
+        }
+    }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.RightArrow || event.text == Key.UpArrow { root.set-value(root.value + root.step); return accept; }
+            if event.text == Key.LeftArrow || event.text == Key.DownArrow { root.set-value(root.value - root.step); return accept; }
+            if event.text == Key.Home { root.set-value(root.minimum); return accept; }
+            if event.text == Key.End { root.set-value(root.maximum); return accept; }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { focus.focus(); root.from-pointer(); }
+        }
+        moved => { if self.pressed { root.from-pointer(); } }
+    }
+}
+
+export component PresetTile inherits ButtonBase {
+    height: 84px;
+    outlined: true;
+    border-radius: 16px;
+    border-corner-shape: round;
+    border-top-right-corner-shape: root.shape;
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 19px;
+        width: 32px;
+        height: 32px;
+        border-top-right-radius: 28px;
+        border-top-right-corner-shape: root.shape;
+        background: root.foreground;
+        Rectangle {
+            x: -1px;
+            y: 2px;
+            width: 31px;
+            height: 32px;
+            border-top-right-radius: 28px;
+            border-top-right-corner-shape: root.shape;
+            background: root.background;
+        }
+    }
+
+    Text {
+        y: 62px;
+        text: root.label;
+        font-size: 10px;
+        color: root.foreground;
+    }
+}

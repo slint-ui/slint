@@ -16,6 +16,7 @@
 //!
 
 use crate::Coord;
+use crate::graphics::CornerShapes;
 use crate::item_rendering::{
     ItemRenderer, ItemRendererFeatures, RenderBorderRectangle, RenderImage, RenderRectangle,
     RenderText,
@@ -27,8 +28,8 @@ use crate::items::{
     BackdropBlur, BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput,
 };
 use crate::lengths::{
-    ItemTransform, LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, ScaleFactor,
+    ItemTransform, LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect,
+    LogicalSize, LogicalVector, ScaleFactor,
 };
 use crate::properties::PropertyTracker;
 use crate::window::WindowAdapter;
@@ -860,6 +861,17 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
     fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         self.actual_renderer.combine_clip(rect, radius)
+    }
+
+    fn combine_shaped_clip(
+        &mut self,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        shape: CornerShapes,
+    ) -> bool {
+        self.actual_renderer.combine_shaped_clip(item_rc, size, radius, border_width, shape)
     }
 
     fn get_current_clip(&self) -> LogicalRect {

@@ -1,0 +1,80 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=224x124
+//ignore: software, anyrender, vello_cpu
+
+// A corner without a radius stays sharp under a shadow's spread, while the others grow
+// or shrink with it.
+// The first row has drop shadows, the second inner shadows with a negative spread, so
+// their hole grows.
+
+export component TestCase inherits Window {
+    width: 224px;
+    height: 124px;
+
+    background: #f3f5f8;
+
+    GridLayout {
+        padding: 12px;
+        spacing: 20px;
+
+        Row {
+            Rectangle {
+                background: #4f8cff;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 4px;
+                drop-shadow-offset-y: 4px;
+                drop-shadow-spread: 6px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 4px;
+                drop-shadow-offset-y: 4px;
+                drop-shadow-spread: 6px;
+            }
+            Rectangle {
+                border-width: 4px;
+                border-color: #203060;
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 4px;
+                drop-shadow-offset-y: 4px;
+                drop-shadow-spread: 6px;
+            }
+        }
+
+        Row {
+            Rectangle {
+                background: #4f8cff;
+                inner-shadow-color: #203060;
+                inner-shadow-offset-x: 6px;
+                inner-shadow-offset-y: 6px;
+                inner-shadow-spread: -4px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                inner-shadow-color: #203060;
+                inner-shadow-offset-x: 6px;
+                inner-shadow-offset-y: 6px;
+                inner-shadow-spread: -4px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-top-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                border-top-right-corner-shape: bevel;
+                inner-shadow-color: #203060;
+                inner-shadow-offset-x: 6px;
+                inner-shadow-offset-y: 6px;
+                inner-shadow-spread: -4px;
+            }
+        }
+    }
+}

@@ -1,0 +1,67 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=224x236
+//ignore: software, anyrender, vello_cpu
+
+// The first two rows show every corner shape with the same radius and border.
+// The third sets shapes per corner, combines them with per-corner radii, and covers a radius
+// wider than half the box and no radius at all.
+// The last row has borders as thick as the radius, adjacent corners whose borders overlap,
+// and a semi-transparent border.
+
+export component TestCase inherits Window {
+    width: 224px;
+    height: 236px;
+
+    background: black;
+
+    GridLayout {
+        padding: 4px;
+        spacing: 4px;
+
+        Row {
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.round; }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.squircle; }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.bevel; }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.scoop; }
+        }
+
+        Row {
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.notch; }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.square; }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.superellipse(-3); }
+            Rectangle { background: #0a0f; border-radius: 16px; border-width: 5px; border-color: #d00f; border-corner-shape: CornerShape.superellipse(3); }
+        }
+
+        Row {
+            Rectangle {
+                background: #00af;
+                border-radius: 16px;
+                border-width: 5px;
+                border-color: #0d0f;
+                border-top-left-corner-shape: CornerShape.bevel;
+                border-top-right-corner-shape: CornerShape.scoop;
+                border-bottom-right-corner-shape: CornerShape.notch;
+                border-bottom-left-corner-shape: CornerShape.squircle;
+            }
+            Rectangle {
+                background: #00af;
+                border-width: 5px;
+                border-color: #0d0f;
+                border-top-left-radius: 20px;
+                border-bottom-right-radius: 8px;
+                border-corner-shape: CornerShape.bevel;
+            }
+            Rectangle { background: #00af; border-radius: 40px; border-width: 5px; border-color: #0d0f; border-corner-shape: CornerShape.squircle; }
+            Rectangle { background: #00af; border-width: 5px; border-color: #0d0f; border-corner-shape: CornerShape.scoop; }
+        }
+
+        Row {
+            Rectangle { background: #a0af; border-radius: 12px; border-width: 12px; border-color: #fd0f; border-corner-shape: CornerShape.superellipse(4); }
+            Rectangle { background: #a0af; border-radius: 30px; border-width: 10px; border-color: #fd0f; border-corner-shape: CornerShape.scoop; }
+            Rectangle { background: #a0af; border-radius: 30px; border-width: 10px; border-color: #fd0f; border-corner-shape: CornerShape.bevel; }
+            Rectangle { background: #a0af; border-radius: 16px; border-width: 5px; border-color: #fd08; border-corner-shape: CornerShape.bevel; }
+        }
+    }
+}
