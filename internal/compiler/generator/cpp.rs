@@ -4747,23 +4747,19 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     (nan.clone(), nan)
                 }
             };
+            let circle = "slint::cbindgen_private::types::RADIAL_GRADIENT_SHAPE_CIRCLE";
+            let ellipse = "slint::cbindgen_private::types::RADIAL_GRADIENT_SHAPE_ELLIPSE";
             let (radii_setup, radii) = match shape {
-                RadialGradientShape::Circle(None) => (
-                    String::new(),
-                    "slint::cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS".into(),
-                ),
-                RadialGradientShape::Ellipse(None) => (
-                    String::new(),
-                    "slint::cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS".into(),
-                ),
+                RadialGradientShape::Circle(None) => (String::new(), circle.into()),
+                RadialGradientShape::Ellipse(None) => (String::new(), ellipse.into()),
                 RadialGradientShape::Circle(Some(r)) => (
                     format!("const float r = float({});", compile_expression(r, ctx)),
-                    "r, r".into(),
+                    format!("r, r, {circle}"),
                 ),
                 RadialGradientShape::Ellipse(Some((rx, ry))) => (
                     String::new(),
                     format!(
-                        "float({}), float({})",
+                        "float({}), float({}), {ellipse}",
                         compile_expression(rx, ctx),
                         compile_expression(ry, ctx)
                     ),

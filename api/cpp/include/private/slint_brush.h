@@ -65,52 +65,48 @@ private:
 
 /// \private
 /// RadialGradientBrush represents a circular or elliptical gradient.
-///
-/// Internally the brush encodes center-x, center-y, radius-x and radius-y as the first
-/// four fake GradientStop entries (positions 0–3), following the same pattern as
-/// LinearGradientBrush (which stores the angle as stop 0). Real color stops begin at
-/// index 4. NaN center values mean "use bounding-box center"; the negative radius values
-/// RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS and RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS mean
-/// "derive from the bounding box".
 class RadialGradientBrush
 {
 public:
     /// Constructs an empty radial gradient with no color stops.
     RadialGradientBrush() = default;
-    /// Constructs a new radial gradient whose radii derive from the bounding box.
-    /// \a default_radius is RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS or
-    /// RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS.
+    /// Constructs a new radial gradient of the given \a shape whose radii derive from the
+    /// bounding box.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount, float center_x,
-                        float center_y, float default_radius)
+                        float center_y, float shape)
     {
-        init(firstStop, stopCount, center_x, center_y, default_radius, default_radius);
+        init(firstStop, stopCount, center_x, center_y,
+             cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_RADIUS,
+             cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_RADIUS, shape);
     }
 
-    /// Constructs a new radial gradient with explicit radii. Negative radii are treated as 0.
+    /// Constructs a new radial gradient of the given \a shape with explicit radii.
+    /// Negative radii are treated as 0.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount, float center_x,
-                        float center_y, float radius_x, float radius_y)
+                        float center_y, float radius_x, float radius_y, float shape)
     {
         init(firstStop, stopCount, center_x, center_y, std::max(0.f, radius_x),
-             std::max(0.f, radius_y));
+             std::max(0.f, radius_y), shape);
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 4; }
+    int stopCount() const { return int(inner.size()) - 5; }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 4; }
+    const GradientStop *stopsBegin() const { return inner.begin() + 5; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
 
 private:
     void init(const GradientStop *firstStop, int stopCount, float center_x, float center_y,
-              float radius_x, float radius_y)
+              float radius_x, float radius_y, float shape)
     {
         inner.push_back({ Color::from_argb_encoded(0).inner, center_x });
         inner.push_back({ Color::from_argb_encoded(0).inner, center_y });
         inner.push_back({ Color::from_argb_encoded(0).inner, radius_x });
         inner.push_back({ Color::from_argb_encoded(0).inner, radius_y });
+        inner.push_back({ Color::from_argb_encoded(0).inner, shape });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             inner.push_back(*firstStop);
     }
@@ -284,10 +280,9 @@ Color Brush::color() const
         }
         break;
     case Tag::RadialGradient:
-        // First 4 stops are the fake header (center_x, center_y, radius_x, radius_y); real
-        // stops start at 4.
-        if (data.radial_gradient._0.size() > 4) {
-            result.inner = data.radial_gradient._0[4].color;
+        // The first 5 stops are the fake header: center_x, center_y, radius_x, radius_y, shape.
+        if (data.radial_gradient._0.size() > 5) {
+            result.inner = data.radial_gradient._0[5].color;
         }
         break;
     case Tag::ConicGradient:

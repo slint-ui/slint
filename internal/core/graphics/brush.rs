@@ -277,31 +277,28 @@ fn center_or_bbox(cx: f32, cy: f32, width: f32, height: f32, scale_factor: f32) 
     if cx.is_nan() { (width / 2.0, height / 2.0) } else { (cx * scale_factor, cy * scale_factor) }
 }
 
-/// Radius header value of a [`RadialGradientBrush`] derived from the bounding box diagonal.
-pub const RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS: f32 = -1.0;
-/// Radius header value of a [`RadialGradientBrush`] derived from the farthest corner and side.
-pub const RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS: f32 = -2.0;
+/// Radius header value of a [`RadialGradientBrush`] that selects the shape's default size.
+pub const RADIAL_GRADIENT_DEFAULT_RADIUS: f32 = -1.0;
+/// Shape header value of a circle [`RadialGradientBrush`].
+pub const RADIAL_GRADIENT_SHAPE_CIRCLE: f32 = 0.0;
+/// Shape header value of an ellipse [`RadialGradientBrush`].
+pub const RADIAL_GRADIENT_SHAPE_ELLIPSE: f32 = 1.0;
 
 /// The RadialGradientBrush describes a way of filling a shape with a circular or elliptical
 /// gradient.
 ///
 /// The center defaults to the middle of the bounding box.
-/// A circle's radius defaults to half the bounding box diagonal.
-/// An ellipse's radii default to CSS `farthest-corner`:
-/// the ellipse passes through the corner farthest from the center,
-/// with the aspect ratio of the distances to the farthest sides.
+/// Both shapes default to CSS `farthest-corner`:
+/// they pass through the bounding box corner farthest from the center.
+/// An ellipse has the aspect ratio of the distances to the farthest sides.
 /// Use [`with_center`](Self::with_center), [`with_radius`](Self::with_radius) and
 /// [`with_radii`](Self::with_radii) to override these defaults.
-///
-/// Internally the brush encodes center and radii as the first four fake
-/// [`GradientStop`] entries (indices 0–3), following the same pattern as
-/// [`LinearGradientBrush`] (which stores the angle as stop 0).
 #[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct RadialGradientBrush(SharedVector<GradientStop>);
 
 impl RadialGradientBrush {
-    const HEADER: usize = 4;
+    const HEADER: usize = 5;
     /// Qt and Skia treat a gradient transform with a near-zero determinant as singular,
     /// so a zero radius is resolved to this instead.
     const MIN_RADIUS: f32 = 1e-3;
@@ -309,23 +306,30 @@ impl RadialGradientBrush {
     /// Creates a new circle radial gradient centered in the element's bounding box,
     /// described by the provided color stops.
     pub fn new_circle(stops: impl IntoIterator<Item = GradientStop>) -> Self {
-        Self::new(RADIAL_GRADIENT_DEFAULT_CIRCLE_RADIUS, stops)
+        Self::new(RADIAL_GRADIENT_SHAPE_CIRCLE, stops)
     }
 
     /// Creates a new ellipse radial gradient centered in the element's bounding box,
     /// described by the provided color stops.
     pub fn new_ellipse(stops: impl IntoIterator<Item = GradientStop>) -> Self {
-        Self::new(RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS, stops)
+        Self::new(RADIAL_GRADIENT_SHAPE_ELLIPSE, stops)
     }
 
-    fn new(default_radius: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
+    fn new(shape: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
         let mut v = SharedVector::with_capacity(Self::HEADER + stop_iter.size_hint().0);
-        // Header stops: center_x (NaN=bbox), center_y (NaN=bbox), radius_x, radius_y
+        // Header stops: center_x (NaN=bbox), center_y (NaN=bbox), radius_x, radius_y, shape
         v.push(GradientStop { color: Default::default(), position: f32::NAN });
         v.push(GradientStop { color: Default::default(), position: f32::NAN });
-        v.push(GradientStop { color: Default::default(), position: default_radius });
-        v.push(GradientStop { color: Default::default(), position: default_radius });
+        v.push(GradientStop {
+            color: Default::default(),
+            position: RADIAL_GRADIENT_DEFAULT_RADIUS,
+        });
+        v.push(GradientStop {
+            color: Default::default(),
+            position: RADIAL_GRADIENT_DEFAULT_RADIUS,
+        });
+        v.push(GradientStop { color: Default::default(), position: shape });
         v.extend(stop_iter);
         Self(v)
     }
@@ -346,6 +350,10 @@ impl RadialGradientBrush {
     fn radius_y(&self) -> f32 {
         self.0[3].position
     }
+    #[inline]
+    fn shape(&self) -> f32 {
+        self.0[4].position
+    }
 
     /// Returns the color stops of the radial gradient.
     pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
@@ -357,10 +365,9 @@ impl RadialGradientBrush {
         self.0.as_slice().get(Self::HEADER..).unwrap_or_default()
     }
 
-    /// Returns `true` if the gradient is a circle for every element size.
+    /// Returns `true` if the gradient is a circle, `false` if it's an ellipse.
     pub fn is_circle(&self) -> bool {
-        self.radius_x() == self.radius_y()
-            && self.radius_x() != RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS
+        self.shape() == RADIAL_GRADIENT_SHAPE_CIRCLE
     }
 
     #[doc(hidden)]
@@ -383,9 +390,12 @@ impl RadialGradientBrush {
     }
 
     /// Makes the gradient a circle with an explicit radius, returning `self` for chaining.
-    /// `r` is in the element's local logical coordinate space. Negative values are treated as 0.
+    /// `r` is in the element's local logical coordinate space.
+    /// Negative values are treated as 0.
     pub fn with_radius(self, r: f32) -> Self {
-        self.with_radii(r, r)
+        let mut g = self.with_radii(r, r);
+        g.0.make_mut_slice()[4].position = RADIAL_GRADIENT_SHAPE_CIRCLE;
+        g
     }
 
     /// Makes the gradient an ellipse with explicit horizontal and vertical radii,
@@ -396,6 +406,7 @@ impl RadialGradientBrush {
         let s = self.0.make_mut_slice();
         s[2].position = rx.max(0.);
         s[3].position = ry.max(0.);
+        s[4].position = RADIAL_GRADIENT_SHAPE_ELLIPSE;
         self
     }
 
@@ -448,17 +459,19 @@ impl RadialGradientBrush {
         scale_factor: f32,
     ) -> (f32, f32) {
         let (cx, cy) = self.center_or_default_scaled(width, height, scale_factor);
-        let resolve = |r: f32, center: f32, length: f32| {
+        let farthest_x = cx.max(width - cx);
+        let farthest_y = cy.max(height - cy);
+        let resolve = |r: f32, farthest: f32| {
             let r = if r >= 0.0 {
                 r * scale_factor
-            } else if r == RADIAL_GRADIENT_DEFAULT_ELLIPSE_RADIUS {
-                core::f32::consts::SQRT_2 * center.max(length - center)
+            } else if self.is_circle() {
+                farthest_x.hypot(farthest_y)
             } else {
-                0.5 * width.hypot(height)
+                core::f32::consts::SQRT_2 * farthest
             };
             r.max(Self::MIN_RADIUS)
         };
-        (resolve(self.radius_x(), cx, width), resolve(self.radius_y(), cy, height))
+        (resolve(self.radius_x(), farthest_x), resolve(self.radius_y(), farthest_y))
     }
 
     /// Returns the gradient radius; for an ellipse, the horizontal radius.
@@ -496,6 +509,7 @@ impl PartialEq for RadialGradientBrush {
             && nan_eq(self.center_y(), other.center_y())
             && self.radius_x() == other.radius_x()
             && self.radius_y() == other.radius_y()
+            && self.shape() == other.shape()
             && self.0.iter().skip(Self::HEADER).eq(other.0.iter().skip(Self::HEADER))
     }
 }
@@ -949,6 +963,17 @@ impl InterpolatedPropertyValue for Brush {
                         s[i].position =
                             if l >= 0.0 && r >= 0.0 { l.interpolate(&r, t) } else { snap(l, r) };
                     }
+                    let both_radii_explicit =
+                        lhs.explicit_radii().is_some() && rhs.explicit_radii().is_some();
+                    s[4].position = if both_radii_explicit && t < 1.0 {
+                        if lhs.is_circle() && rhs.is_circle() {
+                            RADIAL_GRADIENT_SHAPE_CIRCLE
+                        } else {
+                            RADIAL_GRADIENT_SHAPE_ELLIPSE
+                        }
+                    } else {
+                        snap(lhs.shape(), rhs.shape())
+                    };
                     let mut iter = s.iter_mut().skip(RadialGradientBrush::HEADER);
                     let mut last_color = Color::default();
                     for s2 in short.stops() {
@@ -1508,6 +1533,19 @@ fn test_radial_gradient_scaled_defaults_use_physical_frame() {
 }
 
 #[test]
+fn test_radial_gradient_default_circle_is_farthest_corner() {
+    let grad = RadialGradientBrush::new_circle([]).with_center(0.0, 0.0);
+    let (rx, ry) = grad.radii_or_default(100.0, 100.0);
+    assert!((rx - 100.0 * core::f32::consts::SQRT_2).abs() < 0.01);
+    assert_eq!(rx, ry);
+
+    let grad = RadialGradientBrush::new_circle([]).with_center(50.0, 10.0);
+    let (rx, ry) = grad.radii_or_default_scaled(400.0, 100.0, 2.0);
+    assert!((rx - 300.0f32.hypot(80.0)).abs() < 0.01);
+    assert_eq!(rx, ry);
+}
+
+#[test]
 fn test_radial_gradient_default_ellipse_is_farthest_corner() {
     let grad = RadialGradientBrush::new_ellipse([]);
     assert!(!grad.is_circle());
@@ -1535,6 +1573,8 @@ fn test_radial_gradient_explicit_radii() {
     let grad = RadialGradientBrush::new_circle([]).with_radii(-10.0, 20.0);
     assert!(!grad.is_circle());
     assert_eq!(grad.radii_or_default(60.0, 80.0), (RadialGradientBrush::MIN_RADIUS, 20.0));
+
+    assert!(!RadialGradientBrush::new_circle([]).with_radii(20.0, 20.0).is_circle());
 }
 
 #[test]
@@ -1542,7 +1582,7 @@ fn test_radial_gradient_equality() {
     let circle = RadialGradientBrush::new_circle([]);
     let ellipse = RadialGradientBrush::new_ellipse([]);
     assert_ne!(circle, ellipse);
-    assert_eq!(circle.clone().with_radius(80.0), ellipse.clone().with_radii(80.0, 80.0));
+    assert_ne!(circle.clone().with_radius(80.0), ellipse.clone().with_radii(80.0, 80.0));
     assert_ne!(circle.clone().with_radii(80.0, 40.0), circle.with_radii(40.0, 80.0));
     assert_eq!(ellipse.clone().with_radii(80.0, 40.0), ellipse.with_radii(80.0, 40.0));
 }
@@ -1609,6 +1649,7 @@ fn test_radial_gradient_interpolation_keeps_source_metadata_with_fewer_stops() {
     let result = interpolate(0.5);
     assert_eq!((result.center_x(), result.center_y()), (10.0, 20.0));
     assert_eq!((result.radius_x(), result.radius_y()), (30.0, 30.0));
+    assert!(result.is_circle());
     assert_eq!(interpolate(1.0), target);
 }
 
@@ -1622,11 +1663,20 @@ fn test_radial_gradient_interpolates_explicit_radii() {
     let target =
         Brush::RadialGradient(RadialGradientBrush::new_circle(stops).with_radii(30.0, 50.0));
 
-    if let Brush::RadialGradient(result) = source.interpolate(&target, 0.5) {
-        assert_eq!((result.radius_x(), result.radius_y()), (20.0, 30.0));
-    } else {
+    let Brush::RadialGradient(result) = source.interpolate(&target, 0.5) else {
         panic!("Expected RadialGradient");
-    }
+    };
+    assert_eq!((result.radius_x(), result.radius_y()), (20.0, 30.0));
+    assert!(!result.is_circle());
+
+    let Brush::RadialGradient(result) = target.interpolate(&source, 0.5) else {
+        panic!("Expected RadialGradient");
+    };
+    assert!(!result.is_circle());
+    let Brush::RadialGradient(result) = target.interpolate(&source, 1.0) else {
+        panic!("Expected RadialGradient");
+    };
+    assert!(result.is_circle());
 }
 
 #[test]

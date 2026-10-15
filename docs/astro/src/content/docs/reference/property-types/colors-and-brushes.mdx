@@ -233,7 +233,8 @@ The `shape` parameter is one of:
 
 - `circle [radius]`: a circle.
   The optional `radius` value sets its radius.
-  If omitted, the radius is half of the element's bounding box diagonal.
+  If omitted, the radius matches CSS `farthest-corner`:
+  the circle passes through the bounding box corner farthest from the center.
 - `ellipse [radius-x radius-y]`: an ellipse.
   The optional `radius-x` and `radius-y` values set its horizontal and vertical radii.
   If omitted, the radii match CSS `farthest-corner`:

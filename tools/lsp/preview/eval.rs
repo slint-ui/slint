@@ -261,10 +261,9 @@ fn eval_expression(
             let mut number = |e: &Expression| -> f32 {
                 eval_expression(e, local_context, None).try_into().unwrap_or_default()
             };
-            let shape = shape.map(&mut number);
             let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
             Value::Brush(slint::Brush::RadialGradient(slint_interpreter::radial_gradient_brush(
-                &shape, center, stops,
+                shape, number, center, stops,
             )))
         }
         Expression::ConicGradient { from_angle, stops, center } => {

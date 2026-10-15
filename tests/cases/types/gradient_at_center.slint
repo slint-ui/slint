@@ -40,10 +40,10 @@ component TestCase inherits Rectangle {
         && @radial-gradient(ellipse, red, blue) != @radial-gradient(circle, red, blue)
         && @radial-gradient(ellipse, red, blue) == @radial-gradient(ellipse, red, blue)
         && @radial-gradient(ellipse 80px 40px, red, blue) != @radial-gradient(ellipse 40px 80px, red, blue)
-        && @radial-gradient(circle 80px, red, blue) == @radial-gradient(ellipse 80px 80px, red, blue)
+        && @radial-gradient(circle 80px, red, blue) != @radial-gradient(ellipse 80px 80px, red, blue)
         && ellipse_at_size != ellipse_size
         && ellipse_at != ellipse_default
-        && radial_dynamic_radius == @radial-gradient(ellipse 80px 80px, red, blue)
+        && radial_dynamic_radius == @radial-gradient(circle 80px, red, blue)
         && ellipse_dynamic == @radial-gradient(ellipse 80px 40px at 100px 75px, red, blue)
         // Negative radii are treated as 0.
         && @radial-gradient(circle neg_offset, red, blue) == @radial-gradient(circle 0px, red, blue)
