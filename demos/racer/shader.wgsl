@@ -60,11 +60,7 @@ struct Object {
 @group(2) @binding(0) var color_texture: texture_2d<f32>;
 @group(2) @binding(1) var color_sampler: sampler;
 
-// Medium quality draws with the high quality shaders, without the bloom. So they tone-map
-// themselves, and take the sun's shadows from fewer samples.
-override medium: bool = false;
-
-// Low quality lights each vertex, which is exact for the flat surfaces and the
+// Low and medium quality light each vertex, which is exact for the flat surfaces and the
 // sun and hemisphere lights.
 struct LowVarying {
     @builtin(position) clip: vec4<f32>,
@@ -141,8 +137,8 @@ fn fs_low_untextured(in: LowVarying) -> @location(0) vec4<f32> {
 }
 
 // A light map, such as the ground's with its pools of light: its color adds light,
-// and its alpha multiplies the surface's own. Low quality samples it only on surfaces that
-// have one, high quality on all lit surfaces.
+// and its alpha multiplies the surface's own. Low and medium quality sample it only on
+// surfaces that have one, high quality on all lit surfaces.
 @group(3) @binding(0) var light_texture: texture_2d<f32>;
 @group(3) @binding(1) var light_sampler: sampler;
 
@@ -186,10 +182,10 @@ fn vs_lit_low_light(
 
 @fragment
 fn fs_low_light(in: LightVarying) -> @location(0) vec4<f32> {
-    // The light map stands in for the surface's texture, see `World::apply_quality`.
-    let color = object.color.rgb * in.color;
+    let texel = textureSample(color_texture, color_sampler, in.uv);
+    let color = object.color.rgb * texel.rgb * in.color;
     let light = textureSample(light_texture, light_sampler, in.light_uv);
-    return vec4<f32>(color * light.a + light.rgb, object.color.a * in.alpha);
+    return vec4<f32>(color * light.a + light.rgb, object.color.a * texel.a * in.alpha);
 }
 
 // Draws the depth of the shapes seen from the sun, for the shadows in high quality.
@@ -260,18 +256,6 @@ fn fs_unlit_high(in: HighVarying) -> @location(0) vec4<f32> {
     let amount = object.params.w;
     color = select(mix(color, haze_color, haze * amount), color * (1.0 - haze), amount < 0.0);
 
-    if medium {
-        // As in `fs_composite` in `post.wgsl`.
-        let low = min(color.r, min(color.g, color.b));
-        color -= select(0.04, low - 6.25 * low * low, low < 0.08);
-        let peak = max(color.r, max(color.g, color.b));
-        if peak >= 0.76 {
-            let new_peak = 1.0 - 0.0576 / (peak - 0.52);
-            color *= new_peak / peak;
-            color = mix(color, vec3<f32>(new_peak), 1.0 - 1.0 / (0.15 * (peak - new_peak) + 1.0));
-        }
-    }
-
     return vec4<f32>(color, object.color.a * texel.a * in.alpha);
 }
 
@@ -313,8 +297,7 @@ fn fs_lit_high(in: HighVarying) -> @location(0) vec4<f32> {
         let in_shadow_map = globals.shadow * vec4<f32>(in.world + normal * 0.1, 1.0);
         let shadow_uv = vec2<f32>(in_shadow_map.x * 0.5 + 0.5, 0.5 - in_shadow_map.y * 0.5);
         let texel = 1.0 / f32(textureDimensions(shadow_map).x);
-        // Medium quality takes one sample, which the sampler blends from four texels.
-        let reach = select(1, 0, medium);
+        let reach = 1;
         var lit = 0.0;
         for (var dx = -reach; dx <= reach; dx++) {
             for (var dy = -reach; dy <= reach; dy++) {
@@ -370,18 +353,6 @@ fn fs_lit_high(in: HighVarying) -> @location(0) vec4<f32> {
     let glow = pow(max(dot(normalize(to_point), globals.sun_direction.xyz), 0.0), 8.0);
     let haze_color = globals.horizon.rgb + globals.sun_color.rgb * glow * 0.08;
     color = mix(color, haze_color * (0.3 + 0.7 * sunlit), haze * object.params.w);
-
-    if medium {
-        // As in `fs_composite` in `post.wgsl`.
-        let low = min(color.r, min(color.g, color.b));
-        color -= select(0.04, low - 6.25 * low * low, low < 0.08);
-        let peak = max(color.r, max(color.g, color.b));
-        if peak >= 0.76 {
-            let new_peak = 1.0 - 0.0576 / (peak - 0.52);
-            color *= new_peak / peak;
-            color = mix(color, vec3<f32>(new_peak), 1.0 - 1.0 / (0.15 * (peak - new_peak) + 1.0));
-        }
-    }
 
     return vec4<f32>(color, object.color.a * texel.a * in.alpha);
 }

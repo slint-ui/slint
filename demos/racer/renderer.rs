@@ -107,7 +107,7 @@ pub struct TextureData {
 }
 
 pub struct Texture {
-    /// Without and with anisotropic filtering, for low and high quality.
+    /// Without and with anisotropic filtering, for low quality and the others.
     bind_groups: [wgpu::BindGroup; 2],
 }
 
@@ -391,8 +391,9 @@ impl Scene {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct PipelineKey {
     lit: bool,
-    /// Medium and high quality's shaders.
+    /// High quality's shaders.
     per_pixel: bool,
+    multisampled: bool,
     bloom: bool,
     blend: Blend,
     double_sided: bool,
@@ -421,9 +422,7 @@ const HDR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 const BLOOM_LEVELS: usize = 6;
 
 /// The size of the sun's shadow map in texels.
-fn shadow_size(quality: Quality) -> u32 {
-    if quality == Quality::High { 2048 } else { 1024 }
-}
+const SHADOW_SIZE: u32 = 2048;
 
 /// The sun's shadow map, and the globals' bind group that has it.
 struct Shadow {
@@ -668,9 +667,7 @@ pub struct Renderer {
     pipeline_layouts: [wgpu::PipelineLayout; 2],
     pipelines: HashMap<PipelineKey, wgpu::RenderPipeline>,
     globals: wgpu::Buffer,
-    globals_layout: wgpu::BindGroupLayout,
     shadow: Shadow,
-    shadow_sampler: wgpu::Sampler,
     /// Only the globals, for drawing the shadow map.
     shadow_globals_bind_group: wgpu::BindGroup,
     shadow_pipeline: wgpu::RenderPipeline,
@@ -688,7 +685,6 @@ pub struct Renderer {
     /// The light map of high quality's lit surfaces without one: no light added or taken.
     no_light: Rc<Texture>,
     depth_format: wgpu::TextureFormat,
-    shadow_format: wgpu::TextureFormat,
     depth: Option<wgpu::Texture>,
     multisampled: Option<wgpu::Texture>,
     /// Made when high quality draws its first frame.
@@ -699,8 +695,8 @@ pub struct Renderer {
     light_map_bind_group: wgpu::BindGroup,
 }
 
-/// Multisampling for high quality. It costs little on tile-based GPUs, but about 3 ms per
-/// frame at 720p on NXP's Vivante GPU.
+/// Multisampling for medium and high quality. It costs little on tile-based GPUs, but about
+/// 3 ms per frame at 720p on NXP's Vivante GPU.
 const SAMPLES: u32 = 4;
 
 /// The first of `formats` that `device` makes textures with `usage` of, else 16-bit depth.
@@ -852,7 +848,7 @@ impl Renderer {
             &globals,
             &shadow_sampler,
             shadow_format,
-            shadow_size(Quality::High),
+            SHADOW_SIZE,
         );
         let shadow_globals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
@@ -920,9 +916,7 @@ impl Renderer {
             pipeline_layouts,
             pipelines: HashMap::new(),
             globals,
-            globals_layout,
             shadow,
-            shadow_sampler,
             shadow_globals_bind_group,
             shadow_pipeline,
             object_layout,
@@ -938,7 +932,6 @@ impl Renderer {
                 &[wgpu::TextureFormat::Depth24Plus, wgpu::TextureFormat::Depth32Float],
                 wgpu::TextureUsages::RENDER_ATTACHMENT,
             ),
-            shadow_format,
             depth: None,
             multisampled: None,
             bloom: None,
@@ -1295,10 +1288,7 @@ impl Renderer {
                 fragment: Some(wgpu::FragmentState {
                     module: &self.shader,
                     entry_point: Some(fragment),
-                    compilation_options: wgpu::PipelineCompilationOptions {
-                        constants: &[("medium", (key.per_pixel && !key.bloom) as u8 as f64)],
-                        ..Default::default()
-                    },
+                    compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: if key.bloom { HDR_FORMAT } else { self.color_format },
                         blend,
@@ -1317,7 +1307,7 @@ impl Renderer {
                     bias: Default::default(),
                 }),
                 multisample: wgpu::MultisampleState {
-                    count: if key.per_pixel { SAMPLES } else { 1 },
+                    count: if key.multisampled { SAMPLES } else { 1 },
                     ..Default::default()
                 },
                 multiview_mask: None,
@@ -1327,9 +1317,9 @@ impl Renderer {
     }
 
     /// Draws `scene` from `camera` into `target`, a view of `size` in the color format.
-    /// Medium and high quality light each pixel, add the spot lights and the sun's shadows,
-    /// and multisample. High quality's shadows are sharper, and it adds bloom before it
-    /// tone-maps.
+    /// Medium and high quality multisample and filter textures anisotropically.
+    /// High quality also lights each pixel, adds the spot lights and the sun's shadows,
+    /// and adds bloom before it tone-maps.
     pub fn render(
         &mut self,
         scene: &Scene,
@@ -1338,18 +1328,9 @@ impl Renderer {
         size: (u32, u32),
         quality: Quality,
     ) {
-        let high = quality != Quality::Low;
+        let detailed = quality != Quality::Low;
+        let per_pixel = quality == Quality::High;
         let bloom = quality == Quality::High;
-        if high && self.shadow.size != shadow_size(quality) {
-            self.shadow = Shadow::new(
-                &self.device,
-                &self.globals_layout,
-                &self.globals,
-                &self.shadow_sampler,
-                self.shadow_format,
-                shadow_size(quality),
-            );
-        }
         let forward = camera.rotation * Vec3::NEG_Z;
         let view = Mat4::from_rotation_translation(camera.rotation, camera.translation).inverse();
         // As `Mat4::perspective_rh`, which maps depth to 0..1.
@@ -1357,9 +1338,8 @@ impl Renderer {
         let depth_scale = camera.far / (camera.near - camera.far);
         let projection = [focal / camera.aspect, focal, depth_scale, depth_scale * camera.near];
 
-        // Low quality skips what's out of view. The other qualities draw it, since it may
-        // cast a shadow into view.
-        let cull = !high;
+        // High quality draws what's out of view too, since it may cast a shadow into view.
+        let cull = !per_pixel;
         let planes = frustum_planes(
             Mat4::perspective_rh(
                 camera.fov_degrees.to_radians(),
@@ -1430,7 +1410,7 @@ impl Renderer {
         globals.extend((lights.sun_color * lights.sun_intensity / PI).extend(0.0).to_array());
         globals.extend(lights.horizon.extend(lights.haze_density).to_array());
         // The shaders take the sun's shadows from the shadow map while `zenith.w` is 1.
-        globals.extend(lights.zenith.extend(if high { 1.0 } else { 0.0 }).to_array());
+        globals.extend(lights.zenith.extend(if per_pixel { 1.0 } else { 0.0 }).to_array());
         let shadow =
             Self::shadow_matrix(lights.sun_direction.normalize(), camera, self.shadow.size);
         globals.extend(shadow.to_cols_array());
@@ -1517,13 +1497,14 @@ impl Renderer {
         for (object, ..) in &draws {
             let mut key = PipelineKey {
                 lit: object.material.lit.is_some(),
-                per_pixel: high,
+                per_pixel,
+                multisampled: detailed,
                 bloom,
                 blend: object.material.blend,
                 double_sided: object.material.double_sided,
                 depth_write: object.material.depth_write,
                 light_map: object.material.lit.is_some()
-                    && (high || object.material.light_map.is_some()),
+                    && (per_pixel || object.material.light_map.is_some()),
                 textured: object.material.texture.is_some(),
                 copy: false,
             };
@@ -1537,7 +1518,7 @@ impl Renderer {
             self.pipeline(*key);
         }
 
-        let samples = if high { SAMPLES } else { 1 };
+        let samples = if detailed { SAMPLES } else { 1 };
         let depth = match &self.depth {
             Some(depth)
                 if (depth.width(), depth.height()) == size && depth.sample_count() == samples =>
@@ -1565,7 +1546,7 @@ impl Renderer {
         };
         let depth_view = depth.create_view(&Default::default());
         let scene_format = if bloom { HDR_FORMAT } else { self.color_format };
-        let multisampled = high.then(|| match &self.multisampled {
+        let multisampled = detailed.then(|| match &self.multisampled {
             Some(texture)
                 if (texture.width(), texture.height()) == size
                     && texture.format() == scene_format =>
@@ -1602,7 +1583,7 @@ impl Renderer {
         let scene_target = hdr_view.as_ref().unwrap_or(target);
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
-        if high {
+        if per_pixel {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("racer shadow"),
                 color_attachments: &[],
@@ -1648,7 +1629,7 @@ impl Renderer {
                             b: background.z as f64,
                             a: 1.0,
                         }),
-                        store: if high { wgpu::StoreOp::Discard } else { wgpu::StoreOp::Store },
+                        store: if detailed { wgpu::StoreOp::Discard } else { wgpu::StoreOp::Store },
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
@@ -1673,7 +1654,7 @@ impl Renderer {
                 let offset = (i * self.object_stride) as u32;
                 pass.set_bind_group(1, &self.objects_bind_group, &[offset]);
                 let texture = object.material.texture.as_ref().unwrap_or(&self.white);
-                pass.set_bind_group(2, &texture.bind_groups[high as usize], &[]);
+                pass.set_bind_group(2, &texture.bind_groups[detailed as usize], &[]);
                 if key.light_map {
                     let light_map = object.material.light_map.as_ref().unwrap_or(&self.no_light);
                     pass.set_bind_group(3, &light_map.bind_groups[0], &[]);

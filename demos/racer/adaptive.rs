@@ -159,8 +159,8 @@ impl Adaptive {
             return None;
         }
         let lower = match quality {
-            Quality::High if fps >= TARGET_FPS / 2.0 => Quality::Medium,
-            Quality::High | Quality::Medium => Quality::Low,
+            Quality::High => Quality::Medium,
+            Quality::Medium => Quality::Low,
             Quality::Low => return None,
         };
         if !auto_quality {

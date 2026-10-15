@@ -1353,7 +1353,7 @@ impl World {
             self.scene.object(node).translation = view.eye.with_y(0.0) + offset;
         }
 
-        // The lamps nearest the camera light the scene per pixel in medium and high quality.
+        // The lamps nearest the camera light the scene per pixel in high quality.
         let mut lamps = self.lamps.clone();
         lamps.sort_by(|a, b| a.distance_squared(view.eye).total_cmp(&b.distance_squared(view.eye)));
         self.scene.lights.spots = lamps
