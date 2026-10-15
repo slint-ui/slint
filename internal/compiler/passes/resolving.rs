@@ -217,12 +217,6 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
         _ => false,
     };
 
-    if let Some((number, Unit::None)) = as_number_literal(value)
-        && number.fract() != 0.0
-    {
-        diag.push_warning("Floating point comparison is not recommended".into(), node);
-    }
-
     if let Expression::Cast { from, to: Type::Int32, .. } = value
         && let Some((number, _)) = as_number_literal(from)
         && number.fract() != 0.0
