@@ -18,6 +18,18 @@ Export generation errors and compiler diagnostics keep a successful preview and 
 Export ZIP stays disabled when the reusable project cannot be generated or compiled.
 Unexpected interpreter failures require restarting the plugin.
 
+Large selections finish one full capture, without restarting as flattened or whole-selection image captures.
+Preview is published before project export generation and validation.
+Large previews scale their geometry to a 2048px logical bound; snapshots and project exports keep their original geometry.
+Unchanged selections reuse captured data until page, style, or referenced component changes invalidate it.
+Repeat selections send a capture reference and reuse completed conversion workers within a two-entry, 128 MiB estimated-data cache.
+Compiled previews retain their image URLs within a two-entry, 16 MiB source budget and release them on eviction or clearing.
+Wasm, fonts, and the keepalive window initialize while Figma captures the first selection.
+Component discovery overlaps independent appearance capture; eligible solid fill geometry avoids host image exports.
+Unpainted vectors keep their dimensions through transparent SVGs instead of failed SVG exports followed by blank PNG exports.
+Reuse also checks variable definitions and the document color profile.
+Transient capture failures and rasterized fonts are captured again.
+
 In Dev Mode, choose Slint to generate a snippet for the selected node only.
 Enable Use Variables to reference existing Slint variable globals; it is off by
 default. Use preview and project export for the complete selected tree.
@@ -43,7 +55,7 @@ output for preview and export.
 `pnpm build:slint` builds its Slint runtime from `api/wasm-interpreter` in this repository.
 Use `pnpm build:slint:dev` for a development interpreter build.
 
-`pnpm check` verifies the checked-in font capability manifest against the runtime's embedded fonts.
+`pnpm check` verifies the checked-in font capability manifest against the runtime's embedded fonts and the preview's bundled Roboto font.
 The manifest records font families, glyph coverage, weight axes, and italic availability.
 When the runtime's embedded fonts change, run `node scripts/build-font-capabilities.mjs --update` and review the manifest.
 Static checks do not need a runtime build.
@@ -53,3 +65,16 @@ Family matching does not establish that Figma uses the same font version.
 Native exports remain editable text and require the matching fonts installed or imported.
 
 See [fixture instructions](fixtures/README.md) and [publishing](PUBLISH.md).
+
+## Capture Profiling
+
+Development diagnostics and Copy Trace report capture reads, encoding, component discovery, bulk JSON, asset exports, and browser presentation.
+Capture categories report operation counts, summed duration, active time, and overlap with synchronous work.
+Their intervals overlap; add neither category durations nor nested work to estimate total capture time.
+Export validation has separate source-preparation, compiler-queue, compilation, and completion timings.
+
+Bulk metadata indexing runs in the conversion worker while capture continues.
+Complete captures retain the data needed to recover after worker retirement.
+Repeat selections reuse bounded capture, conversion, compilation, and export-validation caches.
+
+See the [Material capture profile](docs/material-capture-profile.md) for the measurement method and cold/repeat results.
