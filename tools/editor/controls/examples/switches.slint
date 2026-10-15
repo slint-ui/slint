@@ -102,8 +102,12 @@ export component SwitchExamples inherits Rectangle {
                 bare := SwitchBase {
                     enabled: !root.preview-disabled;
                     text: "Headless switch";
+                    spacing: 8px;
                     content-padding: 6px;
                     indicator << Rectangle {
+                        width: 40px;
+                        height: 22px;
+                        vertical-stretch: 0;
                         background: bare.checked ? #7c3aed : #f5f3ff;
                         border-color: bare.has-focus ? #5b21b6 : #a78bfa;
                         border-width: bare.has-focus ? 2px : 1px;

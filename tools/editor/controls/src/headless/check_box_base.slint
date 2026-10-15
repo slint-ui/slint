@@ -12,9 +12,7 @@ export component CheckBoxBase {
     in property <string> text;
     in property <length> font-size;
     in property <int> font-weight;
-    in property <length> indicator-width: 20px;
-    in property <length> indicator-height: 20px;
-    in property <length> spacing: 8px;
+    in property <length> spacing;
     in property <length> content-padding;
     in property <length> content-padding-left: root.content-padding;
     in property <length> content-padding-right: root.content-padding;
@@ -60,13 +58,7 @@ export component CheckBoxBase {
         padding-top: root.content-padding-top;
         padding-bottom: root.content-padding-bottom;
         spacing: root.spacing;
-        Rectangle {
-            width: root.indicator-width;
-            height: root.indicator-height;
-            vertical-stretch: 0;
-            indicator { }
-        }
-
+        indicator { }
         content { }
         @children
     }

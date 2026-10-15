@@ -68,6 +68,9 @@ export component TestCase inherits Window {
         height: 40px;
         enabled: root.enabled;
         surface << bound-surface := LinearSliderSurface {
+            handle-width: 20px;
+            handle-height: 20px;
+            track-thickness: 4px;
             in property <brush> handle-color: root.custom-color;
             handle << Rectangle {
                 background: bound-surface.handle-color;

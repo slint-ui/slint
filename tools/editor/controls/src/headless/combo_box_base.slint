@@ -43,11 +43,10 @@ export component ComboBoxBase {
     in property <length> content-padding-right: root.content-padding;
     in property <length> content-padding-top: root.content-padding;
     in property <length> content-padding-bottom: root.content-padding;
-    in property <length> indicator-width: 16px;
-    in property <length> spacing: 8px;
-    in property <length> item-height: 32px;
+    in property <length> spacing;
+    in property <length> item-height;
     in property <int> maximum-visible-items: 8;
-    in property <length> popup-padding: 4px;
+    in property <length> popup-padding;
     in property <length> popup-width: root.width;
     in property <length> popup-height: min(root.count, max(1, root.maximum-visible-items)) * root.item-height
         + 2 * root.popup-padding;
@@ -203,10 +202,7 @@ export component ComboBoxBase {
         content { }
         @children
 
-        Rectangle {
-            width: root.indicator-width;
-            indicator { }
-        }
+        indicator { }
     }
 
     keys := FocusScope {

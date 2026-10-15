@@ -145,6 +145,9 @@ export component ComboBoxExamples inherits Rectangle {
                     }
 
                     custom := ComboBoxBase {
+                        spacing: 8px;
+                        item-height: 32px;
+                        popup-padding: 4px;
                         enabled: !root.preview-disabled;
                         accessible-label: "Custom combo box";
                         model: ["First", "Second", "Third"];
@@ -165,12 +168,15 @@ export component ComboBoxExamples inherits Rectangle {
                             overflow: elide;
                         }
                         indicator << Text {
+                            width: 16px;
+                            height: 100%;
                             text: custom.expanded ? "−" : "+";
                             color: #92400e;
                             horizontal-alignment: center;
                             vertical-alignment: center;
                         }
                         popup << custom-popup := ComboBoxPopupBase {
+                            popup-offset: 2px;
                             Rectangle {
                                 background: #fffbeb;
                                 border-width: 1px;
@@ -185,17 +191,19 @@ export component ComboBoxExamples inherits Rectangle {
                                     height: custom-popup.item-height;
                                     accessible-role: list-item;
                                     accessible-checked: index == custom-popup.current-index;
-                                    content-padding-left: 12px;
-                                    content-padding-right: 12px;
                                     changed hovered => { if self.hovered { custom-popup.highlight(index); } }
                                     clicked => { custom-popup.selected(index); }
                                     background << Rectangle {
                                         background: index == custom-popup.highlighted-index ? #fcd34d : transparent;
                                     }
-                                    content << Text {
-                                        text: value;
-                                        color: #92400e;
-                                        vertical-alignment: center;
+                                    content << HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        Text {
+                                            text: value;
+                                            color: #92400e;
+                                            vertical-alignment: center;
+                                        }
                                     }
                                 }
                             }

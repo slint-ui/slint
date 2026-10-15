@@ -23,6 +23,7 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
     in property <int> font-weight: root.size.font-weight;
     item-height: root.size.item-height;
     popup-padding: root.size.popup-padding;
+    popup-offset: root.size.popup-offset;
 
     Rectangle {
         background: root.style.background-color;
@@ -82,21 +83,23 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
             text: value;
             accessible-role: list-item;
             accessible-checked: index == root.current-index;
-            content-padding-left: root.size.item-padding-inline;
-            content-padding-right: root.size.item-padding-inline;
             clicked => { root.selected(index); }
             changed hovered => { if self.hovered { root.highlight(index); } }
             background << Rectangle {
                 background: item.current-style.background-color;
                 border-radius: root.size.popup-border-radius;
             }
-            content << Text {
-                text: value;
-                color: item.current-style.foreground;
-                font-size: root.font-size;
-                font-weight: item.item-font-weight;
-                vertical-alignment: center;
-                overflow: elide;
+            content << HorizontalLayout {
+                padding-left: root.size.item-padding-inline;
+                padding-right: root.size.item-padding-inline;
+                Text {
+                    text: value;
+                    color: item.current-style.foreground;
+                    font-size: root.font-size;
+                    font-weight: item.item-font-weight;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
             }
         }
     }
@@ -114,7 +117,7 @@ export component ComboBox inherits ComboBoxBase {
     content-padding: root.size.padding-vertical;
     content-padding-left: root.size.padding-horizontal;
     content-padding-right: root.size.padding-horizontal;
-    indicator-width: root.size.indicator-width;
+    in property <length> indicator-width: root.size.indicator-width;
     spacing: root.size.spacing;
     item-height: root.size.item-height;
     popup-padding: root.size.popup-padding;
@@ -160,7 +163,7 @@ export component ComboBox inherits ComboBoxBase {
     }
 
     indicator << Path {
-        width: 100%;
+        width: root.indicator-width;
         height: 100%;
         viewbox-width: 16;
         viewbox-height: 20;

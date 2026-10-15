@@ -12,14 +12,9 @@ export component ButtonBase {
     in-out property <bool> checked;
     in property <string> text;
     in property <image> icon;
-    in property <length> icon-size: 20px;
-    in property <bool> colorize-icon: true;
+    in property <length> icon-size;
+    in property <bool> colorize-icon;
     in property <bool> primary;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
@@ -58,10 +53,6 @@ export component ButtonBase {
     }
 
     HorizontalLayout {
-        padding-left: root.content-padding-left;
-        padding-right: root.content-padding-right;
-        padding-top: root.content-padding-top;
-        padding-bottom: root.content-padding-bottom;
         content { }
         @children
     }

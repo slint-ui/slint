@@ -75,6 +75,9 @@ export component TestCase inherits Window {
         text: "Custom switch";
 
         forwarded-indicator << Rectangle {
+            width: 40px;
+            height: 22px;
+            vertical-stretch: 0;
             background: #0f766e;
         }
         toggled => { root.custom-toggles += 1; }

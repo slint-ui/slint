@@ -19,8 +19,8 @@ export component CheckBox inherits CheckBoxBase {
     in property <brush> checked-color: root.state-style.indicator-color;
     in property <brush> foreground: root.state-style.foreground;
 
-    indicator-width: root.size.indicator-size;
-    indicator-height: root.size.indicator-size;
+    in property <length> indicator-width: root.size.indicator-size;
+    in property <length> indicator-height: root.size.indicator-size;
     font-size: root.size.font-size;
     font-weight: 400;
     spacing: root.size.spacing;
@@ -42,6 +42,9 @@ export component CheckBox inherits CheckBoxBase {
     ]
 
     indicator << Rectangle {
+        width: root.indicator-width;
+        height: root.indicator-height;
+        vertical-stretch: 0;
         background: root.enabled && root.checked ? root.checked-color : root.state-style.indicator-color;
         border-color: root.state-style.indicator-border-color;
         border-width: root.size.indicator-border-width;

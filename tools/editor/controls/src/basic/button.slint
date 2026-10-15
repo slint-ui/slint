@@ -21,9 +21,12 @@ export component Button inherits ButtonBase {
     in property <length> spacing: root.size.spacing;
 
     icon-size: root.size.icon-size;
-    content-padding: root.size.padding-vertical;
-    content-padding-left: root.size.padding-horizontal;
-    content-padding-right: root.size.padding-horizontal;
+    colorize-icon: true;
+    in property <length> content-padding: root.size.padding-vertical;
+    in property <length> content-padding-left: root.size.padding-horizontal;
+    in property <length> content-padding-right: root.size.padding-horizontal;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
     min-width: root.size.min-width;
     min-height: root.size.min-height;
 
@@ -60,6 +63,10 @@ export component Button inherits ButtonBase {
     }
 
     content << HorizontalLayout {
+        padding-left: root.content-padding-left;
+        padding-right: root.content-padding-right;
+        padding-top: root.content-padding-top;
+        padding-bottom: root.content-padding-bottom;
         spacing: root.spacing;
         alignment: center;
         if root.icon.width > 0 && root.icon.height > 0: Image {

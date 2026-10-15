@@ -24,8 +24,8 @@ export component Switch inherits SwitchBase {
     private property <length> effective-track-radius: root.size.track-radius < 0px ? root.indicator-height / 2 : root.size.track-radius;
     private property <length> effective-thumb-radius: root.size.thumb-radius < 0px ? root.size.thumb-size / 2 : root.size.thumb-radius;
 
-    indicator-width: root.size.track-width;
-    indicator-height: root.size.track-height;
+    in property <length> indicator-width: root.size.track-width;
+    in property <length> indicator-height: root.size.track-height;
     spacing: root.size.spacing;
     content-padding: root.size.padding-vertical;
     content-padding-left: root.size.padding-horizontal;
@@ -45,6 +45,9 @@ export component Switch inherits SwitchBase {
     ]
 
     indicator << Rectangle {
+        width: root.indicator-width;
+        height: root.indicator-height;
+        vertical-stretch: 0;
         background: root.enabled && root.checked ? root.checked-color : root.state-style.track-color;
         border-color: root.state-style.track-border-color;
         border-width: root.size.track-border-width;

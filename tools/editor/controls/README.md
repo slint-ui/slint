@@ -203,6 +203,7 @@ The popup defines its surface and `rest`, `highlighted`, `selected`, and `disabl
 Disabled items take priority over highlighted and selected items.
 ComboBox sizes include field padding, font and indicator sizes, popup padding, and popup row height.
 They also include field and popup border geometry, indicator stroke width, and normal and selected-item font weights.
+`size.popup-offset` sets the gap below the field and defaults to 2px.
 `font-weight` defaults to 400, and `selected-item-font-weight` defaults to 600.
 Highlighted and disabled popup items use the normal font weight.
 `ComboBoxPopup` also accepts a popup style and combo-box size metrics when used separately.
@@ -224,11 +225,11 @@ Switch sizes include `track-radius` and `thumb-radius`.
 Slider sizes include `handle-radius` and `track-radius`.
 These radii default to `-1px`, which follows the corresponding dimensions to produce rounded visuals.
 Set a nonnegative radius for a fixed shape.
-Inherited indicator dimensions and popup dimensions remain available for layout adjustments.
+Basic controls expose indicator dimensions and popup dimensions for layout adjustments.
 Explicit dimensions take priority over size presets.
 
 The Button, Switch, CheckBox, Slider, and ComboBox pages own their preview size and disabled setting.
-`PreviewSettings` shares the settings UI between these four pages.
+`PreviewSettings` shares the settings UI between these five pages.
 Size selection applies to the basic styled controls; headless examples retain their custom dimensions.
 The Disabled setting disables the examples while leaving the settings available.
 The Switch, CheckBox, Slider, and ComboBox pages also accept a `preview-style` property for an application's style.
@@ -271,3 +272,46 @@ Move detailed ComboBox popup colors into `style.popup`.
 Move border widths, radii, focus width, and focus offset from styles into the corresponding size metrics.
 Move ComboBox item font weights from `style.popup` into `size.font-weight` and `size.selected-item-font-weight`.
 Existing behavior properties, callbacks, accessibility, font overrides, and standard geometry remain available.
+
+## Headless Controls
+
+Import behavior components from `src/headless.slint` and styled controls from `src/basic.slint`.
+Headless controls provide state, input handling, accessibility, and slots.
+The basic controls supply colors, typography, dimensions, and visual defaults.
+
+Size custom indicators inside their slots and add button padding through a layout in `ButtonBase.content`.
+For example:
+
+```slint
+import { CheckBoxBase } from "../src/headless.slint";
+
+choice := CheckBoxBase {
+    text: "Show guides";
+    spacing: 8px;
+    indicator << Rectangle {
+        width: 18px;
+        height: 18px;
+        vertical-stretch: 0;
+        background: choice.checked ? #2563eb : transparent;
+        border-color: #2563eb;
+        border-width: 1px;
+    }
+    content << Text { text: choice.text; }
+}
+```
+
+| Component | Slots |
+| --- | --- |
+| ButtonBase | `background`, `content` |
+| CheckBoxBase, SwitchBase | `background`, `indicator`, `content` |
+| ComboBoxBase | `background`, `content`, `indicator`, typed `popup` |
+| LineEditBase | `background`, `placeholder`, `leading`, `trailing` |
+| SliderBase | Typed `surface` |
+| LinearSliderSurface | `track`, `handle` |
+
+Derived components can add slots and forward them to these slots.
+
+Headless padding and spacing default to zero.
+Set combo-box `item-height`, `popup-padding`, and `ComboBoxPopupBase.popup-offset` explicitly when supplying custom popup visuals.
+Set `LinearSliderSurface.handle-width`, `handle-height`, and `track-thickness` to match your visuals and preserve pointer mapping.
+These popup and slider dimensions default to zero; basic controls supply their visual defaults.

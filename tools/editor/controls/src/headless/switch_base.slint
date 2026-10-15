@@ -10,9 +10,7 @@ export component SwitchBase {
     in property <bool> enabled: true;
     in-out property <bool> checked;
     in property <string> text;
-    in property <length> indicator-width: 40px;
-    in property <length> indicator-height: 22px;
-    in property <length> spacing: 8px;
+    in property <length> spacing;
     in property <length> content-padding;
     in property <length> content-padding-left: root.content-padding;
     in property <length> content-padding-right: root.content-padding;
@@ -58,13 +56,7 @@ export component SwitchBase {
         padding-top: root.content-padding-top;
         padding-bottom: root.content-padding-bottom;
         spacing: root.spacing;
-        Rectangle {
-            width: root.indicator-width;
-            height: root.indicator-height;
-            vertical-stretch: 0;
-            indicator { }
-        }
-
+        indicator { }
         content { }
         @children
     }

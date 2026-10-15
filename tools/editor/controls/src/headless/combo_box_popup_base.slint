@@ -13,8 +13,9 @@ export component ComboBoxPopupBase {
     in property <length> anchor-height;
     in property <length> popup-width;
     in property <length> popup-height;
-    in property <length> popup-padding: 4px;
-    in property <length> item-height: 32px;
+    in property <length> popup-padding;
+    in property <length> item-height;
+    in property <length> popup-offset;
     in property <int> maximum-visible-items: 8;
     out property <bool> opened: window.is-open;
     out property <bool> focused: root.opened && root.popup-focused;
@@ -35,7 +36,7 @@ export component ComboBoxPopupBase {
 
     window := PopupWindow {
         x: 0px;
-        y: root.anchor-height + 2px;
+        y: root.anchor-height + root.popup-offset;
         width: root.popup-width;
         height: root.popup-height;
         close-policy: close-on-click-outside;

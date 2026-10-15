@@ -25,7 +25,7 @@ export component LineEditBase {
     in property <length> content-padding-right: root.content-padding;
     in property <length> content-padding-top: root.content-padding;
     in property <length> content-padding-bottom: root.content-padding;
-    in property <length> spacing: 8px;
+    in property <length> spacing;
     out property <bool> has-focus: input.has-focus;
     @shadowable out property <bool> has-selection: input.has-selection;
     out property <bool> hovered: root.enabled && pointer.has-hover;

@@ -113,10 +113,12 @@ export component CheckBoxExamples inherits Rectangle {
                 bare := CheckBoxBase {
                     enabled: !root.preview-disabled;
                     text: "Headless checkbox";
-                    font-size: 14px;
-                    font-weight: 400;
+                    spacing: 8px;
                     content-padding: 6px;
                     indicator << Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        vertical-stretch: 0;
                         background: bare.checked ? #7c3aed : transparent;
                         border-color: bare.has-focus ? #5b21b6 : #a78bfa;
                         border-width: bare.has-focus ? 2px : 1px;
@@ -133,7 +135,8 @@ export component CheckBoxExamples inherits Rectangle {
                     content << Text {
                         text: bare.text;
                         color: #5b21b6;
-                        font-size: bare.font-size;
+                        font-size: 14px;
+                        font-weight: 400;
                         vertical-alignment: center;
                     }
                     toggled => { root.custom-toggles += 1; }
