@@ -741,20 +741,21 @@ fn cast_constant_value(value: Value, to: &Type) -> Value {
     }
 }
 
-/// Builds the brush of a `@radial-gradient` from its evaluated shape, center, and stops.
-pub fn radial_gradient_brush(
-    shape: &RadialGradientShape<f32>,
+/// Builds the brush of a `@radial-gradient` from its shape, evaluated center, and stops.
+pub fn radial_gradient_brush<E>(
+    shape: &RadialGradientShape<E>,
+    mut radius: impl FnMut(&E) -> f32,
     center: Option<(f32, f32)>,
     stops: impl IntoIterator<Item = GradientStop>,
 ) -> RadialGradientBrush {
     let g = match shape {
         RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
         RadialGradientShape::Circle(Some(r)) => {
-            RadialGradientBrush::new_circle(stops).with_radius(**r)
+            RadialGradientBrush::new_circle(stops).with_radius(radius(r))
         }
         RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
         RadialGradientShape::Ellipse(Some((rx, ry))) => {
-            RadialGradientBrush::new_ellipse(stops).with_radii(**rx, **ry)
+            RadialGradientBrush::new_ellipse(stops).with_radii(radius(rx), radius(ry))
         }
     };
     match center {
@@ -1031,9 +1032,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             let stops = eval_stops(ctx, stops);
             let mut number =
                 |e: &Expression| -> f32 { eval_expression(ctx, e).try_into().unwrap_or_default() };
-            let shape = shape.map(&mut number);
             let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
-            Value::Brush(Brush::RadialGradient(radial_gradient_brush(&shape, center, stops)))
+            Value::Brush(Brush::RadialGradient(radial_gradient_brush(shape, number, center, stops)))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();

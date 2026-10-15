@@ -179,8 +179,13 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                             _ => return Err(invalid()),
                         };
 
-                        Ok(crate::eval::radial_gradient_brush(&shape, center, parse_stops(split)?)
-                            .into())
+                        Ok(crate::eval::radial_gradient_brush(
+                            &shape,
+                            |r| *r,
+                            center,
+                            parse_stops(split)?,
+                        )
+                        .into())
                     } else {
                         Err(format!("Could not parse gradient from '{input}'"))
                     }
@@ -632,17 +637,17 @@ fn test_to_json() {
     assert_eq!(&v, "\"@radial-gradient(ellipse, #ff0000 0%, #0000ff 100%)\"");
     assert_eq!(value_from_json_str(&langtype::Type::Brush, &v).unwrap(), ellipse);
 
-    for (input, expected) in [
-        ("circle 30px at 10px 20px", "circle 30px at 10px 20px"),
-        ("circle 0px", "circle 0px"),
-        ("ellipse 80px 40px", "ellipse 80px 40px"),
-        ("ellipse at 10px 20px", "ellipse at 10px 20px"),
-        ("ellipse 40px 40px", "circle 40px"),
+    for input in [
+        "circle 30px at 10px 20px",
+        "circle 0px",
+        "ellipse 80px 40px",
+        "ellipse at 10px 20px",
+        "ellipse 40px 40px",
     ] {
         let json = format!("\"@radial-gradient({input}, #ff0000 0%, #0000ff 100%)\"");
         let value = value_from_json_str(&langtype::Type::Brush, &json).unwrap();
         let v = value_to_json_string(&value).unwrap();
-        assert_eq!(v, format!("\"@radial-gradient({expected}, #ff0000 0%, #0000ff 100%)\""));
+        assert_eq!(v, json);
         assert_eq!(value_from_json_str(&langtype::Type::Brush, &v).unwrap(), value);
     }
     for input in ["ellipse 80px", "circle 10px 20px", "circle 10", "circle at 10px", "square"] {

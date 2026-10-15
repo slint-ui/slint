@@ -27,14 +27,7 @@ pub fn fill_from_expression(
             let radius = match shape {
                 RadialGradientShape::Circle(None) => None,
                 RadialGradientShape::Circle(Some(r)) => Some(number(r)?),
-                RadialGradientShape::Ellipse(Some((rx, ry))) => {
-                    let rx = number(rx)?;
-                    if rx != number(ry)? {
-                        return None;
-                    }
-                    Some(rx)
-                }
-                RadialGradientShape::Ellipse(None) => return None,
+                RadialGradientShape::Ellipse(_) => return None,
             };
             (stops, None, center.as_ref(), radius)
         }

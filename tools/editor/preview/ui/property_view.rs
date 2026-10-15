@@ -1334,9 +1334,8 @@ export component Test { in property <Foobar> test1; }"#,
             r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
             1,
         );
-        assert!(result.value_resolved);
-        assert!(result.fill.custom_radius);
-        assert_eq!(result.fill.radius, 40.);
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
