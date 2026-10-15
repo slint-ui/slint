@@ -399,6 +399,8 @@
     ".cspell/slint-project-words-audit.tsv",
     "tools/figma-inspector/fixtures/**",
     "tools/figma-inspector/src/ui/syntax-assets/**",
+    "demos/printerdemo_mcu/ink_particles/assets/*.alpha",
+    "demos/printerdemo_mcu/ink_particles/assets/*.rgb565",
     "**/*.gltf",
     "**/*.po",
     "**/*.pot",
