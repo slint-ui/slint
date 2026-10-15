@@ -174,9 +174,9 @@ pub async fn run_passes(
         return raw_type_loader;
     }
 
-    let mut checked_listviews = std::collections::HashSet::new();
+    let mut checked_components = std::collections::HashSet::new();
     doc.visit_all_used_components(|component| {
-        if checked_listviews.insert(std::rc::Rc::as_ptr(component)) {
+        if checked_components.insert(std::rc::Rc::as_ptr(component)) {
             listview::check_children_in_flickable(component, diag);
         }
     });

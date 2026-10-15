@@ -347,17 +347,17 @@ fn update_visible_instances(
                 // The row exists in the instantiated instances
                 0..0
             } else if *row >= end && *row - end < ops.len() {
-                // The row is within the next ops.len() (About 1 page) instances
+                // The row is within the next ops.len() (about one page) instances
                 // so we just append
                 ops.splice(ops.len(), 0, *row + 1 - end);
                 end - first..ops.len()
             } else if *row < first && first - *row <= ops.len() {
-                // The row is within the previous ops.len() (About 1 page) instances
+                // The row is within the previous ops.len() (about one page) instances
                 ops.splice(0, 0, first - *row);
                 state.offset = *row;
                 0..first - *row
             } else {
-                // Random seek so we clear all and instantiate newly
+                // Random seek, so we clear all instances and create new ones
                 ops.splice(0, ops.len(), 1);
                 state.offset = *row;
                 0..1
@@ -372,7 +372,7 @@ fn update_visible_instances(
             let row_top = match alignment {
                 scroll::RowAlignment::Top => 0 as Coord,
                 scroll::RowAlignment::Bottom => {
-                    // If the row is higher than listview_height than we ignore the
+                    // If the row is taller than listview_height, then we ignore the
                     // alignment and align to top
                     (listview_height - row_height).max(0. as Coord)
                 }
@@ -763,7 +763,7 @@ fn listview_ensure_row_visible(
             let Some(alignment) =
                 scroll::RowAlignment::for_row(top_anchor, row_height, viewport_height)
             else {
-                // row is already in view so we don't have to scroll. Stop any scrolling
+                // The row is already in view, so we don't have to scroll. Stop any scrolling
                 *scroll_to_row = None;
                 stop_scrolling();
                 return false;
@@ -1336,7 +1336,7 @@ mod ffi {
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
         let mut layout_state = unsafe { (*state).clone() };
-        // When a new item gets created in update_visible_instances and in it's init
+        // When a new item gets created in update_visible_instances and in its init
         // we call ensure-row-visible() we modify scroll_to_row
         // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
         // is still not valid we set our new request otherwise we keep the `scroll_to_row`

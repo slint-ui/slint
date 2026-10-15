@@ -57,7 +57,7 @@ instance.on_row_initialized({
 instance.invoke_ensure_row_visible(6);
 layout();
 assert_eq!(instance.get_content_y(), -50.);
-assert_eq!(v.borrow().len(), 0, "Row 6 is visible from beginning");
+assert_eq!(v.borrow().len(), 0, "Row 6 is visible from the beginning");
 
 // The next row has no instance yet: only it gets created.
 instance.invoke_ensure_row_visible(7);
@@ -71,7 +71,7 @@ v.borrow_mut().clear();
 instance.invoke_ensure_row_visible(0);
 layout();
 assert_eq!(instance.get_content_y(), 0.);
-assert_eq!(*v.borrow(), vec![0], "Only row 0 gets newly instantiated because it lost previously the instance because it went out of the viewport");
+assert_eq!(*v.borrow(), vec![0], "Only row 0 gets newly instantiated because it lost its instance when it went out of the viewport");
 
 v.borrow_mut().clear();
 
@@ -150,7 +150,7 @@ const sorted = (rows) => [...rows].sort((a, b) => a - b);
 instance.ensure_row_visible(6);
 layout();
 assert.equal(instance.content_y, -50);
-assert.deepEqual(v, [], "Row 6 is visible from beginning");
+assert.deepEqual(v, [], "Row 6 is visible from the beginning");
 
 // The next row has no instance yet: only it gets created.
 instance.ensure_row_visible(7);
