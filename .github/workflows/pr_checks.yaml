@@ -108,3 +108,29 @@ jobs:
               echo "::error::Tick the box at the end of the pull request description to license your contribution under MIT-0."
               exit 1 ;;
           esac
+
+  # If an issue is linked, or appears in a PR description like "fixes #123"
+  # then its labels will be copied onto the PR. This does not occur if the
+  # issue mention is not preceded by a closing keyword
+  copy_issue_labels:
+    # the only input to this action is the PR description which does not
+    # change when the branch is synchronized
+    if: github.event.action != 'synchronize'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Copy labels from issues linked or  mentioned in the PR
+        uses: michalvankodev/copy-issue-labels@v1.3.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          labels-to-exclude: |
+            need triaging
+            needs info
+            duplicate
+            wontfix
+            roadmap
+            good first issue
+            rfc
