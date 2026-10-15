@@ -4996,7 +4996,7 @@ fn compile_builtin_function_call(
                 let behavior = compile_expression(behavior, ctx);
                 item_owner(flickable).map_or_default(|owner| {
                     let (_, item_rc) = native_item_from_owner(flickable, ctx, &owner);
-                    access_member(repeater, ctx).then(|repeater| {
+                    access_member(repeater, ctx).then_named("repeater", |repeater| {
                         quote!(#repeater.listview_ensure_row_visible(#row, #behavior, &#item_rc))
                     })
                 })

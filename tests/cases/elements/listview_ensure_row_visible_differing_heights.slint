@@ -15,6 +15,7 @@ export component TestCase inherits Window {
     out property <length> content-y <=> listview.content-y;
     out property <length> visible-height <=> listview.visible-height;
     in-out property <int> clicked-index: -1;
+    out property <length> clicked-y;
 
     listview := ListView {
         x: 0;
@@ -23,12 +24,14 @@ export component TestCase inherits Window {
         height: 600px;
 
         for i in 1000: Rectangle {
-            height: (i.mod(10) * 50 + 10) * 1px;
+            // Row 700 is taller than the viewport.
+            height: (i == 700 ? 1000 : i.mod(10) * 50 + 10) * 1px;
             background: i.mod(2) == 0 ? blue : red;
 
             TouchArea {
                 clicked => {
                     root.clicked-index = i;
+                    root.clicked-y = self.mouse-y;
                 }
             }
         }
@@ -42,11 +45,12 @@ use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition
 
 const PROBE_INSET: f32 = 2.;
 const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+const TALL_ROW: i32 = 700;
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 let viewport = instance.get_visible_height();
-let row_height = |row: i32| ((row % 10) * 50 + 10) as f32;
+let row_height = |row: i32| if row == TALL_ROW { 1000. } else { ((row % 10) * 50 + 10) as f32 };
 
 let row_at = |y: f32| {
     instance.set_clicked_index(-1);
@@ -100,5 +104,11 @@ assert_top_aligned(11);
 // Far below again, from a position reached by scrolling up.
 scroll_to(507);
 assert_bottom_aligned(507);
+
+// A row taller than the viewport, below it and without an instance yet, starts at the top edge.
+assert!(row_height(TALL_ROW) > viewport);
+scroll_to(TALL_ROW);
+assert_eq!(row_at(PROBE_INSET), TALL_ROW);
+assert_eq!(instance.get_clicked_y(), PROBE_INSET, "row {TALL_ROW} must start at the viewport's top edge");
 ```
 */

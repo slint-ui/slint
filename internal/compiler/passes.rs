@@ -176,7 +176,7 @@ pub async fn run_passes(
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     doc.visit_all_used_components(|component| {
-        listview::handle_listview(component, diag);
+        listview::lower_ensure_row_visible(component, diag);
     });
 
     collect_subcomponents::collect_subcomponents(doc);

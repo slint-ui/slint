@@ -7,11 +7,12 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Callable, Expression};
 use crate::langtype::Type;
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc};
+use crate::parser::{SyntaxKind, SyntaxToken};
 use crate::typeregister;
 use std::rc::Rc;
 
-pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn lower_ensure_row_visible(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,
@@ -53,8 +54,9 @@ pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnosti
             else {
                 diag.push_error(
                     "Place the 'for' of a 'ListView' with 'ensure-row-visible' directly in a 'Flickable'".into(),
-                    &*binding.borrow(),
+                    &for_keyword(&element),
                 );
+                diag.push_note("'ensure-row-visible' is declared here".into(), &*binding.borrow());
                 return Some(element_rc.clone());
             };
 
@@ -74,4 +76,11 @@ pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnosti
             Some(element_rc.clone())
         },
     );
+}
+
+fn for_keyword(repeated: &Element) -> Option<SyntaxToken> {
+    let node = &repeated.debug.first()?.node;
+    std::iter::successors(node.parent(), |n| n.parent())
+        .find(|n| n.kind() == SyntaxKind::RepeatedElement)?
+        .child_token(SyntaxKind::Identifier)
 }

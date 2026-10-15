@@ -347,7 +347,11 @@ fn update_visible_instances(
         let row_height = ops.height(0).unwrap_or(element_height);
         let row_top = match alignment {
             scroll::RowAlignment::Top => 0 as Coord,
-            scroll::RowAlignment::Bottom => listview_height - row_height,
+            scroll::RowAlignment::Bottom => {
+                // If the row is higher than listview_height than we ignore the
+                // alignment and align to top
+                (listview_height - row_height).max(0. as Coord)
+            }
         };
         (row, row_top)
     } else if first_item_y > -content_y_value + one_and_a_half_screen
@@ -704,23 +708,27 @@ fn listview_ensure_row_visible(
             let (top_anchor, height) = scroll::row_geometry(state, heights, row);
             (top_anchor + content_y.get(), height)
         });
+    // an instant scroll pulls an overscroll back in bounds.
+    let stop_scrolling = || {
+        flickable.scroll_to(
+            flickable_rc,
+            LogicalPosition::new(-flickable.content_x().get() as f32, -content_y.get() as f32),
+            ScrollBehavior::Instant,
+        )
+    };
 
     let alignment = match row_in_viewport {
         None => {
-            flickable.scroll_to(
-                flickable_rc,
-                LogicalPosition::new(-flickable.content_x().get() as f32, -content_y.get() as f32),
-                ScrollBehavior::Instant,
-            );
+            stop_scrolling();
             scroll::RowAlignment::Bottom
         }
         Some((top_anchor, row_height)) => {
             let Some(alignment) =
                 scroll::RowAlignment::for_row(top_anchor, row_height, viewport_height)
             else {
-                // Nothing to do since the row is already in view
+                // row is already in view so we don't have to scroll. Stop any scrolling
                 *scroll_to_row = None;
-                flickable.stop_animation();
+                stop_scrolling();
                 return false;
             };
             let distance = alignment.distance(top_anchor, row_height, viewport_height);
@@ -943,9 +951,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let mut inner = data.inner.borrow_mut();
             inner.layout_state = layout_state;
             // A request made while the layout ran, from a row's init code, wins.
-            if inner.scroll_to_row.is_none() {
-                inner.scroll_to_row = scroll_to_row;
-            }
+            inner.scroll_to_row = inner.scroll_to_row.take().or(scroll_to_row);
         }
 
         if changed {
@@ -1201,11 +1207,12 @@ mod ffi {
     static_assertions::assert_eq_align!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
     static_assertions::assert_eq_size!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
 
-    fn scroll_to_row_storage(
-        request: &mut ScrollToRowRequestOpaque,
-    ) -> &mut ScrollToRowRequestStorage {
-        // Safety: `slint_repeater_scroll_to_row_construct` initialized it, with the same layout.
-        unsafe { &mut *(request as *mut ScrollToRowRequestOpaque).cast() }
+    /// Safety: `slint_repeater_scroll_to_row_construct` initialized `request`,
+    /// and nothing else references it while the result is alive.
+    unsafe fn scroll_to_row_storage<'a>(
+        request: *mut ScrollToRowRequestOpaque,
+    ) -> &'a mut ScrollToRowRequestStorage {
+        unsafe { &mut *request.cast() }
     }
 
     /// Initialize the request storage.
@@ -1287,11 +1294,13 @@ mod ffi {
         update_all_instances(ops, offset, count);
     }
 
+    /// `state` and `scroll_to_row` are pointers, not references, because a row's init code,
+    /// which `ops` runs, can call `slint_repeater_listview_ensure_row_visible` on them.
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_repeater_ensure_updated_listview(
+    pub unsafe extern "C" fn slint_repeater_ensure_updated_listview(
         ops: &mut RepeaterInstanceOpsVTable,
-        state: &mut RepeaterLayoutState,
-        scroll_to_row: &mut ScrollToRowRequestOpaque,
+        state: *mut RepeaterLayoutState,
+        scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
@@ -1300,18 +1309,21 @@ mod ffi {
         listview_height: LogicalLength,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        let storage = scroll_to_row_storage(scroll_to_row);
-        let mut request = storage.take().map(|request| *request);
+        let mut layout_state = unsafe { (*state).clone() };
+        let mut request = unsafe { scroll_to_row_storage(scroll_to_row) }.take().map(|r| *r);
         let changed = update_visible_instances(
             ops,
-            state,
+            &mut layout_state,
             &mut request,
             row_count,
             &props,
             listview_width,
             listview_height,
         );
-        *storage = request.map(Box::new);
+        unsafe { *state = layout_state };
+        let storage = unsafe { scroll_to_row_storage(scroll_to_row) };
+        // See `Repeater::ensure_updated_listview_callback`.
+        *storage = storage.take().or_else(|| request.map(Box::new));
         changed
     }
 
@@ -1332,8 +1344,8 @@ mod ffi {
             .iter()
             .map(|height| if height.is_nan() { state.cached_item_height } else { *height })
             .collect::<Vec<_>>();
-        let storage = scroll_to_row_storage(scroll_to_row);
-        let mut request = storage.take().map(|request| *request);
+        let storage = unsafe { scroll_to_row_storage(scroll_to_row) };
+        let mut request = storage.take().map(|r| *r);
         let needs_layout = listview_ensure_row_visible(
             state,
             &heights,
