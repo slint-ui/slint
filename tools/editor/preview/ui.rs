@@ -2018,6 +2018,71 @@ mod tests {
     }
 
     #[test]
+    fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
+        use slint::platform::{Key, WindowEvent};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Rectangle".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.set_undo_enabled(true);
+        let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = undo_count.clone();
+        api.on_undo(move || count.set(count.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                angle: 90.,
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
+            target: super::FillSessionTarget {
+                canvas: true,
+                key: "replaced-inspector-field".into(),
+                session_key: ":0:0:0:background".into(),
+                property_name: "background".into(),
+                size: slint::LogicalSize::new(200., 200.),
+            },
+            ..Default::default()
+        });
+        session.invoke_edit_stop_color(0);
+        assert!(session.get_open());
+        assert!(session.get_stop_panel_open());
+        slint::platform::update_timers_and_animations();
+        find_element(&editor, "Hex color").invoke_accessible_default_action();
+        session.invoke_close_picker(false, true);
+        slint::platform::update_timers_and_animations();
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        assert_eq!(undo_count.get(), 1);
+    }
+
+    #[test]
     fn fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
         for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
