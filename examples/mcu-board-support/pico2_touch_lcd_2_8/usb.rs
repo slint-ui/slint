@@ -206,6 +206,17 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]
+                #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"imu") {
+                    let (raw, samples, errors, us) = super::imu::telemetry();
+                    let up = super::ink_up();
+                    let mut line = ReportLine { bytes: [0; 2048], length: 0 };
+                    let _ = writeln!(&mut line, "PICO_IMU,ax={},ay={},az={},gx={},gy={},gz={},up_x={},up_y={},samples={samples},errors={errors},read_us={us}", raw[0],raw[1],raw[2],raw[3],raw[4],raw[5],up[0],up[1]);
+                    for packet in line.bytes[..line.length].chunks(64) {
+                        if serial.write_packet(packet).await.is_err() { break; }
+                    }
+                    continue;
+                }
                 if buffer[..count].starts_with(b"stats") {
                     let format_started = super::profile::now_us();
                     let (sequence, v) = super::profile::snapshot();

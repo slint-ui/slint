@@ -5,6 +5,9 @@
 extern crate alloc;
 
 mod background;
+mod imu;
+mod tilt_fusion;
+pub use imu::up as ink_up;
 mod background_job;
 mod boot_guard;
 pub use background::with_core1;
@@ -260,13 +263,15 @@ pub fn init() {
     let tp_int = Input::new(p.PIN_18, Pull::Up);
 
     // --- Touch controller init ---
-    let touch = cst328::CST328::new(i2c, &mut Delay).unwrap();
+    let mut touch = cst328::CST328::new(i2c, &mut Delay).unwrap();
+    let imu = imu::Imu::new(&mut touch.i2c, now_us());
 
     let pico_backend = PicoEmbassyBackend {
         _display: display,
         #[cfg(feature = "pico2-queue-profile")]
         _crc_dma: p.DMA_CH1,
         touch,
+        imu,
         last_touch: None,
 
         touch_pending: false,
@@ -303,6 +308,7 @@ struct PicoEmbassyBackend {
     touch: cst328::CST328<
         embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
     >,
+    imu: imu::Imu,
     last_touch: Option<slint::LogicalPosition>,
 
     touch_pending: bool,
@@ -326,6 +332,7 @@ impl PlatformBackend for PicoEmbassyBackend {
             }
             _ => {}
         }
+        self.imu.poll(&mut self.touch.i2c, now_us());
         let button = PointerEventButton::Left;
         #[cfg(feature = "pico2-queue-profile")]
         let touch_started = profile::now_us();
@@ -528,7 +535,7 @@ mod cst328 {
     const CMD_READ_TOUCH_DATA: [u8; 2] = [0xD0, 0x00];
 
     pub struct CST328<I2C: I2c> {
-        i2c: I2C,
+        pub(super) i2c: I2C,
     }
 
     impl<I2C: I2c> CST328<I2C> {

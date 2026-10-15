@@ -78,6 +78,7 @@ pico2-clock-240 = ["pico2-touch-lcd-2-8"]
 pico2-renderer-profile = ["pico2-queue-profile", "i-slint-renderer-software/embedded-profile"]
 pico2-queue-profile = ["pico2-touch-lcd-2-8"]
 pico2-touch-lcd-2-8 = [
+  "dep:libm",
   "i-slint-renderer-software/embedded-ram-functions",
   "i-slint-renderer-software/embedded-text-cache",
   "i-slint-core/embedded-input-ram",
@@ -246,6 +247,7 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
+libm = { version = "0.2", optional = true }
 slint = { version = "=1.19.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
 i-slint-core-macros = { version = "=1.19.0", path = "../../internal/core-macros" }

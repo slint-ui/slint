@@ -12,6 +12,7 @@ ink-native-assets = []
 pico2 = []
 pico2-queue-profile = []
 [dependencies]
+libm = "0.2"
 i-slint-core = { path = "../../../../../internal/core", features = ["embedded-geometry-cache"] }
 slint = { path = "../../../../../api/rs/slint", default-features = false, features = ["compat-1-2", "std", "renderer-software", "image-pixel-format-rgb565"] }
 bytemuck = "1.13.1"

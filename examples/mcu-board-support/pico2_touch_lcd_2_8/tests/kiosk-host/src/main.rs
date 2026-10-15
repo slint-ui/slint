@@ -3,6 +3,9 @@
 
 extern crate alloc;
 #[cfg(test)]
+#[path = "../../../tilt_fusion.rs"]
+mod tilt_fusion;
+#[cfg(test)]
 #[path = "../../../background_job.rs"]
 mod background_job;
 use slint::{

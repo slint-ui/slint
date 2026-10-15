@@ -4103,6 +4103,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "i-slint-renderer-software",
+ "libm",
  "log",
  "mipidsi",
  "once_cell",
