@@ -45,6 +45,10 @@ std = [
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.
 unsafe-single-threaded = []
+embedded-geometry-cache = []
+# ARM pointer dispatch uses .data.ram_func, copied to executable SRAM by the board linker.
+embedded-input-ram = []
+embedded-renderer-ram = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 

@@ -2067,3 +2067,76 @@ fn destroy_never_rendered_item() {
     // The instance is destroyed without ever having been rendered: nothing repaints.
     do_test_no_repaint(&window);
 }
+
+#[test]
+fn cached_geometry_keeps_item_size_separate_from_text_bounds() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 180px;
+            height: 100px;
+            in property <length> card-width: 30px;
+            Rectangle {
+                x: 10px; y: 10px; width: root.card-width; height: 40px;
+                background: blue;
+                Text { text: "A"; color: white; width: parent.width; }
+            }
+        }
+    }
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(PhysicalSize::new(180, 100));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 180, 100);
+    }));
+    ui.set_card_width(70.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 80, 50);
+    }));
+    assert!(!window.draw_if_needed(|_| unreachable!()));
+    ui.set_card_width(20.);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 10, 10, 80, 50);
+    }));
+}
+
+#[test]
+fn pressed_pointer_can_replace_an_existing_scroll_gesture() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 180px; height: 100px;
+            out property <length> scroll-y <=> view.content-y;
+            view := Flickable {
+                width: 180px; height: 100px;
+                content-width: 180px; content-height: 500px;
+                Rectangle { height: 500px; background: blue; }
+            }
+        }
+    }
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(PhysicalSize::new(180, 100));
+    ui.show().unwrap();
+    let press = |y| {
+        ui.window()
+            .dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                position: slint::LogicalPosition::new(90., y),
+                button: slint::platform::PointerEventButton::Left,
+            })
+    };
+    let moved = |y| {
+        ui.window()
+            .dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                position: slint::LogicalPosition::new(90., y),
+            })
+    };
+    press(90.);
+    moved(60.);
+    let previous = ui.get_scroll_y();
+    assert!(previous < 0.);
+    press(50.);
+    moved(30.);
+    assert_eq!(ui.get_scroll_y(), previous - 20.);
+}
