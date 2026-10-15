@@ -22,6 +22,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub clips: Vec<ShapeClip>,
 }
 
 pub struct Scene {
@@ -264,6 +265,14 @@ pub struct SceneItem {
     // this is the order of the item from which it is in the item tree
     pub z: u16,
     pub command: SceneCommand,
+    pub clip_start: u16,
+    pub clip_len: u16,
+}
+
+impl SceneItem {
+    pub fn clips<'a>(&self, vectors: &'a SceneVectors) -> &'a [ShapeClip] {
+        &vectors.clips[self.clip_start as usize..][..self.clip_len as usize]
+    }
 }
 
 fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
@@ -540,15 +549,41 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// A rounded shape that clips a command.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GradientClip {
-    /// A zero radius means no clip.
+pub struct ShapeClip {
     pub shape: RoundedShape,
-    /// The width of the opaque border drawn over the gradient, or 0.
-    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// The width of an opaque border drawn over the command, or 0.
+    /// When set, the command is clipped without anti-aliasing to the border's inner edge.
     /// This keeps it from bleeding through the border's anti-aliased outer edge.
     pub opaque_border: PhysicalLength,
+}
+
+impl ShapeClip {
+    /// Whether a command of `size` reaches into one of the shape's rounded corners.
+    /// Outside of them, the clip has no effect.
+    pub fn touches_corner(&self, size: PhysicalSize) -> bool {
+        let s = &self.shape;
+        let left = s.left_clip.get() as i32;
+        let top = s.top_clip.get() as i32;
+        let right = left + size.width as i32;
+        let bottom = top + size.height as i32;
+        let width = right + s.right_clip.get() as i32;
+        let height = bottom + s.bottom_clip.get() as i32;
+        let touches = |r: i16, x: i32, y: i32| {
+            let r = r as i32;
+            r > 0 && x < right && x + r > left && y < bottom && y + r > top
+        };
+        let r = &s.radius;
+        touches(r.top_left, 0, 0)
+            || touches(r.top_right, width - r.top_right as i32, 0)
+            || touches(
+                r.bottom_right,
+                width - r.bottom_right as i32,
+                height - r.bottom_right as i32,
+            )
+            || touches(r.bottom_left, 0, height - r.bottom_left as i32)
+    }
 }
 
 #[derive(Debug)]
@@ -580,7 +615,6 @@ pub struct LinearGradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
-    pub clip: GradientClip,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -604,7 +638,6 @@ pub struct RadialGradientCommand {
     pub center_y: f32,
     /// Explicit radius in physical pixels. Always resolved (non-negative) before command construction.
     pub radius: f32,
-    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -622,7 +655,43 @@ pub struct ConicGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    pub clip: GradientClip,
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
+}
+
+#[test]
+fn touches_corner() {
+    let clip =
+        |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| ShapeClip {
+            shape: RoundedShape {
+                radius,
+                left_clip: Length::new(left),
+                top_clip: Length::new(top),
+                right_clip: Length::new(right),
+                bottom_clip: Length::new(bottom),
+            },
+            opaque_border: PhysicalLength::new(0),
+        };
+    let size = PhysicalSize::new(10, 10);
+    let all = PhysicalBorderRadius::new_uniform(4);
+    // The whole shape.
+    assert!(clip(all, 0, 0, 0, 0).touches_corner(size));
+    // Exactly next to the top-left corner box, and one pixel into it.
+    let top_left = PhysicalBorderRadius::new(4, 0, 0, 0);
+    assert!(!clip(top_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    assert!(clip(top_left, 3, 0, 0, 0).touches_corner(PhysicalSize::new(7, 10)));
+    assert!(!clip(top_left, 0, 4, 0, 0).touches_corner(PhysicalSize::new(10, 6)));
+    // Each other corner on its own.
+    let top_right = PhysicalBorderRadius::new(0, 4, 0, 0);
+    assert!(clip(top_right, 0, 0, 0, 0).touches_corner(size));
+    assert!(!clip(top_right, 0, 0, 4, 0).touches_corner(PhysicalSize::new(6, 10)));
+    let bottom_right = PhysicalBorderRadius::new(0, 0, 4, 0);
+    assert!(!clip(bottom_right, 0, 0, 0, 4).touches_corner(PhysicalSize::new(10, 6)));
+    assert!(clip(bottom_right, 0, 0, 0, 3).touches_corner(PhysicalSize::new(10, 7)));
+    let bottom_left = PhysicalBorderRadius::new(0, 0, 0, 4);
+    assert!(!clip(bottom_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    // A command in the middle touches no corner.
+    assert!(!clip(all, 4, 4, 4, 4).touches_corner(PhysicalSize::new(2, 2)));
+    // Zero radii have no corner at all.
+    assert!(!clip(PhysicalBorderRadius::default(), 0, 0, 0, 0).touches_corner(size));
 }
