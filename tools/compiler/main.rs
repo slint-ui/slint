@@ -61,7 +61,7 @@ struct Cli {
     #[cfg_attr(feature = "python", doc = "'python' generates a typed Python module.")]
     #[cfg_attr(
         feature = "typescript",
-        doc = "'typescript' generates TypeScript declarations, to be written to a `.d.ts` file."
+        doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
     )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
