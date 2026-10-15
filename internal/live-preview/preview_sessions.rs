@@ -67,7 +67,7 @@ pub enum PreviewCompilation {
 ///
 /// Call [`Self::component_definition()`] on the thread that instantiates the component.
 pub struct CompiledPreview {
-    compilation: Box<slint_interpreter::CompilationResultSend>,
+    compilation: Box<slint_interpreter::SendableCompilationResult>,
     component_name: String,
 }
 
