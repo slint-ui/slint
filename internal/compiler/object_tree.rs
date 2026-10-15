@@ -1964,7 +1964,7 @@ impl Element {
         }
     }
 
-    fn declares_ensure_row_visible(listview: &Element) -> bool {
+    pub(crate) fn declares_ensure_row_visible(listview: &Element) -> bool {
         let lookup =
             listview.lookup_property("ensure-row-visible", PropertyLookupMode::InternalName);
         let Type::Function(function) = lookup.property_type else { return false };

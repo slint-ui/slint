@@ -10,11 +10,11 @@ component ListView inherits Rectangle {
     public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
 //  >                                                                       <note{'ensure-row-visible' is declared here}
     @children
+//  >       <error{Place '@children' directly in a 'Flickable' so that 'ensure-row-visible' can scroll this 'ListView'}
 }
 
 export component Test inherits Window {
     ListView {
         for x in 2: Rectangle { height: 10px; }
-//      > <error{Place the 'for' of a 'ListView' with 'ensure-row-visible' directly in a 'Flickable'}
     }
 }
