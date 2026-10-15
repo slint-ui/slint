@@ -6,11 +6,11 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
-use alloc::rc::Rc;
 use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
+use alloc::rc::Rc;
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
@@ -41,7 +41,9 @@ crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoader
 /// });
 /// ```
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-pub fn set_asset_loader(loader: impl Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>> + 'static) {
+pub fn set_asset_loader(
+    loader: impl Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>> + 'static,
+) {
     ASSET_LOADER.with(|l| *l.borrow_mut() = Some(Rc::new(loader)));
 }
 
@@ -1896,8 +1898,8 @@ pub fn fit9slice(
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
-    use core::ffi::c_void;
     use super::*;
+    use core::ffi::c_void;
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
     /// Represents an RGB pixel.
@@ -2017,7 +2019,8 @@ pub(crate) mod ffi {
         set_asset_loader(move |id: &str| {
             let mut out_vec = SharedVector::default();
             let mut error_msg = SharedString::default();
-            let result = (ud.callback)(ud.user_data, &SharedString::from(id), &mut out_vec, &mut error_msg);
+            let result =
+                (ud.callback)(ud.user_data, &SharedString::from(id), &mut out_vec, &mut error_msg);
             match result {
                 AssetLoaderResult::NotFound => None,
                 AssetLoaderResult::Found => Some(Ok(out_vec.to_vec())),

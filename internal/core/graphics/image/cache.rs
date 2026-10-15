@@ -8,8 +8,8 @@ This module contains image and caching related types for the run-time library.
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use super::CachedPath;
 use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
-use crate::{SharedString, slice::Slice};
 use crate::graphics::get_asset_loader;
+use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
 
@@ -101,7 +101,11 @@ impl ImageCache {
                                 return Some(ImageInner::Svg(vtable::VRc::new(
                                     super::svg::load_from_data(&data, cache_key).map_or_else(
                                         |err| {
-                                            crate::debug_log!("Error loading SVG from custom loader for {}: {}", &path, err);
+                                            crate::debug_log!(
+                                                "Error loading SVG from custom loader for {}: {}",
+                                                &path,
+                                                err
+                                            );
                                             None
                                         },
                                         Some,
@@ -110,7 +114,11 @@ impl ImageCache {
                             }
                             image::load_from_memory(&data).map_or_else(
                                 |decode_err| {
-                                    crate::debug_log!("Error decoding image from custom loader for {}: {}", &path, decode_err);
+                                    crate::debug_log!(
+                                        "Error decoding image from custom loader for {}: {}",
+                                        &path,
+                                        decode_err
+                                    );
                                     None
                                 },
                                 |image| {
@@ -122,7 +130,11 @@ impl ImageCache {
                             )
                         }
                         Err(msg) => {
-                            crate::debug_log!("Error loading asset from custom loader for {}: {}", &path, msg);
+                            crate::debug_log!(
+                                "Error loading asset from custom loader for {}: {}",
+                                &path,
+                                msg
+                            );
                             None
                         }
                     };
