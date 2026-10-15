@@ -1,5 +1,7 @@
 # QMI Timing Trials
 
+<!-- cSpell:ignore PAGEBREAK -->
+
 Each trial retains two ten-second windows per scene after two seconds of settling per window.
 The CPU remains at 150 MHz, quad-I/O flash at 75 MHz, and display SPI at 48 MHz in the first two configurations.
 Rotation is locked during throughput measurements.
@@ -38,3 +40,25 @@ Voltage and temperature margins are not swept.
 - [Shorter-gap measurements](cs1.json)
 - [QMI timing specification](https://github.com/raspberrypi/pico-sdk/blob/master/src/rp2350/hardware_regs/include/hardware/regs/qmi.h)
 - [Flash timing specification](https://www.winbond.com/resource-files/w25q128jv%20revg%2004082019%20plus.pdf), section 9.6
+
+## Sequential Burst Boundaries
+
+The next retained change clears `PAGEBREAK`, removing the forced restart at each 1 KiB boundary.
+CPU, flash clock, read format, receive delay, and the shorter chip-select gap stay unchanged.
+The flash code and artwork sections remain byte-identical to the preceding build.
+The SRAM image differs by one byte in the startup timing mask.
+
+| Stage | Forced 1 KiB Boundary | No Forced Boundary | Time Saved |
+| --- | ---: | ---: | ---: |
+| Queue raster | 10.103 ms | 10.096 ms | 7.8 µs |
+| Settings raster | 10.147 ms | 10.140 ms | 6.9 µs |
+| Boosted tilted Ink raster | 6.314 ms | 6.304 ms | 10.5 µs |
+| Boosted tilted Ink composition | 5.288 ms | 5.295 ms | -6.6 µs |
+
+The raster gain is small: about 7 microseconds in Settings and 11 in tilted Ink.
+Those repeated raster ranges do not overlap the preceding configuration's ranges.
+Queue ranges overlap, and composition varies more than its mean change, so those differences are inconclusive.
+This is a small read-latency improvement rather than a substantial frame-budget gain.
+All six retained windows pass panel cadence with zero missed phases, late strips, and scan errors.
+Both panel orientations, exact frozen Queue and Settings pixels, and uncached flash hashes pass again.
+See the [raw burst-boundary checks](burst.json).

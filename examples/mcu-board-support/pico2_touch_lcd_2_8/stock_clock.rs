@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell:ignore rcmd rfmt
+// cSpell:ignore rcmd rfmt pagebreak
 
 pub fn config() -> embassy_rp::config::Config {
     use embassy_rp::clocks::{ClockConfig, PeriClkSrc};
@@ -33,6 +33,7 @@ pub fn configure_flash() {
             memory.timing().modify(|timing| {
                 timing.set_clkdiv(2);
                 timing.set_min_deselect(1);
+                timing.set_pagebreak(embassy_rp::pac::qmi::vals::Pagebreak::NONE);
             });
             cortex_m::asm::dsb();
             controller.direct_csr().modify(|control| control.set_en(false));
