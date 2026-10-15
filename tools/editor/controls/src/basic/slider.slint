@@ -5,15 +5,14 @@ import { SliderBase, LinearSliderSurface } from "../headless.slint";
 import {
     SliderStyle,
     SliderStateStyle,
-    SliderSizeMetrics,
-    SliderSizes,
+    SliderMetrics,
 } from "slider_style.slint";
-import { SliderStyles } from "slider_styles.slint";
+import { SliderStyles, SliderSizes } from "slider_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component Slider inherits SliderBase {
     in property <SliderStyle> style: SliderStyles.standard;
-    in property <SliderSizeMetrics> size: SliderSizes.medium;
+    in property <SliderMetrics> size: SliderSizes.medium;
     private property <SliderStateStyle> state-style: root.style.rest;
     in property <brush> track-color: root.state-style.track-color;
     in property <brush> fill-color: root.state-style.fill-color;

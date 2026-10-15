@@ -6,15 +6,14 @@ import {
     CheckBoxStyle,
     CheckBoxStateStyle,
     CheckBoxStateStyles,
-    CheckBoxSizeMetrics,
-    CheckBoxSizes,
+    CheckBoxMetrics,
 } from "check_box_style.slint";
-import { CheckBoxStyles } from "check_box_styles.slint";
+import { CheckBoxStyles, CheckBoxSizes } from "check_box_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component CheckBox inherits CheckBoxBase {
     in property <CheckBoxStyle> style: CheckBoxStyles.standard;
-    in property <CheckBoxSizeMetrics> size: CheckBoxSizes.medium;
+    in property <CheckBoxMetrics> size: CheckBoxSizes.medium;
     private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
     private property <CheckBoxStateStyle> state-style: root.selected-styles.rest;
     in property <brush> checked-color: root.state-style.indicator-color;

@@ -4,7 +4,7 @@
 import {
     Slider,
     SliderSizes,
-    SliderSizeMetrics,
+    SliderMetrics,
     SliderStyle,
     SliderStyles,
     BasicTheme,
@@ -19,7 +19,7 @@ export component SliderExamples inherits Rectangle {
     in property <SliderStyle> preview-style: SliderStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <SliderSizeMetrics> preview-size: [SliderSizes.small, SliderSizes.medium, SliderSizes.large][clamp(root.size-index, 0, 2)];
+    private property <SliderMetrics> preview-size: [SliderSizes.small, SliderSizes.medium, SliderSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <float> value: 40;
     in-out property <float> stepped-value: 50;

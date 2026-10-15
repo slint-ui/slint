@@ -4,7 +4,7 @@
 import {
     CheckBox,
     CheckBoxSizes,
-    CheckBoxSizeMetrics,
+    CheckBoxMetrics,
     CheckBoxStyle,
     CheckBoxStyles,
     BasicTheme,
@@ -22,7 +22,7 @@ export component CheckBoxExamples inherits Rectangle {
     in property <CheckBoxStyle> preview-style: CheckBoxStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <CheckBoxSizeMetrics> preview-size: [CheckBoxSizes.small, CheckBoxSizes.medium, CheckBoxSizes.large][clamp(root.size-index, 0, 2)];
+    private property <CheckBoxMetrics> preview-size: [CheckBoxSizes.small, CheckBoxSizes.medium, CheckBoxSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <int> toggles;
     in-out property <int> custom-toggles;

@@ -30,7 +30,7 @@ export struct ComboBoxStyle {
     focus-color: brush,
 }
 
-export struct ComboBoxSizeMetrics {
+export struct ComboBoxMetrics {
     border-width: length = 1px,
     border-radius: length = 4px,
     focus-width: length = 2px,
@@ -51,46 +51,4 @@ export struct ComboBoxSizeMetrics {
     item-height: length,
     popup-padding: length,
     item-padding-inline: length,
-}
-
-export global ComboBoxSizes {
-    in-out property <ComboBoxSizeMetrics> small: {
-        min-height: 24px,
-        min-width: 96px,
-        preferred-width: 160px,
-        padding-horizontal: 8px,
-        padding-vertical: 4px,
-        font-size: 12px,
-        indicator-width: 12px,
-        spacing: 4px,
-        item-height: 24px,
-        popup-padding: 4px,
-        item-padding-inline: 8px,
-    };
-    in-out property <ComboBoxSizeMetrics> medium: {
-        min-height: 32px,
-        min-width: 120px,
-        preferred-width: 200px,
-        padding-horizontal: 12px,
-        padding-vertical: 6px,
-        font-size: 14px,
-        indicator-width: 16px,
-        spacing: 6px,
-        item-height: 32px,
-        popup-padding: 4px,
-        item-padding-inline: 12px,
-    };
-    in-out property <ComboBoxSizeMetrics> large: {
-        min-height: 40px,
-        min-width: 144px,
-        preferred-width: 240px,
-        padding-horizontal: 16px,
-        padding-vertical: 8px,
-        font-size: 16px,
-        indicator-width: 20px,
-        spacing: 8px,
-        item-height: 40px,
-        popup-padding: 6px,
-        item-padding-inline: 16px,
-    };
 }

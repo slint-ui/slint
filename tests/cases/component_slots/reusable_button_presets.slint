@@ -4,7 +4,7 @@
 import {
     Button,
     ButtonStyle,
-    ButtonSizeMetrics,
+    ButtonMetrics,
     ButtonSizes,
     ButtonStyles,
     BasicTheme,
@@ -14,7 +14,7 @@ export component TestCase inherits Window {
     width: 400px;
     height: 120px;
     in-out property <ButtonStyle> style: ButtonStyles.primary;
-    in-out property <ButtonSizeMetrics> size: ButtonSizes.medium;
+    in-out property <ButtonMetrics> size: ButtonSizes.medium;
     in-out property <bool> enabled: true;
     in-out property <bool> checked;
     out property <int> activations;

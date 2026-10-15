@@ -3,14 +3,14 @@
 
 import {
     ComboBox,
-    ComboBoxSizeMetrics,
+    ComboBoxMetrics,
     ComboBoxSizes,
 } from "../../../tools/editor/controls/src/basic.slint";
 export { ComboBoxSizes }
 export component TestCase inherits Window {
     width: 400px;
     height: 400px;
-    in-out property <ComboBoxSizeMetrics> size: ComboBoxSizes.medium;
+    in-out property <ComboBoxMetrics> size: ComboBoxSizes.medium;
     in-out property <int> visible-items: 3;
     in-out property <length> row-height: root.size.item-height;
     in-out property <[string]> model: ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];

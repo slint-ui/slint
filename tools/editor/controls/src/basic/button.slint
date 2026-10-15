@@ -5,14 +5,13 @@ import { ButtonBase } from "../headless.slint";
 import {
     ButtonStateStyle,
     ButtonStyle,
-    ButtonSizeMetrics,
-    ButtonSizes,
+    ButtonMetrics,
 } from "button_style.slint";
-import { ButtonStyles } from "button_styles.slint";
+import { ButtonStyles, ButtonSizes } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
     in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
-    in property <ButtonSizeMetrics> size: ButtonSizes.medium;
+    in property <ButtonMetrics> size: ButtonSizes.medium;
     private property <ButtonStateStyle> state-style: root.style.rest;
     in property <brush> background-color: root.state-style.background-color;
     in property <brush> foreground: root.state-style.foreground;

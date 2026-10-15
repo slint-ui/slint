@@ -11,15 +11,14 @@ import {
     ComboBoxStateStyle,
     ComboBoxPopupStyle,
     ComboBoxItemStyle,
-    ComboBoxSizeMetrics,
-    ComboBoxSizes,
+    ComboBoxMetrics,
 } from "combo_box_style.slint";
-import { ComboBoxStyles } from "combo_box_styles.slint";
+import { ComboBoxStyles, ComboBoxSizes } from "combo_box_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component ComboBoxPopup inherits ComboBoxPopupBase {
     in property <ComboBoxPopupStyle> style: ComboBoxStyles.standard.popup;
-    in property <ComboBoxSizeMetrics> size: ComboBoxSizes.medium;
+    in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: root.size.font-weight;
     item-height: root.size.item-height;
@@ -105,7 +104,7 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
 
 export component ComboBox inherits ComboBoxBase {
     in property <ComboBoxStyle> style: ComboBoxStyles.standard;
-    in property <ComboBoxSizeMetrics> size: ComboBoxSizes.medium;
+    in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
     private property <ComboBoxStateStyle> state-style: root.style.rest;
     in property <brush> background-color: root.state-style.background-color;
     in property <brush> foreground: root.state-style.foreground;

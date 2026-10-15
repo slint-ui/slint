@@ -5,22 +5,22 @@ import {
     Switch,
     SwitchStyle,
     SwitchStyles,
-    SwitchSizeMetrics,
+    SwitchMetrics,
     SwitchSizes,
     CheckBox,
     CheckBoxStyle,
     CheckBoxStyles,
-    CheckBoxSizeMetrics,
+    CheckBoxMetrics,
     CheckBoxSizes,
     Slider,
     SliderStyle,
     SliderStyles,
-    SliderSizeMetrics,
+    SliderMetrics,
     SliderSizes,
     ComboBox,
     ComboBoxStyle,
     ComboBoxStyles,
-    ComboBoxSizeMetrics,
+    ComboBoxMetrics,
     ComboBoxSizes,
     BasicTheme,
 } from "../../../tools/editor/controls/src/basic.slint";
@@ -42,19 +42,19 @@ export component TestCase inherits Window {
     in-out property <bool> checked;
     out property <int> activations;
     in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
-    in-out property <SwitchSizeMetrics> switch-size: SwitchSizes.medium;
+    in-out property <SwitchMetrics> switch-size: SwitchSizes.medium;
     out property <brush> switch-color: switch.checked-color;
     out property <length> switch-dimension: switch.indicator-width;
     in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
-    in-out property <CheckBoxSizeMetrics> check-box-size: CheckBoxSizes.medium;
+    in-out property <CheckBoxMetrics> check-box-size: CheckBoxSizes.medium;
     out property <brush> check-box-color: check-box.checked-color;
     out property <length> check-box-dimension: check-box.indicator-width;
     in-out property <SliderStyle> slider-style: SliderStyles.standard;
-    in-out property <SliderSizeMetrics> slider-size: SliderSizes.medium;
+    in-out property <SliderMetrics> slider-size: SliderSizes.medium;
     out property <brush> slider-color: slider.handle-color;
     out property <length> slider-dimension: slider.size.handle-width;
     in-out property <ComboBoxStyle> combo-box-style: ComboBoxStyles.standard;
-    in-out property <ComboBoxSizeMetrics> combo-box-size: ComboBoxSizes.medium;
+    in-out property <ComboBoxMetrics> combo-box-size: ComboBoxSizes.medium;
     out property <brush> combo-box-color: combo-box.background-color;
     out property <length> combo-box-dimension: combo-box.item-height;
     out property <bool> test: switch-override.checked-color == #123456 && switch-override.font-size == 13px

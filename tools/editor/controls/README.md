@@ -20,6 +20,13 @@ Set `accessible-label` when a control has no text label, especially for icon-onl
 The controls currently require experimental Slint features for interfaces and typed slots.
 The examples below use paths relative to `tools/editor/controls/examples/`.
 
+## Source Organization
+
+For each control with style and size structs, `<control>_style.slint` defines the types.
+`<control>_styles.slint` defines both the color and size presets, such as `ButtonStyles` and `ButtonSizes`.
+Import controls, types, and presets through `src/basic.slint`.
+The gallery owns the preview selector and selected index.
+
 ## Button
 
 Import the button and presets from `src/basic.slint`:
@@ -43,7 +50,7 @@ Disabled primary and secondary buttons share neutral colors, and disabled danger
 A `ButtonStyle` contains `rest`, `hover`, `pressed`, and `disabled` state styles.
 Each state supplies background, foreground, and border colors.
 Focus color belongs to the overall style.
-Border width, border radius, focus width, and focus offset belong to `ButtonSizeMetrics`.
+Border width, border radius, focus width, and focus offset belong to `ButtonMetrics`.
 Focus draws an independent outline outside the button, including while it is hovered or pressed.
 The default outline is 2px wide with a 2px gap and does not change layout or the button's border.
 
@@ -120,7 +127,7 @@ Set `size.focus-width` to zero to hide the outline.
 
 ## Sizes
 
-The `size` property accepts a `ButtonSizeMetrics` struct directly.
+The `size` property accepts a `ButtonMetrics` struct directly.
 Use `ButtonSizes.small`, `ButtonSizes.medium`, or `ButtonSizes.large` for the predefined sizes.
 The default, `ButtonSizes.medium`, preserves the original basic button's size defaults.
 Pass a custom struct through `size` to supply your own metrics.
@@ -162,10 +169,10 @@ Each size collection exposes `small`, `medium`, and `large` metrics, with medium
 
 | Control | Style Type | Default Style | Size Type | Size Presets |
 | --- | --- | --- | --- | --- |
-| Switch | `SwitchStyle` | `SwitchStyles.standard` | `SwitchSizeMetrics` | `SwitchSizes` |
-| CheckBox | `CheckBoxStyle` | `CheckBoxStyles.standard` | `CheckBoxSizeMetrics` | `CheckBoxSizes` |
-| Slider | `SliderStyle` | `SliderStyles.standard` | `SliderSizeMetrics` | `SliderSizes` |
-| ComboBox | `ComboBoxStyle` | `ComboBoxStyles.standard` | `ComboBoxSizeMetrics` | `ComboBoxSizes` |
+| Switch | `SwitchStyle` | `SwitchStyles.standard` | `SwitchMetrics` | `SwitchSizes` |
+| CheckBox | `CheckBoxStyle` | `CheckBoxStyles.standard` | `CheckBoxMetrics` | `CheckBoxSizes` |
+| Slider | `SliderStyle` | `SliderStyles.standard` | `SliderMetrics` | `SliderSizes` |
+| ComboBox | `ComboBoxStyle` | `ComboBoxStyles.standard` | `ComboBoxMetrics` | `ComboBoxSizes` |
 
 ```slint
 import { Switch, SwitchStyle, SwitchStyles, SwitchSizes } from "../src/basic.slint";

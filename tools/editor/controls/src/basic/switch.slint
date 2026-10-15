@@ -6,15 +6,14 @@ import {
     SwitchStyle,
     SwitchStateStyle,
     SwitchStateStyles,
-    SwitchSizeMetrics,
-    SwitchSizes,
+    SwitchMetrics,
 } from "switch_style.slint";
-import { SwitchStyles } from "switch_styles.slint";
+import { SwitchStyles, SwitchSizes } from "switch_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component Switch inherits SwitchBase {
     in property <SwitchStyle> style: SwitchStyles.standard;
-    in property <SwitchSizeMetrics> size: SwitchSizes.medium;
+    in property <SwitchMetrics> size: SwitchSizes.medium;
     private property <SwitchStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
     private property <SwitchStateStyle> state-style: root.selected-styles.rest;
     in property <brush> checked-color: root.state-style.track-color;

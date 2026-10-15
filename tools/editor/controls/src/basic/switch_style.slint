@@ -21,7 +21,7 @@ export struct SwitchStyle {
     focus-color: brush,
 }
 
-export struct SwitchSizeMetrics {
+export struct SwitchMetrics {
     track-border-width: length = 1px,
     track-radius: length = -1px,
     thumb-radius: length = -1px,
@@ -36,40 +36,4 @@ export struct SwitchSizeMetrics {
     padding-vertical: length,
     font-size: length,
     spacing: length,
-}
-
-export global SwitchSizes {
-    in-out property <SwitchSizeMetrics> small: {
-        min-height: 24px,
-        track-width: 32px,
-        track-height: 18px,
-        thumb-size: 12px,
-        thumb-padding: 3px,
-        padding-horizontal: 4px,
-        padding-vertical: 3px,
-        font-size: 12px,
-        spacing: 4px,
-    };
-    in-out property <SwitchSizeMetrics> medium: {
-        min-height: 32px,
-        track-width: 40px,
-        track-height: 22px,
-        thumb-size: 16px,
-        thumb-padding: 3px,
-        padding-horizontal: 6px,
-        padding-vertical: 5px,
-        font-size: 14px,
-        spacing: 6px,
-    };
-    in-out property <SwitchSizeMetrics> large: {
-        min-height: 40px,
-        track-width: 48px,
-        track-height: 26px,
-        thumb-size: 20px,
-        thumb-padding: 3px,
-        padding-horizontal: 8px,
-        padding-vertical: 7px,
-        font-size: 16px,
-        spacing: 8px,
-    };
 }
