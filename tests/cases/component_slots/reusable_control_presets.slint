@@ -192,7 +192,7 @@ let press = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed 
 let release = |x, y| instance.window().dispatch_event(WindowEvent::PointerReleased { position: slint::LogicalPosition::new(x, y), button: PointerEventButton::Left });
 
 macro_rules! toggle_states {
-    ($preset:expr, $set:ident, $get:ident, $color:ident, $field:ident, $x:expr) => {{
+    ($preset:expr_2021, $set:ident, $get:ident, $color:ident, $field:ident, $x:expr_2021) => {{
         let mut custom = $preset;
         custom.unchecked.hover.$field = brush(0x51, 0x21, 0x91);
         custom.checked.hover.$field = brush(0x81, 0x31, 0xb1);
@@ -229,7 +229,7 @@ toggle_states!(instance.global::<SwitchStyles<'_>>().get_standard(), set_switch_
 toggle_states!(instance.global::<CheckBoxStyles<'_>>().get_standard(), set_check_box_style, get_check_box_style, get_check_box_color, indicator_color, 400.);
 
 macro_rules! control_states {
-    ($preset:expr, $set:ident, $color:ident, $field:ident, $x:expr) => {{
+    ($preset:expr_2021, $set:ident, $color:ident, $field:ident, $x:expr_2021) => {{
         let mut custom = $preset;
         custom.hover.$field = brush(0x51, 0x21, 0x91);
         custom.pressed.$field = brush(0x31, 0x11, 0x71);
