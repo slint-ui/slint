@@ -48,9 +48,23 @@ export struct InkLevel  {
     level: float,
 }
 
+export global InkParticles {
+    in-out property <[image]> frames;
+    in-out property <bool> enabled;
+    callback resize(int, int);
+    callback hold(int, bool);
+    callback release();
+}
+
 export global PrinterState {
     in-out property <Pages> active-page: Pages.home;
     in-out property <SubPage> active-subpage: SubPage.none;
+    changed active-page => {
+        if self.active-page != Pages.ink { InkParticles.release(); }
+    }
+    changed active-subpage => {
+        if self.active-subpage != SubPage.none { InkParticles.release(); }
+    }
 
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer

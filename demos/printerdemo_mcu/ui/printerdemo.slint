@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Pages, SubPage, PrinterState } from "common.slint";
+import { DemoPalette, Pages, SubPage, PrinterState, InkParticles } from "common.slint";
 import { SideBar } from "./components/components.slint";
 import { HomePage, InkPage, ScanPage, ScanPagePosition, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
 
+export { QueueMotion } from "./pages/printer_queue.slint";
+
 // re-export for the native code
-export { PrinterQueue, PrinterState }
+export { PrinterQueue, PrinterState, InkParticles }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";

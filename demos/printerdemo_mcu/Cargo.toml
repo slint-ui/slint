@@ -15,11 +15,16 @@ path = "main.rs"
 name = "printerdemo_mcu"
 
 [features]
+pico2 = ["mcu-board-support/pico2-touch-lcd-2-8", "ink-native-assets"]
+pico2-queue-profile = ["pico2", "mcu-board-support/pico2-queue-profile"]
+ink-particles = ["slint/image-pixel-format-rgb565", "dep:bytemuck"]
+ink-native-assets = ["ink-particles"]
 simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
 default = ["simulator"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
+bytemuck = { version = "1.13.1", optional = true }
 mcu-board-support = { path = "../../examples/mcu-board-support" }
 
 [build-dependencies]

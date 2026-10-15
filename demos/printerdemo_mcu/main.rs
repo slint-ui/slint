@@ -14,6 +14,11 @@ use slint::Model;
 #[allow(unused_imports)]
 use mcu_board_support::prelude::*;
 
+#[cfg(feature = "ink-particles")]
+mod ink_animation;
+#[cfg(feature = "ink-particles")]
+mod ink_particles;
+
 slint::include_modules!();
 
 struct PrinterQueueData {
@@ -42,12 +47,15 @@ fn main() -> ! {
     main_window.global::<PrinterState>().set_ink_levels(
         [
             InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
-            InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
+            InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.65 },
             InkLevel { color: slint::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
             InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
         ]
         .into(),
     );
+
+    #[cfg(feature = "ink-particles")]
+    let _ink_animation = ink_animation::start(&main_window);
 
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
@@ -96,6 +104,9 @@ fn main() -> ! {
             }
         },
     );
+
+    #[cfg(feature = "pico2")]
+    main_window.global::<QueueMotion>().set_pixel_snap(true);
 
     main_window.run().unwrap();
 
