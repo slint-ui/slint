@@ -878,6 +878,12 @@ impl WinitWindowAdapter {
 
         self.pending_redraw.set(false);
 
+        // `Occluded(false)` requests the skipped frame.
+        #[cfg(target_os = "ios")]
+        if crate::ios::is_in_background() {
+            return Ok(());
+        }
+
         #[cfg(target_os = "windows")]
         self.mark_windows_update_region_dirty();
 
@@ -1639,6 +1645,12 @@ impl WinitWindowAdapter {
                 #[cfg(target_os = "macos")]
                 if !*occluded && self.pending_redraw.get() {
                     self.draw()?;
+                }
+
+                // UIKit still reports the app as in the background at this point, so `draw()` would skip.
+                #[cfg(target_os = "ios")]
+                if !*occluded {
+                    self.request_redraw();
                 }
 
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
