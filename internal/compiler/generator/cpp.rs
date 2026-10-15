@@ -3987,6 +3987,10 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     }
                     llr::LocalMemberIndex::Timer(timer_index) => path
                         .with_member(format!("->{compo_path}timer{}", usize::from(*timer_index))),
+                    llr::LocalMemberIndex::Repeater(repeater_index) => path.with_member(format!(
+                        "->{compo_path}repeater_{}",
+                        usize::from(*repeater_index)
+                    )),
                     llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
@@ -5187,6 +5191,27 @@ fn compile_builtin_function_call(
                     auto menu_wrapper = {menu_wrapper};
                     slint::private_api::setup_menu_bar_from_menu_item_tree(&{window}.handle(), {no_native}, menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
+        })(),
+        BuiltinFunction::ListViewEnsureRowVisible => (|| {
+            let [
+                llr::Expression::PropertyReference(repeater),
+                llr::Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+            else {
+                panic!("internal error: invalid args to ListViewEnsureRowVisible {arguments:?}")
+            };
+            let row = compile_expression(row, ctx);
+            let behavior = compile_expression(behavior, ctx);
+            access_member(repeater, ctx).then_named("repeater", |repeater| {
+                item_owner(flickable).then(|owner| {
+                    let (_, flickable_rc) = native_item_from_owner(flickable, ctx, owner);
+                    format!(
+                        "{repeater}.listview_ensure_row_visible({row}, {behavior}, slint::cbindgen_private::ItemRc{{ {flickable_rc} }})"
+                    )
+                })
+            })
         })(),
         BuiltinFunction::SetupSystemTrayIcon => (|| {
             let [

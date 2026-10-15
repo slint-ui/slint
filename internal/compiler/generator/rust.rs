@@ -3281,7 +3281,9 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 let fn_id = ident(&format!("fn_{}", g.functions[*function_idx].name));
                 MemberAccess::Direct(quote!(#_self.#fn_id))
             }
-            llr::LocalMemberIndex::Native { .. } | llr::LocalMemberIndex::Timer(_) => {
+            llr::LocalMemberIndex::Native { .. }
+            | llr::LocalMemberIndex::Timer(_)
+            | llr::LocalMemberIndex::Repeater(_) => {
                 unreachable!()
             }
         }
@@ -3367,6 +3369,23 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         || MemberAccess::Direct(quote!((#compo_path #timer_field).apply_pin(_self))),
                         |parent_path| {
                             MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #timer_field).apply_pin(x.as_pin_ref()))))
+                        },
+                    )
+                }
+                llr::LocalMemberIndex::Repeater(repeater_index) => {
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                        &local_reference.sub_component_path,
+                    );
+                    let component_id = inner_component_id(sub_component);
+                    let repeater_ident = format_ident!("repeater{}", usize::from(*repeater_index));
+                    let repeater_field =
+                        access_component_field_offset(&component_id, &repeater_ident);
+                    parent_path.map_or_else(
+                        || MemberAccess::Direct(quote!((#compo_path #repeater_field).apply_pin(_self))),
+                        |parent_path| {
+                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #repeater_field).apply_pin(x.as_pin_ref()))))
                         },
                     )
                 }
@@ -4964,6 +4983,26 @@ fn compile_builtin_function_call(
                     }}
                 }
             })
+        })(),
+        BuiltinFunction::ListViewEnsureRowVisible => (|| {
+            if let [
+                Expression::PropertyReference(repeater),
+                Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+            {
+                let row = compile_expression(row, ctx);
+                let behavior = compile_expression(behavior, ctx);
+                item_owner(flickable).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(flickable, ctx, &owner);
+                    access_member(repeater, ctx).then(|repeater| {
+                        quote!(#repeater.listview_ensure_row_visible(#row, #behavior, &#item_rc))
+                    })
+                })
+            } else {
+                panic!("internal error: invalid args to ListViewEnsureRowVisible {arguments:?}")
+            }
         })(),
         BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {

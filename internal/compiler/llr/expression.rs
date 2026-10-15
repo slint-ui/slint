@@ -1158,7 +1158,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                 LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                 LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                 LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
+                LocalMemberIndex::Native { .. }
+                | LocalMemberIndex::Timer(_)
+                | LocalMemberIndex::Repeater(_) => unreachable!(),
             };
         }
 
@@ -1172,6 +1174,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             LocalMemberIndex::Function(function_index) => &sc.functions[*function_index].ret_ty,
             LocalMemberIndex::Callback(callback_index) => &sc.callbacks[*callback_index].ty,
             LocalMemberIndex::Timer(_) => unreachable!("a timer reference has no type"),
+            LocalMemberIndex::Repeater(_) => unreachable!("a repeater reference has no type"),
             LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
@@ -1201,7 +1204,9 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
                     LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                     LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                     LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
+                    LocalMemberIndex::Native { .. }
+                    | LocalMemberIndex::Timer(_)
+                    | LocalMemberIndex::Repeater(_) => unreachable!(),
                 }
             }
         }

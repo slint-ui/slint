@@ -149,6 +149,7 @@ fn builtin_function_is_const(
             true
         }
         BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
+        BuiltinFunction::ListViewEnsureRowVisible => false,
     }
 }
 

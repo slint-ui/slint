@@ -11,6 +11,9 @@ export component ListView inherits ScrollView {
     @children
     accessible-role: list;
     accessible-orientation: Orientation.vertical;
+
+    // The body will be overwritten
+    public function ensure_row_visible(row: int, behavior: ScrollBehavior) {}
 }
 
 component StandardListViewBase inherits ListView {

@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, Button  } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 540px;
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    out property listview-content-height <=> listview.content-height;
+
+    callback ensure_visible_row(int, ScrollBehavior);
+    ensure_visible_row(row, behavior) => {
+        listview.ensure_row_visible(row, behavior)
+    }
+
+    VerticalLayout {
+        Button {
+            text: "Click to jump";
+            clicked => {
+                listview.ensure_row_visible(6, ScrollBehavior.instant);
+            }
+        }
+        listview := ListView {
+            for data in [
+                { text: "Blue", color: #0000ff, bg: #eeeeee},
+                { text: "Red", color: #ff0000, bg: #eeeeee},
+                { text: "Green", color: #00ff00, bg: #eeeeee},
+                { text: "Yellow", color: #ffff00, bg: #222222 },
+                { text: "Black", color: #000000, bg: #eeeeee },
+                { text: "White", color: #ffffff, bg: #222222 },
+                { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+                { text: "Cyan", color: #00ffff, bg: #222222 },
+            ] : delegate := Rectangle {
+                height: 200px;
+                background: @linear-gradient(90deg, data.bg,data.bg.brighter(0.5));
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition};
+
+const BLUE_RECTANGLE_INDEX: i32 = 0;
+const RED_RECTANGLE_INDEX: i32 = 1;
+const BLACK_RECTANGLE_INDEX: i32 = 4;
+const CYAN_RECTANGLE_INDEX: i32 = 7;
+const RECTANGLE_HEIGHT: f32 = 200.;
+
+let instance = TestCase::new().unwrap();
+let ensure_visible_and_layout = |row| {
+    instance.invoke_ensure_visible_row(row, ScrollBehavior::Instant);
+    slint_testing::mock_elapsed_time(16);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1., 1.) });
+    instance.get_content_y()
+};
+let bottom_aligned = |row: i32| -((row + 1) as f32 * RECTANGLE_HEIGHT - instance.get_visible_height());
+
+assert_eq!(instance.get_listview_content_height(), 8. * RECTANGLE_HEIGHT);
+assert_eq!(instance.get_content_y(), 0.);
+
+// A row below the viewport ends up at the bottom edge.
+assert_eq!(ensure_visible_and_layout(BLACK_RECTANGLE_INDEX), bottom_aligned(BLACK_RECTANGLE_INDEX));
+assert_eq!(ensure_visible_and_layout(CYAN_RECTANGLE_INDEX), bottom_aligned(CYAN_RECTANGLE_INDEX));
+
+// A row above the viewport ends up at the top edge.
+assert_eq!(ensure_visible_and_layout(RED_RECTANGLE_INDEX), -RECTANGLE_HEIGHT);
+
+// A fully visible row doesn't move.
+assert_eq!(ensure_visible_and_layout(RED_RECTANGLE_INDEX), -RECTANGLE_HEIGHT);
+
+assert_eq!(ensure_visible_and_layout(BLUE_RECTANGLE_INDEX), 0.);
+```
+
+```cpp
+using slint::language::ScrollBehavior;
+
+constexpr int blue_rectangle_index = 0;
+constexpr int red_rectangle_index = 1;
+constexpr int black_rectangle_index = 4;
+constexpr int cyan_rectangle_index = 7;
+constexpr float rectangle_height = 200.;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto ensure_visible_and_layout = [&](int row) {
+    instance.invoke_ensure_visible_row(row, ScrollBehavior::Instant);
+    slint_testing::mock_elapsed_time(16);
+    instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. }));
+    return instance.get_content_y();
+};
+auto bottom_aligned = [&](int row) {
+    return -((row + 1) * rectangle_height - instance.get_visible_height());
+};
+
+assert_eq(instance.get_listview_content_height(), 8. * rectangle_height);
+assert_eq(instance.get_content_y(), 0.);
+
+assert_eq(ensure_visible_and_layout(black_rectangle_index), bottom_aligned(black_rectangle_index));
+assert_eq(ensure_visible_and_layout(cyan_rectangle_index), bottom_aligned(cyan_rectangle_index));
+assert_eq(ensure_visible_and_layout(red_rectangle_index), -rectangle_height);
+assert_eq(ensure_visible_and_layout(red_rectangle_index), -rectangle_height);
+assert_eq(ensure_visible_and_layout(blue_rectangle_index), 0.);
+```
+*/

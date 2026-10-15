@@ -500,6 +500,9 @@ fn print_local_ref<T>(
             LocalMemberIndex::Timer(timer_index) => {
                 write!(f, "timer#{}", usize::from(*timer_index))
             }
+            LocalMemberIndex::Repeater(repeater_index) => {
+                write!(f, "repeater#{}", usize::from(*repeater_index))
+            }
         }
     }
 }

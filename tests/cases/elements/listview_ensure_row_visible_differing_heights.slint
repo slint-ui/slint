@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> clicked-index: -1;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000: Rectangle {
+            height: (i.mod(10) * 50 + 10) * 1px;
+            background: i.mod(2) == 0 ? blue : red;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+
+const PROBE_INSET: f32 = 2.;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let viewport = instance.get_visible_height();
+let row_height = |row: i32| ((row % 10) * 50 + 10) as f32;
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let assert_top_aligned = |row: i32| {
+    assert_eq!(row_at(PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+    assert_eq!(row_at(row_height(row) - PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+};
+
+let assert_bottom_aligned = |row: i32| {
+    assert_eq!(row_at(viewport - PROBE_INSET), row, "row {row} must end at the viewport's bottom edge");
+    assert_eq!(
+        row_at(viewport - row_height(row) + PROBE_INSET),
+        row,
+        "row {row} must end at the viewport's bottom edge"
+    );
+};
+
+let scroll_to = |row: i32| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+};
+
+assert_top_aligned(0);
+
+// Close below the viewport.
+scroll_to(5);
+assert_bottom_aligned(5);
+
+// Far below the viewport.
+scroll_to(905);
+assert_bottom_aligned(905);
+
+// The last row.
+scroll_to(999);
+assert_bottom_aligned(999);
+
+// Far above the viewport.
+scroll_to(13);
+assert_top_aligned(13);
+
+// Close above the viewport.
+scroll_to(11);
+assert_top_aligned(11);
+
+// Far below again, from a position reached by scrolling up.
+scroll_to(507);
+assert_bottom_aligned(507);
+```
+*/
