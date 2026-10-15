@@ -3,8 +3,8 @@
 The vial renderer composes glass, liquid, and particles into four Slint images.
 It draws tinted glass, liquid surfaces, and reflective bubbles through four RGB565 Slint images.
 Particles compute exact fractional coverage with row recurrences and restore only their previous footprints.
-Background restoration reads the empty and liquid spans directly from their assets and caches only seven liquid-surface rows.
-At native dimensions, four vials save 51,072 bytes versus retaining four composed backgrounds.
+Background restoration reads the empty and liquid spans directly from their assets.
+The neutral renderer caches seven surface rows; Pico tilt uses eight fractionally sampled rows per column.
 Two image buffers per vial avoid copying a buffer still referenced by Slint.
 
 ## Vial Holds
@@ -14,8 +14,31 @@ Every extra bubble uses the maximum radius of five pixels; normal bubbles retain
 Extra bubbles form at the bottom with staggered births, then rise through the liquid.
 Releasing stops new births; existing extra bubbles continue rising until they reach the liquid surface.
 Pressing again keeps live bubbles and fills only vacant slots, so repeated presses cannot grow the population without limit.
-Normal particle counts and trajectories remain unchanged.
+Normal particle counts and sizes remain unchanged.
 See the [Pico qualification](../../../examples/mcu-board-support/pico2_touch_lcd_2_8/results/report.md) for measurement commands and the stock-speed policy.
+
+## Pico Tilt and Orientation
+
+The QMI8658 accelerometer and gyroscope share the touch controller's I2C bus.
+A complementary filter predicts gravity from gyro readings, corrects it toward acceleration, and learns stationary gyro bias.
+Linear acceleration reduces the correction weight.
+Near-flat poses smoothly return to screen-up rather than retaining an arbitrary heading.
+
+The surface counter-rotates with device roll, limited to 30 degrees either way.
+Its center stays at the selected fill height.
+A sheared, antialiased ellipse with fractional vertical sampling preserves the curved meniscus through zero tilt.
+Surface colors are cached when the normal or fill changes; restoration copies them alongside the static glass spans.
+Bubble force follows the full fused up vector, independently of the surface limit.
+Persistent bubble positions slide along the capsule-shaped glass boundary.
+
+Holding the device in the opposite landscape orientation for 400 ms flips the whole UI with the panel's hardware addressing mode.
+The detector requires a gravity projection beyond 0.6 in either vertical direction; flat and sideways poses keep the current orientation.
+Touch coordinates and the gravity vector rebase with the flip.
+Transfer ordering follows physical scan gates in both orientations.
+
+Profiling adds `mode ink-tilt` and `mode ink-tilt-boost`, which replay consistent accelerometer and gyro samples through the same fusion and orientation code.
+`tilt X Y` overrides the output with a Q10 unit vector; `tilt live` restores sensor input.
+`rotation 0`, `rotation 1`, and `rotation auto` allow repeatable native-orientation checks.
 
 ## Native Pico Assets
 
@@ -44,7 +67,7 @@ The timer polls the published tick; it does not assume a 60 Hz wall-clock interv
 On Pico, core 1 composes the Yellow and Cyan vials in bounded batches while core 0 composes Red and Black.
 Core 0 prepares each frame, reserves damage storage, borrows disjoint pixel buffers, and joins the worker before publishing Slint images.
 The worker handles only plain renderer state and pixels; Slint objects remain on core 0.
-Each batch restores eight rows or stamps one particle, allowing display DMA and USB tasks to run between batches.
+Each batch restores eight rows, or two while the surface is tilted, or stamps one particle, allowing display DMA and USB tasks to run between batches.
 The worker sleeps when no frame is submitted.
 The [two-core measurements](../../../examples/mcu-board-support/pico2_touch_lcd_2_8/results/stock-150/core1-ink/report.md) separate composition savings from Slint raster time.
 

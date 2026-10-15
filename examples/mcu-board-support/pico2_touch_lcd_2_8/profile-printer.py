@@ -20,6 +20,8 @@ MODES = {
     "ink": 4,
     "ink-boost": 9,
     "ink-touch": 10,
+    "ink-tilt": 12,
+    "ink-tilt-boost": 13,
 }
 FAST_SET = ["auto", "settings-auto", "ink-boost"]
 TIMES = [

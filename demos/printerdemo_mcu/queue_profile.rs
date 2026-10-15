@@ -51,7 +51,7 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             if mode != 2 {
                 if let Some(window) = weak.upgrade() {
                     window.global::<PrinterState>().set_active_page(
-                        if matches!(mode, 4 | 9 | 10) {
+                        if matches!(mode, 4 | 9 | 10 | 12 | 13) {
                             Pages::Ink
                         } else if matches!(mode, 5 | 6 | 8) {
                             Pages::Settings
@@ -79,7 +79,7 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 }
             }
         }
-        if matches!(mode, 2 | 4 | 9 | 11) {
+        if matches!(mode, 2 | 4 | 9 | 11 | 12 | 13) {
             return;
         }
         let Some(window) = weak.upgrade() else {

@@ -135,6 +135,8 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             let mut animation = animation.borrow_mut();
             let active = window.global::<PrinterState>().get_active_page() == Pages::Ink
                 && window.global::<PrinterState>().get_active_subpage() == SubPage::None;
+            #[cfg(feature = "pico2")]
+            mcu_board_support::set_ink_active(active);
             if !active {
                 held.set(0);
                 #[cfg(feature = "pico2-queue-profile")]
@@ -157,11 +159,13 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             let reveal = t * t * (3072 - 2 * t) / (1024 * 1024);
             let hold_mask = held.get();
             #[cfg(feature = "pico2-queue-profile")]
-            let hold_mask = if run & 255 == 9 { 15 } else { hold_mask };
+            let hold_mask = if matches!(run & 255, 9 | 13) { 15 } else { hold_mask };
             #[cfg(feature = "pico2-queue-profile")]
             let mut counts = [0; 4];
             #[cfg(feature = "pico2-queue-profile")]
             let mut times = [0; 4];
+            #[cfg(feature = "pico2")]
+            let up = mcu_board_support::ink_up();
             for index in 0..4 {
                 let level = window
                     .global::<PrinterState>()
@@ -178,6 +182,8 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 });
                 tile.vial.set_level(((level.clamp(0., 1.) * reveal as f32) as u16).min(1024));
                 tile.vial.set_held(hold_mask & (1 << index) != 0, tick);
+                #[cfg(feature = "pico2")]
+                tile.vial.advance_tilt(up, tick);
                 #[cfg(feature = "pico2-queue-profile")]
                 {
                     counts[index] = tile.vial.particle_count() as u32;
@@ -247,7 +253,7 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 );
                 mcu_board_support::profile_ink_times(times);
                 mcu_board_support::profile_ink_state(hold_mask as u32, counts);
-                if matches!(run & 255, 4 | 9 | 10 | 11) {
+                if matches!(run & 255, 4 | 9 | 10 | 11 | 12 | 13) {
                     mcu_board_support::profile_phase(run, tick as u32);
                 }
             }

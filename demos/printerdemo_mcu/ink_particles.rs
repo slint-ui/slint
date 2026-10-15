@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
+#[path = "ink_particles/tilt.rs"]
+mod tilt;
 
 #[path = "ink_particles/native_assets.rs"]
 mod native_assets;
@@ -18,6 +20,7 @@ const MAX_PARTICLES: usize = PARTICLES + EXTRA_PARTICLES;
 pub struct FrameState {
     size: (usize, usize),
     level: Option<u16>,
+    tilt: Option<([i16; 2], i32)>,
     rows: Vec<[u16; 2]>,
 }
 
@@ -101,6 +104,14 @@ fn blend_word(dst: u16, source: u16, alpha: u32) -> u16 {
     let red = ((dst >> 11) as u32 * (32 - alpha) + (source >> 11) as u32 * alpha) >> 5;
     let green = ((dst >> 5 & 63) as u32 * (32 - alpha) + (source >> 5 & 63) as u32 * alpha) >> 5;
     let blue = ((dst & 31) as u32 * (32 - alpha) + (source & 31) as u32 * alpha) >> 5;
+    ((red << 11) | (green << 5) | blue) as u16
+}
+
+#[inline(always)]
+fn mix_surface(dst: u16, source: u16, alpha: u32) -> u16 {
+    let red = ((dst >> 11) as u32 * (256 - alpha) + (source >> 11) as u32 * alpha) >> 8;
+    let green = ((dst >> 5 & 63) as u32 * (256 - alpha) + (source >> 5 & 63) as u32 * alpha) >> 8;
+    let blue = ((dst & 31) as u32 * (256 - alpha) + (source & 31) as u32 * alpha) >> 8;
     ((red << 11) | (green << 5) | blue) as u16
 }
 
@@ -199,12 +210,15 @@ impl<'a, P: Pixel> Paint<'a, P> {
 
     pub fn step(&mut self) -> bool {
         if self.row < self.vial.height {
-            let end = (self.row + 8).min(self.vial.height);
+            let rows =
+                if self.vial.tilt.as_ref().is_some_and(|t| t.up != [0, -1024]) { 2 } else { 8 };
+            let end = (self.row + rows).min(self.vial.height);
             self.vial.restore_rows(self.pixels, self.state, self.row..end);
             self.row = end;
             if end == self.vial.height {
                 self.state.size = (self.vial.width, self.vial.height);
                 self.state.level = Some(self.vial.level);
+                self.state.tilt = self.vial.tilt_key();
                 self.state.rows.clear();
                 self.state.rows.resize(self.vial.height, [self.vial.width as u16, 0]);
             }
@@ -229,7 +243,9 @@ pub struct Vial {
     pub width: usize,
     pub height: usize,
     index: usize,
+    tilt: Option<Box<tilt::Tilt>>,
     surface_pixels: Vec<u16>,
+    surface_light: [u16; 2],
     empty: Cow<'static, [u16]>,
     liquid: Cow<'static, [u16]>,
     meniscus: Vec<[u8; 2]>,
@@ -262,7 +278,9 @@ impl Vial {
             width,
             height,
             index,
+            tilt: None,
             surface_pixels: vec![0; width * 7],
+            surface_light: [0; 2],
             empty: assets
                 .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.empty)),
             liquid: assets
@@ -373,6 +391,10 @@ impl Vial {
                 }
             }
         }
+        vial.surface_light = [
+            rgb(blend(vial.tint(0), [255; 3], 128)),
+            rgb(blend(vial.tint(width - 1), [255; 3], 128)),
+        ];
         vial.set_level(0);
         vial
     }
@@ -384,6 +406,9 @@ impl Vial {
         }
         self.level = level;
         self.surface = self.height - (self.height * level as usize / 1024);
+        if self.tilt.is_some() {
+            return;
+        }
         for y in self.surface..(self.surface + 7).min(self.height) {
             for x in 0..self.width {
                 let at = y * self.width + x;
@@ -400,6 +425,101 @@ impl Vial {
                 self.surface_pixels[(y - self.surface) * self.width + x] =
                     rgb(blend(color, ring, self.mask[at] as u32));
             }
+        }
+    }
+
+    pub fn advance_tilt(&mut self, up: [i16; 2], tick: u64) {
+        let mut tilt = self.tilt.take().unwrap_or_else(|| Box::new(tilt::Tilt::new(tick)));
+        if tilt.update(self, up, tick) {
+            self.prepare_surface(&mut tilt);
+        }
+        self.tilt = Some(tilt);
+    }
+
+    fn tilt_key(&self) -> Option<([i16; 2], i32)> {
+        self.tilt.as_ref().map(|t| (t.up, t.cut))
+    }
+
+    #[cfg_attr(
+        all(feature = "pico2", target_arch = "arm"),
+        unsafe(link_section = ".data.ram_func")
+    )]
+    #[inline(never)]
+    fn prepare_surface(&mut self, tilt: &mut tilt::Tilt) {
+        tilt.starts.resize(self.width, 0);
+        self.surface_pixels.resize(self.width * 8, 0);
+        tilt.surface_rows = i32::MAX..i32::MIN;
+        for x in 0..self.width {
+            let base = (tilt.cut * 1024 - tilt.up[0] as i32 * (x as i32 * 256 + 128))
+                / tilt.up[1] as i32
+                - 3 * 256;
+            let start = base.div_euclid(256);
+            let fraction = base.rem_euclid(256) as u32;
+            tilt.starts[x] = start as i16;
+            tilt.surface_rows.start = tilt.surface_rows.start.min(start);
+            tilt.surface_rows.end = tilt.surface_rows.end.max(start + 8);
+            let tint = rgb(self.tint(x));
+            let light = self.surface_light[usize::from(x * 2 >= self.width)];
+            for row in 0..8 {
+                let y = start + row as i32;
+                if y < 0 || y >= self.height as i32 {
+                    continue;
+                }
+                let at = y as usize * self.width + x;
+                let sample = |r: usize| {
+                    if r < 7 { self.meniscus[r * self.width + x] } else { [0; 2] }
+                };
+                let previous = if row == 0 { [0; 2] } else { sample(row - 1) };
+                let next = sample(row);
+                let profile: [u32; 2] = core::array::from_fn(|i| {
+                    (previous[i] as u32 * fraction + next[i] as u32 * (256 - fraction)) >> 8
+                });
+                let liquid = self.liquid[at];
+                let plane = mix_surface(liquid, tint, profile[0] / 3);
+                let ring = mix_surface(plane, light, profile[1]);
+                let wet = mix_surface(liquid, ring, self.mask[at] as u32);
+                self.surface_pixels[row * self.width + x] =
+                    if row == 0 { mix_surface(self.empty[at], wet, 256 - fraction) } else { wet };
+            }
+        }
+    }
+
+    #[cfg_attr(
+        all(feature = "pico2", target_arch = "arm"),
+        unsafe(link_section = ".data.ram_func")
+    )]
+    #[inline(never)]
+    fn restore_tilted_row<P: Pixel>(
+        &self,
+        pixels: &mut [P],
+        y: usize,
+        left: usize,
+        right: usize,
+        tilt: &tilt::Tilt,
+    ) {
+        if left >= right {
+            return;
+        }
+        let start = y * self.width;
+        if (y as i32) < tilt.surface_rows.start || y as i32 >= tilt.surface_rows.end {
+            let background =
+                if (y as i32) < tilt.surface_rows.start { &self.empty } else { &self.liquid };
+            P::copy_background(
+                &mut pixels[start + left..start + right],
+                &background[start + left..start + right],
+            );
+            return;
+        }
+        for x in left..right {
+            let at = start + x;
+            let row = y as i32 - tilt.starts[x] as i32;
+            pixels[at] = P::from_word(if row < 0 {
+                self.empty[at]
+            } else if row < 8 {
+                self.surface_pixels[row as usize * self.width + x]
+            } else {
+                self.liquid[at]
+            });
         }
     }
 
@@ -420,6 +540,12 @@ impl Vial {
 
     #[cfg(test)]
     pub fn restore<P: Pixel>(&self, pixels: &mut [P]) {
+        if let Some(t) = &self.tilt {
+            for y in 0..self.height {
+                self.restore_tilted_row(pixels, y, 0, self.width, t);
+            }
+            return;
+        }
         assert_eq!(pixels.len(), self.width * self.height);
         let split = self.surface * self.width;
         let end = (self.surface + 7).min(self.height) * self.width;
@@ -438,6 +564,7 @@ impl Vial {
         self.restore_rows(pixels, state, 0..self.height);
         state.size = (self.width, self.height);
         state.level = Some(self.level);
+        state.tilt = self.tilt_key();
         state.rows.clear();
     }
 
@@ -448,7 +575,21 @@ impl Vial {
         state: &FrameState,
         rows: core::ops::Range<usize>,
     ) {
-        if state.size != (self.width, self.height) || state.level != Some(self.level) {
+        let changed = state.size != (self.width, self.height)
+            || state.level != Some(self.level)
+            || state.tilt != self.tilt_key();
+        if let Some(tilt) = &self.tilt {
+            for row in rows {
+                let [left, right] = if changed {
+                    [0, self.width as u16]
+                } else {
+                    state.rows.get(row).copied().unwrap_or([0; 2])
+                };
+                self.restore_tilted_row(pixels, row, left as usize, right as usize, tilt);
+            }
+            return;
+        }
+        if changed {
             let start = rows.start * self.width;
             let end = rows.end * self.width;
             let split = self.surface * self.width;
@@ -534,39 +675,58 @@ impl Vial {
             *plan;
         let extra = ordinal.checked_sub(baseline_count);
         let index = extra.map_or(ordinal, |extra| PARTICLES + extra);
-        let age = if let Some(extra) = extra {
-            let Some(born) = self.extra_births[extra] else { return None };
-            let age = (tick as u32).wrapping_sub(born);
-            if age > i32::MAX as u32 {
-                return None;
-            }
-            Some(age)
-        } else {
-            None
-        };
         let seed = seed(index, self.index);
         let radius = particle_radius(index, seed);
-        let margin = 5 + radius;
-        let span = self.width.saturating_sub(margin * 2).max(1);
-        let home = margin + ((seed >> 8) as usize % span);
-        let cx = home as i32 * 16
-            + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
-        let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
-        let (distance, visibility) = if let Some(elapsed) = age {
-            let extra = ordinal - baseline_count;
-            let distance = elapsed.saturating_mul(speed_q8);
-            if distance >= travel_q8 {
+        let visibility = if let Some(extra) = extra {
+            extra_population.saturating_sub(extra as u32 * 256).min(256)
+        } else {
+            population.saturating_sub(index as u32 * 256).min(256)
+        };
+        let (cx, cy, opacity) = if let Some(tilt) = &self.tilt {
+            let b = &tilt.bubbles[index];
+            if b.state != 1 {
                 return None;
             }
-            (distance, extra_population.saturating_sub(extra as u32 * 256).min(256))
+            let to_surface = (tilt.cut - tilt::projection(tilt.up, b.x, b.y)).max(0) as u32;
+            let fade = ((b.age as u32 * 3).min(32)
+                * (to_surface.saturating_sub(radius as u32 * 256) / 24).min(32))
+                / 32;
+            (b.x / 16, b.y / 16, fade * visibility / 256)
         } else {
-            (
-                vertical_distance(phase, seed, speed_q8, travel_q8),
-                population.saturating_sub(index as u32 * 256).min(256),
-            )
+            let age = if let Some(extra) = extra {
+                let Some(born) = self.extra_births[extra] else { return None };
+                let age = (tick as u32).wrapping_sub(born);
+                if age > i32::MAX as u32 {
+                    return None;
+                }
+                Some(age)
+            } else {
+                None
+            };
+            let margin = 5 + radius;
+            let span = self.width.saturating_sub(margin * 2).max(1);
+            let home = margin + ((seed >> 8) as usize % span);
+            let cx = home as i32 * 16
+                + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
+            let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
+            let (distance, visibility) = if let Some(elapsed) = age {
+                let extra = ordinal - baseline_count;
+                let distance = elapsed.saturating_mul(speed_q8);
+                if distance >= travel_q8 {
+                    return None;
+                }
+                (distance, extra_population.saturating_sub(extra as u32 * 256).min(256))
+            } else {
+                (
+                    vertical_distance(phase, seed, speed_q8, travel_q8),
+                    population.saturating_sub(index as u32 * 256).min(256),
+                )
+            };
+            let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
+            let opacity =
+                (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
+            (cx, cy, opacity)
         };
-        let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
-        let opacity = (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
         let width = radius * 2 + 1;
         let color = if self.index == 3 {
             match index % 5 {
@@ -580,22 +740,44 @@ impl Vial {
         let x0 = (cx >> 4) - radius as i32;
         let y0 = (cy >> 4) - radius as i32;
         let left = x0.max(0).min(self.width as i32);
-        let top = y0.max(self.surface as i32 + 2).min(self.height as i32);
+        let clip_top = if self.tilt.as_ref().is_some_and(|t| t.up != [0, -1024]) {
+            0
+        } else {
+            self.surface as i32 + 2
+        };
+        let top = y0.max(clip_top).min(self.height as i32);
         let right = (x0 + width as i32).max(left).min(self.width as i32);
         let bottom = (y0 + width as i32).max(top).min(self.height as i32);
         let bounds = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
         if left == right || top == bottom {
             return Some((index, bounds));
         }
-        let row_len = (right - left) as usize;
         for py in top..bottom {
-            let start = py as usize * self.width + left as usize;
+            let mut row_left = left;
+            let mut row_right = right;
+            if let Some(t) = &self.tilt
+                && t.up != [0, -1024]
+            {
+                let line = t.cut * 1024 - t.up[1] as i32 * (py * 256 + 128);
+                if t.up[0] > 0 {
+                    row_right = row_right.min((line / t.up[0] as i32 / 256).max(row_left));
+                } else if t.up[0] < 0 {
+                    row_left = row_left.max((line / t.up[0] as i32 / 256).min(row_right));
+                } else if line < 0 {
+                    continue;
+                }
+            }
+            if row_left == row_right {
+                continue;
+            }
+            let start = py as usize * self.width + row_left as usize;
+            let row_len = (row_right - row_left) as usize;
             let row = &mut pixels[start..start + row_len];
             let mask = &self.mask[start..start + row_len];
             let opaque = self.opaque_rows[py as usize];
-            let dx = left * 16 + 8 - cx;
+            let dx = row_left * 16 + 8 - cx;
             let dy = py * 16 + 8 - cy;
-            if left >= opaque[0] as i32 && right <= opaque[1] as i32 {
+            if row_left >= opaque[0] as i32 && row_right <= opaque[1] as i32 {
                 shade_row::<P, false>(row, mask, &self.colors[color], opacity, radius, dx, dy);
             } else {
                 shade_row::<P, true>(row, mask, &self.colors[color], opacity, radius, dx, dy);
@@ -605,6 +787,10 @@ impl Vial {
     }
 
     pub fn set_held(&mut self, held: bool, tick: u64) {
+        if self.tilt.is_some() {
+            self.held = held;
+            return;
+        }
         let new_press = held && !self.held;
         self.held = held;
         if self.height.saturating_sub(self.surface) < 8 {
@@ -643,6 +829,9 @@ impl Vial {
 
     #[cfg(any(test, feature = "pico2-queue-profile"))]
     pub fn particle_count(&self) -> usize {
+        if let Some(t) = &self.tilt {
+            return t.count(self);
+        }
         if self.height.saturating_sub(self.surface) < 8 {
             return 0;
         }
@@ -675,6 +864,88 @@ mod tests {
             }
         }
         background
+    }
+
+    #[test]
+    fn ellipse_remains_curved_and_continuous_through_zero_and_the_tilt_limit() {
+        let mut vial = Vial::new(48, 140, 0);
+        vial.set_level(512);
+        let mut frames = Vec::new();
+        for x in [-1, 0, 1] {
+            vial.advance_tilt([x, -1024], 0);
+            let mut pixels = vec![0; 48 * 140];
+            vial.restore(&mut pixels);
+            frames.push(pixels);
+        }
+        for other in [&frames[0], &frames[2]] {
+            let changed = other.iter().zip(&frames[1]).filter(|(a, b)| a != b).count();
+            assert!(changed < 150, "near-zero surface changed {changed} pixels");
+        }
+        let surface = &vial.surface_pixels;
+        assert_ne!(surface[2 * 48 + 24], surface[2 * 48 + 4]);
+        vial.advance_tilt([724, -724], 1);
+        assert_eq!(vial.tilt.as_ref().unwrap().up, [512, -886]);
+        vial.advance_tilt([-1024, 0], 2);
+        assert_eq!(vial.tilt.as_ref().unwrap().up, [-512, -886]);
+    }
+
+    #[test]
+    fn tilted_retained_buffers_match_full_frames_through_rotation_and_release() {
+        let directions = [
+            [0, -1024],
+            [724, -724],
+            [1024, 0],
+            [724, 724],
+            [0, 1024],
+            [-724, 724],
+            [-1024, 0],
+            [-724, -724],
+        ];
+        for index in 0..4 {
+            let mut v = Vial::new(48, 140, index);
+            v.set_level([409, 665, 512, 819][index]);
+            let mut expected = vec![0u16; 48 * 140];
+            let mut actual = [expected.clone(), expected.clone()];
+            let mut states = [FrameState::default(), FrameState::default()];
+            for tick in 0..720 {
+                v.set_held(tick < 300 || (500..550).contains(&tick), tick);
+                v.advance_tilt(directions[tick as usize / 30 % directions.len()], tick);
+                v.draw(tick, &mut expected);
+                let back = tick as usize & 1;
+                let mut paint = Paint::new(&v, tick, &mut actual[back], &mut states[back]);
+                while !paint.step() {}
+                assert_eq!(actual[back], expected, "vial {index}, tick {tick}");
+            }
+        }
+    }
+
+    #[test]
+    fn tilted_extra_bubbles_retire_at_the_surface_after_release() {
+        let mut v = Vial::new(48, 140, 1);
+        v.set_level(665);
+        for tick in 0..300 {
+            v.set_held(true, tick);
+            v.advance_tilt([724, -724], tick);
+        }
+        assert_eq!(v.particle_count(), 42);
+        for tick in 300..2300 {
+            v.set_held(false, tick);
+            let t = v.tilt.as_ref().unwrap();
+            let before = t.bubbles;
+            let cut = t.cut;
+            v.advance_tilt([724, -724], tick);
+            let after = &v.tilt.as_ref().unwrap().bubbles;
+            for i in PARTICLES..MAX_PARTICLES {
+                if before[i].state == 1 && after[i].state == 0 {
+                    let radius = particle_radius(i, seed(i, v.index)) as i32;
+                    assert!(
+                        cut - tilt::projection([512, -886], before[i].x, before[i].y)
+                            < radius * 256 + 256
+                    );
+                }
+            }
+        }
+        assert_eq!(v.particle_count(), 26);
     }
 
     #[test]

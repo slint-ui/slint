@@ -119,7 +119,8 @@ The script targets Cortex-M33 and uses a release build.
 Its default CPU clock is the rated 150 MHz.
 Stock-speed builds default to ThinLTO and one code-generation unit; Cargo profile environment overrides remain available.
 Set `PICO_CLOCK_240=1` to use the optional 240 MHz overclock, with watchdog fallback to 150 MHz.
-Ink uses its normal bubble count at 150 MHz; holding a vial adds bubbles only at 240 MHz.
+Holding an Ink vial adds 60 percent more bubbles at either clock.
+The fused accelerometer and gyro tilt the liquid and bubbles; sustained opposite landscape orientation flips the native UI and touch coordinates.
 Enable Kiosk mode at the bottom of Settings to cycle Queue, Settings, and Ink every ten seconds.
 Touch anywhere to exit the sequence without activating a control underneath.
 At stock speed, a stall on either core triggers watchdog recovery to ROM BOOTSEL.

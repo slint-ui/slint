@@ -227,7 +227,6 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]
-                #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"imu") {
                     let (raw, samples, errors, us) = super::imu::telemetry();
                     let up = super::ink_up();
@@ -238,6 +237,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     }
                     continue;
                 }
+                #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"stats") {
                     let format_started = super::profile::now_us();
                     let (sequence, v) = super::profile::snapshot();
