@@ -1349,8 +1349,7 @@ pub struct Element {
     /// Also set on a root-level assignment to an inherited untyped slot (`name << ...`).
     pub slot_default: Option<SmolStr>,
 
-    /// The untyped slots this element clears with `name << { }`.
-    pub cleared_slots: Vec<SmolStr>,
+    pub empty_slot_assignments: Vec<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
 
@@ -3799,8 +3798,7 @@ fn visit_all_named_references_in_element_dyn(
     }
 }
 
-/// Returns the component of `elem`.
-pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
     let component = elem.borrow().enclosing_component.upgrade().unwrap();
     let index = parent
         .borrow()
@@ -3817,8 +3815,16 @@ pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Componen
     component
 }
 
+pub fn remove_lowered_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+    let component = remove_child_element(elem, parent);
+    if let Some(slot) = elem.borrow().slot_target.clone() {
+        parent.borrow_mut().empty_slot_assignments.push(slot);
+    }
+    component
+}
+
 pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
-    remove_child_element(elem, parent)
+    remove_lowered_element(elem, parent)
         .optimized_elements
         .borrow_mut()
         .push(OptimizedElement { element: elem.clone(), former_parent: Rc::downgrade(parent) });
