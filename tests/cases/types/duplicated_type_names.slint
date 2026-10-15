@@ -15,7 +15,7 @@ export component TestCase {
     b := DupUserB { pick: 2; }
     // A public property keeps the surviving collision type under its real name (SharedStruct).
     out property <SharedStruct> sa: a.the-struct;
-    out property <bool> test: a.result == 21 && b.result == 32 && b.struct-ok && sa.a-value == 7;
+    out property <bool> test: a.result == 21 && b.result == 32 && b.struct-ok && b.constant-kind-ok && sa.a-value == 7;
 }
 
 /*
