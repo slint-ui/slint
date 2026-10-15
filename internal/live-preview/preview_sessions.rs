@@ -475,11 +475,9 @@ impl PreviewSession {
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
-    if !configuration.style.is_empty() {
-        compiler.set_style(configuration.style.clone());
-    }
-    compiler.compiler_configuration(InternalToken).enable_experimental =
-        configuration.enable_experimental;
+    let config = compiler.compiler_configuration(InternalToken);
+    config.style = (!configuration.style.is_empty()).then(|| configuration.style.clone());
+    config.enable_experimental = configuration.enable_experimental;
 }
 
 impl PreviewSessionHandle {
@@ -682,5 +680,34 @@ mod tests {
         let diagnostics: Vec<_> = result.diagnostics().map(|d| d.to_string()).collect();
         assert!(!result.has_errors(), "{diagnostics:?}");
         assert!(result.component("App").is_some());
+    }
+
+    #[tokio::test]
+    async fn preview_configuration_accepts_default_and_explicit_styles() {
+        i_slint_backend_testing::init_no_event_loop();
+        let mut compiler = slint_interpreter::Compiler::new();
+        compiler.set_reads_project_file(false);
+        let source = r#"
+            import { Button } from "std-widgets.slint";
+            export component App inherits Window {
+                Button { text: "Run"; }
+            }
+        "#;
+
+        for (style, should_compile) in
+            [("fluent", true), ("", true), ("unknown-preview-style", false), ("", true)]
+        {
+            apply_configuration(
+                &mut compiler,
+                &PreviewConfig { style: style.into(), ..Default::default() },
+            );
+            let result = compiler.build_from_source(source.into(), "/preview.slint".into()).await;
+            assert_eq!(
+                result.component("App").is_some(),
+                should_compile,
+                "style {style:?}: {:?}",
+                result.diagnostics().collect::<Vec<_>>()
+            );
+        }
     }
 }
