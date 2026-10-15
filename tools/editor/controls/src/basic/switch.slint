@@ -66,7 +66,7 @@ export component Switch inherits SwitchBase {
             border-radius: root.thumb-radius;
         }
 
-        FocusOutline {
+        focus-outline := FocusOutline {
             active: root.enabled && root.has-focus;
             outline-color: root.style.focus-color;
             target-width: parent.width;

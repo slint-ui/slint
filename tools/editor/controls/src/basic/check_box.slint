@@ -80,7 +80,7 @@ export component CheckBox inherits CheckBoxBase {
             }
         }
 
-        FocusOutline {
+        focus-outline := FocusOutline {
             active: root.enabled && root.has-focus;
             outline-color: root.style.focus-color;
             target-width: parent.width;
