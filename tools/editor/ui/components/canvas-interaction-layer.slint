@@ -3,7 +3,7 @@
 
 import { CanvasView } from "canvas-view.slint";
 import { Style, TooltipStyle } from "../style.slint";
-import { FillSession } from "inspector/index.slint";
+import { FillSession, ShadowSession } from "inspector/index.slint";
 import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
@@ -462,7 +462,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             x: root.absolute-position.x + position.x,
             y: root.absolute-position.y + position.y,
         };
-        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || root.pressed {
+        if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-active || root.hover-selection-active || root.pressed {
             return;
         }
         root.hover-enabled = true;
@@ -519,7 +519,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active;
+        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-active;
         show-outline-while-moving: root.keep-selection-outline-while-moving(
             Api.current-element.type-name,
         );
@@ -533,7 +533,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
     }
 
-    for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
+    for geometry in (FillSession.canvas-active || ShadowSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         show-outline-while-moving: root.keep-selection-outline-while-moving(

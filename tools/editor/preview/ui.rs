@@ -1620,6 +1620,28 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn numeric_property_defaults_and_resolved_bindings() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        for (code, kind, value_kind, expected) in [
+            ("", PropertyValueKind::Float, PropertyValueKind::Float, 16.),
+            ("28px", PropertyValueKind::Float, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
+        ] {
+            api.on_current_property_value_data(move |_| PropertyValue {
+                code: code.into(),
+                kind,
+                value_kind,
+                value_float: 28.,
+                ..Default::default()
+            });
+            assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
