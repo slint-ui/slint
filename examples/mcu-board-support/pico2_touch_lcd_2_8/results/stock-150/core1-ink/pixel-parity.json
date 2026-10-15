@@ -1,0 +1,22 @@
+{
+  "frames": 19200,
+  "pixels": 106406400,
+  "different_pixels": 0,
+  "reference": "Frozen pre-change serial renderer",
+  "sizes": [
+    [
+      48,
+      140
+    ],
+    [
+      51,
+      134
+    ],
+    [
+      32,
+      96
+    ]
+  ],
+  "vials": 4,
+  "ticks_per_vial_and_size": 1600
+}

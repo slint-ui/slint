@@ -1,0 +1,7 @@
+{
+  "checkbox": true,
+  "scene_timer": true,
+  "press_exit": true,
+  "stopped_timer": true,
+  "settings_bottom_gram": "PICO_PANEL_CHECK,76800,0,0,0,0"
+}

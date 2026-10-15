@@ -47,6 +47,7 @@ The `reference` directory contains Queue and Settings frames at adjacent whole-p
 ## Retained Optimizations
 
 - Run Slint on core 0 and scan-synchronized SPI DMA and USB on core 1.
+  Compose Yellow and Cyan vial images on core 1 in bounded batches and join before Slint consumes them.
 - Use hardware rotation and a native big-endian RGB565 framebuffer.
 - Keep three immutable 32 KiB packet slots until DMA completes.
 - Clock the stock CPU at 150 MHz and the peripheral PLL at 96 MHz, providing 48 MHz SPI independently.
@@ -82,4 +83,5 @@ The optional 240 MHz build retains its fallback to stock clock after a watchdog 
 
 Normal Ink uses 16/26/20/32 particles at either clock.
 Both clock configurations enable held-vial boosts, preserving extra bubbles until they leave the liquid surface.
-The [boost qualification](stock-150/boost-qualification/report.md) records the stock-speed optimization and final regression checks.
+The [two-core qualification](stock-150/core1-ink/report.md) records the latest stock-speed timings and regression checks.
+The [serial boost qualification](stock-150/boost-qualification/report.md) retains the earlier arithmetic optimizations.

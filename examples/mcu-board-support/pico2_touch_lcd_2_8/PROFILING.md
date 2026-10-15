@@ -3,7 +3,7 @@
 The stock-speed printer runs at the measured panel cadence with maximum-size Ink boost enabled.
 Further work targets lower CPU rendering time while preserving pixels, particle counts, and input behavior.
 
-## Current Detailed Measurements
+## Detailed Serial-Baseline Measurements
 
 The optional `pico2-renderer-profile` image adds nested clock reads around renderer stages.
 It is useful for locating work and is not the cadence qualification image.
@@ -55,11 +55,12 @@ Three controller-memory comparisons under background work each match all 76,800 
 
 These results demonstrate spare compute capacity rather than a measured reduction in printer rendering time.
 Queue raster work rises by approximately 0.25 ms and Settings by 0.15 ms in the smaller-work-target comparison, consistent with some added contention.
-Independent Ink vial composition is the clearest first offload candidate.
-It needs explicit buffer ownership and synchronization before Slint consumes the images.
+Independent Ink vial composition is now implemented with explicit buffer ownership and a join before Slint consumes the images.
+The [two-core qualification](results/stock-150/core1-ink/report.md) measures the resulting wall-time reduction.
 General Slint rendering also needs a design that respects its UI-thread state and partitions immutable paint work.
 The experiment does not establish a twofold speedup or a safe automatic half-frame split.
 
+The following restoration results predate the two-core vial implementation.
 The temporary probe was removed from production sources after measurement.
 The restored release image has byte-identical loadable segments to the qualified binary.
 Queue, Settings, and boosted Ink pass the restoration check at 58.66–58.74 FPS with zero missed phases, late strips, and scan errors.
@@ -83,6 +84,7 @@ Do not reintroduce those approaches without new evidence.
 ## Tools Available Now
 
 - The USB collector measures completed changing frames, physical panel ticks, input dispatch, packet preparation, and scan deadlines.
+  The coarse profile also retains stage timings for the frame with the largest total draw time, separating slow rasterization from waiting for packet space.
 - `PICO_RENDERER_PROFILE=1` enables the nested timing buckets shown above.
 - LLVM `objdump`, `nm`, `size`, and `addr2line` inspect emitted instructions, SRAM placement, code size, and addresses.
 - Native frame capture, independent host rendering, and direct panel-memory comparison check pixels separately from throughput.

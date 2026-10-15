@@ -1,0 +1,126 @@
+{
+  "held": {
+    "held_mask": 15,
+    "counts": [
+      26,
+      42,
+      32,
+      52
+    ],
+    "current_mode": 9
+  },
+  "released": {
+    "held_mask": 0,
+    "counts": [
+      25,
+      42,
+      32,
+      52
+    ],
+    "current_mode": 4
+  },
+  "drained": {
+    "held_mask": 0,
+    "counts": [
+      16,
+      26,
+      20,
+      32
+    ],
+    "current_mode": 4
+  },
+  "vial_presses": [
+    {
+      "vial": 0,
+      "pressed": {
+        "held_mask": 1,
+        "counts": [
+          26,
+          26,
+          20,
+          32
+        ],
+        "current_mode": 2
+      },
+      "released": {
+        "held_mask": 0,
+        "counts": [
+          21,
+          26,
+          20,
+          32
+        ],
+        "current_mode": 2
+      }
+    },
+    {
+      "vial": 1,
+      "pressed": {
+        "held_mask": 2,
+        "counts": [
+          21,
+          42,
+          20,
+          32
+        ],
+        "current_mode": 2
+      },
+      "released": {
+        "held_mask": 0,
+        "counts": [
+          21,
+          31,
+          20,
+          32
+        ],
+        "current_mode": 2
+      }
+    },
+    {
+      "vial": 2,
+      "pressed": {
+        "held_mask": 4,
+        "counts": [
+          21,
+          31,
+          32,
+          32
+        ],
+        "current_mode": 2
+      },
+      "released": {
+        "held_mask": 0,
+        "counts": [
+          21,
+          31,
+          25,
+          32
+        ],
+        "current_mode": 2
+      }
+    },
+    {
+      "vial": 3,
+      "pressed": {
+        "held_mask": 8,
+        "counts": [
+          21,
+          31,
+          25,
+          52
+        ],
+        "current_mode": 2
+      },
+      "released": {
+        "held_mask": 0,
+        "counts": [
+          21,
+          31,
+          25,
+          37
+        ],
+        "current_mode": 2
+      }
+    }
+  ]
+}

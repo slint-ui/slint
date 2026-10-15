@@ -5,10 +5,11 @@ The target is the measured panel cadence, approximately 58.6 Hz.
 The Settings list includes the final Kiosk mode checkbox and a 207-pixel scroll range.
 Normal Ink retains 16/26/20/32 particles; both clock configurations now enable held-vial boost to 26/42/32/52.
 
-All nine [current input workloads](boost-qualification/report.md) and two complete Kiosk cycles pass with zero missed phases, late strips, and scan errors.
-The boost qualification includes repeated all-vial stress, hold/release replay, native pixel parity, and direct panel-memory checks.
+All nine [current input workloads](core1-ink/report.md) and two complete Kiosk cycles pass with zero missed phases, late strips, and scan errors.
+The current qualification composes two vials on each core and removes the outer corner overlay.
+It includes repeated all-vial stress, hold/release replay, native pixel parity, and direct panel-memory checks.
 See the [audit](../audit.md) for retained changes and regression coverage.
-The [current firmware metadata](boost-qualification/firmware.json) records the stock-speed binary and stack layout.
+The [current firmware metadata](core1-ink/firmware.json) records the stock-speed binary and stack layout.
 
 Raster timings exclude input dispatch, packet planning, packing, checksum work, and transport waiting.
 Pointer replay tests the real Slint widgets and backend dispatch; it does not measure physical finger latency.

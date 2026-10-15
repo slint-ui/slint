@@ -41,6 +41,13 @@ Keep this test enabled when changing artwork or regenerating the data.
 
 With `pico2`, animation advances once per measured physical panel tick.
 The timer polls the published tick; it does not assume a 60 Hz wall-clock interval.
+On Pico, core 1 composes the Yellow and Cyan vials in bounded batches while core 0 composes Red and Black.
+Core 0 prepares each frame, reserves damage storage, borrows disjoint pixel buffers, and joins the worker before publishing Slint images.
+The worker handles only plain renderer state and pixels; Slint objects remain on core 0.
+Each batch restores eight rows or stamps one particle, allowing display DMA and USB tasks to run between batches.
+The worker sleeps when no frame is submitted.
+The [two-core measurements](../../../examples/mcu-board-support/pico2_touch_lcd_2_8/results/stock-150/core1-ink/report.md) separate composition savings from Slint raster time.
+
 Leaving Ink releases its particle and image buffers.
 Kiosk releases them before constructing the next page to avoid retaining both working sets.
 The particle tests also cover cached restoration, resize, density, rising speed, glass preservation, and hold/release behavior.

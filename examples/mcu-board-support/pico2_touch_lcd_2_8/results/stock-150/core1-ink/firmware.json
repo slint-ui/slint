@@ -1,0 +1,92 @@
+{
+  "elf_sha256": "dc57aa33ebab70aed2d06b044f0828d8c09e44071577b842bb3a802b354f4648",
+  "cpu_hz": 150000000,
+  "spi_hz": 48000000,
+  "lto": "thin",
+  "codegen_units": 1,
+  "toolchain": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "main_stack_link_gap_bytes": 22516,
+  "required_main_stack_bytes": 20480,
+  "core1_stack_bytes": 8192,
+  "sections": {
+    ".vector_table": {
+      "bytes": 276,
+      "address": "0x10000000"
+    },
+    ".start_block": {
+      "bytes": 40,
+      "address": "0x10000114"
+    },
+    ".text": {
+      "bytes": 926668,
+      "address": "0x10000140"
+    },
+    ".bi_entries": {
+      "bytes": 0,
+      "address": "0x100e250c"
+    },
+    ".rodata": {
+      "bytes": 830380,
+      "address": "0x100e2510"
+    },
+    ".data": {
+      "bytes": 67412,
+      "address": "0x20000000"
+    },
+    ".gnu.sgstubs": {
+      "bytes": 0,
+      "address": "0x101bd820"
+    },
+    ".bss": {
+      "bytes": 434356,
+      "address": "0x20010758"
+    },
+    ".uninit": {
+      "bytes": 0,
+      "address": "0x2007a80c"
+    },
+    ".end_block": {
+      "bytes": 0,
+      "address": "0x101bd820"
+    },
+    ".core1_stack": {
+      "bytes": 8192,
+      "address": "0x20080000"
+    },
+    ".defmt": {
+      "bytes": 33,
+      "address": "0x0"
+    },
+    ".comment": {
+      "bytes": 153,
+      "address": "0x0"
+    },
+    ".ARM.attributes": {
+      "bytes": 72,
+      "address": "0x0"
+    }
+  },
+  "worker_vials": [
+    "yellow",
+    "cyan"
+  ],
+  "main_vials": [
+    "red",
+    "black"
+  ],
+  "slint_core": 0,
+  "pixel_dma_channel": 0,
+  "normal_build_passed": true,
+  "source_commit": "a17aa3b81172cd61cab3a762d37a51e0840de279",
+  "outer_corner_overlay": false,
+  "particle_shader_sram_address": "0x2000f908",
+  "native_size": [
+    320,
+    240
+  ],
+  "board_serial": "BFC13272EF67B96D",
+  "hardware_qualified": true,
+  "host_tests_passed": 19,
+  "main_stack_min_unused_bytes": 7372,
+  "free_heap_min_bytes": 11896
+}
