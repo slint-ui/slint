@@ -959,9 +959,8 @@ fn compilation_result_moves_to_the_instantiating_thread() {
     })
     .join()
     .expect("compile worker panicked");
-    assert!(!sent.has_errors(), "{:?}", sent.diagnostics().collect::<Vec<_>>());
-
     let result = CompilationResult::from(sent);
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     assert_eq!(
         unit_storage(&result),
         storage_on_the_worker,
@@ -1033,9 +1032,7 @@ fn a_failed_compilation_survives_the_round_trip() {
     assert!(result.has_errors());
     let expected = result.diagnostics().count();
 
-    let sent = result.into_send();
-    assert!(sent.has_errors());
-    let result = CompilationResult::from(sent);
+    let result = CompilationResult::from(result.into_send());
     assert!(result.has_errors());
     assert_eq!(result.diagnostics().count(), expected);
     assert_eq!(result.components().count(), 0);
