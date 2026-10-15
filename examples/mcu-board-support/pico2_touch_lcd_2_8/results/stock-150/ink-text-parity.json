@@ -1,0 +1,26 @@
+[
+  {
+    "region": "title",
+    "box": [
+      64,
+      12,
+      155,
+      34
+    ],
+    "changed_pixels": 0,
+    "reference_sha256": "8de670e467f30adec0b688753f55c375fa31269d85a4e58123a0e1c7cc9ae028",
+    "current_sha256": "8de670e467f30adec0b688753f55c375fa31269d85a4e58123a0e1c7cc9ae028"
+  },
+  {
+    "region": "percentages",
+    "box": [
+      64,
+      194,
+      315,
+      218
+    ],
+    "changed_pixels": 0,
+    "reference_sha256": "1feb6e3d323637b42310a47c631bcaba3f873d1078a285ff88302e74e767bdd6",
+    "current_sha256": "1feb6e3d323637b42310a47c631bcaba3f873d1078a285ff88302e74e767bdd6"
+  }
+]

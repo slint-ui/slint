@@ -134,6 +134,7 @@ ctest
 ctrf
 ctypes
 customcomponents
+CYCCNT
 darkimg
 dashmap
 Datakonsult
@@ -280,8 +281,10 @@ goldens
 grcov
 Grimme
 Grotesk
+GSCAN
 gstreamer
 GWLP
+halfword
 Hani
 hdmipi
 heapless
@@ -486,6 +489,7 @@ NVIC
 nvim
 O_WRONLY
 objc
+objdump
 objfile
 Octa
 oklch
@@ -496,6 +500,7 @@ othercomp
 ovmf
 pagefind
 PAKE
+panelcheck
 pannable
 Pantone
 partytown
@@ -504,11 +509,13 @@ pathdata
 pathlib
 pbjson
 PCLK
+PCSR
 pdoc
 peniko
 picotool
 pixabay
 pixelcolor
+pixelfont
 pkgs
 poly
 popupwindow
@@ -555,6 +562,7 @@ qwidget
 QXGA
 radiobuttontile
 Raleway
+RAMRD
 Randriana
 rasterizer
 rasterizes
@@ -607,11 +615,13 @@ Segoe
 serde
 setattr
 SETFL
+sgstubs
 Shaderiv
 shadowable
 sharedfontique
 sharedstring
 sharedvector
+sheap
 shiki
 shikijs
 Shmelt

@@ -98,24 +98,49 @@ Or from the command on linux (connect the device while pressing the "bootsel" bu
 # If you're on Linux: mount the device
 udisksctl mount -b /dev/sda1
 # upload
-picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
+picotool load target/thumbv8m.main-none-eabihf/release/printerdemo_mcu -t elf -u -v -x -f
 ```
 
 ### On the Waveshare Pico2 Touch LCD 2.8
 
-The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/product/rp2350-touch-lcd-2.8.htm) is a Raspberry Pi Pico2 development board with an integrated 2.8" capacitive touch display (320x240, ST7789 controller, CST328 touch controller).
+The [Waveshare Pico2 Touch LCD 2.8](https://www.waveshare.com/product/rp2350-touch-lcd-2.8.htm) includes an ST7789 display and CST328 touch controller.
+Slint renders at native 320 × 240 resolution using the panel's hardware rotation.
+Core 0 renders; core 1 handles scan-synchronized SPI DMA and USB.
+The board defaults enable the measured renderer caches, SRAM routines, and touch interrupt handling.
 
-Build the demo with:
-
-```sh
-cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --target=thumbv8m.main-none-eabihf --release
-```
-
-Flash using [picotool](https://github.com/raspberrypi/picotool):
+Build and flash with [picotool](https://github.com/raspberrypi/picotool) installed:
 
 ```sh
-picotool load -u -v -x -t elf target/thumbv8m.main-none-eabihf/release/printerdemo_mcu
+examples/mcu-board-support/pico2_touch_lcd_2_8/flash-printer.sh
 ```
+
+Set `PICO_SERIAL` to select one board and `CARGO_TARGET_DIR` to select the build directory.
+The script targets Cortex-M33 and uses a release build.
+Its default CPU clock is the rated 150 MHz.
+Stock-speed builds default to ThinLTO and one code-generation unit; Cargo profile environment overrides remain available.
+Set `PICO_CLOCK_240=1` to use the optional 240 MHz overclock, with watchdog fallback to 150 MHz.
+Ink uses its normal bubble count at 150 MHz; holding a vial adds bubbles only at 240 MHz.
+Enable Kiosk mode at the bottom of Settings to cycle Queue, Settings, and Ink every ten seconds.
+Touch anywhere to exit the sequence without activating a control underneath.
+At stock speed, a stall on either core triggers watchdog recovery to ROM BOOTSEL.
+The watchdog starts after clock initialization; intentional USB resets permit normal reboot.
+Set `PICO_PROFILE=1` to include ten-second profiling, pointer replay, and framebuffer capture commands.
+Set `PICO_RENDERER_PROFILE=1` to add detailed renderer timing scopes, which perturb raster performance.
+Profiling starts in manual mode.
+See the [performance report](pico2_touch_lcd_2_8/results/report.md) for measurements and reproduction steps.
+
+Build a shareable 240 MHz UF2 without flashing:
+
+```sh
+PICO_CLOCK_240=1 examples/mcu-board-support/pico2_touch_lcd_2_8/flash-printer.sh --uf2 /tmp/printer-pico2-240mhz.uf2
+```
+
+Hold BOOTSEL while connecting the board, then copy the UF2 to the `RP2350` volume.
+A bare Pico 2 needs a matching wired display and touch controller; this image targets the Waveshare board.
+After installation, the demo exposes a Pico SDK-compatible USB reset interface.
+Subsequent `picotool load -t elf -u -v -x -f` uploads enter BOOTSEL, verify, and restart automatically.
+The USB serial `status` command returns `PICO_PRINTER_FRAME_READY` after the first completed frame transfer.
+That response confirms software initialization and transfer completion; it doesn't confirm the physical display image.
 
 #### Using probe-rs
 

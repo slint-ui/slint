@@ -1,0 +1,47 @@
+[
+  {
+    "cpu_hz": 150000000,
+    "spi_hz": 48000000,
+    "elapsed_us": 10013101,
+    "frames": 588,
+    "changing_frames": 587,
+    "window_panel_ticks": 587,
+    "changing_fps": 58.62319774862952,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0,
+    "animation_us_per_frame": 6770.486394557823,
+    "ink_stamp_us_per_frame": 5056.525510204082,
+    "stack_free": 7720
+  },
+  {
+    "cpu_hz": 150000000,
+    "spi_hz": 48000000,
+    "elapsed_us": 10006606,
+    "frames": 587,
+    "changing_frames": 587,
+    "window_panel_ticks": 587,
+    "changing_fps": 58.66124837932062,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0,
+    "animation_us_per_frame": 6883.303236797275,
+    "ink_stamp_us_per_frame": 5073.3066439523,
+    "stack_free": 7720
+  },
+  {
+    "cpu_hz": 150000000,
+    "spi_hz": 48000000,
+    "elapsed_us": 10006051,
+    "frames": 587,
+    "changing_frames": 586,
+    "window_panel_ticks": 587,
+    "changing_fps": 58.564562583180916,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0,
+    "animation_us_per_frame": 6950.149914821124,
+    "ink_stamp_us_per_frame": 5079.202725724021,
+    "stack_free": 7720
+  }
+]

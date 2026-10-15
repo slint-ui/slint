@@ -1,0 +1,69 @@
+{
+  "elf_sha256": "8b8207f8d6b390c0c5af762019b72fbbd7832a9a12813ebd2997c23c477d2574",
+  "cpu_mhz": 150,
+  "lto": "thin",
+  "codegen_units": 1,
+  "main_static_end": "0x2007ab18",
+  "main_stack_top": "0x20080000",
+  "main_stack_link_gap_bytes": 21736,
+  "required_main_stack_bytes": 20480,
+  "sections": {
+    ".vector_table": {
+      "bytes": 276,
+      "address": "0x10000000"
+    },
+    ".start_block": {
+      "bytes": 40,
+      "address": "0x10000114"
+    },
+    ".text": {
+      "bytes": 926612,
+      "address": "0x10000140"
+    },
+    ".bi_entries": {
+      "bytes": 0,
+      "address": "0x100e24d4"
+    },
+    ".rodata": {
+      "bytes": 830048,
+      "address": "0x100e24d8"
+    },
+    ".data": {
+      "bytes": 68168,
+      "address": "0x20000000"
+    },
+    ".gnu.sgstubs": {
+      "bytes": 0,
+      "address": "0x101bd9a0"
+    },
+    ".bss": {
+      "bytes": 434384,
+      "address": "0x20010a48"
+    },
+    ".uninit": {
+      "bytes": 0,
+      "address": "0x2007ab18"
+    },
+    ".end_block": {
+      "bytes": 0,
+      "address": "0x101bd9a0"
+    },
+    ".core1_stack": {
+      "bytes": 8192,
+      "address": "0x20080000"
+    },
+    ".defmt": {
+      "bytes": 33,
+      "address": "0x0"
+    },
+    ".comment": {
+      "bytes": 153,
+      "address": "0x0"
+    },
+    ".ARM.attributes": {
+      "bytes": 72,
+      "address": "0x0"
+    }
+  },
+  "hardware_qualified": false
+}
