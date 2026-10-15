@@ -626,6 +626,13 @@ impl SkiaRenderer {
         }
     }
 
+    /// Drops the GPU resources Skia caches, so that the next frame uploads glyphs and images again.
+    pub fn free_gpu_resources(&self) {
+        if let Some(surface) = self.surface.borrow().as_ref() {
+            surface.free_gpu_resources();
+        }
+    }
+
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
@@ -1119,6 +1126,9 @@ pub trait Surface {
     fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
         Ok(())
     }
+
+    /// Drops the GPU resources Skia caches, such as glyph atlases and uploaded images.
+    fn free_gpu_resources(&self) {}
 }
 
 pub trait SkiaRendererExt {
