@@ -67,7 +67,6 @@ Omitted fields receive their declared defaults or their type's default value.
 Reference preset fields explicitly to reuse them.
 Property bindings keep reused fields reactive when a theme changes.
 For color-only changes, preserve the other fields with a pure helper that returns a complete style.
-The shared checkbox example below demonstrates this pattern without changing `BasicTheme`.
 
 ## States and Overrides
 
@@ -109,15 +108,16 @@ Its controls provide Small, Medium, and Large preview sizes.
 Its Disabled checkbox disables the four preview buttons while keeping the settings available.
 The button page shows primary, danger, secondary, and invisible styles.
 
-`examples/styled-button.slint` shows one interactive button.
+For custom visuals using slots, open the CheckBox page's "Custom checkboxes" section.
+In [check_boxes.slint](examples/check_boxes.slint), `CheckBoxBase` supplies the behavior while `indicator << Rectangle` and `content << Text` supply the visuals.
+The Switch, Slider, ComboBox, and LineEdit pages also include slot-based examples.
+
 Run the checkout's viewer with experimental features enabled:
 
 ```powershell
 $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
-.\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/styled-button.slint
+.\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
-
-For the complete gallery, use `tools/editor/controls/examples/controls.slint` as the example path.
 
 ## Switch, CheckBox, Slider, and ComboBox
 
@@ -175,30 +175,5 @@ The Switch, CheckBox, Slider, and ComboBox pages also accept a `preview-style` p
 
 Define one style for each distinct appearance, then reuse it across any number of checkboxes.
 Six checkboxes with one appearance need one shared style.
-Four normal checkboxes and two warning checkboxes need two shared styles.
+Define additional styles only when appearances differ.
 Changing `BasicTheme` affects every control that uses it; use checkbox-specific styles when other controls should keep their colors.
-
-[`examples/shared-checkbox-styles.slint`](examples/shared-checkbox-styles.slint) contains a complete application example.
-`AppCheckBoxStyles` defines normal and warning styles, preserving the preset's unchecked and disabled palettes.
-Its pure helpers change the checked indicator colors while preserving checkmark, label, border width, focus width, and focus offset.
-The focus color follows the checked resting color.
-`AppCheckBox` supplies the normal style and medium size as application defaults:
-
-```slint
-component AppCheckBox inherits CheckBox {
-    style: AppCheckBoxStyles.normal;
-    size: CheckBoxSizes.medium;
-}
-
-AppCheckBox { text: "Notifications"; }
-AppCheckBox { text: "Autosave"; }
-AppCheckBox { text: "Delete originals"; style: AppCheckBoxStyles.warning; }
-```
-
-The example's button updates the normal checkbox colors at runtime.
-All four normal checkboxes follow those colors; the two warning checkboxes retain their own style.
-
-```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
-.\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/shared-checkbox-styles.slint
-```

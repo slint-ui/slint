@@ -55,17 +55,11 @@ export component Button inherits ButtonBase {
             y: -self.outset;
             width: parent.width + 2 * self.outset;
             height: parent.height + 2 * self.outset;
-            visible: false;
+            visible: root.enabled && root.has-focus && root.style.focus-width > 0px;
             background: transparent;
             border-color: root.style.focus-color;
             border-width: root.style.focus-width;
             border-radius: root.border-radius + self.outset;
-
-            states [
-                focused when root.enabled && root.has-focus && root.style.focus-width > 0px: {
-                    visible: true;
-                }
-            ]
         }
     }
 
