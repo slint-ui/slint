@@ -26,9 +26,13 @@ backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-libseat = ["slint-interpreter/backend-linuxkms-libseat"]
-backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
+backend-linuxkms = [
+  "slint-interpreter/backend-linuxkms",
+  "dep:i-slint-backend-linuxkms",
+  "i-slint-backend-linuxkms/dlopen",
+]
+backend-linuxkms-libseat = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libseat"]
+backend-linuxkms-libinput = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libinput"]
 backend-testing = ["i-slint-backend-selector/backend-testing"]
 
 # The features below are additive and binary-compatible with the default build:
@@ -65,6 +69,9 @@ chrono = "0.4"
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 smol = { version = "2.0.0" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [build-dependencies]
 i-slint-common = { workspace = true }

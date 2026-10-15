@@ -18,6 +18,9 @@ type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<OwnedFd>,
 #[cfg(all(target_os = "linux", feature = "drm"))]
 mod drmoutput;
 
+#[cfg(all(target_os = "linux", feature = "dlopen", any(feature = "libinput", feature = "gbm")))]
+mod dlopen;
+
 #[cfg(target_os = "linux")]
 mod display;
 

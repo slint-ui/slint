@@ -82,8 +82,7 @@ impl GbmDmabufDisplay {
         device: &wgpu::Device,
         buffer_count: usize,
     ) -> Result<Self, PlatformError> {
-        let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
-            .map_err(|e| format!("Error creating gbm device: {e}"))?;
+        let gbm_device = drm_output.create_gbm_device()?;
 
         let (width, height) = drm_output.size();
 
