@@ -19,8 +19,7 @@ impl GbmDisplay {
     pub fn new(drm_output: DrmOutput) -> Result<GbmDisplay, PlatformError> {
         //eprintln!("mode {}/{}", width, height);
 
-        let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
-            .map_err(|e| format!("Error creating gbm device: {e}"))?;
+        let gbm_device = drm_output.create_gbm_device()?;
 
         let surface_format = gbm::Format::Xrgb8888;
 

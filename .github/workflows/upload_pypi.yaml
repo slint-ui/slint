@@ -199,7 +199,7 @@ jobs:
               run: |
                   sudo timeout 600 apt-get update
                   sudo timeout 600 apt-get install -y \
-                    libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
+                    libxkbcommon-x11-0 libxkbcommon0 \
                     libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
               with:
