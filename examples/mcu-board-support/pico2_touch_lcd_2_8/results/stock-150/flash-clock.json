@@ -1,0 +1,14 @@
+{
+  "sys_hz": 150000000,
+  "flash_hz": 50000000,
+  "clkdiv": 3,
+  "timing": 1610641923,
+  "rfmt": 299688,
+  "rcmd": 235,
+  "rxdelay": 2,
+  "data_width": 2,
+  "prefix_len": 1,
+  "dummy_len": 4,
+  "suffix": 0,
+  "prefix": 235
+}

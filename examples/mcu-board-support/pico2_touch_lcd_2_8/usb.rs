@@ -227,6 +227,18 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"flashinfo") {
+                    let memory = embassy_rp::pac::QMI.mem(0);
+                    let timing = memory.timing().read();
+                    let divisor = match timing.clkdiv() { 0 => 256, value => u32::from(value) };
+                    let mut line = ReportLine { bytes: [0; 2048], length: 0 };
+                    let _ = writeln!(&mut line, "PICO_FLASH,sys_hz={},flash_hz={},clkdiv={},timing={},rfmt={},rcmd={}", embassy_rp::clocks::clk_sys_freq(), embassy_rp::clocks::clk_sys_freq() / divisor, divisor, timing.0, memory.rfmt().read().0, memory.rcmd().read().0);
+                    for packet in line.bytes[..line.length].chunks(64) {
+                        if serial.write_packet(packet).await.is_err() { break; }
+                    }
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"imu") {
                     let (raw, samples, errors, us) = super::imu::telemetry();
                     let up = super::ink_up();
