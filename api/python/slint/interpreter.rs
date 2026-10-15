@@ -123,7 +123,7 @@ impl PyDiagnostic {
 
     #[getter]
     fn source_file(&self) -> Option<PathBuf> {
-        self.0.source_path().map(PathBuf::from)
+        self.0.source_file().map(PathBuf::from).or_else(|| self.0.source_url().map(PathBuf::from))
     }
 
     fn __str__(&self) -> String {

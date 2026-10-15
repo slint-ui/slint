@@ -365,10 +365,12 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
     let summary = diagnostics
         .iter()
         .inspect(|d| {
-            let location = d.source_path().map(|p| {
-                let (line, column) = d.line_column();
-                (p.into(), line, column)
-            });
+            let location = i_slint_compiler::diagnostics::Spanned::source_file(*d)
+                .map(|file| file.path().to_string())
+                .map(|p| {
+                    let (line, column) = d.line_column();
+                    (p.into(), line, column)
+                });
 
             let level = match d.level() {
                 DiagnosticLevel::Error => LogMessageLevel::Error,

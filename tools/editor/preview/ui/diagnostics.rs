@@ -151,10 +151,12 @@ pub fn set_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) {
     diagnostics.iter().for_each(|diagnostic| {
-        let location = diagnostic.source_path().map(|path| {
-            let (line, column) = diagnostic.line_column();
-            (path.into(), line, column)
-        });
+        let location = i_slint_compiler::diagnostics::Spanned::source_file(diagnostic)
+            .map(|file| file.path().to_string())
+            .map(|path| {
+                let (line, column) = diagnostic.line_column();
+                (path.into(), line, column)
+            });
 
         let level = match diagnostic.level() {
             DiagnosticLevel::Error => ui::DiagnosticLevel::Error,
@@ -220,7 +222,7 @@ pub(in crate::preview) fn has_only_no_component_error(
 // The editor distinguishes those files from compilation failures through NoComponent.
 fn is_no_component_diagnostic(diagnostic: &slint_interpreter::Diagnostic) -> bool {
     diagnostic.level() == DiagnosticLevel::Error
-        && diagnostic.source_path().is_none()
+        && i_slint_compiler::diagnostics::Spanned::source_file(diagnostic).is_none()
         && diagnostic.message() == "No component found"
 }
 

@@ -1205,3 +1205,21 @@ fn a_window_shown_twice_keeps_the_event_loop_alive_once() {
     instance.hide().unwrap();
     assert_eq!(quits.load(Ordering::SeqCst), 1);
 }
+
+#[test]
+fn diagnostic_source_file_and_url() {
+    let compiler = crate::Compiler::default();
+    let code = "export component App { property <int> p: unknown; }";
+
+    let result = poll_ready(compiler.build_from_source(code.into(), "ui/app.slint".into()));
+    let diag = result.diagnostics().next().expect("an error");
+    assert_eq!(diag.source_file(), Some(std::path::Path::new("ui/app.slint")));
+    let url = diag.source_url().unwrap();
+    assert!(url.starts_with("file:///") && url.ends_with("/ui/app.slint"), "{url}");
+
+    let result =
+        poll_ready(compiler.build_from_source(code.into(), "https://example.com/app.slint".into()));
+    let diag = result.diagnostics().next().expect("an error");
+    assert_eq!(diag.source_file(), None);
+    assert_eq!(diag.source_url().as_deref(), Some("https://example.com/app.slint"));
+}
