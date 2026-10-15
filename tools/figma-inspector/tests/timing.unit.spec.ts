@@ -298,3 +298,93 @@ test("strictly validates the required breakdown and excludes it from totals", ()
     ).toBe(false);
     expect(deriveUnattributedOverhead(trace.phases, 10)).toBe(10);
 });
+
+test("export timing payloads reject malformed values without changing preview totals", () => {
+    const trace = {
+        ...new TimingTraceBuilder(1, "initial").toTrace(),
+        totalMs: 50,
+        exportValidation: {
+            sourcePreparationMs: 2,
+            queueMs: 3,
+            compilationMs: 4,
+            totalMs: 9,
+            completedAtEpochMs: 100,
+            cacheHit: false,
+            outcome: "valid" as const,
+        },
+    };
+    expect(isTimingTrace(trace)).toBe(true);
+    for (const field of [
+        "sourcePreparationMs",
+        "queueMs",
+        "compilationMs",
+        "totalMs",
+        "completedAtEpochMs",
+    ])
+        expect(
+            isTimingTrace({
+                ...trace,
+                exportValidation: { ...trace.exportValidation, [field]: -1 },
+            }),
+        ).toBe(false);
+    expect(
+        isTimingTrace({
+            ...trace,
+            exportValidation: { ...trace.exportValidation, outcome: "ready" },
+        }),
+    ).toBe(false);
+    expect(trace.totalMs).toBe(50);
+});
+
+test("asset type counts reconcile with host export totals", () => {
+    const metric = {
+        durationMs: 0,
+        requests: 0,
+        exports: 0,
+        cacheHits: 0,
+        work: {
+            capturedNodes: 1,
+            componentFamilies: 0,
+            componentVariants: 0,
+            pngExports: 2,
+            svgExports: 1,
+            textCacheHits: 0,
+            pngByType: { VECTOR: 2 },
+            svgByType: { VECTOR: 1 },
+        },
+    };
+    expect(isCaptureMetrics(metric)).toBe(true);
+    expect(
+        isCaptureMetrics({
+            ...metric,
+            work: { ...metric.work, pngByType: { VECTOR: 3 } },
+        }),
+    ).toBe(false);
+});
+
+test("presentation frames survive bridge finalization without being added twice", () => {
+    const sandbox = new TimingTraceBuilder(1, "initial").toTrace();
+    const ui = {
+        ...sandbox,
+        totalMs: 50,
+        phases: { ...sandbox.phases, presentation: 30 },
+        breakdowns: {
+            ...sandbox.breakdowns,
+            presentation: { firstFrameMs: 20, secondFrameMs: 10 },
+        },
+    };
+    const final = finalizeSandboxTiming(ui, sandbox);
+    expect(final.breakdowns.presentation).toEqual(ui.breakdowns.presentation);
+    expect(isTimingTrace(final)).toBe(true);
+    expect(final.phases.unattributedOverhead).toBe(20);
+    for (const value of [-1, NaN, "10", null])
+        expect(
+            isTimingTrace({
+                ...final,
+                breakdowns: {
+                    ...final.breakdowns,
+                    presentation: { firstFrameMs: value, secondFrameMs: 10 },
+                },
+            }),
+        ).toBe(false);
+});

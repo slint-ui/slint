@@ -639,38 +639,6 @@ body {
     background: #ffffff55;
     border-radius: 12px;
 }
-#simplified-dialog {
-    width: min(320px, calc(100% - 48px));
-    padding: 20px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--figma-color-text, #1e293b);
-    background: var(--figma-color-bg, #fff);
-    box-shadow: 0 8px 24px #0003;
-}
-#simplified-dialog::backdrop {
-    background: #0004;
-}
-#simplified-dialog p {
-    margin: 0 0 20px;
-    font-size: 13px;
-    line-height: 1.4;
-}
-#simplified-dialog form {
-    display: flex;
-    justify-content: flex-end;
-}
-#simplified-dialog button {
-    min-width: 64px;
-    padding: 8px 14px;
-    border: 0;
-    border-radius: 6px;
-    color: #fff;
-    background: var(--figma-color-bg-brand, #0d99ff);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-}
 .preview-spinner {
     width: 28px;
     height: 28px;

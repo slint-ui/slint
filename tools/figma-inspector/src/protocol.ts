@@ -19,6 +19,11 @@ export type PreviewTrigger =
     | "density-change";
 
 export type UiToPluginMessage =
+    | {
+          readonly type: "capture-reuse-miss";
+          readonly revision: number;
+          readonly captureId: string;
+      }
     | { readonly type: "reset-capture-assets" }
     | { readonly type: "ui-ready"; readonly devicePixelRatio: number }
     | {
@@ -41,14 +46,33 @@ export type UiToPluginMessage =
 
 export type PluginToUiMessage =
     | {
+          readonly type: "preview-bulk";
+          readonly revision: number;
+          readonly document: Record<string, unknown>;
+      }
+    | {
+          readonly type: "preview-reuse";
+          readonly revision: number;
+          readonly captureId: string;
+          readonly selection?: { nodeId: string; nodeName: string };
+          readonly trigger?: PreviewTrigger;
+          readonly trace?: TimingTrace;
+      }
+    | {
+          readonly type: "preview-export";
+          readonly revision: number;
+          readonly exportPackage?: ExportPackage;
+          readonly warnings: readonly Diagnostic[];
+      }
+    | {
           readonly type: "preview-busy";
           readonly revision: number;
-          readonly message?: string;
       }
     | {
           readonly type: "preview-capture";
           readonly revision: number;
           readonly captureJson: string;
+          readonly captureId?: string;
           readonly captureAssetVersion?: 2;
           readonly captureAssets?: readonly (Uint8Array | number)[];
           readonly warnings?: readonly Diagnostic[];
@@ -107,6 +131,16 @@ export function isUiToPluginMessage(
     if (typeof value !== "object" || value === null || !("type" in value)) {
         return false;
     }
+    if (value.type === "capture-reuse-miss")
+        return (
+            "revision" in value &&
+            Number.isSafeInteger(value.revision) &&
+            (value.revision as number) > 0 &&
+            "captureId" in value &&
+            typeof value.captureId === "string" &&
+            value.captureId.length > 0 &&
+            value.captureId.length <= 128
+        );
     if (
         (value.type === "ui-ready" || value.type === "pixel-density-changed") &&
         "devicePixelRatio" in value &&
@@ -171,14 +205,50 @@ export function isPluginToUiMessage(
         }
         return true;
     }
-    if (value.type === "preview-busy")
+    if (value.type === "preview-bulk")
         return (
             "revision" in value &&
             Number.isSafeInteger(value.revision) &&
             (value.revision as number) > 0 &&
-            (!("message" in value) ||
-                value.message === undefined ||
-                typeof value.message === "string")
+            "document" in value &&
+            !!value.document &&
+            typeof value.document === "object" &&
+            !Array.isArray(value.document) &&
+            "id" in value.document &&
+            typeof value.document.id === "string" &&
+            "type" in value.document &&
+            typeof value.document.type === "string"
+        );
+    if (value.type === "preview-busy")
+        return (
+            "revision" in value &&
+            Number.isSafeInteger(value.revision) &&
+            (value.revision as number) > 0
+        );
+    if (value.type === "preview-export")
+        return (
+            "revision" in value &&
+            Number.isSafeInteger(value.revision) &&
+            (value.revision as number) > 0 &&
+            (!("exportPackage" in value) ||
+                value.exportPackage === undefined ||
+                isExportPackage(value.exportPackage)) &&
+            "warnings" in value &&
+            Array.isArray(value.warnings) &&
+            value.warnings.every(isDiagnostic)
+        );
+    if (value.type === "preview-reuse")
+        return (
+            "revision" in value &&
+            Number.isSafeInteger(value.revision) &&
+            (value.revision as number) > 0 &&
+            "captureId" in value &&
+            typeof value.captureId === "string" &&
+            value.captureId.length > 0 &&
+            value.captureId.length <= 128 &&
+            (!("trace" in value) ||
+                value.trace === undefined ||
+                isTimingTrace(value.trace))
         );
     if (value.type === "preview-source" || value.type === "preview-capture") {
         return (
@@ -188,6 +258,11 @@ export function isPluginToUiMessage(
             (value.type === "preview-capture"
                 ? "captureJson" in value &&
                   typeof value.captureJson === "string" &&
+                  (!("captureId" in value) ||
+                      value.captureId === undefined ||
+                      (typeof value.captureId === "string" &&
+                          value.captureId.length > 0 &&
+                          value.captureId.length <= 128)) &&
                   (!(
                       "captureAssets" in value || "captureAssetVersion" in value
                   ) ||
@@ -340,11 +415,23 @@ export function isExportPackage(value: unknown): value is ExportPackage {
         )
             return false;
         paths.add(file.path);
-        return (
-            file.encoding !== "base64" ||
-            /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-                file.data,
-            )
-        );
+        return file.encoding !== "base64" || isBase64(file.data);
     });
+}
+
+function isBase64(value: string): boolean {
+    if (value.length % 4 !== 0) return false;
+    const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+    for (let index = 0; index < value.length - padding; index++) {
+        const code = value.charCodeAt(index);
+        if (
+            !(code >= 65 && code <= 90) &&
+            !(code >= 97 && code <= 122) &&
+            !(code >= 48 && code <= 57) &&
+            code !== 43 &&
+            code !== 47
+        )
+            return false;
+    }
+    return true;
 }
