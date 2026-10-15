@@ -638,8 +638,18 @@ fn single_line_height(
     text: Pin<&(impl RenderString + ?Sized)>,
     self_rc: &ItemRc,
 ) -> Option<Coord> {
+    if text.line_limit() == Some(0) {
+        return None;
+    }
     match text.text() {
-        PlainOrStyledText::Plain(s) if !s.contains('\n') => {
+        PlainOrStyledText::Plain(s)
+            if !s.chars().any(|ch| {
+                matches!(
+                    ch,
+                    '\n' | '\r' | '\u{000b}' | '\u{000c}' | '\u{0085}' | '\u{2028}' | '\u{2029}'
+                )
+            }) =>
+        {
             window_adapter.renderer().text_line_height(text.font_request(self_rc)).map(|h| h.get())
         }
         _ => None,
