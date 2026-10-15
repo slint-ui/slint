@@ -339,46 +339,48 @@ fn update_visible_instances(
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
     // The row to seek to, and its edge of the viewport.
-    let seek = scroll_to_row.as_ref().map(|request| (request.row, request.alignment));
-    let (mut new_offset, mut new_offset_y) = if let Some((row, alignment)) = seek {
-        ops.splice(0, ops.len(), 1);
-        state.offset = row;
-        changed |= ops.ensure_updated(0, row);
-        let row_height = ops.height(0).unwrap_or(element_height);
-        let row_top = match alignment {
-            scroll::RowAlignment::Top => 0 as Coord,
-            scroll::RowAlignment::Bottom => {
-                // If the row is higher than listview_height than we ignore the
-                // alignment and align to top
-                (listview_height - row_height).max(0. as Coord)
+    let (mut new_offset, mut new_offset_y) =
+        if let Some(scroll::ScrollToRowRequest { row, alignment, .. }) = scroll_to_row.as_ref() {
+            ops.splice(0, ops.len(), 1);
+            state.offset = *row;
+            changed |= ops.ensure_updated(0, *row);
+            let row_height = ops.height(0).unwrap_or(element_height);
+            let row_top = match alignment {
+                scroll::RowAlignment::Top => 0 as Coord,
+                scroll::RowAlignment::Bottom => {
+                    // If the row is higher than listview_height than we ignore the
+                    // alignment and align to top
+                    (listview_height - row_height).max(0. as Coord)
+                }
+            };
+            (*row, row_top)
+        } else if first_item_y > -content_y_value + one_and_a_half_screen
+            || (props.computes_content_height()
+                && last_item_bottom + element_height < -content_y_value)
+        {
+            // Jumping more than 1.5 screens: random seek.
+            ops.splice(0, ops.len(), 0);
+            state.offset =
+                ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
+            (state.offset, 0 as Coord)
+        } else if content_y_value < state.previous_content_y {
+            // Scrolled down: find the new offset by walking existing instances.
+            let mut it_y = first_item_y + content_y_value;
+            let mut new_off = state.offset;
+            for i in 0..ops.len() {
+                changed |= ops.ensure_updated(i, new_off);
+                let h = ops.height(i).unwrap_or(0 as Coord);
+                if it_y + h > 0 as Coord || new_off + 1 >= row_count {
+                    break;
+                }
+                it_y += h;
+                new_off += 1;
             }
+            (new_off, it_y)
+        } else {
+            // Scrolled up: will instantiate items before offset in the loop below.
+            (state.offset, first_item_y + content_y_value)
         };
-        (row, row_top)
-    } else if first_item_y > -content_y_value + one_and_a_half_screen
-        || (props.computes_content_height() && last_item_bottom + element_height < -content_y_value)
-    {
-        // Jumping more than 1.5 screens: random seek.
-        ops.splice(0, ops.len(), 0);
-        state.offset = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
-    } else if content_y_value < state.previous_content_y {
-        // Scrolled down: find the new offset by walking existing instances.
-        let mut it_y = first_item_y + content_y_value;
-        let mut new_off = state.offset;
-        for i in 0..ops.len() {
-            changed |= ops.ensure_updated(i, new_off);
-            let h = ops.height(i).unwrap_or(0 as Coord);
-            if it_y + h > 0 as Coord || new_off + 1 >= row_count {
-                break;
-            }
-            it_y += h;
-            new_off += 1;
-        }
-        (new_off, it_y)
-    } else {
-        // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + content_y_value)
-    };
 
     let mut loop_count = 0;
     loop {
@@ -399,7 +401,7 @@ fn update_visible_instances(
         if prepend_count > 0 {
             state.offset = new_offset;
         }
-        if seek.is_some() && new_offset == 0 {
+        if scroll_to_row.is_some() && new_offset == 0 {
             new_offset_y = new_offset_y.min(0 as Coord);
         }
         debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
@@ -427,6 +429,17 @@ fn update_visible_instances(
             changed |= ops.ensure_updated(i, idx);
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
+        }
+
+        if scroll_to_row.is_some()
+            && y < listview_height
+            && (new_offset > 0 || new_offset_y < 0 as Coord)
+            && loop_count < 3
+        {
+            // A seek that leaves room below the last row moves all rows down to close the gap.
+            new_offset_y += listview_height - y;
+            loop_count += 1;
+            continue;
         }
 
         if y < listview_height && content_y_value < 0 as Coord && loop_count < 3 {
