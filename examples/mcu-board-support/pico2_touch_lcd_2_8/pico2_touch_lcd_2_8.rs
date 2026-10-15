@@ -4,7 +4,10 @@
 // cSpell: ignore treq TXFF
 extern crate alloc;
 
+mod background;
+mod background_job;
 mod boot_guard;
+pub use background::with_core1;
 #[cfg(feature = "pico2-queue-profile")]
 mod frame_crc;
 mod frame_queue;

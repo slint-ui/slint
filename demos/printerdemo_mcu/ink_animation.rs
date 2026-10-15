@@ -25,6 +25,36 @@ struct Tile {
     back: usize,
     states: [FrameState; 2],
 }
+fn render_serial(tile: &mut Tile, tick: u64) -> [u64; 4] {
+    #[cfg(feature = "pico2-queue-profile")]
+    let started = mcu_board_support::profile_now_us();
+    let pixels = tile.buffers[tile.back].make_mut_slice();
+    #[cfg(feature = "pico2-queue-profile")]
+    let restore_started = mcu_board_support::profile_now_us();
+    tile.vial.restore_cached(pixels, &mut tile.states[tile.back]);
+    #[cfg(feature = "pico2-queue-profile")]
+    let stamp_started = mcu_board_support::profile_now_us();
+    tile.vial.stamp_cached(tick, pixels, &mut tile.states[tile.back]);
+    #[cfg(not(feature = "pico2-queue-profile"))]
+    let times = [0; 4];
+    #[cfg(feature = "pico2-queue-profile")]
+    let times = {
+        let end = mcu_board_support::profile_now_us();
+        [restore_started - started, stamp_started - restore_started, end - stamp_started, 0]
+    };
+    times
+}
+
+#[cfg(feature = "pico2")]
+fn paint(tile: &mut Tile, tick: u64) -> crate::ink_particles::Paint<'_, Rgb565Pixel> {
+    crate::ink_particles::Paint::new(
+        &tile.vial,
+        tick,
+        tile.buffers[tile.back].make_mut_slice(),
+        &mut tile.states[tile.back],
+    )
+}
+
 struct Animation {
     size: (usize, usize),
     tiles: [Option<Tile>; 4],
@@ -152,27 +182,63 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 {
                     counts[index] = tile.vial.particle_count() as u32;
                 }
+            }
+            #[cfg(feature = "pico2")]
+            {
+                let [yellow, red, cyan, black] = &mut animation.tiles;
                 #[cfg(feature = "pico2-queue-profile")]
-                let buffer_started = mcu_board_support::profile_now_us();
-                let pixels = tile.buffers[tile.back].make_mut_slice();
-                #[cfg(feature = "pico2-queue-profile")]
-                let restore_started = mcu_board_support::profile_now_us();
-                tile.vial.restore_cached(pixels, &mut tile.states[tile.back]);
-                #[cfg(feature = "pico2-queue-profile")]
-                let stamp_started = mcu_board_support::profile_now_us();
-                tile.vial.stamp_cached(tick, pixels, &mut tile.states[tile.back]);
-                #[cfg(feature = "pico2-queue-profile")]
-                let publish_started = mcu_board_support::profile_now_us();
-                let frame = slint::Image::from_rgb565(tile.buffers[tile.back].clone());
-                tile.back ^= 1;
-                animation.frames.set_row_data(index, frame);
+                let prepared = mcu_board_support::profile_now_us();
+                let mut paints =
+                    [paint(yellow.as_mut().unwrap(), tick), paint(cyan.as_mut().unwrap(), tick)];
                 #[cfg(feature = "pico2-queue-profile")]
                 {
-                    times[0] += restore_started - buffer_started;
-                    times[1] += stamp_started - restore_started;
-                    times[2] += publish_started - stamp_started;
-                    times[3] += mcu_board_support::profile_now_us() - publish_started;
+                    times[0] += mcu_board_support::profile_now_us() - prepared;
                 }
+                let mut next = 0;
+                #[cfg(feature = "pico2-queue-profile")]
+                let mut remote_times = [0; 4];
+                let mut work = || {
+                    let paint = &mut paints[next];
+                    #[cfg(feature = "pico2-queue-profile")]
+                    let (started, restoring) =
+                        (mcu_board_support::profile_now_us(), paint.restoring());
+                    let done = paint.step();
+                    #[cfg(feature = "pico2-queue-profile")]
+                    {
+                        remote_times[if restoring { 1 } else { 2 }] +=
+                            mcu_board_support::profile_now_us() - started;
+                    }
+                    next += usize::from(done);
+                    next == paints.len()
+                };
+                let local_times = mcu_board_support::with_core1(&mut work, || {
+                    let red = render_serial(red.as_mut().unwrap(), tick);
+                    let black = render_serial(black.as_mut().unwrap(), tick);
+                    core::array::from_fn::<_, 4, _>(|i| red[i] + black[i])
+                });
+                #[cfg(feature = "pico2-queue-profile")]
+                for i in 0..4 {
+                    times[i] += local_times[i] + remote_times[i];
+                }
+                #[cfg(not(feature = "pico2-queue-profile"))]
+                let _ = local_times;
+            }
+            #[cfg(not(feature = "pico2"))]
+            for tile in animation.tiles.iter_mut().flatten() {
+                let _ = render_serial(tile, tick);
+            }
+            #[cfg(feature = "pico2-queue-profile")]
+            let publish_started = mcu_board_support::profile_now_us();
+            let Animation { tiles, frames, .. } = &mut *animation;
+            for (index, tile) in tiles.iter_mut().enumerate() {
+                let tile = tile.as_mut().unwrap();
+                let frame = slint::Image::from_rgb565(tile.buffers[tile.back].clone());
+                tile.back ^= 1;
+                frames.set_row_data(index, frame);
+            }
+            #[cfg(feature = "pico2-queue-profile")]
+            {
+                times[3] += mcu_board_support::profile_now_us() - publish_started;
             }
             #[cfg(feature = "pico2-queue-profile")]
             {

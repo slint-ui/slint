@@ -418,6 +418,7 @@ impl Vial {
         self.stamp(tick, pixels);
     }
 
+    #[cfg(test)]
     pub fn restore<P: Pixel>(&self, pixels: &mut [P]) {
         assert_eq!(pixels.len(), self.width * self.height);
         let split = self.surface * self.width;

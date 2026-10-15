@@ -50,6 +50,7 @@ pub fn start(
             spawner.spawn(super::boot_guard::watchdog_task().unwrap());
 
             spawner.spawn(super::frame_queue::display_task(dma, backlight).unwrap());
+            spawner.spawn(super::background::task().unwrap());
         });
     });
 }
