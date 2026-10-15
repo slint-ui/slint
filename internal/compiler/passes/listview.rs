@@ -30,6 +30,16 @@ pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnosti
             else {
                 return Some(element_rc.clone());
             };
+            // The ensure-row-visible is already routed to the correct function so we don't have to do it again
+            if matches!(
+                &binding.borrow().expression,
+                Expression::FunctionCall {
+                    function: Callable::Builtin(BuiltinFunction::ListViewEnsureRowVisible),
+                    ..
+                }
+            ) {
+                return Some(element_rc.clone());
+            }
             if !matches!(&binding.borrow().expression, Expression::CodeBlock(v) if v.is_empty()) {
                 diag.push_error(
                     "Remove the body of 'ensure-row-visible', the compiler provides it for a 'ListView'".into(),
