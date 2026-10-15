@@ -366,6 +366,10 @@ export component EditorUi inherits Window {
             private property <bool> shadow-open: ShadowSession.open;
             changed shadow-open => { if !self.shadow-open { self.focus(); } }
             property <bool> shift-pressed: false;
+            private property <int> fill-focus-generation: FillSession.focus-generation;
+            changed fill-focus-generation => {
+                if FillSession.request.target.canvas { self.focus(); }
+            }
             property <bool> nudge-key-held;
             property <bool> nudge-write-pending;
             property <Point> nudge-origin;
