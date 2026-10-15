@@ -1,4 +1,4 @@
-# Basic Button Styles
+# Basic Control Styles
 
 Import the button and presets from `src/basic.slint`:
 
@@ -90,4 +90,56 @@ Run the checkout's viewer with experimental features enabled:
 $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/styled-button.slint
 ```
+
+## Switch, CheckBox, Slider, and ComboBox
+
+These controls accept their own style and size structs through the same `style` and `size` properties.
+Each style collection has one `standard` preset bound to `BasicTheme`.
+Each size collection exposes `small`, `medium`, and `large` metrics, with medium as the default.
+
+| Control | Style Type | Default Style | Size Type | Size Presets |
+| --- | --- | --- | --- | --- |
+| Switch | `SwitchStyle` | `SwitchStyles.standard` | `SwitchSizeMetrics` | `SwitchSizes` |
+| CheckBox | `CheckBoxStyle` | `CheckBoxStyles.standard` | `CheckBoxSizeMetrics` | `CheckBoxSizes` |
+| Slider | `SliderStyle` | `SliderStyles.standard` | `SliderSizeMetrics` | `SliderSizes` |
+| ComboBox | `ComboBoxStyle` | `ComboBoxStyles.standard` | `ComboBoxSizeMetrics` | `ComboBoxSizes` |
+
+```slint
+import { Switch, SwitchStyle, SwitchStyles, SwitchSizes } from "../src/basic.slint";
+
+export component StyledSwitchExample inherits Window {
+    in property <SwitchStyle> switch-style: SwitchStyles.standard;
+
+    Switch {
+        text: "Notifications";
+        style: root.switch-style;
+        size: SwitchSizes.large;
+    }
+}
+```
+
+Switch and CheckBox styles contain `unchecked` and `checked` palettes.
+Each palette contains `rest`, `hover`, `pressed`, and `disabled` state styles.
+Changing `checked` selects the palette while preserving the current interaction state.
+Switch states supply track, thumb, label, and border colors.
+CheckBox states supply indicator, checkmark, label, and border colors.
+
+Slider states supply track, filled track, handle, and handle border colors.
+Slider sizes set handle dimensions, track thickness, minimum thickness, and preferred length for either orientation.
+
+ComboBox styles contain field states and a `popup` style.
+The popup defines its surface and `rest`, `highlighted`, `selected`, and `disabled` item styles.
+Disabled items take priority over highlighted and selected items.
+ComboBox sizes include field padding, font and indicator sizes, popup padding, and popup row height.
+`ComboBoxPopup` also accepts a popup style and combo-box size metrics when used separately.
+
+All four controls draw an independent focus outline using `focus-color`, `focus-width`, and `focus-offset`.
+Existing individual color and dimension properties remain available as overrides.
+Explicit dimensions take priority over size presets.
+
+Each gallery page owns its preview size and disabled setting.
+`PreviewSettings` shares the settings UI between these four pages.
+Size selection applies to the basic styled controls; headless examples retain their custom dimensions.
+The Disabled setting disables the examples while leaving the settings available.
+Each page also accepts a `preview-style` property for an application's style.
 
