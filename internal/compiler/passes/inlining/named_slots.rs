@@ -5,29 +5,61 @@ use super::{Mapping, element_key};
 use crate::object_tree::{ElementRc, OptimizedElement, recurse_elem};
 use by_address::ByAddress;
 use smol_str::SmolStr;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
-pub(super) struct RemovedDefaults(HashSet<ByAddress<ElementRc>>);
+pub(super) struct RemovedDefaults {
+    elements: HashSet<ByAddress<ElementRc>>,
+    replaced_slots: HashSet<SmolStr>,
+    kept_slots: HashMap<SmolStr, Option<SmolStr>>,
+}
 
 impl RemovedDefaults {
     pub(super) fn contains_original(&self, mapping: &Mapping, original: &ElementRc) -> bool {
         mapping
             .get(&element_key(original.clone()))
-            .is_some_and(|copy| self.0.contains(&element_key(copy.clone())))
+            .is_some_and(|copy| self.elements.contains(&element_key(copy.clone())))
+    }
+
+    pub(super) fn is_replaced_default(&self, element: &ElementRc) -> bool {
+        element
+            .borrow()
+            .slot_default
+            .as_ref()
+            .is_some_and(|slot| self.replaced_slots.contains(slot))
+    }
+
+    pub(super) fn remark_kept_default(&self, element: &ElementRc) {
+        let Some(slot) = element.borrow().slot_default.clone() else {
+            return;
+        };
+        let marker = self.kept_slots.get(&slot).cloned();
+        debug_assert!(marker.is_some(), "lowered default of slot '{slot}' matches no kept slot");
+        if let Some(marker) = marker {
+            element.borrow_mut().slot_default = marker;
+        }
     }
 
     pub(super) fn retain_optimized(
         &mut self,
         mut optimized: Vec<OptimizedElement>,
     ) -> Vec<OptimizedElement> {
+        optimized.retain(|o| {
+            let replaced = self.is_replaced_default(&o.element);
+            if replaced {
+                self.insert_subtree(&o.element);
+            } else {
+                self.remark_kept_default(&o.element);
+            }
+            !replaced
+        });
         loop {
             let len = optimized.len();
             optimized.retain(|o| {
                 let removed = o
                     .former_parent
                     .upgrade()
-                    .is_some_and(|parent| self.0.contains(&element_key(parent)));
+                    .is_some_and(|parent| self.elements.contains(&element_key(parent)));
                 if removed {
                     self.insert_subtree(&o.element);
                 }
@@ -41,7 +73,7 @@ impl RemovedDefaults {
 
     fn insert_subtree(&mut self, root: &ElementRc) {
         recurse_elem(root, &(), &mut |element, _| {
-            self.0.insert(element_key(element.clone()));
+            self.elements.insert(element_key(element.clone()));
         });
     }
 }
@@ -59,11 +91,13 @@ pub(super) fn take_defaults(
         .count();
     let defaults = &following[..len];
     if supplied {
+        removed.replaced_slots.insert(slot_name.clone());
         for default in defaults {
             removed.insert_subtree(default);
         }
         len
     } else {
+        removed.kept_slots.insert(slot_name.clone(), kept_marker.cloned());
         for default in defaults {
             default.borrow_mut().slot_default = kept_marker.cloned();
         }
@@ -165,14 +199,169 @@ export component DerivedReplaced inherits Window {
 }
 "#;
 
+    const LOWERED_SOURCE: &str = r#"
+component TimerHost inherits Rectangle {
+    slot content << default-timer := Timer { interval: 10ms; }
+    VerticalLayout {
+        content { }
+    }
+}
+
+component PopupHost inherits Rectangle {
+    slot content << default-popup := PopupWindow { }
+    VerticalLayout {
+        content { }
+    }
+}
+
+component TimerMiddle inherits Rectangle {
+    slot outer;
+    TimerHost {
+        content << outer;
+    }
+}
+
+component TimerFilling inherits TimerHost {
+    content << derived-timer := Timer { interval: 10ms; }
+}
+
+component PopupMiddle inherits Rectangle {
+    slot outer;
+    PopupHost {
+        content << outer;
+    }
+}
+
+component PopupFilling inherits PopupHost {
+    content << derived-popup := PopupWindow { }
+}
+
+component Plain inherits TimerHost { }
+
+component SameName inherits Rectangle {
+    slot content << default-outer-timer := Timer { interval: 10ms; }
+    VerticalLayout {
+        content { }
+        TimerHost {
+            content << Rectangle { }
+        }
+    }
+}
+
+export component Kept inherits Window {
+    TimerHost { }
+    PopupHost { }
+}
+
+export component Replaced inherits Window {
+    TimerHost {
+        content << Rectangle { }
+    }
+    PopupHost {
+        content << Rectangle { }
+    }
+}
+
+export component Cleared inherits Window {
+    TimerHost {
+        content << { }
+    }
+    PopupHost {
+        content << { }
+    }
+}
+
+export component Forwarded inherits Window {
+    TimerMiddle {
+        outer << Rectangle { }
+    }
+}
+
+export component ForwardedKept inherits Window {
+    TimerMiddle { }
+}
+
+export component DerivedKept inherits Window {
+    TimerFilling { }
+}
+
+export component DerivedReplaced inherits Window {
+    TimerFilling {
+        content << Rectangle { }
+    }
+}
+
+export component SuppliedTimer inherits Window {
+    TimerHost {
+        content << caller-timer := Timer { interval: 10ms; }
+    }
+}
+
+export component SuppliedPopup inherits Window {
+    TimerHost {
+        content << PopupWindow { }
+    }
+}
+
+export component PopupForwarded inherits Window {
+    PopupMiddle {
+        outer << Rectangle { }
+    }
+}
+
+export component PopupForwardedKept inherits Window {
+    PopupMiddle { }
+}
+
+export component PopupDerivedKept inherits Window {
+    PopupFilling { }
+}
+
+export component PopupDerivedReplaced inherits Window {
+    PopupFilling {
+        content << Rectangle { }
+    }
+}
+
+export component ReexportedKept inherits Window {
+    Plain { }
+}
+
+export component ReexportedReplaced inherits Window {
+    Plain {
+        content << Rectangle { }
+    }
+}
+
+export component SameNameKept inherits Window {
+    SameName { }
+}
+
+export component SameNameReplaced inherits Window {
+    SameName {
+        content << Rectangle { }
+    }
+}
+
+export component PopupSuppliedForPopup inherits Window {
+    PopupHost {
+        content << caller-popup := PopupWindow { }
+    }
+}
+"#;
+
     fn exported_roots() -> Vec<Rc<Component>> {
+        compile(SOURCE)
+    }
+
+    fn compile(source: &str) -> Vec<Rc<Component>> {
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Llr);
         compiler_config.enable_experimental = true;
         compiler_config.inline_all_elements = true;
         let mut diag = BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
-            SOURCE.into(),
+            source.into(),
             Some(crate::source_path::SourcePath::new("test.slint")),
             &mut diag,
         );
@@ -267,7 +456,7 @@ export component DerivedReplaced inherits Window {
 
         let ids = retained.iter().map(|o| o.element.borrow().id.to_string()).collect::<Vec<_>>();
         assert_eq!(ids, ["kept"]);
-        assert!(removed.0.contains(&element_key(timer)));
+        assert!(removed.elements.contains(&element_key(timer)));
     }
 
     #[test]
@@ -280,6 +469,71 @@ export component DerivedReplaced inherits Window {
         let ids = optimized_default_ids(&component);
         for name in ["default-timer", "default-menu", "default-row"] {
             assert!(ids.iter().any(|id| id.contains(name)), "{name} not in {ids:?}");
+        }
+    }
+
+    fn timer_ids(component: &Component) -> Vec<String> {
+        component
+            .timers
+            .borrow()
+            .iter()
+            .map(|t| t.element.upgrade().unwrap().borrow().id.to_string())
+            .collect()
+    }
+
+    fn popup_ids(component: &Component) -> Vec<String> {
+        component
+            .popup_windows
+            .borrow()
+            .iter()
+            .map(|p| p.component.root_element.borrow().id.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn lowered_default_is_kept_or_dropped_with_its_slot() {
+        let roots = compile(LOWERED_SOURCE);
+        for (id, timers, popups) in [
+            ("Kept", 1, 1),
+            ("ForwardedKept", 1, 0),
+            ("PopupForwardedKept", 0, 1),
+            ("ReexportedKept", 1, 0),
+            ("SameNameKept", 1, 0),
+            ("Replaced", 0, 0),
+            ("Cleared", 0, 0),
+            ("Forwarded", 0, 0),
+            ("PopupForwarded", 0, 0),
+            ("DerivedReplaced", 0, 0),
+            ("PopupDerivedReplaced", 0, 0),
+            ("ReexportedReplaced", 0, 0),
+            ("SameNameReplaced", 0, 0),
+        ] {
+            let component = root(&roots, id);
+            assert_eq!(component.timers.borrow().len(), timers, "{id}");
+            assert_eq!(component.popup_windows.borrow().len(), popups, "{id}");
+            assert_eq!(optimized_default_ids(&component).len(), timers, "{id}");
+        }
+    }
+
+    #[test]
+    fn lowered_content_replaces_the_default() {
+        let roots = compile(LOWERED_SOURCE);
+        for (id, timer) in [
+            ("DerivedKept", "derived-timer"),
+            ("SuppliedTimer", "caller-timer"),
+            ("SameNameKept", "default-outer-timer"),
+        ] {
+            let ids = timer_ids(&root(&roots, id));
+            assert!(ids.len() == 1 && ids[0].contains(timer), "{id}: {ids:?}");
+        }
+        let component = root(&roots, "SuppliedPopup");
+        assert_eq!(component.timers.borrow().len(), 0);
+        assert_eq!(component.popup_windows.borrow().len(), 1);
+        for (id, popup) in
+            [("PopupDerivedKept", "derived-popup"), ("PopupSuppliedForPopup", "caller-popup")]
+        {
+            let ids = popup_ids(&root(&roots, id));
+            assert!(ids.len() == 1 && ids[0].contains(popup), "{id}: {ids:?}");
         }
     }
 }
