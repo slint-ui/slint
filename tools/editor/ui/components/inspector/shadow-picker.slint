@@ -4,15 +4,13 @@
 import { Api } from "../../api.slint";
 import { Style, Colors, Metrics, Typography } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
-import { FillSession } from "fill-session.slint";
 import { ShadowSession, ShadowGesture } from "shadow-session.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorColorField } from "color-field.slint";
+import { InspectorSegment } from "segment.slint";
 import { InspectorEffectSlider } from "effect-slider.slint";
 
 export component InspectorShadowControl inherits FocusScope {
-    callback removed();
-    callback inner-selected();
     height: Style.inspector-field.height;
     key-pressed(event) => {
         if event.text == Key.Return || event.text == " " { root.activate(); return accept; }
@@ -52,18 +50,12 @@ export component InspectorShadowControl inherits FocusScope {
                 horizontal-stretch: 1;
             }
         }
-        ContextMenuArea {
-            Menu {
-                MenuItem { title: @tr("Remove shadow"); activated => { ShadowSession.close(); root.removed(); } }
-                MenuItem { title: @tr("Inner shadow"); activated => { ShadowSession.close(); root.inner-selected(); } }
-            }
-            touch := TouchArea {
-                mouse-cursor: pointer;
-                accessible-role: button;
-                accessible-label: @tr("Drop shadow");
-                accessible-action-default => { root.activate(); }
-                clicked => { root.activate(); }
-            }
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            accessible-role: button;
+            accessible-label: @tr("Drop shadow");
+            accessible-action-default => { root.activate(); }
+            clicked => { root.activate(); }
         }
     }
 }
@@ -71,6 +63,7 @@ export component InspectorShadowControl inherits FocusScope {
 export component InspectorShadowPicker inherits FocusScope {
     in property <Point> parent-origin;
     callback color-accepted(string) -> bool;
+    callback history-requested(bool);
     visible: ShadowSession.open;
     focus-on-click: false;
     private property <int> opening-generation: ShadowSession.opening-generation;
@@ -84,8 +77,7 @@ export component InspectorShadowPicker inherits FocusScope {
             return accept;
         }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z") {
-            ShadowSession.cancel();
-            FillSession.apply-history(event.modifiers.shift);
+            root.history-requested(event.modifiers.shift);
             return accept;
         }
         ShadowSession.canvas-focus = false;
@@ -126,22 +118,32 @@ export component InspectorShadowPicker inherits FocusScope {
             label: @tr("Blur");
             value: ShadowSession.values.blur;
             minimum: 0;
-            maximum: 128;
+            maximum: ShadowSession.maximum-blur;
             commit-key: ShadowSession.key + ":blur";
             started => { ShadowSession.start(ShadowGesture.blur, false); }
             preview(value) => {
-                return ShadowSession.preview({
-                    offset-x: ShadowSession.values.offset-x, offset-y: ShadowSession.values.offset-y,
-                    blur: value, spread: ShadowSession.values.spread,
-                });
+                return ShadowSession.preview(ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
             }
             accepted(value) => {
-                return ShadowSession.commit(ShadowGesture.blur, {
-                    offset-x: ShadowSession.values.offset-x, offset-y: ShadowSession.values.offset-y,
-                    blur: value, spread: ShadowSession.values.spread,
-                });
+                return ShadowSession.commit(ShadowGesture.blur, ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
             }
             canceled => { ShadowSession.cancel(); }
+        }
+        HorizontalLayout {
+            spacing: Metrics.space-small;
+            for action in [
+                { value: "inner", label: @tr("Inner shadow") },
+                { value: "none", label: @tr("Remove shadow") },
+            ]: InspectorSegment {
+                kind: "text";
+                label: action.label;
+                clicked => {
+                    if ShadowSession.canvas-active {
+                        Api.set-shadow-effect(Api.current-element, action.value);
+                        ShadowSession.close();
+                    }
+                }
+            }
         }
     }
 }

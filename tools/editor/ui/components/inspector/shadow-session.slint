@@ -23,7 +23,12 @@ export global ShadowSession {
     out property <bool> open;
     out property <bool> dragging;
     in-out property <bool> canvas-focus;
+    out property <float> maximum-blur: 128;
+    out property <float> minimum-spread: -64;
+    out property <float> maximum-spread: 64;
+    private property <bool> shadow-exists: Api.has-shadow("drop-shadow-");
     out property <bool> canvas-active: open && Diagnostics.preview-editable
+        && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
     out property <string> key: Api.current-element.source-uri + ":" + Api.current-element.source-version
         + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
@@ -33,33 +38,43 @@ export global ShadowSession {
     out property <ShadowGesture> gesture;
     private property <ShadowValues> draft;
     private property <bool> pending;
-    out property <ShadowValues> values: dragging || pending ? draft : {
-        offset-x: ShadowSession.number("offset-x"),
-        offset-y: ShadowSession.number("offset-y"),
-        blur: ShadowSession.number("blur"),
-        spread: ShadowSession.number("spread"),
+    private property <ShadowValues> source-values: {
+        offset-x: Api.number-property("drop-shadow-offset-x", 0),
+        offset-y: Api.number-property("drop-shadow-offset-y", 8),
+        blur: Api.number-property("drop-shadow-blur", 16),
+        spread: Api.number-property("drop-shadow-spread", 0),
     };
+    out property <ShadowValues> values: dragging || pending ? draft : source-values;
     out property <Point> anchor-position;
     out property <Size> anchor-size;
     out property <int> opening-generation;
 
     changed selection-key => { ShadowSession.check-selection(); }
+    changed shadow-exists => { ShadowSession.check-selection(); }
     changed key => {
         if ShadowSession.dragging { ShadowSession.cancel(); }
         ShadowSession.pending = false;
     }
     private property <bool> compiling: Diagnostics.compiling;
     changed compiling => { if !ShadowSession.compiling { ShadowSession.check-selection(); } }
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => { if ShadowSession.preview-editable { ShadowSession.check-selection(); } }
 
     function check-selection() {
         if ShadowSession.open && !ShadowSession.compiling && Api.current-element.source-uri != ""
-            && Api.selection.highlight-index >= 0 && ShadowSession.selection-key != ShadowSession.target-selection-key {
+            && Diagnostics.preview-editable && Api.selection.highlight-index >= 0
+            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists) {
             ShadowSession.close();
         }
     }
 
-    function number(name: string) -> float {
-        return Api.current-property-value-data("drop-shadow-" + name).value-float;
+    public pure function updated(values: ShadowValues, gesture: ShadowGesture, primary: float, secondary: float) -> ShadowValues {
+        return {
+            offset-x: gesture == ShadowGesture.offset ? primary.round() : values.offset-x,
+            offset-y: gesture == ShadowGesture.offset ? secondary.round() : values.offset-y,
+            blur: gesture == ShadowGesture.blur ? primary.round().clamp(0, ShadowSession.maximum-blur) : values.blur,
+            spread: gesture == ShadowGesture.spread ? primary.round().clamp(ShadowSession.minimum-spread, ShadowSession.maximum-spread) : values.spread,
+        };
     }
 
     public function begin(position: Point, size: Size) {
@@ -73,6 +88,7 @@ export global ShadowSession {
         ShadowSession.opening-generation += 1;
     }
     public function close() {
+        ShadowSession.pending = false;
         if ShadowSession.open {
             ShadowSession.cancel();
             ShadowSession.open = false;
@@ -83,8 +99,11 @@ export global ShadowSession {
         }
     }
     public function start(gesture: ShadowGesture, canvas: bool) {
+        if !ShadowSession.canvas-active { ShadowSession.close(); return; }
+        let values = ShadowSession.values;
+        ShadowSession.pending = false;
         FillSession.close-picker(true, false);
-        ShadowSession.draft = ShadowSession.values;
+        ShadowSession.draft = values;
         ShadowSession.gesture = gesture;
         ShadowSession.canvas-focus = canvas;
         ShadowSession.gesture-key = ShadowSession.key;
@@ -104,6 +123,7 @@ export global ShadowSession {
         }];
     }
     public function preview(values: ShadowValues) -> bool {
+        if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
         if !ShadowSession.dragging { return false; }
         if Api.inspector-preview-shadow(ShadowSession.gesture-key, ShadowSession.changes(ShadowSession.gesture, values)) {
             ShadowSession.draft = values;
@@ -113,6 +133,11 @@ export global ShadowSession {
         return false;
     }
     public function commit(gesture: ShadowGesture, values: ShadowValues) -> bool {
+        if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
+        let source = ShadowSession.source-values;
+        let unchanged = gesture == ShadowGesture.offset ? values.offset-x == source.offset-x && values.offset-y == source.offset-y
+            : gesture == ShadowGesture.blur ? values.blur == source.blur : values.spread == source.spread;
+        if unchanged { ShadowSession.cancel(); return true; }
         let key = ShadowSession.dragging ? ShadowSession.gesture-key : ShadowSession.key;
         ShadowSession.draft = values;
         ShadowSession.dragging = false;
@@ -125,6 +150,7 @@ export global ShadowSession {
         return accepted;
     }
     public function cancel() {
+        ShadowSession.pending = false;
         if ShadowSession.dragging {
             ShadowSession.dragging = false;
             CanvasView.manipulating = false;

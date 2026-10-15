@@ -735,7 +735,8 @@ export component EditorUi inherits Window {
                 }
                 InspectorShadowPicker {
                     parent-origin: shadow-layer.absolute-position;
-                    color-accepted(text) => { return Api.commit-code-binding(Api.current-element, "drop-shadow-color", text); }
+                    history-requested(redo) => { root.apply-history(redo); }
+                    color-accepted(text) => { return ShadowSession.canvas-active && Api.commit-code-binding(Api.current-element, "drop-shadow-color", text); }
                 }
             }
 
