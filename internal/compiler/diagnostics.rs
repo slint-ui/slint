@@ -286,16 +286,21 @@ impl Diagnostic {
     // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
     // this.
     /// Returns the path of the source file where this diagnostic is attached,
-    /// or `None` if the source wasn't loaded from a file, such as one loaded from a URL.
-    #[deprecated(note = "Use `source_path()`, which also names sources that aren't files")]
+    /// or `None` if the source isn't a local file, such as one loaded from a URL.
+    /// [`Self::source_url()`] also names the other sources.
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file()?.path().as_native_path()
     }
 
-    /// Returns the name of the source where this diagnostic is attached:
-    /// the path of a file, or the URL of a source that isn't a local file.
-    pub fn source_path(&self) -> Option<String> {
-        Some(self.span.source_file()?.path().to_string())
+    /// Returns the URL of the source where this diagnostic is attached,
+    /// such as a `file:` URL for a local file.
+    pub fn source_url(&self) -> Option<String> {
+        let path = self.span.source_file()?.path();
+        let url = match path.as_native_path() {
+            Some(native) => SourcePath::new(std::path::absolute(native).ok()?).to_url(),
+            None => path.to_url(),
+        }?;
+        Some(url.into())
     }
 }
 
