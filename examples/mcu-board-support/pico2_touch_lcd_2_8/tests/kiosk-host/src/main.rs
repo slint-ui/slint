@@ -234,14 +234,14 @@ fn main() {
         })
         .count();
     assert!(header_pixels > 200, "Ink title must remain visible during partial updates");
-    let percentage_pixels = (194..218)
+    let label_pixels = (194..228)
         .flat_map(|y| (64..315).map(move |x| y * 320 + x))
         .filter(|&i| {
             let p = t.pixels[i];
             p.red().max(p.green()).max(p.blue()) > 160
         })
         .count();
-    assert!(percentage_pixels > 500, "Ink percentages must remain visible during partial updates");
+    assert!(label_pixels > 500, "Ink labels must remain visible during partial updates");
     assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width > 0));
     t.pointer(24., 210., true);
     assert!(!ui.global::<Kiosk>().get_enabled());

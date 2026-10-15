@@ -117,19 +117,13 @@ export component InkPage inherits Rectangle {
                 changed pressed => { InkParticles.hold(index, self.pressed); }
             }
             Text {
-                y: parent.height + 6px;
-                width: parent.width;
-                height: 24px;
-                text: round(info.level * 100) + "%";
-                font-size: 19px;
-                horizontal-alignment: center;
-                color: parent.accent-color;
-            }
-            Text {
-                y: parent.height + 33px;
-                width: parent.width;
+                x: -7px;
+                y: parent.height + 8px;
+                width: parent.width + 14px;
+                height: 28px;
                 text: ["YELLOW", "RED", "CYAN", "BLACK"][index];
-                font-size: 9px;
+                font-size: 15px;
+                vertical-alignment: center;
                 horizontal-alignment: center;
                 color: parent.accent-color;
             }
