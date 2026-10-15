@@ -92,7 +92,8 @@ assert_eq!(instance.get_offset_y(), 500.);
 ```
 
 ```rust
-// The mouse wheel adds to the distance that a smooth scroll has left.
+// A mouse wheel stops the animation and replaces by it's own. The remaining distance is not added because
+// we wanna interrupt
 use slint::platform::WindowEvent;
 use slint::language::ScrollBehavior;
 use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
@@ -111,7 +112,7 @@ instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel 
 }));
 slint_testing::mock_elapsed_time(1000000);
 assert_eq!(instance.get_offset_x(), 0.);
-assert!((instance.get_offset_y() - 350.).abs() < 0.01, "{}", instance.get_offset_y());
+assert!((instance.get_offset_y() - (offset_y + 50.)).abs() < 0.01, "{}", instance.get_offset_y());
 ```
 
 ```cpp

@@ -13,7 +13,7 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Flickable, ItemRc, ScrollBehavior};
+use crate::items::{Dimension, Flickable, ItemRc, ScrollBehavior};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property};
@@ -295,7 +295,10 @@ fn update_visible_instances(
         props.content_width_set(listview_width);
         return false;
     }
-    if scroll_to_row.as_ref().is_some_and(|request| request.row >= row_count) {
+    if scroll_to_row
+        .as_ref()
+        .is_some_and(|request| request.row >= row_count || request.is_stopped())
+    {
         *scroll_to_row = None;
     }
 
@@ -303,6 +306,14 @@ fn update_visible_instances(
     if !props.content_y_has_binding() {
         content_y_value = content_y_value.min(0 as Coord);
     }
+
+    let scroll::SmoothScrollLayout { jump, extra_above, layout_end } = scroll::smooth_scroll_layout(
+        scroll_to_row.as_ref(),
+        state,
+        ops,
+        content_y_value,
+        listview_height,
+    );
 
     let mut changed = false;
 
@@ -338,16 +349,22 @@ fn update_visible_instances(
     let first_item_y = state.anchor_y;
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
-    // The row to seek to, and its edge of the viewport.
-    let seek = scroll_to_row.as_ref().map(|request| (request.row, request.alignment));
-    let (mut new_offset, mut new_offset_y) = if let Some((row, alignment)) = seek {
+    // The row to seek to, its edge, and its distance beyond that edge of the viewport.
+    let seek = scroll_to_row.as_ref().and_then(|request| match (&request.state, jump) {
+        (scroll::ScrollToRowState::Instant(alignment), _) => {
+            Some((request.row, *alignment, 0 as Coord))
+        }
+        (_, Some((alignment, beyond_edge))) => Some((request.row, alignment, beyond_edge)),
+        _ => None,
+    });
+    let (mut new_offset, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
         ops.splice(0, ops.len(), 1);
         state.offset = row;
         changed |= ops.ensure_updated(0, row);
         let row_height = ops.height(0).unwrap_or(element_height);
         let row_top = match alignment {
-            scroll::RowAlignment::Top => 0 as Coord,
-            scroll::RowAlignment::Bottom => listview_height - row_height,
+            scroll::RowAlignment::Top => -beyond_edge,
+            scroll::RowAlignment::Bottom => listview_height - row_height + beyond_edge,
         };
         (row, row_top)
     } else if first_item_y > -content_y_value + one_and_a_half_screen
@@ -376,16 +393,19 @@ fn update_visible_instances(
         (state.offset, first_item_y + content_y_value)
     };
 
+    let target_row = scroll_to_row.as_ref().map(|request| request.row);
+    let mut target_span: Option<(Coord, Coord)>;
     let mut loop_count = 0;
     loop {
+        target_span = None;
         // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.offset && new_offset_y > 0 as Coord {
+        while new_offset > state.offset && new_offset_y > -extra_above {
             new_offset -= 1;
             new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
-        while new_offset > 0 && new_offset_y > 0 as Coord {
+        while new_offset > 0 && new_offset_y > -extra_above {
             new_offset -= 1;
             ops.splice(0, 0, 1);
             changed |= ops.ensure_updated(0, new_offset);
@@ -409,19 +429,27 @@ fn update_visible_instances(
                 break;
             }
             changed |= ops.ensure_updated(i, idx);
+            let top = y;
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
+            if target_row == Some(idx) {
+                target_span = Some((top, y));
+            }
             idx += 1;
-            if y >= listview_height {
+            if y >= layout_end {
                 break;
             }
         }
 
         // Create more items until there is no more room.
-        while y < listview_height && idx < row_count {
+        while y < layout_end && idx < row_count {
             let i = ops.len();
             ops.splice(i, 0, 1);
             changed |= ops.ensure_updated(i, idx);
+            let top = y;
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
+            if target_row == Some(idx) {
+                target_span = Some((top, y));
+            }
             idx += 1;
         }
 
@@ -467,7 +495,23 @@ fn update_visible_instances(
         }
         state.previous_content_y = new_content_y;
 
-        *scroll_to_row = None;
+        if let Some(request) = scroll_to_row.take() {
+            let (top, height) =
+                target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
+                    let heights = (0..ops.len())
+                        .map(|i| ops.height(i).unwrap_or(state.cached_item_height))
+                        .collect::<Vec<_>>();
+                    let (top, height) = scroll::row_geometry(state, &heights, request.row);
+                    (top + new_content_y, height)
+                });
+            *scroll_to_row = scroll::advance_scroll_to_row(
+                request,
+                top,
+                height,
+                listview_height,
+                jump.is_some(),
+            );
+        }
 
         break;
     }
@@ -687,7 +731,7 @@ fn listview_ensure_row_visible(
     scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     row: i32,
-    _behavior: ScrollBehavior,
+    behavior: ScrollBehavior,
     flickable_rc: &ItemRc,
 ) -> bool {
     let Some(row) = usize::try_from(row).ok().filter(|row| *row < row_count) else {
@@ -705,16 +749,17 @@ fn listview_ensure_row_visible(
             (top_anchor + content_y.get(), height)
         });
 
-    let alignment = match row_in_viewport {
-        None => {
+    let request_state = match (row_in_viewport, behavior) {
+        (None, ScrollBehavior::Instant) => {
             flickable.scroll_to(
                 flickable_rc,
                 LogicalPosition::new(-flickable.content_x().get() as f32, -content_y.get() as f32),
                 ScrollBehavior::Instant,
             );
-            scroll::RowAlignment::Bottom
+            scroll::ScrollToRowState::Instant(scroll::RowAlignment::Bottom)
         }
-        Some((top_anchor, row_height)) => {
+        (None, ScrollBehavior::Smooth) => scroll::ScrollToRowState::PendingSmooth,
+        (Some((top_anchor, row_height)), behavior) => {
             let Some(alignment) =
                 scroll::RowAlignment::for_row(top_anchor, row_height, viewport_height)
             else {
@@ -724,24 +769,40 @@ fn listview_ensure_row_visible(
                 return false;
             };
             let distance = alignment.distance(top_anchor, row_height, viewport_height);
-            flickable.scroll_to(
-                flickable_rc,
-                LogicalPosition::new(
-                    -flickable.content_x().get() as f32,
-                    -(content_y.get() + distance) as f32,
+            match behavior {
+                ScrollBehavior::Instant => {
+                    flickable.scroll_to(
+                        flickable_rc,
+                        LogicalPosition::new(
+                            -flickable.content_x().get() as f32,
+                            -(content_y.get() + distance) as f32,
+                        ),
+                        ScrollBehavior::Instant,
+                    );
+                    scroll::ScrollToRowState::Instant(alignment)
+                }
+                ScrollBehavior::Smooth => scroll::ScrollToRowState::Accelerating(
+                    alignment,
+                    flickable.start_content_simulation(
+                        flickable_rc,
+                        scroll::ScrollToRowMotion::new(viewport_height).accelerate(distance as f32),
+                        Dimension::Y,
+                    ),
                 ),
-                ScrollBehavior::Instant,
-            );
-            alignment
+            }
         }
     };
-    *scroll_to_row = Some(scroll::ScrollToRowRequest { row, alignment });
+    *scroll_to_row = Some(scroll::ScrollToRowRequest {
+        row,
+        flickable: flickable_rc.downgrade(),
+        state: request_state,
+    });
     true
 }
 
 impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// Scrolls the ListView that the Flickable `flickable_rc` belongs to, so that `row` is fully visible.
-    /// It always scrolls instantly, also with `ScrollBehavior::Smooth`.
+    /// With `ScrollBehavior::Smooth`, it animates the scroll.
     ///
     /// A row above the viewport, or one taller than it, ends up at the top edge;
     /// any other row ends up at the bottom edge.
