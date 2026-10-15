@@ -519,8 +519,10 @@ each instance will have their own instance of associated global singletons.
 
 ### TypeScript Support
 
-Importing a `.slint` file works in TypeScript out of the box — it compiles and runs.
-But TypeScript doesn't know the types of the exported components until you generate them.
+Node.js, Deno, and Bun run a TypeScript file that imports a `.slint` file without extra setup,
+because they strip the types without checking them.
+The TypeScript compiler and editors don't know `.slint` files, though:
+`tsc` reports "Cannot find module './main.slint'" until you add type declarations.
 
 #### Generating Type Declarations
 
@@ -560,6 +562,9 @@ to the generated `main.slint.d.ts`:
   }
 }
 ```
+
+With `moduleResolution: "nodenext"`, TypeScript doesn't find `main.slint.d.ts`.
+Name the generated file `main.d.slint.ts` instead, and enable `allowArbitraryExtensions` in `tsconfig.json`.
 
 For a complete example,
 see [/examples/todo/node-typescript](https://github.com/slint-ui/slint/tree/master/examples/todo/node-typescript).
