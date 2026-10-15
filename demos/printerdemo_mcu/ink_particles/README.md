@@ -1,6 +1,5 @@
 # Ink Particle Artwork
 
-The vial renderer composes glass, liquid, and particles into four Slint images.
 It draws tinted glass, liquid surfaces, and reflective bubbles through four RGB565 Slint images.
 Particles compute exact fractional coverage with row recurrences and restore only their previous footprints.
 Background restoration reads the empty and liquid spans directly from their assets.

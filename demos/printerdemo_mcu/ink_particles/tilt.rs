@@ -47,7 +47,6 @@ impl Tilt {
         if changed {
             self.up = up;
             self.level = vial.level;
-            // Anchor the surface at the fill height at the center of the glass.
             self.cut = projection(up, vial.width as i32 * 128, (vial.surface + 3) as i32 * 256);
         }
         let elapsed = tick.saturating_sub(self.tick).min(4) as u32;
@@ -141,13 +140,7 @@ fn spawn(vial: &Vial, up: [i16; 2], radius: usize, seed: u32) -> Bubble {
     let vy = -up[1] as i32 * 1024 - up[0] as i32 * jitter;
     let length = (vx as i64 * vx as i64 + vy as i64 * vy as i64) as u64;
     let scale = r as f32 / length.isqrt().max(1) as f32;
-    let center_y = if up[1] < -256 {
-        vial.height as i32 * 256 - half
-    } else if up[1] > 256 {
-        half
-    } else {
-        half + (seed % (vial.height as i32 * 256 - 2 * half + 1) as u32) as i32
-    };
+    let center_y = vial.height as i32 * 256 - half;
     let mut b = Bubble {
         x: vial.width as i32 * 128 + (vx as f32 * scale) as i32,
         y: center_y + (vy as f32 * scale) as i32,

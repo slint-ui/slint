@@ -12,9 +12,15 @@ const CAPACITY: usize = 32 * 1024;
 const SLOT_COUNT: usize = 3;
 use super::packet_slot::{Slot, Write};
 static DISPLAY_FLIPPED: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "pico2-queue-profile")]
 static DISPLAY_FLIPS: AtomicU32 = AtomicU32::new(0);
-pub fn flipped() -> bool { DISPLAY_FLIPPED.load(Ordering::Acquire) }
-pub fn flips() -> u32 { DISPLAY_FLIPS.load(Ordering::Relaxed) }
+pub fn flipped() -> bool {
+    DISPLAY_FLIPPED.load(Ordering::Acquire)
+}
+#[cfg(feature = "pico2-queue-profile")]
+pub fn flips() -> u32 {
+    DISPLAY_FLIPS.load(Ordering::Relaxed)
+}
 
 pub static DISPLAY_READY: AtomicBool = AtomicBool::new(false);
 static NEXT_SLOT: AtomicU32 = AtomicU32::new(0);
@@ -341,6 +347,7 @@ async fn display_loop(
                 // MY/MX change addressing; ML/MH keep the physical refresh direction unchanged.
                 command(0x36, &[if packet.flipped { 0xa0 } else { 0x60 }]);
                 DISPLAY_FLIPPED.store(packet.flipped, Ordering::Release);
+                #[cfg(feature = "pico2-queue-profile")]
                 DISPLAY_FLIPS.fetch_add(1, Ordering::Relaxed);
             }
             wave = scan.start_frame(&packet.frame_columns, packet.flipped).await;
