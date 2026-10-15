@@ -4,6 +4,12 @@
 import { DemoPalette } from "../common.slint";
 import { PushButton, ShadowBox } from "../components/components.slint";
 
+export global QueueMotion {
+    in-out property <length> maximum;
+    in-out property <length> raw-y;
+    in property <bool> pixel-snap;
+}
+
 export struct PrinterQueueItem  {
     status: string,
     progress: int,
@@ -116,18 +122,25 @@ component NarrowPrintQueueElement {
 
 export component NarrowPrinterQueueList inherits Flickable {
     content-width: self.width;
-    VerticalLayout {
-        alignment: start;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 8px;
+    content-y <=> QueueMotion.raw-y;
+    content-height: queue-layout.preferred-height;
+    changed content-height => { QueueMotion.maximum = max(1px, self.content-height - self.height); }
+    changed height => { QueueMotion.maximum = max(1px, self.content-height - self.height); }
+    Rectangle {
+        width: root.width;
+        height: queue-layout.preferred-height;
+        y: QueueMotion.pixel-snap ? round(root.content-y / 1px) * 1px - root.content-y : 0px;
+        queue-layout := VerticalLayout {
+            height: parent.height;
+            alignment: start;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 8px;
 
-        for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
-            cancel-job => {
-                PrinterQueue.cancel-job(index)
+            for queue-item[index] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
+                cancel-job => { PrinterQueue.cancel-job(index) }
+                queue-item: queue-item;
             }
-
-            queue-item: queue-item;
         }
     }
 }

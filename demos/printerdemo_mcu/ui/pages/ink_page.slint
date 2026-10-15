@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, PrinterState, InkLevel } from "../common.slint";
+import { DemoPalette, PrinterState, InkLevel, InkParticles } from "../common.slint";
 import { Page } from "../components/components.slint";
 
-export component InkPage inherits Page {
+component PlainInkPage inherits Page {
     property <bool> page-visible;
 
     header: "Ink Level";
@@ -74,6 +74,65 @@ export component InkPage inherits Page {
                     border-color: DemoPalette.neutral-box;
                     border-width: 2px;
                 }
+            }
+        }
+    }
+}
+
+export component InkPage inherits Rectangle {
+    background: InkParticles.enabled ? #050914 : DemoPalette.page-background;
+    property <length> vial-width: max(8px, floor((root.width - 80px) / 4px) * 1px);
+    property <length> vial-height: max(24px, floor((root.height - 100px) / 1px) * 1px);
+
+    init => { InkParticles.resize(round(root.vial-width / 1phx), round(root.vial-height / 1phx)); }
+    changed vial-width => { InkParticles.resize(round(root.vial-width / 1phx), round(root.vial-height / 1phx)); }
+    changed vial-height => { InkParticles.resize(round(root.vial-width / 1phx), round(root.vial-height / 1phx)); }
+
+    if !InkParticles.enabled: PlainInkPage { }
+
+    if InkParticles.enabled: Rectangle {
+        Text {
+            x: 16px;
+            y: 12px;
+            text: "INK LEVEL";
+            font-size: 18px;
+            color: #f4f8ff;
+        }
+        for info[index] in PrinterState.ink-levels: Rectangle {
+            property <color> accent-color: [#ff9c10, #ff386c, #14c0ff, #bcd4ef][index];
+            x: (root.width - 4 * root.vial-width - 42px) / 2 + index * (root.vial-width + 14px);
+            y: 48px;
+            width: root.vial-width;
+            height: root.vial-height;
+
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: InkParticles.frames[index];
+                image-fit: fill;
+                image-rendering: pixelated;
+            }
+            TouchArea {
+                width: parent.width;
+                height: parent.height;
+                changed pressed => { InkParticles.hold(index, self.pressed); }
+            }
+            Text {
+                y: parent.height + 6px;
+                width: parent.width;
+                height: 24px;
+                text: round(info.level * 100) + "%";
+                font-size: 19px;
+                horizontal-alignment: center;
+                color: parent.accent-color;
+            }
+            Text {
+                y: parent.height + 33px;
+                width: parent.width;
+                text: ["YELLOW", "RED", "CYAN", "BLACK"][index];
+                font-size: 9px;
+                horizontal-alignment: center;
+                color: parent.accent-color;
             }
         }
     }
