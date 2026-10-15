@@ -71,6 +71,8 @@ pub trait GlyphRenderer {
 pub(super) use i_slint_core::textlayout::DEFAULT_FONT_SIZE;
 
 mod pixelfont;
+#[cfg(all(feature = "embedded-text-cache", not(feature = "systemfonts")))]
+pub(crate) mod prepared_text;
 #[cfg(feature = "systemfonts")]
 pub mod vectorfont;
 
@@ -240,9 +242,24 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     })
 }
 
+pub fn text_line_height_for_font<Font>(
+    font: &Font,
+    font_request: &FontRequest,
+    scale_factor: ScaleFactor,
+) -> i_slint_core::lengths::LogicalLength
+where
+    Font: i_slint_core::textlayout::AbstractFont
+        + i_slint_core::textlayout::TextShaper<Length = PhysicalLength>,
+{
+    let layout = text_layout_for_font(font, font_request, scale_factor);
+    let height = layout.line_height.unwrap_or_else(|| font.height());
+    (height.cast() / scale_factor).cast()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_core::items::TextWrap;
     use i_slint_core::lengths::LogicalLength;
     use i_slint_core::slice::Slice;
     use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
@@ -328,5 +345,53 @@ mod tests {
         let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
 
         assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
+    }
+
+    #[test]
+    fn bitmap_line_height_matches_no_wrap_layout() {
+        static GLYPHS: i_slint_core::graphics::BitmapGlyphs =
+            i_slint_core::graphics::BitmapGlyphs {
+                pixel_size: 12,
+                glyph_data: Slice::from_slice(&[]),
+            };
+        static FONT: BitmapFont = BitmapFont {
+            family_name: Slice::from_slice(b"Height test"),
+            character_map: Slice::from_slice(&[]),
+            units_per_em: 1000.,
+            ascent: 927.,
+            descent: -231.,
+            x_height: 500.,
+            cap_height: 700.,
+            glyphs: Slice::from_slice(&[]),
+            weight: 400,
+            italic: false,
+            sdf: false,
+        };
+        for pixel_size in [9, 12, 15, 19, 24] {
+            let font = pixelfont::PixelFont {
+                bitmap_font: &FONT,
+                glyphs: &GLYPHS,
+                pixel_size: PhysicalLength::new(pixel_size),
+            };
+            for scale in [1., 1.25, 2., 3.] {
+                let scale_factor = ScaleFactor::new(scale);
+                for factor in [None, Some(0.), Some(0.5), Some(1.), Some(1.333), Some(2.5)] {
+                    let request = FontRequest { line_height_factor: factor, ..Default::default() };
+                    let layout = text_layout_for_font(&font, &request, scale_factor);
+                    for text in
+                        ["", " ", "PRINTING", "Slint-Demo.jpeg", "é中🙂", "long unwrapped title"]
+                    {
+                        let (_, height) = layout.text_size(text, None, TextWrap::NoWrap, None);
+                        let expected: i_slint_core::lengths::LogicalLength =
+                            (height.cast() / scale_factor).cast();
+                        assert_eq!(
+                            text_line_height_for_font(&font, &request, scale_factor),
+                            expected,
+                            "size {pixel_size}, scale {scale}, factor {factor:?}, text {text:?}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }
