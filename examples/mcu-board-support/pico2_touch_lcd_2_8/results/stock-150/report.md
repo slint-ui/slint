@@ -2,6 +2,7 @@
 
 The final firmware uses the rated 150 MHz CPU, 48 MHz SPI, and native 320 × 240 output.
 The target is the measured panel cadence, approximately 58.6 Hz.
+The [75 MHz flash qualification](flash-75/report.md) records the current flash timing, its isolated raster savings, and repeated corruption checks.
 The Settings list includes the final Kiosk mode checkbox and a 207-pixel scroll range.
 Normal Ink retains 16/26/20/32 particles; both clock configurations now enable held-vial boost to 26/42/32/52.
 

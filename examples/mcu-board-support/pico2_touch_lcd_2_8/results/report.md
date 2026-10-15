@@ -52,6 +52,8 @@ The `reference` directory contains Queue and Settings frames at adjacent whole-p
 - Keep three immutable 32 KiB packet slots until DMA completes.
 - Clock the stock CPU at 150 MHz and the peripheral PLL at 96 MHz, providing 48 MHz SPI independently.
   USB and ADC remain at 48 MHz.
+- Run validated quad-I/O flash reads at 75 MHz with the stock CPU clock.
+  See the [flash-clock comparison](stock-150/flash-75/report.md) for isolated raster savings and unchanged presentation cadence.
 - Stream pixel payloads as 16-bit SPI words with DMA byte swapping.
   Commands and scan reads retain their separate 8-bit configuration.
 - Select a scan wave using the actual ordered rectangle costs, including beam waits, command allowance, and admission margin.

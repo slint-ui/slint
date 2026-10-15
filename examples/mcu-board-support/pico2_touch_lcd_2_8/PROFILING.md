@@ -1,6 +1,6 @@
 # Further Pico Renderer Profiling
 
-<!-- cSpell:ignore flashinfo -->
+<!-- cSpell:ignore flashinfo flashhash objcopy -->
 
 The stock-speed printer runs at the measured panel cadence with maximum-size Ink boost enabled.
 Further work targets lower CPU rendering time while preserving pixels, particle counts, and input behavior.
@@ -86,9 +86,10 @@ Do not reintroduce those approaches without new evidence.
 ## Tools Available Now
 
 - The profiling USB command `flashinfo` reads the live QMI timing, read format, and read command without changing them.
-  The [stock flash baseline](results/stock-150/flash-clock.json) reports a 150 MHz system clock, divisor 3, and 50 MHz quad-I/O reads.
-  Divisor 2 would provide 75 MHz; its timing margin, flash-read integrity, and rendering benefit remain untested.
+  The [original flash baseline](results/stock-150/flash-clock.json) reports divisor 3 and 50 MHz quad-I/O reads at 150 MHz CPU.
+  The [75 MHz qualification](results/stock-150/flash-75/report.md) measures the retained divisor-2 startup configuration and its rendering benefit.
   SRAM accesses, cache hits, and display SPI transfers do not speed up directly with the flash clock.
+- `check-printer-flash.py` compares uncached flash reads with the flashed ELF using the read-only profiling command `flashhash`.
 - The USB collector measures completed changing frames, physical panel ticks, input dispatch, packet preparation, and scan deadlines.
   The coarse profile also retains stage timings for the frame with the largest total draw time, separating slow rasterization from waiting for packet space.
 - `PICO_RENDERER_PROFILE=1` enables the nested timing buckets shown above.
