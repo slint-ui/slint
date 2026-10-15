@@ -42,4 +42,10 @@ const TestCase &instance = *handle;
 assert(instance.get_requested());
 assert_eq(instance.get_content_y(), -(11. * 100. - instance.get_visible_height()));
 ```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.requested);
+assert.equal(instance.content_y, -(11 * 100 - instance.visible_height));
+```
 */

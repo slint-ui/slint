@@ -59,4 +59,13 @@ instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. })
 // Row 5 ends at 600px, so it ends up at the bottom edge of the 300px viewport.
 assert_eq(instance.get_content_y(), -300.);
 ```
+
+```js
+var instance = new slint.TestCase({});
+instance.scroll_to_row(5);
+// The click only triggers the layout pass; the rows don't react to it.
+slintlib.private_api.send_mouse_click(instance, 150, 150);
+// Row 5 ends at 600px, so it ends up at the bottom edge of the 300px viewport.
+assert.equal(instance.content_y, -300);
+```
 */

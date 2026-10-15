@@ -107,4 +107,31 @@ assert_eq(ensure_visible_and_layout(red_rectangle_index), -rectangle_height);
 assert_eq(ensure_visible_and_layout(red_rectangle_index), -rectangle_height);
 assert_eq(ensure_visible_and_layout(blue_rectangle_index), 0.);
 ```
+
+```js
+const BLUE_RECTANGLE_INDEX = 0;
+const RED_RECTANGLE_INDEX = 1;
+const BLACK_RECTANGLE_INDEX = 4;
+const CYAN_RECTANGLE_INDEX = 7;
+const RECTANGLE_HEIGHT = 200;
+
+var instance = new slint.TestCase({});
+function ensure_visible_and_layout(row) {
+    instance.ensure_visible_row(row, "instant");
+    slintlib.private_api.mock_elapsed_time(16);
+    // The click only triggers the layout pass; the rows don't react to it.
+    slintlib.private_api.send_mouse_click(instance, 100, 300);
+    return instance.content_y;
+}
+const bottom_aligned = (row) => -((row + 1) * RECTANGLE_HEIGHT - instance.visible_height);
+
+assert.equal(instance.listview_content_height, 8 * RECTANGLE_HEIGHT);
+assert.equal(instance.content_y, 0);
+
+assert.equal(ensure_visible_and_layout(BLACK_RECTANGLE_INDEX), bottom_aligned(BLACK_RECTANGLE_INDEX));
+assert.equal(ensure_visible_and_layout(CYAN_RECTANGLE_INDEX), bottom_aligned(CYAN_RECTANGLE_INDEX));
+assert.equal(ensure_visible_and_layout(RED_RECTANGLE_INDEX), -RECTANGLE_HEIGHT);
+assert.equal(ensure_visible_and_layout(RED_RECTANGLE_INDEX), -RECTANGLE_HEIGHT);
+assert.equal(ensure_visible_and_layout(BLUE_RECTANGLE_INDEX), 0);
+```
 */
