@@ -90,6 +90,7 @@ circledraw
 circularprogressindicator
 CLIB
 clippy
+clkdiv
 clru
 cmakelists
 cmark
@@ -126,6 +127,8 @@ cpos
 cppbuild
 cppdocs
 cppreference
+cpsdvsr
+cpsr
 CSPRNG
 cstyle
 Csvg
@@ -162,6 +165,7 @@ divp
 divq
 divr
 DLOPEN
+dmach
 docsrs
 docstrings
 doctests
@@ -195,6 +199,7 @@ emcmake
 emscripten
 endforeach
 endfunction
+endr
 endrst
 enim
 epoll
@@ -207,6 +212,7 @@ esplash
 Espressif
 ESPTOOLPY
 espup
+euninit
 euvx
 EVENTLOOP
 eventresult
@@ -257,6 +263,7 @@ frontmatter
 Fsvg
 fullsize
 Fullwidth
+funcsel
 fvar
 fwasm
 Fwww
@@ -299,8 +306,11 @@ httparse
 hvac
 iconbuttonitem
 iconfont
+IDAT
 IDXGI
 idxgiadapter
+IEND
+IHDR
 imac
 imafc
 imageprop
@@ -458,11 +468,13 @@ nodelay
 noexcept
 noglib
 NOLOAD
+nomem
 noncanonical
 noninteractive
 noopener
 Nord
 noseat
+nostack
 nostrud
 notexist
 noto
@@ -532,6 +544,7 @@ pyobject
 pypi
 pypiserver
 pyproject
+pyserial
 pystruct
 pytest
 qskinny
@@ -580,6 +593,8 @@ rustls
 rustup
 Rustybuzz
 safeui
+scanline
+scanlines
 Schukat
 scanout
 sclk
@@ -697,6 +712,7 @@ TOPLEVEL
 Torizon
 toucharea
 toupper
+Treq
 trunc
 tungstenite
 typedoc
@@ -723,6 +739,7 @@ Unpremul
 unpremultiply
 unsendable
 usbc
+USBCTRL
 usecases
 userconfig
 usize
@@ -748,6 +765,7 @@ wakeup
 walkdir
 wasmbind
 Waveshare
+Wdsel
 weakref
 weatherdemo
 weathericons
