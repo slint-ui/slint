@@ -58,6 +58,9 @@ use i_slint_core::{Brush, Color, Coord, ImageInner, StaticTextures};
 use num_traits::Float;
 use num_traits::NumCast;
 
+#[cfg(feature = "embedded-profile")]
+pub mod embedded_profile;
+
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565BigEndianPixel, Rgb565Pixel, TargetPixel};
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
@@ -829,6 +832,8 @@ impl SoftwareRenderer {
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
     ) -> PhysicalRegion {
+        #[cfg(feature = "embedded-profile")]
+        let _profile = embedded_profile::Scope::new(0);
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
         let buffer_pixel_count = num_lines * pixels_per_line;
@@ -878,7 +883,7 @@ impl SoftwareRenderer {
             window_inner,
             RenderToBuffer {
                 buffer,
-                dirty_range_cache: Vec::new(),
+                dirty_rectangles: Vec::new(),
                 dirty_region: Default::default(),
                 scale_factor: factor,
             },
@@ -893,6 +898,8 @@ impl SoftwareRenderer {
             .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
+                #[cfg(feature = "embedded-profile")]
+                let profile_dirty = embedded_profile::Scope::new(1);
                 let dirty_region = self.compute_frame_dirty_region(
                     &mut renderer,
                     components,
@@ -901,6 +908,19 @@ impl SoftwareRenderer {
                     size,
                 );
 
+                #[cfg(feature = "embedded-profile")]
+                drop(profile_dirty);
+                renderer.actual_renderer.processor.dirty_rectangles = dirty_region
+                    .iter()
+                    .map(|(position, size)| {
+                        euclid::rect(
+                            position.x as i16,
+                            position.y as i16,
+                            size.width as i16,
+                            size.height as i16,
+                        )
+                    })
+                    .collect();
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 if !renderer
                     .actual_renderer
@@ -908,16 +928,21 @@ impl SoftwareRenderer {
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
+                    let background_color: PremultipliedRgbaColor = background.color().into();
                     let gradient_background = gradient_background(&background);
                     if !gradient_background.is_some_and(Brush::is_opaque) {
                         let mut bg = TargetPixel::background();
                         if gradient_background.is_none() {
-                            TargetPixel::blend(&mut bg, background.color().into());
+                            TargetPixel::blend(&mut bg, background_color);
                         }
                         renderer.actual_renderer.processor.foreach_ranges(
                             &dirty_region.bounding_rect(),
                             |_, buffer, _, _| {
-                                buffer.fill(bg);
+                                if gradient_background.is_none() && background_color.alpha == u8::MAX {
+                                    TargetPixel::blend_slice(buffer, background_color);
+                                } else {
+                                    buffer.fill(bg);
+                                }
                             },
                         );
                     }
@@ -1215,24 +1240,28 @@ impl RendererSealed for SoftwareRenderer {
         })
     }
 
-    // Bitmap fonts fall back to text_size() with the same font.
     fn text_line_height(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
     ) -> Option<LogicalLength> {
+        let scale_factor = self.scale_factor()?;
         #[cfg(feature = "systemfonts")]
-        {
-            let scale_factor = self.scale_factor()?;
-            let slint_ctx = self.slint_context()?;
-            let mut font_ctx = slint_ctx.font_context().borrow_mut();
-            let font = fonts::match_font(&font_request, scale_factor, &mut font_ctx);
-            if uses_parley(&font) {
-                return sharedparley::text_line_height(&mut font_ctx, &font_request);
-            }
+        let slint_ctx = self.slint_context()?;
+        #[cfg(feature = "systemfonts")]
+        let mut font_ctx = slint_ctx.font_context().borrow_mut();
+        let font = fonts::match_font(
+            &font_request,
+            scale_factor,
+            #[cfg(feature = "systemfonts")]
+            &mut font_ctx,
+        );
+        #[cfg(feature = "systemfonts")]
+        if uses_parley(&font) {
+            return sharedparley::text_line_height(&mut font_ctx, &font_request);
         }
-        #[cfg(not(feature = "systemfonts"))]
-        let _ = font_request;
-        None
+        Some(with_font!(&font, |font| {
+            fonts::text_line_height_for_font(font, &font_request, scale_factor)
+        }))
     }
 
     fn char_size(
@@ -1890,6 +1919,9 @@ trait ProcessScene {
     );
 }
 
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
 fn process_rectangle_impl(
     processor: &mut dyn ProcessScene,
     args: &target_pixel_buffer::DrawRectangleArgs,
@@ -2166,57 +2198,99 @@ fn process_rectangle_impl(
 
 struct RenderToBuffer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
-    dirty_range_cache: Vec<core::ops::Range<i16>>,
+    dirty_rectangles: Vec<PhysicalRect>,
     dirty_region: PhysicalRegion,
     scale_factor: ScaleFactor,
 }
 
+#[test]
+fn prepared_dirty_rectangles_clip_each_pixel_exactly_once() {
+    let clips = [
+        [euclid::rect(7, 5, 37, 29), euclid::rect(12, 9, 9, 11), euclid::rect(7, 5, 37, 29)],
+        [euclid::rect(0, 0, 12, 8), euclid::rect(9, 5, 23, 16), euclid::rect(40, 24, 19, 20)],
+        [euclid::rect(0, 0, 0, 0), euclid::rect(0, 47, 64, 1), euclid::rect(63, 0, 1, 48)],
+    ];
+    for clips in clips {
+        for count in 0..=3 {
+            let mut region = PhysicalRegion::default();
+            region.count = count;
+            for (dest, rect) in region.rectangles.iter_mut().zip(clips) {
+                *dest = rect.to_box2d();
+            }
+            for x in [-20, 0, 7, 24, 43, 64] {
+                for y in [-10, 0, 5, 17, 33, 48] {
+                    for width in [0, 1, 19, 80] {
+                        for height in [0, 1, 17, 60] {
+                            let geometry = euclid::rect(x, y, width, height);
+                            let mut pixels = alloc::vec![Rgb565Pixel(0); 64 * 48];
+                            let mut buffer = TargetPixelSlice { data: &mut pixels, pixel_stride: 64 };
+                            let mut renderer = RenderToBuffer {
+                                buffer: &mut buffer,
+                                dirty_rectangles: region
+                                    .iter()
+                                    .map(|(p, s)| euclid::rect(
+                                        p.x as i16, p.y as i16, s.width as i16, s.height as i16,
+                                    ))
+                                    .collect(),
+                                dirty_region: region.clone(),
+                                scale_factor: ScaleFactor::new(1.),
+                            };
+                            renderer.foreach_ranges(&geometry, |_, pixels, left, right| {
+                                assert_eq!(left + pixels.len() as i16 + right, width);
+                                for pixel in pixels {
+                                    pixel.0 += 1;
+                                }
+                            });
+                            for py in 0..48 {
+                                for px in 0..64 {
+                                    let point = euclid::point2(px, py);
+                                    let expected = geometry.contains(point)
+                                        && clips[..count].iter().any(|clip| clip.contains(point));
+                                    assert_eq!(
+                                        pixels[py as usize * 64 + px as usize].0,
+                                        expected as u16,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
     fn foreach_ranges(
         &mut self,
         geometry: &PhysicalRect,
         mut f: impl FnMut(i16, &mut [B::TargetPixel], i16, i16),
     ) {
-        let mut line = geometry.min_y();
-        while let Some(mut next) =
-            region_line_ranges(&self.dirty_region, line, &mut self.dirty_range_cache)
-        {
-            next = next.min(geometry.max_y());
-            for r in &self.dirty_range_cache {
-                if geometry.origin.x >= r.end {
-                    continue;
-                }
-                let begin = r.start.max(geometry.origin.x);
-                let end = r.end.min(geometry.origin.x + geometry.size.width);
-                if begin >= end {
-                    continue;
-                }
-                let extra_left_clip = begin - geometry.origin.x;
-                let extra_right_clip = geometry.origin.x + geometry.size.width - end;
-
-                let region = PhysicalRect {
-                    origin: PhysicalPoint::new(begin, line),
-                    size: PhysicalSize::new(end - begin, next - line),
-                };
-
-                for l in region.y_range() {
-                    f(
-                        l,
-                        &mut self.buffer.line_slice(l as usize)
-                            [region.min_x() as usize..region.max_x() as usize],
-                        extra_left_clip,
-                        extra_right_clip,
-                    );
-                }
+        for dirty in &self.dirty_rectangles {
+            let Some(region) = geometry.intersection(dirty) else { continue };
+            let left = region.min_x() - geometry.min_x();
+            let right = geometry.max_x() - region.max_x();
+            for line in region.y_range() {
+                f(
+                    line,
+                    &mut self.buffer.line_slice(line as usize)
+                        [region.min_x() as usize..region.max_x() as usize],
+                    left,
+                    right,
+                );
             }
-            if next == geometry.max_y() {
-                break;
-            }
-            line = next;
         }
     }
 
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
     fn process_texture_impl(&mut self, geometry: PhysicalRect, texture: SceneTexture<'_>) {
+        #[cfg(feature = "embedded-profile")]
+        let _profile = embedded_profile::Scope::new(3);
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
             draw_functions::draw_texture_line(
                 &geometry,
@@ -2261,10 +2335,14 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         }
 
         let scale_factor = self.scale_factor;
+        #[cfg(feature = "embedded-profile")]
+        let _profile = embedded_profile::Scope::new(4);
         process_rectangle_impl(self, args, &clip, scale_factor);
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
+        #[cfg(feature = "embedded-profile")]
+        let _profile = embedded_profile::Scope::new(5);
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
             draw_functions::draw_rounded_rectangle_line(
                 &geometry,
@@ -2826,110 +2904,123 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         _ => color,
                     };
 
-                    let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
-                        continue;
-                    };
-
-                    let data = match &glyph.alpha_map {
-                        fonts::GlyphAlphaMap::Static(data) => {
-                            if glyph.sdf {
-                                let geometry = clipped_target.translate(offset).round();
-                                let origin =
-                                    (geometry.origin - offset.round()).round().cast::<i16>();
-                                let off_x = origin.x - target_rect.origin.x as i16;
-                                let off_y = origin.y - target_rect.origin.y as i16;
-                                let pixel_stride = glyph.pixel_stride;
-                                let mut geometry = geometry.cast();
-                                if geometry.size.width > glyph.width.get() - off_x {
-                                    geometry.size.width = glyph.width.get() - off_x
-                                }
-                                if geometry.size.height > glyph.height.get() - off_y {
-                                    geometry.size.height = glyph.height.get() - off_y
-                                }
-                                let source_size = geometry.size;
-                                if source_size.is_empty() {
-                                    continue;
-                                }
-
-                                let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
-                                let normalize = |x: Fixed<i32, 8>| {
-                                    if x < Fixed::from_integer(0) {
-                                        x + Fixed::from_integer(1)
-                                    } else {
-                                        x
-                                    }
-                                };
-                                let fract_x =
-                                    normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
-                                let off_x = delta32 * off_x as i32 + fract_x;
-                                let fract_y =
-                                    normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                                let off_y = delta32 * off_y as i32 + fract_y;
-                                let texture = SceneTexture {
-                                    data,
-                                    pixel_stride,
-                                    format: TexturePixelFormat::SignedDistanceField,
-                                    extra: SceneTextureExtra {
-                                        colorize: color,
-                                        // color already is mixed with global alpha
-                                        alpha: color.alpha(),
-                                        rotation: self.rotation.orientation,
-                                        dx: scale_delta,
-                                        dy: scale_delta,
-                                        off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                                        off_y: Fixed::try_from_fixed(off_y).unwrap(),
-                                    },
-                                };
-                                self.processor.process_scene_texture(
-                                    geometry.transformed(self.rotation),
-                                    texture,
-                                );
-                                continue;
-                            };
-
-                            target_pixel_buffer::TextureDataContainer::Static(
-                                target_pixel_buffer::TextureData::new(
-                                    data,
-                                    TexturePixelFormat::AlphaMap,
-                                    glyph.pixel_stride as usize,
-                                    euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
-                                ),
-                            )
-                        }
-                        fonts::GlyphAlphaMap::Shared(data) => {
-                            let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
-                            target_pixel_buffer::TextureDataContainer::Shared {
-                                buffer: SharedBufferData::AlphaMap {
-                                    data: data.clone(),
-                                    width: glyph.pixel_stride,
-                                },
-                                source_rect,
-                            }
-                        }
-                    };
-                    let clipped_target =
-                        clipped_target.translate(offset).round().transformed(self.rotation);
-                    let target_rect =
-                        target_rect.translate(offset).round().transformed(self.rotation);
-                    let t = target_pixel_buffer::DrawTextureArgs {
-                        data,
-                        colorize: Some(color),
-                        // color already is mixed with global alpha
-                        alpha: color.alpha(),
-                        dst_x: target_rect.origin.x as _,
-                        dst_y: target_rect.origin.y as _,
-                        dst_width: target_rect.size.width as _,
-                        dst_height: target_rect.size.height as _,
-                        rotation: self.rotation.orientation,
-                        tiling: None,
-                    };
-
-                    self.processor.process_target_texture(&t, clipped_target.cast());
+                    self.draw_positioned_glyph(
+                        &glyph,
+                        target_rect,
+                        physical_clip,
+                        offset,
+                        color,
+                        scale_delta,
+                    );
                 }
                 core::ops::ControlFlow::Continue(())
             },
             selection.as_ref().map(|s| s.selection.clone()),
         );
+    }
+
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
+    fn draw_positioned_glyph(
+        &mut self,
+        glyph: &fonts::RenderableGlyph,
+        target_rect: euclid::Rect<f32, PhysicalPx>,
+        physical_clip: euclid::Rect<f32, PhysicalPx>,
+        offset: euclid::Vector2D<f32, PhysicalPx>,
+        color: Color,
+        scale_delta: Fixed<u16, 8>,
+    ) {
+        let gl_x = PhysicalLength::new((-glyph.x).truncate() as i16);
+        let gl_y = PhysicalLength::new(glyph.y.truncate() as i16);
+        let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+            return;
+        };
+
+        let data = match &glyph.alpha_map {
+            fonts::GlyphAlphaMap::Static(data) => {
+                if glyph.sdf {
+                    let geometry = clipped_target.translate(offset).round();
+                    let origin = (geometry.origin - offset.round()).round().cast::<i16>();
+                    let off_x = origin.x - target_rect.origin.x as i16;
+                    let off_y = origin.y - target_rect.origin.y as i16;
+                    let pixel_stride = glyph.pixel_stride;
+                    let mut geometry = geometry.cast();
+                    if geometry.size.width > glyph.width.get() - off_x {
+                        geometry.size.width = glyph.width.get() - off_x
+                    }
+                    if geometry.size.height > glyph.height.get() - off_y {
+                        geometry.size.height = glyph.height.get() - off_y
+                    }
+                    let source_size = geometry.size;
+                    if source_size.is_empty() {
+                        return;
+                    }
+
+                    let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                    let normalize = |x: Fixed<i32, 8>| {
+                        if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
+                    };
+                    let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                    let off_x = delta32 * off_x as i32 + fract_x;
+                    let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                    let off_y = delta32 * off_y as i32 + fract_y;
+                    let texture = SceneTexture {
+                        data,
+                        pixel_stride,
+                        format: TexturePixelFormat::SignedDistanceField,
+                        extra: SceneTextureExtra {
+                            colorize: color,
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
+                            rotation: self.rotation.orientation,
+                            dx: scale_delta,
+                            dy: scale_delta,
+                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                        },
+                    };
+                    self.processor
+                        .process_scene_texture(geometry.transformed(self.rotation), texture);
+                    return;
+                };
+
+                target_pixel_buffer::TextureDataContainer::Static(
+                    target_pixel_buffer::TextureData::new(
+                        data,
+                        TexturePixelFormat::AlphaMap,
+                        glyph.pixel_stride as usize,
+                        euclid::size2(glyph.width.get(), glyph.height.get()).cast(),
+                    ),
+                )
+            }
+            fonts::GlyphAlphaMap::Shared(data) => {
+                let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
+                target_pixel_buffer::TextureDataContainer::Shared {
+                    buffer: SharedBufferData::AlphaMap {
+                        data: data.clone(),
+                        width: glyph.pixel_stride,
+                    },
+                    source_rect,
+                }
+            }
+        };
+        let clipped_target = clipped_target.translate(offset).round().transformed(self.rotation);
+        let target_rect = target_rect.translate(offset).round().transformed(self.rotation);
+        let t = target_pixel_buffer::DrawTextureArgs {
+            data,
+            colorize: Some(color),
+            // color already is mixed with global alpha
+            alpha: color.alpha(),
+            dst_x: target_rect.origin.x as _,
+            dst_y: target_rect.origin.y as _,
+            dst_width: target_rect.size.width as _,
+            dst_height: target_rect.size.height as _,
+            rotation: self.rotation.orientation,
+            tiling: None,
+        };
+
+        self.processor.process_target_texture(&t, clipped_target.cast());
     }
 
     /// Returns the color, mixed with the current_state's alpha
@@ -3006,6 +3097,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
     }
 
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&dyn RenderBorderRectangle>,
@@ -3139,6 +3233,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
     }
 
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
     fn draw_text(
         &mut self,
         text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
@@ -3146,7 +3243,16 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
+        #[cfg(feature = "embedded-profile")]
+        let _profile = embedded_profile::Scope::new(2);
+        #[cfg(feature = "embedded-profile")]
+        let request_profile = embedded_profile::Scope::new(6);
         let font_request = text.font_request(self_rc);
+        #[cfg(feature = "embedded-profile")]
+        drop(request_profile);
+
+        #[cfg(feature = "embedded-profile")]
+        let font_profile = embedded_profile::Scope::new(7);
 
         #[cfg(feature = "systemfonts")]
         let mut font_ctx = self.window.context().font_context().borrow_mut();
@@ -3156,6 +3262,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             #[cfg(feature = "systemfonts")]
             &mut font_ctx,
         );
+
+        #[cfg(feature = "embedded-profile")]
+        drop(font_profile);
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
@@ -3198,6 +3307,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let (horizontal_alignment, vertical_alignment) = text.alignment();
         let max_lines = text.line_limit();
 
+        #[cfg(feature = "embedded-profile")]
+        let prepare_profile = embedded_profile::Scope::new(8);
+
         with_font!(&font, |font| {
             let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
             let paragraph = TextParagraphLayout {
@@ -3213,7 +3325,37 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 max_lines,
             };
 
-            self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            #[cfg(all(feature = "embedded-text-cache", not(feature = "systemfonts")))]
+            {
+                let prepared = fonts::prepared_text::get(&paragraph);
+                #[cfg(feature = "embedded-profile")]
+                drop(prepare_profile);
+                #[cfg(feature = "embedded-profile")]
+                let _submit_profile = embedded_profile::Scope::new(9);
+                if let Some(prepared) = prepared {
+                    let delta = font.scale_delta();
+                    for glyph in prepared.iter() {
+                        self.draw_positioned_glyph(
+                            &glyph.glyph,
+                            glyph.rect.cast(),
+                            physical_clip,
+                            offset,
+                            color,
+                            delta,
+                        );
+                    }
+                } else {
+                    self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+                }
+            }
+            #[cfg(any(not(feature = "embedded-text-cache"), feature = "systemfonts"))]
+            {
+                #[cfg(feature = "embedded-profile")]
+                drop(prepare_profile);
+                #[cfg(feature = "embedded-profile")]
+                let _submit_profile = embedded_profile::Scope::new(9);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            }
         });
     }
 
