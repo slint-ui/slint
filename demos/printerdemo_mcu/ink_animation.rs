@@ -172,26 +172,42 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                     .get_ink_levels()
                     .row_data(index)
                     .map_or(0., |ink| ink.level);
-                let tile = animation.tiles[index].get_or_insert_with(|| Tile {
-                    vial: Vial::new(size.0, size.1, index),
-                    buffers: core::array::from_fn(|_| {
-                        SharedPixelBuffer::new(size.0 as u32, size.1 as u32)
-                    }),
-                    back: 0,
-                    states: core::array::from_fn(|_| FrameState::default()),
+                let tile = animation.tiles[index].get_or_insert_with(|| {
+                    let mut tile = Tile {
+                        vial: Vial::new(size.0, size.1, index),
+                        buffers: core::array::from_fn(|_| {
+                            SharedPixelBuffer::new(size.0 as u32, size.1 as u32)
+                        }),
+                        back: 0,
+                        states: core::array::from_fn(|_| FrameState::default()),
+                    };
+                    #[cfg(feature = "pico2")]
+                    tile.vial.advance_tilt(up, tick);
+                    tile
                 });
                 tile.vial.set_level(((level.clamp(0., 1.) * reveal as f32) as u16).min(1024));
                 tile.vial.set_held(hold_mask & (1 << index) != 0, tick);
-                #[cfg(feature = "pico2")]
-                tile.vial.advance_tilt(up, tick);
-                #[cfg(feature = "pico2-queue-profile")]
-                {
-                    counts[index] = tile.vial.particle_count() as u32;
-                }
             }
             #[cfg(feature = "pico2")]
             {
                 let [yellow, red, cyan, black] = &mut animation.tiles;
+                {
+                    let yellow = &mut yellow.as_mut().unwrap().vial;
+                    let cyan = &mut cyan.as_mut().unwrap().vial;
+                    let mut next = 0;
+                    mcu_board_support::with_core1(
+                        &mut || {
+                            let vial = if next == 0 { &mut *yellow } else { &mut *cyan };
+                            vial.advance_tilt(up, tick);
+                            next += 1;
+                            next == 2
+                        },
+                        || {
+                            red.as_mut().unwrap().vial.advance_tilt(up, tick);
+                            black.as_mut().unwrap().vial.advance_tilt(up, tick);
+                        },
+                    );
+                }
                 #[cfg(feature = "pico2-queue-profile")]
                 let prepared = mcu_board_support::profile_now_us();
                 let mut paints =
@@ -232,6 +248,10 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             #[cfg(not(feature = "pico2"))]
             for tile in animation.tiles.iter_mut().flatten() {
                 let _ = render_serial(tile, tick);
+            }
+            #[cfg(feature = "pico2-queue-profile")]
+            for (index, tile) in animation.tiles.iter().enumerate() {
+                counts[index] = tile.as_ref().unwrap().vial.particle_count() as u32;
             }
             #[cfg(feature = "pico2-queue-profile")]
             let publish_started = mcu_board_support::profile_now_us();
