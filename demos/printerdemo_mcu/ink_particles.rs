@@ -21,6 +21,7 @@ pub struct FrameState {
     size: (usize, usize),
     level: Option<u16>,
     tilt: Option<([i16; 2], i32)>,
+    surface_rows: core::ops::Range<i32>,
     rows: Vec<[u16; 2]>,
 }
 
@@ -219,6 +220,7 @@ impl<'a, P: Pixel> Paint<'a, P> {
                 self.state.size = (self.vial.width, self.vial.height);
                 self.state.level = Some(self.vial.level);
                 self.state.tilt = self.vial.tilt_key();
+                self.state.surface_rows = self.vial.surface_rows();
                 self.state.rows.clear();
                 self.state.rows.resize(self.vial.height, [self.vial.width as u16, 0]);
             }
@@ -440,6 +442,10 @@ impl Vial {
         self.tilt.as_ref().map(|t| (t.up, t.cut))
     }
 
+    fn surface_rows(&self) -> core::ops::Range<i32> {
+        self.tilt.as_ref().map_or(0..0, |t| t.surface_rows.clone())
+    }
+
     #[cfg_attr(
         all(feature = "pico2", target_arch = "arm"),
         unsafe(link_section = ".data.ram_func")
@@ -447,7 +453,10 @@ impl Vial {
     #[inline(never)]
     fn prepare_surface(&mut self, tilt: &mut tilt::Tilt) {
         tilt.starts.resize(self.width, 0);
-        self.surface_pixels.resize(self.width * 8, 0);
+        if self.surface_pixels.len() < self.width * 8 {
+            self.surface_pixels.reserve_exact(self.width * 8 - self.surface_pixels.len());
+            self.surface_pixels.resize(self.width * 8, 0);
+        }
         tilt.surface_rows = i32::MAX..i32::MIN;
         for x in 0..self.width {
             let base = (tilt.cut * 1024 - tilt.up[0] as i32 * (x as i32 * 256 + 128))
@@ -565,6 +574,7 @@ impl Vial {
         state.size = (self.width, self.height);
         state.level = Some(self.level);
         state.tilt = self.tilt_key();
+        state.surface_rows = self.surface_rows();
         state.rows.clear();
     }
 
@@ -575,12 +585,13 @@ impl Vial {
         state: &FrameState,
         rows: core::ops::Range<usize>,
     ) {
-        let changed = state.size != (self.width, self.height)
-            || state.level != Some(self.level)
-            || state.tilt != self.tilt_key();
+        let changed = state.size != (self.width, self.height) || state.level != Some(self.level);
         if let Some(tilt) = &self.tilt {
+            let moved = state.tilt != self.tilt_key();
+            let surface = state.surface_rows.start.min(tilt.surface_rows.start)
+                ..state.surface_rows.end.max(tilt.surface_rows.end);
             for row in rows {
-                let [left, right] = if changed {
+                let [left, right] = if changed || (moved && surface.contains(&(row as i32))) {
                     [0, self.width as u16]
                 } else {
                     state.rows.get(row).copied().unwrap_or([0; 2])
