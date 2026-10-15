@@ -1,13 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Label } from "../common.slint";
-import { ComboBox, CheckBox, SpinBox, Page } from "../components/components.slint";
+import { ComboBox, CheckBox, Page } from "../components/components.slint";
+import { Kiosk } from "../common.slint";
+
+export global SettingsMotion {
+    in-out property <length> maximum;
+    in-out property <length> raw-y;
+}
 
 export component SettingsPage inherits Page {
     header: "Settings";
 
-    Flickable {
+    init => {
+        SettingsMotion.maximum = max(0px, scroll.content-height - scroll.height);
+    }
+
+    scroll := Flickable {
+        content-y <=> SettingsMotion.raw-y;
+        changed height => { SettingsMotion.maximum = max(0px, self.content-height - self.height); }
+        changed content-height => { SettingsMotion.maximum = max(0px, self.content-height - self.height); }
         VerticalLayout {
             width: 90%;
             padding: 12px;
@@ -26,23 +38,11 @@ export component SettingsPage inherits Page {
             CheckBox {
                 text: @tr("Eco mode");
             }
+
+            CheckBox {
+                text: @tr("Kiosk mode");
+                checked <=> Kiosk.enabled;
+            }
         }
     }
-    //     Row {
-    //         Label { text: "Color"; }
-    //         ComboBox {
-    //             value: "Grayscale";
-    //             choices: ["Grayscale", "Color"];
-    //             horizontal-stretch: 2;
-    //         }
-    //     }
-
-
-    // Image {
-    //     source: DemoPalette.night-mode ? @image-url("slint-logo-square-dark-80x80.png") : @image-url("slint-logo-square-light-80x80.png");
-    //     width: 80px;
-    //     height: 80px;
-    //     x: parent.width - self.width;
-    //     y: parent.height - self.height;
-    // }
 }

@@ -1,0 +1,19 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "pico-printer-kiosk-check"
+version = "0.1.0"
+edition = "2024"
+[workspace]
+[features]
+default = ["ink-native-assets"]
+ink-native-assets = []
+pico2 = []
+pico2-queue-profile = []
+[dependencies]
+i-slint-core = { path = "../../../../../internal/core", features = ["embedded-geometry-cache"] }
+slint = { path = "../../../../../api/rs/slint", default-features = false, features = ["compat-1-2", "std", "renderer-software", "image-pixel-format-rgb565"] }
+bytemuck = "1.13.1"
+[build-dependencies]
+slint-build = { path = "../../../../../api/rs/build" }
