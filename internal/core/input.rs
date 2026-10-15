@@ -1581,6 +1581,9 @@ fn offer_native_drag(
 }
 
 /// Try to handle the mouse grabber.
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), inline(never))]
 pub(crate) fn handle_mouse_grab(
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
@@ -1769,6 +1772,9 @@ pub struct MouseInputResult {
 /// Process the `mouse_event` on the `component`. The `mouse_input_state` is the previous
 /// dispatch state (grab stack, cursor, in-flight drag); the returned [`MouseInputResult`]
 /// carries the state that replaces it and whether the event was consumed.
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), inline(never))]
 pub fn process_mouse_input(
     root: ItemRc,
     mouse_event: &MouseEvent,
@@ -1969,6 +1975,9 @@ pub(crate) fn resolve_delayed_event_on_release(
     result
 }
 
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), inline(never))]
 fn send_mouse_event_to_item(
     mouse_event: &MouseEvent,
     item_rc: ItemRc,

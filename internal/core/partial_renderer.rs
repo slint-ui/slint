@@ -37,6 +37,29 @@ use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
+#[derive(Clone, Copy)]
+struct ComputeDirtyRegionState {
+    transform_to_screen: ItemTransform,
+    old_transform_to_screen: ItemTransform,
+    clipped: LogicalRect,
+    must_refresh_children: bool,
+    /// Depth of the item in the tree, used to index `sibling_counters`.
+    depth: usize,
+}
+
+impl ComputeDirtyRegionState {
+    /// Adjust transform_to_screen and old_transform_to_screen to map from item coordinates
+    /// to the screen when using it on a child, specified by its children transform.
+    fn adjust_transforms_for_child(
+        &mut self,
+        children_transform: &ItemTransform,
+        old_children_transform: &ItemTransform,
+    ) {
+        self.transform_to_screen = children_transform.then(&self.transform_to_screen);
+        self.old_transform_to_screen = old_children_transform.then(&self.old_transform_to_screen);
+    }
+}
+
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
 #[derive(Default, Debug)]
@@ -93,6 +116,8 @@ pub enum CachedItemBoundingBoxAndTransform {
         bounding_rect: LogicalRect,
         /// The item's offset relative to its parent.
         offset: LogicalVector,
+        #[cfg(feature = "embedded-geometry-cache")]
+        size: LogicalSize,
         sibling_index: u16,
     },
     /// An item such as Rotate that defines an additional transformation
@@ -122,6 +147,14 @@ impl CachedItemBoundingBoxAndTransform {
         }
     }
 
+    #[cfg(feature = "embedded-geometry-cache")]
+    fn render_size(&self) -> Option<LogicalSize> {
+        match self {
+            Self::RegularItem { size, .. } => Some(*size),
+            _ => None,
+        }
+    }
+
     fn transform(&self) -> ItemTransform {
         match self {
             CachedItemBoundingBoxAndTransform::RegularItem { offset, .. } => {
@@ -144,6 +177,10 @@ impl CachedItemBoundingBoxAndTransform {
 
     /// Compare the geometry (bounding rect, transform, clip), ignoring `sibling_index`.
     fn same_geometry(&self, other: &Self) -> bool {
+        #[cfg(feature = "embedded-geometry-cache")]
+        if self.render_size() != other.render_size() {
+            return false;
+        }
         use CachedItemBoundingBoxAndTransform::*;
         match (self, other) {
             (
@@ -172,6 +209,9 @@ impl CachedItemBoundingBoxAndTransform {
 
         // Evaluate the bounding rect untracked, as properties that affect the bounding rect are already tracked
         // at rendering time.
+        #[cfg(feature = "embedded-geometry-cache")]
+        let bounding_rect = item_rc.bounding_rect(&geometry, window_adapter);
+        #[cfg(not(feature = "embedded-geometry-cache"))]
         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
             item_rc.bounding_rect(&geometry, window_adapter)
         });
@@ -189,7 +229,13 @@ impl CachedItemBoundingBoxAndTransform {
                 sibling_index,
             }
         } else {
-            Self::RegularItem { bounding_rect, offset: geometry.origin.to_vector(), sibling_index }
+            Self::RegularItem {
+                bounding_rect,
+                offset: geometry.origin.to_vector(),
+                #[cfg(feature = "embedded-geometry-cache")]
+                size: geometry.size,
+                sibling_index,
+            }
         }
     }
 }
@@ -199,10 +245,17 @@ struct PartialRenderingCachedData {
     pub data: CachedItemBoundingBoxAndTransform,
     /// The property tracker that should be used to evaluate whether the item needs to be re-rendered
     pub tracker: Option<core::pin::Pin<Box<PropertyTracker>>>,
+    #[cfg(feature = "embedded-geometry-cache")]
+    geometry_tracker: Option<Pin<Box<PropertyTracker>>>,
 }
 impl PartialRenderingCachedData {
     fn new(data: CachedItemBoundingBoxAndTransform) -> Self {
-        Self { data, tracker: None }
+        Self {
+            data,
+            tracker: None,
+            #[cfg(feature = "embedded-geometry-cache")]
+            geometry_tracker: None,
+        }
     }
 }
 
@@ -462,22 +515,15 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
     }
 
     /// Visit the tree of item and compute what are the dirty regions
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), inline(never))]
     pub fn compute_dirty_regions(
         &mut self,
         component: &ItemTreeRc,
         origin: LogicalPoint,
         size: LogicalSize,
     ) {
-        #[derive(Clone, Copy)]
-        struct ComputeDirtyRegionState {
-            transform_to_screen: ItemTransform,
-            old_transform_to_screen: ItemTransform,
-            clipped: LogicalRect,
-            must_refresh_children: bool,
-            /// Depth of the item in the tree, used to index `sibling_counters`.
-            depth: usize,
-        }
-
         // Two counters per tree depth to give each item its rank among its z-ordered siblings.
         // `.0` counts every visited item and is what gets stored in the cache entry; `.1`
         // counts only the items that already have a cache entry and is what the stored rank
@@ -488,226 +534,11 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         // changing.
         let sibling_counters = RefCell::new(alloc::vec::Vec::<(u16, u16)>::new());
 
-        impl ComputeDirtyRegionState {
-            /// Adjust transform_to_screen and old_transform_to_screen to map from item coordinates
-            /// to the screen when using it on a child, specified by its children transform.
-            fn adjust_transforms_for_child(
-                &mut self,
-                children_transform: &ItemTransform,
-                old_children_transform: &ItemTransform,
-            ) {
-                self.transform_to_screen = children_transform.then(&self.transform_to_screen);
-                self.old_transform_to_screen =
-                    old_children_transform.then(&self.old_transform_to_screen);
-            }
-        }
-
         crate::item_tree::visit_items(
             component,
             crate::item_tree::TraversalOrder::BackToFront,
             |component, item, index, state| {
-                let mut new_state = *state;
-                let item_rc = ItemRc::new(component.clone(), index);
-
-                let my_sibling_index = {
-                    let depth = state.depth;
-                    let mut counters = sibling_counters.borrow_mut();
-                    if counters.len() <= depth + 1 {
-                        counters.resize(depth + 2, (0, 0));
-                    }
-                    counters[depth + 1] = (0, 0); // this item's children restart at zero
-                    let idx = counters[depth].0;
-                    counters[depth].0 = idx.saturating_add(1);
-                    idx
-                };
-                new_state.depth = state.depth + 1;
-
-                let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
-                    &item_rc,
-                    &self.window_adapter,
-                    my_sibling_index,
-                );
-
-                // The region the item covers on screen. It is merged into the owning
-                // tree's entry in `tree_screen_rects` so that destroying the tree can
-                // repaint that region (see `PartialRenderingState::free_graphics_resources`),
-                // and it doubles as the item's current-position dirty rect in the branches
-                // below.
-                let new_screen_rect = clipped_screen_rect(
-                    new_geom.bounding_rect(),
-                    &state.transform_to_screen,
-                    &state.clipped,
-                )
-                .unwrap_or_default();
-
-                let rendering_data = item.cached_rendering_data_offset();
-                let mut cache = self.cache.borrow_mut();
-
-                let tree_key = vtable::VRef::as_ptr(crate::item_tree::ItemTreeRc::borrow(component))
-                    .as_ptr() as usize;
-                if index == 0
-                    && let Some(acc) = cache.tree_screen_rects.get_mut(&tree_key)
-                {
-                    // Entering the tree: rebuild its screen region from this pass's visits.
-                    *acc = LogicalRect::default();
-                }
-                if !new_screen_rect.is_empty() {
-                    let acc = cache.tree_screen_rects.entry(tree_key).or_default();
-                    *acc = acc.union(&new_screen_rect);
-                }
-                if T::SUPPORTS_BACKDROP_BLUR
-                    && !new_screen_rect.is_empty()
-                    && ItemRef::downcast_pin::<BackdropBlur>(item).is_some()
-                    && let Some(sampled) =
-                        screen_rect(new_geom.bounding_rect(), &state.transform_to_screen)
-                {
-                    self.backdrop_blurs.push(sampled);
-                }
-
-                match rendering_data.get_entry(&mut cache) {
-                    Some(PartialRenderingCachedData { data: cached_geom, tracker }) => {
-                        let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
-
-                        // Repaint when the rank among the previously known siblings changed,
-                        // in either direction: two items cannot trade places in the stacking
-                        // order with both comparison ranks unchanged, and since an overlap is
-                        // within both items' rects, repainting the changed one(s) covers it.
-                        // Only a decrease is not enough: in a permutation of three or more
-                        // items a pair can flip while one member keeps its rank and the other
-                        // only rises. A saturated rank (>65535 siblings) always repaints.
-                        let comparison_sibling_index = {
-                            let mut counters = sibling_counters.borrow_mut();
-                            let idx = counters[state.depth].1;
-                            counters[state.depth].1 = idx.saturating_add(1);
-                            idx
-                        };
-                        let old_sibling_index =
-                            core::mem::replace(cached_geom.sibling_index(), my_sibling_index);
-                        let sibling_index_changed = my_sibling_index == u16::MAX
-                            || comparison_sibling_index != old_sibling_index;
-                        new_state.must_refresh_children |= sibling_index_changed;
-
-                        let geometry_changed = !cached_geom.same_geometry(&new_geom);
-                        if ItemRef::downcast_pin::<Clip>(item).is_some()
-                            || ItemRef::downcast_pin::<Opacity>(item).is_some()
-                        {
-                            // When the opacity or the clip change, this will impact all the children, including
-                            // the ones outside the element, regardless if they are themselves dirty or not.
-                            new_state.must_refresh_children |= rendering_dirty || geometry_changed;
-
-                            if rendering_dirty {
-                                // Destroy the tracker as we we might not re-render this clipped item but it would stay dirty
-                                *tracker = None;
-                            }
-                        }
-
-                        if geometry_changed {
-                            let old_transform = cached_geom.transform();
-                            self.mark_dirty_rect(
-                                cached_geom.bounding_rect(),
-                                state.old_transform_to_screen,
-                                &state.clipped,
-                            );
-                            self.dirty_region.add_rect(new_screen_rect);
-
-                            new_state
-                                .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
-
-                            *cached_geom = new_geom;
-
-                            return ItemVisitorResult::Continue(new_state);
-                        }
-
-                        new_state.adjust_transforms_for_child(
-                            &cached_geom.transform(),
-                            &cached_geom.transform(),
-                        );
-
-                        let moved = state.must_refresh_children
-                            || sibling_index_changed
-                            || new_state.transform_to_screen != new_state.old_transform_to_screen;
-
-                        if rendering_dirty {
-                            self.dirty_region.add_rect(new_screen_rect);
-                            if moved {
-                                self.mark_dirty_rect(
-                                    cached_geom.bounding_rect(),
-                                    state.old_transform_to_screen,
-                                    &state.clipped,
-                                );
-                            }
-
-                            ItemVisitorResult::Continue(new_state)
-                        } else {
-                            if moved {
-                                self.mark_dirty_rect(
-                                    cached_geom.bounding_rect(),
-                                    state.old_transform_to_screen,
-                                    &state.clipped,
-                                );
-                                self.dirty_region.add_rect(new_screen_rect);
-                            } else if let Some(tr) = &tracker {
-                                tr.as_ref().register_as_dependency_to_current_binding();
-                            }
-
-                            if let CachedItemBoundingBoxAndTransform::ClipItem {
-                                geometry, ..
-                            } = &cached_geom
-                            {
-                                new_state.clipped = new_state
-                                    .clipped
-                                    .intersection(
-                                        &state
-                                            .transform_to_screen
-                                            .outer_transformed_rect(&geometry.cast())
-                                            .cast()
-                                            .union(
-                                                &state
-                                                    .old_transform_to_screen
-                                                    .outer_transformed_rect(&geometry.cast())
-                                                    .cast(),
-                                            ),
-                                    )
-                                    .unwrap_or_default();
-                                if new_state.clipped.is_empty() {
-                                    return ItemVisitorResult::SkipChildren;
-                                }
-                            }
-                            ItemVisitorResult::Continue(new_state)
-                        }
-                    }
-                    None => {
-                        let cache_entry = PartialRenderingCachedData::new(new_geom.clone());
-                        rendering_data.cache_index.set(cache.insert(cache_entry));
-                        rendering_data.cache_generation.set(cache.generation());
-
-                        new_state.adjust_transforms_for_child(
-                            &new_geom.transform(),
-                            &new_geom.transform(),
-                        );
-
-                        if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } =
-                            new_geom
-                        {
-                            new_state.clipped = new_state
-                                .clipped
-                                .intersection(
-                                    &state
-                                        .transform_to_screen
-                                        .outer_transformed_rect(&geometry.cast())
-                                        .cast(),
-                                )
-                                .unwrap_or_default();
-                        }
-
-                        self.dirty_region.add_rect(new_screen_rect);
-                        if new_state.clipped.is_empty() {
-                            ItemVisitorResult::SkipChildren
-                        } else {
-                            ItemVisitorResult::Continue(new_state)
-                        }
-                    }
-                }
+                self.compute_dirty_item(component, item, index, state, &sibling_counters)
             },
             {
                 let initial_transform =
@@ -766,6 +597,264 @@ impl<'a, T: ItemRenderer + ItemRendererFeatures> PartialRenderer<'a, T> {
         }
     }
 
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), inline(never))]
+    #[cfg_attr(not(all(feature = "embedded-renderer-ram", target_arch = "arm")), inline(always))]
+    fn compute_dirty_item(
+        &mut self,
+        component: &ItemTreeRc,
+        item: Pin<ItemRef>,
+        index: u32,
+        state: &ComputeDirtyRegionState,
+        sibling_counters: &RefCell<alloc::vec::Vec<(u16, u16)>>,
+    ) -> ItemVisitorResult<ComputeDirtyRegionState> {
+        let mut new_state = *state;
+        let item_rc = ItemRc::new(component.clone(), index);
+
+        let my_sibling_index = {
+            let depth = state.depth;
+            let mut counters = sibling_counters.borrow_mut();
+            if counters.len() <= depth + 1 {
+                counters.resize(depth + 2, (0, 0));
+            }
+            counters[depth + 1] = (0, 0); // this item's children restart at zero
+            let idx = counters[depth].0;
+            counters[depth].0 = idx.saturating_add(1);
+            idx
+        };
+        new_state.depth = state.depth + 1;
+
+        #[cfg(feature = "embedded-geometry-cache")]
+        let (geometry_tracker, previous_geometry) = {
+            let mut cache = self.cache.borrow_mut();
+            item.cached_rendering_data_offset()
+                .get_entry(&mut cache)
+                .map(|entry| {
+                    (
+                        entry
+                            .geometry_tracker
+                            .take()
+                            .unwrap_or_else(|| Box::pin(Default::default())),
+                        Some(entry.data.clone()),
+                    )
+                })
+                .unwrap_or_else(|| (Box::pin(Default::default()), None))
+        };
+        #[cfg(feature = "embedded-geometry-cache")]
+        let new_geom = geometry_tracker
+            .as_ref()
+            .evaluate_if_dirty(|| {
+                CachedItemBoundingBoxAndTransform::new::<T>(
+                    &item_rc,
+                    &self.window_adapter,
+                    my_sibling_index,
+                )
+            })
+            .unwrap_or_else(|| previous_geometry.unwrap());
+        #[cfg(not(feature = "embedded-geometry-cache"))]
+        let new_geom = CachedItemBoundingBoxAndTransform::new::<T>(
+            &item_rc,
+            &self.window_adapter,
+            my_sibling_index,
+        );
+
+        // The region the item covers on screen. It is merged into the owning
+        // tree's entry in `tree_screen_rects` so that destroying the tree can
+        // repaint that region (see `PartialRenderingState::free_graphics_resources`),
+        // and it doubles as the item's current-position dirty rect in the branches
+        // below.
+        let new_screen_rect = clipped_screen_rect(
+            new_geom.bounding_rect(),
+            &state.transform_to_screen,
+            &state.clipped,
+        )
+        .unwrap_or_default();
+
+        let rendering_data = item.cached_rendering_data_offset();
+        let mut cache = self.cache.borrow_mut();
+
+        let tree_key = vtable::VRef::as_ptr(crate::item_tree::ItemTreeRc::borrow(component))
+            .as_ptr() as usize;
+        if index == 0
+            && let Some(acc) = cache.tree_screen_rects.get_mut(&tree_key)
+        {
+            // Entering the tree: rebuild its screen region from this pass's visits.
+            *acc = LogicalRect::default();
+        }
+        if !new_screen_rect.is_empty() {
+            let acc = cache.tree_screen_rects.entry(tree_key).or_default();
+            *acc = acc.union(&new_screen_rect);
+        }
+        if T::SUPPORTS_BACKDROP_BLUR
+            && !new_screen_rect.is_empty()
+            && ItemRef::downcast_pin::<BackdropBlur>(item).is_some()
+            && let Some(sampled) =
+                screen_rect(new_geom.bounding_rect(), &state.transform_to_screen)
+        {
+            self.backdrop_blurs.push(sampled);
+        }
+
+        match rendering_data.get_entry(&mut cache) {
+            Some(PartialRenderingCachedData {
+                data: cached_geom,
+                tracker,
+                #[cfg(feature = "embedded-geometry-cache")]
+                    geometry_tracker: cached_geometry_tracker,
+            }) => {
+                #[cfg(feature = "embedded-geometry-cache")]
+                {
+                    *cached_geometry_tracker = Some(geometry_tracker);
+                }
+                let rendering_dirty = tracker.as_ref().is_some_and(|tr| tr.is_dirty());
+
+                // Repaint when the rank among the previously known siblings changed,
+                // in either direction: two items cannot trade places in the stacking
+                // order with both comparison ranks unchanged, and since an overlap is
+                // within both items' rects, repainting the changed one(s) covers it.
+                // Only a decrease is not enough: in a permutation of three or more
+                // items a pair can flip while one member keeps its rank and the other
+                // only rises. A saturated rank (>65535 siblings) always repaints.
+                let comparison_sibling_index = {
+                    let mut counters = sibling_counters.borrow_mut();
+                    let idx = counters[state.depth].1;
+                    counters[state.depth].1 = idx.saturating_add(1);
+                    idx
+                };
+                let old_sibling_index =
+                    core::mem::replace(cached_geom.sibling_index(), my_sibling_index);
+                let sibling_index_changed = my_sibling_index == u16::MAX
+                    || comparison_sibling_index != old_sibling_index;
+                new_state.must_refresh_children |= sibling_index_changed;
+
+                let geometry_changed = !cached_geom.same_geometry(&new_geom);
+                if ItemRef::downcast_pin::<Clip>(item).is_some()
+                    || ItemRef::downcast_pin::<Opacity>(item).is_some()
+                {
+                    // When the opacity or the clip change, this will impact all the children, including
+                    // the ones outside the element, regardless if they are themselves dirty or not.
+                    new_state.must_refresh_children |= rendering_dirty || geometry_changed;
+
+                    if rendering_dirty {
+                        // Destroy the tracker as we we might not re-render this clipped item but it would stay dirty
+                        *tracker = None;
+                    }
+                }
+
+                if geometry_changed {
+                    let old_transform = cached_geom.transform();
+                    self.mark_dirty_rect(
+                        cached_geom.bounding_rect(),
+                        state.old_transform_to_screen,
+                        &state.clipped,
+                    );
+                    self.dirty_region.add_rect(new_screen_rect);
+
+                    new_state
+                        .adjust_transforms_for_child(&new_geom.transform(), &old_transform);
+
+                    *cached_geom = new_geom;
+
+                    return ItemVisitorResult::Continue(new_state);
+                }
+
+                new_state.adjust_transforms_for_child(
+                    &cached_geom.transform(),
+                    &cached_geom.transform(),
+                );
+
+                let moved = state.must_refresh_children
+                    || sibling_index_changed
+                    || new_state.transform_to_screen != new_state.old_transform_to_screen;
+
+                if rendering_dirty {
+                    self.dirty_region.add_rect(new_screen_rect);
+                    if moved {
+                        self.mark_dirty_rect(
+                            cached_geom.bounding_rect(),
+                            state.old_transform_to_screen,
+                            &state.clipped,
+                        );
+                    }
+
+                    ItemVisitorResult::Continue(new_state)
+                } else {
+                    if moved {
+                        self.mark_dirty_rect(
+                            cached_geom.bounding_rect(),
+                            state.old_transform_to_screen,
+                            &state.clipped,
+                        );
+                        self.dirty_region.add_rect(new_screen_rect);
+                    } else if let Some(tr) = &tracker {
+                        tr.as_ref().register_as_dependency_to_current_binding();
+                    }
+
+                    if let CachedItemBoundingBoxAndTransform::ClipItem {
+                        geometry, ..
+                    } = &cached_geom
+                    {
+                        new_state.clipped = new_state
+                            .clipped
+                            .intersection(
+                                &state
+                                    .transform_to_screen
+                                    .outer_transformed_rect(&geometry.cast())
+                                    .cast()
+                                    .union(
+                                        &state
+                                            .old_transform_to_screen
+                                            .outer_transformed_rect(&geometry.cast())
+                                            .cast(),
+                                    ),
+                            )
+                            .unwrap_or_default();
+                        if new_state.clipped.is_empty() {
+                            return ItemVisitorResult::SkipChildren;
+                        }
+                    }
+                    ItemVisitorResult::Continue(new_state)
+                }
+            }
+            None => {
+                #[allow(unused_mut)]
+                let mut cache_entry = PartialRenderingCachedData::new(new_geom.clone());
+                #[cfg(feature = "embedded-geometry-cache")]
+                {
+                    cache_entry.geometry_tracker = Some(geometry_tracker);
+                }
+                rendering_data.cache_index.set(cache.insert(cache_entry));
+                rendering_data.cache_generation.set(cache.generation());
+
+                new_state.adjust_transforms_for_child(
+                    &new_geom.transform(),
+                    &new_geom.transform(),
+                );
+
+                if let CachedItemBoundingBoxAndTransform::ClipItem { geometry, .. } =
+                    new_geom
+                {
+                    new_state.clipped = new_state
+                        .clipped
+                        .intersection(
+                            &state
+                                .transform_to_screen
+                                .outer_transformed_rect(&geometry.cast())
+                                .cast(),
+                        )
+                        .unwrap_or_default();
+                }
+
+                self.dirty_region.add_rect(new_screen_rect);
+                if new_state.clipped.is_empty() {
+                    ItemVisitorResult::SkipChildren
+                } else {
+                    ItemVisitorResult::Continue(new_state)
+                }
+            }
+        }
+    }
+
     /// Move the actual renderer
     pub fn into_inner(self) -> T {
         self.actual_renderer
@@ -806,6 +895,9 @@ macro_rules! forward_rendering_call2 {
 }
 
 impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_, T> {
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-renderer-ram", target_arch = "arm"), inline(never))]
     fn filter_item(
         &mut self,
         item_rc: &ItemRc,
@@ -823,18 +915,26 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
                     CachedItemBoundingBoxAndTransform::RegularItem { offset, .. } => Some(*offset),
                     _ => None,
                 };
-                (draw, offset)
+                #[cfg(feature = "embedded-geometry-cache")]
+                let size = e.data.render_size();
+                #[cfg(not(feature = "embedded-geometry-cache"))]
+                let size = None;
+                (draw, offset, size)
             })
         };
 
         // Items that are not drawn only need their origin; this skips e.g. shaping off-screen text.
-        if let Some((false, Some(offset))) = cached {
+        if let Some((false, Some(offset), _)) = cached {
             return (false, offset.to_point(), None);
+        }
+
+        if let Some((true, Some(offset), Some(size))) = cached {
+            return (true, offset.to_point(), Some(size));
         }
 
         // Query untracked, as the bounding rect calculation already registers a dependency on the geometry.
         let item_geometry = crate::properties::evaluate_no_tracking(|| item_rc.geometry());
-        let draw = cached.map(|(draw, _)| draw).unwrap_or_else(|| {
+        let draw = cached.map(|(draw, _, _)| draw).unwrap_or_else(|| {
             // The item was created between the computation of the dirty region and the
             // actual rendering.
             self.item_is_drawn(&item_rc.bounding_rect(&item_geometry, window_adapter))

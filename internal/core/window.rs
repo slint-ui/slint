@@ -841,6 +841,9 @@ impl WindowInner {
     /// `Drop` (if a `DropArea` had previously accepted the matching `DragMove`) or an
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
+    #[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), allow(unsafe_code))]
+    #[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "embedded-input-ram", target_arch = "arm"), inline(never))]
     pub(crate) fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
         crate::animations::update_animations(crate::animations::Instant::now(self.context()));
 
