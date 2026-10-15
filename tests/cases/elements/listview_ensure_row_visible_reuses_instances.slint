@@ -1,0 +1,183 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Rows 0 to 6 are visible, row 6 only partly.
+// Scrolling to a row with an instance, or to the row next to them as an arrow key does,
+// keeps the instances of the visible rows, so their state survives.
+// It used to create all of them again.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 650px;
+
+    out property <length> content-y <=> listview.content-y;
+
+    callback ensure-row-visible(int);
+    ensure-row-visible(row) => {
+        listview.ensure-row-visible(row, ScrollBehavior.instant);
+    }
+
+    callback row-initialized(int);
+
+    listview := ListView {
+        width: 300px;
+        height: 650px;
+        for i in 100: Rectangle {
+            height: 100px;
+            init => {
+                row-initialized(i);
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+use std::sync::Arc;
+use core::cell::RefCell;
+
+let instance = TestCase::new().unwrap();
+let layout = || {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1., 1.) });
+};
+layout();
+
+let v = Arc::new(RefCell::new(vec![]));
+instance.on_row_initialized({
+    let v = v.clone();
+    move |row_index| {
+        let v = v.clone();
+        v.borrow_mut().push(row_index);
+    }
+});
+
+instance.invoke_ensure_row_visible(6);
+layout();
+assert_eq!(instance.get_content_y(), -50.);
+assert_eq!(v.borrow().len(), 0, "Row 6 is visible from beginning");
+
+// The next row has no instance yet: only it gets created.
+instance.invoke_ensure_row_visible(7);
+layout();
+assert_eq!(instance.get_content_y(), -150.);
+assert_eq!(*v.borrow(), vec![7], "Only row 7 gets newly instantiated");
+
+v.borrow_mut().clear();
+
+// Row 0 lost its instance when it scrolled out: only it gets created.
+instance.invoke_ensure_row_visible(0);
+layout();
+assert_eq!(instance.get_content_y(), 0.);
+assert_eq!(*v.borrow(), vec![0], "Only row 0 gets newly instantiated because it lost previously the instance because it went out of the viewport");
+
+v.borrow_mut().clear();
+
+// Random seek scroll up
+instance.invoke_ensure_row_visible(57);
+layout();
+let mut created = v.borrow().clone();
+created.sort();
+assert_eq!(created, vec![51, 52, 53, 54, 55, 56, 57], "Row 57 is bottom aligned");
+
+// Random seek scroll down
+v.borrow_mut().clear();
+instance.invoke_ensure_row_visible(20);
+layout();
+assert_eq!(instance.get_content_y(), -2000.);
+let mut created = v.borrow().clone();
+created.sort();
+assert_eq!(created, vec![20, 21, 22, 23, 24, 25, 26], "Row 20 is top aligned");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto layout = [&] { instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. })); };
+layout();
+
+std::vector<int> v;
+instance.on_row_initialized([&](int row_index) { v.push_back(row_index); });
+
+instance.invoke_ensure_row_visible(6);
+layout();
+assert_eq(instance.get_content_y(), -50.);
+assert(v.empty());
+
+// The next row has no instance yet: only it gets created.
+instance.invoke_ensure_row_visible(7);
+layout();
+assert_eq(instance.get_content_y(), -150.);
+assert(v == std::vector<int>({ 7 }));
+
+v.clear();
+
+// Row 0 lost its instance when it scrolled out: only it gets created.
+instance.invoke_ensure_row_visible(0);
+layout();
+assert_eq(instance.get_content_y(), 0.);
+assert(v == std::vector<int>({ 0 }));
+
+v.clear();
+
+// Random seek scroll up
+instance.invoke_ensure_row_visible(57);
+layout();
+std::sort(v.begin(), v.end());
+assert(v == std::vector<int>({ 51, 52, 53, 54, 55, 56, 57 }));
+
+// Random seek scroll down
+v.clear();
+instance.invoke_ensure_row_visible(20);
+layout();
+assert_eq(instance.get_content_y(), -2000.);
+std::sort(v.begin(), v.end());
+assert(v == std::vector<int>({ 20, 21, 22, 23, 24, 25, 26 }));
+```
+
+```js
+var instance = new slint.TestCase({});
+// The click only triggers the layout pass; the rows don't react to it.
+const layout = () => slintlib.private_api.send_mouse_click(instance, 150, 300);
+layout();
+
+let v = [];
+instance.row_initialized = (row_index) => v.push(row_index);
+const sorted = (rows) => [...rows].sort((a, b) => a - b);
+
+instance.ensure_row_visible(6);
+layout();
+assert.equal(instance.content_y, -50);
+assert.deepEqual(v, [], "Row 6 is visible from beginning");
+
+// The next row has no instance yet: only it gets created.
+instance.ensure_row_visible(7);
+layout();
+assert.equal(instance.content_y, -150);
+assert.deepEqual(v, [7], "Only row 7 gets newly instantiated");
+
+v = [];
+
+// Row 0 lost its instance when it scrolled out: only it gets created.
+instance.ensure_row_visible(0);
+layout();
+assert.equal(instance.content_y, 0);
+assert.deepEqual(v, [0], "Only row 0 gets newly instantiated");
+
+v = [];
+
+// Random seek scroll up
+instance.ensure_row_visible(57);
+layout();
+assert.deepEqual(sorted(v), [51, 52, 53, 54, 55, 56, 57], "Row 57 is bottom aligned");
+
+// Random seek scroll down
+v = [];
+instance.ensure_row_visible(20);
+layout();
+assert.equal(instance.content_y, -2000);
+assert.deepEqual(sorted(v), [20, 21, 22, 23, 24, 25, 26], "Row 20 is top aligned");
+```
+*/

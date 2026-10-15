@@ -341,10 +341,34 @@ fn update_visible_instances(
     // The row to seek to, and its edge of the viewport.
     let (mut new_offset, mut new_offset_y) =
         if let Some(scroll::ScrollToRowRequest { row, alignment, .. }) = scroll_to_row.as_ref() {
-            ops.splice(0, ops.len(), 1);
-            state.offset = *row;
-            changed |= ops.ensure_updated(0, *row);
-            let row_height = ops.height(0).unwrap_or(element_height);
+            // Check if the row is around the already existing instances
+            let (first, end) = (state.offset, state.offset + ops.len());
+            let added = if (first..end).contains(row) {
+                // The row exists in the instantiated instances
+                0..0
+            } else if *row >= end && *row - end < ops.len() {
+                // The row is within the next ops.len() (About 1 page) instances
+                // so we just append
+                ops.splice(ops.len(), 0, *row + 1 - end);
+                end - first..ops.len()
+            } else if *row < first && first - *row <= ops.len() {
+                // The row is within the previous ops.len() (About 1 page) instances
+                ops.splice(0, 0, first - *row);
+                state.offset = *row;
+                0..first - *row
+            } else {
+                // Random seek so we clear all and instantiate newly
+                ops.splice(0, ops.len(), 1);
+                state.offset = *row;
+                0..1
+            };
+            // The loop measures the rows between the old instances and `row` without creating them.
+            for i in added {
+                changed |= ops.ensure_updated(i, state.offset + i);
+            }
+            let instance = *row - state.offset;
+            changed |= ops.ensure_updated(instance, *row);
+            let row_height = ops.height(instance).unwrap_or(element_height);
             let row_top = match alignment {
                 scroll::RowAlignment::Top => 0 as Coord,
                 scroll::RowAlignment::Bottom => {
