@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore flashhash flashinfo rcmd rfmt
+
 #[cfg(feature = "pico2-queue-profile")]
 use core::fmt::Write;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -224,6 +226,24 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     }
                     CAPTURE_STATE.store(3, Ordering::Release);
                     if disconnected { break; }
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"flashhash ") {
+                    let mut parts = core::str::from_utf8(&buffer[10..count]).unwrap_or("").split_whitespace();
+                    let (Some(offset), Some(length)) = (parts.next().and_then(|v| u32::from_str_radix(v, 16).ok()), parts.next().and_then(|v| u32::from_str_radix(v, 16).ok())) else { continue };
+                    if offset & 3 != 0 || length & 3 != 0 || length == 0 || offset.checked_add(length).is_none_or(|end| end > 16 * 1024 * 1024) || parts.next().is_some() { continue; }
+                    let mut hash = 0x811c9dc5u32;
+                    for at in (offset..offset + length).step_by(4) {
+                        let word = unsafe { core::ptr::read_volatile((0x14000000 + at) as *const u32) };
+                        for byte in word.to_le_bytes() { hash = (hash ^ u32::from(byte)).wrapping_mul(0x01000193); }
+                        if (at - offset) & 1023 == 1020 { embassy_time::Timer::after_micros(1).await; }
+                    }
+                    let mut line = ReportLine { bytes: [0; 2048], length: 0 };
+                    let _ = writeln!(&mut line, "PICO_FLASH_HASH,offset={offset},bytes={length},fnv32={hash}");
+                    for packet in line.bytes[..line.length].chunks(64) {
+                        if serial.write_packet(packet).await.is_err() { break; }
+                    }
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]

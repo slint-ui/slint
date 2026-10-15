@@ -184,6 +184,8 @@ pub fn init() {
     let config = overclock::config();
     let p = embassy_rp::init(config);
     boot_guard::arm();
+    #[cfg(not(feature = "pico2-clock-240"))]
+    stock_clock::configure_flash();
     let backlight = Output::new(p.PIN_16, Level::Low);
     #[cfg(feature = "pico2-renderer-profile")]
     i_slint_renderer_software::embedded_profile::set_clock(profile_now_us);
