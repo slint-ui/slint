@@ -33,6 +33,6 @@ export interface TextEdit {
     public function cut();
     public function copy();
     public function paste();
-    public function undo();
-    public function redo();
+    @shadowable public function undo();
+    @shadowable public function redo();
 }

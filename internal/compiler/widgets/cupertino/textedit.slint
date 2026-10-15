@@ -123,11 +123,11 @@ export component TextEdit {
         text-input.paste();
     }
 
-    public function undo() {
+    @shadowable public function undo() {
         text-input.undo();
     }
 
-    public function redo() {
+    @shadowable public function redo() {
         text-input.redo();
     }
 

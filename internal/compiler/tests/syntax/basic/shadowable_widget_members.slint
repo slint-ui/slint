@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Widget members added after 1.18 are `@shadowable`, so components that declared a member
+// with the same name keep compiling, with a warning.
+
+import { StandardTableView, TextEdit } from "std-widgets.slint";
+
+export component MyTextEdit inherits TextEdit {
+    public function undo() -> string { "shadowed" }
+//                  >  <warning{'undo' shadows the inherited function of the same name}
+    callback redo(int);
+//           >  <warning{'redo' shadows the inherited function of the same name}
+}
+
+export component MyTable inherits StandardTableView {
+    in-out property <string> mouse-drag-pan-enabled;
+//                           >                    <warning{'mouse-drag-pan-enabled' shadows the inherited property of the same name}
+    callback scrolled(int);
+//           >      <warning{'scrolled' shadows the inherited callback of the same name}
+}
