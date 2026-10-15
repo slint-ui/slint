@@ -13,11 +13,12 @@ pub struct Fusion {
     bias: [f32; 3],
     last_accel: [f32; 3],
     angle: f32,
+    flipped: bool,
 }
 
 impl Fusion {
     pub const fn new() -> Self {
-        Self { gravity: None, bias: [0.; 3], last_accel: [0.; 3], angle: 0. }
+        Self { gravity: None, bias: [0.; 3], last_accel: [0.; 3], angle: 0., flipped: false }
     }
 
     pub fn update(&mut self, accel: [f32; 3], gyro: [f32; 3], dt: f32) -> [i16; 2] {
@@ -50,9 +51,10 @@ impl Fusion {
             core::array::from_fn(|i| predicted[i] + (measured[i] - predicted[i]) * gain);
         let g = if dt > 0.2 { measured } else { unit(corrected).unwrap_or(g) };
         self.gravity = Some(g);
-        // The panel is landscape, rotated 90 degrees from the sensor frame.
-        let x = -g[1];
-        let y = -g[0];
+        // QMI8658 X/Y align with landscape pixel X/Y on this board.
+        let sign = if self.flipped { -1. } else { 1. };
+        let x = g[0] * sign;
+        let y = g[1] * sign;
         let projection = libm::sqrtf(x * x + y * y);
         let t = ((projection - 0.14) / 0.28).clamp(0., 1.);
         let weight = t * t * (3. - 2. * t);
@@ -66,9 +68,40 @@ impl Fusion {
         self.up()
     }
 
+    pub fn base_up(&self) -> [f32; 2] {
+        self.gravity.map_or([0.; 2], |g| [g[0], g[1]])
+    }
+
+    pub fn set_flipped(&mut self, flipped: bool) {
+        if flipped != self.flipped {
+            self.flipped = flipped;
+            let up = self.base_up();
+            self.angle = if up[0] * up[0] + up[1] * up[1] < 0.14 * 0.14 {
+                0.
+            } else {
+                libm::remainderf(self.angle + core::f32::consts::PI, core::f32::consts::TAU)
+            };
+        }
+    }
+
     pub fn up(&self) -> [i16; 2] {
         [(libm::sinf(self.angle) * 1024.) as i16, (-libm::cosf(self.angle) * 1024.) as i16]
     }
+}
+
+#[cfg(any(test, feature = "pico2-queue-profile"))]
+pub fn replay(seconds: f32) -> ([f32; 3], [f32; 3]) {
+    let rate = core::f32::consts::TAU / 6.;
+    let swing = core::f32::consts::TAU / 9.;
+    let theta = seconds * rate;
+    let beta = core::f32::consts::FRAC_PI_4 * (1. - libm::cosf(seconds * swing));
+    let db = core::f32::consts::FRAC_PI_4 * swing * libm::sinf(seconds * swing);
+    let (st, ct, sb, cb) =
+        (libm::sinf(theta), libm::cosf(theta), libm::sinf(beta), libm::cosf(beta));
+    let a = [sb * st, -sb * ct, cb];
+    let d = [db * cb * st + rate * sb * ct, -db * cb * ct + rate * sb * st, -db * sb];
+    let g = [d[1] * a[2] - d[2] * a[1], d[2] * a[0] - d[0] * a[2], d[0] * a[1] - d[1] * a[0]];
+    (a, g)
 }
 
 #[cfg(test)]
@@ -76,10 +109,56 @@ mod tests {
     use super::*;
 
     #[test]
+    fn flipping_rebases_gravity_but_flat_still_means_upright() {
+        let mut f = Fusion::new();
+        for _ in 0..200 {
+            f.update([0., 1., 0.], [0.; 3], 0.016);
+        }
+        assert!(f.up()[1] > 1000);
+        f.set_flipped(true);
+        assert!(f.up()[1] < -1000);
+        for _ in 0..300 {
+            f.update([0., 0., -1.], [0.; 3], 0.016);
+        }
+        assert_eq!(f.up(), [0, -1024]);
+    }
+
+    #[test]
+    fn translation_does_not_replace_gravity() {
+        let mut f = Fusion::new();
+        for _ in 0..100 {
+            f.update([0., -1., 0.], [0.; 3], 0.016);
+        }
+        let up = f.up();
+        for _ in 0..20 {
+            f.update([0., 2., 0.], [0.; 3], 0.016);
+        }
+        assert_eq!(f.up(), up);
+    }
+
+    #[test]
+    fn replay_returns_flat_without_heading_jumps() {
+        let mut f = Fusion::new();
+        let mut previous = [0, -1024];
+        for tick in 0..1125 {
+            let (a, g) = replay(tick as f32 * 0.016);
+            let up = f.update(a, g, 0.016);
+            let delta = (up[0] as i32 - previous[0] as i32).abs()
+                + (up[1] as i32 - previous[1] as i32).abs();
+            assert!(delta < 200);
+            previous = up;
+        }
+        for _ in 0..500 {
+            f.update([0., 0., 1.], [0.; 3], 0.016);
+        }
+        assert_eq!(f.up(), [0, -1024]);
+    }
+
+    #[test]
     fn flat_is_upright_even_after_a_sideways_pose() {
         let mut f = Fusion::new();
         for _ in 0..500 {
-            f.update([0., -1., 0.], [0.; 3], 0.016);
+            f.update([1., 0., 0.], [0.; 3], 0.016);
         }
         assert!(f.up()[0] > 1000);
         for _ in 0..500 {
@@ -92,7 +171,7 @@ mod tests {
     fn gravity_corrects_bias_and_rejects_invalid_samples() {
         let mut f = Fusion::new();
         for _ in 0..4000 {
-            f.update([1., 0., 0.], [0.004, 0.002, -0.003], 0.016);
+            f.update([0., -1., 0.], [0.004, 0.002, -0.003], 0.016);
         }
         assert!(f.up()[0].abs() < 8 && f.up()[1] < -1020);
         let up = f.up();
@@ -101,12 +180,12 @@ mod tests {
     }
 
     #[test]
-    fn gyro_predicts_rotation_before_accelerometer_correction() {
+    fn clockwise_rotation_makes_liquid_counter_rotate() {
         let mut f = Fusion::new();
-        f.update([1., 0., 0.], [0.; 3], 0.016);
+        f.update([0., -1., 0.], [0.; 3], 0.016);
         for _ in 0..30 {
-            f.update([1., 0., 0.], [0., 0., 1.5], 0.016);
+            f.update([0., -1., 0.], [0., 0., 1.5], 0.016);
         }
-        assert!(f.up()[0] > 100);
+        assert!(f.up()[0] < -100);
     }
 }

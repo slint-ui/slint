@@ -146,11 +146,32 @@ async fn usb_task(usb: Peri<'static, USB>) {
                 #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"mode ") {
                     let mode = match core::str::from_utf8(&buffer[5..count]).unwrap_or("").trim() {
-                        "auto" => 0, "pan" => 1, "manual" => 2, "pan-fast" => 3, "ink" => 4, "settings-auto" => 5, "settings-pan" => 6, "poll-pan" => 7, "settings-poll-pan" => 8, "ink-boost" => 9, "ink-touch" => 10, "kiosk" => 11,
+                        "auto" => 0, "pan" => 1, "manual" => 2, "pan-fast" => 3, "ink" => 4, "settings-auto" => 5, "settings-pan" => 6, "poll-pan" => 7, "settings-poll-pan" => 8, "ink-boost" => 9, "ink-touch" => 10, "kiosk" => 11, "ink-tilt" => 12, "ink-tilt-boost" => 13,
                         _ => continue,
                     };
                     super::profile::RUN.select(mode);
                     let _ = serial.write_packet(b"PICO_MODE_OK\n").await;
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"rotation ") {
+                    let mode = match core::str::from_utf8(&buffer[9..count]).unwrap_or("").trim() { "0" => 0, "1" => 1, "auto" => 2, _ => continue };
+                    super::imu::force_rotation(mode);
+                    let _ = serial.write_packet(b"PICO_ROTATION_OK\n").await;
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"tilt ") {
+                    let text = core::str::from_utf8(&buffer[5..count]).unwrap_or("").trim();
+                    if text == "live" { super::imu::force_up(None); }
+                    else {
+                        let mut parts = text.split_whitespace();
+                        let (Some(x), Some(y)) = (parts.next().and_then(|s| s.parse::<i16>().ok()), parts.next().and_then(|s| s.parse::<i16>().ok())) else { continue };
+                        let length = (i32::from(x) * i32::from(x) + i32::from(y) * i32::from(y)) as u32;
+                        if !(900_000..=1_100_000).contains(&length) || parts.next().is_some() { continue; }
+                        super::imu::force_up(Some([x, y]));
+                    }
+                    let _ = serial.write_packet(b"PICO_TILT_OK\n").await;
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]
@@ -230,6 +251,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                         "parallel", extra[0],extra[1],extra[2],extra[3],
                         sequence, embassy_rp::clocks::clk_sys_freq(), embassy_rp::clocks::clk_peri_freq() / divisor,
                         v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[9],v[10],v[11],v[12],v[25],v[26],v[27],v[28],super::ALLOCATOR.free());
+                    let _ = write!(&mut line, ",display_flipped={},display_flips={}", u32::from(super::frame_queue::flipped()), super::frame_queue::flips());
                     let _ = write!(&mut line, ",peri_hz={},usb_hz={},adc_hz={}", embassy_rp::clocks::clk_peri_freq(), embassy_rp::clocks::clk_usb_freq(), embassy_rp::clocks::clk_adc_freq());
                     #[cfg(not(feature = "pico2-renderer-profile"))]
                     let _ = write!(&mut line, ",draw_max_raster_us={},draw_max_crc_us={},draw_max_plan_us={},draw_max_pack_us={},draw_max_wait_us={}", v[13], v[14], v[15], v[16], v[17]);
@@ -258,7 +280,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     let _ = write!(&mut line, ",late_x={},late_scan={},late_wave_delta={},late_frame_us={}",late[0],late[1],late[2],late[3]);
                     let _ = write!(&mut line, ",stack_free={}", super::profile::stack_free());
                     let _ = write!(&mut line, ",input_to_raster_us={},input_to_raster_max_us={},input_to_raster_calls={}", v[35], v[36], v[37]);
-                    if matches!(v[33], 4 | 9 | 10) {
+                    if matches!(v[33], 4 | 9 | 10 | 12 | 13) {
                         let state = super::profile::INK_STATE.load(Ordering::Acquire);
                         let counts: [u32; 4] = core::array::from_fn(|i| (state >> (i * 8)) & 127);
                         let mask = (0..4).fold(0, |mask, i| mask | (((state >> (i * 8 + 7)) & 1) << i));

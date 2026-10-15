@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import serial
-from printer_protocol import find_port, select_mode, stats
+from printer_protocol import command, find_port, select_mode, stats
 
 MODES = {
     "auto": 0,
@@ -76,14 +76,18 @@ def main():
     selection.add_argument("--all", action="store_true")
     parser.add_argument("--cpu-mhz", type=int, choices=[150, 240], default=150)
     parser.add_argument("--require-panel-rate", action="store_true")
+    parser.add_argument("--rotation", choices=["auto", "0", "1"], default="auto")
     args = parser.parse_args()
     modes = list(MODES) if args.all else args.modes or FAST_SET
     args.output.mkdir(parents=True, exist_ok=True)
     results = []
     with serial.Serial(find_port(args.serial), 115200, timeout=1, write_timeout=2) as port:
         try:
+            if command(port, "rotation " + args.rotation) != "PICO_ROTATION_OK":
+                raise RuntimeError("Unable to select display orientation")
             for mode in modes:
                 values = measure(port, mode, args.cpu_mhz)
+                values["rotation"] = args.rotation
                 results.append(values)
                 (args.output / "measurements.json").write_text(json.dumps(results, indent=2) + "\n")
                 print(f"{mode}: {values['changing_fps']:.2f} changing FPS, "
@@ -101,6 +105,7 @@ def main():
                 ):
                     raise RuntimeError(f"{mode} did not meet panel cadence and zero-drop requirements")
         finally:
+            command(port, "rotation auto")
             select_mode(port, "manual")
 
 

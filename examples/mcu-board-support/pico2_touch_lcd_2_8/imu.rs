@@ -5,8 +5,34 @@
 use super::tilt_fusion::Fusion;
 #[cfg(feature = "pico2-queue-profile")]
 use core::sync::atomic::AtomicI32;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+static DESIRED_FLIP: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "pico2-queue-profile")]
+static FORCE_ROTATION: AtomicU32 = AtomicU32::new(2);
+
+pub fn desired_flip() -> bool {
+    DESIRED_FLIP.load(Ordering::Acquire)
+}
+
+#[cfg(feature = "pico2-queue-profile")]
+pub fn force_rotation(value: u32) {
+    FORCE_ROTATION.store(value, Ordering::Release);
+    if value < 2 {
+        DESIRED_FLIP.store(value != 0, Ordering::Release);
+    }
+}
+
+static ACTIVE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_active(active: bool) {
+    ACTIVE.store(active, Ordering::Relaxed);
+}
 use embedded_hal::i2c::I2c;
+
+#[cfg(feature = "pico2-queue-profile")]
+static FORCED_UP: AtomicU32 = AtomicU32::new(0);
+#[cfg(feature = "pico2-queue-profile")]
+static REPLAY_UP: AtomicU32 = AtomicU32::new(0xfc00_0000);
 
 static UP: AtomicU32 = AtomicU32::new(0xfc00_0000);
 #[cfg(feature = "pico2-queue-profile")]
@@ -17,6 +43,17 @@ static SAMPLES: AtomicU32 = AtomicU32::new(0);
 static ERRORS: AtomicU32 = AtomicU32::new(0);
 
 pub fn up() -> [i16; 2] {
+    #[cfg(feature = "pico2-queue-profile")]
+    let forced = FORCED_UP.load(Ordering::Acquire);
+    #[cfg(feature = "pico2-queue-profile")]
+    let word = if forced != 0 {
+        forced
+    } else if matches!(super::profile::RUN.mode(), 12 | 13) {
+        REPLAY_UP.load(Ordering::Acquire)
+    } else {
+        UP.load(Ordering::Acquire)
+    };
+    #[cfg(not(feature = "pico2-queue-profile"))]
     let word = UP.load(Ordering::Acquire);
     [word as i16, (word >> 16) as i16]
 }
@@ -31,11 +68,21 @@ pub fn telemetry() -> ([i32; 6], u32, u32, u32) {
     )
 }
 
+#[cfg(feature = "pico2-queue-profile")]
+pub fn force_up(up: Option<[i16; 2]>) {
+    let word = up.map_or(0, |u| u[0] as u16 as u32 | ((u[1] as u16 as u32) << 16));
+    FORCED_UP.store(word, Ordering::Release);
+}
+
 pub struct Imu {
     address: Option<u8>,
+    landscape: super::orientation::Landscape,
+    applied: bool,
     fusion: Fusion,
     next_poll: u64,
     previous_stamp: Option<u32>,
+    #[cfg(feature = "pico2-queue-profile")]
+    replay: (u32, u64, Fusion),
 }
 
 impl Imu {
@@ -55,14 +102,36 @@ impl Imu {
         if address.is_none() {
             ERRORS.fetch_add(1, Ordering::Relaxed);
         }
-        Self { address, fusion: Fusion::new(), next_poll: now + 200_000, previous_stamp: None }
+        Self {
+            address,
+            landscape: super::orientation::Landscape::new(),
+            applied: false,
+            fusion: Fusion::new(),
+            next_poll: now + 200_000,
+            previous_stamp: None,
+            #[cfg(feature = "pico2-queue-profile")]
+            replay: (u32::MAX, 0, Fusion::new()),
+        }
+    }
+
+    pub fn apply_flip(&mut self, flipped: bool) {
+        self.applied = flipped;
+        self.fusion.set_flipped(flipped);
+        let u = self.fusion.up();
+        UP.store(u[0] as u16 as u32 | ((u[1] as u16 as u32) << 16), Ordering::Release);
+        #[cfg(feature = "pico2-queue-profile")]
+        {
+            self.replay.2.set_flipped(flipped);
+            let u = self.replay.2.up();
+            REPLAY_UP.store(u[0] as u16 as u32 | ((u[1] as u16 as u32) << 16), Ordering::Release);
+        }
     }
 
     pub fn poll(&mut self, bus: &mut impl I2c, now: u64) {
         if now < self.next_poll {
             return;
         }
-        self.next_poll = now + 16_000;
+        self.next_poll = now + if ACTIVE.load(Ordering::Relaxed) { 16_000 } else { 32_000 };
         let Some(address) = self.address else { return };
         let mut bytes = [0; 17];
         if bus.write_read(address, &[0x30], &mut bytes).is_err() {
@@ -86,6 +155,31 @@ impl Imu {
         let gyro =
             core::array::from_fn(|i| raw[i + 3] as f32 * (core::f32::consts::PI / (180. * 64.)));
         let up = self.fusion.update(accel, gyro, dt);
+        let mut base_up = self.fusion.base_up();
+        #[cfg(feature = "pico2-queue-profile")]
+        {
+            let run = super::profile::RUN.token();
+            if matches!(run & 255, 12 | 13) {
+                if run != self.replay.0 {
+                    self.replay = (run, now, Fusion::new());
+                    self.replay.2.set_flipped(self.applied);
+                }
+                let t = (now - self.replay.1) as f32 * 0.000001;
+                let (a, g) = super::tilt_fusion::replay(t);
+                let u = self.replay.2.update(a, g, dt);
+                base_up = self.replay.2.base_up();
+                REPLAY_UP
+                    .store(u[0] as u16 as u32 | ((u[1] as u16 as u32) << 16), Ordering::Release);
+            }
+        }
+        let wanted = self.landscape.observe(base_up, dt);
+        #[cfg(feature = "pico2-queue-profile")]
+        let wanted = match FORCE_ROTATION.load(Ordering::Acquire) {
+            0 => false,
+            1 => true,
+            _ => wanted,
+        };
+        DESIRED_FLIP.store(wanted, Ordering::Release);
         UP.store(up[0] as u16 as u32 | ((up[1] as u16 as u32) << 16), Ordering::Release);
         SAMPLES.fetch_add(1, Ordering::Relaxed);
         #[cfg(feature = "pico2-queue-profile")]

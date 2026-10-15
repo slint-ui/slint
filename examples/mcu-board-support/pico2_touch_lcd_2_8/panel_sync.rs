@@ -81,7 +81,11 @@ impl ScanClock {
         }
     }
 
-    pub async fn start_frame(&mut self, columns: &[u32; super::uniform_tiles::COLUMNS]) -> u32 {
+    pub async fn start_frame(
+        &mut self,
+        columns: &[u32; super::uniform_tiles::COLUMNS],
+        flipped: bool,
+    ) -> u32 {
         self.sample();
         let spi = embassy_rp::pac::SPI1;
         let divisor =
@@ -92,7 +96,8 @@ impl ScanClock {
         let remaining = u32::from(super::scan_budget::TOTAL_GATES.saturating_sub(self.scan))
             * period
             / u32::from(super::scan_budget::TOTAL_GATES);
-        let groups = super::uniform_tiles::rectangles(columns).map(|(x, _, height)| (x, 8, height));
+        let groups = super::uniform_tiles::ordered_rectangles(columns, flipped)
+            .map(|(x, _, height)| (super::orientation::gate_x(x, 8, flipped), 8, height));
         if self.last_wrap == 0
             || columns.iter().all(|mask| *mask == (1 << super::uniform_tiles::ROWS) - 1)
             || !super::scan_budget::fits_regions(remaining, period, self.scan, spi_hz, groups)

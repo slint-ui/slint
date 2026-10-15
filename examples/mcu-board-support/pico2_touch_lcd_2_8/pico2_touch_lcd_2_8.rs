@@ -6,8 +6,9 @@ extern crate alloc;
 
 mod background;
 mod imu;
+mod orientation;
 mod tilt_fusion;
-pub use imu::up as ink_up;
+pub use imu::{up as ink_up, set_active as set_ink_active};
 mod background_job;
 mod boot_guard;
 pub use background::with_core1;
@@ -137,7 +138,7 @@ use crate::embassy::{EmbassyBackend, PlatformBackend};
 
 const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(240, 320);
 const SPI_ST7789VW_MAX_FREQ: u32 = 62_500_000;
-const HEAP_SIZE: usize = 316 * 1024;
+const HEAP_SIZE: usize = 314 * 1024;
 
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
@@ -272,6 +273,8 @@ pub fn init() {
         _crc_dma: p.DMA_CH1,
         touch,
         imu,
+        flipped: false,
+        upload_full: false,
         last_touch: None,
 
         touch_pending: false,
@@ -309,6 +312,8 @@ struct PicoEmbassyBackend {
         embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
     >,
     imu: imu::Imu,
+    flipped: bool,
+    upload_full: bool,
     last_touch: Option<slint::LogicalPosition>,
 
     touch_pending: bool,
@@ -333,6 +338,18 @@ impl PlatformBackend for PicoEmbassyBackend {
             _ => {}
         }
         self.imu.poll(&mut self.touch.i2c, now_us());
+        let wanted = imu::desired_flip();
+        if wanted != self.flipped {
+            if let Some(position) = self.last_touch.take() {
+                window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+                window.dispatch_event(WindowEvent::PointerExited);
+            }
+            self.flipped = wanted;
+            self.imu.apply_flip(wanted);
+            self.uniform_tiles.reverse();
+            self.upload_full = true;
+            window.request_redraw();
+        }
         let button = PointerEventButton::Left;
         #[cfg(feature = "pico2-queue-profile")]
         let touch_started = profile::now_us();
@@ -359,7 +376,8 @@ impl PlatformBackend for PicoEmbassyBackend {
         let hardware_event = report.and_then(|point| {
             point
                 .map(|point| {
-                    let position = slint::PhysicalPosition::new(point.x as _, point.y as _)
+                    let (x, y) = orientation::touch(point.x, point.y, frame_queue::flipped());
+                    let position = slint::PhysicalPosition::new(x as _, y as _)
                         .to_logical(window.scale_factor());
                     match self.last_touch.replace(position) {
                         Some(_) => WindowEvent::PointerMoved { position },
@@ -425,7 +443,10 @@ impl PlatformBackend for PicoEmbassyBackend {
         #[cfg(feature = "pico2-queue-profile")]
         let capturing = usb::CAPTURE_STATE.load(Ordering::Acquire) == 4;
         #[cfg(feature = "pico2-queue-profile")]
-        if capturing && !usb::CHECK_PANEL.load(Ordering::Relaxed) {
+        let repaint_full = capturing && !usb::CHECK_PANEL.load(Ordering::Relaxed);
+        #[cfg(not(feature = "pico2-queue-profile"))]
+        let repaint_full = false;
+        if repaint_full {
             renderer.set_repaint_buffer_type(renderer::RepaintBufferType::NewBuffer);
         }
         #[cfg(feature = "pico2-queue-profile")]
@@ -458,6 +479,8 @@ impl PlatformBackend for PicoEmbassyBackend {
                 &region,
                 frame_hash,
                 &mut self.uniform_tiles,
+                self.flipped,
+                self.upload_full,
             )
             .await;
             #[cfg(feature = "pico2-queue-profile")]
@@ -473,9 +496,12 @@ impl PlatformBackend for PicoEmbassyBackend {
                 stats.lines = _transfer.lines;
             }
         }
+        if repaint_full {
+            renderer.set_repaint_buffer_type(renderer::RepaintBufferType::ReusedBuffer);
+        }
+        self.upload_full = false;
         #[cfg(feature = "pico2-queue-profile")]
         if capturing {
-            renderer.set_repaint_buffer_type(renderer::RepaintBufferType::ReusedBuffer);
             self.profiler = profile::Profiler::default();
             let pixels = self.frame_buffer.as_mut_ptr().cast();
             usb::CAPTURE_PIXELS.store(pixels, Ordering::Release);

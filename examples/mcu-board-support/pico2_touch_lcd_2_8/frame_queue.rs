@@ -11,6 +11,11 @@ embassy_rp::bind_interrupts!(struct DmaInterrupts {
 const CAPACITY: usize = 32 * 1024;
 const SLOT_COUNT: usize = 3;
 use super::packet_slot::{Slot, Write};
+static DISPLAY_FLIPPED: AtomicBool = AtomicBool::new(false);
+static DISPLAY_FLIPS: AtomicU32 = AtomicU32::new(0);
+pub fn flipped() -> bool { DISPLAY_FLIPPED.load(Ordering::Acquire) }
+pub fn flips() -> u32 { DISPLAY_FLIPS.load(Ordering::Relaxed) }
+
 pub static DISPLAY_READY: AtomicBool = AtomicBool::new(false);
 static NEXT_SLOT: AtomicU32 = AtomicU32::new(0);
 #[cfg(feature = "pico2-queue-profile")]
@@ -53,6 +58,7 @@ struct Packet {
     #[cfg(feature = "pico2-queue-profile")]
     frame_id: u32,
     first: bool,
+    flipped: bool,
     frame_columns: [u32; super::uniform_tiles::COLUMNS],
     last: bool,
     bytes: super::wire_format::PacketBytes<CAPACITY>,
@@ -68,6 +74,7 @@ impl Packet {
             #[cfg(feature = "pico2-queue-profile")]
             frame_id: 0,
             first: false,
+            flipped: false,
             frame_columns: [0; super::uniform_tiles::COLUMNS],
             last: false,
             bytes: super::wire_format::PacketBytes([0; CAPACITY]),
@@ -117,11 +124,13 @@ pub async fn publish(
     region: &PhysicalRegion,
     _frame_hash: u32,
     uniform_tiles: &mut [u32],
+    flipped: bool,
+    full: bool,
 ) -> PublishStats {
     let mut stats = PublishStats::default();
     let position = region.bounding_box_origin();
     let size = region.bounding_box_size();
-    if size.width == 0 || size.height == 0 {
+    if !full && (size.width == 0 || size.height == 0) {
         return stats;
     }
     let source =
@@ -131,16 +140,16 @@ pub async fn publish(
     let columns = super::uniform_tiles::plan(
         source,
         uniform_tiles,
-        position.x as usize,
-        position.y as usize,
-        size.width as usize,
-        size.height as usize,
+        if full { 0 } else { position.x as usize },
+        if full { 0 } else { position.y as usize },
+        if full { 320 } else { size.width as usize },
+        if full { 240 } else { size.height as usize },
     );
     #[cfg(feature = "pico2-queue-profile")]
     {
         stats.plan_us = plan_started.elapsed().as_micros();
     }
-    let mut rectangles = super::uniform_tiles::rectangles(&columns).peekable();
+    let mut rectangles = super::uniform_tiles::ordered_rectangles(&columns, flipped).peekable();
     if rectangles.peek().is_none() {
         return stats;
     }
@@ -155,6 +164,7 @@ pub async fn publish(
         packet.frame_hash = _frame_hash;
     }
     packet.first = true;
+    packet.flipped = flipped;
     packet.frame_columns = columns;
     while let Some((x, y, height)) = rectangles.next() {
         let (x, y, height) = (usize::from(x), usize::from(y), usize::from(height));
@@ -163,6 +173,7 @@ pub async fn publish(
         if packet.count == packet.rectangles.len() || CAPACITY - packet.used < length {
             packet.publish();
             packet = reserve(&mut stats).await;
+            packet.flipped = flipped;
             #[cfg(feature = "pico2-queue-profile")]
             {
                 packet.frame_id = stats.frame_id;
@@ -326,10 +337,17 @@ async fn display_loop(
         #[cfg(feature = "pico2-queue-profile")]
         let started = embassy_time::Instant::now();
         if packet.first {
-            wave = scan.start_frame(&packet.frame_columns).await;
+            if flipped() != packet.flipped {
+                // MY/MX change addressing; ML/MH keep the physical refresh direction unchanged.
+                command(0x36, &[if packet.flipped { 0xa0 } else { 0x60 }]);
+                DISPLAY_FLIPPED.store(packet.flipped, Ordering::Release);
+                DISPLAY_FLIPS.fetch_add(1, Ordering::Relaxed);
+            }
+            wave = scan.start_frame(&packet.frame_columns, packet.flipped).await;
         }
         for rect in &packet.rectangles[..packet.count] {
-            scan.wait_after(wave, rect.x, rect.width).await;
+            let gate = super::orientation::gate_x(rect.x, rect.width, packet.flipped);
+            scan.wait_after(wave, gate, rect.width).await;
             #[cfg(feature = "pico2-queue-profile")]
             let busy_started = embassy_time::Instant::now();
             let x_end = rect.x + rect.width - 1;
@@ -394,7 +412,7 @@ async fn display_loop(
                 TRANSPORT[2].fetch_max(busy_us.saturating_sub(wire_us), Ordering::Relaxed);
             }
 
-            scan.complete_strip(wave, rect.x);
+            scan.complete_strip(wave, gate);
         }
         #[cfg(feature = "pico2-queue-profile")]
         {

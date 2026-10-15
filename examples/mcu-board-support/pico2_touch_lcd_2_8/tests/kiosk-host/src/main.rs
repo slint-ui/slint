@@ -3,6 +3,12 @@
 
 extern crate alloc;
 #[cfg(test)]
+#[path = "../../../orientation.rs"]
+mod orientation;
+#[cfg(test)]
+#[path = "../../../uniform_tiles.rs"]
+mod uniform_tiles;
+#[cfg(test)]
 #[path = "../../../tilt_fusion.rs"]
 mod tilt_fusion;
 #[cfg(test)]

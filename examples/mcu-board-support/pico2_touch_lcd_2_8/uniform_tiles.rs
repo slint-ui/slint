@@ -47,39 +47,64 @@ pub fn plan(
     columns
 }
 
+#[cfg(test)]
 pub fn rectangles(columns: &[u32; COLUMNS]) -> impl Iterator<Item = (u16, u16, u16)> + '_ {
-    columns.iter().enumerate().flat_map(|(column, &mask)| {
-        let mut mask = mask;
-        core::iter::from_fn(move || {
-            if mask == 0 {
-                return None;
-            }
-            let start = mask.trailing_zeros();
-            let mut end = start + (mask >> start).trailing_ones();
-            loop {
-                let remaining = mask & !((1u32 << end) - 1);
-                if remaining == 0 {
-                    break;
-                }
-                let next = remaining.trailing_zeros();
-                if next - end > 4 {
-                    break;
-                }
-                end = next + (mask >> next).trailing_ones();
-            }
-            mask &= !(((1u32 << end) - 1) & !((1u32 << start) - 1));
-            Some((
-                (column * TILE) as u16,
-                (start as usize * TILE) as u16,
-                ((end - start) as usize * TILE) as u16,
-            ))
+    ordered_rectangles(columns, false)
+}
+
+pub fn ordered_rectangles(
+    columns: &[u32; COLUMNS],
+    flipped: bool,
+) -> impl Iterator<Item = (u16, u16, u16)> + '_ {
+    (0..COLUMNS)
+        .map(move |i| {
+            let column = if flipped { COLUMNS - 1 - i } else { i };
+            (column, columns[column])
         })
-    })
+        .flat_map(|(column, mask)| {
+            let mut mask = mask;
+            core::iter::from_fn(move || {
+                if mask == 0 {
+                    return None;
+                }
+                let start = mask.trailing_zeros();
+                let mut end = start + (mask >> start).trailing_ones();
+                loop {
+                    let remaining = mask & !((1u32 << end) - 1);
+                    if remaining == 0 {
+                        break;
+                    }
+                    let next = remaining.trailing_zeros();
+                    if next - end > 4 {
+                        break;
+                    }
+                    end = next + (mask >> next).trailing_ones();
+                }
+                mask &= !(((1u32 << end) - 1) & !((1u32 << start) - 1));
+                Some((
+                    (column * TILE) as u16,
+                    (start as usize * TILE) as u16,
+                    ((end - start) as usize * TILE) as u16,
+                ))
+            })
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flipped_uploads_visit_physical_gates_in_order_and_keep_the_same_pixels() {
+        let columns = core::array::from_fn(|i| if i % 3 == 0 { 0x00f0_0033 } else { 0 });
+        let normal: Vec<_> = ordered_rectangles(&columns, false).collect();
+        let flipped: Vec<_> = ordered_rectangles(&columns, true).collect();
+        let gates: Vec<_> = flipped.iter().map(|&(x, _, _)| 320 - x - 8).collect();
+        assert!(gates.windows(2).all(|pair| pair[0] <= pair[1]));
+        let mut sorted = flipped;
+        sorted.sort();
+        assert_eq!(sorted, normal);
+    }
 
     #[test]
     fn word_and_halfword_aligned_sources_produce_identical_plans() {
