@@ -55,13 +55,25 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
         content-height: root.count * root.item-height;
         content-y: -max(0, clamp(root.current-index, 0, root.count - 1) - max(1, root.maximum-visible-items) + 1) * root.item-height;
         private property <int> highlight-index: root.highlighted-index;
-        changed highlight-index => {
+        private property <bool> opened: root.opened;
+
+        function ensure-highlight-visible() {
+            if self.highlight-index < 0 || self.highlight-index >= root.count || self.height <= 0px { return; }
+            let maximum-offset = max(0px, self.content-height - self.height);
+            let offset = clamp(-self.content-y, 0px, maximum-offset);
             let top = self.highlight-index * root.item-height;
-            if top < -self.content-y { self.content-y = -top; }
-            else if top + root.item-height > -self.content-y + self.height {
-                self.content-y = -(top + root.item-height - self.height);
+            if top < offset { self.content-y = -min(top, maximum-offset); }
+            else if top + root.item-height > offset + self.height {
+                self.content-y = -clamp(top + root.item-height - self.height, 0px, maximum-offset);
+            } else {
+                self.content-y = -offset;
             }
         }
+        changed highlight-index => { self.ensure-highlight-visible(); }
+        changed height => { self.ensure-highlight-visible(); }
+        changed content-height => { self.ensure-highlight-visible(); }
+        changed opened => { if self.opened { self.ensure-highlight-visible(); } }
+
         for value[index] in root.model: item := ButtonBase {
             y: index * root.item-height;
             width: items.width;
@@ -168,7 +180,7 @@ export component ComboBox inherits ComboBoxBase {
         border-width: root.border-width;
         border-radius: root.border-radius;
 
-        FocusOutline {
+        focus-outline := FocusOutline {
             active: root.enabled && (root.has-focus || root.expanded);
             outline-color: root.style.focus-color;
             target-width: parent.width;
