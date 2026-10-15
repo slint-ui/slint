@@ -1,0 +1,23 @@
+{
+  "code_revision": "9d74eb47f45f3f58c81a16bec5d1a8039dadd200",
+  "cpu_hz": 150000000,
+  "spi_hz": 48000000,
+  "flash_hz": 75000000,
+  "flash_clkdiv": 2,
+  "rxdelay": 2,
+  "min_deselect": 1,
+  "pagebreak": 0,
+  "read_command": "0xeb",
+  "read_format": 299688,
+  "release": {
+    "lto": "thin",
+    "codegen_units": 1,
+    "target_cpu": "cortex-m33"
+  },
+  "profiling_elf_sha256": "9b8f18b5b0644d5aee63f9f58b382db0ccc4d8eaab9e939ffd3d7593268395a9",
+  "normal_elf_sha256": "00be471e11d18a3de17a087819caa80376a72d48bab70c4da65fdd13940fb977",
+  "main_stack_gap_bytes": 21300,
+  "core1_stack_bytes": 8192,
+  "min_window_stack_free": 6084,
+  "min_window_heap_free": 12328
+}

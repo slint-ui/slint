@@ -88,6 +88,8 @@ Do not reintroduce those approaches without new evidence.
 - The profiling USB command `flashinfo` reads the live QMI timing, read format, and read command without changing them.
   The [original flash baseline](results/stock-150/flash-clock.json) reports divisor 3 and 50 MHz quad-I/O reads at 150 MHz CPU.
   The [75 MHz qualification](results/stock-150/flash-75/report.md) measures the retained divisor-2 startup configuration and its rendering benefit.
+  The [QMI timing trials](results/stock-150/qmi-timing/report.md) retain a shorter chip-select gap and uninterrupted sequential bursts.
+  They also compare the rejected 133 MHz CPU configuration and the single 150 MHz flash experiment.
   SRAM accesses, cache hits, and display SPI transfers do not speed up directly with the flash clock.
 - `check-printer-flash.py` compares uncached flash reads with the flashed ELF using the read-only profiling command `flashhash`.
 - The USB collector measures completed changing frames, physical panel ticks, input dispatch, packet preparation, and scan deadlines.

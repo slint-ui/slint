@@ -2,7 +2,8 @@
 
 The final firmware uses the rated 150 MHz CPU, 48 MHz SPI, and native 320 × 240 output.
 The target is the measured panel cadence, approximately 58.6 Hz.
-The [75 MHz flash qualification](flash-75/report.md) records the current flash timing, its isolated raster savings, and repeated corruption checks.
+The [75 MHz flash qualification](flash-75/report.md) records its isolated raster savings and repeated corruption checks.
+The [QMI timing trials](qmi-timing/report.md) document the retained shorter chip-select gap, uninterrupted bursts, and clock comparisons.
 The Settings list includes the final Kiosk mode checkbox and a 207-pixel scroll range.
 Normal Ink retains 16/26/20/32 particles; both clock configurations now enable held-vial boost to 26/42/32/52.
 
@@ -14,7 +15,7 @@ Before tilt support, all nine [input workloads](core1-ink/report.md) and two com
 That qualification composes two vials on each core and removes the outer corner overlay.
 It includes repeated all-vial stress, hold/release replay, native pixel parity, and direct panel-memory checks.
 See the [audit](../audit.md) for retained changes and regression coverage.
-The [latest firmware metadata](tilt/firmware.json) records the stock-speed Ink binary and measured memory headroom.
+The [latest firmware metadata](qmi-timing/firmware.json) records the stock-speed Ink binary and measured memory headroom.
 
 Raster timings exclude input dispatch, packet planning, packing, checksum work, and transport waiting.
 Pointer replay tests the real Slint widgets and backend dispatch; it does not measure physical finger latency.
