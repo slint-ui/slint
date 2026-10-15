@@ -18,6 +18,9 @@ use num_traits::Float;
 
 /// Draw one line of the texture in the line buffer
 ///
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
 pub(super) fn draw_texture_line(
     span: &PhysicalRect,
     line: PhysicalLength,
@@ -42,6 +45,53 @@ pub(super) fn draw_texture_line(
     let dx = Fixed::<i32, 8>::from_fixed(dx);
     let dy = Fixed::<i32, 8>::from_fixed(dy);
     let off_x = Fixed::<i32, 8>::from_fixed(off_x);
+
+    let unit_sampling = match format {
+        TexturePixelFormat::AlphaMap => true,
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        TexturePixelFormat::Rgb565 => true,
+        _ => false,
+    };
+    if unit_sampling
+        && rotation == super::RenderingRotation::NoRotation
+        && dx == Fixed::from_integer(1)
+        && dy == Fixed::from_integer(1)
+    {
+        let source_y = off_y.truncate() + y;
+        let source_x = off_x.truncate() + extra_clip_begin as i32;
+        if source_y >= 0
+            && source_y < source_size.height
+            && source_x >= 0
+            && source_x as usize + len <= source_size.width as usize
+        {
+            let bpp = format.bpp();
+            let mut position =
+                (source_y as usize * pixel_stride as usize + source_x as usize) * bpp;
+            if format == TexturePixelFormat::AlphaMap {
+                blend_alpha_map_line(line_buffer, &data[position..position + len], alpha, colorize);
+                return;
+            }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            if format == TexturePixelFormat::Rgb565 && alpha == u8::MAX {
+                TargetPixel::copy_from_rgb565(line_buffer, &data[position..position + len * 2]);
+                return;
+            }
+            fetch_blend_pixel(
+                line_buffer,
+                format,
+                data,
+                alpha,
+                colorize,
+                (pixel_stride as usize, dy),
+                |_| {
+                    let result = (position, 0, 0);
+                    position += bpp;
+                    result
+                },
+            );
+            return;
+        }
+    }
 
     if !rotation.is_transpose() {
         let mut delta = dx;
@@ -183,6 +233,7 @@ pub(super) fn draw_texture_line(
         }
     };
 
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(always))]
     fn fetch_blend_pixel(
         line_buffer: &mut [impl TargetPixel],
         format: TexturePixelFormat,
@@ -294,8 +345,16 @@ pub(super) fn draw_texture_line(
             TexturePixelFormat::AlphaMap => {
                 for pix in line_buffer {
                     let pos = pos(1).0;
+                    let alpha = ((data[pos] as u16 * alpha as u16) / 255) as u8;
+                    if alpha == 0 {
+                        continue;
+                    }
+                    if alpha == u8::MAX {
+                        *pix = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
+                        continue;
+                    }
                     let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
+                        alpha,
                         color.red(),
                         color.green(),
                         color.blue(),
@@ -389,6 +448,37 @@ impl core::ops::Mul for Shifted {
     }
 }
 
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(
+    all(feature = "embedded-ram-functions", target_arch = "arm"),
+    unsafe(link_section = ".data.ram_func")
+)]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
+fn blend_alpha_map_line<P: TargetPixel>(
+    pixels: &mut [P],
+    coverage: &[u8],
+    alpha: u8,
+    color: Color,
+) {
+    let opaque = P::from_rgb(color.red(), color.green(), color.blue());
+    for (pixel, coverage) in pixels.iter_mut().zip(coverage) {
+        let alpha = (*coverage as u16 * alpha as u16 / 255) as u8;
+        if alpha == 0 {
+            continue;
+        }
+        if alpha == u8::MAX {
+            *pixel = opaque;
+        } else {
+            pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                alpha,
+                color.red(),
+                color.green(),
+                color.blue(),
+            )));
+        }
+    }
+}
+
 /// The radius of the left and right corner that `line` crosses (0 if none),
 /// each with the distance of `line` from that corner's horizontal edge of `shape`,
 /// and the distance of `line` from the nearest horizontal edge.
@@ -439,9 +529,124 @@ fn edge_coverage(x: u32, x1: Shifted, x2: Shifted) -> u32 {
     ((Shifted::ONE + Shifted::new(x) - x1).0 << 8) / (Shifted::ONE + x2 - x1).0
 }
 
+#[cfg(all(test, feature = "image-pixel-format-rgb565"))]
+#[test]
+fn unit_rgb565_sampling_preserves_offsets_clipping_and_alpha() {
+    fn check<P: TargetPixel + bytemuck::Pod>(initial: P) {
+        let mut storage = [0u8; 49];
+        for (i, bytes) in storage[1..].chunks_exact_mut(2).enumerate() {
+            bytes.copy_from_slice(&((i as u16).wrapping_mul(2707)).to_ne_bytes());
+        }
+        let data = &storage[1..];
+        let span =
+            PhysicalRect::new(super::PhysicalPoint::new(3, 7), super::PhysicalSize::new(6, 4));
+        for off_y in 0..3 {
+            for off_x in 0..4 {
+                for extra in 0..3 {
+                    let source_x = off_x + extra;
+                    let count = 6 - source_x;
+                    for alpha in [0, 1, 63, 127, 254, 255] {
+                        let texture = super::SceneTexture {
+                            data,
+                            pixel_stride: 6,
+                            format: TexturePixelFormat::Rgb565,
+                            extra: super::SceneTextureExtra {
+                                dx: Fixed::from_integer(1),
+                                dy: Fixed::from_integer(1),
+                                off_x: Fixed::from_integer(off_x),
+                                off_y: Fixed::from_integer(off_y),
+                                alpha,
+                                colorize: Color::default(),
+                                rotation: super::RenderingRotation::NoRotation,
+                            },
+                        };
+                        let mut actual = [initial; 6];
+                        draw_texture_line(
+                            &span,
+                            PhysicalLength::new(8),
+                            &texture,
+                            &mut actual[..count as usize],
+                            extra as i16,
+                            0,
+                        );
+                        let mut expected = [initial; 6];
+                        for (i, pixel) in expected[..count as usize].iter_mut().enumerate() {
+                            let value =
+                                (((off_y + 1) * 6 + source_x) as u16 + i as u16).wrapping_mul(2707);
+                            if alpha == 255 {
+                                *pixel = P::from_rgb565(value);
+                            } else {
+                                let color = Rgb565Pixel(value);
+                                pixel.blend(PremultipliedRgbaColor::premultiply(
+                                    Color::from_argb_u8(
+                                        alpha,
+                                        color.red(),
+                                        color.green(),
+                                        color.blue(),
+                                    ),
+                                ));
+                            }
+                        }
+                        assert_eq!(
+                            bytemuck::cast_slice::<P, u8>(&actual),
+                            bytemuck::cast_slice::<P, u8>(&expected)
+                        );
+                    }
+                }
+            }
+        }
+    }
+    check(Rgb565Pixel(0x52db));
+    check(Rgb565BigEndianPixel(0x52dbu16.to_be()));
+    check(Rgb8Pixel::new(83, 123, 217));
+    check(PremultipliedRgbaColor { red: 17, green: 41, blue: 53, alpha: 100 });
+}
+
 /// draw one line of the rounded rectangle in the line buffer
 #[allow(clippy::unnecessary_cast)] // Coord
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
 pub(super) fn draw_rounded_rectangle_line(
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    rr: &super::RoundedRectangle,
+    line_buffer: &mut [impl TargetPixel],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+) {
+    let width = line_buffer.len();
+    let top = (line - span.origin.y_length()) + rr.shape.top_clip;
+    let bottom = span.origin.y_length() + span.size.height_length() - line + rr.shape.bottom_clip
+        - PhysicalLength::new(1);
+    if top.get() >= rr.shape.radius.top_left.max(rr.shape.radius.top_right)
+        && bottom.get() >= rr.shape.radius.bottom_left.max(rr.shape.radius.bottom_right)
+        && top.min(bottom) >= rr.width
+    {
+        let left = (rr.width.get() - rr.shape.left_clip.get() - extra_left_clip)
+            .max(0) as usize;
+        let right = (rr.width.get() - rr.shape.right_clip.get() - extra_right_clip)
+            .max(0) as usize;
+        let begin = left.min(width);
+        let end = width.saturating_sub(right);
+        if rr.width.get() > 0 {
+            TargetPixel::blend_slice(&mut line_buffer[..begin], rr.border_color);
+            TargetPixel::blend_slice(&mut line_buffer[end..], rr.border_color);
+        }
+        if begin < end && rr.inner_color.alpha > 0 {
+            TargetPixel::blend_slice(&mut line_buffer[begin..end], rr.inner_color);
+        }
+        return;
+    }
+    draw_curved_rectangle_line(span, line, rr, line_buffer, extra_left_clip, extra_right_clip);
+}
+
+/// draw one line of the rounded rectangle in the line buffer
+#[allow(clippy::unnecessary_cast)] // Coord
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
+fn draw_curved_rectangle_line(
     span: &PhysicalRect,
     line: PhysicalLength,
     rr: &super::RoundedRectangle,
@@ -1163,12 +1368,20 @@ pub trait TargetPixel: Sized + Copy {
     /// Blend a color to all the pixel in the slice.
     fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
         if color.alpha == u8::MAX {
-            slice.fill(Self::from_rgb(color.red, color.green, color.blue))
+            Self::fill_slice(slice, Self::from_rgb(color.red, color.green, color.blue))
         } else {
             for x in slice {
                 Self::blend(x, color);
             }
         }
+    }
+    /// Fill the slice with one pixel.
+    fn fill_slice(slice: &mut [Self], pixel: Self) {
+        slice.fill(pixel);
+    }
+    /// Copy native-endian RGB565 bytes; the source length must be twice the pixel count.
+    fn copy_from_rgb565(slice: &mut [Self], source: &[u8]) {
+        copy_rgb565_pixels(slice, source);
     }
     /// Create a pixel from the red, gree, blue component in the range 0..=255
     fn from_rgb(red: u8, green: u8, blue: u8) -> Self;
@@ -1224,7 +1437,143 @@ const R_MASK: u16 = 0b1111_1000_0000_0000;
 const G_MASK: u16 = 0b0000_0111_1110_0000;
 const B_MASK: u16 = 0b0000_0000_0001_1111;
 
+fn copy_rgb565_pixels<P: TargetPixel>(pixels: &mut [P], source: &[u8]) {
+    assert_eq!(source.len(), pixels.len() * 2);
+    for (pixel, bytes) in pixels.iter_mut().zip(source.chunks_exact(2)) {
+        *pixel = P::from_rgb565(u16::from_ne_bytes([bytes[0], bytes[1]]));
+    }
+}
+
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
+fn copy_rgb565_big_endian(pixels: &mut [u16], source: &[u16]) {
+    assert_eq!(source.len(), pixels.len());
+    if cfg!(target_endian = "big") {
+        pixels.copy_from_slice(source);
+        return;
+    }
+    if pixels.is_empty() {
+        return;
+    }
+    let prefix_len = usize::from(pixels.as_ptr() as usize & 3 != 0).min(pixels.len());
+    let (prefix, remaining) = pixels.split_at_mut(prefix_len);
+    if let Some(pixel) = prefix.first_mut() {
+        *pixel = source[0].swap_bytes();
+    }
+    let (pairs, suffix) = remaining.split_at_mut(remaining.len() & !1);
+    let words = bytemuck::cast_slice_mut::<u16, u32>(pairs);
+    for (pixel_pair, pair) in words.iter_mut().zip(source[prefix_len..].chunks_exact(2)) {
+        let value = u32::from(pair[0]) | (u32::from(pair[1]) << 16);
+        *pixel_pair = ((value & 0x00ff00ff) << 8) | ((value >> 8) & 0x00ff00ff);
+    }
+    if let Some(pixel) = suffix.first_mut() {
+        *pixel = source[source.len() - 1].swap_bytes();
+    }
+}
+
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), allow(unsafe_code))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+#[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(never))]
+fn fill_rgb565(pixels: &mut [u16], value: u16) {
+    if pixels.is_empty() {
+        return;
+    }
+    let prefix_len = usize::from(pixels.as_ptr() as usize & 3 != 0).min(pixels.len());
+    let (prefix, remaining) = pixels.split_at_mut(prefix_len);
+    prefix.fill(value);
+    let (pairs, suffix) = remaining.split_at_mut(remaining.len() & !1);
+    bytemuck::cast_slice_mut::<u16, u32>(pairs).fill(u32::from(value) * 0x10001);
+    suffix.fill(value);
+}
+
+#[test]
+fn rgb565_fills_preserve_alignment_clipping_and_alpha() {
+    fn check<P: TargetPixel + bytemuck::Pod>() {
+        #[repr(align(4))]
+        struct Storage<P>([P; 24]);
+        for offset in 0..4 {
+            for len in 0..=18 {
+                for alpha in [0, 1, 127, 254, 255] {
+                    for color in [0, 0x123456, 0xa2f378, 0xffffff] {
+                        let color = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            (color >> 16) as u8,
+                            (color >> 8) as u8,
+                            color as u8,
+                        ));
+                        let initial = P::from_rgb(19, 73, 157);
+                        let mut actual = Storage([initial; 24]);
+                        let mut expected = Storage([initial; 24]);
+                        P::blend_slice(&mut actual.0[offset..offset + len], color);
+                        for pixel in &mut expected.0[offset..offset + len] {
+                            if alpha == 255 {
+                                *pixel = P::from_rgb(color.red, color.green, color.blue);
+                            } else {
+                                pixel.blend(color);
+                            }
+                        }
+                        assert_eq!(
+                            bytemuck::cast_slice::<P, u8>(&actual.0),
+                            bytemuck::cast_slice::<P, u8>(&expected.0),
+                            "offset {offset}, length {len}, alpha {alpha}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    check::<Rgb565Pixel>();
+    check::<Rgb565BigEndianPixel>();
+}
+
+#[test]
+fn rgb565_copies_preserve_every_color_alignment_and_tail() {
+    fn check<P: TargetPixel + bytemuck::Pod>() {
+        for source_offset in 0..4 {
+            let mut source = alloc::vec![0; source_offset];
+            for value in 0..=u16::MAX {
+                source.extend_from_slice(&value.to_ne_bytes());
+            }
+            for target_offset in 0..4 {
+                for count in (0..=33).chain([65536]) {
+                    let initial = P::from_rgb(17, 73, 191);
+                    let mut actual = alloc::vec![initial; target_offset + count + 2];
+                    let mut expected = actual.clone();
+                    P::copy_from_rgb565(
+                        &mut actual[target_offset..target_offset + count],
+                        &source[source_offset..source_offset + count * 2],
+                    );
+                    for (i, pixel) in expected[target_offset..target_offset + count].iter_mut().enumerate() {
+                        *pixel = P::from_rgb565(i as u16);
+                    }
+                    assert_eq!(
+                        bytemuck::cast_slice::<P, u8>(&actual),
+                        bytemuck::cast_slice::<P, u8>(&expected),
+                        "source offset {source_offset}, target offset {target_offset}, length {count}"
+                    );
+                }
+            }
+        }
+    }
+    check::<Rgb565Pixel>();
+    check::<Rgb565BigEndianPixel>();
+}
+
 impl TargetPixel for Rgb565Pixel {
+    fn copy_from_rgb565(slice: &mut [Self], source: &[u8]) {
+        if let Ok(pixels) = bytemuck::try_cast_slice::<u8, Self>(source) {
+            slice.copy_from_slice(pixels);
+        } else {
+            copy_rgb565_pixels(slice, source);
+        }
+    }
+
+    fn fill_slice(slice: &mut [Self], pixel: Self) {
+        fill_rgb565(bytemuck::cast_slice_mut(slice), pixel.0);
+    }
+
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(always))]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         let a = (u8::MAX - color.alpha) as u32;
         // convert to 5 bits
@@ -1288,6 +1637,19 @@ impl Rgb565BigEndianPixel {
 }
 
 impl TargetPixel for Rgb565BigEndianPixel {
+    fn copy_from_rgb565(slice: &mut [Self], source: &[u8]) {
+        if let Ok(pixels) = bytemuck::try_cast_slice::<u8, u16>(source) {
+            copy_rgb565_big_endian(bytemuck::cast_slice_mut(slice), pixels);
+        } else {
+            copy_rgb565_pixels(slice, source);
+        }
+    }
+
+    fn fill_slice(slice: &mut [Self], pixel: Self) {
+        fill_rgb565(bytemuck::cast_slice_mut(slice), pixel.0);
+    }
+
+    #[cfg_attr(all(feature = "embedded-ram-functions", target_arch = "arm"), inline(always))]
     fn blend(&mut self, color: PremultipliedRgbaColor) {
         // Reuse the canonical native-endian Rgb565Pixel::blend by decoding
         // from BE byte order, blending, and re-encoding. On targets with a
@@ -1546,4 +1908,243 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
             }
         }
     }
+}
+
+#[test]
+fn alpha_map_matches_scalar_blending() {
+    fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
+        let coverage: [u8; 256] = core::array::from_fn(|i| i as u8);
+        let span =
+            PhysicalRect::new(super::PhysicalPoint::new(0, 0), super::PhysicalSize::new(256, 1));
+        for color in [
+            Color::from_rgb_u8(0, 0, 0),
+            Color::from_rgb_u8(255, 255, 255),
+            Color::from_rgb_u8(17, 83, 219),
+            Color::from_rgb_u8(248, 252, 248),
+        ] {
+            for alpha in 0..=255 {
+                let texture = super::SceneTexture {
+                    data: &coverage,
+                    format: TexturePixelFormat::AlphaMap,
+                    pixel_stride: 256,
+                    extra: super::SceneTextureExtra {
+                        dx: Fixed::from_integer(1),
+                        dy: Fixed::from_integer(1),
+                        off_x: Fixed::from_integer(0),
+                        off_y: Fixed::from_integer(0),
+                        colorize: color,
+                        alpha,
+                        rotation: super::RenderingRotation::NoRotation,
+                    },
+                };
+                let mut actual = [initial; 256];
+                draw_texture_line(&span, PhysicalLength::new(0), &texture, &mut actual, 0, 0);
+                let mut expected = [initial; 256];
+                for (pixel, coverage) in expected.iter_mut().zip(coverage) {
+                    pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        (coverage as u16 * alpha as u16 / 255) as u8,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    )));
+                }
+                assert_eq!(
+                    bytemuck::cast_slice::<Pixel, u8>(&actual),
+                    bytemuck::cast_slice::<Pixel, u8>(&expected),
+                    "global alpha {alpha}, color {color:?}",
+                );
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
+}
+
+#[test]
+fn contiguous_alpha_map_matches_scalar_blending() {
+    fn check<P: TargetPixel + bytemuck::Pod>(initial: P) {
+        let coverage: [u8; 256] = core::array::from_fn(|i| i as u8);
+        for color in [
+            Color::from_rgb_u8(255, 255, 255),
+            Color::from_rgb_u8(0, 0, 0),
+            Color::from_rgb_u8(237, 119, 53),
+        ] {
+            for alpha in 0..=255 {
+                let mut actual = [initial; 256];
+                let mut expected = actual;
+                blend_alpha_map_line(&mut actual, &coverage, alpha, color);
+                for (pixel, coverage) in expected.iter_mut().zip(coverage) {
+                    let alpha = (coverage as u16 * alpha as u16 / 255) as u8;
+                    if alpha == 255 {
+                        *pixel = P::from_rgb(color.red(), color.green(), color.blue());
+                    } else if alpha != 0 {
+                        pixel.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        )));
+                    }
+                }
+                assert_eq!(
+                    bytemuck::cast_slice::<P, u8>(&actual),
+                    bytemuck::cast_slice::<P, u8>(&expected)
+                );
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
+}
+
+#[test]
+fn unit_alpha_map_matches_scalar_sampling_with_clipping_and_tiling() {
+    fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
+        let data: [u8; 64] = core::array::from_fn(|i| (i as u8).wrapping_mul(37));
+        let color = Color::from_rgb_u8(237, 119, 53);
+        let span = super::PhysicalRect::new(
+            super::PhysicalPoint::new(2, 3),
+            super::PhysicalSize::new(20, 12),
+        );
+        for alpha in [0, 91, 254, 255] {
+            for source_x in [0, 1, 8, 10] {
+                for source_y in [0, 1, 5, 7] {
+                    for fraction in 0..16 {
+                        for clip in [0, 1, 4] {
+                            for line in [0, 1, 5] {
+                                for len in [0, 1, 4, 9, 20] {
+                                    let texture = super::SceneTexture {
+                                        data: &data,
+                                        format: TexturePixelFormat::AlphaMap,
+                                        pixel_stride: 11,
+                                        extra: super::SceneTextureExtra {
+                                            dx: Fixed::from_integer(1),
+                                            dy: Fixed::from_integer(1),
+                                            off_x: Fixed(source_x * 16 + fraction),
+                                            off_y: Fixed(source_y * 16 + fraction),
+                                            colorize: color,
+                                            alpha,
+                                            rotation: super::RenderingRotation::NoRotation,
+                                        },
+                                    };
+                                    let mut actual = alloc::vec![initial; len];
+                                    draw_texture_line(
+                                        &span,
+                                        PhysicalLength::new(3 + line),
+                                        &texture,
+                                        &mut actual,
+                                        clip,
+                                        0,
+                                    );
+                                    let mut expected = alloc::vec![initial; len];
+                                    for (column, pixel) in expected.iter_mut().enumerate() {
+                                        let x = (source_x as usize + clip as usize + column) % 9;
+                                        let y = (source_y as usize + line as usize) % 6;
+                                        pixel.blend(PremultipliedRgbaColor::premultiply(
+                                            Color::from_argb_u8(
+                                                (data[y * 11 + x] as u16 * alpha as u16 / 255)
+                                                    as u8,
+                                                color.red(),
+                                                color.green(),
+                                                color.blue(),
+                                            ),
+                                        ));
+                                    }
+                                    assert_eq!(
+                                        bytemuck::cast_slice::<Pixel, u8>(&actual),
+                                        bytemuck::cast_slice::<Pixel, u8>(&expected),
+                                        "offset ({source_x}, {source_y}), fraction {fraction}, clip {clip}, line {line}, len {len}, alpha {alpha}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(81, 41, 119, 213)));
+}
+
+#[test]
+fn rounded_straight_scanlines_match_curved_rasterizer() {
+    fn check<P: TargetPixel + bytemuck::Pod>(initial: P) {
+        for radius in [
+            super::PhysicalBorderRadius::new(0, 0, 0, 0),
+            super::PhysicalBorderRadius::new(14, 14, 14, 14),
+            super::PhysicalBorderRadius::new(3, 12, 1, 8),
+        ] {
+            for border in [0, 1, 2, 4] {
+                for alpha in [0, 73, 128, 255] {
+                    for (left, right, top, bottom) in [(0, 0, 0, 0), (3, 5, 7, 4), (19, 19, 16, 18)]
+                    {
+                        let span = PhysicalRect::new(
+                            super::PhysicalPoint::new(7, 11),
+                            super::PhysicalSize::new(44 - left - right, 40 - top - bottom),
+                        );
+                        let rr = super::RoundedRectangle {
+                            shape: super::RoundedShape {
+                                radius,
+                                left_clip: PhysicalLength::new(left),
+                                right_clip: PhysicalLength::new(right),
+                                top_clip: PhysicalLength::new(top),
+                                bottom_clip: PhysicalLength::new(bottom),
+                            },
+                            width: PhysicalLength::new(border),
+                            border_color: PremultipliedRgbaColor::from(Color::from_argb_u8(
+                                alpha, 53, 137, 211,
+                            )),
+                            inner_color: PremultipliedRgbaColor::from(Color::from_argb_u8(
+                                alpha, 193, 71, 29,
+                            )),
+                        };
+                        for (extra_left, extra_right) in [(0, 0), (2, 3)] {
+                            let width = (span.size.width - extra_left - extra_right) as usize;
+                            for line in span.min_y()..span.max_y() {
+                                let mut actual = alloc::vec![initial; width];
+                                let mut expected = actual.clone();
+                                draw_rounded_rectangle_line(
+                                    &span,
+                                    PhysicalLength::new(line),
+                                    &rr,
+                                    &mut actual,
+                                    extra_left,
+                                    extra_right,
+                                );
+                                draw_curved_rectangle_line(
+                                    &span,
+                                    PhysicalLength::new(line),
+                                    &rr,
+                                    &mut expected,
+                                    extra_left,
+                                    extra_right,
+                                );
+                                assert_eq!(
+                                    bytemuck::cast_slice::<P, u8>(&actual),
+                                    bytemuck::cast_slice::<P, u8>(&expected),
+                                    "{rr:?}, line={line}, extra={extra_left}/{extra_right}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    check(Rgb565Pixel(0x52db));
+    check(Rgb565BigEndianPixel(0x52dbu16.to_be()));
+    check(Rgb8Pixel::new(83, 123, 217));
+    check(PremultipliedRgbaColor {
+        red: 17,
+        green: 41,
+        blue: 53,
+        alpha: 100,
+    });
 }
