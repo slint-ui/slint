@@ -77,7 +77,8 @@ CheckBox {
 | Slider | `track-color`, `fill-color`, `handle-color` |
 | ComboBox | `background-color`, `foreground` |
 
-`checked-color` changes the checked indicator fill or switch track; borders and checkmarks still follow the style.
+`checked-color` changes the checked indicator fill or switch track.
+Border and checkmark colors still follow the style.
 `foreground` changes the label or field text.
 Direct colors apply while enabled, including hover and pressed states.
 Disabled controls retain their style's disabled colors.
