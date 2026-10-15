@@ -6,7 +6,6 @@ export struct CheckBoxStateStyle {
     checkmark-color: brush,
     foreground: brush,
     indicator-border-color: brush,
-    indicator-border-width: length = 1px,
 }
 
 export struct CheckBoxStateStyles {
@@ -20,12 +19,13 @@ export struct CheckBoxStyle {
     unchecked: CheckBoxStateStyles,
     checked: CheckBoxStateStyles,
     focus-color: brush,
-    focus-width: length = 2px,
-    focus-offset: length = 2px,
-    indicator-radius: length = 4px,
 }
 
 export struct CheckBoxSizeMetrics {
+    indicator-border-width: length = 1px,
+    indicator-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
     min-height: length,
     indicator-size: length,
     checkmark-padding: length,

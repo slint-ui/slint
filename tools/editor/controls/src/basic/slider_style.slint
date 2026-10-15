@@ -6,7 +6,6 @@ export struct SliderStateStyle {
     fill-color: brush,
     handle-color: brush,
     handle-border-color: brush,
-    handle-border-width: length = 1px,
 }
 
 export struct SliderStyle {
@@ -15,11 +14,14 @@ export struct SliderStyle {
     pressed: SliderStateStyle,
     disabled: SliderStateStyle,
     focus-color: brush,
-    focus-width: length = 2px,
-    focus-offset: length = 2px,
 }
 
 export struct SliderSizeMetrics {
+    handle-border-width: length = 1px,
+    handle-radius: length = -1px,
+    track-radius: length = -1px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
     preferred-length: length,
     min-thickness: length,
     handle-width: length,

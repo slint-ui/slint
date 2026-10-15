@@ -5,7 +5,6 @@ export struct ButtonStateStyle {
     background-color: brush,
     foreground: brush,
     border-color: brush,
-    border-width: length = 1px,
 }
 
 export struct ButtonStyle {
@@ -14,12 +13,13 @@ export struct ButtonStyle {
     pressed: ButtonStateStyle,
     disabled: ButtonStateStyle,
     focus-color: brush,
-    focus-width: length = 2px,
-    focus-offset: length = 2px,
-    border-radius: length = 4px,
 }
 
 export struct ButtonSizeMetrics {
+    border-width: length = 1px,
+    border-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
     min-height: length,
     min-width: length,
     padding-horizontal: length,

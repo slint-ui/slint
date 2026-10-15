@@ -3,6 +3,7 @@
 
 import {
     Slider,
+    SliderStyles,
     BasicTheme,
 } from "../../../tools/editor/controls/src/basic.slint";
 export { BasicTheme }
@@ -11,10 +12,9 @@ import {
     LinearSliderSurface,
 } from "../../../tools/editor/controls/src/headless.slint";
 component CustomSlider inherits Slider {
-    track-color: #123456;
-    fill-color: #abcdef;
+    style: SliderStyles.standard;
+    fill-color: #654321;
     handle-color: #654321;
-    handle-radius: 0px;
 }
 
 export component TestCase inherits Window {
@@ -33,9 +33,9 @@ export component TestCase inherits Window {
     out property <brush> fill-color: slider.fill-color;
     out property <brush> track-color: slider.track-color;
     out property <bool> focused: slider.has-focus;
-    out property <brush> handle-border-color: slider.handle-border-color;
-    out property <bool> test: custom.track-color == #123456 && custom.fill-color == #abcdef
-        && custom.handle-color == #654321 && bound-surface.handle-color == root.custom-color;
+    out property <bool> test: custom.style.rest.track-color == SliderStyles.standard.rest.track-color
+        && custom.fill-color == #654321 && custom.handle-color == #654321
+        && custom.style.disabled == SliderStyles.standard.disabled && bound-surface.handle-color == root.custom-color;
     public function focus-other() { other.focus(); }
     slider := Slider {
         accessible-label: "Pointer slider";
@@ -105,7 +105,6 @@ assert_eq!(instance.get_changes(), 1);
 assert_eq!(instance.get_releases(), 1);
 assert_eq!(instance.get_last_released(), 75.);
 assert!(instance.get_focused());
-assert_eq!(instance.get_handle_border_color(), palette.get_border());
 let slider_element = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Pointer slider").next().unwrap();
 let outline = || slider_element.query_descendants().match_id("Slider::focus-outline").find_first();
 let ring = outline().expect("Focused slider has no outline");

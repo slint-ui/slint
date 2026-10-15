@@ -112,29 +112,26 @@ export component ComboBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom combo boxes";
-            description: "Override theme properties or supply your own field, indicator, and popup visuals.";
+            description: "Set field colors or supply your own field, indicator, and popup visuals.";
             HorizontalLayout {
                 spacing: 20px;
                 VerticalLayout {
                     spacing: 10px;
                     Text {
-                        text: "Color override";
+                        text: "Custom field colors";
                         color: BasicTheme.disabled-foreground;
                         font-size: 12px;
                     }
 
                     ComboBox {
                         style: root.preview-style;
+                        background-color: #f0fdfa;
+                        foreground: #115e59;
                         size: root.preview-size;
                         enabled: !root.preview-disabled;
                         accessible-label: "Tinted combo box";
                         model: ["Small", "Medium", "Large"];
                         current-index: 1;
-                        background-color: #f0fdfa;
-                        foreground: #115e59;
-                        border-color: #0d9488;
-                        popup-color: #f0fdfa;
-                        highlighted-background: #0d9488;
                         selected(value) => { root.custom-selections += 1; root.custom-value = value; }
                     }
                 }

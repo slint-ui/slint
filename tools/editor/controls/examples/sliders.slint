@@ -149,23 +149,19 @@ export component SliderExamples inherits Rectangle {
                 VerticalLayout {
                     spacing: 10px;
                     Text {
-                        text: "Color and shape override";
+                        text: "Custom fill and handle colors";
                         color: BasicTheme.disabled-foreground;
                         font-size: 12px;
                     }
 
                     Slider {
                         style: root.preview-style;
+                        fill-color: #0f766e;
+                        handle-color: #0f766e;
                         size: root.preview-size;
                         enabled: !root.preview-disabled;
                         accessible-label: "Styled custom slider";
                         value <=> root.custom-value;
-                        fill-color: #0d9488;
-                        handle-color: #0d9488;
-                        handle-width: 16px;
-                        handle-height: 24px;
-                        handle-radius: 3px;
-                        track-thickness: 6px;
                         changed(value) => { root.custom-changes += 1; }
                         released(value) => { root.custom-releases += 1; }
                     }

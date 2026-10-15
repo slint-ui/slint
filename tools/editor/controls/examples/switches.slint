@@ -86,20 +86,16 @@ export component SwitchExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom switches";
-            description: "Override colors and dimensions, supply headless visuals, or bind the label to the checked state.";
+            description: "Set a checked color, supply headless visuals, or bind the label to the checked state.";
             VerticalLayout {
                 spacing: 12px;
                 Switch {
                     style: root.preview-style;
+                    checked-color: #0f766e;
                     size: root.preview-size;
                     enabled: !root.preview-disabled;
-                    text: "Color override";
+                    text: "Custom checked color";
                     checked: true;
-                    track-color: self.checked ? #0f766e : BasicTheme.background;
-                    foreground: #115e59;
-                    track-width: 48px;
-                    track-height: 26px;
-                    thumb-size: 20px;
                     toggled => { root.custom-toggles += 1; }
                 }
 

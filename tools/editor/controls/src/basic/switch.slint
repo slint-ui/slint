@@ -16,23 +16,17 @@ export component Switch inherits SwitchBase {
     in property <SwitchStyle> style: SwitchStyles.standard;
     in property <SwitchSizeMetrics> size: SwitchSizes.medium;
     private property <SwitchStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
-    private property <SwitchStateStyle> current-style: root.selected-styles.rest;
-    in property <length> track-width: root.size.track-width;
-    in property <length> track-height: root.size.track-height;
-    in property <length> thumb-size: root.size.thumb-size;
-    in property <length> thumb-padding: root.size.thumb-padding;
-    in property <length> track-radius: root.track-height / 2;
-    in property <length> thumb-radius: root.thumb-size / 2;
-    in property <brush> track-color: root.current-style.track-color;
-    in property <brush> track-border-color: root.current-style.track-border-color;
-    in property <length> track-border-width: root.current-style.track-border-width;
-    in property <brush> thumb-color: root.current-style.thumb-color;
+    private property <SwitchStateStyle> state-style: root.selected-styles.rest;
+    in property <brush> checked-color: root.state-style.track-color;
+    in property <brush> foreground: root.state-style.foreground;
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: 400;
 
-    indicator-width: root.track-width;
-    indicator-height: root.track-height;
-    in property <brush> foreground: root.current-style.foreground;
+    private property <length> effective-track-radius: root.size.track-radius < 0px ? root.indicator-height / 2 : root.size.track-radius;
+    private property <length> effective-thumb-radius: root.size.thumb-radius < 0px ? root.size.thumb-size / 2 : root.size.thumb-radius;
+
+    indicator-width: root.size.track-width;
+    indicator-height: root.size.track-height;
     spacing: root.size.spacing;
     content-padding: root.size.padding-vertical;
     content-padding-left: root.size.padding-horizontal;
@@ -41,29 +35,29 @@ export component Switch inherits SwitchBase {
 
     states [
         disabled when !root.enabled: {
-            current-style: root.selected-styles.disabled;
+            state-style: root.selected-styles.disabled;
         }
         pressed when root.pressed: {
-            current-style: root.selected-styles.pressed;
+            state-style: root.selected-styles.pressed;
         }
         hover when root.hovered: {
-            current-style: root.selected-styles.hover;
+            state-style: root.selected-styles.hover;
         }
     ]
 
     indicator << Rectangle {
-        background: root.track-color;
-        border-color: root.track-border-color;
-        border-width: root.track-border-width;
-        border-radius: root.track-radius;
+        background: root.enabled && root.checked ? root.checked-color : root.state-style.track-color;
+        border-color: root.state-style.track-border-color;
+        border-width: root.size.track-border-width;
+        border-radius: root.effective-track-radius;
 
         Rectangle {
-            width: min(root.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.thumb-padding));
+            width: min(root.size.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.size.thumb-padding));
             height: self.width;
-            x: root.checked ? max(0px, parent.width - self.width - root.thumb-padding) : root.thumb-padding;
+            x: root.checked ? max(0px, parent.width - self.width - root.size.thumb-padding) : root.size.thumb-padding;
             y: (parent.height - self.height) / 2;
-            background: root.thumb-color;
-            border-radius: root.thumb-radius;
+            background: root.state-style.thumb-color;
+            border-radius: root.effective-thumb-radius;
         }
 
         focus-outline := FocusOutline {
@@ -71,15 +65,15 @@ export component Switch inherits SwitchBase {
             outline-color: root.style.focus-color;
             target-width: parent.width;
             target-height: parent.height;
-            line-width: root.style.focus-width;
-            offset: root.style.focus-offset;
-            radius: root.track-radius;
+            line-width: root.size.focus-width;
+            offset: root.size.focus-offset;
+            radius: root.effective-track-radius;
         }
     }
 
     content << Text {
         text: root.text;
-        color: root.foreground;
+        color: root.enabled ? root.foreground : root.state-style.foreground;
         font-size: root.font-size;
         font-weight: root.font-weight;
         vertical-alignment: center;

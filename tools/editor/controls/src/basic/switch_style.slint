@@ -6,7 +6,6 @@ export struct SwitchStateStyle {
     thumb-color: brush,
     foreground: brush,
     track-border-color: brush,
-    track-border-width: length = 1px,
 }
 
 export struct SwitchStateStyles {
@@ -20,11 +19,14 @@ export struct SwitchStyle {
     unchecked: SwitchStateStyles,
     checked: SwitchStateStyles,
     focus-color: brush,
-    focus-width: length = 2px,
-    focus-offset: length = 2px,
 }
 
 export struct SwitchSizeMetrics {
+    track-border-width: length = 1px,
+    track-radius: length = -1px,
+    thumb-radius: length = -1px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
     min-height: length,
     track-width: length,
     track-height: length,

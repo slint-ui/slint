@@ -13,6 +13,10 @@ import { CheckBoxBase } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
+component CustomCheckBox inherits CheckBox {
+    checked-color: #0f766e;
+}
+
 export component CheckBoxExamples inherits Rectangle {
     vertical-stretch: 0;
     in property <CheckBoxStyle> preview-style: CheckBoxStyles.standard;
@@ -86,18 +90,23 @@ export component CheckBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom checkboxes";
-            description: "Override colors, supply headless visuals, or bind the label to the checked state.";
+            description: "Set a checked color, reuse component defaults, or supply your own visuals through slots.";
             VerticalLayout {
                 spacing: 12px;
-                CheckBox {
+                CustomCheckBox {
                     style: root.preview-style;
                     size: root.preview-size;
                     enabled: !root.preview-disabled;
-                    text: "Color override";
+                    text: "Custom checked color";
                     checked: true;
-                    indicator-color: self.checked ? #0f766e : BasicTheme.background;
-                    foreground: #115e59;
-                    indicator-radius: 6px;
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                CustomCheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
+                    text: "Same shared defaults";
                     toggled => { root.custom-toggles += 1; }
                 }
 

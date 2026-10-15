@@ -43,23 +43,23 @@ export component TestCase inherits Window {
     out property <int> activations;
     in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
     in-out property <SwitchSizeMetrics> switch-size: SwitchSizes.medium;
-    out property <brush> switch-color: switch.track-color;
-    out property <length> switch-dimension: switch.track-width;
+    out property <brush> switch-color: switch.checked-color;
+    out property <length> switch-dimension: switch.indicator-width;
     in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
     in-out property <CheckBoxSizeMetrics> check-box-size: CheckBoxSizes.medium;
-    out property <brush> check-box-color: check-box.indicator-color;
-    out property <length> check-box-dimension: check-box.indicator-size;
+    out property <brush> check-box-color: check-box.checked-color;
+    out property <length> check-box-dimension: check-box.indicator-width;
     in-out property <SliderStyle> slider-style: SliderStyles.standard;
     in-out property <SliderSizeMetrics> slider-size: SliderSizes.medium;
     out property <brush> slider-color: slider.handle-color;
-    out property <length> slider-dimension: slider.handle-width;
+    out property <length> slider-dimension: slider.size.handle-width;
     in-out property <ComboBoxStyle> combo-box-style: ComboBoxStyles.standard;
     in-out property <ComboBoxSizeMetrics> combo-box-size: ComboBoxSizes.medium;
     out property <brush> combo-box-color: combo-box.background-color;
     out property <length> combo-box-dimension: combo-box.item-height;
-    out property <bool> test: switch-override.track-color == #123456 && switch-override.font-size == 13px
-        && check-box-override.indicator-color == #123456 && check-box-override.font-size == 13px
-        && slider-override.handle-color == #123456 && slider-override.handle-width == 17px
+    out property <bool> test: switch-override.checked-color == #123456 && switch-override.font-size == 13px
+        && check-box-override.checked-color == #123456 && check-box-override.font-size == 13px
+        && slider-override.handle-color == #123456 && slider-override.size.handle-width == 17px
         && combo-box-override.background-color == #123456 && combo-box-override.font-size == 13px;
 
     public function focus-control(index: int) {
@@ -89,9 +89,9 @@ export component TestCase inherits Window {
         width: 120px;
         height: 40px;
         style: root.switch-style;
+        checked-color: #123456;
         size: root.switch-size;
         enabled: root.enabled;
-        track-color: #123456;
         font-size: 13px;
     }
 
@@ -114,9 +114,9 @@ export component TestCase inherits Window {
         width: 120px;
         height: 40px;
         style: root.check-box-style;
+        checked-color: #123456;
         size: root.check-box-size;
         enabled: root.enabled;
-        indicator-color: #123456;
         font-size: 13px;
     }
 
@@ -139,10 +139,20 @@ export component TestCase inherits Window {
         width: 120px;
         height: 40px;
         style: root.slider-style;
-        size: root.slider-size;
-        enabled: root.enabled;
         handle-color: #123456;
-        handle-width: 17px;
+        size: {
+            preferred-length: root.slider-size.preferred-length,
+            min-thickness: root.slider-size.min-thickness,
+            handle-width: 17px,
+            handle-height: root.slider-size.handle-height,
+            track-thickness: root.slider-size.track-thickness,
+            handle-border-width: root.slider-size.handle-border-width,
+            handle-radius: root.slider-size.handle-radius,
+            track-radius: root.slider-size.track-radius,
+            focus-width: root.slider-size.focus-width,
+            focus-offset: root.slider-size.focus-offset,
+        };
+        enabled: root.enabled;
     }
 
     combo-box := ComboBox {
@@ -164,9 +174,10 @@ export component TestCase inherits Window {
         width: 120px;
         height: 40px;
         style: root.combo-box-style;
+        background-color: #123456;
+        foreground: #ffffff;
         size: root.combo-box-size;
         enabled: root.enabled;
-        background-color: #123456;
         font-size: 13px;
     }
 }
@@ -187,8 +198,6 @@ macro_rules! toggle_states {
         custom.checked.hover.$field = brush(0x81, 0x31, 0xb1);
         custom.unchecked.pressed.$field = brush(0x31, 0x11, 0x71);
         custom.checked.pressed.$field = brush(0x61, 0x21, 0x91);
-        custom.focus_width = 3.;
-        custom.focus_offset = 4.;
         instance.$set(custom.clone());
         for checked in [false, true] {
             instance.set_checked(checked);
@@ -224,8 +233,6 @@ macro_rules! control_states {
         let mut custom = $preset;
         custom.hover.$field = brush(0x51, 0x21, 0x91);
         custom.pressed.$field = brush(0x31, 0x11, 0x71);
-        custom.focus_width = 3.;
-        custom.focus_offset = 4.;
         instance.$set(custom.clone());
         move_to(590., 310.);
         assert_eq!(instance.$color(), custom.rest.$field);
@@ -257,6 +264,8 @@ macro_rules! sizes {
         }
         let mut custom = presets.get_medium();
         custom.$field = 37.;
+        custom.focus_width = 3.;
+        custom.focus_offset = 4.;
         instance.$set(custom);
         assert_eq!(instance.$get(), 37.);
     }};

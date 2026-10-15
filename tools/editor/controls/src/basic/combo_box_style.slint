@@ -5,20 +5,16 @@ export struct ComboBoxStateStyle {
     background-color: brush,
     foreground: brush,
     border-color: brush,
-    border-width: length = 1px,
 }
 
 export struct ComboBoxItemStyle {
     background-color: brush,
     foreground: brush,
-    font-weight: int = 400,
 }
 
 export struct ComboBoxPopupStyle {
     background-color: brush,
     border-color: brush,
-    border-width: length = 1px,
-    border-radius: length = 4px,
     rest: ComboBoxItemStyle,
     highlighted: ComboBoxItemStyle,
     selected: ComboBoxItemStyle,
@@ -32,12 +28,18 @@ export struct ComboBoxStyle {
     disabled: ComboBoxStateStyle,
     popup: ComboBoxPopupStyle,
     focus-color: brush,
-    focus-width: length = 2px,
-    focus-offset: length = 2px,
-    border-radius: length = 4px,
 }
 
 export struct ComboBoxSizeMetrics {
+    border-width: length = 1px,
+    border-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    popup-border-width: length = 1px,
+    popup-border-radius: length = 4px,
+    font-weight: int = 400,
+    selected-item-font-weight: int = 600,
+    indicator-stroke-width: length = 2px,
     min-height: length,
     min-width: length,
     preferred-width: length,

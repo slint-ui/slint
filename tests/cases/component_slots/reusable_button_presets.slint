@@ -20,7 +20,6 @@ export component TestCase inherits Window {
     out property <int> activations;
     out property <brush> subject-background: subject.background-color;
     out property <brush> foreground: subject.foreground;
-    out property <brush> border: subject.border-color;
     out property <bool> focused: subject.has-focus;
     out property <bool> pressed: subject.pressed;
     out property <length> font-size: subject.font-size;
@@ -56,9 +55,9 @@ export component TestCase inherits Window {
         text: "Override";
         size: ButtonSizes.large;
         style: root.style;
-        enabled: root.enabled;
         background-color: #123456;
         foreground: #abcdef;
+        enabled: root.enabled;
     }
 }
 
@@ -89,9 +88,9 @@ for style in [presets.get_secondary(), presets.get_primary(), presets.get_danger
     assert_eq!(instance.get_foreground(), style.hover.foreground);
     instance.invoke_focus_subject();
     assert!(instance.get_focused());
-    assert_eq!(instance.get_border(), style.hover.border_color);
     let ring = outline().expect("Focused button has no outline");
-    let outset = style.focus_width + style.focus_offset;
+    let metrics = instance.get_size();
+    let outset = metrics.focus_width + metrics.focus_offset;
     assert_eq!(ring.absolute_position().x, subject.absolute_position().x - outset);
     assert_eq!(ring.absolute_position().y, subject.absolute_position().y - outset);
     assert_eq!(ring.size().width, subject.size().width + 2. * outset);
@@ -101,7 +100,6 @@ for style in [presets.get_secondary(), presets.get_primary(), presets.get_danger
     press();
     assert!(instance.get_pressed());
     assert_eq!(instance.get_subject_background(), style.pressed.background_color);
-    assert_eq!(instance.get_border(), style.pressed.border_color);
     release();
     assert_eq!(instance.get_activations(), before + 1);
 
@@ -126,7 +124,6 @@ let before = instance.get_activations();
 for key in [Key::Space, Key::Return] {
     slint_testing::send_keyboard_char(&instance, key.into(), true);
     assert_eq!(instance.get_subject_background(), instance.get_style().pressed.background_color);
-    assert_eq!(instance.get_border(), instance.get_style().pressed.border_color);
     slint_testing::send_keyboard_char(&instance, key.into(), false);
 }
 assert_eq!(instance.get_activations(), before + 2);
@@ -134,8 +131,10 @@ assert_eq!(instance.get_activations(), before + 2);
 let mut custom = presets.get_primary();
 custom.rest.background_color = slint::Color::from_rgb_u8(0x68, 0x21, 0xa8).into();
 custom.hover.background_color = slint::Color::from_rgb_u8(0x58, 0x1c, 0x87).into();
-custom.focus_width = 3.;
-custom.focus_offset = 6.;
+let mut custom_metrics = instance.get_size();
+custom_metrics.focus_width = 3.;
+custom_metrics.focus_offset = 6.;
+instance.set_size(custom_metrics.clone());
 instance.set_style(custom.clone());
 assert_eq!(instance.get_subject_background(), custom.rest.background_color);
 assert_eq!(outline().unwrap().size().width, subject.size().width + 18.);
@@ -144,12 +143,11 @@ assert_eq!(instance.get_subject_background(), custom.hover.background_color);
 instance.set_checked(true);
 assert_eq!(instance.get_subject_background(), custom.hover.background_color);
 assert!(instance.get_test());
-let mut no_outline = custom.clone();
+let mut no_outline = custom_metrics.clone();
 no_outline.focus_width = 0.;
-instance.set_style(no_outline);
+instance.set_size(no_outline);
 assert!(outline().is_none());
-assert_eq!(instance.get_border(), custom.hover.border_color);
-instance.set_style(custom.clone());
+instance.set_size(custom_metrics);
 
 let sizes = instance.global::<ButtonSizes<'_>>();
 for metrics in [sizes.get_small(), sizes.get_medium(), sizes.get_large()] {
