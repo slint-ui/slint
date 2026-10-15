@@ -27,6 +27,43 @@ These columns are overlapping timing pools, not additive savings or predictions.
 Queue records 2,817 prepared-text cache hits with zero misses; Settings records 1,464 hits and one miss.
 Increasing that cache is a low priority.
 
+## Measured Core 1 Opportunity
+
+The printer already sends pixel payloads through DMA channel 0.
+A separate instrumented image measured core 1 activity and added RGB565 blending into a scratch buffer while pixel DMA was pending.
+The CPU remained at 150 MHz and SPI at 48 MHz.
+The following windows used an eight-microsecond work target checked between batches of 64 pixels.
+
+| View | Passive DMA Await | Extra Blend Work per Frame | Blended Pixels per Frame | Changing FPS | Missed Phases / Late Strips |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Queue | 9.33 ms | 8.37 ms | 38,511 | 58.65 | 0 / 0 |
+| Settings | 12.56 ms | 11.32 ms | 52,966 | 58.63 | 0 / 0 |
+| Boosted Ink | 10.59 ms | 9.44 ms | 43,771 | 58.61 | 0 / 0 |
+
+[Raw overlap measurements](results/stock-150/core1-overlap.json) include the passive baseline, larger work targets, and three repeated boosted-Ink windows.
+All six windows with extra work and all three boost repeats meet panel cadence with zero missed phases, late strips, and scan errors.
+Each boost repeat completes approximately 9.42 ms of extra work per frame.
+The passive instrumented Ink baseline records one missed phase; the qualified production baseline records zero.
+Instrumentation and altered code placement can perturb this tight budget.
+
+The work target is not a hard execution limit.
+Each batch finishes before the time check, and interrupts can extend a measured interval.
+Observed maximum intervals reach approximately 326 microseconds across the sweep.
+Cycle intervals include interrupt service within the interval, so CPU allocations are approximate.
+Counts of completed pixel blends establish that substantial arithmetic and memory work happened during transfer.
+Three controller-memory comparisons under background work each match all 76,800 pixels.
+
+These results demonstrate spare compute capacity rather than a measured reduction in printer rendering time.
+Queue raster work rises by approximately 0.25 ms and Settings by 0.15 ms in the smaller-work-target comparison, consistent with some added contention.
+Independent Ink vial composition is the clearest first offload candidate.
+It needs explicit buffer ownership and synchronization before Slint consumes the images.
+General Slint rendering also needs a design that respects its UI-thread state and partitions immutable paint work.
+The experiment does not establish a twofold speedup or a safe automatic half-frame split.
+
+The temporary probe was removed from production sources after measurement.
+The restored release image has byte-identical loadable segments to the qualified binary.
+Queue, Settings, and boosted Ink pass the restoration check at 58.66–58.74 FPS with zero missed phases, late strips, and scan errors.
+
 ## Five Impactful Experiments
 
 | Priority | Experiment | Measured Work to Target | Scope and Main Constraint |
