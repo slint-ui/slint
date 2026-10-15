@@ -1345,7 +1345,7 @@ fn format_match_case(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens().peekable();
-    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
+    whitespace_to_one_of(&mut sub, &[SyntaxKind::Expression, SyntaxKind::Star], writer, state, "")?;
     whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
     if node.child_node(SyntaxKind::SubElement).is_none() {
         whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
