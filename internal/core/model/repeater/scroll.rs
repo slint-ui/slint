@@ -7,8 +7,10 @@ use crate::Coord;
 use crate::model::repeater::RepeaterLayoutState;
 
 /// The ListView viewport edge that a scrolled-to row ends up at.
-#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+#[derive(Debug, Default, Clone, Copy)]
 pub(crate) enum RowAlignment {
+    #[default]
     Top,
     Bottom,
 }
@@ -39,6 +41,8 @@ impl RowAlignment {
 }
 
 /// A request of `ensure-row-visible` that the next ListView layout pass completes.
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy)]
 pub(super) struct ScrollToRowRequest {
     pub(super) row: usize,
     pub(super) alignment: RowAlignment,

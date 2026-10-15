@@ -1052,17 +1052,13 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
         cbindgen_private::RepeaterLayoutState layout_state {};
-        cbindgen_private::ScrollToRowRequestOpaque scroll_to_row;
+        cbindgen_private::PendingScrollToRow scroll_to_row {};
         const private_api::Property<bool> *instance_generation;
 
         explicit RepeaterInner(const private_api::Property<bool> *instance_generation)
             : instance_generation(instance_generation)
         {
-            cbindgen_private::slint_repeater_scroll_to_row_construct(&scroll_to_row);
         }
-        ~RepeaterInner() { cbindgen_private::slint_repeater_scroll_to_row_drop(&scroll_to_row); }
-        RepeaterInner(const RepeaterInner &) = delete;
-        RepeaterInner &operator=(const RepeaterInner &) = delete;
 
         /// Call whenever `data` changes outside of `ensure_updated`.
         void instances_changed()

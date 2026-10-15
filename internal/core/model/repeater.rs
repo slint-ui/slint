@@ -1207,41 +1207,30 @@ mod ffi {
 
     use super::*;
     use crate::slice::Slice;
-    use alloc::boxed::Box;
 
-    /// The C++ repeater's storage of its pending `ensure-row-visible` request.
+    /// Similar to `Option<scroll::ScrollToRowRequest>` but `repr(C)`, for the C++ repeater.
+    /// The name must be unique
     #[repr(C)]
-    pub struct ScrollToRowRequestOpaque {
-        _inner: *const core::ffi::c_void,
+    #[derive(Default, Clone, Copy)]
+    pub struct PendingScrollToRow {
+        valid: bool,
+        request: scroll::ScrollToRowRequest,
     }
 
-    type ScrollToRowRequestStorage = Option<Box<scroll::ScrollToRowRequest>>;
-
-    static_assertions::assert_eq_align!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
-    static_assertions::assert_eq_size!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
-
-    /// Safety: `slint_repeater_scroll_to_row_construct` initialized `request`,
-    /// and nothing else references it while the result is alive.
-    unsafe fn scroll_to_row_storage<'a>(
-        request: *mut ScrollToRowRequestOpaque,
-    ) -> &'a mut ScrollToRowRequestStorage {
-        unsafe { &mut *request.cast() }
+    impl From<Option<scroll::ScrollToRowRequest>> for PendingScrollToRow {
+        fn from(value: Option<scroll::ScrollToRowRequest>) -> Self {
+            if let Some(value) = value {
+                PendingScrollToRow { valid: true, request: value }
+            } else {
+                PendingScrollToRow { valid: false, request: Default::default() }
+            }
+        }
     }
 
-    /// Initialize the request storage.
-    /// slint_repeater_scroll_to_row_drop must be called.
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_repeater_scroll_to_row_construct(
-        request: *mut ScrollToRowRequestOpaque,
-    ) {
-        unsafe { core::ptr::write(request.cast::<ScrollToRowRequestStorage>(), None) };
-    }
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_repeater_scroll_to_row_drop(
-        request: *mut ScrollToRowRequestOpaque,
-    ) {
-        unsafe { core::ptr::drop_in_place(request.cast::<ScrollToRowRequestStorage>()) };
+    impl PendingScrollToRow {
+        fn as_option(self) -> Option<scroll::ScrollToRowRequest> {
+            self.valid.then_some(self.request)
+        }
     }
 
     /// C++ callback table for [`RepeaterInstanceOps`], including the opaque
@@ -1313,7 +1302,7 @@ mod ffi {
     pub unsafe extern "C" fn slint_repeater_ensure_updated_listview(
         ops: &mut RepeaterInstanceOpsVTable,
         state: *mut RepeaterLayoutState,
-        scroll_to_row: *mut ScrollToRowRequestOpaque,
+        scroll_to_row: *mut PendingScrollToRow,
         row_count: usize,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
@@ -1323,7 +1312,13 @@ mod ffi {
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
         let mut layout_state = unsafe { (*state).clone() };
-        let mut request = unsafe { scroll_to_row_storage(scroll_to_row) }.take().map(|r| *r);
+        // When a new item gets created in update_visible_instances and in it's init
+        // we call ensure-row-visible() we modify scroll_to_row
+        // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
+        // is still not valid we set our new request otherwise we keep the `scroll_to_row`
+        // request set by ensure-row-visible
+        // Tested in `listview_ensure_row_visible_from_row_init.slint`
+        let mut request = unsafe { core::mem::take(&mut *scroll_to_row) }.as_option();
         let changed = update_visible_instances(
             ops,
             &mut layout_state,
@@ -1333,10 +1328,11 @@ mod ffi {
             listview_width,
             listview_height,
         );
-        unsafe { *state = layout_state };
-        let storage = unsafe { scroll_to_row_storage(scroll_to_row) };
-        // See `Repeater::ensure_updated_listview_callback`.
-        *storage = storage.take().or_else(|| request.map(Box::new));
+        unsafe {
+            *state = layout_state;
+            // See `Repeater::ensure_updated_listview_callback`.
+            *scroll_to_row = (*scroll_to_row).as_option().or(request).into();
+        }
         changed
     }
 
@@ -1346,7 +1342,7 @@ mod ffi {
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_repeater_listview_ensure_row_visible(
         state: &RepeaterLayoutState,
-        scroll_to_row: &mut ScrollToRowRequestOpaque,
+        scroll_to_row: &mut PendingScrollToRow,
         heights: Slice<Coord>,
         row_count: usize,
         row: i32,
@@ -1357,8 +1353,8 @@ mod ffi {
             .iter()
             .map(|height| if height.is_nan() { state.cached_item_height } else { *height })
             .collect::<Vec<_>>();
-        let storage = unsafe { scroll_to_row_storage(scroll_to_row) };
-        let mut request = storage.take().map(|r| *r);
+
+        let mut request = scroll_to_row.as_option();
         let needs_layout = listview_ensure_row_visible(
             state,
             &heights,
@@ -1368,7 +1364,7 @@ mod ffi {
             behavior,
             flickable_rc,
         );
-        *storage = request.map(Box::new);
+        *scroll_to_row = request.into();
         needs_layout
     }
 }
