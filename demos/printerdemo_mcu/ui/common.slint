@@ -93,6 +93,12 @@ export global PrinterState {
     ];
 }
 
+export global Kiosk {
+    in-out property <bool> enabled;
+    callback toggled(bool);
+    changed enabled => { root.toggled(root.enabled); }
+}
+
 export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;

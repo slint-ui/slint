@@ -10,6 +10,10 @@ use alloc::vec::Vec;
 
 use alloc::rc::Rc;
 use slint::Model;
+mod kiosk;
+mod kiosk_motion;
+#[cfg(feature = "pico2-queue-profile")]
+mod queue_profile;
 
 #[allow(unused_imports)]
 use mcu_board_support::prelude::*;
@@ -44,6 +48,7 @@ impl PrinterQueueData {
 fn main() -> ! {
     mcu_board_support::init();
     let main_window = MainWindow::new().unwrap();
+    let _kiosk = kiosk::start(&main_window);
     main_window.global::<PrinterState>().set_ink_levels(
         [
             InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
@@ -81,10 +86,17 @@ fn main() -> ! {
     });
 
     let printer_queue_weak = Rc::downgrade(&printer_queue);
+    let progress_window = main_window.as_weak();
     printer_queue.print_progress_timer.start(
         slint::TimerMode::Repeated,
         core::time::Duration::from_secs(1),
         move || {
+            if progress_window
+                .upgrade()
+                .is_some_and(|window| window.global::<Kiosk>().get_enabled())
+            {
+                return;
+            }
             if let Some(printer_queue) = printer_queue_weak.upgrade() {
                 if printer_queue.data.row_count() > 0 {
                     let mut top_item = printer_queue.data.row_data(0).unwrap();
@@ -107,6 +119,12 @@ fn main() -> ! {
 
     #[cfg(feature = "pico2")]
     main_window.global::<QueueMotion>().set_pixel_snap(true);
+
+    #[cfg(feature = "pico2-queue-profile")]
+    let _profile_timer = {
+        printer_queue.print_progress_timer.stop();
+        queue_profile::start(&main_window)
+    };
 
     main_window.run().unwrap();
 
