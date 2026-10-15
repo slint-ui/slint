@@ -71,7 +71,7 @@ The measured clock and scan allowances apply to this board and firmware; other p
 ## Memory and Recovery
 
 The linker reserves at least 20 KiB for the main stack and places the 8 KiB core-1 stack in a separate SRAM bank.
-The heap has 316 KiB; link-time assertions reject overlaps.
+The heap has 314 KiB; link-time assertions reject overlaps.
 The profiling image measures unused main-stack space with a startup marker.
 
 At stock speed, a watchdog reset from either stalled core returns to ROM BOOTSEL.
@@ -83,5 +83,6 @@ The optional 240 MHz build retains its fallback to stock clock after a watchdog 
 
 Normal Ink uses 16/26/20/32 particles at either clock.
 Both clock configurations enable held-vial boosts, preserving extra bubbles until they leave the liquid surface.
-The [two-core qualification](stock-150/core1-ink/report.md) records the latest stock-speed timings and regression checks.
+The [tilt qualification](stock-150/tilt/report.md) records the latest Ink timings, orientation checks, and larger-label capture.
+The [two-core qualification](stock-150/core1-ink/report.md) retains the full Queue, Settings, and Kiosk regression checks before tilt support.
 The [serial boost qualification](stock-150/boost-qualification/report.md) retains the earlier arithmetic optimizations.

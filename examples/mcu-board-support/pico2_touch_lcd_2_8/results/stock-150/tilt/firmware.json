@@ -1,0 +1,23 @@
+{
+  "cpu_hz": 150000000,
+  "spi_hz": 48000000,
+  "resolution": [
+    320,
+    240
+  ],
+  "features": [
+    "pico2",
+    "pico2-queue-profile"
+  ],
+  "release": {
+    "lto": "thin",
+    "codegen_units": 1,
+    "target_cpu": "cortex-m33"
+  },
+  "elf_sha256": "4d4ff72ddac5ed8b4bc058287381ac29f44227b976a481ebe381d0b6b17d9ce6",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "capture_crc32": 3583284345,
+  "heap_bytes": 321536,
+  "minimum_unused_stack_bytes": 8556,
+  "minimum_free_heap_bytes": 13836
+}

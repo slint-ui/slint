@@ -5,6 +5,9 @@ Slint owns layout, text, controls, scrolling, input dispatch, and software raste
 Custom Rust composes each complete Ink vial image, including glass, liquid, and particles.
 Slint displays those images and draws the surrounding UI.
 
+The [tilt audit and qualification](stock-150/tilt/report.md) covers the subsequent fusion, hardware flip, memory sharing, and vial-label changes.
+The measurements below describe the earlier boost qualification before two-core tilt support.
+
 ## Deletion Audit
 
 - Removed the optional sent-pixel mirror, its second 153,600-byte framebuffer, and its USB and host-tool commands.

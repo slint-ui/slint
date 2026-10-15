@@ -1,0 +1,10 @@
+[
+  {
+    "rotation": 0,
+    "result": "PICO_PANEL_CHECK,76800,0,0,0,0"
+  },
+  {
+    "rotation": 1,
+    "result": "PICO_PANEL_CHECK,76800,0,0,0,0"
+  }
+]
