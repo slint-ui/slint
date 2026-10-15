@@ -146,11 +146,44 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                             parse_stops(split)?.drain(..),
                         )
                         .into())
-                    } else if let Some(radial) = input.strip_prefix("@radial-gradient(circle") {
-                        let split = radial.split(',').map(|p| p.trim());
+                    } else if let Some(radial) = input.strip_prefix("@radial-gradient(") {
+                        use i_slint_compiler::expression_types::RadialGradientShape;
+                        let mut split = radial.split(',').map(|p| p.trim());
+                        let header = split.next().unwrap_or_default();
+                        let invalid =
+                            || format!("Could not parse radial gradient shape '{header}'");
+                        let length = |s: &str| s.strip_suffix("px")?.parse::<f32>().ok();
+                        let mut words = header.split_whitespace();
+                        let shape_name = words.next();
+                        let rest = words.collect::<Vec<_>>();
+                        let at = rest.iter().position(|w| *w == "at").unwrap_or(rest.len());
+                        let radii = rest[..at]
+                            .iter()
+                            .map(|w| length(w).map(Box::new))
+                            .collect::<Option<Vec<_>>>()
+                            .ok_or_else(invalid)?;
+                        let center = match &rest[at..] {
+                            [] => None,
+                            [_, cx, cy] => Some(length(cx).zip(length(cy)).ok_or_else(invalid)?),
+                            _ => return Err(invalid()),
+                        };
+                        let mut radii = radii.into_iter();
+                        let shape = match (shape_name, radii.next(), radii.next(), radii.next()) {
+                            (Some("circle"), r, None, None) => RadialGradientShape::Circle(r),
+                            (Some("ellipse"), None, None, None) => {
+                                RadialGradientShape::Ellipse(None)
+                            }
+                            (Some("ellipse"), Some(rx), Some(ry), None) => {
+                                RadialGradientShape::Ellipse(Some((rx, ry)))
+                            }
+                            _ => return Err(invalid()),
+                        };
 
-                        Ok(i_slint_core::graphics::RadialGradientBrush::new_circle(
-                            parse_stops(split)?.drain(..),
+                        Ok(crate::eval::radial_gradient_brush(
+                            &shape,
+                            |r| *r,
+                            center,
+                            parse_stops(split)?,
                         )
                         .into())
                     } else {
@@ -281,7 +314,8 @@ pub fn value_to_json(value: &Value) -> Result<serde_json::Value, String> {
                 lg.stops(),
             )),
             Brush::RadialGradient(rg) => {
-                Ok(gradient_to_string_helper("@radial-gradient(circle".into(), rg.stops()))
+                let shape = crate::eval::radial_gradient_shape_to_string(rg);
+                Ok(gradient_to_string_helper(format!("@radial-gradient({shape}"), rg.stops()))
             }
             _ => Err("Cannot serialize an unknown brush type".into()),
         },
@@ -586,4 +620,38 @@ fn test_to_json() {
     )))
     .unwrap();
     assert_eq!(&v, "\"@radial-gradient(circle, #ff0000 0%, #00ff00 50%, #0000ff 100%)\"");
+
+    let ellipse = Value::Brush(Brush::RadialGradient(
+        i_slint_core::graphics::RadialGradientBrush::new_ellipse([
+            i_slint_core::graphics::GradientStop {
+                position: 0.0,
+                color: Color::from_argb_u8(0xff, 0xff, 0x00, 0x00),
+            },
+            i_slint_core::graphics::GradientStop {
+                position: 1.0,
+                color: Color::from_argb_u8(0xff, 0x00, 0x00, 0xff),
+            },
+        ]),
+    ));
+    let v = value_to_json_string(&ellipse).unwrap();
+    assert_eq!(&v, "\"@radial-gradient(ellipse, #ff0000 0%, #0000ff 100%)\"");
+    assert_eq!(value_from_json_str(&langtype::Type::Brush, &v).unwrap(), ellipse);
+
+    for input in [
+        "circle 30px at 10px 20px",
+        "circle 0px",
+        "ellipse 80px 40px",
+        "ellipse at 10px 20px",
+        "ellipse 40px 40px",
+    ] {
+        let json = format!("\"@radial-gradient({input}, #ff0000 0%, #0000ff 100%)\"");
+        let value = value_from_json_str(&langtype::Type::Brush, &json).unwrap();
+        let v = value_to_json_string(&value).unwrap();
+        assert_eq!(v, json);
+        assert_eq!(value_from_json_str(&langtype::Type::Brush, &v).unwrap(), value);
+    }
+    for input in ["ellipse 80px", "circle 10px 20px", "circle 10", "circle at 10px", "square"] {
+        let json = format!("\"@radial-gradient({input}, #ff0000 0%, #0000ff 100%)\"");
+        assert!(value_from_json_str(&langtype::Type::Brush, &json).is_err(), "{input}");
+    }
 }

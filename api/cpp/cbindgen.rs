@@ -757,7 +757,8 @@ fn gen_corelib(
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
                  "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "slint_brush_compare_equal", "RADIAL_GRADIENT_DEFAULT_RADIUS",
+                 "RADIAL_GRADIENT_SHAPE_CIRCLE", "RADIAL_GRADIENT_SHAPE_ELLIPSE"],
             "slint_brush_internal.h",
             "",
         ),
@@ -886,6 +887,9 @@ fn gen_corelib(
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
+            "RADIAL_GRADIENT_DEFAULT_RADIUS",
+            "RADIAL_GRADIENT_SHAPE_CIRCLE",
+            "RADIAL_GRADIENT_SHAPE_ELLIPSE",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()

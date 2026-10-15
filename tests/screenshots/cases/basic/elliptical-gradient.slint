@@ -1,0 +1,32 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=96x60
+
+// Non-square cells, so a default ellipse differs from a default circle.
+component Cell inherits Rectangle {
+    width: 32px;
+    height: 20px;
+}
+
+export component TestCase inherits Window {
+    width: 96px;
+    height: 60px;
+
+    background: black;
+
+    // Default size: CSS farthest-corner.
+    Cell { x: 0px; y: 0px; background: @radial-gradient(ellipse, red, white 50%, blue); }
+    Cell { x: 32px; y: 0px; background: @radial-gradient(circle, red, white 50%, blue); }
+    Cell { x: 64px; y: 0px; background: @radial-gradient(ellipse at 4px 4px, red, white 50%, blue); }
+
+    // Explicit radii.
+    Cell { x: 0px; y: 20px; background: @radial-gradient(ellipse 12px 6px, red, blue); }
+    Cell { x: 32px; y: 20px; background: @radial-gradient(ellipse 6px 12px, red, blue); }
+    Cell { x: 64px; y: 20px; background: @radial-gradient(ellipse 12px 6px at 8px 14px, red, blue); }
+
+    // Stops beyond 100%, and zero radii.
+    Cell { x: 0px; y: 40px; background: @radial-gradient(ellipse 10px 5px, red 0%, white 50%, blue 100%, green 150%); }
+    Cell { x: 32px; y: 40px; background: @radial-gradient(ellipse 0px 0px, red, blue); }
+    Cell { x: 64px; y: 40px; background: @radial-gradient(circle 0px, red, blue); }
+}

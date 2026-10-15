@@ -14,7 +14,9 @@ use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
-use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::llr::{
+    self, Expression, LocalMemberIndex, MemberReference, RadialGradientShape,
+};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
@@ -732,6 +734,45 @@ fn cast_constant_value(value: Value, to: &Type) -> Value {
     }
 }
 
+/// Builds the brush of a `@radial-gradient` from its shape, evaluated center, and stops.
+pub fn radial_gradient_brush<E>(
+    shape: &RadialGradientShape<E>,
+    mut radius: impl FnMut(&E) -> f32,
+    center: Option<(f32, f32)>,
+    stops: impl IntoIterator<Item = GradientStop>,
+) -> RadialGradientBrush {
+    let g = match shape {
+        RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
+        RadialGradientShape::Circle(Some(r)) => {
+            RadialGradientBrush::new_circle(stops).with_radius(radius(r))
+        }
+        RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
+        RadialGradientShape::Ellipse(Some((rx, ry))) => {
+            RadialGradientBrush::new_ellipse(stops).with_radii(radius(rx), radius(ry))
+        }
+    };
+    match center {
+        Some((cx, cy)) => g.with_center(cx, cy),
+        None => g,
+    }
+}
+
+/// Returns the shape and center part of a `@radial-gradient`,
+/// such as `ellipse 80px 40px at 10px 20px`.
+#[cfg(any(feature = "internal", feature = "internal-json"))]
+pub fn radial_gradient_shape_to_string(g: &RadialGradientBrush) -> String {
+    let mut result = String::from(if g.is_circle() { "circle" } else { "ellipse" });
+    match g.explicit_radii() {
+        Some((r, _)) if g.is_circle() => result += &format!(" {r}px"),
+        Some((rx, ry)) => result += &format!(" {rx}px {ry}px"),
+        None => {}
+    }
+    if let Some((cx, cy)) = g.explicit_center() {
+        result += &format!(" at {cx}px {cy}px");
+    }
+    result
+}
+
 pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value {
     if let Some(r) = &ctx.return_value {
         return r.clone();
@@ -980,18 +1021,12 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 eval_stops(ctx, stops),
             )))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
-            if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
-            }
-            Value::Brush(Brush::RadialGradient(g))
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = eval_stops(ctx, stops);
+            let mut number =
+                |e: &Expression| -> f32 { eval_expression(ctx, e).try_into().unwrap_or_default() };
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(Brush::RadialGradient(radial_gradient_brush(shape, number, center, stops)))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
