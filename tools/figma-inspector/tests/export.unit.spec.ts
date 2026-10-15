@@ -19,10 +19,14 @@ async function result(captureJson?: string) {
     const json =
         captureJson ??
         (await readFile("fixtures/source/export-fonts.json", "utf8"));
+    const capture = JSON.parse(json);
+    for (const node of capture.root.children ?? [])
+        if (node.type === "TEXT")
+            node.properties.fontName.family = "Example Font";
     const output = await convertCapture({
         type: "preview-capture",
         revision: 5,
-        captureJson: json,
+        captureJson: JSON.stringify(capture),
     });
     if (output.type !== "preview-source") throw Error(JSON.stringify(output));
     return { ...output, exportPackage: requireValue(output.exportPackage) };
@@ -109,7 +113,7 @@ test("one capture produces preview images and native export text with font impor
     expect(preview).toContain("data:image/png;base64,");
     expect(output.exportPackage.source).toContain('text: "Native export text"');
     expect(output.exportPackage.source).toContain(
-        '// import "fonts/roboto-regular.ttf";',
+        '// import "fonts/example-font-regular.ttf";',
     );
     expect(output.exportPackage.source).not.toMatch(/^import "fonts\//m);
     expect(output.exportPackage.source).not.toContain("data:image");
@@ -130,7 +134,7 @@ test("ZIP has exact syntax-view code, decodable image bytes and a font checklist
     const fontReadme = await requireValue(zip.file("fonts/README.txt")).async(
         "string",
     );
-    expect(fontReadme).toContain("Roboto / Regular");
+    expect(fontReadme).toContain("Example Font / Regular");
     expect(fontReadme).toContain("commented out");
     expect(fontReadme).toContain("uncomment their import lines");
     expect(fontReadme).toContain("removing the leading //");

@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { WindowPreferences } from "./window-preferences";
-import {
-    CaptureCache,
-    captureScheduler,
-    withCaptureTimeoutFallback,
-} from "./capture-work";
+import { CaptureCache, reusableCapture } from "./capture-work";
 import { CaptureAssetSender } from "../asset-transport";
 import {
     type TimingTrace,
@@ -16,27 +12,17 @@ import {
 import {
     type CaptureInstrumentation,
     captureSelectionSource,
+    captureColorProfile,
+    sourceVariablesUnchanged,
     collectSelectionNodeIds,
     observeComponentDependencies,
 } from "./capture";
-import type { Diagnostic } from "./snapshot";
 import {
     type PluginToUiMessage,
     type PreviewTrigger,
     type UiToPluginMessage,
     isUiToPluginMessage,
 } from "../protocol";
-
-const FULL_CAPTURE_TIMEOUT_MS = 20_000;
-const SIMPLIFIED_CAPTURE_TIMEOUT_MS = 20_000;
-const SIMPLIFIED_CAPTURE_WARNING: Diagnostic = {
-    severity: "warning",
-    code: "SIMPLIFIED_CAPTURE",
-    category: "omission",
-    message: "This selection was simplified to finish exporting.",
-};
-const SIMPLIFIED_CAPTURE_NOTICE =
-    "This selection is large. Trying a simpler export.";
 
 export function startPreview(): void {
     const windowPreferences = new WindowPreferences(figma.clientStorage);
@@ -45,7 +31,13 @@ export function startPreview(): void {
     });
     figma.skipInvisibleInstanceChildren = false;
 
-    const captureCache = new CaptureCache();
+    const captureCache = new CaptureCache(128 * 1024 * 1024);
+    const cachedDependencies = new Map<string, () => void>();
+    function invalidateCaptureCache() {
+        captureCache.clear();
+        for (const stop of cachedDependencies.values()) stop();
+        cachedDependencies.clear();
+    }
     let revision = 0;
     let selectedNodeIds = new Set<string>();
     let stopObservingComponents = () => {};
@@ -65,6 +57,38 @@ export function startPreview(): void {
     }
 
     const captureAssetSender = new CaptureAssetSender();
+    const captureIds = new WeakMap<object, string>();
+    let nextCaptureId = 1;
+    let latestCapture:
+        | {
+              revision: number;
+              captureId: string;
+              result: Extract<
+                  Awaited<ReturnType<typeof captureSelectionSource>>,
+                  { source: unknown }
+              >;
+              trace: TimingTraceBuilder;
+          }
+        | undefined;
+    function sendFullCapture(capture: NonNullable<typeof latestCapture>): void {
+        const packed = capture.trace.measure("captureSerialization", () =>
+            captureAssetSender.pack(capture.result.source),
+        );
+        post(
+            {
+                type: "preview-capture",
+                revision: capture.revision,
+                captureId: capture.captureId,
+                ...packed,
+                selection: {
+                    nodeId: capture.result.source.root.id,
+                    nodeName: capture.result.source.root.name,
+                },
+                trigger: capture.trace.trigger,
+            },
+            capture.trace,
+        );
+    }
 
     function post(
         message: Extract<
@@ -72,6 +96,7 @@ export function startPreview(): void {
             {
                 type:
                     | "preview-capture"
+                    | "preview-reuse"
                     | "preview-diagnostics"
                     | "preview-clear";
             }
@@ -160,76 +185,109 @@ export function startPreview(): void {
                 type: "preview-busy",
                 revision: currentRevision,
             });
-        const nodeIds = collectSelectionNodeIds(selection);
+        const key =
+            selection.length === 1
+                ? `capture:${figma.currentPage.id}:${selection[0].id}:${captureScale}:${captureColorProfile()}`
+                : undefined;
+        const previousCapture = key
+            ? captureCache.peek<
+                  Awaited<ReturnType<typeof captureSelectionSource>>
+              >(key)
+            : undefined;
+        const token = captureCache.token();
+        const nodeIds =
+            previousCapture?.nodeIds ?? collectSelectionNodeIds(selection);
         selectedNodeIds = new Set(nodeIds);
-        const captureInstrumentation: CaptureInstrumentation = {
+        const instrumentation: CaptureInstrumentation = {
             measureFontToImageConversion: (operation) =>
                 trace.measureFontToImageConversion(operation),
         };
-        const capture = await trace.measureAsync("figmaCapture", () =>
-            withCaptureTimeoutFallback(
-                FULL_CAPTURE_TIMEOUT_MS,
-                (timedOut) =>
-                    captureSelectionSource(
-                        selection,
-                        figma.mixed,
-                        undefined,
-                        undefined,
-                        captureInstrumentation,
-                        undefined,
-                        captureScale,
-                        () => timedOut() || currentRevision !== revision,
-                        captureCache,
-                        nodeIds,
-                    ),
-                () => {
-                    captureCache.discardPending();
-                    figma.ui.postMessage({
-                        type: "preview-busy",
-                        revision: currentRevision,
-                        message: SIMPLIFIED_CAPTURE_NOTICE,
-                    });
-                    return withCaptureTimeoutFallback(
-                        SIMPLIFIED_CAPTURE_TIMEOUT_MS,
-                        (timedOut) =>
-                            captureSelectionSource(
-                                selection,
-                                figma.mixed,
-                                undefined,
-                                undefined,
-                                captureInstrumentation,
-                                undefined,
-                                captureScale,
-                                () =>
-                                    timedOut() || currentRevision !== revision,
-                                captureCache,
-                                nodeIds,
-                                "flattened",
-                                captureScheduler(4),
-                            ),
-                        () => {
-                            captureCache.discardPending();
-                            return captureSelectionSource(
-                                selection,
-                                figma.mixed,
-                                undefined,
-                                undefined,
-                                captureInstrumentation,
-                                undefined,
-                                captureScale,
-                                () => currentRevision !== revision,
-                                captureCache,
-                                nodeIds,
-                                "raster",
-                                captureScheduler(4),
-                            );
-                        },
-                    ).then(({ value }) => value);
+        const load = () =>
+            captureSelectionSource(
+                selection,
+                figma.mixed,
+                undefined,
+                undefined,
+                instrumentation,
+                undefined,
+                captureScale,
+                () => currentRevision !== revision,
+                captureCache,
+                nodeIds,
+                "tree",
+                undefined,
+                (document) => {
+                    if (currentRevision === revision)
+                        figma.ui.postMessage({
+                            type: "preview-bulk",
+                            revision: currentRevision,
+                            document,
+                        });
                 },
-            ),
-        );
-        const result = capture.value;
-        trace.setCaptureMetrics(result.captureMetrics);
+            );
+        let reused = false;
+        const result = await trace.measureAsync("figmaCapture", async () => {
+            const old = previousCapture;
+            if (old?.ok && !old.empty) {
+                if (
+                    (await sourceVariablesUnchanged(old.source)) &&
+                    captureCache.valid(token)
+                ) {
+                    reused = true;
+                    return old;
+                }
+                invalidateCaptureCache();
+            }
+            if (!key) return load();
+            const result = await load();
+            if (
+                result.ok &&
+                !result.empty &&
+                captureCache.valid(token) &&
+                currentRevision === revision &&
+                reusableCapture(result.source)
+            ) {
+                let bytes = 0;
+                const metadata = JSON.stringify(
+                    result.source,
+                    (_key, value) => {
+                        if (value instanceof Uint8Array) {
+                            bytes += value.byteLength;
+                            return null;
+                        }
+                        return value;
+                    },
+                );
+                captureCache.put(
+                    key,
+                    result,
+                    metadata.length * 2 + bytes,
+                    token,
+                );
+            }
+            return result;
+        });
+        const work = result.captureMetrics.work && {
+            ...result.captureMetrics.work,
+            ...(reused
+                ? {
+                      pngExports: 0,
+                      svgExports: 0,
+                      textCacheHits: 0,
+                      pngByType: {},
+                      svgByType: {},
+                  }
+                : {}),
+        };
+        trace.setCaptureMetrics({
+            ...result.captureMetrics,
+            ...(reused
+                ? { durationMs: 0, requests: 0, exports: 0, cacheHits: 0 }
+                : {}),
+            work,
+            sourceCacheHit: reused,
+            timings: reused ? undefined : result.captureMetrics.timings,
+        });
         if (currentRevision !== revision) {
             console.info(
                 `[slint-preview] superseded capture revision ${currentRevision}`,
@@ -275,6 +333,27 @@ export function startPreview(): void {
             return;
         }
         selectedNodeIds = new Set(result.nodeIds);
+        for (const [cachedKey, stop] of cachedDependencies) {
+            if (captureCache.peek(cachedKey) === undefined) {
+                stop();
+                cachedDependencies.delete(cachedKey);
+            }
+        }
+        if (
+            key &&
+            captureCache.peek(key) !== undefined &&
+            !cachedDependencies.has(key)
+        )
+            cachedDependencies.set(
+                key,
+                observeComponentDependencies(
+                    result.source.components?.definitions.map(
+                        (definition) => definition.id,
+                    ) ?? [],
+                    selectedNodeIds,
+                    invalidateCaptureCache,
+                ),
+            );
         stopObservingComponents();
         stopObservingComponents = observeComponentDependencies(
             result.source.components?.definitions.map(
@@ -282,30 +361,38 @@ export function startPreview(): void {
             ) ?? [],
             selectedNodeIds,
             () => {
-                captureCache.clear();
+                invalidateCaptureCache();
                 scheduleCapture("node-change");
             },
         );
         try {
-            const captured = trace.measure("captureSerialization", () =>
-                captureAssetSender.pack(result.source),
-            );
-            post(
-                {
-                    type: "preview-capture",
-                    revision: currentRevision,
-                    ...captured,
-                    ...(capture.fellBack
-                        ? { warnings: [SIMPLIFIED_CAPTURE_WARNING] }
-                        : {}),
-                    selection: {
-                        nodeId: result.source.root.id,
-                        nodeName: result.source.root.name,
-                    },
-                    trigger: trace.trigger,
-                },
+            let captureId = captureIds.get(result.source);
+            if (!captureId) {
+                captureId = String(nextCaptureId++);
+                captureIds.set(result.source, captureId);
+            }
+            latestCapture = {
+                revision: currentRevision,
+                captureId,
+                result,
                 trace,
-            );
+            };
+            if (reused) {
+                trace.set("captureSerialization", 0);
+                post(
+                    {
+                        type: "preview-reuse",
+                        revision: currentRevision,
+                        captureId,
+                        selection: {
+                            nodeId: result.source.root.id,
+                            nodeName: result.source.root.name,
+                        },
+                        trigger: trace.trigger,
+                    },
+                    trace,
+                );
+            } else sendFullCapture(latestCapture);
         } catch (error) {
             post(
                 {
@@ -356,13 +443,13 @@ export function startPreview(): void {
 
     function observePage(): void {
         stopObservingComponents();
-        captureCache.clear();
+        invalidateCaptureCache();
         if (observedPage !== undefined && observedPageListener !== undefined) {
             observedPage.off("nodechange", observedPageListener);
         }
         observedPage = figma.currentPage;
         observedPageListener = (event) => {
-            captureCache.clear();
+            invalidateCaptureCache();
             if (pinnedRoot?.removed) {
                 clearPin();
                 publishPinState();
@@ -417,7 +504,14 @@ export function startPreview(): void {
             console.warn("[slint-preview] ignored unknown UI message");
             return;
         }
-        if (message.type === "reset-capture-assets") {
+        if (message.type === "capture-reuse-miss") {
+            if (
+                latestCapture?.revision === revision &&
+                message.revision === revision &&
+                latestCapture.captureId === message.captureId
+            )
+                sendFullCapture(latestCapture);
+        } else if (message.type === "reset-capture-assets") {
             captureAssetSender.reset();
         } else if (message.type === "ui-ready") {
             if (uiReady || initialCaptureStarted) {

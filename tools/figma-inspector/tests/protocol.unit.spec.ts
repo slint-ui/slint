@@ -7,23 +7,6 @@ import { isPluginToUiMessage, isUiToPluginMessage } from "../src/protocol";
 import { isSnapshotRequest, isSnapshotReply } from "../src/protocol";
 
 describe("protocol-validation", () => {
-    test("preview busy accepts only an optional string status", () => {
-        expect(
-            isPluginToUiMessage({
-                type: "preview-busy",
-                revision: 1,
-                message: "Preparing a simplified preview",
-            }),
-        ).toBe(true);
-        expect(
-            isPluginToUiMessage({
-                type: "preview-busy",
-                revision: 1,
-                message: 20,
-            }),
-        ).toBe(false);
-    });
-
     test("diagnostics reject malformed elements and revisions", () => {
         for (const revision of [0, -1, 1.5, Infinity, NaN])
             expect(
@@ -192,5 +175,41 @@ test("preview source can omit export while malformed export packages are rejecte
     expect(isPluginToUiMessage(message)).toBe(true);
     for (const exportPackage of [null, {}, { source: 42, files: [] }]) {
         expect(isPluginToUiMessage({ ...message, exportPackage })).toBe(false);
+    }
+});
+
+test("large base64 export assets validate without overflowing the stack", () => {
+    const message = {
+        type: "preview-source",
+        revision: 1,
+        source: "export component Preview inherits Window {}",
+        exportPackage: {
+            source: "export component Native inherits Window {}",
+            files: [
+                {
+                    path: "assets/large.png",
+                    encoding: "base64",
+                    data: "A".repeat(16_000_000),
+                },
+            ],
+        },
+    };
+    expect(isPluginToUiMessage(message)).toBe(true);
+    for (const data of [
+        "A",
+        "AAA",
+        "=AAA",
+        "AA=A",
+        "AAAA====",
+        "AA\n=",
+        "AA-_",
+        "A===",
+    ]) {
+        message.exportPackage.files[0].data = data;
+        expect(isPluginToUiMessage(message)).toBe(false);
+    }
+    for (const data of ["", "AAAA", "AA==", "AAA=", "aZ9/"]) {
+        message.exportPackage.files[0].data = data;
+        expect(isPluginToUiMessage(message)).toBe(true);
     }
 });

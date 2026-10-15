@@ -43,7 +43,7 @@ test("rotated bars occupy the bounds defined by Figma transforms", async () => {
     }
 });
 
-test("preview image URLs remain live until replacement or clearing", async () => {
+test("preview image URLs stay live for cached definitions and release on eviction or clearing", async () => {
     const p = await mountCanvasPreview();
     const browser = p.win as Window & typeof globalThis;
     const urls = browser.URL;
@@ -62,7 +62,7 @@ test("preview image URLs remain live until replacement or clearing", async () =>
         revoke(url);
     };
     let previous: string[] = [];
-    for (const [index, color] of ["red", "blue"].entries()) {
+    for (const [index, color] of ["red", "blue", "lime"].entries()) {
         const image = document.createElement("canvas");
         image.width = image.height = 8;
         const context = image.getContext("2d");
@@ -81,17 +81,23 @@ test("preview image URLs remain live until replacement or clearing", async () =>
         });
         await p.ready(revision);
         expect(created.length).toBeGreaterThan(previous.length);
-        expect(revoked).toEqual(previous);
+        expect(revoked).toEqual(
+            created.slice(0, Math.max(0, created.length - 2)),
+        );
         await expectCanvasPixels(p, (pixels) => {
             const offset = (8 * pixels.width + 8) * 4;
             expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual(
-                index === 0 ? [255, 0, 0, 255] : [0, 0, 255, 255],
+                [
+                    [255, 0, 0, 255],
+                    [0, 0, 255, 255],
+                    [0, 255, 0, 255],
+                ][index],
             );
         });
         previous = [...created];
     }
-    p.send({ type: "preview-clear", revision: 3 });
-    await p.ready(3);
+    p.send({ type: "preview-clear", revision: 4 });
+    await p.ready(4);
     await expect.poll(() => revoked).toEqual(created);
 });
 
