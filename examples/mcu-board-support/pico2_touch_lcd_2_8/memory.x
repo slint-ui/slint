@@ -22,9 +22,20 @@ MEMORY {
      * of access times.
      * Example: Separate stacks for core0 and core1.
      */
-    SRAM4 : ORIGIN = 0x20080000, LENGTH = 4K
-    SRAM5 : ORIGIN = 0x20081000, LENGTH = 4K
+    CORE1_STACK : ORIGIN = 0x20080000, LENGTH = 8K
 }
+
+SECTIONS {
+    .core1_stack (NOLOAD) : ALIGN(32)
+    {
+        KEEP(*(.core1_stack));
+    } > CORE1_STACK
+} INSERT AFTER .uninit;
+
+__sheap = __euninit;
+_stack_end = __euninit;
+ASSERT(_stack_start >= _stack_end + 20K, "Pico printer requires at least 20 KiB of main-core stack");
+ASSERT(SIZEOF(.core1_stack) == 8K, "Pico core 1 stack must occupy its dedicated 8 KiB SRAM banks");
 
 SECTIONS {
     /* ### Boot ROM info
@@ -42,7 +53,7 @@ SECTIONS {
 } INSERT AFTER .vector_table;
 
 /* move .text to start /after/ the boot info */
-_stext = ADDR(.start_block) + SIZEOF(.start_block);
+_stext = ALIGN(ADDR(.start_block) + SIZEOF(.start_block), 8);
 
 SECTIONS {
     /* ### Picotool 'Binary Info' Entries
