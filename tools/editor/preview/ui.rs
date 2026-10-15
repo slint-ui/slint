@@ -1627,8 +1627,8 @@ mod tests {
         for (code, kind, value_kind, expected) in [
             ("", PropertyValueKind::Float, PropertyValueKind::Float, 16.),
             ("28px", PropertyValueKind::Float, PropertyValueKind::Float, 28.),
-            ("root.blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
-            ("root.blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
         ] {
             api.on_current_property_value_data(move |_| PropertyValue {
                 code: code.into(),
