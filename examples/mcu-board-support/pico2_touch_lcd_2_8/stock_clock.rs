@@ -25,8 +25,19 @@ pub fn configure_flash() {
         && memory.rcmd().read().prefix() == 0xeb
         && memory.rfmt().read().data_width() == embassy_rp::pac::qmi::vals::DataWidth::Q
     {
-        memory.timing().modify(|timing| timing.set_clkdiv(2));
-        cortex_m::asm::dsb();
-        cortex_m::asm::isb();
+        // Non-divider timing fields require an idle QMI; core 1 has not started yet.
+        cortex_m::interrupt::free(|_| {
+            let controller = embassy_rp::pac::QMI;
+            controller.direct_csr().modify(|control| control.set_en(true));
+            while controller.direct_csr().read().busy() {}
+            memory.timing().modify(|timing| {
+                timing.set_clkdiv(2);
+                timing.set_min_deselect(1);
+            });
+            cortex_m::asm::dsb();
+            controller.direct_csr().modify(|control| control.set_en(false));
+            cortex_m::asm::dsb();
+            cortex_m::asm::isb();
+        });
     }
 }
