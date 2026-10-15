@@ -6,6 +6,7 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
+use alloc::rc::Rc;
 use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 #[allow(unused)]
@@ -13,6 +14,41 @@ use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
+
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+type AssetLoaderFn = Rc<dyn Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>>>;
+
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoaderFn>> = core::cell::RefCell::new(None));
+
+/// Sets a custom asset loader callback that is consulted before loading images from the file system.
+///
+/// The callback receives an asset identifier (a string) and should return:
+/// - `Some(Ok(bytes))` if it can provide the asset data
+/// - `Some(Err(msg))` to abort loading with an error
+/// - `None` to fall through to the default file system loading
+///
+/// This is useful for loading assets from custom sources such as embedded resources,
+/// network locations, or in-memory storage.
+///
+/// ```
+/// slint::set_asset_loader(|id| {
+///     if id == "icon.png" {
+///         Some(Ok(my_embedded_icon_bytes.to_vec()))
+///     } else {
+///         None
+///     }
+/// });
+/// ```
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+pub fn set_asset_loader(loader: impl Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>> + 'static) {
+    ASSET_LOADER.with(|l| *l.borrow_mut() = Some(Rc::new(loader)));
+}
+
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+pub(crate) fn get_asset_loader() -> Option<AssetLoaderFn> {
+    ASSET_LOADER.with(|l| l.borrow().clone())
+}
 
 #[cfg(any(
     feature = "image-decoders",
@@ -1860,6 +1896,7 @@ pub fn fit9slice(
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
+    use core::ffi::c_void;
     use super::*;
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
@@ -1925,6 +1962,68 @@ pub(crate) mod ffi {
         let format = core::str::from_utf8(format.as_slice()).ok();
         let loaded = super::Image::load_from_data(data.as_slice(), format).unwrap_or_default();
         unsafe { core::ptr::write(image, loaded) };
+    }
+    /// Result of an asset loader callback.
+    #[allow(dead_code)]
+    #[repr(u8)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum AssetLoaderResult {
+        /// The asset was not found; fall through to default resolution.
+        NotFound = 0,
+        /// The asset was found; its data is in the `out` parameter.
+        Found = 1,
+        /// An error occurred; the error message is in the `error_out` parameter.
+        Error = 2,
+    }
+
+    struct AssetLoaderUserData {
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        callback: extern "C" fn(
+            user_data: *mut c_void,
+            id: &SharedString,
+            out: *mut SharedVector<u8>,
+            error_out: *mut SharedString,
+        ) -> AssetLoaderResult,
+    }
+
+    impl Drop for AssetLoaderUserData {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+
+    /// Set a custom asset loader callback for loading images from custom sources.
+    /// The callback is invoked with an asset identifier and should return the asset data.
+    /// Return values: `LoaderResult::NotFound` (try default resolution),
+    /// `LoaderResult::Found` (data written to `out`),
+    /// or `LoaderResult::Error` (error message written to `error_out`).
+    /// The user_data pointer is passed to the callback and cleaned up by drop_user_data.
+    #[cfg(all(feature = "std", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_set_asset_loader(
+        callback: extern "C" fn(
+            user_data: *mut c_void,
+            id: &SharedString,
+            out: *mut SharedVector<u8>,
+            error_out: *mut SharedString,
+        ) -> AssetLoaderResult,
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) {
+        let ud = AssetLoaderUserData { user_data, drop_user_data, callback };
+        set_asset_loader(move |id: &str| {
+            let mut out_vec = SharedVector::default();
+            let mut error_msg = SharedString::default();
+            let result = (ud.callback)(ud.user_data, &SharedString::from(id), &mut out_vec, &mut error_msg);
+            match result {
+                AssetLoaderResult::NotFound => None,
+                AssetLoaderResult::Found => Some(Ok(out_vec.to_vec())),
+                AssetLoaderResult::Error => Some(Err(std::io::Error::other(error_msg.as_str()))),
+            }
+        });
     }
 
     #[unsafe(no_mangle)]

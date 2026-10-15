@@ -216,6 +216,8 @@ pub use slint_macros::slint;
 
 pub use i_slint_backend_selector::api::*;
 pub use i_slint_core::api::*;
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+pub use i_slint_core::graphics::set_asset_loader;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
 pub use i_slint_core::component_factory::ComponentFactory;
