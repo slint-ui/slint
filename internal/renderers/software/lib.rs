@@ -1486,7 +1486,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
         self::fonts::systemfonts::register_font_from_path(
-            &mut ctx.font_context().borrow_mut().collection,
+            &mut ctx.font_context().borrow_mut(),
             path,
         )
     }
