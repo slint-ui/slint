@@ -142,6 +142,89 @@ fn shade_row<P: Pixel, const MASKED: bool>(
     }
 }
 
+struct StampPlan {
+    tick: u64,
+    population: u32,
+    travel_q8: u32,
+    phase: u32,
+    baseline_count: usize,
+    extra_population: u32,
+}
+
+impl StampPlan {
+    fn new(vial: &Vial, tick: u64) -> Self {
+        let travel_q8 = if vial.height.saturating_sub(vial.surface) < 8 {
+            0
+        } else {
+            (vial.height - vial.surface - 6) as u32 * 256
+        };
+        let population = PARTICLES as u32 * vial.level as u32 / 4;
+        Self {
+            tick,
+            population,
+            travel_q8,
+            phase: if travel_q8 == 0 { 0 } else { (tick % travel_q8 as u64) as u32 },
+            baseline_count: (population as usize).div_ceil(256),
+            extra_population: vial.extra_population(),
+        }
+    }
+
+    fn count(&self) -> usize {
+        if self.travel_q8 == 0 { 0 } else { self.baseline_count + EXTRA_PARTICLES }
+    }
+}
+
+#[cfg(any(feature = "pico2", test))]
+pub struct Paint<'a, P> {
+    vial: &'a Vial,
+    pixels: &'a mut [P],
+    state: &'a mut FrameState,
+    plan: StampPlan,
+    row: usize,
+    ordinal: usize,
+}
+
+#[cfg(any(feature = "pico2", test))]
+impl<'a, P: Pixel> Paint<'a, P> {
+    pub fn new(vial: &'a Vial, tick: u64, pixels: &'a mut [P], state: &'a mut FrameState) -> Self {
+        assert_eq!(pixels.len(), vial.width * vial.height);
+        state.rows.reserve(vial.height.saturating_sub(state.rows.len()));
+        Self { vial, pixels, state, plan: StampPlan::new(vial, tick), row: 0, ordinal: 0 }
+    }
+
+    #[cfg(feature = "pico2-queue-profile")]
+    pub fn restoring(&self) -> bool {
+        self.row < self.vial.height
+    }
+
+    pub fn step(&mut self) -> bool {
+        if self.row < self.vial.height {
+            let end = (self.row + 8).min(self.vial.height);
+            self.vial.restore_rows(self.pixels, self.state, self.row..end);
+            self.row = end;
+            if end == self.vial.height {
+                self.state.size = (self.vial.width, self.vial.height);
+                self.state.level = Some(self.vial.level);
+                self.state.rows.clear();
+                self.state.rows.resize(self.vial.height, [self.vial.width as u16, 0]);
+            }
+        } else if self.ordinal < self.plan.count() {
+            if let Some((_, [x, y, width, height])) =
+                self.vial.stamp_particle(&self.plan, self.ordinal, self.pixels)
+            {
+                if width != 0 {
+                    for row in &mut self.state.rows[y as usize..(y + height) as usize] {
+                        row[0] = row[0].min(x);
+                        row[1] = row[1].max(x + width);
+                    }
+                }
+            }
+            self.ordinal += 1;
+        }
+        self.row == self.vial.height && self.ordinal == self.plan.count()
+    }
+}
+
 pub struct Vial {
     pub width: usize,
     pub height: usize,
@@ -351,12 +434,43 @@ impl Vial {
     #[cfg_attr(all(feature = "pico2", target_arch = "arm"), inline(never))]
     pub fn restore_cached<P: Pixel>(&self, pixels: &mut [P], state: &mut FrameState) {
         assert_eq!(pixels.len(), self.width * self.height);
+        self.restore_rows(pixels, state, 0..self.height);
+        state.size = (self.width, self.height);
+        state.level = Some(self.level);
+        state.rows.clear();
+    }
+
+    #[inline(always)]
+    fn restore_rows<P: Pixel>(
+        &self,
+        pixels: &mut [P],
+        state: &FrameState,
+        rows: core::ops::Range<usize>,
+    ) {
         if state.size != (self.width, self.height) || state.level != Some(self.level) {
-            self.restore(pixels);
-            state.size = (self.width, self.height);
-            state.level = Some(self.level);
+            let start = rows.start * self.width;
+            let end = rows.end * self.width;
+            let split = self.surface * self.width;
+            let surface_end = (self.surface + 7).min(self.height) * self.width;
+            let empty_end = end.min(split);
+            if start < empty_end {
+                P::copy_background(&mut pixels[start..empty_end], &self.empty[start..empty_end]);
+            }
+            let surface_start = start.max(split);
+            let surface_end_clipped = end.min(surface_end);
+            if surface_start < surface_end_clipped {
+                P::copy_background(
+                    &mut pixels[surface_start..surface_end_clipped],
+                    &self.surface_pixels[surface_start - split..surface_end_clipped - split],
+                );
+            }
+            let liquid_start = start.max(surface_end);
+            if liquid_start < end {
+                P::copy_background(&mut pixels[liquid_start..end], &self.liquid[liquid_start..end]);
+            }
         } else {
-            for (row, &[left, right]) in state.rows.iter().enumerate() {
+            for row in rows {
+                let [left, right] = state.rows.get(row).copied().unwrap_or([0; 2]);
                 if left < right {
                     let start = row * self.width + left as usize;
                     let end = row * self.width + right as usize;
@@ -372,7 +486,6 @@ impl Vial {
                 }
             }
         }
-        state.rows.clear();
     }
 
     pub fn stamp_cached<P: Pixel>(&self, tick: u64, pixels: &mut [P], state: &mut FrameState) {
@@ -396,87 +509,98 @@ impl Vial {
     #[cfg_attr(all(feature = "pico2", target_arch = "arm"), inline(never))]
     pub fn stamp<P: Pixel>(&self, tick: u64, pixels: &mut [P]) -> [[u16; 4]; MAX_PARTICLES] {
         let mut bounds = [[0; 4]; MAX_PARTICLES];
-        if self.height.saturating_sub(self.surface) < 8 {
-            return bounds;
-        }
-        let population = PARTICLES as u32 * self.level as u32 / 4;
-        let travel_q8 = (self.height - self.surface - 6) as u32 * 256;
-        let phase = (tick % travel_q8 as u64) as u32;
-        let baseline_count = (population as usize).div_ceil(256);
-        let extra_population = self.extra_population();
-        for ordinal in 0..baseline_count + EXTRA_PARTICLES {
-            let extra = ordinal.checked_sub(baseline_count);
-            let index = extra.map_or(ordinal, |extra| PARTICLES + extra);
-            let age = if let Some(extra) = extra {
-                let Some(born) = self.extra_births[extra] else { continue };
-                let age = (tick as u32).wrapping_sub(born);
-                if age > i32::MAX as u32 {
-                    continue;
-                }
-                Some(age)
-            } else {
-                None
-            };
-            let seed = seed(index, self.index);
-            let radius = particle_radius(index, seed);
-            let margin = 5 + radius;
-            let span = self.width.saturating_sub(margin * 2).max(1);
-            let home = margin + ((seed >> 8) as usize % span);
-            let cx = home as i32 * 16
-                + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
-            let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
-            let (distance, visibility) = if let Some(elapsed) = age {
-                let extra = ordinal - baseline_count;
-                let distance = elapsed.saturating_mul(speed_q8);
-                if distance >= travel_q8 {
-                    continue;
-                }
-                (distance, extra_population.saturating_sub(extra as u32 * 256).min(256))
-            } else {
-                (
-                    vertical_distance(phase, seed, speed_q8, travel_q8),
-                    population.saturating_sub(index as u32 * 256).min(256),
-                )
-            };
-            let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
-            let opacity =
-                (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
-            let width = radius * 2 + 1;
-            let color = if self.index == 3 {
-                match index % 5 {
-                    1 => 1,
-                    2 => 2,
-                    _ => 0,
-                }
-            } else {
-                self.index
-            };
-            let x0 = (cx >> 4) - radius as i32;
-            let y0 = (cy >> 4) - radius as i32;
-            let left = x0.max(0).min(self.width as i32);
-            let top = y0.max(self.surface as i32 + 2).min(self.height as i32);
-            let right = (x0 + width as i32).max(left).min(self.width as i32);
-            let bottom = (y0 + width as i32).max(top).min(self.height as i32);
-            bounds[index] = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
-            if left == right || top == bottom {
-                continue;
-            }
-            let row_len = (right - left) as usize;
-            for py in top..bottom {
-                let start = py as usize * self.width + left as usize;
-                let row = &mut pixels[start..start + row_len];
-                let mask = &self.mask[start..start + row_len];
-                let opaque = self.opaque_rows[py as usize];
-                let dx = left * 16 + 8 - cx;
-                let dy = py * 16 + 8 - cy;
-                if left >= opaque[0] as i32 && right <= opaque[1] as i32 {
-                    shade_row::<P, false>(row, mask, &self.colors[color], opacity, radius, dx, dy);
-                } else {
-                    shade_row::<P, true>(row, mask, &self.colors[color], opacity, radius, dx, dy);
-                }
+        let plan = StampPlan::new(self, tick);
+        for ordinal in 0..plan.count() {
+            if let Some((index, area)) = self.stamp_particle(&plan, ordinal, pixels) {
+                bounds[index] = area;
             }
         }
         bounds
+    }
+
+    #[cfg_attr(
+        all(feature = "pico2", target_arch = "arm"),
+        unsafe(link_section = ".data.ram_func")
+    )]
+    #[inline(never)]
+    fn stamp_particle<P: Pixel>(
+        &self,
+        plan: &StampPlan,
+        ordinal: usize,
+        pixels: &mut [P],
+    ) -> Option<(usize, [u16; 4])> {
+        let StampPlan { tick, population, travel_q8, phase, baseline_count, extra_population } =
+            *plan;
+        let extra = ordinal.checked_sub(baseline_count);
+        let index = extra.map_or(ordinal, |extra| PARTICLES + extra);
+        let age = if let Some(extra) = extra {
+            let Some(born) = self.extra_births[extra] else { return None };
+            let age = (tick as u32).wrapping_sub(born);
+            if age > i32::MAX as u32 {
+                return None;
+            }
+            Some(age)
+        } else {
+            None
+        };
+        let seed = seed(index, self.index);
+        let radius = particle_radius(index, seed);
+        let margin = 5 + radius;
+        let span = self.width.saturating_sub(margin * 2).max(1);
+        let home = margin + ((seed >> 8) as usize % span);
+        let cx = home as i32 * 16
+            + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
+        let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
+        let (distance, visibility) = if let Some(elapsed) = age {
+            let extra = ordinal - baseline_count;
+            let distance = elapsed.saturating_mul(speed_q8);
+            if distance >= travel_q8 {
+                return None;
+            }
+            (distance, extra_population.saturating_sub(extra as u32 * 256).min(256))
+        } else {
+            (
+                vertical_distance(phase, seed, speed_q8, travel_q8),
+                population.saturating_sub(index as u32 * 256).min(256),
+            )
+        };
+        let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
+        let opacity = (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
+        let width = radius * 2 + 1;
+        let color = if self.index == 3 {
+            match index % 5 {
+                1 => 1,
+                2 => 2,
+                _ => 0,
+            }
+        } else {
+            self.index
+        };
+        let x0 = (cx >> 4) - radius as i32;
+        let y0 = (cy >> 4) - radius as i32;
+        let left = x0.max(0).min(self.width as i32);
+        let top = y0.max(self.surface as i32 + 2).min(self.height as i32);
+        let right = (x0 + width as i32).max(left).min(self.width as i32);
+        let bottom = (y0 + width as i32).max(top).min(self.height as i32);
+        let bounds = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
+        if left == right || top == bottom {
+            return Some((index, bounds));
+        }
+        let row_len = (right - left) as usize;
+        for py in top..bottom {
+            let start = py as usize * self.width + left as usize;
+            let row = &mut pixels[start..start + row_len];
+            let mask = &self.mask[start..start + row_len];
+            let opaque = self.opaque_rows[py as usize];
+            let dx = left * 16 + 8 - cx;
+            let dy = py * 16 + 8 - cy;
+            if left >= opaque[0] as i32 && right <= opaque[1] as i32 {
+                shade_row::<P, false>(row, mask, &self.colors[color], opacity, radius, dx, dy);
+            } else {
+                shade_row::<P, true>(row, mask, &self.colors[color], opacity, radius, dx, dy);
+            }
+        }
+        Some((index, bounds))
     }
 
     pub fn set_held(&mut self, held: bool, tick: u64) {
@@ -550,6 +674,37 @@ mod tests {
             }
         }
         background
+    }
+
+    #[test]
+    fn bounded_paint_matches_cached_frames_through_holds_and_level_changes() {
+        for (width, height) in [(48, 140), (51, 134), (32, 96)] {
+            for index in 0..4 {
+                let mut vial = Vial::new(width, height, index);
+                let mut serial = [vec![0u16; width * height], vec![0; width * height]];
+                let mut batched = serial.clone();
+                let mut serial_states = core::array::from_fn::<_, 2, _>(|_| FrameState::default());
+                let mut batched_states = core::array::from_fn::<_, 2, _>(|_| FrameState::default());
+                for tick in 0..1200 {
+                    let back = tick as usize & 1;
+                    let level = [409, 665, 512, 819][index];
+                    vial.set_level(if (500..540).contains(&tick) { 1024 } else { level });
+                    vial.set_held((20..400).contains(&tick) || (700..850).contains(&tick), tick);
+                    vial.restore_cached(&mut serial[back], &mut serial_states[back]);
+                    vial.stamp_cached(tick, &mut serial[back], &mut serial_states[back]);
+                    let mut paint =
+                        Paint::new(&vial, tick, &mut batched[back], &mut batched_states[back]);
+                    let mut steps = 1;
+                    while !paint.step() {
+                        steps += 1;
+                    }
+                    assert!(steps <= height.div_ceil(8) + MAX_PARTICLES);
+                    assert!(paint.step());
+                    assert_eq!(serial[back], batched[back], "vial {index}, tick {tick}");
+                    assert_eq!(serial_states[back].rows, batched_states[back].rows);
+                }
+            }
+        }
     }
 
     #[test]
