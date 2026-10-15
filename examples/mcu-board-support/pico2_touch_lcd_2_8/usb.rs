@@ -220,6 +220,8 @@ async fn usb_task(usb: Peri<'static, USB>) {
                         sequence, embassy_rp::clocks::clk_sys_freq(), embassy_rp::clocks::clk_peri_freq() / divisor,
                         v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[9],v[10],v[11],v[12],v[25],v[26],v[27],v[28],super::ALLOCATOR.free());
                     let _ = write!(&mut line, ",peri_hz={},usb_hz={},adc_hz={}", embassy_rp::clocks::clk_peri_freq(), embassy_rp::clocks::clk_usb_freq(), embassy_rp::clocks::clk_adc_freq());
+                    #[cfg(not(feature = "pico2-renderer-profile"))]
+                    let _ = write!(&mut line, ",draw_max_raster_us={},draw_max_crc_us={},draw_max_plan_us={},draw_max_pack_us={},draw_max_wait_us={}", v[13], v[14], v[15], v[16], v[17]);
                     #[cfg(feature = "pico2-renderer-profile")]
                     for (index, name) in i_slint_renderer_software::embedded_profile::NAMES.iter().enumerate() {
                         let _ = write!(&mut line, ",{name}_cpu_us={},{}_calls={}", v[13 + index], name, v[19 + index]);

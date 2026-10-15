@@ -155,7 +155,17 @@ impl Profiler {
         self.values[6] += stats.pixels;
         self.values[7] += stats.lines;
         self.values[57] += stats.plan_us as u32;
-        self.values[8] = self.values[8].max(draw_us as u32);
+        if draw_us as u32 >= self.values[8] {
+            self.values[8] = draw_us as u32;
+            #[cfg(not(feature = "pico2-renderer-profile"))]
+            self.values[13..18].copy_from_slice(&[
+                stats.raster_us as u32,
+                stats.crc_us as u32,
+                stats.plan_us as u32,
+                stats.window_us as u32,
+                stats.wait_us as u32,
+            ]);
+        }
         self.values[9] = self.values[9].max(interval);
         self.values[10] += phase.saturating_sub(self.last_phase).saturating_sub(1);
         self.last_phase = phase;
