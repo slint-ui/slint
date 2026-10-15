@@ -119,6 +119,7 @@ impl Tilt {
         changed
     }
 
+    #[cfg(any(test, feature = "pico2-queue-profile"))]
     pub fn count(&self, vial: &Vial) -> usize {
         if vial.height.saturating_sub(vial.surface) < 8 {
             return 0;

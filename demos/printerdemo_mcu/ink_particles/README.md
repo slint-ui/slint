@@ -27,7 +27,9 @@ Near-flat poses smoothly return to screen-up rather than retaining an arbitrary 
 The surface counter-rotates with device roll, limited to 30 degrees either way.
 Its center stays at the selected fill height.
 A sheared, antialiased ellipse with fractional vertical sampling preserves the curved meniscus through zero tilt.
-Surface colors are cached when the normal or fill changes; restoration copies them alongside the static glass spans.
+Surface colors are cached when the normal or fill changes.
+Each retained buffer restores its old bubble footprints and the union of the old and new surface bands.
+Unchanged glass and liquid spans outside that union stay intact.
 Bubble force follows the full fused up vector, independently of the surface limit.
 Persistent bubble positions slide along the capsule-shaped glass boundary.
 
@@ -48,6 +50,7 @@ Other sizes use the same procedural renderer without resizing the assets.
 The data contains two little-endian RGB565 backgrounds and one eight-bit coverage mask per vial, totaling 134,400 bytes.
 Glass rims are already baked into the backgrounds; separate rim masks are not needed after construction.
 The flash-backed path avoids 134,400 bytes of heap allocations at this size.
+The identical meniscus and opaque-row tables are also shared in flash, saving another 4,928 bytes across the four vials.
 
 Regenerate the assets from the same renderer:
 
@@ -65,7 +68,9 @@ Keep this test enabled when changing artwork or regenerating the data.
 With `pico2`, animation advances once per measured physical panel tick.
 The timer polls the published tick; it does not assume a 60 Hz wall-clock interval.
 On Pico, core 1 composes the Yellow and Cyan vials in bounded batches while core 0 composes Red and Black.
-Core 0 prepares each frame, reserves damage storage, borrows disjoint pixel buffers, and joins the worker before publishing Slint images.
+Core 0 allocates tilt storage and reserves damage storage before submission.
+Both cores prepare and paint their own vials, borrowing disjoint plain state and pixel buffers.
+Core 0 joins the worker before publishing Slint images.
 The worker handles only plain renderer state and pixels; Slint objects remain on core 0.
 Each batch restores eight rows, or two while the surface is tilted, or stamps one particle, allowing display DMA and USB tasks to run between batches.
 The worker sleeps when no frame is submitted.

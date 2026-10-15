@@ -250,9 +250,9 @@ pub struct Vial {
     surface_light: [u16; 2],
     empty: Cow<'static, [u16]>,
     liquid: Cow<'static, [u16]>,
-    meniscus: Vec<[u8; 2]>,
+    meniscus: Cow<'static, [[u8; 2]]>,
     mask: Cow<'static, [u8]>,
-    opaque_rows: Vec<[u16; 2]>,
+    opaque_rows: Cow<'static, [[u16; 2]]>,
     surface: usize,
     level: u16,
     held: bool,
@@ -287,10 +287,12 @@ impl Vial {
                 .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.empty)),
             liquid: assets
                 .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.liquid)),
-            meniscus: vec![[0; 2]; width * 7],
+            meniscus: assets
+                .map_or_else(|| Cow::Owned(vec![[0; 2]; width * 7]), |a| Cow::Borrowed(a.meniscus)),
             mask: assets
                 .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.mask)),
-            opaque_rows: Vec::new(),
+            opaque_rows: assets
+                .map_or_else(|| Cow::Owned(Vec::new()), |a| Cow::Borrowed(a.opaque_rows)),
             surface: height,
             level: u16::MAX,
             held: false,
@@ -324,35 +326,22 @@ impl Vial {
                 }
             }
         }
-        vial.opaque_rows = vial
-            .mask
-            .chunks_exact(width)
-            .map(|row| {
-                let left = row.iter().position(|&mask| mask == 255).unwrap_or(width);
-                let right = left + row[left..].iter().take_while(|&&mask| mask == 255).count();
-                [left as u16, right as u16]
-            })
-            .collect();
-        for y in 0..7 {
-            for x in 0..width {
-                let (mut outer, mut inner) = (0, 0);
-                let rx = width as i64 * 8 - 16;
-                let ry = 48i64;
-                for sy in [2, 6, 10, 14] {
-                    for sx in [2, 6, 10, 14] {
-                        let dx = x as i64 * 16 + sx - width as i64 * 8;
-                        let dy = y as i64 * 16 + sy - 56;
-                        if dx * dx * ry * ry + dy * dy * rx * rx <= rx * rx * ry * ry {
-                            outer += 1;
-                        }
-                        let (ix, iy) = (rx - 12, ry - 12);
-                        if dx * dx * iy * iy + dy * dy * ix * ix <= ix * ix * iy * iy {
-                            inner += 1;
-                        }
-                    }
+        if assets.is_none() {
+            vial.opaque_rows = Cow::Owned(
+                vial.mask
+                    .chunks_exact(width)
+                    .map(|row| {
+                        let left = row.iter().position(|&mask| mask == 255).unwrap_or(width);
+                        let right =
+                            left + row[left..].iter().take_while(|&&mask| mask == 255).count();
+                        [left as u16, right as u16]
+                    })
+                    .collect(),
+            );
+            for y in 0..7 {
+                for x in 0..width {
+                    vial.meniscus.to_mut()[y * width + x] = native_assets::meniscus(width, x, y);
                 }
-                vial.meniscus[y * width + x] =
-                    [(outer * 255 / 16) as u8, ((outer - inner) * 255 / 16) as u8];
             }
         }
         if assets.is_none() {
