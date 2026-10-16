@@ -84,7 +84,7 @@ impl AccelerateJumpDecelerate {
     /// Is used to determine how large is the instantiation span.
     /// If this value is large a lot of instances get instantiated even
     /// they are not visible.
-    /// When jumping, this is the startpoint of the deceleration before the desired row
+    /// When jumping, this is the start point of the deceleration before the desired row
     pub fn lookahead_limit(&self, viewport_height: Coord) -> Coord {
         ScrollToRowMotion::new(viewport_height).landing_distance as Coord + viewport_height
     }
@@ -149,7 +149,7 @@ impl AccelerateJumpDecelerate {
 pub(super) struct ScrollToRowMotion {
     pub(super) max_speed: f32,
     pub(super) acceleration: f32,
-    /// The distance before the desired row to land and starting the decceleration (when scrolling up).
+    /// The distance before the desired row to land and starting the deceleration (when scrolling up).
     /// For scrolling down it is the distance after.
     pub(super) landing_distance: f32,
     pub(super) min_jump: f32,
