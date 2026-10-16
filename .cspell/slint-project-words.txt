@@ -105,6 +105,7 @@ coldict
 colorspace
 colour
 colprop
+copysign
 commodo
 compdef
 compilerlib
