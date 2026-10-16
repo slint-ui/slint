@@ -9,7 +9,7 @@
 
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
-use crate::instance::SubComponentInstance;
+use crate::instance::{RepeaterOrConditional, SubComponentInstance};
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
@@ -20,6 +20,7 @@ use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
 use i_slint_core::item_tree::ItemRc;
+use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
@@ -138,7 +139,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     // The stored `Type::Callback` — `Expression::ty()`'s
                     // CallBackCall arm extracts the return type from it.
                     LocalMemberIndex::Callback(idx) => &g.callbacks[*idx].ty,
-                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    LocalMemberIndex::Native { .. }
+                    | LocalMemberIndex::Timer(_)
+                    | LocalMemberIndex::Repeater(_) => &Type::Invalid,
                 }
             }
             MemberReference::Relative { parent_level, local_reference } => {
@@ -161,6 +164,8 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     LocalMemberIndex::Callback(idx) => &sc.callbacks[*idx].ty,
                     // A timer reference is only valid as the RestartTimer argument.
                     LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    // A repeater reference is only valid as the ListViewEnsureRowVisible argument.
+                    LocalMemberIndex::Repeater(_) => &Type::Invalid,
                     LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         if prop_name == "elements" {
                             // The `Path::elements` property is not in the NativeClass
@@ -227,8 +232,9 @@ fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Val
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
-        | LocalMemberIndex::Timer(_) => {
-            panic!("load_local called on callback/function/timer reference")
+        | LocalMemberIndex::Timer(_)
+        | LocalMemberIndex::Repeater(_) => {
+            panic!("load_local called on callback/function/timer/repeater reference")
         }
     }
 }
@@ -295,8 +301,9 @@ fn store_local(
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
+        | LocalMemberIndex::Repeater(_)
         | LocalMemberIndex::Timer(_) => {
-            panic!("store_local called on callback/function/timer reference")
+            panic!("store_local called on callback/function/repeater/timer reference")
         }
     }
 }
@@ -2434,6 +2441,36 @@ fn call_builtin_function(
         BuiltinFunction::StartTimer | BuiltinFunction::StopTimer => {
             // Lowered into property assignments by `materialize_state`; never reached.
             Value::Void
+        }
+        BuiltinFunction::ListViewEnsureRowVisible => {
+            if let [
+                Expression::PropertyReference(MemberReference::Relative {
+                    parent_level,
+                    local_reference,
+                }),
+                Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+                && let LocalMemberIndex::Repeater(repeater_idx) = &local_reference.reference
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let RepeaterOrConditional::Repeater(repeater) =
+                    &instance.repeaters[*repeater_idx]
+                && let Some((flickable_instance, flat_idx)) =
+                    resolve_item_rc_from_ref(ctx, flickable)
+            {
+                let row: i32 = eval_expression(ctx, row).try_into().unwrap_or_default();
+                let behavior: ScrollBehavior =
+                    eval_expression(ctx, behavior).try_into().unwrap_or_default();
+                let flickable_rc = i_slint_core::items::ItemRc::new(
+                    vtable::VRc::into_dyn(flickable_instance),
+                    flat_idx as u32,
+                );
+                repeater.as_ref().listview_ensure_row_visible(row, behavior, &flickable_rc);
+                return Value::Void;
+            }
+
+            panic!("internal error: invalid arguments to ListViewEnsureRowVisible {arguments:?}")
         }
     }
 }

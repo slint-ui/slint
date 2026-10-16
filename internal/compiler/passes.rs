@@ -30,6 +30,7 @@ mod inject_debug_hooks;
 pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
+mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
@@ -174,7 +175,18 @@ pub async fn run_passes(
         return raw_type_loader;
     }
 
+    let mut checked_components = std::collections::HashSet::new();
+    doc.visit_all_used_components(|component| {
+        if checked_components.insert(std::rc::Rc::as_ptr(component)) {
+            listview::check_children_in_flickable(component, diag);
+        }
+    });
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
+    doc.visit_all_used_components(|component| {
+        listview::lower_ensure_row_visible(component, diag);
+    });
+
     collect_subcomponents::collect_subcomponents(doc);
     let diagnostics_before_typed_slots = diag.iter().count();
     doc.visit_all_used_components(|component| {

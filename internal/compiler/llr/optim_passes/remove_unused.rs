@@ -16,7 +16,9 @@ impl Mapping {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
             LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => true,
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => true,
         }
     }
 }
@@ -640,7 +642,9 @@ mod visitor {
             LocalMemberIndex::Callback(c) => {
                 visitor.visit_callback_idx(c, scope, state);
             }
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => {}
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => {}
         }
     }
 }
