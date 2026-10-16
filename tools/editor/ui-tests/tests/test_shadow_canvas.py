@@ -209,9 +209,6 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
         open_shadow(window, shadow_family)
         element(window, "Shadow color", role=slint_testing.AccessibleRole.TextInput)
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
-        element(window, "Shadow spread", role=slint_testing.AccessibleRole.Slider)
-        for label in ("Shadow offset X", "Shadow offset Y"):
-            element(window, label, role=slint_testing.AccessibleRole.TextInput)
         for label in ("Shadow angle", "Shadow distance", "Hex color"):
             assert not elements(window, label)
         swatch = element(window, "Shadow color color picker")

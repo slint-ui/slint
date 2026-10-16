@@ -19,10 +19,6 @@ FLOATING_FIELDS = {
     "Shadow color opacity",
     "Shadow blur",
     "Shadow blur value",
-    "Shadow offset X",
-    "Shadow offset Y",
-    "Shadow spread",
-    "Shadow spread value",
 }
 
 

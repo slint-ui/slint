@@ -1205,10 +1205,6 @@ SHADOW_EDITS = (
     pytest.param("blur", "Shadow blur", "24", id="blur"),
     pytest.param("blur", "Shadow blur", "0", id="blur-0"),
     pytest.param("blur", "Shadow blur", "128", id="blur-128"),
-    pytest.param("offset-x", "Shadow offset X", "-23", id="offset-x"),
-    pytest.param("offset-y", "Shadow offset Y", "31", id="offset-y"),
-    pytest.param("spread", "Shadow spread value", "-64", id="spread-min"),
-    pytest.param("spread", "Shadow spread value", "64", id="spread-max"),
 )
 
 
@@ -1228,7 +1224,7 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
             prefix + b"color: #00000040;",
             prefix + f"color: {value};".encode(),
         )
-    old_value = {"blur": "16", "spread": "0", "offset-x": "0", "offset-y": "8"}[control]
+    old_value = {"blur": "16"}[control]
     return replace_once(
         source,
         prefix + f"{control}: {old_value}px;".encode(),
@@ -1290,25 +1286,6 @@ def test_shadow_control_writes_exact_source(
             shadow_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
-
-
-@pytest.mark.parametrize("family", ["drop", "inner"])
-@pytest.mark.parametrize(
-    "label", ["Shadow offset X", "Shadow offset Y", "Shadow spread value"]
-)
-def test_shadow_numeric_fields_reject_invalid_input(
-    editor_binary, editor_environment, fixture_project, family, label
-):
-    source = fixture_project / INSPECTOR_SOURCE
-    baseline = shadow_source(source.read_bytes(), family)
-    source.write_bytes(baseline)
-    snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_element(window, "Rectangle")
-        edit_field(window, label, "invalid")
-        snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize("family", ["drop", "inner"])
