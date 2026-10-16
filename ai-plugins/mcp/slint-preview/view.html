@@ -1,0 +1,204 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slint Preview</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --text: light-dark(#171717, #fafafa);
+    --muted: light-dark(#6b6b6b, #a3a3a3);
+    --error: light-dark(#b42318, #f97066);
+    --warning: light-dark(#a15c07, #fdb022);
+  }
+  body {
+    margin: 0;
+    padding: 12px;
+    background: transparent;
+    color: var(--text);
+    font: 13px/1.4 system-ui, sans-serif;
+  }
+  /* !important overrides the inline size Slint sets from the component's preferred size. */
+  canvas {
+    display: block;
+    outline: none;
+    min-width: min(320px, 100%) !important;
+    min-height: 120px !important;
+    max-width: 100% !important;
+  }
+  canvas[hidden] { display: none; }
+  #status { color: var(--muted); }
+  #status:empty { display: none; }
+  #diagnostics { margin: 8px 0 0; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
+  #diagnostics li { white-space: pre-wrap; }
+  .error { color: var(--error); }
+  .warning { color: var(--warning); }
+</style>
+</head>
+<body>
+<div id="status">Waiting for Slint source…</div>
+<canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
+<ul id="diagnostics"></ul>
+<script type="module">
+  const INTERPRETER_URLS = { release: "__RELEASE_URL__", snapshot: "__SNAPSHOT_URL__" };
+  const LEVELS = ["error", "warning", "note"];
+
+  const statusEl = document.getElementById("status");
+  const canvas = document.getElementById("preview");
+  const diagnosticsEl = document.getElementById("diagnostics");
+
+  let nextId = 1;
+  const pending = new Map();
+
+  function post(message) {
+    window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+  }
+  function request(method, params) {
+    const id = nextId++;
+    post({ id, method, params });
+    return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  }
+  function notify(method, params) {
+    post({ method, params });
+  }
+
+  // winit reads the color scheme from this media query and re-reads `matches` on "change",
+  // so answering it with the host's theme makes the Slint widgets follow the host.
+  const DARK_QUERY = "(prefers-color-scheme: dark)";
+  const nativeMatchMedia = window.matchMedia.bind(window);
+  let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
+  const darkQueryLists = [];
+  window.matchMedia = (query) => {
+    const list = nativeMatchMedia(query);
+    if (query === DARK_QUERY) {
+      Object.defineProperty(list, "matches", { get: () => hostIsDark });
+      darkQueryLists.push(list);
+    }
+    return list;
+  };
+
+  function applyTheme(context) {
+    if (context?.theme !== "light" && context?.theme !== "dark") return;
+    document.documentElement.style.colorScheme = context.theme;
+    const isDark = context.theme === "dark";
+    if (isDark === hostIsDark) return;
+    hostIsDark = isDark;
+    for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
+  }
+
+  let lastSize = "";
+  new ResizeObserver(() => {
+    const width = Math.ceil(document.documentElement.scrollWidth);
+    const height = Math.ceil(document.documentElement.scrollHeight);
+    const size = `${width}x${height}`;
+    if (size === lastSize) return;
+    lastSize = size;
+    notify("ui/notifications/size-changed", { width, height });
+  }).observe(document.body);
+
+  let slintPromise = null;
+  async function loadSlint(channel) {
+    // One interpreter per view: a second module instance can't share the event loop.
+    slintPromise ??= (async () => {
+      const slint = await import(INTERPRETER_URLS[channel] ?? INTERPRETER_URLS.release);
+      await slint.default();
+      slint.run_event_loop();
+      return slint;
+    })();
+    return slintPromise;
+  }
+
+  let instance = null;
+  async function render({ source, style, channel }) {
+    statusEl.textContent = "Loading the Slint interpreter…";
+    let slint;
+    try {
+      slint = await loadSlint(channel);
+    } catch (e) {
+      statusEl.textContent = `Couldn't load the Slint interpreter: ${e}`;
+      statusEl.className = "error";
+      reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
+      return;
+    }
+    statusEl.textContent = "Compiling…";
+    const { component, diagnostics } = style
+      ? await slint.compile_from_string_with_style(source, "main.slint", style, null)
+      : await slint.compile_from_string(source, "main.slint", null);
+
+    diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
+      const li = document.createElement("li");
+      li.className = LEVELS[d.level] ?? "";
+      li.textContent = `main.slint:${d.lineNumber}:${d.columnNumber}: ${LEVELS[d.level]}: ${d.message}`;
+      return li;
+    }));
+
+    const problems = diagnostics.filter((d) => d.level <= 1);
+    if (problems.length) {
+      reportToModel(
+        "The Slint preview reported:\n" +
+          problems.map((d) => `main.slint:${d.lineNumber}:${d.columnNumber}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
+      );
+    } else {
+      reportToModel("The Slint preview compiled without errors or warnings.");
+    }
+
+    if (!component) {
+      canvas.hidden = true;
+      statusEl.textContent = "";
+      return;
+    }
+    canvas.hidden = false;
+    instance = instance
+      ? await component.create_with_existing_window(instance)
+      : await component.create("preview");
+    await instance.show();
+    statusEl.textContent = "";
+  }
+
+  function reportToModel(text) {
+    request("ui/update-model-context", { content: [{ type: "text", text }] }).catch(() => {});
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
+    const message = event.data;
+    if (message?.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && pending.has(message.id) && !message.method) {
+      const { resolve, reject } = pending.get(message.id);
+      pending.delete(message.id);
+      message.error ? reject(message.error) : resolve(message.result);
+      return;
+    }
+    switch (message.method) {
+      case "ui/notifications/tool-input":
+        render(message.params?.arguments ?? {}).catch((e) => {
+          statusEl.textContent = `The preview failed: ${e}. Reload to try again.`;
+          statusEl.className = "error";
+        });
+        break;
+      case "ui/notifications/host-context-changed":
+        applyTheme(message.params);
+        break;
+      case "ui/resource-teardown":
+        post({ id: message.id, result: {} });
+        break;
+      default:
+        if (message.id !== undefined && message.method) {
+          post({ id: message.id, error: { code: -32601, message: `Method not found: ${message.method}` } });
+        }
+    }
+  });
+
+  const result = await request("ui/initialize", {
+    protocolVersion: "2026-01-26",
+    appInfo: { name: "Slint Preview", version: "1.0.0" },
+    appCapabilities: { availableDisplayModes: ["inline"] },
+  });
+  applyTheme(result?.hostContext);
+  notify("ui/notifications/initialized", {});
+</script>
+</body>
+</html>
