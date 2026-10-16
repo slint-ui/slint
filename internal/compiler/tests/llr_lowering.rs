@@ -88,10 +88,6 @@ fn generate_rust(source: &str) {
     .unwrap();
 }
 
-// FIXME: `PopupWindow::anchor` isn't visited by `visit_all_named_references`, so when
-// `remove_aliases` folds the popup's `anchor` into the other end of a two-way binding,
-// the popup keeps a reference to the removed property and the code generator panics with
-// "Failed to lookup property anchor". Remove the `#[ignore]` once that is fixed.
 #[cfg(feature = "rust")]
 #[test]
 fn popup_anchor_two_way_binding_to_global_does_not_crash() {
@@ -117,11 +113,9 @@ export component TestCase inherits Window {
     );
 }
 
-// Same crash as above: `aaa` sorts before `anchor`, so it is the property that survives
-// the alias removal.
+// `aaa` sorts before `anchor`, so `remove_aliases` keeps `aaa` and drops the popup's `anchor`.
 #[cfg(feature = "rust")]
 #[test]
-#[ignore = "two-way binding on PopupWindow::anchor crashes the code generator"]
 fn popup_anchor_two_way_binding_to_local_property_does_not_crash() {
     generate_rust(
         r#"

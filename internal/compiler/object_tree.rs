@@ -4578,6 +4578,7 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
+                    vis(&mut p.anchor);
                     if let Some(is_open) = &mut p.is_open {
                         vis(is_open);
                     }
