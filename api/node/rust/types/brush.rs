@@ -286,8 +286,8 @@ impl SlintBrush {
         External::new(self.inner.clone())
     }
 
-    /// Returns the color as string in hex representation e.g. `#000000` for black.
-    /// It is only implemented for solid color brushes.
+    /// Returns a color as `#rrggbb` or `#rrggbbaa`,
+    /// and a linear or radial gradient in the syntax of CSS, with alpha channels from 0 to 255.
     #[napi]
     pub fn to_string(&self) -> String {
         match &self.inner {

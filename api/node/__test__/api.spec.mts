@@ -15,6 +15,7 @@ import {
     private_api,
     windowSymbol,
     globalsSymbol,
+    type Brush,
 } from "../dist/index.js";
 
 private_api.initTesting();
@@ -644,4 +645,35 @@ test("file loader", () => {
     const test = new demo.App();
 
     expect(test.test_text).toStrictEqual("Hello World");
+});
+
+test("Brush read from a color property", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <color> background: #336699;
+            in-out property <color> faded: #33669980;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // Fails to compile if the native brush lacks a member that `Brush` documents.
+    const background: Required<Brush> =
+        app.background as private_api.SlintBrush;
+
+    expect(background.color).toStrictEqual({
+        red: 0x33,
+        green: 0x66,
+        blue: 0x99,
+        alpha: 255,
+    });
+    expect(background.toString()).toBe("#336699");
+    expect(background.isOpaque).toBe(true);
+    expect(background.brighter(0.5).toString()).toBe("#4c99e6");
+    expect(background.withAlpha(0).isTransparent).toBe(true);
+    expect(app.faded.toString()).toBe("#33669980");
+    expect(app.faded.transparentize(1).isTransparent).toBe(true);
+
+    app.background = background.darker(0.5);
+    expect(app.background.toString()).toBe("#224466");
 });
