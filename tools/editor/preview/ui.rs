@@ -1655,7 +1655,7 @@ mod tests {
         }
     }
 
-    fn shadow_test_editor() -> super::EditorUi {
+    fn shadow_test_editor(inner: bool) -> super::EditorUi {
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
         editor
@@ -1674,22 +1674,24 @@ mod tests {
             PropertyValue {
                 code: "24px".into(),
                 kind: PropertyValueKind::Float,
-                value_float: if name == "drop-shadow-offset-x" && refreshed { 44. } else { 24. },
+                value_float: if name.ends_with("shadow-offset-x") && refreshed { 44. } else { 24. },
                 ..Default::default()
             }
         });
         api.on_inspector_preview_shadow(|_, _| true);
-        editor
-            .global::<super::ShadowSession>()
-            .invoke_begin(Default::default(), Default::default());
+        editor.global::<super::ShadowSession>().invoke_begin(
+            Default::default(),
+            Default::default(),
+            inner,
+        );
         editor
     }
 
     #[test]
     fn shadow_commit_waits_for_a_complete_source_snapshot() {
         i_slint_backend_testing::init_no_event_loop();
-        for version_first in [false, true] {
-            let editor = shadow_test_editor();
+        for (inner, version_first) in [(false, false), (false, true), (true, false), (true, true)] {
+            let editor = shadow_test_editor(inner);
             let api = editor.global::<super::Api>();
             let session = editor.global::<super::ShadowSession>();
             api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
@@ -1728,7 +1730,7 @@ mod tests {
         for result in
             [super::InspectorCommitResult::Unchanged, super::InspectorCommitResult::Rejected]
         {
-            let editor = shadow_test_editor();
+            let editor = shadow_test_editor(false);
             let api = editor.global::<super::Api>();
             let session = editor.global::<super::ShadowSession>();
             api.on_inspector_commit_shadow(move |_, _| result);
@@ -1747,7 +1749,7 @@ mod tests {
     #[test]
     fn shadow_rejected_workspace_application_releases_the_pending_draft() {
         i_slint_backend_testing::init_no_event_loop();
-        let editor = shadow_test_editor();
+        let editor = shadow_test_editor(false);
         let api = editor.global::<super::Api>();
         let session = editor.global::<super::ShadowSession>();
         api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
@@ -1768,7 +1770,7 @@ mod tests {
     #[test]
     fn shadow_click_while_a_commit_is_pending_does_not_resubmit() {
         i_slint_backend_testing::init_no_event_loop();
-        let editor = shadow_test_editor();
+        let editor = shadow_test_editor(false);
         let api = editor.global::<super::Api>();
         let session = editor.global::<super::ShadowSession>();
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
@@ -1829,7 +1831,7 @@ mod tests {
     fn shadow_guides_reset_when_the_window_loses_focus_to_another_app() {
         i_slint_backend_testing::init_no_event_loop();
         for shift in [slint::platform::Key::Shift, slint::platform::Key::ShiftR] {
-            let editor = shadow_test_editor();
+            let editor = shadow_test_editor(false);
             editor.show().unwrap();
             editor.window().set_size(slint::LogicalSize::new(1360., 860.));
             editor.window().dispatch_event(WindowEvent::WindowActiveChanged(true));

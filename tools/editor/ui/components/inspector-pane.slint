@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
-import { Api, CodeBinding, ElementInformation, InspectorNumberChange, InspectorCommitResult, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, CodeBinding, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
-    InspectorCornerEditor, InspectorEditableField, InspectorEffectDial, InspectorEffectSlider,
+    InspectorCornerEditor, InspectorEditableField,
     InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
     InspectorValueField, InspectorShadowControl,
 } from "inspector/index.slint";
@@ -17,8 +17,6 @@ import { EditorScrollView } from "editor-scroll-view.slint";
 export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
-    private property <angle> shadow-drag-angle;
-    private property <bool> shadow-distance-dragging;
 
     out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
 
@@ -291,75 +289,6 @@ export component InspectorPane inherits Rectangle {
             return 2;
         }
         return 0;
-    }
-
-    function rectangle-effect-value() -> string {
-        let index = root.rectangle-effect-index();
-        return root.rectangle-effect-options[index].label;
-    }
-
-    function shadow-color-code() -> string {
-        return Api.source-property-value("inner-shadow-color", "");
-    }
-
-    function shadow-color-swatch() -> brush {
-        let property = Api.source-property-value-data("inner-shadow-color", {});
-        return property.value-resolved ? property.value-brush : transparent;
-    }
-
-    function shadow-blur() -> float {
-        return Api.number-property("inner-shadow-blur", 16);
-    }
-
-    function shadow-spread() -> float {
-        return Api.number-property("inner-shadow-spread", 0);
-    }
-
-    function shadow-offset-x() -> float {
-        return Api.number-property("inner-shadow-offset-x", 0);
-    }
-
-    function shadow-offset-y() -> float {
-        return Api.number-property("inner-shadow-offset-y", 8);
-    }
-
-    function shadow-distance() -> float {
-        let x = root.shadow-offset-x();
-        let y = root.shadow-offset-y();
-        return sqrt(x * x + y * y).round();
-    }
-
-    function normalized-angle(value: angle) -> angle {
-        let normalized = value.mod(360deg);
-        return normalized < 0deg ? normalized + 360deg : normalized;
-    }
-
-    function shadow-angle() -> angle {
-        let distance = root.shadow-distance();
-        return distance == 0 ? 90deg : root.normalized-angle(atan2(root.shadow-offset-y(), root.shadow-offset-x()));
-    }
-
-    function commit-shadow-number(property-name: string, value: float) -> bool {
-        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]) != InspectorCommitResult.rejected;
-    }
-
-    pure function shadow-offset-changes(angle: angle, distance: float) -> [InspectorNumberChange] {
-        let prefix = "inner-shadow-";
-        let x = (angle.cos() * distance).round();
-        let y = (angle.sin() * distance).round();
-        return [
-            { name: prefix + "offset-x", value: x == 0 ? 0 : x },
-            { name: prefix + "offset-y", value: y == 0 ? 0 : y },
-        ];
-    }
-
-    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
-        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance)) != InspectorCommitResult.rejected;
-    }
-
-    function set-rectangle-effect(value: string) -> bool {
-        root.shadow-distance-dragging = false;
-        return Api.set-shadow-effect(root.element-information, value);
     }
 
     function quote(value: string) -> string {
@@ -810,118 +739,22 @@ export component InspectorPane inherits Rectangle {
                         padding-right: root.style.padding;
                         spacing: Metrics.space-compact;
 
-                        if root.rectangle-effect-index() != 1: InspectorComboBox {
+                        if root.rectangle-effect-index() == 0: InspectorComboBox {
                             accessible-name: @tr("Rectangle effect");
-                            value: root.rectangle-effect-value();
-                            selected-index: root.rectangle-effect-index();
+                            value: root.rectangle-effect-options[0].label;
+                            selected-index: 0;
                             options: root.rectangle-effect-options;
                             wide: true;
                             width: root.field-width;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
-                                return root.set-rectangle-effect(text);
+                                return Api.set-shadow-effect(root.element-information, text);
                             }
                         }
 
-                        if root.rectangle-effect-index() == 1: InspectorShadowControl {
+                        if root.rectangle-effect-index() != 0: InspectorShadowControl {
+                            inner: root.rectangle-effect-index() == 2;
                             width: root.field-width;
-                        }
-
-                        if root.rectangle-effect-index() == 2: VerticalLayout {
-                            spacing: Metrics.space-small;
-
-                            Text {
-                                height: Metrics.icon-small;
-                                text: @tr("Color");
-                                color: Colors.foreground;
-                                font-size: Typography.caption.size;
-                                font-weight: FontWeight.semi-bold;
-                                vertical-alignment: center;
-                            }
-
-                            InspectorColorField {
-                                accessible-name: @tr("Shadow color");
-                                target-size: { width: root.selected-width(), height: root.selected-height() };
-                                value: root.shadow-color-code();
-                                swatch: root.shadow-color-swatch();
-                                wide: true;
-                                width: root.field-width;
-                                commit-key: root.field-key("inner-shadow-color");
-                                preview-key: root.field-key("inner-shadow-color");
-                                session-key: root.fill-session-key("inner-shadow-color");
-                                property-name: "inner-shadow-color";
-                                accepted(text) => {
-                                    return root.commit-code("inner-shadow-color", text);
-                                }
-                            }
-                        }
-
-                        if root.rectangle-effect-index() == 2: InspectorEffectDial {
-                            accessible-name: @tr("Shadow angle");
-                            commit-key: root.inspector-key + ":inner-shadow-";
-                            value: root.shadow-angle();
-                            preview(angle) => {
-                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
-                            }
-                            accepted(angle) => {
-                                return root.commit-shadow-offsets(angle, root.shadow-distance());
-                            }
-                            canceled => { Api.inspector-cancel(); }
-                        }
-
-                        if root.rectangle-effect-index() == 2: InspectorEffectSlider {
-                            width: root.field-width;
-                            accessible-name: @tr("Shadow distance");
-                            label: @tr("Distance");
-                            value: root.shadow-distance();
-                            maximum: 96;
-                            commit-key: root.field-key("inner-shadow-offset");
-                            started => {
-                                root.shadow-drag-angle = root.shadow-angle();
-                                root.shadow-distance-dragging = true;
-                            }
-                            preview(value) => {
-                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(root.shadow-drag-angle, value));
-                            }
-                            accepted(value) => {
-                                let accepted = root.commit-shadow-offsets(root.shadow-distance-dragging ? root.shadow-drag-angle : root.shadow-angle(), value);
-                                root.shadow-distance-dragging = false;
-                                return accepted;
-                            }
-                            canceled => { root.shadow-distance-dragging = false; Api.inspector-cancel(); }
-                        }
-
-                        if root.rectangle-effect-index() == 2: InspectorEffectSlider {
-                            width: root.field-width;
-                            accessible-name: @tr("Shadow blur");
-                            label: @tr("Blur");
-                            value: root.shadow-blur();
-                            maximum: 128;
-                            commit-key: root.field-key("inner-shadow-blur");
-                            preview(value) => {
-                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: "inner-shadow-blur", value: value }]);
-                            }
-                            accepted(value) => {
-                                return root.commit-shadow-number("inner-shadow-blur", value);
-                            }
-                            canceled => { Api.inspector-cancel(); }
-                        }
-
-                        if root.rectangle-effect-index() == 2: InspectorEffectSlider {
-                            width: root.field-width;
-                            accessible-name: @tr("Shadow spread");
-                            label: @tr("Spread");
-                            value: root.shadow-spread();
-                            minimum: -64;
-                            maximum: 64;
-                            commit-key: root.field-key("inner-shadow-spread");
-                            preview(value) => {
-                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: "inner-shadow-spread", value: value }]);
-                            }
-                            accepted(value) => {
-                                return root.commit-shadow-number("inner-shadow-spread", value);
-                            }
-                            canceled => { Api.inspector-cancel(); }
                         }
                     }
                 }

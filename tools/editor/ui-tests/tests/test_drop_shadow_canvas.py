@@ -35,29 +35,36 @@ from ui_driver import (
 )
 
 
+@pytest.fixture(params=["drop", "inner"])
+def shadow_family(request):
+    return request.param
+
+
 @pytest.fixture
-def shadow_scene(tmp_path):
+def shadow_scene(tmp_path, shadow_family):
     source = tmp_path / "Main.slint"
     source.write_bytes(
-        (Path(__file__).parents[1] / "fixtures" / "drop-shadow.slint").read_bytes()
+        (Path(__file__).parents[1] / "fixtures" / "drop-shadow.slint")
+        .read_bytes()
+        .replace(b"drop-shadow-", f"{shadow_family}-shadow-".encode())
     )
     return source
 
 
-def open_shadow(window):
+def open_shadow(window, family):
     select_outline_row(window, "shadow-card")
     control = inspector_field(
-        window, "Drop shadow", slint_testing.AccessibleRole.Button
+        window, f"{family.capitalize()} shadow", slint_testing.AccessibleRole.Button
     )
     point = center(control)
     gesture(window, point, point)
     element(window, "Shadow offset handle")
 
 
-def move_shadow_panel(window):
+def move_shadow_panel(window, family):
     panel = element(window, id="InspectorShadowPicker::panel")
     files = element(window, "Files")
-    start = center(element(window, "Move Drop shadow picker"))
+    start = center(element(window, f"Move {family.capitalize()} shadow picker"))
     end = offset_position(
         start,
         files.absolute_position.x - panel.absolute_position.x,
@@ -68,33 +75,44 @@ def move_shadow_panel(window):
 
 
 def test_shadow_handles_keep_focus_for_consecutive_edits(
-    editor_binary, editor_environment, shadow_scene, tmp_path
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
 ):
     baseline = shadow_scene.read_bytes()
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         expected = baseline
         for name, dx, dy, old, dragged, keyed, key in (
             ("spread", 20, 12, 10, 30, 31, keys.RightArrow),
             ("blur", 20, -8, 32, 48, 49, keys.UpArrow),
         ):
             start = center(element(window, f"Shadow {name} handle"))
-            gesture(window, start, offset_position(start, dx, dy, 0))
+            gesture(
+                window,
+                start,
+                offset_position(
+                    start,
+                    dx * (-1 if shadow_family == "inner" else 1),
+                    dy * (-1 if shadow_family == "inner" else 1),
+                    0,
+                ),
+            )
             expected = expected.replace(
-                f"drop-shadow-{name}: {old}px;".encode(),
-                f"drop-shadow-{name}: {dragged}px;".encode(),
+                f"{shadow_family}-shadow-{name}: {old}px;".encode(),
+                f"{shadow_family}-shadow-{name}: {dragged}px;".encode(),
             )
             snapshot.wait_for_applied(expected)
             for handle in ("offset", "blur", "spread"):
                 expect(query(window, f"Shadow {handle} handle")).to_be_visible()
+            if shadow_family == "inner":
+                key = keys.LeftArrow if name == "spread" else keys.DownArrow
             press_key(window, key)
             expected = expected.replace(
-                f"drop-shadow-{name}: {dragged}px;".encode(),
-                f"drop-shadow-{name}: {keyed}px;".encode(),
+                f"{shadow_family}-shadow-{name}: {dragged}px;".encode(),
+                f"{shadow_family}-shadow-{name}: {keyed}px;".encode(),
             )
             snapshot.wait_for_applied(expected)
 
@@ -102,14 +120,20 @@ def test_shadow_handles_keep_focus_for_consecutive_edits(
 @pytest.mark.parametrize("shift", [keys.Shift, keys.ShiftR])
 @pytest.mark.parametrize("dragging", [False, True])
 def test_shadow_guides_only_show_while_shift_is_held(
-    editor_binary, editor_environment, shadow_scene, tmp_path, shift, dragging
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    shift,
+    dragging,
 ):
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, shadow_scene.read_bytes())
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         plain = screenshot(window)
         spread = center(element(window, "Shadow spread handle"))
         scale = plain.width / window.root_element.size.width
@@ -152,6 +176,7 @@ def test_shadow_guides_only_show_while_shift_is_held(
 
 
 def test_shadow_panel_uses_the_existing_solid_color_picker(
+    shadow_family,
     editor_binary,
     editor_environment,
     shadow_scene,
@@ -161,7 +186,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, shadow_scene.read_bytes())
         window = first_window(editor)
-        open_shadow(window)
+        open_shadow(window, shadow_family)
         element(window, "Shadow color", role=slint_testing.AccessibleRole.TextInput)
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
         for label in ("Shadow angle", "Shadow distance", "Shadow spread", "Hex color"):
@@ -186,6 +211,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
 @pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
 @pytest.mark.parametrize("outcome", ["commit", "cancel", "return"])
 def test_shadow_canvas_gestures_preview_cancel_and_undo(
+    shadow_family,
     editor_binary,
     editor_environment,
     shadow_scene,
@@ -210,11 +236,20 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
         select_outline_row(window, "shadow-card")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, f"Shadow {handle} handle"))
         end = offset_position(
-            start, dx * percent / 100, dy * percent / 100, math.radians(rotation)
+            start,
+            dx
+            * percent
+            / 100
+            * (-1 if shadow_family == "inner" and handle != "offset" else 1),
+            dy
+            * percent
+            / 100
+            * (-1 if shadow_family == "inner" and handle != "offset" else 1),
+            math.radians(rotation),
         )
         before = screenshot(window)
         button = slint_testing.PointerEventButton.Left
@@ -262,8 +297,8 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
             expected = baseline
             for name, old, new in changes:
                 expected = expected.replace(
-                    f"drop-shadow-{name}: {old}px;".encode(),
-                    f"drop-shadow-{name}: {new}px;".encode(),
+                    f"{shadow_family}-shadow-{name}: {old}px;".encode(),
+                    f"{shadow_family}-shadow-{name}: {new}px;".encode(),
                 )
             snapshot.wait_for_applied(expected)
             for name in ("offset", "blur", "spread"):
@@ -284,6 +319,7 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
 )
 @pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
 def test_shadow_offset_tooltip_uses_angle_and_distance(
+    shadow_family,
     editor_binary,
     editor_environment,
     shadow_scene,
@@ -307,8 +343,8 @@ def test_shadow_offset_tooltip_uses_angle_and_distance(
         select_outline_row(window, "shadow-card")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, "Shadow offset handle"))
         end = offset_position(
             start,
@@ -336,14 +372,14 @@ def test_shadow_offset_tooltip_uses_angle_and_distance(
 
 @pytest.mark.parametrize("x,y", [(0.01, 0.01), (0.5, 0.01), (0.01, 0.5), (0.99, 0.99)])
 def test_shadow_offset_tooltip_stays_inside_the_viewport(
-    editor_binary, editor_environment, shadow_scene, tmp_path, x, y
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path, x, y
 ):
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, shadow_scene.read_bytes())
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         viewport = element(window, id="EditorUi::canvas-viewport")
         start = center(element(window, "Shadow offset handle"))
         end = offset_position(
@@ -372,8 +408,9 @@ def test_shadow_offset_tooltip_stays_inside_the_viewport(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize("change", ["selection", "source"])
+@pytest.mark.parametrize("change", ["selection", "source", "effect"])
 def test_shadow_drag_rejects_a_changed_target(
+    shadow_family,
     editor_binary,
     editor_environment,
     shadow_scene,
@@ -381,12 +418,20 @@ def test_shadow_drag_rejects_a_changed_target(
     change,
 ):
     baseline = shadow_scene.read_bytes()
+    external = (
+        baseline.replace(
+            f"{shadow_family}-shadow-".encode(),
+            b"drop-shadow-" if shadow_family == "inner" else b"inner-shadow-",
+        )
+        if change == "effect"
+        else baseline + b"\n// External edit\n"
+    )
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, "Shadow offset handle"))
         end = offset_position(start, 20, 12, 0)
         button = slint_testing.PointerEventButton.Left
@@ -397,33 +442,81 @@ def test_shadow_drag_rejects_a_changed_target(
         if change == "selection":
             outline_rows(window)[0].invoke_accessible_default_action()
         else:
-            shadow_scene.write_bytes(baseline + b"\n// External edit\n")
-            snapshot.wait_for_applied(baseline + b"\n// External edit\n")
+            shadow_scene.write_bytes(external)
+            snapshot.wait_for_applied(external)
 
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         if change == "selection":
             snapshot.assert_unchanged()
         else:
-            snapshot.wait_for_applied(baseline + b"\n// External edit\n")
+            snapshot.wait_for_applied(external)
+
+
+@pytest.mark.parametrize(
+    "handle,dx,dy,old,expected",
+    [
+        ("blur", 0, -100, 32, 128),
+        ("blur", 0, 100, 32, 0),
+        ("spread", 100, 0, 10, 64),
+        ("spread", -100, 0, 10, -64),
+    ],
+)
+def test_shadow_canvas_limits(
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    handle,
+    dx,
+    dy,
+    old,
+    expected,
+):
+    baseline = shadow_scene.read_bytes()
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
+        direction = -1 if shadow_family == "inner" else 1
+        start = center(element(window, f"Shadow {handle} handle"))
+        gesture(
+            window, start, offset_position(start, dx * direction, dy * direction, 0)
+        )
+        changed = baseline.replace(
+            f"{shadow_family}-shadow-{handle}: {old}px".encode(),
+            f"{shadow_family}-shadow-{handle}: {expected}px".encode(),
+        )
+        snapshot.wait_for_applied(changed)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline)
 
 
 @pytest.mark.parametrize("dragging", [False, True])
 @pytest.mark.parametrize("availability", ["current", "stale"])
 def test_removing_shadow_externally_closes_the_session(
-    editor_binary, editor_environment, shadow_scene, tmp_path, dragging, availability
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    dragging,
+    availability,
 ):
     baseline = shadow_scene.read_bytes()
     removed = b"".join(
         line
         for line in baseline.splitlines(keepends=True)
-        if not line.lstrip().startswith(b"drop-shadow-")
+        if not line.lstrip().startswith(f"{shadow_family}-shadow-".encode())
     )
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, "Shadow offset handle"))
         end = offset_position(start, 20, 12, 0)
         button = slint_testing.PointerEventButton.Left
@@ -437,19 +530,21 @@ def test_removing_shadow_externally_closes_the_session(
         shadow_scene.write_bytes(removed)
         snapshot.wait_for_applied(removed)
         expect(query(window, "Shadow offset handle")).to_be_hidden()
-        expect(query(window, "Close Drop shadow")).to_be_hidden()
+        expect(
+            query(window, f"Close {shadow_family.capitalize()} shadow")
+        ).to_be_hidden()
         if dragging:
             window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         snapshot.wait_for_applied(removed)
 
 
 def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
-    editor_binary, editor_environment, shadow_scene, tmp_path
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
 ):
     baseline = b"".join(
         line
         for line in shadow_scene.read_bytes().splitlines(keepends=True)
-        if not line.lstrip().startswith(b"drop-shadow-")
+        if not line.lstrip().startswith(f"{shadow_family}-shadow-".encode())
     )
     shadow_scene.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(tmp_path)
@@ -458,38 +553,56 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         window = first_window(editor)
         select_outline_row(window, "shadow-card")
         edit_field(
-            window, "Rectangle effect", "drop", slint_testing.AccessibleRole.Combobox
+            window,
+            "Rectangle effect",
+            shadow_family,
+            slint_testing.AccessibleRole.Combobox,
         )
         added = wait_for_source_change(shadow_scene, baseline)
-        assert b"drop-shadow-color:" in added
-        open_shadow(window)
-        move_shadow_panel(window)
-        point = center(element(window, "Move Drop shadow picker"))
+        assert f"{shadow_family}-shadow-color:".encode() in added
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
+        point = center(
+            element(window, f"Move {shadow_family.capitalize()} shadow picker")
+        )
         gesture(window, point, point)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline)
         expect(query(window, "Shadow offset handle")).to_be_hidden()
-        expect(query(window, "Close Drop shadow")).to_be_hidden()
+        expect(
+            query(window, f"Close {shadow_family.capitalize()} shadow")
+        ).to_be_hidden()
 
 
-@pytest.mark.parametrize("action", ["Inner shadow", "Remove shadow"])
+@pytest.mark.parametrize("action", ["switch", "Remove shadow"])
 @pytest.mark.parametrize("input_method", ["pointer", "keyboard"])
 def test_shadow_actions_are_available_without_a_context_menu(
-    editor_binary, editor_environment, shadow_scene, tmp_path, action, input_method
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    action,
+    input_method,
 ):
+    other = "drop" if shadow_family == "inner" else "inner"
+    if action == "switch":
+        action = f"{other.capitalize()} shadow"
     baseline = shadow_scene.read_bytes()
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
+        open_shadow(window, shadow_family)
         if input_method == "pointer":
             point = center(
                 element(window, action, role=slint_testing.AccessibleRole.Button)
             )
             gesture(window, point, point)
         else:
-            point = center(element(window, "Move Drop shadow picker"))
+            point = center(
+                element(window, f"Move {shadow_family.capitalize()} shadow picker")
+            )
             gesture(window, point, point)
             panel = element(window, id="InspectorShadowPicker::panel")
             target = element(panel, action, role=slint_testing.AccessibleRole.Button)
@@ -511,12 +624,14 @@ def test_shadow_actions_are_available_without_a_context_menu(
                 raise AssertionError(f"Cannot reach {action} with Tab")
             press_key(window, keys.Return)
         expected = wait_for_source_change(shadow_scene, baseline)
-        assert b"drop-shadow-" not in expected
-        if action == "Inner shadow":
-            assert b"inner-shadow-color:" in expected
+        assert f"{shadow_family}-shadow-".encode() not in expected
+        if action != "Remove shadow":
+            assert f"{other}-shadow-color:".encode() in expected
         else:
-            assert b"inner-shadow-" not in expected
-        expect(query(window, "Close Drop shadow")).to_be_hidden()
+            assert f"{other}-shadow-".encode() not in expected
+        expect(
+            query(window, f"Close {shadow_family.capitalize()} shadow")
+        ).to_be_hidden()
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline)
 
@@ -524,14 +639,26 @@ def test_shadow_actions_are_available_without_a_context_menu(
 @pytest.mark.parametrize("rotation,percent", [(0, 100), (45, 25)])
 @pytest.mark.parametrize("handle", ["offset", "blur", "spread"])
 def test_small_shadow_handles_remain_individually_draggable(
-    editor_binary, editor_environment, shadow_scene, handle, rotation, percent
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    handle,
+    rotation,
+    percent,
 ):
     baseline = (
         shadow_scene.read_bytes()
         .replace(b"width: 240px", b"width: 10px")
         .replace(b"height: 160px", b"height: 10px")
-        .replace(b"drop-shadow-spread: 10px", b"drop-shadow-spread: -6px")
-        .replace(b"drop-shadow-blur: 32px", b"drop-shadow-blur: 0px")
+        .replace(
+            f"{shadow_family}-shadow-spread: 10px".encode(),
+            f"{shadow_family}-shadow-spread: -6px".encode(),
+        )
+        .replace(
+            f"{shadow_family}-shadow-blur: 32px".encode(),
+            f"{shadow_family}-shadow-blur: 0px".encode(),
+        )
         .replace(
             b"        x: 160px;",
             f"        transform-rotation: {rotation}deg;\n        x: 160px;".encode(),
@@ -544,10 +671,15 @@ def test_small_shadow_handles_remain_individually_draggable(
         select_outline_row(window, "shadow-card")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, f"Shadow {handle} handle"))
-        end = offset_position(start, 8, -8, math.radians(rotation))
+        end = offset_position(
+            start,
+            8,
+            8 if shadow_family == "inner" and handle == "blur" else -8,
+            math.radians(rotation),
+        )
         gesture(window, start, end)
         changed = wait_for_source_change(shadow_scene, baseline)
         names = ("offset-x", "offset-y") if handle == "offset" else (handle,)
@@ -555,25 +687,27 @@ def test_small_shadow_handles_remain_individually_draggable(
             before = next(
                 line
                 for line in baseline.splitlines()
-                if f"drop-shadow-{name}:".encode() in line
+                if f"{shadow_family}-shadow-{name}:".encode() in line
             )
             assert before not in changed.splitlines()
 
 
 def test_shadow_picker_does_not_undo_a_stale_preview(
-    editor_binary, editor_environment, shadow_scene, tmp_path
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
 ):
     baseline = shadow_scene.read_bytes()
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, "Shadow offset handle"))
         gesture(window, start, offset_position(start, 20, 12, 0))
         changed = wait_for_source_change(shadow_scene, baseline)
-        point = center(element(window, "Move Drop shadow picker"))
+        point = center(
+            element(window, f"Move {shadow_family.capitalize()} shadow picker")
+        )
         gesture(window, point, point)
         broken = changed + b"\nthis is invalid Slint\n"
         shadow_scene.write_bytes(broken)
@@ -584,10 +718,19 @@ def test_shadow_picker_does_not_undo_a_stale_preview(
         shadow_scene.write_bytes(changed)
         snapshot.wait_for_applied(changed)
         start = center(element(window, "Shadow blur handle"))
-        gesture(window, start, offset_position(start, 0, -8, 0))
-        edited = changed.replace(b"drop-shadow-blur: 32px", b"drop-shadow-blur: 48px")
+        gesture(
+            window,
+            start,
+            offset_position(start, 0, 8 if shadow_family == "inner" else -8, 0),
+        )
+        edited = changed.replace(
+            f"{shadow_family}-shadow-blur: 32px".encode(),
+            f"{shadow_family}-shadow-blur: 48px".encode(),
+        )
         snapshot.wait_for_applied(edited)
-        point = center(element(window, "Move Drop shadow picker"))
+        point = center(
+            element(window, f"Move {shadow_family.capitalize()} shadow picker")
+        )
         gesture(window, point, point)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(changed)
@@ -597,13 +740,13 @@ def test_shadow_picker_does_not_undo_a_stale_preview(
     "expression,expected", [(None, "16"), ("root.shadow-blur", "28")]
 )
 def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
-    editor_binary, editor_environment, shadow_scene, expression, expected
+    shadow_family, editor_binary, editor_environment, shadow_scene, expression, expected
 ):
     baseline = shadow_scene.read_bytes().replace(
-        b"        drop-shadow-blur: 32px;\n",
+        f"        {shadow_family}-shadow-blur: 32px;\n".encode(),
         b""
         if expression is None
-        else f"        drop-shadow-blur: {expression};\n".encode(),
+        else f"        {shadow_family}-shadow-blur: {expression};\n".encode(),
     )
     baseline = baseline.replace(
         b"    shadow-card :=",
@@ -613,7 +756,7 @@ def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
+        open_shadow(window, shadow_family)
         expect(
             element(
                 window, "Shadow blur value", role=slint_testing.AccessibleRole.TextInput
@@ -622,15 +765,15 @@ def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
 
 
 def test_shadow_drag_back_to_start_leaves_no_draft_or_history_entry(
-    editor_binary, editor_environment, shadow_scene, tmp_path
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
 ):
     baseline = shadow_scene.read_bytes()
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window)
-        move_shadow_panel(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
         start = center(element(window, "Shadow offset handle"))
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
@@ -645,7 +788,8 @@ def test_shadow_drag_back_to_start_leaves_no_draft_or_history_entry(
         assert (actual.x, actual.y) == pytest.approx((start.x, start.y))
         press_key(window, keys.RightArrow)
         expected = baseline.replace(
-            b"drop-shadow-offset-x: 24px", b"drop-shadow-offset-x: 25px"
+            f"{shadow_family}-shadow-offset-x: 24px".encode(),
+            f"{shadow_family}-shadow-offset-x: 25px".encode(),
         )
         snapshot.wait_for_applied(expected)
         press_shortcut(window, keys.Control, "z")

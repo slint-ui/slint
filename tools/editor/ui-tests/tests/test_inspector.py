@@ -1202,17 +1202,9 @@ def test_inspector_length_fields_show_numbers_without_pixel_labels(
 
 SHADOW_EDITS = (
     pytest.param("color", "Shadow color", "#12345678", id="color"),
-    pytest.param("angle", "Shadow angle", "0", id="angle"),
-    pytest.param("distance", "Shadow distance", "12", id="distance"),
     pytest.param("blur", "Shadow blur", "24", id="blur"),
-    pytest.param("spread", "Shadow spread", "6", id="spread"),
-    pytest.param("distance", "Shadow distance", "0", id="distance-0"),
-    pytest.param("distance", "Shadow distance", "96", id="distance-96"),
     pytest.param("blur", "Shadow blur", "0", id="blur-0"),
     pytest.param("blur", "Shadow blur", "128", id="blur-128"),
-    pytest.param("spread", "Shadow spread", "-64", id="spread--64"),
-    pytest.param("spread", "Shadow spread", "64", id="spread-64"),
-    pytest.param("angle", "Shadow angle", "359", id="angle-359"),
 )
 
 
@@ -1232,23 +1224,10 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
             prefix + b"color: #00000040;",
             prefix + f"color: {value};".encode(),
         )
-    if control == "angle":
-        return replace_once(
-            source,
-            prefix + b"offset-x: 0px;\n" + prefix + b"offset-y: 8px;",
-            prefix + b"offset-x: 8px;\n" + prefix + b"offset-y: 0px;",
-        )
-    if control == "distance":
-        return replace_once(
-            source,
-            prefix + b"offset-y: 8px;",
-            prefix + f"offset-y: {value}px;".encode(),
-        )
-    old_value = "16" if control == "blur" else "0"
     return replace_once(
         source,
-        prefix + f"{control}: {old_value}px;".encode(),
-        prefix + f"{control}: {value}px;".encode(),
+        prefix + b"blur: 16px;",
+        prefix + f"blur: {value}px;".encode(),
     )
 
 
@@ -1273,7 +1252,6 @@ def artboard_pixels(window: slint_testing.Window) -> bytes:
         pytest.param(family, *case.values, id=f"{family}-{case.id}")
         for family in ("drop", "inner")
         for case in SHADOW_EDITS
-        if family == "inner" or case.values[0] in ("color", "blur")
     ],
 )
 def test_shadow_control_writes_exact_source(
@@ -1302,44 +1280,10 @@ def test_shadow_control_writes_exact_source(
         )
 
 
-@pytest.mark.parametrize(
-    "family,control,label,initial,progress,value,outcome",
-    [
-        pytest.param(
-            family,
-            control,
-            label,
-            initial,
-            progress,
-            value,
-            outcome,
-            id=f"{family}-{control}-{outcome}",
-        )
-        for family in ("drop", "inner")
-        for control, label, initial, progress, value in (
-            ("distance", "Shadow distance", 8 / 96, 0.5, "48"),
-            ("blur", "Shadow blur", 16 / 128, 0.5, "64"),
-            ("spread", "Shadow spread", 0.5, 0.25, "-32"),
-        )
-        for outcome in ("commit", "cancel", "selection", "source")
-        if (family == "inner" or control == "blur")
-        and (
-            outcome == "commit"
-            or (family, control) in (("drop", "blur"), ("inner", "distance"))
-        )
-    ],
-)
+@pytest.mark.parametrize("family", ["drop", "inner"])
+@pytest.mark.parametrize("outcome", ["commit", "cancel", "selection", "source"])
 def test_shadow_slider_previews_without_source_writes(
-    editor_binary,
-    editor_environment,
-    fixture_project,
-    family,
-    control,
-    label,
-    initial,
-    progress,
-    value,
-    outcome,
+    editor_binary, editor_environment, fixture_project, family, outcome
 ):
     source = fixture_project / INSPECTOR_SOURCE
     baseline = shadow_source(source.read_bytes(), family)
@@ -1349,30 +1293,26 @@ def test_shadow_slider_previews_without_source_writes(
         wait_for_source(source, baseline)
         window = first_window(editor)
         select_element(window, "Rectangle")
-        if family == "drop":
-            window.dispatch_event(
-                slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
-            )
-            before = artboard_pixels(window)
-        start = slider_position(window, label, initial)
-        end = slider_position(window, label, progress)
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
+        )
+        before = artboard_pixels(window)
+        start = slider_position(window, "Shadow blur", 16 / 128)
+        end = slider_position(window, "Shadow blur", 0.5)
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
         preview_baseline = artboard_pixels(window)
-        if family != "drop":
-            before = preview_baseline
         window.dispatch_event(
             slint_testing.PointerPressEvent(
                 start, slint_testing.PointerEventButton.Left
             )
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, label + " value", value)
+        wait_for_field(window, "Shadow blur value", "64")
         assert artboard_pixels(window) != preview_baseline
         snapshot.assert_unchanged()
         if outcome == "cancel":
             press_keys(window, keys.Escape)
-            if family == "drop":
-                wait_for_field(window, label + " value", "16")
+            wait_for_field(window, "Shadow blur value", "16")
         elif outcome == "selection":
             select_element(window, "Text")
         elif outcome == "source":
@@ -1394,123 +1334,24 @@ def test_shadow_slider_previews_without_source_writes(
                 snapshot.assert_unchanged()
             if outcome == "selection":
                 select_element(window, "Rectangle")
-            if family == "drop":
-                close_buttons = elements(
-                    window,
-                    "Close Drop shadow",
-                    role=slint_testing.AccessibleRole.Button,
-                )
-                if close_buttons:
-                    close_buttons[0].invoke_accessible_default_action()
-                window.dispatch_event(
-                    slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
-                )
+            close_buttons = elements(
+                window,
+                f"Close {family.capitalize()} shadow",
+                role=slint_testing.AccessibleRole.Button,
+            )
+            if close_buttons:
+                close_buttons[0].invoke_accessible_default_action()
+            window.dispatch_event(
+                slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
+            )
             assert artboard_pixels(window) == before
         else:
-            expected = shadow_expected(baseline, family, control, value)
+            expected = shadow_expected(baseline, family, "blur", "64")
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
             press_shortcut(window, keys.Control, "z")
             snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
             press_shortcut(window, keys.Control, keys.Shift, "z")
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-
-
-@pytest.mark.parametrize("family", ("inner",))
-@pytest.mark.parametrize("outcome", ("commit", "cancel"))
-def test_shadow_angle_previews_without_source_writes(
-    editor_binary, editor_environment, fixture_project, family, outcome
-):
-    source = fixture_project / INSPECTOR_SOURCE
-    baseline = shadow_source(source.read_bytes(), family)
-    source.write_bytes(baseline)
-    snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_element(window, "Rectangle")
-        dial = inspector_field(
-            window, "Shadow angle", slint_testing.AccessibleRole.Slider
-        )
-        position, size = dial.absolute_position, dial.size
-        center_x = position.x + size.width / 2
-        center_y = position.y + size.height / 2
-        start = slint_testing.LogicalPosition(center_x, center_y + size.height / 3)
-        end = slint_testing.LogicalPosition(center_x + size.width / 3, center_y)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        before = artboard_pixels(window)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
-            )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Shadow angle", "0", slint_testing.AccessibleRole.Slider)
-        assert artboard_pixels(window) != before
-        snapshot.assert_unchanged()
-        if outcome == "cancel":
-            press_keys(window, keys.Escape)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
-        if outcome == "cancel":
-            snapshot.assert_unchanged()
-            assert artboard_pixels(window) == before
-        else:
-            snapshot.wait_for_applied(
-                shadow_expected(baseline, family, "angle", "0"), INSPECTOR_SOURCE
-            )
-
-
-@pytest.mark.parametrize("family", ("inner",))
-def test_shadow_distance_keeps_direction_through_zero(
-    editor_binary, editor_environment, fixture_project, family
-):
-    source = fixture_project / INSPECTOR_SOURCE
-    baseline = (
-        shadow_source(source.read_bytes(), family)
-        .replace(
-            f"{family}-shadow-offset-x: 0px;".encode(),
-            f"{family}-shadow-offset-x: -8px;".encode(),
-        )
-        .replace(
-            f"{family}-shadow-offset-y: 8px;".encode(),
-            f"{family}-shadow-offset-y: 0px;".encode(),
-        )
-    )
-    source.write_bytes(baseline)
-    snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_element(window, "Rectangle")
-        start = slider_position(window, "Shadow distance", 8 / 96)
-        zero = slider_position(window, "Shadow distance", 0)
-        end = slider_position(window, "Shadow distance", 0.5)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
-            )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(zero))
-        wait_for_field(window, "Shadow distance value", "0")
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Shadow distance value", "48")
-        snapshot.assert_unchanged()
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
-        expected = baseline.replace(
-            f"{family}-shadow-offset-x: -8px;".encode(),
-            f"{family}-shadow-offset-x: -48px;".encode(),
-        )
-        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
-        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
 
 
 @pytest.mark.parametrize("effect", ("none", "drop", "inner"))
@@ -1554,17 +1395,34 @@ def test_rectangle_effect_value_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
-        edit_field(
-            window, "Rectangle effect", effect, slint_testing.AccessibleRole.Combobox
-        )
+        if effect == "inner":
+            edit_field(
+                window,
+                "Rectangle effect",
+                effect,
+                slint_testing.AccessibleRole.Combobox,
+            )
+        else:
+            inspector_field(
+                window, "Inner shadow", slint_testing.AccessibleRole.Button
+            ).invoke_accessible_default_action()
+            element(
+                window,
+                "Drop shadow" if effect == "drop" else "Remove shadow",
+                role=slint_testing.AccessibleRole.Button,
+            ).invoke_accessible_default_action()
         snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-        if effect == "drop":
-            inspector_field(window, "Drop shadow", slint_testing.AccessibleRole.Button)
+        if effect != "none":
+            inspector_field(
+                window,
+                f"{effect.capitalize()} shadow",
+                slint_testing.AccessibleRole.Button,
+            )
         else:
             wait_for_field(
                 window,
                 "Rectangle effect",
-                {"none": "None", "inner": "Inner Shadow"}[effect],
+                "None",
                 slint_testing.AccessibleRole.Combobox,
             )
         select_element(window, "Rectangle")

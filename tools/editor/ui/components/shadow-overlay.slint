@@ -74,6 +74,7 @@ export component ShadowOverlay inherits FocusScope {
     in property <bool> show-guides;
     in property <{x: length, y: length, width: length, height: length}> viewport;
     focus-on-click: false;
+    private property <float> direction: ShadowSession.inner ? -1 : 1;
     private property <ShadowValues> original;
     private property <Point> press;
     private property <int> focus-epoch;
@@ -96,11 +97,11 @@ export component ShadowOverlay inherits FocusScope {
     private property <Point> blur-point: root.to-canvas({
         x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px,
         y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px
-            - max(60px / CanvasView.zoom, FillSession.selection.height / 2 + (ShadowSession.values.spread + ShadowSession.values.blur / 2) * 1px),
+            - max(60px / CanvasView.zoom, FillSession.selection.height / 2 + root.direction * (ShadowSession.values.spread + ShadowSession.values.blur / 2) * 1px),
     });
     private property <Point> spread-point: root.to-canvas({
         x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px
-            + max(60px / CanvasView.zoom, FillSession.selection.width / 2 + ShadowSession.values.spread * 1px),
+            + max(60px / CanvasView.zoom, FillSession.selection.width / 2 + root.direction * ShadowSession.values.spread * 1px),
         y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px,
     });
     pure function to-canvas(p: Point) -> Point {
@@ -133,7 +134,7 @@ export component ShadowOverlay inherits FocusScope {
         let gesture = ShadowSession.gesture;
         let values = ShadowSession.updated(root.original, gesture,
             gesture == ShadowGesture.offset ? root.original.offset-x + dx
-                : gesture == ShadowGesture.blur ? root.original.blur - dy * 2 : root.original.spread + dx,
+                : gesture == ShadowGesture.blur ? root.original.blur - root.direction * dy * 2 : root.original.spread + root.direction * dx,
             root.original.offset-y + dy);
         if values != ShadowSession.values { ShadowSession.preview(values); }
     }
@@ -159,12 +160,12 @@ export component ShadowOverlay inherits FocusScope {
         ShadowSession.canvas-focus = true;
         ShadowSession.commit(kind, ShadowSession.updated(values, kind,
             kind == ShadowGesture.offset ? values.offset-x + dx * step
-                : kind == ShadowGesture.blur ? values.blur - dy * step : values.spread + dx * step,
+                : kind == ShadowGesture.blur ? values.blur - root.direction * dy * step : values.spread + root.direction * dx * step,
             values.offset-y + dy * step));
         return accept;
     }
     for soft in (root.show-guides ? 2 : 0): guide := Rectangle {
-        private property <float> expansion: ShadowSession.values.spread + (soft == 1 ? ShadowSession.values.blur / 2 : 0);
+        private property <float> expansion: root.direction * (ShadowSession.values.spread + (soft == 1 ? ShadowSession.values.blur / 2 : 0));
         x: root.shadow-center.x - self.width / 2;
         y: root.shadow-center.y - self.height / 2;
         width: max(0px, FillSession.selection.width + self.expansion * 2px) * CanvasView.zoom;
