@@ -125,9 +125,9 @@ pub(super) struct SmoothScrollLayout {
     pub(super) layout_end: Coord,
 }
 
-/// If there is no scroll to request we handle it as a normal scroll
-/// if one is ongoing, plan the steps for this layout pass for smooth scrolling (like determining
-/// if we should jump and where to land)
+/// If there is no scroll to request we handle it as a normal layout pass
+/// if one is ongoing, plan the steps for this layout pass for smooth scrolling
+/// (for example determining if we should jump and where to land)
 pub(super) fn smooth_scroll_layout(
     request: Option<&ScrollToRowRequest>,
     state: &RepeaterLayoutState,
