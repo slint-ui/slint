@@ -60,25 +60,6 @@ def test_library_paths_come_from_the_project_file(tmp_path: pathlib.Path) -> Non
     assert "Main" in result.component_names
 
 
-def test_the_project_file_style_reaches_the_compiler(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"style": "no-such-style"})
-    main = write_main(directory, "export component Main inherits Window { }")
-
-    # A style name the compiler rejects shows which style it actually used.
-    result = native.Compiler().build_from_path(main)
-    assert any("no-such-style" in message for message in messages(result))
-
-
-def test_an_explicit_style_wins_over_the_project_file(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"style": "no-such-style"})
-    main = write_main(directory, "export component Main inherits Window { }")
-
-    compiler = native.Compiler()
-    compiler.style = "fluent"
-    result = compiler.build_from_path(main)
-    assert messages(result) == []
-
-
 def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     directory = tmp_path.resolve()
     (directory / "slint-project.json").write_text("{")
@@ -88,9 +69,9 @@ def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     assert any("slint-project.json" in message for message in messages(result))
 
 
-def test_building_the_project_file_builds_its_entry(tmp_path: pathlib.Path) -> None:
+def test_building_the_project_file_builds_its_main_file(tmp_path: pathlib.Path) -> None:
     directory = project_directory(
-        tmp_path, {"entry": "ui/main.slint", "include-paths": ["include"]}
+        tmp_path, {"main": "ui/main.slint", "include-paths": ["include"]}
     )
     (directory / "include").mkdir()
     (directory / "include" / "shared.slint").write_text("export component Shared { }")

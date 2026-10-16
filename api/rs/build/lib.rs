@@ -11,12 +11,12 @@ The generated code must be included in your crate by using the `slint::include_m
 
 ## Project File
 
-Settings such as the style or the include paths can be put in a `slint-project.json`
+Settings such as include paths can be put in a `slint-project.json`
 file instead. The search for it starts in the directory of the `.slint` file and
 goes up from there. What you set on [`CompilerConfiguration`] wins over it.
 
 You can also pass the `slint-project.json` itself instead of a `.slint` file.
-Its `entry` is compiled with its settings, and there's no search.
+Its `main` is compiled with its settings, and there's no search.
 
 ## Example
 
@@ -162,10 +162,9 @@ impl CompilerConfiguration {
 
     /// Create a new configuration that selects the style to be used for widgets.
     ///
-    /// This wins over the style of the project file.
     #[must_use]
     pub fn with_style(mut self, style: String) -> Self {
-        self.overrides.project.style = Some(style);
+        self.overrides.style = Some(style);
         self
     }
 
@@ -530,7 +529,7 @@ fn formatter_test() {
 ///
 /// A `slint-project.json` in the directory of `path`, or in a directory above it,
 /// provides the settings.
-/// `path` can also be a `slint-project.json`, whose `entry` is compiled.
+/// `path` can also be a `slint-project.json`, whose `main` is compiled.
 ///
 /// See also [`compile_with_config()`] if you want to specify a configuration.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
@@ -857,8 +856,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
             &project_file,
             r#"{
                 "include-paths": ["project-include"],
-                "library-paths": {"widgets": "project-lib.slint"},
-                "style": "project-style"
+                "library-paths": {"widgets": "project-lib.slint"}
             }"#,
         )
         .unwrap();
@@ -874,7 +872,6 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
             config.library_paths,
             HashMap::from([("widgets".to_string(), test_root.join("project-lib.slint"))])
         );
-        assert_eq!(config.style.as_deref(), Some("project-style"));
         assert_eq!(project_file.unwrap().source_path(), project_file_path_in(&test_root));
     });
 }
@@ -889,8 +886,7 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
             &project_file,
             r#"{
                 "include-paths": ["project-include"],
-                "library-paths": {"widgets": "project-lib.slint"},
-                "style": "project-style"
+                "library-paths": {"widgets": "project-lib.slint"}
             }"#,
         )
         .unwrap();
@@ -922,7 +918,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent"}"#,
+            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -1031,10 +1027,10 @@ fn compiler_configuration_defaults_without_project_file() {
         assert!(project_file.is_none());
 
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{"style":"project-style"}"#).unwrap();
+        fs::write(&project_file, r#"{"include-paths":["include"]}"#).unwrap();
 
         let (config, _) = CompilerConfiguration::new().resolve_project_file(test_root).unwrap();
-        assert_eq!(config.style.as_deref(), Some("project-style"));
+        assert_eq!(config.include_paths, vec![test_root.join("include")]);
     });
 }
 
@@ -1047,8 +1043,8 @@ fn project_file_discovery_starts_at_the_slint_file_directory() {
         let ui_dir = test_root.join("ui");
         fs::create_dir_all(&ui_dir).unwrap();
 
-        fs::write(project_file_path_in(&test_root), r#"{"style":"fluent"}"#).unwrap();
-        fs::write(project_file_path_in(&ui_dir), r#"{"style":"material"}"#).unwrap();
+        fs::write(project_file_path_in(&test_root), r#"{"include-paths":["top"]}"#).unwrap();
+        fs::write(project_file_path_in(&ui_dir), r#"{"include-paths":["nested"]}"#).unwrap();
 
         let input_file = ui_dir.join("main.slint");
         let output_file = test_root.join("main.rs");
@@ -1112,7 +1108,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
         let input_file = test_root.join("main.slint");
         let output_file = test_root.join("main.rs");
 
-        fs::write(&project_file, r#"{"style":"fluent"}"#).unwrap();
+        fs::write(&project_file, r#"{"include-paths":["include"]}"#).unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
 
         let config = CompilerConfiguration::new();
@@ -1154,7 +1150,7 @@ fn output_path_compilation_tracks_missing_project_file_dependency() {
 }
 
 #[test]
-fn a_project_file_input_compiles_its_entry() {
+fn a_project_file_input_compiles_its_main_file() {
     use std::fs;
 
     with_temp_test_dir("project-file-input", |test_root| {
@@ -1165,14 +1161,14 @@ fn a_project_file_input_compiles_its_entry() {
         fs::create_dir_all(&shared_dir).unwrap();
 
         let project_file = project_file_path_in(&test_root);
-        fs::write(&project_file, r#"{ "entry": "ui/main.slint", "include-paths": ["shared"] }"#)
+        fs::write(&project_file, r#"{ "main": "ui/main.slint", "include-paths": ["shared"] }"#)
             .unwrap();
-        // Nearer to the entry, but not the project file that was passed in.
+        // Nearer to the main file, but not the project file that was passed in.
         fs::write(project_file_path_in(&ui_dir), r#"{ "include-paths": ["nowhere"] }"#).unwrap();
         fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
-        let entry = ui_dir.join("main.slint");
+        let main = ui_dir.join("main.slint");
         fs::write(
-            &entry,
+            &main,
             r#"import { Shared } from "shared.slint";
                export component Test inherits Rectangle { Shared {} }"#,
         )
@@ -1185,7 +1181,7 @@ fn a_project_file_input_compiles_its_entry() {
         )
         .unwrap();
 
-        assert!(dependencies.contains(&entry), "{dependencies:#?}");
+        assert!(dependencies.contains(&main), "{dependencies:#?}");
         assert!(dependencies.contains(&project_file), "{dependencies:#?}");
     });
 }
