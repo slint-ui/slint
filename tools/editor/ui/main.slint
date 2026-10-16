@@ -4,7 +4,7 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult } from "api.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
@@ -28,7 +28,7 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 
 export {
     Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, Preview, Project, Springboard,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -173,7 +173,13 @@ export component EditorUi inherits Window {
             FillSession.close-picker(false, false);
         }
     }
+    private property <bool> editor-focus-requested;
+    public function focus-editor() { root.editor-focus-requested = true; }
     private property <bool> palette-drag-in-outline: false;
+    private property <Size> palette-text-drag-size: {
+        width: palette-text-metrics.width,
+        height: palette-text-metrics.height,
+    };
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -185,9 +191,13 @@ export component EditorUi inherits Window {
     init => {
         EditorWindow.width = root.width;
         EditorWindow.height = root.height;
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
     }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
+    changed palette-text-drag-size => {
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
+    }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
@@ -248,6 +258,18 @@ export component EditorUi inherits Window {
         CanvasView.nudging = false;
         ShadowSession.cancel();
         FillSession.apply-history(redo);
+    }
+
+    palette-text-metrics := Text {
+        x: -10000px;
+        opacity: 0;
+        accessible-role: none;
+        text: @tr("Text");
+        font-family: Api.preview-default-font-family;
+        font-size: Api.preview-default-font-size * 1px;
+        font-weight: Api.preview-default-font-weight;
+        width: self.preferred-width;
+        height: self.preferred-height;
     }
 
     function toggle-maximized() {
@@ -365,6 +387,13 @@ export component EditorUi inherits Window {
         if !Api.startup-wizard-visible: editor := FocusScope {
             private property <bool> shadow-open: ShadowSession.open;
             changed shadow-open => { if !self.shadow-open { self.focus(); } }
+            private property <bool> editor-focus-requested: root.editor-focus-requested;
+            changed editor-focus-requested => {
+                if self.editor-focus-requested {
+                    root.editor-focus-requested = false;
+                    self.focus();
+                }
+            }
             property <bool> shift-pressed: false;
             private property <bool> window-active: Api.window-active();
             changed window-active => {
@@ -579,6 +608,7 @@ export component EditorUi inherits Window {
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
+                                palette-scale: CanvasView.zoom;
                                 show-outline: false;
                                 visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);

@@ -380,6 +380,38 @@ export struct ElementInformation {
     offset: int,
 }
 
+export struct InlineTextEditStart {
+    success: bool,
+    text: string,
+    color: brush,
+}
+
+export global InlineTextEdit {
+    in property <bool> can-edit;
+    in property <bool> active;
+    in property <bool> commit-pending;
+    in property <float> scale: 1;
+    in property <bool> grow-width;
+
+    callback begin() -> InlineTextEditStart;
+    callback commit(text: string) -> bool;
+    private property <bool> deferred-selection;
+    private property <Point> deferred-selection-position;
+
+    public function defer-selection(position: Point) {
+        self.deferred-selection-position = position;
+        self.deferred-selection = true;
+    }
+
+    callback finished(accepted: bool) -> bool;
+    finished(accepted) => {
+        let select = self.deferred-selection && accepted;
+        self.deferred-selection = false;
+        if select { Api.select-at(self.deferred-selection-position.x, self.deferred-selection-position.y, false); }
+        return select;
+    }
+}
+
 export struct PaletteEntry {
     name: string,
     value: PropertyValue,
@@ -447,6 +479,9 @@ export global Api {
     in-out property <string> update-version;
     in-out property <string> update-error;
     in property <bool> focus-previewed-element;
+    in property <string> preview-default-font-family;
+    in property <float> preview-default-font-size: 12;
+    in property <int> preview-default-font-weight;
     callback check-for-update();
 
     // ## Component Data for ComponentList:
@@ -490,21 +525,24 @@ export global Api {
     in-out property <ElementInformation> current-element;
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
-    pure callback current-property-value-data(property-name: string) -> PropertyValue;
+    pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback source-property-value(property-name: string, fallback: string) -> string;
+    pure callback source-color-field-data(property-name: string) -> ColorFieldData;
     public pure function number-property(name: string, fallback: float) -> float {
-        let property = Api.current-property-value-data(name);
+        let property = Api.source-property-value-data(name, {});
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
     }
     public pure function has-shadow(prefix: string) -> bool {
-        return Api.current-property-value-data(prefix + "color").code != ""
-            || Api.current-property-value-data(prefix + "blur").code != ""
-            || Api.current-property-value-data(prefix + "spread").code != ""
-            || Api.current-property-value-data(prefix + "offset-x").code != ""
-            || Api.current-property-value-data(prefix + "offset-y").code != "";
+        return Api.source-property-value-data(prefix + "color", {}).code != ""
+            || Api.source-property-value-data(prefix + "blur", {}).code != ""
+            || Api.source-property-value-data(prefix + "spread", {}).code != ""
+            || Api.source-property-value-data(prefix + "offset-x", {}).code != ""
+            || Api.source-property-value-data(prefix + "offset-y", {}).code != "";
     }
     function shadow-code(name: string, fallback: string) -> string {
-        let code = Api.current-property-value-data(name).code;
+        let code = Api.source-property-value-data(name, {}).code;
         return code != "" ? code : fallback;
     }
     function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
@@ -526,8 +564,6 @@ export global Api {
             inner[0], inner[1], inner[2], inner[3], inner[4],
         ]);
     }
-    pure callback current-property-value(property-name: string, fallback: string) -> string;
-    pure callback current-color-field-data(property-name: string) -> ColorFieldData;
     pure callback image-source-file-name(source: string) -> string;
     callback choose-image-file(source-uri: string) -> string;
 
@@ -591,7 +627,6 @@ export global Api {
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
-    callback override-element-text(override-id: string, text: string) -> string;
 
     callback selected-element-delete();
 

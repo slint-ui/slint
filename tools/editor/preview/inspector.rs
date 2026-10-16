@@ -122,6 +122,7 @@ fn target_with_root(
                 path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
+                editing_text: false,
             },
             no_selected_instance,
         )
