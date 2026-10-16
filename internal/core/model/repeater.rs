@@ -302,8 +302,6 @@ fn update_visible_instances(
         props.content_width_set(listview_width);
         return false;
     }
-    // Steps a smooth scroll to this tick, so that `is_stopped` sees it as driven.
-    let mut content_y_value = props.content_y_get().get();
     if scroll_to_row
         .as_ref()
         .is_some_and(|request| request.row >= row_count || request.is_stopped())
@@ -311,6 +309,7 @@ fn update_visible_instances(
         *scroll_to_row = None;
     }
 
+    let mut content_y_value = props.content_y_get().get();
     if !props.content_y_has_binding() {
         content_y_value = content_y_value.min(0 as Coord);
     }

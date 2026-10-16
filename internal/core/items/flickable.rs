@@ -1226,6 +1226,7 @@ impl FlickableData {
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.track_press(event_time.unwrap_or_else(crate::animations::current_tick));
                 inner.capture_momentum();
+                inner.running_animation = None;
                 let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 content_x.remove_binding(); // Stop animation by removing the binding
                 let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
@@ -1377,7 +1378,6 @@ impl FlickableData {
         let result = match event {
             MouseEvent::Pressed { .. } => {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
-                inner.capture_momentum();
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {

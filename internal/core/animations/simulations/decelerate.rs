@@ -37,11 +37,6 @@ impl Decelerate {
         self.finished
     }
 
-    /// The tick of the last step, which shows whether a binding still drives the simulation.
-    pub fn last_tick(&self) -> Instant {
-        self.last_tick
-    }
-
     /// Replaces the signed distance to the target, keeping the speed and deceleration.
     /// A target behind the position is reached in the next step.
     pub fn set_remaining_distance(&mut self, remaining: f32) {

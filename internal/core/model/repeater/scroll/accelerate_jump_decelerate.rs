@@ -7,7 +7,6 @@
 // cSpell: ignore Jetpack
 
 use crate::Coord;
-use crate::animations::Instant;
 use crate::animations::simulations::accelerate::Accelerate;
 use crate::animations::simulations::decelerate::Decelerate;
 use crate::item_tree::ItemWeak;
@@ -43,22 +42,12 @@ impl AccelerateJumpDecelerate {
     }
 
     pub(super) fn is_stopped(&self) -> bool {
-        /// `state` returns whether the simulation finished, and the tick of its last step.
-        fn is_stopped<S>(
-            simulation: &Weak<RefCell<S>>,
-            state: impl Fn(&S) -> (bool, Instant),
-        ) -> bool {
-            simulation.upgrade().is_none_or(|simulation| {
-                let (finished, last_tick) = state(&simulation.borrow());
-                finished || last_tick != crate::animations::current_tick()
-            })
-        }
         match &self.phase {
             Phase::Accelerating(_, simulation) => {
-                is_stopped(simulation, |s| (s.is_finished(), s.last_tick()))
+                simulation.upgrade().is_none_or(|s| s.borrow().is_finished())
             }
             Phase::Decelerating(_, simulation) => {
-                is_stopped(simulation, |s| (s.is_finished(), s.last_tick()))
+                simulation.upgrade().is_none_or(|s| s.borrow().is_finished())
             }
             Phase::PendingSmooth => false,
         }
