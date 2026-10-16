@@ -131,26 +131,19 @@ impl ImageCache {
                                 )?,
                             )));
                         }
-                        image::load_from_memory(&data).map_or_else(
-                            |decode_err| {
-                                crate::debug_log!(
-                                    "Error decoding image from custom loader for {}: {}",
-                                    &path,
-                                    decode_err
-                                );
-                                None
-                            },
-                            |image| {
-                                Some(ImageInner::EmbeddedImage {
-                                    cache_key,
-                                    buffer: super::dynamic_image_to_shared_image_buffer(image),
-                                })
-                            },
-                        )
+                        let format = image::ImageFormat::from_path(path.as_str()).ok();
+                        let shared_data = crate::SharedVector::from_slice(&data);
+                        ImageInner::decode_with_cache_key(cache_key, ImageData::Shared(&shared_data), format)
+                            .map_err(|err| crate::debug_log!(
+                                "Error decoding image from custom loader for {}: {}",
+                                &path,
+                                err
+                            ))
+                            .ok()
                     }
                     Err(msg) => {
                         crate::debug_log!(
-                            "Error loading asset from custom loader for {}: {}",
+                            "Error loading image from custom loader for {}: {}",
                             &path,
                             msg
                         );
