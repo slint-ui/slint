@@ -22,7 +22,7 @@ export component TestCase inherits Window {
         width: 600px;
         height: 600px;
 
-        for i in 1000: Rectangle {
+        for i in 1000000: Rectangle {
             height: 50px;
             background: i.mod(2) == 0 ? blue : red;
 
@@ -174,8 +174,8 @@ assert_eq!(instance.get_content_y(), 0.);
 assert_far_scroll(900);
 
 // Far above the viewport.
-scroll_instantly_to(999);
-assert_eq!(instance.get_content_y(), bottom_aligned(999));
+scroll_instantly_to(999999);
+assert_eq!(instance.get_content_y(), bottom_aligned(999999));
 assert_far_scroll(5);
 
 // Close to the viewport: no jump.
@@ -195,7 +195,7 @@ assert_stays_at(0.);
 assert_shows_rows(0, 11);
 
 // Out of range.
-instance.invoke_ensure_row_visible(1000, ScrollBehavior::Smooth);
+instance.invoke_ensure_row_visible(1000000, ScrollBehavior::Smooth);
 assert_stays_at(0.);
 assert_shows_rows(0, 11);
 instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
@@ -391,8 +391,8 @@ assert_eq(instance.get_content_y(), 0.);
 assert_far_scroll(900);
 
 // Far above the viewport.
-scroll_instantly_to(999);
-assert_eq(instance.get_content_y(), bottom_aligned(999));
+scroll_instantly_to(999999);
+assert_eq(instance.get_content_y(), bottom_aligned(999999));
 assert_far_scroll(5);
 
 // Close to the viewport: no jump.
@@ -414,7 +414,7 @@ assert_stays_at(0.);
 assert_shows_rows(0, 11);
 
 // Out of range.
-instance.invoke_ensure_row_visible(1000, ScrollBehavior::Smooth);
+instance.invoke_ensure_row_visible(1000000, ScrollBehavior::Smooth);
 assert_stays_at(0.);
 assert_shows_rows(0, 11);
 instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
@@ -579,8 +579,8 @@ assert.equal(instance.content_y, 0);
 assert_far_scroll(900);
 
 // Far above the viewport.
-scroll_instantly_to(999);
-assert.equal(instance.content_y, bottom_aligned(999));
+scroll_instantly_to(999999);
+assert.equal(instance.content_y, bottom_aligned(999999));
 assert_far_scroll(5);
 
 // Close to the viewport: no jump.
@@ -600,7 +600,7 @@ assert_stays_at(0);
 assert_shows_rows(0, 11);
 
 // Out of range.
-instance.ensure_row_visible(1000, "smooth");
+instance.ensure_row_visible(1000000, "smooth");
 assert_stays_at(0);
 assert_shows_rows(0, 11);
 instance.ensure_row_visible(-1, "smooth");
