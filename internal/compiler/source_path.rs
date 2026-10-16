@@ -6,8 +6,10 @@
 //! The location of a .slint file or an asset.
 
 use smol_str::SmolStr;
+#[cfg(feature = "std")]
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(feature = "std")]
 /// Where the compiler loads a .slint file or an asset from.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SourcePath {
@@ -20,6 +22,7 @@ pub enum SourcePath {
     Url(ForeignUrl),
 }
 
+#[cfg(feature = "std")]
 /// A URL that is neither a native path nor a builtin file on this host.
 ///
 /// It's never a `builtin:` URL, and it's a `file:` URL only when that isn't a native path here,
@@ -27,6 +30,7 @@ pub enum SourcePath {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::Deref)]
 pub struct ForeignUrl(url::Url);
 
+#[cfg(feature = "std")]
 impl SourcePath {
     /// Parses a native path, or a URL such as `builtin:/…`, `https:…` or `file:…`.
     pub fn new(path: impl AsRef<Path>) -> Self {
@@ -153,6 +157,7 @@ impl SourcePath {
     }
 }
 
+#[cfg(feature = "std")]
 /// Whether `path` is a URL or a path from the root on any host, such as `/a`, `\\a` or `C:/a`.
 pub fn is_absolute(path: &str) -> bool {
     let windows_root = match path.as_bytes() {
@@ -163,11 +168,13 @@ pub fn is_absolute(path: &str) -> bool {
     windows_root || parse_url(path).is_some() || Path::new(path).has_root()
 }
 
+#[cfg(feature = "std")]
 /// A single-character scheme is a Windows drive letter (`c:\\...`), i.e. a path rather than a URL.
 fn parse_url(path: &str) -> Option<url::Url> {
     url::Url::parse(path).ok().filter(|url| url.scheme().len() > 1)
 }
 
+#[cfg(feature = "std")]
 /// Removes the `.` and `..` components of `path` without looking at the file system.
 pub fn clean_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
@@ -187,12 +194,14 @@ pub fn clean_path(path: &Path) -> PathBuf {
     result
 }
 
+#[cfg(feature = "std")]
 impl From<url::Url> for SourcePath {
     fn from(url: url::Url) -> Self {
         Self::from_file_url(&url).unwrap_or(Self::Url(ForeignUrl(url)))
     }
 }
 
+#[cfg(feature = "std")]
 /// Written as a URL when it has one, so that another host reads a native path of this one
 /// the way it reads the same URL from the editor.
 #[cfg(feature = "serde")]
@@ -205,6 +214,7 @@ impl serde::Serialize for SourcePath {
     }
 }
 
+#[cfg(feature = "std")]
 #[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for SourcePath {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -212,12 +222,14 @@ impl<'de> serde::Deserialize<'de> for SourcePath {
     }
 }
 
+#[cfg(feature = "std")]
 impl Default for SourcePath {
     fn default() -> Self {
         Self::File(PathBuf::new())
     }
 }
 
+#[cfg(feature = "std")]
 impl std::fmt::Display for SourcePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -225,6 +237,32 @@ impl std::fmt::Display for SourcePath {
             Self::Builtin(path) => write!(f, "builtin:/{path}"),
             Self::Url(url) => url.as_str().fmt(f),
         }
+    }
+}
+
+/// Without std, only the name of the location: the URL, or the path, that a host with std wrote.
+#[cfg(not(feature = "std"))]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SourcePath(SmolStr);
+
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+impl<'de> serde::Deserialize<'de> for SourcePath {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        SmolStr::deserialize(deserializer).map(Self)
+    }
+}
+
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+impl serde::Serialize for SourcePath {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl core::fmt::Display for SourcePath {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 

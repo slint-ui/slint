@@ -7,55 +7,84 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // It would be nice to keep the compiler free of unsafe code
 #![deny(unsafe_code)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;
 
+#[cfg(feature = "std")]
 use core::future::Future;
+#[cfg(feature = "std")]
 use core::pin::Pin;
+#[cfg(feature = "std")]
 use std::cell::RefCell;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(feature = "std")]
 use std::rc::Rc;
 
+#[cfg(feature = "std")]
 mod builtin_elements;
 #[macro_use]
 pub mod builtin_functions;
+#[cfg(feature = "std")]
 pub mod builtin_macros;
+#[cfg(feature = "std")]
 pub mod data_uri;
+#[cfg(feature = "std")]
 pub mod diagnostics;
+#[cfg(feature = "std")]
 pub mod element_type;
 pub mod embedded_resources;
+#[cfg(feature = "std")]
 pub mod expression_tree;
 pub mod expression_types;
+#[cfg(feature = "std")]
 pub mod fileaccess;
+#[cfg(feature = "std")]
 pub mod generator;
 pub mod langtype;
+#[cfg(feature = "std")]
 pub mod layout;
+#[cfg(feature = "std")]
 pub mod lexer;
+#[cfg(feature = "std")]
 pub mod literals;
 pub mod llr;
+#[cfg(feature = "std")]
 pub mod lookup;
+#[cfg(feature = "std")]
 pub mod namedreference;
 pub mod names;
 pub mod native_class;
+#[cfg(feature = "std")]
 pub mod object_tree;
+#[cfg(feature = "std")]
 pub mod parser;
+#[cfg(feature = "std")]
 pub mod project_file;
 pub mod property_analysis;
 pub mod source_path;
+#[cfg(feature = "std")]
 pub mod symbol_counters;
-#[cfg(feature = "bundle-translations")]
 pub mod translations;
+#[cfg(feature = "std")]
 pub mod typeloader;
 pub mod typeregister;
 
+#[cfg(feature = "std")]
 pub mod passes;
 
+#[cfg(feature = "std")]
 use crate::generator::OutputFormat;
+#[cfg(feature = "std")]
 use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg(feature = "std")]
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
@@ -83,6 +112,7 @@ pub enum EmbedResourcesKind {
 /// specified in the `@tr("context" => ...)` macro.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[cfg(feature = "std")]
 pub enum DefaultTranslationContext {
     /// The default translation context is the component name in which the `@tr` is written.
     ///
@@ -97,6 +127,7 @@ pub enum DefaultTranslationContext {
 
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 #[non_exhaustive]
+#[cfg(feature = "std")]
 pub enum ComponentSelection {
     /// All components that inherit from Window.
     ///
@@ -125,13 +156,16 @@ pub enum ComponentSelection {
 /// ```
 ///
 /// Unfortunately AsyncFn is not dyn-compatible yet.
+#[cfg(feature = "std")]
 pub type OpenImportCallback =
     Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+#[cfg(feature = "std")]
 pub type ResourceUrlMapper =
     Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
@@ -232,6 +266,7 @@ pub struct CompilerConfiguration {
     pub is_preview: bool,
 }
 
+#[cfg(feature = "std")]
 impl CompilerConfiguration {
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
@@ -361,6 +396,7 @@ impl CompilerConfiguration {
 /// Prepare for compilation of the source file
 /// - storing parser configuration
 /// - setting up the parser
+#[cfg(feature = "std")]
 fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
@@ -381,6 +417,7 @@ fn prepare_for_compile(
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
 
+#[cfg(feature = "std")]
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
@@ -420,6 +457,7 @@ pub async fn compile_syntax_node(
 ///
 /// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
 /// `TypeLoader` with all compilation passes applied.
+#[cfg(feature = "std")]
 pub async fn load_root_file(
     path: &SourcePath,
     source_code: String,
@@ -437,6 +475,7 @@ pub async fn load_root_file(
 /// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
 /// with all compilation passes applied and another `TypeLoader` with a minimal
 /// set of passes applied to it.
+#[cfg(feature = "std")]
 pub async fn load_root_file_with_raw_type_loader(
     path: &SourcePath,
     source_code: String,
@@ -452,6 +491,7 @@ pub async fn load_root_file_with_raw_type_loader(
 ///
 /// Some experimental features are used internally which is why this function also checks
 /// `TypeRegister::expose_internal_types`.
+#[cfg(feature = "std")]
 fn reject_experimental_feature(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     type_register: &typeregister::TypeRegister,

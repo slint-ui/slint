@@ -29,7 +29,7 @@ sha2 = { version = "0.10.9", default-features = false, optional = true }
 subtle = { version = "2.6.1", default-features = false, optional = true }
 # file-watcher
 notify = { workspace = true, optional = true }
-i-slint-compiler = { workspace = true, optional = true }
+i-slint-compiler = { workspace = true, optional = true, features = ["std"] }
 # live-component
 i-slint-core = { workspace = true, optional = true }
 i-slint-backend-selector = { workspace = true, optional = true }

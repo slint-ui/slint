@@ -5,6 +5,8 @@
 //! units, operators, layout orientations, easing curves, cursors and image references
 
 use crate::langtype::Type;
+use alloc::boxed::Box;
+use alloc::string::String;
 use smol_str::SmolStr;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -42,15 +44,15 @@ macro_rules! declare_units {
             $($(#[$m])* $ident,)*
         }
 
-        impl std::fmt::Display for WrittenUnit {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl core::fmt::Display for WrittenUnit {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 match self {
                     $(Self::$ident => write!(f, $string), )*
                 }
             }
         }
 
-        impl std::str::FromStr for WrittenUnit {
+        impl core::str::FromStr for WrittenUnit {
             type Err = ();
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -112,7 +114,7 @@ declare_units! {
     /// Turns
     Turn = "turn" -> Deg * 360.,
     /// Radians
-    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
+    Rad = "rad" -> Deg * 360./core::f32::consts::TAU,
 }
 
 /// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
@@ -155,8 +157,8 @@ impl Unit {
     }
 }
 
-impl std::fmt::Display for Unit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Unit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             Unit::None => "",
             Unit::Percent => "%",
@@ -232,6 +234,7 @@ impl ImageReference {
     /// Classify a URL returned by the resource mapper. It is already a URL, so
     /// the only distinction is a `data:` URI (kept as a string, see
     /// [`Self::DataUri`]) from any other URL.
+    #[cfg(feature = "std")]
     pub fn from_mapped_url(url: url::Url) -> Self {
         if url.scheme() == "data" {
             Self::DataUri(url.as_str().into())

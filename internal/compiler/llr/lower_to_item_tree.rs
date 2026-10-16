@@ -208,6 +208,8 @@ pub fn lower_to_item_tree(
         type_exports: type_exports(document, &exported_roots),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
+        #[cfg(not(feature = "bundle-translations"))]
+        translations: None,
     };
     super::optim_passes::run_passes(&mut root);
     root
