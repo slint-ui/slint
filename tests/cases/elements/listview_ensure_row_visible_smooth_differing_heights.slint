@@ -122,4 +122,130 @@ assert_top_aligned(11);
 scroll_to(507);
 assert_bottom_aligned(507);
 ```
+
+```cpp
+using slint::PointerEventButton;
+using slint::language::ScrollBehavior;
+
+constexpr uint64_t frame_ms = 16;
+constexpr uint64_t max_scroll_duration_ms = 3000;
+constexpr float probe_inset = 2.;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+const float viewport = instance.get_visible_height();
+auto row_height = [](int row) { return float((row % 10) * 50 + 10); };
+
+auto run_until_settled = [&] {
+    float previous = instance.get_content_y();
+    int unchanged_frames = 0;
+    uint64_t elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= max_scroll_duration_ms);
+        slint_testing::mock_elapsed_time(frame_ms);
+        instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 300., 620. }));
+        const float y = instance.get_content_y();
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += frame_ms;
+    }
+};
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto assert_top_aligned = [&](int row) {
+    assert_eq(row_at(probe_inset), row);
+    assert_eq(row_at(row_height(row) - probe_inset), row);
+};
+
+auto assert_bottom_aligned = [&](int row) {
+    assert_eq(row_at(viewport - probe_inset), row);
+    assert_eq(row_at(viewport - row_height(row) + probe_inset), row);
+};
+
+auto scroll_to = [&](int row) {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    run_until_settled();
+};
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+```
+
+```js
+const FRAME_MS = 16;
+const MAX_SCROLL_DURATION_MS = 3000;
+const PROBE_INSET = 2;
+
+var instance = new slint.TestCase({});
+const viewport = instance.visible_height;
+const row_height = (row) => (row % 10) * 50 + 10;
+
+function run_until_settled() {
+    let previous = instance.content_y;
+    let unchanged_frames = 0;
+    let elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= MAX_SCROLL_DURATION_MS, `scrolling didn't settle within ${MAX_SCROLL_DURATION_MS} ms`);
+        slintlib.private_api.mock_elapsed_time(FRAME_MS);
+        instance.window.dispatchEvent({ type: "pointer-moved", position: { x: 300, y: 620 } });
+        const y = instance.content_y;
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += FRAME_MS;
+    }
+}
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function assert_top_aligned(row) {
+    assert.equal(row_at(PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+    assert.equal(row_at(row_height(row) - PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+}
+
+function assert_bottom_aligned(row) {
+    assert.equal(row_at(viewport - PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+    assert.equal(row_at(viewport - row_height(row) + PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+}
+
+function scroll_to(row) {
+    instance.ensure_row_visible(row, "smooth");
+    run_until_settled();
+}
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+```
 */
