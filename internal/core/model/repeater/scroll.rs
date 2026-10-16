@@ -89,7 +89,6 @@ pub(super) fn start_simulation<S: Simulation + PositionSimulation + 'static>(
 }
 
 /// Determine the new request state of the scroll to state machine
-/// Accelerating -> jumping -> Decelerating
 pub(super) fn advance_scroll_to_row(
     mut request: ScrollToRowRequest,
     top: Coord,

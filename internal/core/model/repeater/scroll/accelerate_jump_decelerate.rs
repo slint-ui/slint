@@ -87,6 +87,7 @@ impl AccelerateJumpDecelerate {
         ScrollToRowMotion::new(viewport_height).landing_distance as Coord + viewport_height
     }
 
+    /// Accelerating -> jumping -> Decelerating
     #[must_use]
     pub fn advance(
         &mut self,
