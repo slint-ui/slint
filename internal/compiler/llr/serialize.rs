@@ -4,7 +4,7 @@
 //! Serialization of a [`CompilationUnit`], for handing a compiled unit to another process
 //! or another device.
 //!
-//! Write a unit with [`to_bytes()`] and read it with [`from_bytes()`].
+//! Write a unit with [`to_bytes()`] and read it with [`from_bytes()`]; this works without std.
 //! The unit serializes on its own, without any state shared across fields.
 //! The `Arc`s that the builtins provide are written as a reference to them,
 //! and every other `Arc` is written by value, through serde's `rc` feature.
@@ -15,11 +15,13 @@ use super::CompilationUnit;
 use crate::langtype::{Enumeration, Struct, StructName};
 use crate::native_class::{BuiltinPropertyInfo, NativeClass};
 use crate::typeregister::{BUILTIN, builtin_structs};
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smol_str::SmolStr;
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 /// Serializes `unit` for [`from_bytes()`].
 pub fn to_bytes(unit: &CompilationUnit) -> postcard::Result<Vec<u8>> {
@@ -27,6 +29,7 @@ pub fn to_bytes(unit: &CompilationUnit) -> postcard::Result<Vec<u8>> {
 }
 
 /// Compiles the root file at `path` into a unit for [`to_bytes()`], unless the compilation fails.
+#[cfg(feature = "std")]
 pub async fn compile(
     path: &crate::source_path::SourcePath,
     source_code: String,
@@ -182,13 +185,16 @@ pub(crate) mod enumeration {
 }
 
 /// `#[serde(with = "structure")]`: a builtin struct is written as its name,
-/// and read back from [`builtin_structs::get()`].
+/// and read back from [`builtin_structs::find()`].
+/// A path element is written by value: its definition comes from the builtin elements.
 pub(crate) mod structure {
     use super::*;
 
     pub fn serialize<S: Serializer>(s: &Arc<Struct>, serializer: S) -> Result<S::Ok, S::Error> {
         match &s.name {
-            StructName::Builtin(name) if Arc::ptr_eq(s, &builtin_structs::get(name)) => {
+            StructName::Builtin(name)
+                if builtin_structs::find(name).is_some_and(|b| Arc::ptr_eq(s, &b)) =>
+            {
                 Repr::<_, &Struct>::Builtin(name.clone())
             }
             _ => Repr::Other(&**s),
@@ -199,10 +205,11 @@ pub(crate) mod structure {
     pub fn deserialize<'de, D: Deserializer<'de>>(
         deserializer: D,
     ) -> Result<Arc<Struct>, D::Error> {
-        Ok(match Repr::<crate::langtype::BuiltinStruct, Struct>::deserialize(deserializer)? {
-            Repr::Builtin(name) => builtin_structs::get(&name),
-            Repr::Other(s) => Arc::new(s),
-        })
+        match Repr::<crate::langtype::BuiltinStruct, Struct>::deserialize(deserializer)? {
+            Repr::Builtin(name) => builtin_structs::find(&name)
+                .ok_or_else(|| D::Error::custom(format!("no builtin struct {name:?}"))),
+            Repr::Other(s) => Ok(Arc::new(s)),
+        }
     }
 }
 

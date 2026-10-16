@@ -29,4 +29,4 @@ libtest-mimic = { version = "0.8", optional = true }
 satchel = { version = "0.3", optional = true }
 
 [dev-dependencies]
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["std"] }
