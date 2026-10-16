@@ -612,6 +612,7 @@ impl EditorSession {
             }
             let Some(path) = url.to_file_path().ok() else {
                 tracing::warn!("Cannot convert URL to file path: {url}");
+                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
             let file_access = file_access.get_or_init(|| {
