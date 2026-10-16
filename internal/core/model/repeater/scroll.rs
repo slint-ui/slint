@@ -10,7 +10,6 @@ use crate::items::{Dimension, Flickable};
 use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
 use crate::model::repeater::{RepeaterInstanceOps, RepeaterLayoutState};
 use alloc::rc::Weak;
-use alloc::vec::Vec;
 use core::cell::RefCell;
 pub mod accelerate_jump_decelerate;
 
@@ -62,9 +61,9 @@ pub(super) struct ScrollToRowRequest {
 }
 
 impl ScrollToRowRequest {
-    pub(super) fn smooth_alignment(&self) -> Option<RowAlignment> {
+    pub(super) fn smooth_scroll(&self) -> Option<(&AccelerateJumpDecelerate, RowAlignment)> {
         match &self.animation {
-            ScrollAnimation::AccelerateJumpDecelerate(sim) => sim.alignment(),
+            ScrollAnimation::AccelerateJumpDecelerate(sim) => Some((sim, sim.alignment()?)),
             ScrollAnimation::Instant(_) => None,
         }
     }
@@ -114,15 +113,7 @@ pub(super) fn advance_scroll_to_row(
         ScrollAnimation::AccelerateJumpDecelerate(sim) => {
             let alignment = RowAlignment::for_row(top, row_height, viewport_height)?;
             let distance = alignment.distance(top, row_height, viewport_height) as f32;
-            sim.advance(
-                viewport_height,
-                top,
-                row_height,
-                alignment,
-                distance,
-                jumped,
-                &request.flickable,
-            )?;
+            sim.advance(viewport_height, alignment, distance, jumped, &request.flickable)?;
         }
     };
     Some(request)
@@ -148,7 +139,8 @@ pub(super) fn smooth_scroll_layout(
     content_y: Coord,
     viewport_height: Coord,
 ) -> SmoothScrollLayout {
-    let Some((request, alignment)) = request.and_then(|r| Some((r, r.smooth_alignment()?))) else {
+    let Some((request, (sim, alignment))) = request.and_then(|r| Some((r, r.smooth_scroll()?)))
+    else {
         // No scroll request ongoing or it is an instant jump
         return SmoothScrollLayout {
             jump: None,
@@ -157,22 +149,12 @@ pub(super) fn smooth_scroll_layout(
         };
     };
 
-    let heights = (0..ops.len())
-        .map(|i| ops.height(i).unwrap_or(state.cached_item_height))
-        .collect::<Vec<_>>();
-    let (top_anchor, row_height) = row_geometry(state, &heights, request.row);
+    let heights = (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
+    let (top_anchor, row_height) = row_geometry(state, heights, request.row);
     let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
 
-    let (jump, lookahead_limit) = match &request.animation {
-        ScrollAnimation::Instant(_) => {
-            debug_assert!(false, "Is already captured above. So it should never executed");
-            (None, 0 as Coord)
-        }
-        ScrollAnimation::AccelerateJumpDecelerate(sim) => (
-            sim.should_jump(viewport_height, distance).map(|landing| (alignment, landing)),
-            sim.lookahead_limit(viewport_height),
-        ),
-    };
+    let jump = sim.should_jump(viewport_height, distance).map(|landing| (alignment, landing));
+    let lookahead_limit = sim.lookahead_limit(viewport_height);
 
     // lay out the rows up to the target, so that the scroll stops exactly on it.
     let (extra_above, extra_below) = match jump {
@@ -196,24 +178,32 @@ pub(super) fn smooth_scroll_layout(
 /// Both are estimates for a row without an instance.
 pub(super) fn row_geometry(
     state: &RepeaterLayoutState,
-    heights: &[Coord],
+    heights: impl IntoIterator<Item = Coord>,
     row: usize,
 ) -> (Coord, Coord) {
     // The instance at `offset` is laid out at `anchor_y`, see `update_visible_instances`.
     if row < state.offset {
-        (
+        return (
             state.anchor_y - state.cached_item_height * (state.offset - row) as Coord,
             state.cached_item_height,
-        )
-    } else if let Some(height) = heights.get(row - state.offset) {
-        (state.anchor_y + heights[..row - state.offset].iter().copied().sum::<Coord>(), *height)
-    } else {
-        let skipped = row - state.offset - heights.len();
-        (
-            state.anchor_y
-                + heights.iter().copied().sum::<Coord>()
-                + state.cached_item_height * skipped as Coord,
-            state.cached_item_height,
-        )
+        );
+    }
+    let index = row - state.offset;
+    let mut heights = heights.into_iter();
+    let mut above = 0 as Coord;
+    let mut counted = 0;
+    for height in heights.by_ref().take(index) {
+        above += height;
+        counted += 1;
+    }
+    match heights.next() {
+        Some(height) => (state.anchor_y + above, height),
+        None => {
+            let skipped = index - counted;
+            (
+                state.anchor_y + above + state.cached_item_height * skipped as Coord,
+                state.cached_item_height,
+            )
+        }
     }
 }

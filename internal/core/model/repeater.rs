@@ -542,10 +542,9 @@ fn update_visible_instances(
         if let Some(request) = scroll_to_row.take() {
             let (top, height) =
                 target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
-                    let heights = (0..ops.len())
-                        .map(|i| ops.height(i).unwrap_or(state.cached_item_height))
-                        .collect::<Vec<_>>();
-                    let (top, height) = scroll::row_geometry(state, &heights, request.row);
+                    let heights =
+                        (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
+                    let (top, height) = scroll::row_geometry(state, heights, request.row);
                     (top + new_content_y, height)
                 });
             *scroll_to_row = scroll::advance_scroll_to_row(
@@ -789,7 +788,7 @@ fn listview_ensure_row_visible(
     let viewport_height = flickable_rc.geometry().height();
     let row_in_viewport =
         (!heights.is_empty() && state.cached_item_height > 0 as Coord).then(|| {
-            let (top_anchor, height) = scroll::row_geometry(state, heights, row);
+            let (top_anchor, height) = scroll::row_geometry(state, heights.iter().copied(), row);
             (top_anchor + content_y.get(), height)
         });
     // an instant scroll pulls an overscroll back in bounds.

@@ -62,10 +62,8 @@ impl AccelerateJumpDecelerate {
         }
     }
 
+    /// Returns Some with the landing position if should jump otherwise None
     pub fn should_jump(&self, viewport_height: Coord, distance: Coord) -> Option<Coord> {
-        // The distance of the scroll, estimated unless its row is laid out,
-        // and the edge that the row ends up at if the layout pass jumps.
-        // If the acceleration simulation reaches the maximum velocity we jump
         let motion = ScrollToRowMotion::new(viewport_height);
         let landing = motion.landing_distance as Coord;
         if let Phase::Accelerating(_, simulation) = &self.phase
@@ -91,11 +89,8 @@ impl AccelerateJumpDecelerate {
     pub fn advance(
         &mut self,
         viewport_height: Coord,
-        top: Coord,
-        row_height: Coord,
         alignment: RowAlignment,
         distance: f32,
-
         jumped: bool,
         flickable: &ItemWeak,
     ) -> Option<()> {
@@ -105,7 +100,7 @@ impl AccelerateJumpDecelerate {
                 self.phase =
                     Phase::Accelerating(alignment, super::start_simulation(flickable, simulation)?);
             }
-            Phase::Accelerating(alignment, simulation) => {
+            Phase::Accelerating(_, simulation) => {
                 let accelerating = simulation.upgrade()?;
                 let speed = {
                     let mut accelerating = accelerating.borrow_mut();
@@ -125,12 +120,8 @@ impl AccelerateJumpDecelerate {
                 self.phase =
                     Phase::Decelerating(alignment, super::start_simulation(flickable, simulation)?);
             }
-            Phase::Decelerating(alignment, simulation) => {
-                simulation.upgrade()?.borrow_mut().set_remaining_distance(alignment.distance(
-                    top,
-                    row_height,
-                    viewport_height,
-                ) as f32);
+            Phase::Decelerating(_, simulation) => {
+                simulation.upgrade()?.borrow_mut().set_remaining_distance(distance);
                 self.phase = Phase::Decelerating(alignment, simulation);
             }
         }
