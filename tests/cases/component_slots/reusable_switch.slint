@@ -89,6 +89,8 @@ export component TestCase inherits Window {
         width: 180px;
         height: 40px;
         choice << SwitchBase {
+            width: 100%;
+            height: 100%;
             text: "Headless contract";
         }
         toggled => { root.contract-toggles += 1; }

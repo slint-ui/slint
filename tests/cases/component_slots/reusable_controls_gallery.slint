@@ -17,10 +17,19 @@ use slint_testing::AccessibleRole;
 let instance = TestCase::new().unwrap();
 instance.show().unwrap();
 assert!(instance.get_test());
+let content_scroll = slint_testing::ElementHandle::find_by_element_id(&instance, "ControlsDemo::content-scroll")
+    .next().unwrap();
 let find = |label: &str, role: AccessibleRole| {
-    slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
-        .find(|element| element.accessible_role() == Some(role))
-        .unwrap_or_else(|| panic!("Missing {role:?} with label {label:?}"))
+    let query = || slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|element| element.accessible_role() == Some(role));
+    if let Some(element) = query() { return element; }
+    content_scroll.scroll(0., 10_000.);
+    for _ in 0..24 {
+        slint::platform::update_timers_and_animations();
+        if let Some(element) = query() { return element; }
+        content_scroll.scroll(0., -content_scroll.size().height / 2.);
+    }
+    panic!("Missing {role:?} with label {label:?}")
 };
 let select_size = |label: &str| {
     find("Control size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
