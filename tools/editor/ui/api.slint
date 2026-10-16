@@ -533,6 +533,9 @@ export global Api {
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
     }
+    public pure function shadow-prefix(inner: bool) -> string {
+        return inner ? "inner-shadow-" : "drop-shadow-";
+    }
     public pure function has-shadow(prefix: string) -> bool {
         return Api.source-property-value-data(prefix + "color", {}).code != ""
             || Api.source-property-value-data(prefix + "blur", {}).code != ""
@@ -546,7 +549,7 @@ export global Api {
     }
     public function set-shadow-enabled(element: ElementInformation, inner: bool, enabled: bool) -> bool {
         Api.inspector-cancel();
-        let prefix = inner ? "inner-shadow-" : "drop-shadow-";
+        let prefix = Api.shadow-prefix(inner);
         return Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
             { name: prefix + "color", value: enabled ? Api.shadow-code(prefix + "color", inner ? "#00000030" : "#00000040") : "" },
             { name: prefix + "blur", value: enabled ? Api.shadow-code(prefix + "blur", "16px") : "" },

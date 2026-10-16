@@ -21,7 +21,7 @@ export struct ShadowValues {
 
 export global ShadowSession {
     out property <bool> inner;
-    out property <string> prefix: inner ? "inner-shadow-" : "drop-shadow-";
+    out property <string> prefix: Api.shadow-prefix(inner);
     out property <string> title: ShadowSession.label(inner);
     out property <float> direction: inner ? -1 : 1;
     out property <bool> open;

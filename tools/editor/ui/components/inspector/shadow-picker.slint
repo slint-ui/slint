@@ -15,7 +15,8 @@ import { InspectorEffectSlider } from "effect-slider.slint";
 export component InspectorShadowControl inherits Rectangle {
     in property <bool> inner;
     private property <string> title: ShadowSession.label(root.inner);
-    private property <bool> effect-enabled: Api.has-shadow(root.inner ? "inner-shadow-" : "drop-shadow-");
+    private property <string> prefix: Api.shadow-prefix(root.inner);
+    private property <bool> effect-enabled: Api.has-shadow(root.prefix);
     height: Style.inspector-field.height;
     changed effect-enabled => { toggle.checked = root.effect-enabled; }
 
@@ -47,7 +48,7 @@ export component InspectorShadowControl inherits Rectangle {
                         border-radius: self.width / 2;
                         border-width: Metrics.border-width;
                         outline-color: Style.color-field.swatch-border;
-                        color: Api.source-color-field-data(root.inner ? "inner-shadow-color" : "drop-shadow-color").fill.color;
+                        color: Api.source-color-field-data(root.prefix + "color").fill.color;
                         checker-light: Style.color-field.checker.light;
                         checker-dark: Style.color-field.checker.dark;
                     }
@@ -142,9 +143,10 @@ export component InspectorShadowControl inherits Rectangle {
             }
             toggled => {
                 self.focus();
-                if !Api.set-shadow-enabled(Api.current-element, root.inner, self.checked) {
-                    self.checked = root.effect-enabled;
-                }
+                let enabled = self.checked;
+                self.checked = root.effect-enabled;
+                ShadowSession.close();
+                Api.set-shadow-enabled(Api.current-element, root.inner, enabled);
             }
         }
     }

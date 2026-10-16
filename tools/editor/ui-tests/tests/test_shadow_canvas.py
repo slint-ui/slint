@@ -627,6 +627,26 @@ def test_shadow_toggle_keeps_unrelated_controls_visually_stable(
         run = element(window, "Run", role=slint_testing.AccessibleRole.Button)
         before = screenshot(window)
         scale = before.width / window.root_element.size.width
+        selection = element(
+            window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region
+        )
+        rect = selection.absolute_rect
+        blue_pixels = []
+        for y in range(
+            round((rect.y - 5) * scale), round((rect.y + rect.height + 5) * scale)
+        ):
+            for x in range(
+                round((rect.x - 5) * scale), round((rect.x + rect.width + 5) * scale)
+            ):
+                pixel = before.getpixel((x, y))
+                if (
+                    isinstance(pixel, tuple)
+                    and pixel[0] < 100
+                    and pixel[1] > 100
+                    and pixel[2] > 230
+                ):
+                    blue_pixels.append((x, y, pixel))
+        assert len(blue_pixels) > 100
         controls = {}
         for name, control in (("other-switch", other), ("run", run)):
             position, size = control.absolute_position, control.size
@@ -643,6 +663,10 @@ def test_shadow_toggle_keeps_unrelated_controls_visually_stable(
             deadline = time.monotonic() + 0.8
             while time.monotonic() < deadline:
                 frame = screenshot(window, settle=False)
+                if any(frame.getpixel((x, y)) != pixel for x, y, pixel in blue_pixels):
+                    if "selection-overlay" not in changed:
+                        frame.save(tmp_path / "flashing-selection-overlay.png")
+                    changed.add("selection-overlay")
                 for name, (bounds, pixels) in controls.items():
                     if frame.crop(bounds).tobytes() != pixels and name not in changed:
                         frame.save(tmp_path / f"flashing-{name}.png")
@@ -753,17 +777,33 @@ def test_shadow_switches_enable_independently_and_support_keyboard_undo(
         screenshot(window).save(tmp_path / "disabled-shadow-rows.png")
         gesture(window, center(switch), center(switch))
         added = wait_for_source_change(shadow_scene, baseline)
-        for name, value in (
+        properties = [
             ("color", "#00000030" if shadow_family.name == "inner" else "#00000040"),
             ("blur", "16px"),
             ("spread", "0px"),
             ("offset-x", "0px"),
             ("offset-y", "8px"),
-        ):
-            assert f"{shadow_family.prefix}{name}: {value};".encode() in added
-        assert [line for line in added.splitlines() if other_prefix in line] == [
-            line for line in baseline.splitlines() if other_prefix in line
         ]
+        if shadow_family.name == "inner":
+            anchor = b"        background: #e5eaff;"
+            bindings = b"".join(
+                f"        {shadow_family.prefix}{name}: {value};\n".encode()
+                for name, value in properties
+            )
+            expected = baseline.replace(anchor, bindings + anchor)
+        else:
+            anchor = b"        height: 160px;"
+            bindings = b"".join(
+                f"        {shadow_family.prefix}{name}: {value};\n".encode()
+                for name, value in properties
+                if name != "blur"
+            )
+            expected = baseline.replace(anchor, bindings + anchor).replace(
+                b"        border-radius: 12px;",
+                b"        border-radius: 12px;\n        drop-shadow-blur: 16px;",
+            )
+        snapshot.wait_for_applied(expected)
+        assert added == expected
         expect(control).to_be_enabled()
         expect.poll(lambda: switch.accessible_checked).to_equal(True)
         expect.poll(lambda: other_switch.accessible_checked).to_equal(other_enabled)
@@ -819,7 +859,13 @@ def test_both_shadow_pickers_edit_only_their_own_properties(
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
-        open_shadow(window, shadow_family)
+        select_outline_row(window, "shadow-card")
+        inspector_field(
+            window,
+            "Shadow blur value",
+            slint_testing.AccessibleRole.TextInput,
+            shadow=shadow_family.title,
+        )
         screenshot(window).save(tmp_path / "both-shadow-picker.png")
         panel = element(window, id="InspectorShadowPicker::panel")
         expect(query(panel, "Remove shadow")).to_be_hidden()

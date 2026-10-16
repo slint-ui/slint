@@ -147,7 +147,8 @@ export component EditorCanvas inherits TouchArea {
             accessible-label: @tr("Canvas drop marker");
         }
 
-        if Diagnostics.preview-editable: CanvasInteractionLayer {
+        if !Diagnostics.preview-status-visible: CanvasInteractionLayer {
+            enabled: Diagnostics.preview-editable;
             shift-pressed: root.shift-pressed;
             real-element-selected => { root.real-element-selected(); }
         }

@@ -43,6 +43,8 @@ def inspector_field(
     window: slint_testing.Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
+    *,
+    shadow: str | None = None,
 ) -> slint_testing.Element:
     pane = element(
         window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
@@ -50,7 +52,7 @@ def inspector_field(
     floating = label in FLOATING_FIELDS
     if floating:
         fields = elements(window, label, role=role)
-        if len(fields) == 1:
+        if len(fields) == 1 and (shadow is None or elements(window, f"Close {shadow}")):
             return element(window, label, role=role)
     pane_rect = pane.absolute_rect
     position = slint_testing.LogicalPosition(
@@ -75,12 +77,14 @@ def inspector_field(
         if floating:
             controls = [
                 control
-                for name in ("Drop shadow", "Inner shadow")
+                for name in ((shadow,) if shadow else ("Drop shadow", "Inner shadow"))
                 for control in elements(
                     pane, name, role=slint_testing.AccessibleRole.Button
                 )
                 if control.accessible_enabled
             ]
+            if len(controls) > 1:
+                raise ValueError("Choose a shadow when both shadow effects are enabled")
             if len(controls) == 1 and (
                 pane.absolute_position.y <= controls[0].absolute_position.y
                 and controls[0].absolute_position.y + controls[0].size.height
