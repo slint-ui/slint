@@ -302,6 +302,24 @@ mod tests {
     }
 
     #[test]
+    fn refuses_a_url_on_another_host() {
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.primary_preview_mut().to_preview = capture;
+        let url = lsp_types::Url::parse("file://example.com/share/logo.png").unwrap();
+
+        session.send_files_to_preview(0, std::slice::from_ref(&url), &[]);
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::ForgetFile { url: refused }] if refused == &url),
+            "{recorded:?}"
+        );
+    }
+
+    #[test]
     fn a_workspace_folder_makes_its_assets_readable() {
         let workspace = tempfile::tempdir().unwrap();
         let logo = workspace.path().join("images").join("logo.png");
