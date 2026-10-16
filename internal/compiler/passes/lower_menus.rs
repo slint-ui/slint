@@ -687,7 +687,15 @@ fn lower_menu_items(
                         .into(),
                     );
                 }
-                // Menu/MenuSeparator -> MenuItem
+                if element.borrow().base_type.type_name() == Some("StandardMenuItem")
+                    && element.borrow().binding("kind").is_none()
+                {
+                    diag.push_error(
+                        "StandardMenuItem must have a binding set for its 'kind' property".into(),
+                        &*element.borrow(),
+                    );
+                }
+                // Menu/MenuSeparator/StandardMenuItem -> MenuItem
                 element.borrow_mut().base_type = components.menu_item_element.clone();
             }
             false
