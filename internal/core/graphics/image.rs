@@ -19,19 +19,7 @@ use alloc::rc::Rc;
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 
-#[cfg(any(
-    feature = "image-decoders",
-    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
-))]
-type AssetLoaderFn = Rc<dyn Fn(&str) -> Option<Result<alloc::vec::Vec<u8>, alloc::string::String>>>;
-
-#[cfg(any(
-    feature = "image-decoders",
-    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
-))]
-crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoaderFn>> = core::cell::RefCell::new(None));
-
-/// Sets a custom asset loader callback that is consulted before loading images from the file system.
+/// Sets a custom image loader callback.
 ///
 /// The callback receives an asset identifier (a string) and should return:
 /// - `Some(Ok(bytes))` if it can provide the asset data
@@ -44,18 +32,14 @@ crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoader
     feature = "image-decoders",
     all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
 ))]
-pub fn set_asset_loader(
+pub fn set_image_loader(
     loader: impl Fn(&str) -> Option<Result<alloc::vec::Vec<u8>, alloc::string::String>> + 'static,
 ) {
-    ASSET_LOADER.with(|l| *l.borrow_mut() = Some(Rc::new(loader)));
-}
-
-#[cfg(any(
-    feature = "image-decoders",
-    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
-))]
-pub(crate) fn get_asset_loader() -> Option<AssetLoaderFn> {
-    ASSET_LOADER.with(|l| l.borrow().clone())
+    use crate::graphics::image::cache::IMAGE_CACHE;
+    IMAGE_CACHE.with(|c| {
+        let mut cache = c.borrow_mut();
+        cache.set_image_loader(Some(Rc::new(loader)));
+    });
 }
 
 #[cfg(any(
@@ -1975,7 +1959,7 @@ pub(crate) mod ffi {
     #[allow(dead_code)]
     #[repr(u8)]
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub enum AssetLoaderResult {
+    pub enum ImageLoaderResult {
         /// The asset was not found; fall through to default resolution.
         NotFound = 0,
         /// The asset was found; its data is in the `out` parameter.
@@ -1984,7 +1968,7 @@ pub(crate) mod ffi {
         Error = 2,
     }
 
-    struct AssetLoaderUserData {
+    struct ImageLoaderUserData {
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
         callback: extern "C" fn(
@@ -1992,10 +1976,10 @@ pub(crate) mod ffi {
             id: &SharedString,
             out: *mut SharedVector<u8>,
             error_out: *mut SharedString,
-        ) -> AssetLoaderResult,
+        ) -> ImageLoaderResult,
     }
 
-    impl Drop for AssetLoaderUserData {
+    impl Drop for ImageLoaderUserData {
         fn drop(&mut self) {
             if let Some(x) = self.drop_user_data {
                 x(self.user_data)
@@ -2014,26 +1998,26 @@ pub(crate) mod ffi {
         any(not(target_arch = "wasm32"), target_os = "emscripten")
     ))]
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_set_asset_loader(
+    pub unsafe extern "C" fn slint_set_image_loader(
         callback: extern "C" fn(
             user_data: *mut c_void,
             id: &SharedString,
             out: *mut SharedVector<u8>,
             error_out: *mut SharedString,
-        ) -> AssetLoaderResult,
+        ) -> ImageLoaderResult,
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
-        let ud = AssetLoaderUserData { user_data, drop_user_data, callback };
-        set_asset_loader(move |id: &str| {
+        let ud = ImageLoaderUserData { user_data, drop_user_data, callback };
+        set_image_loader(move |id: &str| {
             let mut out_vec = SharedVector::default();
             let mut error_msg = SharedString::default();
             let result =
                 (ud.callback)(ud.user_data, &SharedString::from(id), &mut out_vec, &mut error_msg);
             match result {
-                AssetLoaderResult::NotFound => None,
-                AssetLoaderResult::Found => Some(Ok(out_vec.to_vec())),
-                AssetLoaderResult::Error => {
+                ImageLoaderResult::NotFound => None,
+                ImageLoaderResult::Found => Some(Ok(out_vec.to_vec())),
+                ImageLoaderResult::Error => {
                     Some(Err(alloc::string::String::from(error_msg.as_str())))
                 }
             }

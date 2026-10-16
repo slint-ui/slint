@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Tests for the custom asset loader API (set_asset_loader).
+// Tests for the custom asset loader API (set_image_loader).
 // The loader is set up in the test functions before the component is created,
 // providing image data for asset IDs that don't exist on the filesystem.
 //ignore: rust-macro, interpreter
@@ -35,7 +35,7 @@ static std::vector<uint8_t> small_png = {
     0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
 };
 
-slint::set_asset_loader([](const std::string_view asset_path) -> std::optional<std::vector<uint8_t>> {
+slint::set_image_loader([](const std::string_view asset_path) -> std::optional<std::vector<uint8_t>> {
     if (asset_path == "custom-loader-test.png") {
         return small_png;
     }
@@ -64,7 +64,7 @@ let small_png: &[u8] = &[
     0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 ];
 
-slint::set_asset_loader(move |id| {
+slint::set_image_loader(move |id| {
     if id == "custom-loader-test.png" {
         Some(Ok(small_png.to_vec()))
     } else {
