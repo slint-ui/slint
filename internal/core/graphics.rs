@@ -269,6 +269,43 @@ pub fn create_graphics_api_wgpu_30(
 pub mod ffi {
     #![allow(unsafe_code)]
 
+    /// Expand BitmapGlyph so that cbindgen can see it. (is in fact `BitmapGlyph<Static>`)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct BitmapGlyph {
+        x: i16,
+        y: i16,
+        width: i16,
+        height: i16,
+        x_advance: i16,
+        data: Slice<'static, u8>,
+    }
+
+    /// Expand BitmapGlyphs so that cbindgen can see it. (is in fact `BitmapGlyphs<Static>`)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct BitmapGlyphs {
+        pixel_size: i16,
+        glyph_data: Slice<'static, BitmapGlyph>,
+    }
+
+    /// Expand BitmapFont so that cbindgen can see it. (is in fact `BitmapFont<Static>`)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct BitmapFont {
+        family_name: Slice<'static, u8>,
+        character_map: Slice<'static, char>,
+        units_per_em: f32,
+        ascent: f32,
+        descent: f32,
+        x_height: f32,
+        cap_height: f32,
+        glyphs: Slice<'static, BitmapGlyphs>,
+        weight: u16,
+        italic: bool,
+        sdf: bool,
+    }
+
     /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
     #[cfg(cbindgen)]
     #[repr(C)]

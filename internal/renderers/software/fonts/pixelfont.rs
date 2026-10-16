@@ -3,36 +3,93 @@
 
 use crate::PhysicalLength;
 use crate::fixed::Fixed;
-use i_slint_core::graphics::{BitmapFont, BitmapGlyphs};
+use alloc::rc::Rc;
+use core::ops::Deref;
+use i_slint_core::graphics::{BitmapFont, BitmapGlyphs, Owned, Static, Storage};
 use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
 
-use super::{GlyphRenderer, RenderableGlyph};
+use super::{GlyphAlphaMap, GlyphRenderer, RenderableGlyph};
 
-// A font that is resolved to a specific pixel size.
-pub struct PixelFont {
-    pub bitmap_font: &'static BitmapFont,
-    pub glyphs: &'static BitmapGlyphs,
+/// How the renderer holds a font of each storage, see [`PixelFont`].
+pub trait FontStorage: Storage {
+    type Font: Deref<Target = BitmapFont<Self>> + Clone;
+    fn alpha_map(font: &Self::Font, glyphs: usize, glyph: usize) -> GlyphAlphaMap;
+}
+
+impl FontStorage for Static {
+    type Font = &'static BitmapFont;
+    fn alpha_map(font: &Self::Font, glyphs: usize, glyph: usize) -> GlyphAlphaMap {
+        GlyphAlphaMap::Static(&font.glyphs[glyphs].glyph_data[glyph].data)
+    }
+}
+
+impl FontStorage for Owned {
+    type Font = Rc<BitmapFont<Owned>>;
+    fn alpha_map(font: &Self::Font, glyphs: usize, glyph: usize) -> GlyphAlphaMap {
+        GlyphAlphaMap::Shared { font: font.clone(), glyphs, glyph }
+    }
+}
+
+/// A bitmap font that is resolved to a specific pixel size.
+pub struct PixelFont<S: FontStorage = Static> {
+    pub font: S::Font,
+    /// The index of the glyph set in the font
+    pub glyphs: usize,
     pub pixel_size: PhysicalLength,
 }
 
-impl PixelFont {
+impl<S: FontStorage> PixelFont<S> {
+    /// `font` at `pixel_size`, from the glyph set with the largest pixel size up to it, or
+    /// the smallest one.
+    pub fn new(font: S::Font, pixel_size: PhysicalLength) -> Self {
+        let glyphs = font
+            .glyphs
+            .partition_point(|glyphs| PhysicalLength::new(glyphs.pixel_size) <= pixel_size)
+            .saturating_sub(1);
+        let pixel_size =
+            if font.sdf { pixel_size } else { PhysicalLength::new(font.glyphs[glyphs].pixel_size) };
+        Self { font, glyphs, pixel_size }
+    }
+
     pub fn glyph_index_to_glyph_id(index: usize) -> core::num::NonZeroU16 {
         core::num::NonZeroU16::new(index as u16 + 1).unwrap()
     }
     pub fn glyph_id_to_glyph_index(id: core::num::NonZeroU16) -> usize {
         id.get() as usize - 1
     }
+
+    fn glyph_set(&self) -> &BitmapGlyphs<S> {
+        &self.font.glyphs[self.glyphs]
+    }
+
+    fn glyph_index(&self, ch: char) -> Option<usize> {
+        self.font.character_map.binary_search(&ch).ok()
+    }
+
+    fn x_advance(&self, glyph_index: usize) -> PhysicalLength {
+        let glyphs = self.glyph_set();
+        let x_advance = glyphs.glyph_data[glyph_index].x_advance;
+        ((self.pixel_size.cast() * x_advance as i32 / glyphs.pixel_size as i32
+            + euclid::Length::new(32))
+            / 64)
+            .cast()
+    }
+
+    /// `metric`, in the design units of the font, at the pixel size.
+    fn scaled(&self, metric: f32) -> PhysicalLength {
+        (self.pixel_size.cast() * metric / self.font.units_per_em).cast()
+    }
 }
 
-impl GlyphRenderer for PixelFont {
+impl<S: FontStorage> GlyphRenderer for PixelFont<S> {
     fn render_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
         _slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableGlyph> {
         let glyph_index = Self::glyph_id_to_glyph_index(glyph_id);
-        let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-        if bitmap_glyph.data.is_empty() {
+        let glyph = &self.glyph_set().glyph_data[glyph_index];
+        if glyph.data.is_empty() {
             // For example, ' ' has no glyph data
             return None;
         }
@@ -43,35 +100,35 @@ impl GlyphRenderer for PixelFont {
         // We also want that Δ(hₜ-1)+offset ≤ hₛ-1
         // Similar for x but that's easier since x is not subtracted from the width
         let delta = Fixed::<i32, 8>::from_fixed(self.scale_delta());
-        let src_x = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(bitmap_glyph.x));
-        let src_y = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(bitmap_glyph.y));
-        let h_plus_y = Fixed::<i32, 8>::from_integer(bitmap_glyph.height as i32) + src_y;
+        let src_x = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(glyph.x));
+        let src_y = Fixed::<i32, 8>::from_fixed(Fixed::<_, 6>(glyph.y));
+        let h_plus_y = Fixed::<i32, 8>::from_integer(glyph.height as i32) + src_y;
         let h_plus_y = Fixed::<i32, 8>::from_fraction(h_plus_y.0, delta.0);
         let off_y = Fixed::<i32, 8>(h_plus_y.0 & 0xff);
-        let height = (Fixed::from_integer(bitmap_glyph.height as i32 - 1) - off_y) / delta + 1;
+        let height = (Fixed::from_integer(glyph.height as i32 - 1) - off_y) / delta + 1;
         let x = Fixed::from_fraction(src_x.0, delta.0);
         let off_x = Fixed::<i32, 8>(-x.0 & 0xff);
-        let width = (Fixed::from_integer(bitmap_glyph.width as i32 - 1) - off_x) / delta + 1;
+        let width = (Fixed::from_integer(glyph.width as i32 - 1) - off_x) / delta + 1;
         Some(RenderableGlyph {
             x,
             y: h_plus_y - Fixed::from_integer(height),
             width: PhysicalLength::new(width as i16),
             height: PhysicalLength::new(height as i16),
-            alpha_map: bitmap_glyph.data.as_slice().into(),
-            pixel_stride: bitmap_glyph.width as u16,
-            sdf: self.bitmap_font.sdf,
+            alpha_map: S::alpha_map(&self.font, self.glyphs, glyph_index),
+            pixel_stride: glyph.width as u16,
+            sdf: self.font.sdf,
         })
     }
     fn scale_delta(&self) -> Fixed<u16, 8> {
         Fixed::try_from_fixed(Fixed::<u32, 8>::from_fraction(
-            self.glyphs.pixel_size as u32,
+            self.glyph_set().pixel_size as u32,
             self.pixel_size.get() as u32,
         ))
         .unwrap()
     }
 }
 
-impl TextShaper for PixelFont {
+impl<S: FontStorage> TextShaper for PixelFont<S> {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
     fn shape_text<GlyphStorage: core::iter::Extend<Glyph<PhysicalLength>>>(
@@ -80,18 +137,9 @@ impl TextShaper for PixelFont {
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let glyph_index = self.bitmap_font.character_map.binary_search(&char).ok();
-            let x_advance = glyph_index.map_or_else(
-                || self.pixel_size,
-                |glyph_index| {
-                    ((self.pixel_size.cast()
-                        * self.glyphs.glyph_data[glyph_index].x_advance as i32
-                        / self.glyphs.pixel_size as i32
-                        + euclid::Length::new(32))
-                        / 64)
-                        .cast()
-                },
-            );
+            let glyph_index = self.glyph_index(char);
+            let x_advance = glyph_index
+                .map_or_else(|| self.pixel_size, |glyph_index| self.x_advance(glyph_index));
             Glyph {
                 glyph_id: glyph_index.map(Self::glyph_index_to_glyph_id),
                 advance: x_advance,
@@ -103,45 +151,34 @@ impl TextShaper for PixelFont {
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        self.bitmap_font.character_map.binary_search(&ch).ok().map(|glyph_index| {
-            let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-            let x_advance = ((self.pixel_size.cast() * bitmap_glyph.x_advance as i32
-                / self.glyphs.pixel_size as i32
-                + euclid::Length::new(32))
-                / 64)
-                .cast();
-            Glyph {
-                glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
-                advance: x_advance,
-                text_byte_offset: 0,
-                ..Default::default()
-            }
+        self.glyph_index(ch).map(|glyph_index| Glyph {
+            glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
+            advance: self.x_advance(glyph_index),
+            text_byte_offset: 0,
+            ..Default::default()
         })
     }
 }
 
-impl FontMetrics<PhysicalLength> for PixelFont {
+impl<S: FontStorage> FontMetrics<PhysicalLength> for PixelFont<S> {
     fn ascent(&self) -> PhysicalLength {
-        (self.pixel_size.cast() * self.bitmap_font.ascent / self.bitmap_font.units_per_em).cast()
+        self.scaled(self.font.ascent)
     }
 
     fn descent(&self) -> PhysicalLength {
-        (self.pixel_size.cast() * self.bitmap_font.descent / self.bitmap_font.units_per_em).cast()
+        self.scaled(self.font.descent)
     }
 
     fn height(&self) -> PhysicalLength {
         // The descent is negative (relative to the baseline)
-        (self.pixel_size.cast() * (self.bitmap_font.ascent - self.bitmap_font.descent)
-            / self.bitmap_font.units_per_em)
-            .cast()
+        self.scaled(self.font.ascent - self.font.descent)
     }
 
     fn x_height(&self) -> PhysicalLength {
-        (self.pixel_size.cast() * self.bitmap_font.x_height / self.bitmap_font.units_per_em).cast()
+        self.scaled(self.font.x_height)
     }
 
     fn cap_height(&self) -> PhysicalLength {
-        (self.pixel_size.cast() * self.bitmap_font.cap_height / self.bitmap_font.units_per_em)
-            .cast()
+        self.scaled(self.font.cap_height)
     }
 }

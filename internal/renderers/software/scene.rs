@@ -7,7 +7,6 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -482,7 +481,7 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16 },
 }
 
 impl SharedBufferData {
@@ -496,7 +495,9 @@ impl SharedBufferData {
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => {
+                data.as_slice().len() / *width as usize
+            }
         }
     }
 }
@@ -558,7 +559,7 @@ impl SharedBufferCommand {
                 }
             }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
+                data: &data.as_slice()[start..end],
                 pixel_stride: *width,
                 format: TexturePixelFormat::AlphaMap,
                 extra: self.extra,

@@ -55,6 +55,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
