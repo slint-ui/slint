@@ -61,6 +61,7 @@ targets:
                 - slint
               public.mime-type:
                 - text/x-slint
+                - text/slint
         CFBundleDocumentTypes:
           - CFBundleTypeName: Slint UI File
             CFBundleTypeRole: Editor
