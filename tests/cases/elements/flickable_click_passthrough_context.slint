@@ -8,15 +8,16 @@ export component TestCaseRepeated inherits Window {
 
     TouchArea {
         clicked => { root.counter += 1; }
-    }
-    VerticalLayout {
-        for i in 3: Flickable {
-            height: 100px;
-            content-width: self.width;
-            content-height: 150px;
 
-            Rectangle {
-                background: gray;
+        VerticalLayout {
+            for i in 3: Flickable {
+                height: 100px;
+                content-width: self.width;
+                content-height: 150px;
+
+                Rectangle {
+                    background: gray;
+                }
             }
         }
     }
@@ -37,17 +38,18 @@ export component TestCasePopup inherits Window {
 
         TouchArea {
             clicked => { root.counter += 1; }
-        }
-        Flickable {
-            width: 100px;
-            height: 100px;
-            content-width: 100px;
-            content-height: 200px;
 
-            Rectangle {
+            Flickable {
                 width: 100px;
-                height: 200px;
-                background: gray;
+                height: 100px;
+                content-width: 100px;
+                content-height: 200px;
+
+                Rectangle {
+                    width: 100px;
+                    height: 200px;
+                    background: gray;
+                }
             }
         }
     }
