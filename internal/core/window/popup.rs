@@ -12,7 +12,7 @@ use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 /// Returns, as fractions of the anchor rectangle's width/height, the point within that
 /// rectangle that the popup is anchored to (0.0 = left/top edge, 1.0 = center, 2.0 =
 /// right/bottom edge). Mirrors the Wayland `xdg_positioner` anchor semantics.
-/// The factor is scaled to 0..2 because interger division would always result in 0 for 0.5
+/// The factor is scaled to 0..2 because integer division would always result in 0 for 0.5
 /// so the division by 2 is done outside
 fn anchor_location_fraction(location: PopupAnchorLocation) -> (Coord, Coord) {
     match location {
