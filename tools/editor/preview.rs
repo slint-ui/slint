@@ -2836,33 +2836,20 @@ fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &i_slint_editor_preview::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
-        Default::default();
-
-    // Pre-fill version info and an empty diagnostics to reset the state for the url
-    for (path, version) in file_versions.iter() {
-        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
-    }
-
     PREVIEW_STATE.with_borrow(|preview_state| {
-        for d in diagnostics {
-            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
-                continue;
-            };
-            let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
-            if let Some(data) = result.get_mut(&uri) {
-                if data.0.is_some() && new_version.is_some() && data.0 != new_version {
-                    continue;
-                }
-                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
-                    d,
-                    preview_state.format(),
-                ));
+        let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
+            diagnostics,
+            file_versions.iter().filter_map(|(path, version)| Some((path.to_url()?, *version))),
+            preview_state.format(),
+        );
+        for (url, (version, file_diagnostics)) in &mut result {
+            let new_version = preview_state.source_code.get(url).and_then(|e| e.version);
+            if version.is_some() && new_version.is_some() && *version != new_version {
+                file_diagnostics.clear();
             }
         }
-    });
-
-    result
+        result
+    })
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
