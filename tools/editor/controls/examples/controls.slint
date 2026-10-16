@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ScrollView } from "std-widgets.slint";
-import { Button, BasicTheme } from "../src/basic.slint";
+import {
+    Button,
+    ButtonStyles,
+    BasicTheme,
+} from "../src/basic.slint";
 import { ButtonExamples } from "buttons.slint";
 import { CheckBoxExamples } from "check_boxes.slint";
 import { ComboBoxExamples } from "combo_boxes.slint";
@@ -62,9 +66,9 @@ export component ControlsDemo inherits Window {
                     text: page;
                     checked: root.current-page == index;
                     min-height: 44px;
+                    style: ButtonStyles.invisible;
                     background-color: self.checked ? BasicTheme.accent.with-alpha(0.08) : transparent;
                     foreground: self.checked ? BasicTheme.accent : BasicTheme.foreground;
-                    border-color: self.checked ? BasicTheme.accent.with-alpha(0.4) : transparent;
                     font-weight: 600;
                     clicked => { root.current-page = index; }
                 }
@@ -81,7 +85,7 @@ export component ControlsDemo inherits Window {
             }
         }
 
-        ScrollView {
+        content-scroll := ScrollView {
             horizontal-scrollbar-policy: always-off;
             content-width: self.width;
             VerticalLayout {

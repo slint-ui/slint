@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct LineEditStateStyle {
+    background-color: brush,
+    foreground: brush,
+    border-color: brush,
+    placeholder-color: brush,
+}
+
+export struct LineEditStyle {
+    rest: LineEditStateStyle,
+    hover: LineEditStateStyle,
+    disabled: LineEditStateStyle,
+    selection-background-color: color,
+    selection-foreground-color: color,
+    focus-color: brush,
+}
+
+export struct LineEditMetrics {
+    min-height: length,
+    min-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    font-weight: int = 400,
+    spacing: length,
+    border-width: length = 1px,
+    border-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+}

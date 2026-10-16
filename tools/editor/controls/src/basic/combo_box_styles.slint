@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBoxStyle, ComboBoxMetrics } from "combo_box_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global ComboBoxStyles {
+    in-out property <ComboBoxStyle> standard: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        hover: {
+            background-color: BasicTheme.hover-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        pressed: {
+            background-color: BasicTheme.pressed-background,
+            foreground: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground: BasicTheme.disabled-foreground,
+            border-color: BasicTheme.border,
+        },
+        popup: {
+            background-color: BasicTheme.background,
+            border-color: BasicTheme.border,
+            rest: {
+                background-color: transparent,
+                foreground: BasicTheme.foreground,
+            },
+            highlighted: {
+                background-color: BasicTheme.accent,
+                foreground: BasicTheme.accent-foreground,
+            },
+            selected: {
+                background-color: BasicTheme.hover-background,
+                foreground: BasicTheme.foreground,
+            },
+            disabled: {
+                background-color: transparent,
+                foreground: BasicTheme.disabled-foreground,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
+
+export global ComboBoxSizes {
+    in-out property <ComboBoxMetrics> small: {
+        min-height: 24px,
+        min-width: 96px,
+        preferred-width: 160px,
+        padding-horizontal: 8px,
+        padding-vertical: 4px,
+        font-size: 12px,
+        indicator-width: 12px,
+        spacing: 4px,
+        item-height: 24px,
+        popup-padding: 4px,
+        item-padding-inline: 8px,
+    };
+    in-out property <ComboBoxMetrics> medium: {
+        min-height: 32px,
+        min-width: 120px,
+        preferred-width: 200px,
+        padding-horizontal: 12px,
+        padding-vertical: 6px,
+        font-size: 14px,
+        indicator-width: 16px,
+        spacing: 6px,
+        item-height: 32px,
+        popup-padding: 4px,
+        item-padding-inline: 12px,
+    };
+    in-out property <ComboBoxMetrics> large: {
+        min-height: 40px,
+        min-width: 144px,
+        preferred-width: 240px,
+        padding-horizontal: 16px,
+        padding-vertical: 8px,
+        font-size: 16px,
+        indicator-width: 20px,
+        spacing: 8px,
+        item-height: 40px,
+        popup-padding: 6px,
+        item-padding-inline: 16px,
+    };
+}

@@ -76,6 +76,9 @@ export component TestCase inherits Window {
         text: "Custom checkbox";
 
         forwarded-indicator << Rectangle {
+            width: 20px;
+            height: 20px;
+            vertical-stretch: 0;
             background: #0f766e;
         }
         toggled => { root.custom-toggles += 1; }
@@ -87,6 +90,8 @@ export component TestCase inherits Window {
         width: 180px;
         height: 40px;
         choice << CheckBoxBase {
+            width: 100%;
+            height: 100%;
             text: "Headless contract";
         }
         toggled => { root.contract-toggles += 1; }

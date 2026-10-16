@@ -32,6 +32,8 @@ export component TestCase inherits Window {
 
     headless-host := SelectionHost {
         control << headless := ComboBoxBase {
+            item-height: 32px;
+            popup-padding: 4px;
             popup << ComboBoxPopupBase { }
         }
     }

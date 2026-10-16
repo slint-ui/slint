@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct CheckBoxStateStyle {
+    indicator-color: brush,
+    checkmark-color: brush,
+    foreground: brush,
+    indicator-border-color: brush,
+}
+
+export struct CheckBoxStateStyles {
+    rest: CheckBoxStateStyle,
+    hover: CheckBoxStateStyle,
+    pressed: CheckBoxStateStyle,
+    disabled: CheckBoxStateStyle,
+}
+
+export struct CheckBoxStyle {
+    unchecked: CheckBoxStateStyles,
+    checked: CheckBoxStateStyles,
+    focus-color: brush,
+}
+
+export struct CheckBoxMetrics {
+    indicator-border-width: length = 1px,
+    indicator-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    min-height: length,
+    indicator-size: length,
+    checkmark-padding: length,
+    checkmark-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    spacing: length,
+}

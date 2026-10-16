@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SliderStateStyle {
+    track-color: brush,
+    fill-color: brush,
+    handle-color: brush,
+    handle-border-color: brush,
+}
+
+export struct SliderStyle {
+    rest: SliderStateStyle,
+    hover: SliderStateStyle,
+    pressed: SliderStateStyle,
+    disabled: SliderStateStyle,
+    focus-color: brush,
+}
+
+export struct SliderMetrics {
+    handle-border-width: length = 1px,
+    handle-radius: length = -1px,
+    track-radius: length = -1px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    preferred-length: length,
+    min-thickness: length,
+    handle-width: length,
+    handle-height: length,
+    track-thickness: length,
+}

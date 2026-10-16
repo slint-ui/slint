@@ -16,9 +16,9 @@ export component LinearSliderSurface {
     callback seek(position: float);
     callback finished();
     callback canceled();
-    in property <length> handle-width: 20px;
-    in property <length> handle-height: 20px;
-    in property <length> track-thickness: 4px;
+    in property <length> handle-width;
+    in property <length> handle-height;
+    in property <length> track-thickness;
     out property <bool> hovered: root.enabled && pointer.has-hover
         && pointer.mouse-x >= 0px && pointer.mouse-x < root.width
         && pointer.mouse-y >= 0px && pointer.mouse-y < root.height;

@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct ComboBoxStateStyle {
+    background-color: brush,
+    foreground: brush,
+    border-color: brush,
+}
+
+export struct ComboBoxItemStyle {
+    background-color: brush,
+    foreground: brush,
+}
+
+export struct ComboBoxPopupStyle {
+    background-color: brush,
+    border-color: brush,
+    rest: ComboBoxItemStyle,
+    highlighted: ComboBoxItemStyle,
+    selected: ComboBoxItemStyle,
+    disabled: ComboBoxItemStyle,
+}
+
+export struct ComboBoxStyle {
+    rest: ComboBoxStateStyle,
+    hover: ComboBoxStateStyle,
+    pressed: ComboBoxStateStyle,
+    disabled: ComboBoxStateStyle,
+    popup: ComboBoxPopupStyle,
+    focus-color: brush,
+}
+
+export struct ComboBoxMetrics {
+    border-width: length = 1px,
+    border-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    popup-border-width: length = 1px,
+    popup-border-radius: length = 4px,
+    popup-offset: length = 2px,
+    font-weight: int = 400,
+    selected-item-font-weight: int = 600,
+    indicator-stroke-width: length = 2px,
+    min-height: length,
+    min-width: length,
+    preferred-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    indicator-width: length,
+    spacing: length,
+    item-height: length,
+    popup-padding: length,
+    item-padding-inline: length,
+}

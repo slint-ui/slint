@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SwitchStateStyle {
+    track-color: brush,
+    thumb-color: brush,
+    foreground: brush,
+    track-border-color: brush,
+}
+
+export struct SwitchStateStyles {
+    rest: SwitchStateStyle,
+    hover: SwitchStateStyle,
+    pressed: SwitchStateStyle,
+    disabled: SwitchStateStyle,
+}
+
+export struct SwitchStyle {
+    unchecked: SwitchStateStyles,
+    checked: SwitchStateStyles,
+    focus-color: brush,
+}
+
+export struct SwitchMetrics {
+    track-border-width: length = 1px,
+    track-radius: length = -1px,
+    thumb-radius: length = -1px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    min-height: length,
+    track-width: length,
+    track-height: length,
+    thumb-size: length,
+    thumb-padding: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    spacing: length,
+}

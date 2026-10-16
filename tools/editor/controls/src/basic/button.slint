@@ -2,60 +2,82 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ButtonBase } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import {
+    ButtonStateStyle,
+    ButtonStyle,
+    ButtonMetrics,
+} from "button_style.slint";
+import { ButtonStyles, ButtonSizes } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
-    private property <bool> accented: root.primary || root.checked;
-    private property <brush> state-background: root.accented ? BasicTheme.accent : BasicTheme.background;
-    private property <brush> state-foreground: root.accented ? BasicTheme.accent-foreground : BasicTheme.foreground;
+    in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
+    in property <ButtonMetrics> size: ButtonSizes.medium;
+    private property <ButtonStateStyle> state-style: root.style.rest;
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> foreground: root.state-style.foreground;
 
-    in property <brush> background-color: root.state-background;
-    in property <brush> foreground: root.state-foreground;
-    in property <brush> border-color: root.has-focus ? BasicTheme.focus : BasicTheme.border;
-    in property <length> border-width: root.has-focus ? 2px : 1px;
-    in property <length> border-radius: 4px;
-    in property <length> font-size: 14px;
+    in property <length> font-size: root.size.font-size;
     in property <int> font-weight: 400;
-    in property <length> spacing: 6px;
+    in property <length> spacing: root.size.spacing;
 
-    content-padding: 6px;
-    content-padding-left: 12px;
-    content-padding-right: 12px;
-    min-width: 64px;
-    min-height: 32px;
+    icon-size: root.size.icon-size;
+    colorize-icon: true;
+    in property <length> content-padding: root.size.padding-vertical;
+    in property <length> content-padding-left: root.size.padding-horizontal;
+    in property <length> content-padding-right: root.size.padding-horizontal;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
+    min-width: root.size.min-width;
+    min-height: root.size.min-height;
 
     states [
         disabled when !root.enabled: {
-            root.state-background: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
+            state-style: root.style.disabled;
         }
         pressed when root.pressed: {
-            root.state-background: root.accented ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+            state-style: root.style.pressed;
         }
         hover when root.hovered: {
-            root.state-background: root.accented ? BasicTheme.accent-hover : BasicTheme.hover-background;
+            state-style: root.style.hover;
         }
     ]
 
     background << Rectangle {
-        background: root.background-color;
-        border-color: root.border-color;
-        border-width: root.border-width;
-        border-radius: root.border-radius;
+        background: root.enabled ? root.background-color : root.state-style.background-color;
+        border-color: root.state-style.border-color;
+        border-width: root.size.border-width;
+        border-radius: root.size.border-radius;
+
+        focus-outline := Rectangle {
+            private property <length> outset: root.size.focus-offset + root.size.focus-width;
+            x: -self.outset;
+            y: -self.outset;
+            width: parent.width + 2 * self.outset;
+            height: parent.height + 2 * self.outset;
+            visible: root.enabled && root.has-focus && root.size.focus-width > 0px;
+            background: transparent;
+            border-color: root.style.focus-color;
+            border-width: root.size.focus-width;
+            border-radius: root.size.border-radius + self.outset;
+        }
     }
 
     content << HorizontalLayout {
+        padding-left: root.content-padding-left;
+        padding-right: root.content-padding-right;
+        padding-top: root.content-padding-top;
+        padding-bottom: root.content-padding-bottom;
         spacing: root.spacing;
         alignment: center;
         if root.icon.width > 0 && root.icon.height > 0: Image {
             width: root.icon-size;
             height: root.icon-size;
             source: root.icon;
-            colorize: root.colorize-icon ? root.foreground : transparent;
+            colorize: root.colorize-icon ? (root.enabled ? root.foreground : root.state-style.foreground) : transparent;
         }
         if root.text != "": Text {
             text: root.text;
-            color: root.foreground;
+            color: root.enabled ? root.foreground : root.state-style.foreground;
             font-size: root.font-size;
             font-weight: root.font-weight;
             horizontal-alignment: center;

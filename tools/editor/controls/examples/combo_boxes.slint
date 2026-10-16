@@ -1,16 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ComboBox, BasicTheme } from "../src/basic.slint";
+import {
+    ComboBox,
+    ComboBoxSizes,
+    ComboBoxMetrics,
+    ComboBoxStyle,
+    ComboBoxStyles,
+    BasicTheme,
+} from "../src/basic.slint";
 import {
     ComboBoxBase,
     ComboBoxPopupBase,
     ButtonBase,
 } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
 
 export component ComboBoxExamples inherits Rectangle {
     vertical-stretch: 0;
+    in property <ComboBoxStyle> preview-style: ComboBoxStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <ComboBoxMetrics> preview-size: [ComboBoxSizes.small, ComboBoxSizes.medium, ComboBoxSizes.large][clamp(root.size-index, 0, 2)];
+
     in-out property <int> selections;
     in-out property <int> custom-selections;
     in-out property <string> selected-value: "None yet";
@@ -18,38 +31,52 @@ export component ComboBoxExamples inherits Rectangle {
 
     VerticalLayout {
         spacing: 20px;
+        PreviewSettings {
+            control-name: "ComboBox";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
         ExampleSection {
             title: "Base theme";
             description: "Default, disabled, placeholder, and scrollable combo boxes using BasicTheme.";
             HorizontalLayout {
                 spacing: 16px;
                 ComboBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Image fit";
                     model: ["Contain", "Cover", "Fill", "None"];
-                    min-height: 40px;
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
 
                 ComboBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: false;
                     accessible-label: "Disabled combo box";
                     model: ["Disabled"];
-                    min-height: 40px;
-                    enabled: false;
                 }
             }
 
             HorizontalLayout {
                 spacing: 16px;
                 ComboBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Choose a size";
                     model: ["Small", "Medium", "Large", "Extra large"];
                     current-index: -1;
                     placeholder: "Choose a size";
-                    min-height: 40px;
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
 
                 ComboBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Scrollable options";
                     model: [
                         "Zero",
@@ -64,7 +91,6 @@ export component ComboBoxExamples inherits Rectangle {
                         "Nine"
                     ];
                     maximum-visible-items: 4;
-                    min-height: 40px;
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
             }
@@ -86,27 +112,26 @@ export component ComboBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom combo boxes";
-            description: "Override theme properties or supply your own field, indicator, and popup visuals.";
+            description: "Set field colors or supply your own field, indicator, and popup visuals.";
             HorizontalLayout {
                 spacing: 20px;
                 VerticalLayout {
                     spacing: 10px;
                     Text {
-                        text: "Color override";
+                        text: "Custom field colors";
                         color: BasicTheme.disabled-foreground;
                         font-size: 12px;
                     }
 
                     ComboBox {
+                        style: root.preview-style;
+                        background-color: #f0fdfa;
+                        foreground: #115e59;
+                        size: root.preview-size;
+                        enabled: !root.preview-disabled;
                         accessible-label: "Tinted combo box";
                         model: ["Small", "Medium", "Large"];
                         current-index: 1;
-                        min-height: 40px;
-                        background-color: #f0fdfa;
-                        foreground: #115e59;
-                        border-color: #0d9488;
-                        popup-color: #f0fdfa;
-                        highlighted-background: #0d9488;
                         selected(value) => { root.custom-selections += 1; root.custom-value = value; }
                     }
                 }
@@ -120,6 +145,10 @@ export component ComboBoxExamples inherits Rectangle {
                     }
 
                     custom := ComboBoxBase {
+                        spacing: 8px;
+                        item-height: 32px;
+                        popup-padding: 4px;
+                        enabled: !root.preview-disabled;
                         accessible-label: "Custom combo box";
                         model: ["First", "Second", "Third"];
                         min-height: 40px;
@@ -139,12 +168,15 @@ export component ComboBoxExamples inherits Rectangle {
                             overflow: elide;
                         }
                         indicator << Text {
+                            width: 16px;
+                            height: 100%;
                             text: custom.expanded ? "−" : "+";
                             color: #92400e;
                             horizontal-alignment: center;
                             vertical-alignment: center;
                         }
                         popup << custom-popup := ComboBoxPopupBase {
+                            popup-offset: 2px;
                             Rectangle {
                                 background: #fffbeb;
                                 border-width: 1px;
@@ -159,17 +191,19 @@ export component ComboBoxExamples inherits Rectangle {
                                     height: custom-popup.item-height;
                                     accessible-role: list-item;
                                     accessible-checked: index == custom-popup.current-index;
-                                    content-padding-left: 12px;
-                                    content-padding-right: 12px;
                                     changed hovered => { if self.hovered { custom-popup.highlight(index); } }
                                     clicked => { custom-popup.selected(index); }
                                     background << Rectangle {
                                         background: index == custom-popup.highlighted-index ? #fcd34d : transparent;
                                     }
-                                    content << Text {
-                                        text: value;
-                                        color: #92400e;
-                                        vertical-alignment: center;
+                                    content << HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        Text {
+                                            text: value;
+                                            color: #92400e;
+                                            vertical-alignment: center;
+                                        }
                                     }
                                 }
                             }

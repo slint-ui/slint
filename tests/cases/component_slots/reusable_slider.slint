@@ -32,7 +32,7 @@ export component TestCase inherits Window {
         value <=> root.value;
         enabled: root.enabled;
         inverted: root.inverted;
-        surface << LinearSliderSurface { }
+        surface << LinearSliderSurface { handle-width: 20px; handle-height: 20px; track-thickness: 4px; }
         changed(value) => { root.changes += 1; }
         released(value) => { root.releases += 1; root.last-released = value; }
     }

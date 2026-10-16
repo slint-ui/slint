@@ -1,43 +1,76 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CheckBox, BasicTheme } from "../src/basic.slint";
+import {
+    CheckBox,
+    CheckBoxSizes,
+    CheckBoxMetrics,
+    CheckBoxStyle,
+    CheckBoxStyles,
+    BasicTheme,
+} from "../src/basic.slint";
 import { CheckBoxBase } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
+
+component CustomCheckBox inherits CheckBox {
+    checked-color: #0f766e;
+}
 
 export component CheckBoxExamples inherits Rectangle {
     vertical-stretch: 0;
+    in property <CheckBoxStyle> preview-style: CheckBoxStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <CheckBoxMetrics> preview-size: [CheckBoxSizes.small, CheckBoxSizes.medium, CheckBoxSizes.large][clamp(root.size-index, 0, 2)];
+
     in-out property <int> toggles;
     in-out property <int> custom-toggles;
 
     VerticalLayout {
         spacing: 20px;
+        PreviewSettings {
+            control-name: "CheckBox";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
         ExampleSection {
             title: "Base theme";
             description: "Unchecked, checked, and disabled checkboxes using BasicTheme.";
             HorizontalLayout {
                 spacing: 12px;
                 standard := CheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     text: "Show guides";
                     toggled => { root.toggles += 1; }
                 }
 
                 CheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     text: "Snap to grid";
                     checked: true;
                     toggled => { root.toggles += 1; }
                 }
 
                 CheckBox {
-                    text: "Disabled";
+                    style: root.preview-style;
+                    size: root.preview-size;
                     enabled: false;
+                    text: "Disabled";
                 }
             }
 
             CheckBox {
+                style: root.preview-style;
+                size: root.preview-size;
+                enabled: false;
                 text: "Disabled checked";
                 checked: true;
-                enabled: false;
             }
 
             Rectangle {
@@ -57,24 +90,35 @@ export component CheckBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom checkboxes";
-            description: "Override colors, supply headless visuals, or replace the label.";
+            description: "Set a checked color, reuse component defaults, or supply your own visuals through slots.";
             VerticalLayout {
                 spacing: 12px;
-                CheckBox {
-                    text: "Color override";
+                CustomCheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
+                    text: "Custom checked color";
                     checked: true;
-                    indicator-color: self.checked ? #0f766e : BasicTheme.background;
-                    foreground: #115e59;
-                    indicator-radius: 6px;
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                CustomCheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
+                    text: "Same shared defaults";
                     toggled => { root.custom-toggles += 1; }
                 }
 
                 bare := CheckBoxBase {
+                    enabled: !root.preview-disabled;
                     text: "Headless checkbox";
-                    font-size: 14px;
-                    font-weight: 400;
+                    spacing: 8px;
                     content-padding: 6px;
                     indicator << Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        vertical-stretch: 0;
                         background: bare.checked ? #7c3aed : transparent;
                         border-color: bare.has-focus ? #5b21b6 : #a78bfa;
                         border-width: bare.has-focus ? 2px : 1px;
@@ -91,105 +135,20 @@ export component CheckBoxExamples inherits Rectangle {
                     content << Text {
                         text: bare.text;
                         color: #5b21b6;
-                        font-size: bare.font-size;
+                        font-size: 14px;
+                        font-weight: 400;
                         vertical-alignment: center;
                     }
                     toggled => { root.custom-toggles += 1; }
                 }
 
-                custom := CheckBoxBase {
-                    in property <length> indicator-size: 20px;
-                    private property <brush> state-indicator: custom.checked ? BasicTheme.accent : BasicTheme.background;
-                    private property <brush> state-foreground: BasicTheme.foreground;
-                    in property <brush> indicator-color: custom.state-indicator;
-                    in property <brush> indicator-border-color: !custom.enabled ? BasicTheme.disabled-foreground
-                        : custom.checked ? custom.indicator-color : BasicTheme.border;
-                    in property <length> indicator-border-width: 1px;
-                    in property <length> indicator-radius: 4px;
-                    in property <brush> checkmark-color: custom.enabled ? BasicTheme.accent-foreground : BasicTheme.disabled-foreground;
-                    in property <brush> foreground: custom.state-foreground;
+                custom := CheckBox {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
+                    accessible-label: "Custom checkbox content";
+                    text: "Autosave · " + (self.checked ? "On" : "Off");
 
-                    indicator-width: custom.indicator-size;
-                    indicator-height: custom.indicator-size;
-                    content-padding: 6px;
-                    font-size: 14px;
-                    font-weight: 400;
-
-                    states [
-                        disabled when !custom.enabled: {
-                            custom.state-indicator: BasicTheme.disabled-background;
-                            custom.state-foreground: BasicTheme.disabled-foreground;
-                        }
-                        pressed when custom.pressed: {
-                            custom.state-indicator: custom.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
-                        }
-                        hover when custom.hovered: {
-                            custom.state-indicator: custom.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
-                        }
-                    ]
-
-                    indicator << Rectangle {
-                        background: custom.indicator-color;
-                        border-color: custom.indicator-border-color;
-                        border-width: custom.indicator-border-width;
-                        border-radius: custom.indicator-radius;
-
-                        if custom.checked: Path {
-                            x: 3px;
-                            y: 3px;
-                            width: parent.width - 6px;
-                            height: parent.height - 6px;
-                            viewbox-width: 16;
-                            viewbox-height: 16;
-                            stroke: custom.checkmark-color;
-                            stroke-width: 2px;
-                            MoveTo {
-                                x: 2;
-                                y: 8;
-                            }
-
-                            LineTo {
-                                x: 6;
-                                y: 12;
-                            }
-
-                            LineTo {
-                                x: 14;
-                                y: 4;
-                            }
-                        }
-
-                        if custom.enabled && custom.has-focus: Rectangle {
-                            x: -3px;
-                            y: -3px;
-                            width: parent.width + 6px;
-                            height: parent.height + 6px;
-                            border-width: 2px;
-                            border-color: BasicTheme.focus;
-                            border-radius: custom.indicator-radius + 2px;
-                        }
-                    }
-                    text: "Custom checkbox content";
-
-                    content << HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
-                        Text {
-                            text: "Autosave";
-                            color: custom.foreground;
-                            font-size: custom.font-size;
-                            horizontal-stretch: 0;
-                            vertical-alignment: center;
-                        }
-
-                        Text {
-                            text: custom.checked ? "On" : "Off";
-                            color: BasicTheme.disabled-foreground;
-                            font-size: 12px;
-                            horizontal-stretch: 0;
-                            vertical-alignment: center;
-                        }
-                    }
                     toggled => { root.custom-toggles += 1; }
                 }
             }

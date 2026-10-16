@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct ButtonStateStyle {
+    background-color: brush,
+    foreground: brush,
+    border-color: brush,
+}
+
+export struct ButtonStyle {
+    rest: ButtonStateStyle,
+    hover: ButtonStateStyle,
+    pressed: ButtonStateStyle,
+    disabled: ButtonStateStyle,
+    focus-color: brush,
+}
+
+export struct ButtonMetrics {
+    border-width: length = 1px,
+    border-radius: length = 4px,
+    focus-width: length = 2px,
+    focus-offset: length = 2px,
+    min-height: length,
+    min-width: length,
+    padding-horizontal: length,
+    padding-vertical: length,
+    font-size: length,
+    icon-size: length,
+    spacing: length,
+}
