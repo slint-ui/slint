@@ -4,7 +4,7 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult } from "api.slint";
 import { Project } from "project.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
@@ -21,14 +21,14 @@ import { GradientOverlay } from "components/gradient-overlay.slint";
 import { ShadowOverlay } from "components/shadow-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
-import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, InspectorShadowPicker } from "components/inspector/index.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, ShadowGesture, ShadowValues, InspectorShadowPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
     Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, Hover, Preview, Project, Springboard,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -366,6 +366,10 @@ export component EditorUi inherits Window {
             private property <bool> shadow-open: ShadowSession.open;
             changed shadow-open => { if !self.shadow-open { self.focus(); } }
             property <bool> shift-pressed: false;
+            private property <bool> window-active: Api.window-active();
+            changed window-active => {
+                if !self.window-active { self.shift-pressed = false; }
+            }
             private property <int> fill-focus-generation: FillSession.focus-generation;
             changed fill-focus-generation => {
                 if FillSession.request.target.canvas { self.focus(); }
@@ -732,6 +736,7 @@ export component EditorUi inherits Window {
                     clip: true;
                     ShadowOverlay {
                         show-guides: editor.shift-pressed;
+                        viewport: { x: -self.x, y: -self.y, width: parent.width, height: parent.height };
                         x: FillSession.canvas-origin.x - parent.absolute-position.x;
                         y: FillSession.canvas-origin.y - parent.absolute-position.y;
                         width: FillSession.canvas-size.width;

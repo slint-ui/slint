@@ -26,6 +26,9 @@ export global EditorCursors {
 }
 
 export global EditorAngles {
+    public pure function rounded(value: angle) -> float {
+        return EditorAngles.normalize((value / 1deg).round() * 1deg) / 1deg;
+    }
     public pure function normalize(value: angle) -> angle {
         let normalized = value.mod(360deg);
         return normalized < 0deg ? normalized + 360deg : normalized;

@@ -49,11 +49,12 @@ component ShadowHandle inherits FocusScope {
         }
     }
     TouchArea {
-        enabled: ShadowSession.canvas-active;
+        enabled: ShadowSession.canvas-visible;
         mouse-cursor: root.kind == ShadowGesture.offset ? move : root.kind == ShadowGesture.blur ? ns-resize : ew-resize;
         accessible-role: button;
         accessible-label: root.label;
         pointer-event(event) => {
+            if !ShadowSession.canvas-active { return; }
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.focus();
                 root.started({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
@@ -71,6 +72,7 @@ component ShadowHandle inherits FocusScope {
 
 export component ShadowOverlay inherits FocusScope {
     in property <bool> show-guides;
+    in property <{x: length, y: length, width: length, height: length}> viewport;
     focus-on-click: false;
     private property <ShadowValues> original;
     private property <Point> press;
@@ -136,7 +138,10 @@ export component ShadowOverlay inherits FocusScope {
         if values != ShadowSession.values { ShadowSession.preview(values); }
     }
     function finish() {
-        if ShadowSession.dragging { ShadowSession.commit(ShadowSession.gesture, ShadowSession.values); }
+        if ShadowSession.dragging {
+            if ShadowSession.values != root.original { ShadowSession.commit(ShadowSession.gesture, ShadowSession.values); }
+            else { ShadowSession.cancel(); }
+        }
     }
     function handle-key(kind: ShadowGesture, event: KeyEvent) -> EventResult {
         if event.text == Key.Escape {
@@ -158,7 +163,7 @@ export component ShadowOverlay inherits FocusScope {
             values.offset-y + dy * step));
         return accept;
     }
-    for soft in (root.show-guides ? 2 : 0): Rectangle {
+    for soft in (root.show-guides ? 2 : 0): guide := Rectangle {
         private property <float> expansion: ShadowSession.values.spread + (soft == 1 ? ShadowSession.values.blur / 2 : 0);
         x: root.shadow-center.x - self.width / 2;
         y: root.shadow-center.y - self.height / 2;
@@ -201,11 +206,14 @@ export component ShadowOverlay inherits FocusScope {
     if ShadowSession.dragging && ShadowSession.gesture == ShadowGesture.offset: CanvasValueTooltip {
         private property <ShadowValues> offsets: ShadowSession.values;
         private property <float> angle: self.offsets.offset-x == 0 && self.offsets.offset-y == 0 ? 0
-            : EditorAngles.normalize((atan2(self.offsets.offset-y, self.offsets.offset-x) / 1deg).round() * 1deg) / 1deg;
+            : EditorAngles.rounded(atan2(self.offsets.offset-y, self.offsets.offset-x));
         private property <float> distance: sqrt(self.offsets.offset-x * self.offsets.offset-x + self.offsets.offset-y * self.offsets.offset-y).round();
         label: @tr("Angle");
-        value: @tr("{}°\nDistance {} px", self.angle.to-fixed(0), self.distance.to-fixed(0));
+        value: self.angle.to-fixed(0) + "°";
+        secondary-text: @tr("Distance {} px", self.distance.to-fixed(0));
         value-label: @tr("Shadow angle and distance");
         pointer-position: root.shadow-center;
+        x: (self.pointer-position.x - self.width - self.style.offset).clamp(root.viewport.x, max(root.viewport.x, root.viewport.x + root.viewport.width - self.width));
+        y: (self.pointer-position.y - self.height - self.style.offset).clamp(root.viewport.y, max(root.viewport.y, root.viewport.y + root.viewport.height - self.height));
     }
 }

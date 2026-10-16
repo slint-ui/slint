@@ -186,9 +186,8 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
-        private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
         label: @tr("Rotation");
-        value: "\{(self.normalized-angle / 1deg).round()}";
+        value: EditorAngles.rounded(frame.rotation-tooltip-value).to-fixed(0);
         suffix: "°";
         value-label: @tr("Rotation angle");
         pointer-position: frame.rotation-tooltip-position;
