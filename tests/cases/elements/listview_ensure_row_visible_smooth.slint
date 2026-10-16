@@ -14,6 +14,7 @@ export component TestCase inherits Window {
 
     out property <length> content-y <=> listview.content-y;
     out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> clicked-index: -1;
 
     listview := ListView {
         x: 0;
@@ -24,6 +25,12 @@ export component TestCase inherits Window {
         for i in 1000: Rectangle {
             height: 50px;
             background: i.mod(2) == 0 ? blue : red;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
         }
     }
 }
@@ -31,7 +38,7 @@ export component TestCase inherits Window {
 /*
 ```rust
 use slint::language::ScrollBehavior;
-use slint::{platform::WindowEvent, LogicalPosition};
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
 use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
 
 const ROW_HEIGHT: f32 = 50.;
@@ -39,6 +46,7 @@ const FRAME_MS: u64 = 16;
 const MAX_SCROLL_DURATION_MS: u64 = 3000;
 const MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS: f32 = 10.;
 const EPSILON: f32 = 0.01;
+const PROBE_INSET: f32 = 2.;
 const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
 
 let instance = TestCase::new().unwrap();
@@ -103,6 +111,19 @@ let assert_stays_at = |content_y: f32| {
 let scroll_instantly_to = |row: i32| {
     instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
     advance_frame_and_layout();
+};
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let assert_shows_rows = |first: i32, last: i32| {
+    assert_eq!(row_at(PROBE_INSET), first, "row {first} must be at the viewport's top edge");
+    assert_eq!(row_at(viewport - PROBE_INSET), last, "row {last} must be at the viewport's bottom edge");
 };
 
 // Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
@@ -171,12 +192,15 @@ assert!(near_steps.iter().all(|s| s.abs() <= jump_min_step), "a close row must n
 scroll_instantly_to(0);
 instance.invoke_ensure_row_visible(3, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 
 // Out of range.
 instance.invoke_ensure_row_visible(1000, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 
 // An instant request stops a running smooth scroll.
 instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
@@ -224,12 +248,14 @@ assert_stays_at(last);
 
 ```cpp
 using slint::language::ScrollBehavior;
+using slint::PointerEventButton;
 
 constexpr float row_height = 50.;
 constexpr uint64_t frame_ms = 16;
 constexpr uint64_t max_scroll_duration_ms = 3000;
 constexpr float max_jump_landing_distance_in_viewports = 10.;
 constexpr float epsilon = 0.01;
+constexpr float probe_inset = 2.;
 
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
@@ -294,6 +320,19 @@ auto assert_stays_at = [&](float content_y) {
 auto scroll_instantly_to = [&](int row) {
     instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
     advance_frame_and_layout();
+};
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto assert_shows_rows = [&](int first, int last) {
+    assert_eq(row_at(probe_inset), first);
+    assert_eq(row_at(viewport - probe_inset), last);
 };
 
 // Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
@@ -372,12 +411,15 @@ for (float step : near_steps) {
 scroll_instantly_to(0);
 instance.invoke_ensure_row_visible(3, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 
 // Out of range.
 instance.invoke_ensure_row_visible(1000, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
 assert_stays_at(0.);
+assert_shows_rows(0, 11);
 
 // An instant request stops a running smooth scroll.
 instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
@@ -419,6 +461,7 @@ const FRAME_MS = 16;
 const MAX_SCROLL_DURATION_MS = 3000;
 const MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS = 10;
 const EPSILON = 0.01;
+const PROBE_INSET = 2;
 
 var instance = new slint.TestCase({});
 const viewport = instance.visible_height;
@@ -475,6 +518,17 @@ function assert_stays_at(content_y) {
 function scroll_instantly_to(row) {
     instance.ensure_row_visible(row, "instant");
     advance_frame_and_layout();
+}
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function assert_shows_rows(first, last) {
+    assert.equal(row_at(PROBE_INSET), first, `row ${first} must be at the viewport's top edge`);
+    assert.equal(row_at(viewport - PROBE_INSET), last, `row ${last} must be at the viewport's bottom edge`);
 }
 
 // Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
@@ -543,12 +597,15 @@ assert(near_steps.every((s) => Math.abs(s) <= jump_min_step), `a close row must 
 scroll_instantly_to(0);
 instance.ensure_row_visible(3, "smooth");
 assert_stays_at(0);
+assert_shows_rows(0, 11);
 
 // Out of range.
 instance.ensure_row_visible(1000, "smooth");
 assert_stays_at(0);
+assert_shows_rows(0, 11);
 instance.ensure_row_visible(-1, "smooth");
 assert_stays_at(0);
+assert_shows_rows(0, 11);
 
 // An instant request stops a running smooth scroll.
 instance.ensure_row_visible(900, "smooth");
