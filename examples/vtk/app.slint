@@ -1,0 +1,131 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore Möbius
+
+import {
+    Button,
+    CheckBox,
+    ComboBox,
+    GroupBox,
+    VerticalBox,
+} from "std-widgets.slint";
+
+export component App inherits Window {
+    in property <image> texture <=> view.source;
+    in property <string> gl-info;
+    out property <int> view-width: view.width / 1phx;
+    out property <int> view-height: view.height / 1phx;
+    out property <bool> auto-rotate <=> auto-rotate-box.checked;
+
+    callback select-surface(index: int);
+    callback set-wireframe(wireframe: bool);
+    callback set-show-edges(show-edges: bool);
+    callback reset-camera();
+    callback pointer-event(event: PointerEvent, x: float, y: float);
+    callback zoom(delta: float);
+
+    title: "Slint VTK Example";
+    icon: @image-url("../../logo/slint-logo-small-light.png");
+    preferred-width: 1000px;
+    preferred-height: 700px;
+
+    HorizontalLayout {
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 200px;
+            min-height: 200px;
+
+            view := Image {
+                width: parent.width;
+                height: parent.height;
+                image-fit: fill;
+            }
+
+            TouchArea {
+                pointer-event(event) => {
+                    root.pointer-event(event, self.mouse-x / 1phx, self.mouse-y / 1phx);
+                }
+                scroll-event(event) => {
+                    root.zoom(event.delta-y / 1phx);
+                    accept
+                }
+            }
+
+            Rectangle {
+                x: 12px;
+                y: 12px;
+                width: hint.preferred-width + 24px;
+                height: hint.preferred-height + 16px;
+                border-radius: 8px;
+                background: #000000a0;
+
+                hint := Text {
+                    text: "Drag to rotate, Shift+drag to pan, scroll to zoom";
+                    color: white;
+                }
+            }
+        }
+
+        VerticalBox {
+            width: 260px;
+            alignment: start;
+
+            GroupBox {
+                title: "Surface";
+
+                VerticalBox {
+                    padding: 0;
+
+                    ComboBox {
+                        model: ["Torus", "Klein bottle", "Boy's surface", "Möbius strip", "Super toroid"];
+                        selected => {
+                            root.select-surface(self.current-index);
+                        }
+                    }
+
+                    CheckBox {
+                        text: "Wireframe";
+                        toggled => {
+                            root.set-wireframe(self.checked);
+                        }
+                    }
+
+                    CheckBox {
+                        text: "Show edges";
+                        toggled => {
+                            root.set-show-edges(self.checked);
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Camera";
+
+                VerticalBox {
+                    padding: 0;
+
+                    auto-rotate-box := CheckBox {
+                        text: "Rotate automatically";
+                        checked: true;
+                    }
+
+                    Button {
+                        text: "Reset";
+                        clicked => {
+                            root.reset-camera();
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: root.gl-info;
+                wrap: word-wrap;
+                font-size: 11px;
+                opacity: 0.7;
+            }
+        }
+    }
+}

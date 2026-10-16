@@ -69,3 +69,7 @@ endif()
 slint_test(platform_eventloop)
 target_link_libraries(test_platform_eventloop PRIVATE Threads::Threads)
 
+if(NOT SLINT_FEATURE_FREESTANDING)
+    slint_test(select_backend)
+endif()
+
