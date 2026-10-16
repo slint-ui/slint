@@ -13,9 +13,10 @@ use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
-use crate::items::{Dimension, Flickable, ItemRc, ScrollBehavior};
+use crate::items::{Flickable, ItemRc, ScrollBehavior};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
+use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
 use crate::{Coord, Property};
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -356,8 +357,8 @@ fn update_visible_instances(
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
     // The row to seek to, its edge, and its distance beyond that edge of the viewport.
-    let seek = scroll_to_row.as_ref().and_then(|request| match (&request.state, jump) {
-        (scroll::ScrollToRowState::Instant(alignment), _) => {
+    let seek = scroll_to_row.as_ref().and_then(|request| match (&request.animation, jump) {
+        (scroll::ScrollAnimation::Instant(alignment), _) => {
             Some((request.row, *alignment, 0 as Coord))
         }
         (_, Some((alignment, beyond_edge))) => Some((request.row, alignment, beyond_edge)),
@@ -802,12 +803,14 @@ fn listview_ensure_row_visible(
         )
     };
 
-    let request_state = match (row_in_viewport, behavior) {
+    let animation = match (row_in_viewport, behavior) {
         (None, ScrollBehavior::Instant) => {
             stop_scrolling();
-            scroll::ScrollToRowState::Instant(scroll::RowAlignment::Bottom)
+            scroll::ScrollAnimation::Instant(scroll::RowAlignment::Bottom)
         }
-        (None, ScrollBehavior::Smooth) => scroll::ScrollToRowState::PendingSmooth,
+        (None, ScrollBehavior::Smooth) => {
+            scroll::ScrollAnimation::AccelerateJumpDecelerate(AccelerateJumpDecelerate::new())
+        }
         (Some((top_anchor, row_height)), behavior) => {
             let Some(alignment) =
                 scroll::RowAlignment::for_row(top_anchor, row_height, viewport_height)
@@ -828,24 +831,22 @@ fn listview_ensure_row_visible(
                         ),
                         ScrollBehavior::Instant,
                     );
-                    scroll::ScrollToRowState::Instant(alignment)
+                    scroll::ScrollAnimation::Instant(alignment)
                 }
-                ScrollBehavior::Smooth => scroll::ScrollToRowState::Accelerating(
-                    alignment,
-                    flickable.start_content_simulation(
+                ScrollBehavior::Smooth => scroll::ScrollAnimation::AccelerateJumpDecelerate(
+                    AccelerateJumpDecelerate::new_start(
+                        distance,
+                        viewport_height,
+                        alignment,
+                        &flickable,
                         flickable_rc,
-                        scroll::ScrollToRowMotion::new(viewport_height).accelerate(distance as f32),
-                        Dimension::Y,
                     ),
                 ),
             }
         }
     };
-    *scroll_to_row = Some(scroll::ScrollToRowRequest {
-        row,
-        flickable: flickable_rc.downgrade(),
-        state: request_state,
-    });
+    *scroll_to_row =
+        Some(scroll::ScrollToRowRequest { row, flickable: flickable_rc.downgrade(), animation });
     true
 }
 
