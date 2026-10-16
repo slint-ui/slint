@@ -3417,6 +3417,7 @@ dependencies = [
  "lyon_path",
  "nalgebra",
  "num_enum",
+ "once_cell",
  "pathdiff",
  "postcard",
  "proc-macro2",

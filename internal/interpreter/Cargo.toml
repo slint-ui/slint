@@ -181,7 +181,7 @@ internal-embed-textures = [
 
 
 [dependencies]
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["std"] }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
 i-slint-core-macros = { workspace = true }
@@ -198,7 +198,7 @@ document-features = { version = "0.2.0", optional = true }
 spin_on = { workspace = true, optional = true }
 raw-window-handle-06 = { workspace = true, optional = true }
 smol_str = { workspace = true }
-typed-index-collections = { workspace = true }
+typed-index-collections = { workspace = true, features = ["std"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
