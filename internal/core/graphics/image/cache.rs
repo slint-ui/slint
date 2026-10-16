@@ -133,13 +133,19 @@ impl ImageCache {
                         }
                         let format = image::ImageFormat::from_path(path.as_str()).ok();
                         let shared_data = crate::SharedVector::from_slice(&data);
-                        ImageInner::decode_with_cache_key(cache_key, ImageData::Shared(&shared_data), format)
-                            .map_err(|err| crate::debug_log!(
+                        ImageInner::decode_with_cache_key(
+                            cache_key,
+                            ImageData::Shared(&shared_data),
+                            format,
+                        )
+                        .map_err(|err| {
+                            crate::debug_log!(
                                 "Error decoding image from custom loader for {}: {}",
                                 &path,
                                 err
-                            ))
-                            .ok()
+                            )
+                        })
+                        .ok()
                     }
                     Err(msg) => {
                         crate::debug_log!(
