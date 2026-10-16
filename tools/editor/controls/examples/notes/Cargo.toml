@@ -1,0 +1,22 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "fieldnotes"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "fieldnotes"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../../../../api/rs/slint", default-features = false, features = ["std", "backend-winit", "renderer-software", "accessibility", "compat-1-2"] }
+serde = { version = "1.0.163", features = ["derive"] }
+serde_json = "1.0.96"
+
+[build-dependencies]
+slint-build = { path = "../../../../../api/rs/build" }

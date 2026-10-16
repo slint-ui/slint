@@ -1,0 +1,250 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TextEdit } from "std-widgets.slint";
+import { CheckBox, ComboBox, Slider, Switch, ButtonStyles } from "../../src/basic.slint";
+import { NotesState } from "app_state.slint";
+import { NotesTheme, AppButton, AppLineEdit } from "theme.slint";
+
+export component NoteEditor inherits Rectangle {
+    private property <bool> confirm-delete;
+    private property <int> selection-id: NotesState.selected-id;
+    background: NotesTheme.surface;
+    changed selection-id => { root.confirm-delete = false; }
+
+    VerticalLayout {
+        padding: 28px;
+        spacing: 18px;
+
+        if NotesState.has-selection: VerticalLayout {
+            spacing: 18px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: "YOUR WRITING SPACE";
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: NotesTheme.muted;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                AppButton {
+                    text: "Export";
+                    accessible-label: "Export the selected note as text";
+                    clicked => { NotesState.export-note(); }
+                }
+                AppButton {
+                    text: "Save";
+                    style: ButtonStyles.primary;
+                    enabled: !NotesState.read-only;
+                    clicked => { NotesState.save(); }
+                }
+            }
+
+            AppLineEdit {
+                text <=> NotesState.note-title;
+                placeholder-text: "Untitled note";
+                read-only: NotesState.read-only;
+                style: NotesTheme.title-style;
+                size: NotesTheme.title-size;
+                accessible-label: "Note title";
+                edited(value) => { NotesState.edit-note(); }
+            }
+
+            HorizontalLayout {
+                spacing: 14px;
+                Text {
+                    text: "Notebook";
+                    color: NotesTheme.muted;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+                ComboBox {
+                    model: ["Personal", "Work", "Ideas"];
+                    current-index <=> NotesState.notebook-index;
+                    size: NotesTheme.combo-size;
+                    max-width: 150px;
+                    enabled: !NotesState.read-only;
+                    accessible-label: "Move note to notebook";
+                    selected(value) => { NotesState.edit-note(); }
+                }
+                CheckBox {
+                    text: "Pinned";
+                    checked <=> NotesState.note-pinned;
+                    size: NotesTheme.checkbox-size;
+                    enabled: !NotesState.read-only;
+                    toggled => { NotesState.edit-note(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: NotesState.note-archived ? "ARCHIVED" : "";
+                    color: NotesTheme.muted;
+                    font-size: 10px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle { height: 1px; background: NotesTheme.border; }
+
+            TextEdit {
+                text <=> NotesState.note-body;
+                placeholder-text: "Start with a thought…";
+                read-only: NotesState.read-only;
+                font-size: NotesState.text-size * 1px;
+                wrap: word-wrap;
+                accessible-label: "Note body";
+                vertical-stretch: 1;
+                min-height: 140px;
+                edited(value) => { NotesState.edit-note(); }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    text: "\{NotesState.word-count} words";
+                    font-size: 11px;
+                    color: NotesTheme.muted;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                AppButton {
+                    text: NotesState.note-archived ? "Restore" : "Archive";
+                    enabled: !NotesState.read-only;
+                    clicked => { NotesState.archive-note(); }
+                }
+                AppButton {
+                    text: "Delete";
+                    style: ButtonStyles.danger;
+                    enabled: !NotesState.read-only;
+                    clicked => { root.confirm-delete = !root.confirm-delete; }
+                }
+            }
+
+            if root.confirm-delete && !NotesState.read-only: Rectangle {
+                background: NotesTheme.accent-soft;
+                border-radius: 8px;
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+                    Text {
+                        text: "Delete this note permanently?";
+                        color: NotesTheme.foreground;
+                        font-size: 13px;
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle { horizontal-stretch: 1; }
+                        AppButton {
+                            text: "Keep note";
+                            clicked => { root.confirm-delete = false; }
+                        }
+                        AppButton {
+                            text: "Delete note";
+                            style: ButtonStyles.danger;
+                            clicked => {
+                                root.confirm-delete = false;
+                                NotesState.delete-note();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !NotesState.has-selection: VerticalLayout {
+            alignment: center;
+            spacing: 16px;
+            Rectangle { vertical-stretch: 1; }
+            Text {
+                text: "A little room to think.";
+                color: NotesTheme.foreground;
+                font-size: 28px;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: "Choose a note, or start a fresh page.";
+                color: NotesTheme.muted;
+                font-size: 14px;
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                AppButton {
+                    text: "Create a note";
+                    style: ButtonStyles.primary;
+                    enabled: !NotesState.read-only;
+                    clicked => { NotesState.new-note(); }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+        }
+
+        Rectangle { height: 1px; background: NotesTheme.border; }
+
+        HorizontalLayout {
+            spacing: 10px;
+            Text {
+                text: "Density";
+                color: NotesTheme.muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: ["Compact", "Comfortable", "Spacious"];
+                current-index <=> NotesState.density-index;
+                size: NotesTheme.combo-size;
+                max-width: 154px;
+                accessible-label: "Interface density";
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Switch {
+                text: "Read only";
+                checked <=> NotesState.read-only;
+                size: NotesTheme.switch-size;
+                enabled: !NotesState.storage-read-only;
+            }
+            Switch {
+                text: "Dark";
+                checked <=> NotesState.dark-mode;
+                size: NotesTheme.switch-size;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 12px;
+            Text {
+                text: "Text size";
+                font-size: 11px;
+                color: NotesTheme.muted;
+                vertical-alignment: center;
+            }
+            Slider {
+                minimum: 12;
+                maximum: 24;
+                step: 1;
+                value <=> NotesState.text-size;
+                size: NotesTheme.slider-size;
+                max-width: 160px;
+                accessible-label: "Note text size";
+            }
+            Text {
+                text: "\{round(NotesState.text-size)} px";
+                font-size: 11px;
+                color: NotesTheme.muted;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+
+        Text {
+            text: NotesState.status;
+            color: NotesTheme.muted;
+            font-size: 11px;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+    }
+}

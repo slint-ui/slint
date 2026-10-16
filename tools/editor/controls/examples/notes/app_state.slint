@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct Note {
+    id: int,
+    title: string,
+    body: string,
+    preview: string,
+    notebook: string,
+    updated: string,
+    pinned: bool,
+    archived: bool,
+}
+
+export global NotesState {
+    in-out property <[Note]> notes: [
+        { id: 1, title: "A little room to think", notebook: "Personal", updated: "Today", pinned: true,
+          preview: "A quiet place for ideas before they become plans.",
+          body: "A quiet place for ideas before they become plans." },
+        { id: 2, title: "Small things, good days", notebook: "Personal", updated: "Today",
+          preview: "Coffee outside. A longer walk. Time to read.",
+          body: "Coffee outside.\nA longer walk.\nTime to read." },
+        { id: 3, title: "The next chapter", notebook: "Work", updated: "Yesterday",
+          preview: "Make the next release feel calm and considered.",
+          body: "Make the next release feel calm and considered." },
+        { id: 4, title: "Ideas worth keeping", notebook: "Ideas", updated: "Yesterday",
+          preview: "An afternoon workshop. A shared reading list.",
+          body: "An afternoon workshop.\nA shared reading list." },
+    ];
+    in-out property <int> selected-id: 1;
+    in-out property <bool> has-selection: true;
+    in-out property <string> note-title: "A little room to think";
+    in-out property <string> note-body: "A quiet place for ideas before they become plans.\n\nUse this notebook to collect the things you don't want to lose: a passing thought, a useful conversation, a plan for tomorrow.\n\nToday\n\n• Leave space for a new idea.\n• Write something before opening your inbox.\n• Make one small thing a little better.\n\nThere is no right way to begin. Just start here.";
+    in-out property <int> notebook-index;
+    in-out property <bool> note-pinned: true;
+    in-out property <bool> note-archived;
+    in-out property <string> query;
+    in-out property <int> view-index;
+    in-out property <int> note-count: 4;
+    in-out property <int> word-count: 74;
+    in-out property <string> status: "All changes saved";
+    in-out property <bool> read-only;
+    in-out property <bool> storage-read-only;
+    in-out property <bool> dark-mode;
+    in-out property <int> density-index: 1;
+    in-out property <float> text-size: 16;
+
+    callback new-note();
+    callback select-note(int);
+    callback edit-note();
+    callback archive-note();
+    callback delete-note();
+    callback search(string);
+    callback set-view(int);
+    callback save();
+    callback export-note();
+}

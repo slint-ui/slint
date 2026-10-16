@@ -1,0 +1,341 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { ButtonBase } from "../../src/headless.slint";
+import { NotesState, Note } from "app_state.slint";
+import { NotesTheme, AppButton, AppLineEdit } from "theme.slint";
+import { NoteEditor } from "editor.slint";
+
+export { NotesState, Note }
+
+component SearchField inherits AppLineEdit {
+    leading << Path {
+        width: root.font-size;
+        height: root.font-size;
+        viewbox-width: 14;
+        viewbox-height: 14;
+        stroke: root.placeholder-color;
+        stroke-width: 1.5px;
+        fill: transparent;
+        commands: "M 9 5 A 4 4 0 1 1 1 5 A 4 4 0 1 1 9 5 M 8 8 L 13 13";
+    }
+    trailing << clear := ButtonBase {
+        text: "Clear search";
+        accessible-label: "Clear search";
+        visible: root.text != "";
+        width: root.text == "" ? 0px : root.font-size + 4px;
+        height: root.font-size + 4px;
+        background << Rectangle {
+            background: clear.hovered || clear.pressed ? NotesTheme.accent-soft : transparent;
+            border-radius: 4px;
+            border-color: NotesTheme.accent;
+            border-width: clear.has-focus ? 1px : 0px;
+        }
+        content << Text {
+            text: "×";
+            color: root.placeholder-color;
+            font-size: root.font-size + 4px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        clicked => {
+            root.text = "";
+            root.edited("");
+            root.focus();
+        }
+    }
+}
+
+component NavigationButton inherits AppButton {
+    in property <bool> selected;
+    background-color: root.selected ? NotesTheme.accent-soft : transparent;
+    foreground: root.selected ? NotesTheme.accent : NotesTheme.muted;
+    font-weight: root.selected ? 600 : 400;
+    horizontal-stretch: 1;
+    states [
+        active-press when root.pressed: { background-color: NotesTheme.accent-soft; }
+        pointer-hover when root.hovered && !root.selected: { background-color: NotesTheme.canvas; }
+    ]
+}
+
+component NoteCard inherits ButtonBase {
+    in property <Note> note;
+    in property <bool> selected;
+    private property <color> card-background: transparent;
+    private property <color> card-border: transparent;
+    text: root.note.title;
+    horizontal-stretch: 1;
+    accessible-label: "\{root.note.title}, \{root.note.notebook}\{root.note.pinned ? ", pinned" : ""}";
+    accessible-description: root.note.preview;
+
+    states [
+        pressed when root.pressed: {
+            card-background: NotesTheme.accent-soft;
+            card-border: NotesTheme.accent;
+        }
+        focused when root.has-focus: {
+            card-background: NotesTheme.surface;
+            card-border: NotesTheme.accent;
+        }
+        selected when root.selected: {
+            card-background: NotesTheme.surface;
+            card-border: NotesTheme.border;
+        }
+        hover when root.hovered: {
+            card-background: NotesTheme.canvas;
+        }
+    ]
+
+    background << Rectangle {
+        background: root.card-background;
+        border-color: root.card-border;
+        border-width: 1px;
+        border-radius: 10px;
+        animate background { duration: 120ms; }
+        Rectangle {
+            x: 0px;
+            y: 14px;
+            width: 3px;
+            height: parent.height - 28px;
+            border-radius: 1.5px;
+            background: NotesTheme.accent;
+            visible: root.selected;
+        }
+    }
+
+    content << VerticalLayout {
+        padding: NotesState.density-index == 0 ? 10px : NotesState.density-index == 2 ? 18px : 14px;
+        spacing: 7px;
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.note.title == "" ? "Untitled note" : root.note.title;
+                color: NotesTheme.foreground;
+                font-size: 14px;
+                font-weight: 600;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+            if root.note.pinned: Text {
+                text: "PIN";
+                color: NotesTheme.accent;
+                font-size: 9px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.note.preview == "" ? "A fresh page for your next idea." : root.note.preview;
+            color: NotesTheme.muted;
+            font-size: 12px;
+            height: 34px;
+            wrap: word-wrap;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.note.notebook;
+                color: NotesTheme.accent;
+                font-size: 10px;
+                font-weight: 600;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: root.note.updated;
+                color: NotesTheme.muted;
+                font-size: 10px;
+            }
+        }
+    }
+}
+
+export component NotesApp inherits Window {
+    title: "Fieldnotes";
+    preferred-width: 1180px;
+    preferred-height: 780px;
+    min-width: 1000px;
+    min-height: 680px;
+    background: NotesTheme.canvas;
+    default-font-family: "Segoe UI";
+    default-font-size: 14px;
+    in-out property <bool> dark-mode <=> NotesState.dark-mode;
+    in-out property <int> density-index <=> NotesState.density-index;
+    init => { NotesTheme.apply(); }
+    changed dark-mode => { NotesTheme.apply(); }
+
+    HorizontalLayout {
+        spacing: 0px;
+        sidebar := Rectangle {
+            width: 320px;
+            horizontal-stretch: 0;
+            background: NotesTheme.sidebar;
+
+            VerticalLayout {
+                padding-top: 28px;
+                padding-bottom: 20px;
+                spacing: 18px;
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    spacing: 10px;
+                    Rectangle {
+                        width: 28px;
+                        height: 32px;
+                        background: NotesTheme.accent;
+                        border-radius: 6px;
+                        Rectangle {
+                            x: 7px;
+                            y: 10px;
+                            width: 14px;
+                            height: 2px;
+                            background: NotesTheme.surface;
+                        }
+                        Rectangle {
+                            x: 7px;
+                            y: 16px;
+                            width: 10px;
+                            height: 2px;
+                            background: NotesTheme.surface;
+                        }
+                    }
+                    VerticalLayout {
+                        spacing: 1px;
+                        Text {
+                            text: "Fieldnotes";
+                            color: NotesTheme.foreground;
+                            font-size: 23px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: "A little room to think.";
+                            color: NotesTheme.muted;
+                            font-size: 11px;
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    AppButton {
+                        text: "+  New note";
+                        primary: true;
+                        enabled: !NotesState.read-only;
+                        horizontal-stretch: 1;
+                        clicked => { NotesState.new-note(); }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    SearchField {
+                        text <=> NotesState.query;
+                        placeholder-text: "Search your notes...";
+                        accessible-label: "Search notes";
+                        background-color: NotesTheme.surface;
+                        border-color: NotesTheme.border;
+                        foreground: NotesTheme.foreground;
+                        placeholder-color: NotesTheme.muted;
+                        border-radius: 8px;
+                        edited(text) => { NotesState.search(text); }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    spacing: 4px;
+                    NavigationButton {
+                        text: "All notes";
+                        selected: NotesState.view-index == 0;
+                        clicked => { NotesState.set-view(0); }
+                    }
+                    NavigationButton {
+                        text: "Pinned";
+                        selected: NotesState.view-index == 1;
+                        clicked => { NotesState.set-view(1); }
+                    }
+                    NavigationButton {
+                        text: "Archive";
+                        selected: NotesState.view-index == 2;
+                        clicked => { NotesState.set-view(2); }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 26px;
+                    padding-right: 26px;
+                    Text {
+                        text: NotesState.view-index == 1 ? "PINNED NOTES" : NotesState.view-index == 2 ? "ARCHIVE" : "YOUR NOTES";
+                        color: NotesTheme.muted;
+                        font-size: 10px;
+                        font-weight: 600;
+                        horizontal-stretch: 1;
+                    }
+                    Text {
+                        text: "\{NotesState.notes.length}";
+                        color: NotesTheme.muted;
+                        font-size: 10px;
+                    }
+                }
+
+                ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    content-width: self.width;
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 8px;
+                        alignment: start;
+                        for note in NotesState.notes: NoteCard {
+                            note: note;
+                            selected: note.id == NotesState.selected-id;
+                            clicked => { NotesState.select-note(note.id); }
+                        }
+                        if NotesState.notes.length == 0: VerticalLayout {
+                            padding: 20px;
+                            spacing: 10px;
+                            Text {
+                                text: NotesState.query == "" ? "Nothing here yet" : "No matching notes";
+                                color: NotesTheme.foreground;
+                                font-size: 15px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: NotesState.query == "" ? "Start a note, or try another view." : "Try a different search.";
+                                color: NotesTheme.muted;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 26px;
+                    padding-right: 26px;
+                    Text {
+                        text: "\{NotesState.note-count} notes in your collection";
+                        color: NotesTheme.muted;
+                        font-size: 11px;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: 1px;
+            horizontal-stretch: 0;
+            background: NotesTheme.border;
+        }
+        NoteEditor { horizontal-stretch: 1; }
+    }
+}

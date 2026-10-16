@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    BasicTheme, Button, ButtonMetrics, ButtonSizes,
+    CheckBoxMetrics, CheckBoxSizes, SwitchMetrics, SwitchSizes,
+    ComboBoxMetrics, ComboBoxSizes, SliderMetrics, SliderSizes,
+    LineEdit, LineEditStateStyle, LineEditStyle, LineEditStyles, LineEditMetrics, LineEditSizes,
+} from "../../src/basic.slint";
+import { NotesState } from "app_state.slint";
+import { Palette } from "std-widgets.slint";
+
+export global NotesTheme {
+    out property <color> canvas: NotesState.dark-mode ? #161d19 : #f6f4ee;
+    out property <color> surface: NotesState.dark-mode ? #1d2721 : #fffefb;
+    out property <color> sidebar: NotesState.dark-mode ? #19221c : #eeeee5;
+    out property <color> foreground: NotesState.dark-mode ? #e3e9df : #27382d;
+    out property <color> muted: NotesState.dark-mode ? #a7b6aa : #6b786e;
+    out property <color> border: NotesState.dark-mode ? #3d4d41 : #d7ddd1;
+    out property <color> accent: NotesState.dark-mode ? #94d5ae : #356b51;
+    out property <color> accent-soft: NotesState.dark-mode ? #2a4132 : #e0ebdd;
+    out property <color> danger: NotesState.dark-mode ? #f0a4a4 : #ae3c3c;
+
+    out property <ButtonMetrics> button-size: NotesState.density-index == 0 ? ButtonSizes.small
+        : NotesState.density-index == 2 ? ButtonSizes.large : ButtonSizes.medium;
+    out property <CheckBoxMetrics> checkbox-size: NotesState.density-index == 0 ? CheckBoxSizes.small
+        : NotesState.density-index == 2 ? CheckBoxSizes.large : CheckBoxSizes.medium;
+    out property <SwitchMetrics> switch-size: NotesState.density-index == 0 ? SwitchSizes.small
+        : NotesState.density-index == 2 ? SwitchSizes.large : SwitchSizes.medium;
+    out property <ComboBoxMetrics> combo-size: NotesState.density-index == 0 ? ComboBoxSizes.small
+        : NotesState.density-index == 2 ? ComboBoxSizes.large : ComboBoxSizes.medium;
+    out property <SliderMetrics> slider-size: NotesState.density-index == 0 ? SliderSizes.small
+        : NotesState.density-index == 2 ? SliderSizes.large : SliderSizes.medium;
+    out property <LineEditMetrics> line-edit-size: NotesState.density-index == 0 ? LineEditSizes.small
+        : NotesState.density-index == 2 ? LineEditSizes.large : LineEditSizes.medium;
+
+    private property <LineEditStateStyle> title-colors: {
+        background-color: transparent,
+        foreground: root.foreground,
+        border-color: transparent,
+        placeholder-color: root.muted,
+    };
+    out property <LineEditStyle> title-style: {
+        rest: root.title-colors,
+        hover: root.title-colors,
+        disabled: LineEditStyles.standard.disabled,
+        selection-background-color: LineEditStyles.standard.selection-background-color,
+        selection-foreground-color: LineEditStyles.standard.selection-foreground-color,
+        focus-color: root.accent,
+    };
+    out property <LineEditMetrics> title-size: {
+        min-height: 48px,
+        min-width: 160px,
+        padding-horizontal: 0px,
+        padding-vertical: 4px,
+        font-size: 30px,
+        font-weight: 700,
+        spacing: root.line-edit-size.spacing,
+        border-width: 0px,
+    };
+
+    public function apply() {
+        Palette.color-scheme = NotesState.dark-mode ? ColorScheme.dark : ColorScheme.light;
+        BasicTheme.background = root.surface;
+        BasicTheme.foreground = root.foreground;
+        BasicTheme.hover-background = NotesState.dark-mode ? #2a382e : #eef1e8;
+        BasicTheme.pressed-background = NotesState.dark-mode ? #334638 : #e3e9dc;
+        BasicTheme.border = root.border;
+        BasicTheme.accent = root.accent;
+        BasicTheme.accent-hover = NotesState.dark-mode ? #ace4bf : #2e6047;
+        BasicTheme.accent-pressed = NotesState.dark-mode ? #7cbf96 : #244d39;
+        BasicTheme.accent-foreground = NotesState.dark-mode ? #15271b : white;
+        BasicTheme.disabled-background = root.canvas;
+        BasicTheme.disabled-foreground = root.muted.with-alpha(0.65);
+        BasicTheme.focus = root.accent;
+        BasicTheme.danger = root.danger;
+        BasicTheme.danger-hover = NotesState.dark-mode ? #a43d4b : #a52839;
+        BasicTheme.danger-pressed = NotesState.dark-mode ? #91303e : #8f2232;
+        BasicTheme.danger-foreground = white;
+        BasicTheme.danger-disabled-foreground = root.danger.with-alpha(0.5);
+        BasicTheme.invisible-hover-background = NotesState.dark-mode ? #2a382e : #e4e8dd;
+        BasicTheme.invisible-pressed-background = NotesState.dark-mode ? #334638 : #dce3d4;
+    }
+}
+
+export component AppButton inherits Button {
+    size: NotesTheme.button-size;
+}
+
+export component AppLineEdit inherits LineEdit {
+    size: NotesTheme.line-edit-size;
+    slot leading;
+    slot trailing;
+    leading << leading;
+    trailing << trailing;
+}
