@@ -3,12 +3,16 @@
 
 use crate::animations::Instant;
 use crate::animations::simulations::{PositionSimulation, Simulation};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
-/// Slows down at a constant rate from a speed, and stops after a distance.
+/// Slows down from a speed, and stops after a distance.
+/// Without a retarget, the speed follows a smoothstep curve down to zero.
 #[derive(Debug)]
 pub struct Decelerate {
     remaining: f32,
     speed: f32,
+    deceleration: f32,
     last_tick: Instant,
     finished: bool,
 }
@@ -20,7 +24,13 @@ impl Decelerate {
     }
 
     fn new_internal(distance: f32, speed: f32, start_time: Instant) -> Self {
-        Self { remaining: distance, speed, last_tick: start_time, finished: distance == 0. }
+        Self {
+            remaining: distance,
+            speed,
+            deceleration: 0.,
+            last_tick: start_time,
+            finished: distance == 0.,
+        }
     }
 
     pub fn is_finished(&self) -> bool {
@@ -32,11 +42,12 @@ impl Decelerate {
         self.last_tick
     }
 
-    /// Replaces the signed distance to the target, which changes the deceleration.
+    /// Replaces the signed distance to the target, keeping the speed and deceleration.
     /// A target behind the position is reached in the next step.
     pub fn set_remaining_distance(&mut self, remaining: f32) {
         if remaining.signum() != self.remaining.signum() {
             self.speed = 0.;
+            self.deceleration = 0.;
         }
         self.remaining = remaining;
         self.finished |= remaining == 0.;
@@ -51,12 +62,33 @@ impl Simulation for Decelerate {
         let dt = new_tick.duration_since(self.last_tick).as_secs_f32();
         self.last_tick = new_tick;
         let distance = self.remaining.abs();
-        let deceleration = self.speed * self.speed / (2. * distance);
-        let new_speed = (self.speed - deceleration * dt).max(0.);
-        let mut traveled = (self.speed + new_speed) / 2. * dt;
-        self.speed = new_speed;
-        if new_speed == 0. || traveled >= distance {
+        let speed = self.speed;
+        // The speed follows the cubic that starts at the current speed and deceleration,
+        // and ends with zero speed and deceleration after `distance`.
+        // Its duration solves `distance = duration * speed / 2 - duration² * deceleration / 12`.
+        let mut discriminant = speed * speed / 4. - self.deceleration * distance / 3.;
+        if discriminant < 0. {
+            // The target moved beyond where the current deceleration stops.
+            self.deceleration = 0.;
+            discriminant = speed * speed / 4.;
+        }
+        let duration = 2. * distance / (speed / 2. + discriminant.sqrt());
+        let u = dt / duration;
+        let mut traveled = distance;
+        if speed > 0. && u < 1. {
+            let m = self.deceleration * duration;
+            let u2 = u * u;
+            traveled = duration
+                * (speed * u * (1. - u2 + u2 * u / 2.)
+                    - m * u2 * (1. / 2. - 2. * u / 3. + u2 / 4.));
+            self.speed = (1. - u) * (1. - u) * (speed * (1. + 2. * u) - m * u);
+            self.deceleration =
+                (1. - u) * (6. * speed * u / duration + self.deceleration * (1. - 3. * u));
+        }
+        if traveled >= distance {
             traveled = distance;
+            self.speed = 0.;
+            self.deceleration = 0.;
             self.finished = true;
         }
         let direction = self.remaining.signum();
@@ -80,6 +112,7 @@ impl PositionSimulation for Decelerate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::animations::simulations::assert_approx_eq;
     use alloc::vec::Vec;
     use core::time::Duration;
 
@@ -107,6 +140,71 @@ mod tests {
             assert!(steps.iter().all(|s| s * sign >= 0.));
             assert!(steps.windows(2).all(|w| w[1].abs() <= w[0].abs() + 1e-3));
             assert_eq!(simulation.remaining_velocity(tick), 0.);
+        }
+    }
+
+    #[test]
+    fn follows_a_smoothstep_curve() {
+        let (distance, speed) = (1800., 4800.);
+        // Twice as long as at full speed, like a constant deceleration.
+        let duration = 2. * distance / speed;
+        let start = Instant::default();
+        let mut simulation = Decelerate::new_internal(distance, speed, start);
+        let mut position = 0.;
+        let mut tick = start;
+        loop {
+            tick = tick + FRAME;
+            if simulation.step(&mut position, tick) {
+                break;
+            }
+            let u = tick.duration_since(start).as_secs_f32() / duration;
+            let expected = speed * duration * u * (1. - u * u + u * u * u / 2.);
+            assert!((position - expected).abs() < 0.1, "{u}: {position} != {expected}");
+            if tick == start + FRAME {
+                assert!(simulation.remaining_velocity(tick) > 0.99 * speed);
+            }
+        }
+        let elapsed = tick.duration_since(start).as_secs_f32();
+        assert!(elapsed >= duration && elapsed < duration + FRAME.as_secs_f32(), "{elapsed}");
+        assert_approx_eq!(position, distance);
+    }
+
+    #[test]
+    fn retarget_keeps_the_speed() {
+        for factor in [0.5, 4.] {
+            let start = Instant::default();
+            let mut simulation = Decelerate::new_internal(-1000., 4000., start);
+            let mut position = 0.;
+            let mut tick = start;
+            let mut previous = 0.;
+            while tick.duration_since(start).as_millis() < 250 {
+                tick = tick + FRAME;
+                let before = position;
+                simulation.step(&mut position, tick);
+                previous = position - before;
+            }
+            let target = position + factor * simulation.remaining_distance(tick);
+            simulation.set_remaining_distance(target - position);
+            let mut steps = Vec::new();
+            loop {
+                tick = tick + FRAME;
+                let before = position;
+                let finished = simulation.step(&mut position, tick);
+                steps.push(position - before);
+                if finished {
+                    break;
+                }
+            }
+            assert!((position - target).abs() < 1e-2, "{factor}: {position} != {target}");
+            assert!(
+                steps[0] / previous > 0.8 && steps[0] / previous <= 1.,
+                "{factor}: {previous} {steps:?}"
+            );
+            assert!(steps.iter().all(|s| *s <= 0.), "{factor}: {steps:?}");
+            assert!(
+                steps.windows(2).all(|w| w[1].abs() <= w[0].abs() + 1e-3),
+                "{factor}: {steps:?}"
+            );
         }
     }
 
