@@ -361,9 +361,6 @@ pub enum CompileError {
     /// Cannot write the generated file
     #[display("Cannot write the generated file: {_0}")]
     SaveError(std::io::Error),
-    /// The project file could not be read
-    #[display("{_0}")]
-    ProjectFileError(#[error(not(source))] String),
 }
 
 fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
@@ -562,7 +559,7 @@ pub fn compile_with_config(
     );
     let (path, project_file) =
         project_file::resolve_input(&manifest_path.join(relative_slint_file_path.as_ref()))
-            .map_err(CompileError::ProjectFileError)?;
+            .map_err(|error| CompileError::CompileError(vec![error]))?;
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
@@ -638,7 +635,7 @@ pub fn compile_with_output_path(
     config: CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
     let (slint_file, project_file) = project_file::resolve_input(input_slint_file_path.as_ref())
-        .map_err(CompileError::ProjectFileError)?;
+        .map_err(|error| CompileError::CompileError(vec![error]))?;
     compile_resolved(
         &slint_file,
         project_file.as_ref(),
@@ -1078,6 +1075,28 @@ fn project_file_discovery_loads_present_paths() {
         // The message for reading a directory differs per platform, so only pin that
         // it errors instead of being swallowed like a missing file.
         assert!(CompilerConfiguration::new().resolve_project_file(test_root).is_err());
+    });
+}
+
+#[test]
+fn project_file_errors_are_compilation_errors() {
+    use std::fs;
+
+    with_temp_test_dir("project-file-error", |test_root| {
+        let project_file = project_file_path_in(test_root);
+        fs::write(&project_file, "{}").unwrap();
+
+        let error = compile_with_output_path(
+            &project_file,
+            test_root.join("main.rs"),
+            CompilerConfiguration::new(),
+        )
+        .unwrap_err();
+
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        assert_eq!(messages, vec![format!("{} has no 'entry' to compile", project_file.display())]);
     });
 }
 
