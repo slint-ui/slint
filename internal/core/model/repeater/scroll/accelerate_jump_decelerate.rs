@@ -64,6 +64,15 @@ impl AccelerateJumpDecelerate {
         }
     }
 
+    /// Whether the Flickable still owns a simulation of this scroll.
+    pub(super) fn has_simulation(&self) -> bool {
+        match &self.phase {
+            Phase::Accelerating(_, simulation) => simulation.strong_count() > 0,
+            Phase::Decelerating(_, simulation) => simulation.strong_count() > 0,
+            Phase::PendingSmooth => false,
+        }
+    }
+
     pub fn should_jump(&self, viewport_height: Coord, distance: Coord) -> Option<Coord> {
         // The distance of the scroll, estimated unless its row is laid out,
         // and the edge that the row ends up at if the layout pass jumps.

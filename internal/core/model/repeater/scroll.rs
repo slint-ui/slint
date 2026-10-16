@@ -78,6 +78,19 @@ impl ScrollToRowRequest {
     }
 }
 
+/// A dropped request stops its smooth scroll, which would otherwise run on to a row that may no longer exist.
+impl Drop for ScrollToRowRequest {
+    fn drop(&mut self) {
+        if let ScrollAnimation::AccelerateJumpDecelerate(sim) = &self.animation
+            && sim.has_simulation()
+            && let Some(flickable_rc) = self.flickable.upgrade()
+            && let Some(flickable) = flickable_rc.downcast::<Flickable>()
+        {
+            flickable.as_pin_ref().stop_content_simulation(Dimension::Y);
+        }
+    }
+}
+
 /// Starts `simulation` on the `content-y` of `flickable`, which owns it.
 pub(super) fn start_simulation<S: Simulation + PositionSimulation + 'static>(
     flickable: &ItemWeak,

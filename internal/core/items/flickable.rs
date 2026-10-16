@@ -343,6 +343,12 @@ impl Flickable {
         weak
     }
 
+    /// Stops the simulation that [`Self::start_content_simulation`] started, and leaves the content where it is.
+    pub(crate) fn stop_content_simulation(self: Pin<&Self>, dimension: Dimension) {
+        self.data.inner.borrow_mut().running_animation = None;
+        self.content(dimension).remove_binding();
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
