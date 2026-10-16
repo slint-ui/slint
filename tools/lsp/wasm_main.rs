@@ -301,7 +301,7 @@ impl SlintServer {
                     &ctx.server_notifier,
                     uri,
                     version,
-                    diagnostics,
+                    diagnostics.into_iter().map(Into::into).collect(),
                 );
             }
             M::ShowDocument { file, selection, .. } => {

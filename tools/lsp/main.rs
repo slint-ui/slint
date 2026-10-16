@@ -874,7 +874,7 @@ async fn handle_preview_to_lsp_message(
                 &ctx.server_notifier,
                 uri,
                 version,
-                diagnostics,
+                diagnostics.into_iter().map(Into::into).collect(),
             );
         }
         M::ShowDocument { file, selection, take_focus } => {

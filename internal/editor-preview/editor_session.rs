@@ -975,7 +975,7 @@ pub fn convert_diagnostics(
         lsp_diags
             .entry(uri)
             .or_default()
-            .push(i_slint_live_preview::protocol::to_lsp_diagnostic(&d, format));
+            .push(i_slint_live_preview::protocol::to_preview_diagnostic(&d, format).into());
     }
 
     lsp_diags

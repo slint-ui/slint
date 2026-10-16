@@ -99,6 +99,8 @@ pub struct PreviewSession {
     dependencies: RefCell<HashSet<Url>>,
     /// Taken for the duration of a compilation, which is how a second one is refused.
     compiler: RefCell<Option<slint_interpreter::Compiler>>,
+    /// The files the running compilation read, with the version it read.
+    compiled_versions: RefCell<HashMap<Url, SourceFileVersion>>,
     configuration: RefCell<Option<PreviewConfig>>,
     to_editor: Rc<dyn PreviewToLsp>,
 }
@@ -137,6 +139,7 @@ impl PreviewSession {
             file_cache: Default::default(),
             dependencies: Default::default(),
             compiler: Default::default(),
+            compiled_versions: Default::default(),
             configuration: Default::default(),
             to_editor,
         });
@@ -337,7 +340,8 @@ impl PreviewSession {
                             format!("Not an absolute file path: {path}"),
                         )));
                     };
-                    Some(session.request_file(url).await.map(|file_content| {
+                    Some(session.request_file(url.clone()).await.map(|file_content| {
+                        session.compiled_versions.borrow_mut().insert(url, file_content.version);
                         String::from_utf8_lossy(&file_content.contents).to_string()
                     }))
                 })
@@ -392,6 +396,8 @@ impl PreviewSession {
             tracing::error!("Preview session is already compiling a component");
             return PreviewCompilation::Unavailable;
         };
+        *self.compiled_versions.borrow_mut() =
+            path.to_url().map(|url| (url, file.version)).into_iter().collect();
         // A dropped compilation must not take the compiler with it: a session without one
         // refuses every build that follows.
         let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
@@ -403,6 +409,7 @@ impl PreviewSession {
             )
             .await;
         drop(compiler);
+        let compiled_versions = self.compiled_versions.take();
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
@@ -411,7 +418,7 @@ impl PreviewSession {
             .collect();
 
         if compilation_result.has_errors() {
-            self.send_diagnostics(&compilation_result, &component.url);
+            self.send_diagnostics(&compilation_result, compiled_versions);
             let message = compilation_result
                 .diagnostics()
                 .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
@@ -434,7 +441,7 @@ impl PreviewSession {
             return PreviewCompilation::ComponentNotFound;
         };
 
-        self.send_diagnostics(&compilation_result, &component.url);
+        self.send_diagnostics(&compilation_result, compiled_versions);
         PreviewCompilation::Ready(CompiledPreview {
             compilation: Box::new(compilation_result.into_send()),
             component_name,
@@ -455,22 +462,19 @@ impl PreviewSession {
     fn send_diagnostics(
         &self,
         compilation_result: &slint_interpreter::CompilationResult,
-        uri: &Url,
+        compiled_versions: HashMap<Url, SourceFileVersion>,
     ) {
-        let message = PreviewToLspMessage::Diagnostics {
-            uri: uri.clone(),
-            version: None,
-            diagnostics: compilation_result
-                .diagnostics()
-                .map(|diagnostic| {
-                    crate::protocol::to_lsp_diagnostic(
-                        &diagnostic,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    )
-                })
-                .collect(),
+        use i_slint_compiler::diagnostics::ByteFormat;
+        let format = if self.configuration.borrow().as_ref().is_none_or(|config| config.format_utf8)
+        {
+            ByteFormat::Utf8
+        } else {
+            ByteFormat::Utf16
         };
-        self.send_to_editor(&message).ok();
+        let diagnostics: Vec<_> = compilation_result.diagnostics().collect();
+        let diagnostics =
+            crate::protocol::diagnostics_by_url(&diagnostics, compiled_versions, format);
+        self.to_editor.notify_diagnostics(diagnostics).ok();
     }
 }
 
@@ -657,6 +661,80 @@ fn install_debug_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::VersionedUrl;
+
+    #[derive(Default)]
+    struct RecordingEditor(RefCell<Vec<PreviewToLspMessage>>);
+
+    impl PreviewToLsp for RecordingEditor {
+        fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
+            self.0.borrow_mut().push(message.clone());
+            Ok(())
+        }
+    }
+
+    /// Used to send every diagnostic under the previewed file, with UTF-8 columns and no version.
+    #[tokio::test]
+    async fn diagnostics_go_to_the_file_and_version_they_are_in() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(RecordingEditor::default());
+                let (session, handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let error_line = r#"    in property <string> label: "Next →"; foo: 1;"#;
+                for message in [
+                    LspToPreviewMessage::SetConfiguration {
+                        config: PreviewConfig { format_utf8: false, ..Default::default() },
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(main.clone(), Some(3)),
+                        contents: br#"
+                            import { Imported } from "imported.slint";
+                            export component App inherits Window { Imported {} }
+                        "#
+                        .to_vec(),
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(imported.clone(), Some(7)),
+                        contents: format!("export component Imported {{\n{error_line}\n}}")
+                            .into_bytes(),
+                    },
+                ] {
+                    handle.handle_message(message).unwrap();
+                }
+
+                let component = PreviewComponent { url: main.clone(), component: None };
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::CompilationError { .. }
+                ));
+
+                let diagnostics: HashMap<_, _> = editor
+                    .0
+                    .take()
+                    .into_iter()
+                    .filter_map(|message| match message {
+                        PreviewToLspMessage::Diagnostics { uri, version, diagnostics } => {
+                            Some((uri, (version, diagnostics)))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(diagnostics[&main], (Some(3), Vec::new()));
+                let (version, imported_diagnostics) = &diagnostics[&imported];
+                assert_eq!(*version, Some(7));
+                let [error] = imported_diagnostics.as_slice() else {
+                    panic!("{imported_diagnostics:?}")
+                };
+                let utf16_column =
+                    error_line[..error_line.find("foo").unwrap()].encode_utf16().count();
+                assert_eq!(error.range.start, lsp_types::Position::new(1, utf16_column as u32));
+            })
+            .await;
+    }
 
     #[tokio::test]
     async fn empty_style_keeps_the_default_widget_style() {

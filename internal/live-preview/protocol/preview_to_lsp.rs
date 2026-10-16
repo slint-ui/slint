@@ -18,10 +18,33 @@ pub enum PreviewTarget {
     Dummy,
 }
 
+/// Remote viewers speak postcard, which can't decode `lsp_types::Diagnostic`:
+/// it needs a self-describing format such as JSON.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct PreviewDiagnostic {
+    pub range: lsp_types::Range,
+    pub severity: lsp_types::DiagnosticSeverity,
+    pub message: String,
+}
+
+impl From<PreviewDiagnostic> for lsp_types::Diagnostic {
+    fn from(diagnostic: PreviewDiagnostic) -> Self {
+        lsp_types::Diagnostic::new(
+            diagnostic.range,
+            Some(diagnostic.severity),
+            None,
+            None,
+            diagnostic.message,
+            None,
+            None,
+        )
+    }
+}
+
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<PreviewDiagnostic> },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
@@ -112,7 +135,7 @@ pub trait PreviewToLsp {
     /// Tell the editor about diagnostics
     fn notify_diagnostics(
         &self,
-        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)>,
+        diagnostics: HashMap<lsp_types::Url, (SourceFileVersion, Vec<PreviewDiagnostic>)>,
     ) -> Result<()> {
         for (uri, (version, diagnostics)) in diagnostics {
             self.send(&PreviewToLspMessage::Diagnostics { uri, version, diagnostics })?;
