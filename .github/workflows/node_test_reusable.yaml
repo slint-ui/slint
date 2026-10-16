@@ -52,6 +52,18 @@ jobs:
               # binary and are covered by the registry e2e test (publish gate).
               run: pnpm build:testing
               working-directory: api/node
+            - name: Check that the binary doesn't link the LinuxKMS libraries
+              # The backend loads them at run-time, see internal/backends/linuxkms/dlopen.rs.
+              if: runner.os == 'Linux'
+              working-directory: api/node
+              run: |
+                  needed=$(readelf -d slint-ui.*.node | grep NEEDED)
+                  echo "$needed"
+                  if grep -E 'lib(input|udev|xkbcommon|gbm)\.so' <<<"$needed"; then
+                      nm -D --undefined-only slint-ui.*.node | grep -E ' (libinput|udev|xkb|gbm)_' || true
+                      echo "::error::Add the functions listed above to internal/backends/linuxkms/dlopen.rs"
+                      exit 1
+                  fi
             - name: Type-check tests and registry e2e fixtures
               # Type-checked here (not in the standalone typecheck job) because the
               # specs and fixtures resolve slint-ui's types, which depend on the

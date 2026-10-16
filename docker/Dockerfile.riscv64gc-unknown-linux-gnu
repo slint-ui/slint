@@ -23,6 +23,7 @@ RUN mkdir -p /sysroot/usr/lib /sysroot/usr/share && \
     cp -a /usr/include /sysroot/usr/ && \
     cp -a /usr/lib/riscv64-linux-gnu /usr/lib/gcc /usr/lib/ld-linux-riscv64-lp64d.so.1 /sysroot/usr/lib/ && \
     cp -a /usr/share/pkgconfig /sysroot/usr/share/ && \
+    mkdir -p /sysroot/var/lib/dpkg && cp /var/lib/dpkg/status /sysroot/var/lib/dpkg/ && \
     ln -s usr/lib /sysroot/lib && \
     find /sysroot -type l -lname '/*' -exec sh -c 'ln -sfr "/sysroot$(readlink "$1")" "$1"' _ {} \;
 
@@ -41,6 +42,11 @@ RUN apt-get update && \
     git config --global safe.directory '*'
 
 COPY --from=sysroot /sysroot /sysroot
+
+# For adding more target packages to the sysroot, see the script.
+COPY docker/sysroot-apt-install.sh /usr/local/bin/sysroot-apt-install
+ENV SYSROOT_DEB_ARCH=riscv64 \
+    SYSROOT_APT_URI=http://ports.ubuntu.com/ubuntu-ports
 
 ENV CROSS_SYSROOT=/sysroot \
     CROSS_MULTIARCH=riscv64-linux-gnu \

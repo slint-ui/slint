@@ -29,9 +29,13 @@ backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-libseat = ["slint-interpreter/backend-linuxkms-libseat"]
-backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
+backend-linuxkms = [
+  "slint-interpreter/backend-linuxkms",
+  "dep:i-slint-backend-linuxkms",
+  "i-slint-backend-linuxkms/dlopen",
+]
+backend-linuxkms-libseat = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libseat"]
+backend-linuxkms-libinput = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libinput"]
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -72,6 +76,9 @@ smol_str = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 libloading = "0.9"
 async-io = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 libloading = "0.9"

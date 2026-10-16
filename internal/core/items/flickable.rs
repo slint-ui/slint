@@ -1147,7 +1147,7 @@ impl FlickableDataInner {
             }
             let content = flick.content(dimension);
 
-            let flick_velocity = if deflection < 0. { 1. } else { -1. };
+            let flick_velocity = 1f32.copysign(-deflection);
             let limit = FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension);
 
             Some(if cfg!(target_os = "ios") {

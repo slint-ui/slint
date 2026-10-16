@@ -163,8 +163,9 @@ jobs:
                   retention-days: 7
 
     # For changes to the test cases, do a quick test on Linux for Node.js only.
+    # LinuxKMS changes can add a run-time loaded library to the binary's dependencies.
     node_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'linuxkms_backend') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"

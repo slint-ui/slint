@@ -65,7 +65,7 @@ impl LayoutWithoutLineBreaksBuilder {
     fn ranged_builder<'a>(
         &self,
         layout_ctx: &'a mut parley::LayoutContext<Brush>,
-        font_ctx: &'a mut parley::FontContext,
+        font_ctx: &'a mut FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
         // Use the requested font's natural line-height ratio for every run so fallback fonts,
@@ -74,7 +74,8 @@ impl LayoutWithoutLineBreaksBuilder {
         let line_height_ratio =
             self.font_request.as_ref().and_then(|fr| line_height_ratio(font_ctx, fr));
 
-        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
+        let mut builder =
+            layout_ctx.ranged_builder(&mut font_ctx.inner, text, self.scale_factor.get(), false);
 
         if let Some(ratio) = line_height_ratio {
             builder.push_default(parley::StyleProperty::LineHeight(
@@ -161,7 +162,7 @@ impl LayoutWithoutLineBreaksBuilder {
     /// [`SelectionSpan`].
     pub(super) fn build(
         &self,
-        font_context: &mut parley::FontContext,
+        font_context: &mut FontContext,
         text: &str,
         formatting: impl IntoIterator<Item = i_slint_common::styled_text::FormattedSpan>,
         link_color: Option<Color>,
@@ -242,19 +243,11 @@ impl LayoutWithoutLineBreaksBuilder {
 
 /// The line-height ratio, relative to the font size, that every shaped line gets.
 pub(super) fn line_height_ratio(
-    font_ctx: &mut parley::FontContext,
+    font_ctx: &mut FontContext,
     font_request: &FontRequest,
 ) -> Option<f32> {
-    let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
-    let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
-    let location = face.axes().location(font.synthesis.variation_settings());
-    let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
-    let units_per_em = metrics.units_per_em as f32;
-    (units_per_em > 0.0)
-        .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
-        .map(|natural_ratio| {
-            font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio)
-        })
+    let natural_ratio = font_ctx.query_font(font_request)?.natural_line_height_ratio?;
+    Some(font_request.line_height_for_natural_height(natural_ratio).unwrap_or(natural_ratio))
 }
 
 /// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
@@ -272,12 +265,12 @@ pub(super) fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>>
 
 pub(super) fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
-    font_context: &mut parley::FontContext,
+    font_context: &mut FontContext,
     text: PlainOrStyledText,
     link_color: Color,
 ) -> Vec<TextParagraph> {
     let paragraph_from_text =
-        |font_context: &mut parley::FontContext,
+        |font_context: &mut FontContext,
          text: &str,
          range: std::ops::Range<usize>,
          formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
@@ -382,7 +375,7 @@ pub(super) fn shape_paragraphs(
     item_rc: Option<&crate::item_tree::ItemRc>,
     text_wrap: TextWrap,
     scale_factor: ScaleFactor,
-    font_context: &mut parley::FontContext,
+    font_context: &mut FontContext,
 ) -> Vec<TextParagraph> {
     let builder = shaping_builder(text, item_rc, text_wrap, scale_factor);
     create_text_paragraphs(&builder, font_context, text.text(), text.link_color())

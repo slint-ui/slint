@@ -89,6 +89,13 @@ pub struct Backend {
 
 impl Backend {
     pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
+        #[cfg(all(feature = "dlopen", feature = "libinput", not(test)))]
+        {
+            crate::dlopen::libudev::load()?;
+            crate::dlopen::libinput::load()?;
+            crate::dlopen::xkbcommon::load()?;
+        }
+
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
         let renderer_factory = match builder.renderer_name.as_deref() {

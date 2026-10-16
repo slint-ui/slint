@@ -73,6 +73,11 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
     let ui = EditorUi::new()?;
+    let weak = ui.as_weak();
+    ui.global::<Api>().on_window_active(move || {
+        weak.upgrade()
+            .is_some_and(|ui| i_slint_core::window::WindowInner::from_pub(ui.window()).active())
+    });
     let cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
     ui.global::<EditorCursors>().on_rotation_image(move |angle| {
         let angle = angle.round().rem_euclid(360.0) as i32;
@@ -231,7 +236,6 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
-    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_reset_selected_element_border_radius(super::reset_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
@@ -268,31 +272,25 @@ pub fn initialize_editor(
     api.on_set_element_id(super::set_element_id);
     api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
-    let property_api_weak = api_weak.clone();
-    api.on_current_property_value_data(move |property_name| {
-        let Some(api) = property_api_weak.upgrade() else {
-            return PropertyValue::default();
-        };
-
-        current_property_value_data(&api, property_name).unwrap_or_default()
-    });
+    property_view::setup(editor_ui, &api);
+    super::inline_text_edit::setup(editor_ui);
     let color_field_api_weak = api_weak.clone();
-    api.on_current_color_field_data(move |property_name| {
+    api.on_source_color_field_data(move |property_name| {
         let Some(api) = color_field_api_weak.upgrade() else {
             return ColorFieldData::default();
         };
 
-        current_property_value_data(&api, property_name)
+        source_property_value_data(&api, property_name)
             .map(brushes::color_field_data)
             .unwrap_or_default()
     });
     let property_value_api_weak = api_weak.clone();
-    api.on_current_property_value(move |property_name, fallback| {
+    api.on_source_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {
             return fallback;
         };
 
-        current_property_value(&api, property_name, fallback)
+        source_property_value(&api, property_name, fallback)
     });
     api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
@@ -357,6 +355,25 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
 
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
+}
+
+pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::ComponentInstance) {
+    let item =
+        i_slint_core::items::ItemRc::new_root(instance.as_item_tree(i_slint_core::InternalToken));
+    let font = i_slint_core::items::WindowItem::resolved_font_request(
+        &item,
+        SharedString::default(),
+        0,
+        i_slint_core::lengths::LogicalLength::default(),
+        i_slint_core::lengths::LogicalLength::default(),
+        1.0,
+        false,
+    );
+    api.set_preview_default_font_family(font.family.unwrap_or_default());
+    api.set_preview_default_font_size(
+        font.pixel_size.unwrap_or(i_slint_core::textlayout::DEFAULT_FONT_SIZE).get(),
+    );
+    api.set_preview_default_font_weight(font.weight.unwrap_or_default());
 }
 
 pub fn ui_set_known_components(
@@ -484,7 +501,7 @@ fn to_ui_range(r: TextRange) -> Option<Range> {
     })
 }
 
-fn convert_simple_string(input: SharedString) -> SharedString {
+pub(super) fn convert_simple_string(input: SharedString) -> SharedString {
     slint::format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 
@@ -1186,10 +1203,7 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
-fn current_property_value_data(
-    api: &Api<'_>,
-    property_name: SharedString,
-) -> Option<PropertyValue> {
+fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
     let groups = api.get_properties();
     groups.model_tracker().track_row_count_changes();
     for (group_index, group) in groups.iter().enumerate() {
@@ -1206,12 +1220,12 @@ fn current_property_value_data(
     None
 }
 
-fn current_property_value(
+fn source_property_value(
     api: &Api<'_>,
     property_name: SharedString,
     fallback: SharedString,
 ) -> SharedString {
-    let Some(property) = current_property_value_data(api, property_name) else {
+    let Some(property) = source_property_value_data(api, property_name) else {
         return fallback;
     };
 
@@ -1630,7 +1644,7 @@ mod tests {
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
             ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
         ] {
-            api.on_current_property_value_data(move |_| PropertyValue {
+            api.on_source_property_value_data(move |_, _| PropertyValue {
                 code: code.into(),
                 kind,
                 value_kind,
@@ -1638,6 +1652,266 @@ mod tests {
                 ..Default::default()
             });
             assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+        }
+    }
+
+    fn shadow_test_editor(inner: bool) -> super::EditorUi {
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///shadow.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        let weak = editor.as_weak();
+        api.on_source_property_value_data(move |name, _| {
+            if !name.starts_with(if inner { "inner-shadow-" } else { "drop-shadow-" }) {
+                return PropertyValue::default();
+            }
+            let editor = weak.unwrap();
+            let refreshed = editor.global::<super::Api>().get_inspector_generation() > 0;
+            PropertyValue {
+                code: "24px".into(),
+                kind: PropertyValueKind::Float,
+                value_float: if name.ends_with("shadow-offset-x") && refreshed { 44. } else { 24. },
+                ..Default::default()
+            }
+        });
+        api.on_inspector_preview_shadow(|_, _| true);
+        editor.global::<super::ShadowSession>().invoke_begin(
+            Default::default(),
+            Default::default(),
+            inner,
+        );
+        editor
+    }
+
+    #[test]
+    fn shadow_canvas_deltas_do_not_change_numeric_value_mapping() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let session = editor.global::<super::ShadowSession>();
+            let typed =
+                session.invoke_updated(session.get_values(), super::ShadowGesture::Blur, 36., 0.);
+            assert_eq!(typed.blur, 36.);
+            let moved =
+                session.invoke_moved(session.get_values(), super::ShadowGesture::Blur, 99., 8., 2.);
+            assert_eq!(moved.blur, if inner { 40. } else { 8. });
+            let moved = session.invoke_moved(
+                session.get_values(),
+                super::ShadowGesture::Spread,
+                8.,
+                99.,
+                1.,
+            );
+            assert_eq!(moved.spread, if inner { 16. } else { 32. });
+            let moved = session.invoke_moved(
+                session.get_values(),
+                super::ShadowGesture::Offset,
+                3.,
+                -4.,
+                1.,
+            );
+            assert_eq!((moved.offset_x, moved.offset_y), (27., 20.));
+        }
+    }
+
+    #[test]
+    fn shadow_commit_waits_for_a_complete_source_snapshot() {
+        i_slint_backend_testing::init_no_event_loop();
+        for (inner, version_first) in [(false, false), (false, true), (true, false), (true, true)] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            assert!(session.get_pending());
+            session.invoke_source_refreshed();
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_pending());
+            let version = || {
+                let mut element = api.get_current_element();
+                element.source_version += 1;
+                api.set_current_element(element);
+            };
+            if version_first {
+                version();
+            }
+            assert_eq!(session.get_values().offset_x, 44.);
+            api.set_inspector_generation(1);
+            if !version_first {
+                version();
+            }
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_pending());
+            session.invoke_source_refreshed();
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+        }
+    }
+
+    #[test]
+    fn shadow_noop_and_rejected_commits_do_not_wait_for_source_changes() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for result in
+                [super::InspectorCommitResult::Unchanged, super::InspectorCommitResult::Rejected]
+            {
+                let editor = shadow_test_editor(inner);
+                let api = editor.global::<super::Api>();
+                let session = editor.global::<super::ShadowSession>();
+                api.on_inspector_commit_shadow(move |_, _| result);
+                let mut draft = session.get_values();
+                draft.offset_x = 44.;
+                assert_eq!(
+                    session.invoke_commit(super::ShadowGesture::Offset, draft),
+                    result == super::InspectorCommitResult::Unchanged
+                );
+                assert_eq!(session.get_values().offset_x, 24.);
+                assert!(session.get_canvas_active());
+                assert!(!session.get_pending());
+            }
+        }
+    }
+
+    #[test]
+    fn shadow_rejected_workspace_application_releases_the_pending_draft() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+                state.editor_ui = Some(editor.clone_strong());
+                state.workspace_edit_sent = true;
+            });
+            super::super::inspector::workspace_edit_finished(Default::default(), false);
+            assert_eq!(session.get_values().offset_x, 24.);
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
+        }
+    }
+
+    #[test]
+    fn shadow_click_while_a_commit_is_pending_does_not_resubmit() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            let commits = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = commits.clone();
+            api.on_inspector_commit_shadow(move |_, _| {
+                count.set(count.get() + 1);
+                super::InspectorCommitResult::Pending
+            });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            slint::platform::update_timers_and_animations();
+            let handle = find_element(&editor, "Shadow offset handle");
+            let position = LogicalPosition::new(
+                handle.absolute_position().x + handle.size().width / 2.,
+                handle.absolute_position().y + handle.size().height / 2.,
+            );
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+            assert_eq!(commits.get(), 1);
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_open());
+            session.invoke_start(super::ShadowGesture::Blur, false);
+            assert!(!session.get_dragging());
+            assert!(!session.invoke_preview(session.get_values()));
+            assert!(session.get_open());
+            assert_eq!(session.get_values().offset_x, 44.);
+            api.set_inspector_generation(1);
+            session.invoke_source_refreshed();
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+            slint::platform::update_timers_and_animations();
+            let handle = find_element(&editor, "Shadow offset handle");
+            let position = LogicalPosition::new(
+                handle.absolute_position().x + handle.size().width / 2.,
+                handle.absolute_position().y + handle.size().height / 2.,
+            );
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+            assert_eq!(commits.get(), 1);
+        }
+    }
+
+    #[test]
+    fn shadow_guides_reset_when_the_window_loses_focus_to_another_app() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for shift in [slint::platform::Key::Shift, slint::platform::Key::ShiftR] {
+                let editor = shadow_test_editor(inner);
+                editor.show().unwrap();
+                editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+                slint::platform::update_timers_and_animations();
+                let handle = find_element(&editor, "Shadow offset handle");
+                let position = LogicalPosition::new(
+                    handle.absolute_position().x + handle.size().width / 2.,
+                    handle.absolute_position().y + handle.size().height / 2.,
+                );
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position,
+                    button: PointerEventButton::Left,
+                });
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position,
+                    button: PointerEventButton::Left,
+                });
+                let guide_count = || {
+                    i_slint_backend_testing::ElementHandle::find_by_element_id(
+                        &editor,
+                        "ShadowOverlay::guide",
+                    )
+                    .count()
+                };
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::KeyPressed { text: shift.into() });
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 2);
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::KeyPressed { text: shift.into() });
+                editor.window().dispatch_event(WindowEvent::KeyReleased { text: shift.into() });
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+            }
         }
     }
 
@@ -1838,7 +2112,7 @@ mod tests {
             }]))
             .into()
         });
-        api.on_current_property_value_data(move |name| {
+        api.on_source_property_value_data(move |name, _| {
             let Some(&(_, radius)) =
                 radius_properties.iter().find(|(property, _)| *property == name.as_str())
             else {

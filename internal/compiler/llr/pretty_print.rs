@@ -5,9 +5,8 @@ use std::fmt::{Display, Result, Write};
 
 use itertools::{Either, Itertools};
 
-use crate::expression_types::MinMaxOp;
+use crate::expression_types::{MinMaxOp, Orientation};
 use crate::langtype::{StructName, Type};
-use crate::layout::Orientation;
 use crate::llr::debug_info::ItemDebugInfo;
 
 use super::{

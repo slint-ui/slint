@@ -469,6 +469,15 @@ impl DrmOutput {
         }
     }
 
+    #[cfg(feature = "gbm")]
+    pub fn create_gbm_device(&self) -> Result<gbm::Device<SharedFd>, PlatformError> {
+        #[cfg(all(feature = "dlopen", not(test)))]
+        crate::dlopen::gbm::load()?;
+
+        gbm::Device::new(self.drm_device.clone())
+            .map_err(|e| format!("Error creating gbm device: {e}").into())
+    }
+
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)

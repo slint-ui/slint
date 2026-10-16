@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inotify unwatch
+// cSpell: ignore inotify rescan rescanning unwatch
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
 /// A normalized file-system change emitted by [`FileWatcher`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -57,6 +58,12 @@ pub trait FileWatcherImpl: Sized + 'static {
     /// Whether the implementation needs to watch target files directly in order to receive change
     /// events, or if watching parent directories is sufficient.
     fn needs_direct_file_watches() -> bool;
+
+    /// How long to wait after a watch change before rescanning the watched files,
+    /// for an implementation that may not report a change made right after a watch change.
+    fn rescan_delay() -> Option<Duration> {
+        None
+    }
 }
 
 impl FileWatcherImpl for notify::RecommendedWatcher {
@@ -92,6 +99,12 @@ impl FileWatcherImpl for notify::RecommendedWatcher {
         // On macOS, notify does not report file changed events, if we only watch the parent
         // directory, so we need to add a direct file watch as well.
         cfg!(target_os = "macos")
+    }
+
+    fn rescan_delay() -> Option<Duration> {
+        // notify's FSEvents backend restarts its stream "since now" on every watch change,
+        // and a change made right after the restart may never be reported.
+        cfg!(target_os = "macos").then_some(Duration::from_millis(200))
     }
 }
 
@@ -283,8 +296,15 @@ enum WorkerMessage<Impl: FileWatcherImpl> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum TargetState {
-    Existing { probe_dir: Option<PathBuf> },
-    Missing { probe_dir: Option<PathBuf> },
+    /// The modification time and size tell that the file changed without an event.
+    Existing {
+        probe_dir: Option<PathBuf>,
+        modified: Option<std::time::SystemTime>,
+        len: u64,
+    },
+    Missing {
+        probe_dir: Option<PathBuf>,
+    },
 }
 
 impl TargetState {
@@ -294,7 +314,7 @@ impl TargetState {
 
     fn probe_dir(&self) -> Option<&PathBuf> {
         match self {
-            Self::Existing { probe_dir } | Self::Missing { probe_dir } => probe_dir.as_ref(),
+            Self::Existing { probe_dir, .. } | Self::Missing { probe_dir } => probe_dir.as_ref(),
         }
     }
 }
@@ -306,6 +326,7 @@ struct WorkerState {
     target_states: HashMap<PathBuf, TargetState>,
     /// The set of actually registered watch paths, which may include probe directories and/or directly watched files.
     registered_watches: HashSet<PathBuf>,
+    watches_changed: bool,
 }
 
 impl WorkerState {
@@ -358,6 +379,7 @@ impl WorkerState {
         // that reconcile watches whatever is at the path now.
         for (path, kind) in &events {
             if *kind == FileChangeKind::Deleted && self.registered_watches.remove(path) {
+                self.watches_changed = true;
                 match watcher.unwatch(path) {
                     Ok(()) => {}
                     Err(err) if Impl::is_transient_watch_error(&err) => {}
@@ -375,11 +397,20 @@ impl WorkerState {
         self.reconcile(watcher, previous_states, changed_paths, on_event)
     }
 
+    fn rescan<Impl: FileWatcherImpl>(
+        &mut self,
+        watcher: &mut Impl,
+        on_event: &mut impl FnMut(WatchEvent),
+    ) -> Result<(), Impl::Error> {
+        let previous_states = std::mem::take(&mut self.target_states);
+        self.reconcile(watcher, previous_states, HashSet::new(), on_event)
+    }
+
     fn reconcile<Impl: FileWatcherImpl>(
         &mut self,
         watcher: &mut Impl,
         previous_states: HashMap<PathBuf, TargetState>,
-        changed_paths: HashSet<PathBuf>,
+        mut changed_paths: HashSet<PathBuf>,
         on_event: &mut impl FnMut(WatchEvent),
     ) -> Result<(), Impl::Error> {
         const MAX_RECONCILE_PASSES: usize = 8;
@@ -400,10 +431,13 @@ impl WorkerState {
 
         let mut transitioned_paths = HashSet::new();
         for path in &self.watched_files {
-            let previous = previous_states.get(path).map(TargetState::exists).unwrap_or(false);
-            let current = self.target_states.get(path).map(TargetState::exists).unwrap_or(false);
+            let previous = previous_states.get(path);
+            let current = self.target_states.get(path);
 
-            match (previous, current) {
+            match (
+                previous.is_some_and(TargetState::exists),
+                current.is_some_and(TargetState::exists),
+            ) {
                 (false, true) => {
                     transitioned_paths.insert(path.clone());
                     on_event(WatchEvent { path: path.clone(), kind: FileChangeKind::Created });
@@ -411,6 +445,9 @@ impl WorkerState {
                 (true, false) => {
                     transitioned_paths.insert(path.clone());
                     on_event(WatchEvent { path: path.clone(), kind: FileChangeKind::Deleted });
+                }
+                (true, true) if previous != current => {
+                    changed_paths.insert(path.clone());
                 }
                 _ => {}
             }
@@ -440,6 +477,7 @@ impl WorkerState {
             match watcher.watch(registration) {
                 Ok(()) => {
                     self.registered_watches.insert(registration.clone());
+                    self.watches_changed = true;
                 }
                 Err(err) if Impl::is_transient_watch_error(&err) => {}
                 Err(err) => return Err(err),
@@ -453,6 +491,7 @@ impl WorkerState {
                 Err(err) => return Err(err),
             }
             self.registered_watches.remove(registration);
+            self.watches_changed = true;
         }
 
         Ok(())
@@ -500,17 +539,29 @@ fn worker_loop<Impl: FileWatcherImpl>(
     };
 
     let mut state = WorkerState::default();
+    let mut rescan_at: Option<Instant> = None;
 
-    while let Ok(message) = rx.recv() {
+    loop {
+        let message = match rescan_at {
+            Some(deadline) => rx.recv_timeout(deadline.saturating_duration_since(Instant::now())),
+            None => rx.recv().map_err(mpsc::RecvTimeoutError::from),
+        };
         match message {
-            WorkerMessage::UpdateWatchedPaths { watched_files, response } => {
+            Err(mpsc::RecvTimeoutError::Disconnected) | Ok(WorkerMessage::Shutdown) => break,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                rescan_at = None;
+                if let Err(err) = state.rescan(&mut watcher, &mut on_event) {
+                    on_error(err);
+                }
+            }
+            Ok(WorkerMessage::UpdateWatchedPaths { watched_files, response }) => {
                 let _ = response.send(state.update_watched_paths(
                     &mut watcher,
                     watched_files,
                     &mut on_event,
                 ));
             }
-            WorkerMessage::FileSystemEvents(Ok(event)) => {
+            Ok(WorkerMessage::FileSystemEvents(Ok(event))) => {
                 if let Err(err) = state.handle_events(
                     &mut watcher,
                     event,
@@ -520,12 +571,16 @@ fn worker_loop<Impl: FileWatcherImpl>(
                     on_error(err);
                 }
             }
-            WorkerMessage::FileSystemEvents(Err(err)) => {
+            Ok(WorkerMessage::FileSystemEvents(Err(err))) => {
                 if !Impl::is_transient_watch_error(&err) {
                     on_error(err);
                 }
             }
-            WorkerMessage::Shutdown => break,
+        }
+        if std::mem::take(&mut state.watches_changed)
+            && let Some(delay) = Impl::rescan_delay()
+        {
+            rescan_at = Some(Instant::now() + delay);
         }
     }
 }
@@ -535,11 +590,13 @@ fn scan_target_states(watched_files: &HashSet<PathBuf>) -> HashMap<PathBuf, Targ
 }
 
 fn scan_target_state(path: &Path) -> TargetState {
-    let probe_dir = probe_dir_for_path(path);
-    if path.exists() {
-        TargetState::Existing { probe_dir }
-    } else {
-        TargetState::Missing { probe_dir }
+    match std::fs::metadata(path) {
+        Ok(metadata) => TargetState::Existing {
+            probe_dir: probe_dir_for_path(path, true),
+            modified: metadata.modified().ok(),
+            len: metadata.len(),
+        },
+        Err(_) => TargetState::Missing { probe_dir: probe_dir_for_path(path, false) },
     }
 }
 
@@ -563,8 +620,8 @@ fn desired_watches_for_states<Impl: FileWatcherImpl>(
     watches
 }
 
-fn probe_dir_for_path(path: &Path) -> Option<PathBuf> {
-    if path.exists() {
+fn probe_dir_for_path(path: &Path, exists: bool) -> Option<PathBuf> {
+    if exists {
         let parent = path.parent()?;
         parent.is_dir().then(|| i_slint_compiler::source_path::clean_path(parent))
     } else {
@@ -736,6 +793,72 @@ mod tests {
 
             self.assert_no_errors();
         }
+    }
+
+    /// A backend that never reports a change, see `rescan_delay` of `notify::RecommendedWatcher`.
+    struct DeafWatcher;
+
+    impl FileWatcherImpl for DeafWatcher {
+        type Error = notify::Error;
+
+        fn watch(&mut self, _path: &Path) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn unwatch(&mut self, _path: &Path) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
+        fn worker_stopped_error() -> Self::Error {
+            notify::Error::generic("file watcher worker thread stopped")
+        }
+
+        fn is_transient_watch_error(_err: &Self::Error) -> bool {
+            false
+        }
+
+        fn needs_direct_file_watches() -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn rescan_reports_what_the_backend_misses() {
+        let root = tempfile::Builder::new().prefix("slint-file-watcher-").tempdir().unwrap();
+        let watched = root.path().join("main.slint");
+        let mut state = WorkerState::default();
+        let rescan = |state: &mut WorkerState| {
+            let mut events = Vec::new();
+            state.rescan(&mut DeafWatcher, &mut |event| events.push(event)).unwrap();
+            events
+        };
+
+        let mut events = Vec::new();
+        state
+            .update_watched_paths(
+                &mut DeafWatcher,
+                HashSet::from([watched.clone()]),
+                &mut |event| events.push(event),
+            )
+            .unwrap();
+        assert_eq!(events, []);
+        assert!(state.watches_changed, "a watch change must schedule a rescan");
+
+        fs::write(&watched, "created").unwrap();
+        assert_eq!(
+            rescan(&mut state),
+            [WatchEvent { path: watched.clone(), kind: FileChangeKind::Created }]
+        );
+
+        fs::write(&watched, "changed, and longer").unwrap();
+        assert_eq!(
+            rescan(&mut state),
+            [WatchEvent { path: watched.clone(), kind: FileChangeKind::Changed }]
+        );
+
+        // A new sibling changes the modification time of the directory, not of the watched file.
+        fs::write(root.path().join("sibling.slint"), "sibling").unwrap();
+        assert_eq!(rescan(&mut state), []);
     }
 
     #[test]
