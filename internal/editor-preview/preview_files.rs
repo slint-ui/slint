@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore avif svgz ttc
+// cSpell: ignore automounted avif svgz ttc
 
 //! Which files on the developer's machine a preview may ask for.
 //!
@@ -38,6 +38,8 @@ pub(crate) struct PreviewFileAccess {
     /// documents already loaded (which covers editing a file outside any
     /// workspace).
     roots: HashSet<PathBuf>,
+    /// The `roots` as the documents and the configuration spell them, before resolving symlinks.
+    lexical_roots: HashSet<PathBuf>,
     /// Every file the compiler loaded for this project. Sources aren't required
     /// to be named `.slint`, so this is what says a file belongs to the project
     /// rather than its name does.
@@ -71,20 +73,29 @@ impl PreviewFileAccess {
         candidates
             .extend(project_files.iter().filter_map(|path| path.parent()).map(Path::to_path_buf));
 
-        let roots = candidates
+        let (lexical_roots, roots) = candidates
             .iter()
             .filter_map(|path| {
                 // Canonical, so that comparing against a requested path can't
                 // be sidestepped with `..` or a symlink.
-                let path = path.canonicalize().ok()?;
+                let canonical = path.canonicalize().ok()?;
                 // A candidate given as a file — a library mapped to a single
                 // `.slint` — stands for the directory it sits in, which is the
                 // unit the rest of that library lives in.
-                if path.is_dir() { Some(path) } else { Some(path.parent()?.to_path_buf()) }
+                if canonical.is_dir() {
+                    Some((clean_path(path), canonical))
+                } else {
+                    Some((clean_path(path.parent()?), canonical.parent()?.to_path_buf()))
+                }
             })
-            .collect();
+            .unzip();
 
-        Self { roots, project_files, referenced_resources: referenced_resources(document_cache) }
+        Self {
+            roots,
+            lexical_roots,
+            project_files,
+            referenced_resources: referenced_resources(document_cache),
+        }
     }
 
     /// Whether a preview may be sent the contents of `path`, read from disk.
@@ -103,13 +114,17 @@ impl PreviewFileAccess {
         if self.referenced_resources.contains(&cleaned) {
             return true;
         }
+        // Canonicalizing a UNC or an automounted path contacts the host it names.
+        if !self.lexical_roots.iter().chain(&self.roots).any(|root| cleaned.starts_with(root)) {
+            return false;
+        }
         let Ok(canonical) = path.canonicalize() else {
             return false;
         };
         if !self.roots.iter().any(|root| canonical.starts_with(root)) {
             return false;
         }
-        self.project_files.contains(&cleaned) || is_asset(path)
+        self.project_files.contains(&cleaned) || is_asset(&canonical)
     }
 }
 
@@ -185,6 +200,40 @@ mod tests {
         assert!(!access.allows(&traversal));
 
         assert!(!access.allows(&root.path().join("missing.png")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_path_outside_the_roots_before_resolving_it() {
+        let root = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("logo.png"), []).unwrap();
+        let link = elsewhere.path().join("link");
+        std::os::unix::fs::symlink(root.path(), &link).unwrap();
+        let preview_config =
+            PreviewConfig { include_paths: vec![root.path().to_path_buf()], ..Default::default() };
+        let access = access(preview_config, &empty_document_cache());
+
+        assert!(access.allows(&root.path().join("logo.png")));
+        assert!(!access.allows(&link.join("logo.png")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn judges_an_asset_by_the_file_it_resolves_to() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join(".env"), "TOKEN=42").unwrap();
+        std::fs::write(root.path().join("logo-v2.png"), []).unwrap();
+        let disguised = root.path().join("icon.png");
+        let logo = root.path().join("logo.png");
+        std::os::unix::fs::symlink(".env", &disguised).unwrap();
+        std::os::unix::fs::symlink("logo-v2.png", &logo).unwrap();
+        let preview_config =
+            PreviewConfig { include_paths: vec![root.path().to_path_buf()], ..Default::default() };
+        let access = access(preview_config, &empty_document_cache());
+
+        assert!(!access.allows(&disguised));
+        assert!(access.allows(&logo));
     }
 
     #[test]
