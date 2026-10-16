@@ -145,7 +145,7 @@ impl DrawTextureArgs {
                         size,
                     ),
                     SharedBufferData::AlphaMap { data, .. } => TextureData::new(
-                        &data[start..end],
+                        &data.as_slice()[start..end],
                         TexturePixelFormat::AlphaMap,
                         stride,
                         size,
