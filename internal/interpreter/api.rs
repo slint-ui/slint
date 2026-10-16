@@ -1292,6 +1292,31 @@ const _: () = {
     assert_send::<SendableCompilationResult>();
 };
 
+/// This is an internal function without API stability guarantees.
+/// Converts `resource` into the form the renderer takes, and keeps it under `key` for the
+/// units that refer to it as `EmbeddedResource::Registered(key)`, see
+/// [`CompilationResult::from_compilation_unit()`].
+/// Only the converted form stays in memory, until [`retain_embedded_resources()`] drops it.
+/// Nothing is converted if `key` is known already.
+#[doc(hidden)]
+#[cfg(feature = "internal")]
+pub fn register_embedded_resource(
+    key: u64,
+    resource: i_slint_compiler::embedded_resources::EmbeddedResource,
+    _: i_slint_core::InternalToken,
+) {
+    crate::static_resources::register(key, resource)
+}
+
+/// This is an internal function without API stability guarantees.
+/// Keeps only the resources [`register_embedded_resource()`] registered under `keys`.
+/// The others are freed once no design uses them anymore.
+#[doc(hidden)]
+#[cfg(feature = "internal")]
+pub fn retain_embedded_resources(keys: &[u64], _: i_slint_core::InternalToken) {
+    crate::static_resources::retain(keys)
+}
+
 impl From<SendableCompilationResult> for CompilationResult {
     fn from(sent: SendableCompilationResult) -> Self {
         let SendableCompilationResult {

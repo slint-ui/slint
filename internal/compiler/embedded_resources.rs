@@ -109,6 +109,9 @@ pub enum EmbeddedResource {
     NotInUnit,
     Texture(Texture),
     BitmapFont(BitmapFont),
+    /// A resource that the interpreter holds under this key, for a unit read with
+    /// [`crate::llr::serialize::from_bytes_with_registered_resources()`].
+    Registered(u64),
 }
 
 #[derive(Debug, Clone)]
