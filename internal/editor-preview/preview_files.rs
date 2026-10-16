@@ -221,6 +221,26 @@ mod tests {
         assert_eq!(served, 2, "both requested files should have been served: {recorded:?}");
     }
 
+    // On Windows, such a URL is a UNC path.
+    #[cfg(not(windows))]
+    #[test]
+    fn refuses_a_url_on_another_host() {
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.replace_preview_transport(0, capture);
+        let url = lsp_types::Url::parse("file://example.com/share/logo.png").unwrap();
+
+        session.send_files_to_preview(0, std::slice::from_ref(&url), &[]);
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::ForgetFile { url: refused }] if refused == &url),
+            "{recorded:?}"
+        );
+    }
+
     #[test]
     fn a_workspace_folder_makes_its_assets_readable() {
         let workspace = tempfile::tempdir().unwrap();
