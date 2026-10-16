@@ -552,13 +552,18 @@ The app runs without it; you just lose type checking.
 #### tsconfig Setup
 
 Use `moduleResolution: "bundler"` so TypeScript resolves `import "./main.slint"`
-to the generated `main.slint.d.ts`:
+to the generated `main.slint.d.ts`.
+That file imports `slint-ui`: if your `.slint` files are outside the folder that has `node_modules`,
+also map `slint-ui` with `paths`, or TypeScript silently types every component as `any`:
 
 ```json
 {
   "compilerOptions": {
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "paths": {
+      "slint-ui": ["./node_modules/slint-ui"]
+    }
   }
 }
 ```
