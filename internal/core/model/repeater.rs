@@ -834,13 +834,7 @@ fn listview_ensure_row_visible(
                     scroll::ScrollAnimation::Instant(alignment)
                 }
                 ScrollBehavior::Smooth => scroll::ScrollAnimation::AccelerateJumpDecelerate(
-                    AccelerateJumpDecelerate::new_start(
-                        distance,
-                        viewport_height,
-                        alignment,
-                        &flickable,
-                        flickable_rc,
-                    ),
+                    AccelerateJumpDecelerate::new(),
                 ),
             }
         }

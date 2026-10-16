@@ -35,25 +35,6 @@ impl AccelerateJumpDecelerate {
         Self { phase: Phase::PendingSmooth }
     }
 
-    pub fn new_start(
-        distance: Coord,
-        viewport_height: Coord,
-        alignment: RowAlignment,
-        flickable: &Pin<&Flickable>,
-        flickable_rc: &ItemRc,
-    ) -> Self {
-        Self {
-            phase: Phase::Accelerating(
-                alignment,
-                flickable.start_content_simulation(
-                    flickable_rc,
-                    ScrollToRowMotion::new(viewport_height).accelerate(distance as f32),
-                    crate::items::Dimension::Y,
-                ),
-            ),
-        }
-    }
-
     pub fn alignment(&self) -> Option<RowAlignment> {
         match self.phase {
             Phase::Accelerating(alignment, _) | Phase::Decelerating(alignment, _) => {
