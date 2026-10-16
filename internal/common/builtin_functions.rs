@@ -74,6 +74,7 @@ macro_rules! for_each_builtin_function {
             EnsureVisible: impure fn ensure_visible(element: ItemRc => ElementReference, behavior: ScrollBehavior) -> () {
                 element.try_scroll_into_visible(behavior)
             }
+            ListViewEnsureRowVisible: impure fn(repeater: ElementReference, flickable: ElementReference, row: i32, behavior: ScrollBehavior) -> ()
             ShowPopupWindow: impure fn(popup: ElementReference) -> ()
             ClosePopupWindow: impure fn(popup: ElementReference) -> ()
             /// Show a context popup menu.

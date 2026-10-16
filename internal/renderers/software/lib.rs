@@ -194,9 +194,6 @@ pub trait LineBufferProvider {
     ///
     /// The `line` is the y position of the line to be drawn.
     /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region).
-    /// Its start and length are multiples of the horizontal
-    /// [`DirtyRegionAlignment`](SoftwareRenderer::set_dirty_region_alignment).
-    /// The runs of lines it is called for begin and end on the vertical one.
     /// The `render_fn` function should be called to render the line, passing the buffer
     /// corresponding to the specified line and range.
     fn process_line(
@@ -318,7 +315,7 @@ impl PhysicalRegion {
 /// screen height must be a multiple of the vertical alignment.
 /// This applies after [`RenderingRotation`] transforms the screen.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct DirtyRegionAlignment {
+struct DirtyRegionAlignment {
     horizontal: u16,
     vertical: u16,
 }
@@ -329,25 +326,6 @@ impl Default for DirtyRegionAlignment {
     }
 }
 
-impl DirtyRegionAlignment {
-    /// Creates a physical dirty-region alignment.
-    ///
-    /// Values of zero are treated as one.
-    pub fn new(horizontal: u16, vertical: u16) -> Self {
-        Self { horizontal: horizontal.max(1), vertical: vertical.max(1) }
-    }
-
-    /// Returns the horizontal alignment in physical pixels.
-    pub fn horizontal(self) -> u16 {
-        self.horizontal
-    }
-
-    /// Returns the vertical alignment in physical pixels.
-    pub fn vertical(self) -> u16 {
-        self.vertical
-    }
-}
-
 fn expand_dirty_region_for_alignment(
     dirty_region: &DirtyRegion,
     factor: ScaleFactor,
@@ -355,9 +333,9 @@ fn expand_dirty_region_for_alignment(
     alignment: DirtyRegionAlignment,
 ) -> DirtyRegion {
     let (horizontal, vertical) = if rotation.is_transpose() {
-        (alignment.vertical(), alignment.horizontal())
+        (alignment.vertical, alignment.horizontal)
     } else {
-        (alignment.horizontal(), alignment.vertical())
+        (alignment.horizontal, alignment.vertical)
     };
     let factor = factor.get();
     // Inflating by the full alignment is deliberately more than the `alignment - 1` pixels that
@@ -395,11 +373,11 @@ fn to_physical_region(
     let screen_rect = PhysicalRect::from_size(size);
     let panel_size = size.transformed(rotation);
     debug_assert!(
-        panel_size.width <= 0 || panel_size.width as i32 % alignment.horizontal() as i32 == 0,
+        panel_size.width <= 0 || panel_size.width as i32 % alignment.horizontal as i32 == 0,
         "the screen width must be a multiple of the horizontal dirty-region alignment"
     );
     debug_assert!(
-        panel_size.height <= 0 || panel_size.height as i32 % alignment.vertical() as i32 == 0,
+        panel_size.height <= 0 || panel_size.height as i32 % alignment.vertical as i32 == 0,
         "the screen height must be a multiple of the vertical dirty-region alignment"
     );
 
@@ -411,19 +389,19 @@ fn to_physical_region(
             continue;
         };
         let mut aligned_box = rect.transformed(rotation).to_box2d();
-        if alignment.horizontal() > 1 {
+        if alignment.horizontal > 1 {
             (aligned_box.min.x, aligned_box.max.x) = snap_interval_to_grid(
                 aligned_box.min.x,
                 aligned_box.max.x,
-                alignment.horizontal(),
+                alignment.horizontal,
                 panel_size.width,
             );
         }
-        if alignment.vertical() > 1 {
+        if alignment.vertical > 1 {
             (aligned_box.min.y, aligned_box.max.y) = snap_interval_to_grid(
                 aligned_box.min.y,
                 aligned_box.max.y,
-                alignment.vertical(),
+                alignment.vertical,
                 panel_size.height,
             );
         }
@@ -482,8 +460,13 @@ fn dirty_region_alignment_snaps_minimal_region() {
     let mut dirty_region = DirtyRegion::default();
     dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
 
-    let aligned =
-        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(2, 2));
+    let aligned = to_physical_region(
+        &dirty_region,
+        factor,
+        rotation,
+        size,
+        DirtyRegionAlignment { horizontal: 2, vertical: 2 },
+    );
     assert_eq!(aligned.count, 1);
     assert_eq!(aligned.rectangles[0].min, euclid::point2(2, 4));
     assert_eq!(aligned.rectangles[0].max, euclid::point2(10, 14));
@@ -501,7 +484,7 @@ fn dirty_region_alignment_expands_with_scale_factor() {
     let factor = ScaleFactor::new(1.5);
     let size = euclid::size2(48, 48);
     let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
-    let alignment = DirtyRegionAlignment::new(2, 2);
+    let alignment = DirtyRegionAlignment { horizontal: 2, vertical: 2 };
     let mut dirty_region = DirtyRegion::default();
     dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
 
@@ -537,8 +520,13 @@ fn dirty_region_alignment_accepts_non_power_of_two_grid() {
     let mut dirty_region = DirtyRegion::default();
     dirty_region.add_rect(LogicalRect::new(euclid::point2(4.0, 7.0), euclid::size2(5.0, 5.0)));
 
-    let aligned =
-        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(3, 3));
+    let aligned = to_physical_region(
+        &dirty_region,
+        factor,
+        rotation,
+        size,
+        DirtyRegionAlignment { horizontal: 3, vertical: 3 },
+    );
     assert_eq!(aligned.count, 1);
     assert_eq!(aligned.rectangles[0].min, euclid::point2(3, 6));
     assert_eq!(aligned.rectangles[0].max, euclid::point2(9, 12));
@@ -551,7 +539,7 @@ fn dirty_region_alignment_uses_rotated_panel_axes() {
     let factor = ScaleFactor::new(1.0);
     let size = euclid::size2(80, 40);
     let rotation = RotationInfo { orientation: RenderingRotation::Rotate90, screen_size: size };
-    let alignment = DirtyRegionAlignment::new(4, 8);
+    let alignment = DirtyRegionAlignment { horizontal: 4, vertical: 8 };
     let mut dirty_region = DirtyRegion::default();
     dirty_region.add_rect(LogicalRect::new(euclid::point2(70.0, 30.0), euclid::size2(7.0, 7.0)));
 
@@ -758,21 +746,21 @@ impl SoftwareRenderer {
         self.repaint_buffer_type.get()
     }
 
-    /// Aligns dirty regions to the specified physical pixel grid.
+    /// Aligns dirty regions to a grid of `horizontal` by `vertical` physical pixels.
     ///
-    /// Use this for display controllers that require aligned address windows. The pixels the
-    /// alignment adds are repainted, so the region returned by [`Self::render`] and the range
-    /// passed to [`LineBufferProvider::process_line`] can be sent to the display as they are.
+    /// Use this for display controllers that require the origin and size of address windows
+    /// to be multiples of a fixed number of pixels.
+    /// The pixels the alignment adds are repainted,
+    /// so the region returned by [`Self::render`] and the range passed to
+    /// [`LineBufferProvider::process_line`] can be sent to the display as they are.
     ///
-    /// The screen dimensions must be multiples of their corresponding alignment after applying
-    /// [`RenderingRotation`].
-    pub fn set_dirty_region_alignment(&self, alignment: DirtyRegionAlignment) {
-        self.dirty_region_alignment.set(alignment);
-    }
-
-    /// Returns the physical pixel alignment for dirty regions.
-    pub fn dirty_region_alignment(&self) -> DirtyRegionAlignment {
-        self.dirty_region_alignment.get()
+    /// The axes are those of the screen after [`RenderingRotation`] is applied.
+    /// Its width must be a multiple of `horizontal`, and its height a multiple of `vertical`.
+    /// The default of one pixel on each axis leaves dirty regions unaligned.
+    /// Values of zero are treated as one.
+    pub fn set_dirty_region_alignment(&self, horizontal: u16, vertical: u16) {
+        self.dirty_region_alignment
+            .set(DirtyRegionAlignment { horizontal: horizontal.max(1), vertical: vertical.max(1) });
     }
 
     /// Set how the window need to be rotated in the buffer.
@@ -953,7 +941,7 @@ impl SoftwareRenderer {
 
     /// Computes the dirty region for this frame according to the repaint buffer type, converts
     /// it to the physical region to return to the caller, applying the configured
-    /// [`DirtyRegionAlignment`], and expands the logical dirty region in place so that the
+    /// dirty region alignment, and expands the logical dirty region in place so that the
     /// partial renderer repaints every pixel the alignment added.
     ///
     /// This runs before the items are drawn, so `renderer`'s dirty region is what the partial
@@ -1498,7 +1486,7 @@ impl RendererSealed for SoftwareRenderer {
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
         self::fonts::systemfonts::register_font_from_path(
-            &mut ctx.font_context().borrow_mut().collection,
+            &mut ctx.font_context().borrow_mut(),
             path,
         )
     }

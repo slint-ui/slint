@@ -58,6 +58,15 @@ pub(super) fn invalidate_fill() {
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+    if !applied {
+        let editor = PREVIEW_STATE.with_borrow_mut(|state| {
+            state.workspace_edit_sent = false;
+            state.editor_ui.as_ref().map(slint::ComponentHandle::clone_strong)
+        });
+        if let Some(editor) = editor {
+            editor.global::<ui::ShadowSession>().invoke_cancel();
+        }
+    }
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
         let refresh = state.fill_refresh.as_mut()?;
         if refresh.submitted_edit != edit {
@@ -265,12 +274,16 @@ pub(super) fn preview_shadow(
 pub(super) fn commit_shadow(
     key: SharedString,
     changes: slint::ModelRc<ui::InspectorNumberChange>,
-) -> bool {
+) -> ui::InspectorCommitResult {
+    if file_edit_pending() {
+        cancel();
+        return ui::InspectorCommitResult::Rejected;
+    }
     let changes = changes.iter().collect::<Vec<_>>();
     let target = target(&key).filter(|_| valid_shadow_changes(&changes));
     let Some((node, url, version)) = target else {
         cancel();
-        return false;
+        return ui::InspectorCommitResult::Rejected;
     };
     let changes = changes
         .iter()
@@ -283,14 +296,20 @@ pub(super) fn commit_shadow(
         .collect();
     let accepted = property_edit(node, url, version, changes)
         .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
-    if accepted {
+    if accepted && file_edit_pending() {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
     } else {
         cancel();
     }
-    accepted
+    if !accepted {
+        ui::InspectorCommitResult::Rejected
+    } else if file_edit_pending() {
+        ui::InspectorCommitResult::Pending
+    } else {
+        ui::InspectorCommitResult::Unchanged
+    }
 }
 
 fn fill_value(

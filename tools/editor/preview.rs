@@ -2812,6 +2812,9 @@ fn set_selected_element(
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
+                    if !preview_state.workspace_edit_sent {
+                        editor_ui.global::<ui::ShadowSession>().invoke_source_refreshed();
+                    }
                 }
             } else if selection.is_none()
                 || (!notify_editor_about_selection_after_update

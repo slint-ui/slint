@@ -80,3 +80,11 @@ export component Test4 inherits AssignsWindowMembers {
     in-out property <string> maximized;
 //                           >       <warning{'maximized' shadows the builtin property of the same name}
 }
+
+// `Path` members added after 1.18 can be shadowed by code that declared them before
+export component Test5 inherits Path {
+    in property <[int]> stroke-dash-array;
+//                      >               <warning{'stroke-dash-array' shadows the builtin property of the same name}
+    in property <string> stroke-dash-offset;
+//                       >                <warning{'stroke-dash-offset' shadows the builtin property of the same name}
+}

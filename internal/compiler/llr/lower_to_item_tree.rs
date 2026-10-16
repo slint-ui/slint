@@ -1897,14 +1897,7 @@ export component TestCase inherits Window {
     }
     /// The names of the properties of the lowered public component's root sub-component.
     fn root_property_names(source: &str) -> Vec<String> {
-        let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-        let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node =
-            crate::parser::parse(source.into(), Some(SourcePath::new("t.slint")), &mut diags);
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
-        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
-        let unit = super::lower_to_item_tree(&doc, &config);
+        let unit = crate::llr::lower_test_source(source);
         let root = unit.public_components.iter().next().unwrap().item_tree.root;
         unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
     }

@@ -26,6 +26,7 @@ export component ValueTypes {
     in property <float> ratio: 1;
     in property <string> label: "a";
     in property <color> tint: #123;
+    in property <brush> fill: #123;
     in property <duration> delay: 1s;
     in property <length> spacing: 10px;
     in property <physical-length> border: 10phx;
@@ -50,6 +51,8 @@ export component ValueTypes {
     }
     match ratio {
         1: Rectangle { }
+        1.5: Rectangle { }
+        -0.5: Rectangle { }
         *: Rectangle { }
     }
     match label {
@@ -57,6 +60,12 @@ export component ValueTypes {
         *: Rectangle { }
     }
     match tint {
+        #123: Rectangle { }
+        Colors.red: Rectangle { }
+        blue: Rectangle { }
+        *: Rectangle { }
+    }
+    match fill {
         #123: Rectangle { }
         Colors.red: Rectangle { }
         blue: Rectangle { }

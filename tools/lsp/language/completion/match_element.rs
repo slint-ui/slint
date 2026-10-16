@@ -346,9 +346,9 @@ export component Test {{
     fn match_case_values_unsupported_subject() {
         let results = get_completions_experimental(
             r#"export component Test {
-    in-out property <brush> fill;
+    in-out property <image> picture;
 
-    match fill { 🔺 }
+    match picture { 🔺 }
 }
 "#,
         )
@@ -600,10 +600,10 @@ export component Test {{
     fn test_code_actions_no_wildcard_for_unsupported_subject() {
         CodeActionRequest::at(
             r#"export component Test {
-    in-out property <brush> fill;
+    in-out property <image> picture;
 
-    match 🔺fill {
-        #123: Rectangle { }
+    match 🔺picture {
+        @image-url("x.png"): Rectangle { }
     }
 }
 "#,

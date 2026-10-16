@@ -113,7 +113,11 @@ pub async fn compile_from_string_with_style(
     let mut error_as_string = String::new();
     let array = js_sys::Array::new();
     for d in compiler.diagnostics().into_iter() {
-        let filename = d.source_path().unwrap_or_default();
+        let filename = d
+            .source_file()
+            .map(|path| path.to_string_lossy().into_owned())
+            .or_else(|| d.source_url())
+            .unwrap_or_default();
 
         let filename_js = JsValue::from_str(&filename);
         let (line, column) = d.line_column();
@@ -343,7 +347,7 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     let blob = fontique::Blob::new(std::sync::Arc::new(data));
 
     let registered = i_slint_core::with_existing_context(|ctx| {
-        ctx.font_context().borrow_mut().collection.register_fonts(blob, None)
+        ctx.font_context().borrow_mut().register_fonts(blob)
     })?;
 
     if registered.is_empty() {

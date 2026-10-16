@@ -346,7 +346,14 @@ fn image_buffer_to_image_source(
         }
         #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(buffer) => {
-            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+            use rgb::FromSlice;
+            let source = image_source(buffer);
+            // femtovg takes `rgb::Gray` pixels, which have the same one-byte layout.
+            let pixels = buffer.as_bytes()[..source.buf().len()].as_gray();
+            (
+                imgref::ImgRef::new(pixels, source.width(), source.height()).into(),
+                femtovg::ImageFlags::empty(),
+            )
         }
     }
 }

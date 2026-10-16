@@ -5,8 +5,7 @@ use std::rc::Rc;
 
 use slint::Rgb8Pixel;
 use slint::platform::software_renderer::{
-    DirtyRegionAlignment, MinimalSoftwareWindow, PhysicalRegion, RenderingRotation,
-    RepaintBufferType,
+    MinimalSoftwareWindow, PhysicalRegion, RenderingRotation, RepaintBufferType,
 };
 use slint::platform::{PlatformError, WindowAdapter};
 
@@ -40,7 +39,7 @@ fn render_frame(
 ) {
     assert!(window.draw_if_needed(|renderer| {
         renderer.set_rendering_rotation(RenderingRotation::Rotate90);
-        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(4, 2));
+        renderer.set_dirty_region_alignment(4, 2);
         if switch_to_swapped_buffers {
             renderer.set_repaint_buffer_type(RepaintBufferType::SwappedBuffers);
         }

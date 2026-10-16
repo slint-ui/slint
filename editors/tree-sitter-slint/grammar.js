@@ -427,9 +427,7 @@ module.exports = grammar({
 
     match_case: ($) =>
       seq(
-        field("case", choice($._basic_value,
-          $.user_type_identifier,
-          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        field("case", $.expression),
         ":",
         choice($.component, seq("{", "}"))
       ),

@@ -21,8 +21,6 @@ component Sink {
 component Base {
     implement I <=> sink;
     sink := Sink { }
-
-    @children
 }
 
 component Derived inherits Base {

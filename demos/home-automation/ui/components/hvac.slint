@@ -76,7 +76,6 @@ export component ZoneButton inherits Rectangle {
             }
 
             TempAdjustButton {
-                mode: Mode.increment;
                 clicked => {
                     if zone-set-point < max-temp {
                         zone-set-point = zone-set-point + 1;
@@ -172,12 +171,10 @@ export component HVAC inherits Control {
             }
             ZoneButton {
                 zone-name: "Kitchen";
-                zone-set-point: 22;
             }
 
             ZoneButton {
                 zone-name: "Living Room";
-                zone-set-point: 22;
             }
 
             ZoneButton {

@@ -1,0 +1,219 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, Hover } from "../api.slint";
+import { Style, Colors, Metrics, Typography } from "../style.slint";
+import { CanvasView } from "canvas-view.slint";
+import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
+import { EditorAngles } from "index.slint";
+import { FillSession, ShadowSession, ShadowGesture, ShadowValues } from "inspector/index.slint";
+
+component ShadowHandle inherits FocusScope {
+    in property <ShadowGesture> kind;
+    in property <string> label;
+    in property <int> focus-generation;
+    changed focus-generation => {
+        if root.kind == ShadowSession.gesture && ShadowSession.canvas-active { root.focus(); }
+    }
+    callback started(Point);
+    callback dragged(Point);
+    callback finished();
+    callback keyboard(KeyEvent) -> EventResult;
+    width: 40px;
+    height: 40px;
+    key-pressed(event) => {
+        return ShadowSession.canvas-active ? root.keyboard(event) : reject;
+    }
+    Rectangle {
+        width: root.kind == ShadowGesture.offset ? 30px : 14px;
+        height: self.width;
+        border-radius: self.width / 2;
+        background: root.kind == ShadowGesture.spread ? Style.shadow-spread-color : Colors.focus;
+        border-width: root.has-focus ? Metrics.focus-width : Metrics.border-width;
+        border-color: Style.selection-frame.handle-background;
+        drop-shadow-blur: Style.gradient-overlay.endpoint-shadow.blur;
+        drop-shadow-color: Style.gradient-overlay.endpoint-shadow.color;
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: root.kind == ShadowGesture.offset ? 14px : 6px;
+            height: 2px;
+            background: root.kind == ShadowGesture.spread ? Style.shadow-spread-foreground : Style.selection-frame.handle-background;
+        }
+        if root.kind != ShadowGesture.spread: Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 2px;
+            height: root.kind == ShadowGesture.offset ? 14px : 6px;
+            background: Style.selection-frame.handle-background;
+        }
+    }
+    TouchArea {
+        enabled: ShadowSession.canvas-visible;
+        mouse-cursor: root.kind == ShadowGesture.offset ? move : root.kind == ShadowGesture.blur ? ns-resize : ew-resize;
+        accessible-role: button;
+        accessible-label: root.label;
+        pointer-event(event) => {
+            if !ShadowSession.canvas-active { return; }
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.focus();
+                root.started({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                root.finished();
+            } else if event.kind == PointerEventKind.cancel { ShadowSession.cancel(); }
+        }
+        moved => {
+            if self.pressed && ShadowSession.dragging {
+                root.dragged({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y });
+            }
+        }
+    }
+}
+
+export component ShadowOverlay inherits FocusScope {
+    in property <bool> show-guides;
+    in property <{x: length, y: length, width: length, height: length}> viewport;
+    focus-on-click: false;
+    private property <ShadowValues> original;
+    private property <Point> press;
+    private property <int> focus-epoch;
+    private property <int> preview-generation: Hover.preview-generation;
+    changed preview-generation => {
+        if ShadowSession.open && ShadowSession.canvas-focus && !FillSession.open { focus-timer.start(); }
+    }
+    private property <bool> canvas-active: ShadowSession.canvas-active;
+    changed canvas-active => {
+        if root.canvas-active && ShadowSession.canvas-focus && !FillSession.open { focus-timer.start(); }
+    }
+    focus-timer := Timer {
+        interval: 0ms;
+        triggered => { self.stop(); root.focus-epoch += 1; }
+    }
+    private property <Point> shadow-center: root.to-canvas({
+        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px,
+        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px,
+    });
+    private property <Point> blur-point: root.to-canvas({
+        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px,
+        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px
+            - max(60px / CanvasView.zoom, FillSession.selection.height / 2 + (ShadowSession.values.spread + ShadowSession.values.blur / 2) * 1px),
+    });
+    private property <Point> spread-point: root.to-canvas({
+        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px
+            + max(60px / CanvasView.zoom, FillSession.selection.width / 2 + ShadowSession.values.spread * 1px),
+        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px,
+    });
+    pure function to-canvas(p: Point) -> Point {
+        let selection = FillSession.selection;
+        let x = p.x - selection.width / 2;
+        let y = p.y - selection.height / 2;
+        return {
+            x: (selection.x + selection.width / 2 + x * cos(selection.angle) - y * sin(selection.angle)) * CanvasView.zoom,
+            y: (selection.y + selection.height / 2 + x * sin(selection.angle) + y * cos(selection.angle)) * CanvasView.zoom,
+        };
+    }
+    pure function to-local(p: Point) -> Point {
+        let selection = FillSession.selection;
+        let x = (p.x - root.absolute-position.x) / CanvasView.zoom - selection.x - selection.width / 2;
+        let y = (p.y - root.absolute-position.y) / CanvasView.zoom - selection.y - selection.height / 2;
+        return {
+            x: selection.width / 2 + x * cos(selection.angle) + y * sin(selection.angle),
+            y: selection.height / 2 - x * sin(selection.angle) + y * cos(selection.angle),
+        };
+    }
+    function begin(kind: ShadowGesture, p: Point) {
+        root.press = root.to-local(p);
+        root.original = ShadowSession.values;
+        ShadowSession.start(kind, true);
+    }
+    function drag(p: Point) {
+        let local = root.to-local(p);
+        let dx = (local.x - root.press.x) / 1px;
+        let dy = (local.y - root.press.y) / 1px;
+        let gesture = ShadowSession.gesture;
+        let values = ShadowSession.updated(root.original, gesture,
+            gesture == ShadowGesture.offset ? root.original.offset-x + dx
+                : gesture == ShadowGesture.blur ? root.original.blur - dy * 2 : root.original.spread + dx,
+            root.original.offset-y + dy);
+        if values != ShadowSession.values { ShadowSession.preview(values); }
+    }
+    function finish() {
+        if ShadowSession.dragging {
+            if ShadowSession.values != root.original { ShadowSession.commit(ShadowSession.gesture, ShadowSession.values); }
+            else { ShadowSession.cancel(); }
+        }
+    }
+    function handle-key(kind: ShadowGesture, event: KeyEvent) -> EventResult {
+        if event.text == Key.Escape {
+            if ShadowSession.dragging { ShadowSession.cancel(); }
+            else { ShadowSession.close(); }
+            return accept;
+        }
+        if ShadowSession.dragging { return reject; }
+        let dx = event.text == Key.RightArrow ? 1 : event.text == Key.LeftArrow ? -1 : 0;
+        let dy = event.text == Key.DownArrow ? 1 : event.text == Key.UpArrow ? -1 : 0;
+        if dx == 0 && dy == 0 { return reject; }
+        if (kind == ShadowGesture.blur && dy == 0) || (kind == ShadowGesture.spread && dx == 0) { return reject; }
+        let step = event.modifiers.shift ? 10 : 1;
+        let values = ShadowSession.values;
+        ShadowSession.canvas-focus = true;
+        ShadowSession.commit(kind, ShadowSession.updated(values, kind,
+            kind == ShadowGesture.offset ? values.offset-x + dx * step
+                : kind == ShadowGesture.blur ? values.blur - dy * step : values.spread + dx * step,
+            values.offset-y + dy * step));
+        return accept;
+    }
+    for soft in (root.show-guides ? 2 : 0): guide := Rectangle {
+        private property <float> expansion: ShadowSession.values.spread + (soft == 1 ? ShadowSession.values.blur / 2 : 0);
+        x: root.shadow-center.x - self.width / 2;
+        y: root.shadow-center.y - self.height / 2;
+        width: max(0px, FillSession.selection.width + self.expansion * 2px) * CanvasView.zoom;
+        height: max(0px, FillSession.selection.height + self.expansion * 2px) * CanvasView.zoom;
+        border-radius: max(0px, Api.current-property-value-data("border-radius").value-float * 1px + self.expansion * 1px) * CanvasView.zoom;
+        border-width: Metrics.border-width;
+        border-color: (soft == 0 ? Style.shadow-spread-color : Colors.focus).with-alpha(0.3);
+        transform-rotation: FillSession.selection.angle;
+        transform-origin: { x: self.width / 2, y: self.height / 2 };
+    }
+    for kind in [ShadowGesture.offset, ShadowGesture.blur, ShadowGesture.spread]: ShadowHandle {
+        kind: kind;
+        focus-generation: root.focus-epoch;
+        private property <Point> point: kind == ShadowGesture.offset ? root.shadow-center : kind == ShadowGesture.blur ? root.blur-point : root.spread-point;
+        x: self.point.x - self.width / 2;
+        y: self.point.y - self.height / 2;
+        label: kind == ShadowGesture.offset ? @tr("Shadow offset handle") : kind == ShadowGesture.blur ? @tr("Shadow blur handle") : @tr("Shadow spread handle");
+        started(p) => { root.begin(kind, p); }
+        dragged(p) => { root.drag(p); }
+        finished => { root.finish(); }
+        keyboard(event) => { return root.handle-key(kind, event); }
+        if ShadowSession.dragging && ShadowSession.gesture == kind && kind != ShadowGesture.offset: Rectangle {
+            x: parent.width + Metrics.space-small;
+            y: (parent.height - self.height) / 2;
+            width: label.preferred-width + 2 * Metrics.space-small;
+            height: Style.inspector-field.height;
+            border-radius: Metrics.radius-medium;
+            background: Colors.surface;
+            label := Text {
+                text: kind == ShadowGesture.blur ? @tr("Blur {} px", ShadowSession.values.blur)
+                    : @tr("Spread {} px", ShadowSession.values.spread);
+                color: Colors.foreground;
+                font-size: Typography.caption.size;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+    if ShadowSession.dragging && ShadowSession.gesture == ShadowGesture.offset: CanvasValueTooltip {
+        private property <ShadowValues> offsets: ShadowSession.values;
+        private property <float> angle: self.offsets.offset-x == 0 && self.offsets.offset-y == 0 ? 0
+            : EditorAngles.rounded(atan2(self.offsets.offset-y, self.offsets.offset-x));
+        private property <float> distance: sqrt(self.offsets.offset-x * self.offsets.offset-x + self.offsets.offset-y * self.offsets.offset-y).round();
+        label: @tr("Angle");
+        value: self.angle.to-fixed(0) + "°";
+        secondary-text: @tr("Distance {} px", self.distance.to-fixed(0));
+        value-label: @tr("Shadow angle and distance");
+        pointer-position: root.shadow-center;
+        x: (self.pointer-position.x - self.width - self.style.offset).clamp(root.viewport.x, max(root.viewport.x, root.viewport.x + root.viewport.width - self.width));
+        y: (self.pointer-position.y - self.height - self.style.offset).clamp(root.viewport.y, max(root.viewport.y, root.viewport.y + root.viewport.height - self.height));
+    }
+}

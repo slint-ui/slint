@@ -1,0 +1,171 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, InspectorNumberChange, InspectorCommitResult } from "../../api.slint";
+import { CanvasView } from "../canvas-view.slint";
+import { FillSession } from "fill-session.slint";
+import { Diagnostics } from "../../diagnostics.slint";
+
+export enum ShadowGesture {
+    offset,
+    blur,
+    spread,
+}
+
+export struct ShadowValues {
+    offset-x: float,
+    offset-y: float,
+    blur: float,
+    spread: float,
+}
+
+export global ShadowSession {
+    out property <bool> open;
+    out property <bool> dragging;
+    in-out property <bool> canvas-focus;
+    out property <float> maximum-blur: 128;
+    out property <float> minimum-spread: -64;
+    out property <float> maximum-spread: 64;
+    private property <bool> shadow-exists: Api.has-shadow("drop-shadow-");
+    out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
+        && shadow-exists && selection-key == target-selection-key
+        && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
+    out property <bool> canvas-active: canvas-visible && Diagnostics.preview-editable;
+    out property <string> key: Api.current-element.source-uri + ":" + Api.current-element.source-version
+        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
+    private property <string> selection-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
+    private property <string> target-selection-key;
+    private property <string> gesture-key;
+    out property <ShadowGesture> gesture;
+    private property <ShadowValues> draft;
+    out property <bool> pending;
+    private property <int> pending-source-version;
+    private property <ShadowValues> source-values: {
+        offset-x: Api.number-property("drop-shadow-offset-x", 0),
+        offset-y: Api.number-property("drop-shadow-offset-y", 8),
+        blur: Api.number-property("drop-shadow-blur", 16),
+        spread: Api.number-property("drop-shadow-spread", 0),
+    };
+    out property <ShadowValues> values: dragging || pending ? draft : source-values;
+    out property <Point> anchor-position;
+    out property <Size> anchor-size;
+    out property <int> opening-generation;
+
+    changed selection-key => { ShadowSession.check-selection(); }
+    changed shadow-exists => { ShadowSession.check-selection(); }
+    changed key => {
+        if ShadowSession.dragging { ShadowSession.cancel(); }
+    }
+    private property <bool> compiling: Diagnostics.compiling;
+    changed compiling => { if !ShadowSession.compiling { ShadowSession.check-selection(); } }
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => { if ShadowSession.preview-editable { ShadowSession.check-selection(); } }
+
+    function check-selection() {
+        if ShadowSession.open && !ShadowSession.compiling && Api.current-element.source-uri != ""
+            && Diagnostics.preview-editable && Api.selection.highlight-index >= 0
+            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists) {
+            ShadowSession.close();
+        }
+    }
+
+    public pure function updated(values: ShadowValues, gesture: ShadowGesture, primary: float, secondary: float) -> ShadowValues {
+        return {
+            offset-x: gesture == ShadowGesture.offset ? primary.round() : values.offset-x,
+            offset-y: gesture == ShadowGesture.offset ? secondary.round() : values.offset-y,
+            blur: gesture == ShadowGesture.blur ? primary.round().clamp(0, ShadowSession.maximum-blur) : values.blur,
+            spread: gesture == ShadowGesture.spread ? primary.round().clamp(ShadowSession.minimum-spread, ShadowSession.maximum-spread) : values.spread,
+        };
+    }
+
+    public function begin(position: Point, size: Size) {
+        FillSession.close-picker(true, false);
+        ShadowSession.cancel();
+        ShadowSession.anchor-position = position;
+        ShadowSession.anchor-size = size;
+        ShadowSession.target-selection-key = ShadowSession.selection-key;
+        ShadowSession.canvas-focus = false;
+        ShadowSession.open = true;
+        ShadowSession.opening-generation += 1;
+    }
+    public function close() {
+        ShadowSession.pending = false;
+        if ShadowSession.open {
+            ShadowSession.cancel();
+            ShadowSession.open = false;
+            ShadowSession.canvas-focus = false;
+            if FillSession.open && FillSession.request.target.property-name == "drop-shadow-color" {
+                FillSession.close-picker(true, false);
+            }
+        }
+    }
+    public function source-refreshed() {
+        if ShadowSession.source-values == ShadowSession.draft
+            || Api.current-element.source-version != ShadowSession.pending-source-version {
+            ShadowSession.pending = false;
+        }
+    }
+    public function start(gesture: ShadowGesture, canvas: bool) {
+        if ShadowSession.pending { return; }
+        if !ShadowSession.canvas-active { ShadowSession.close(); return; }
+        let values = ShadowSession.values;
+        ShadowSession.pending = false;
+        FillSession.close-picker(true, false);
+        ShadowSession.draft = values;
+        ShadowSession.gesture = gesture;
+        ShadowSession.canvas-focus = canvas;
+        ShadowSession.gesture-key = ShadowSession.key;
+        ShadowSession.dragging = true;
+        CanvasView.manipulating = true;
+    }
+    pure function changes(gesture: ShadowGesture, values: ShadowValues) -> [InspectorNumberChange] {
+        if gesture == ShadowGesture.offset {
+            return [
+                { name: "drop-shadow-offset-x", value: values.offset-x.round() },
+                { name: "drop-shadow-offset-y", value: values.offset-y.round() },
+            ];
+        }
+        return [{
+            name: gesture == ShadowGesture.blur ? "drop-shadow-blur" : "drop-shadow-spread",
+            value: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
+        }];
+    }
+    public function preview(values: ShadowValues) -> bool {
+        if ShadowSession.pending { return false; }
+        if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
+        if !ShadowSession.dragging { return false; }
+        if Api.inspector-preview-shadow(ShadowSession.gesture-key, ShadowSession.changes(ShadowSession.gesture, values)) {
+            ShadowSession.draft = values;
+            return true;
+        }
+        ShadowSession.cancel();
+        return false;
+    }
+    public function commit(gesture: ShadowGesture, values: ShadowValues) -> bool {
+        if ShadowSession.pending { return false; }
+        if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
+        let source = ShadowSession.source-values;
+        let unchanged = gesture == ShadowGesture.offset ? values.offset-x == source.offset-x && values.offset-y == source.offset-y
+            : gesture == ShadowGesture.blur ? values.blur == source.blur : values.spread == source.spread;
+        if unchanged { ShadowSession.cancel(); return true; }
+        let key = ShadowSession.dragging ? ShadowSession.gesture-key : ShadowSession.key;
+        ShadowSession.draft = values;
+        ShadowSession.dragging = false;
+        CanvasView.manipulating = false;
+        ShadowSession.gesture = gesture;
+        ShadowSession.pending-source-version = Api.current-element.source-version;
+        ShadowSession.pending = true;
+        let result = Api.inspector-commit-shadow(key, ShadowSession.changes(gesture, values));
+        ShadowSession.pending = result == InspectorCommitResult.pending;
+        if result == InspectorCommitResult.rejected { Api.inspector-cancel(); }
+        return result != InspectorCommitResult.rejected;
+    }
+    public function cancel() {
+        ShadowSession.pending = false;
+        if ShadowSession.dragging {
+            ShadowSession.dragging = false;
+            CanvasView.manipulating = false;
+            Api.inspector-cancel();
+        }
+    }
+}

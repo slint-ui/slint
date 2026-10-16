@@ -929,8 +929,8 @@ impl Compiler {
     /// `<path>/<lang>/LC_MESSAGES/<domain>.po`, where the domain is set with
     /// [`Self::set_translation_domain`].
     #[cfg(feature = "bundle-translations")]
-    pub fn set_bundled_translations_path(&mut self, path: PathBuf) {
-        self.config.bundled_translations_path = Some(path);
+    pub fn set_bundled_translations_path(&mut self, path: impl Into<PathBuf>) {
+        self.config.bundled_translations_path = Some(path.into());
     }
 
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
@@ -1159,7 +1159,7 @@ async fn build_compilation_result(
 /// let instance = result.component("App").unwrap().create().unwrap();
 /// # assert_eq!(instance.get_property("v").unwrap(), slint_interpreter::Value::Number(42.));
 /// ```
-pub struct CompilationResultSend {
+pub struct SendableCompilationResult {
     /// `None` when the compilation produced no component.
     compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
@@ -1173,30 +1173,12 @@ pub struct CompilationResultSend {
 
 const _: () = {
     const fn assert_send<T: Send>() {}
-    assert_send::<CompilationResultSend>();
+    assert_send::<SendableCompilationResult>();
 };
 
-impl CompilationResultSend {
-    /// Returns true if the compilation failed.
-    pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| d.level() == DiagnosticLevel::Error)
-    }
-
-    /// The diagnostics (errors and warnings) the compilation produced.
-    pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
-        self.diagnostics.iter().cloned()
-    }
-
-    /// Print the diagnostics to stderr, in the same style as rustc errors.
-    #[cfg(feature = "display-diagnostics")]
-    pub fn print_diagnostics(&self) {
-        print_diagnostics(&self.diagnostics)
-    }
-}
-
-impl From<CompilationResultSend> for CompilationResult {
-    fn from(sent: CompilationResultSend) -> Self {
-        let CompilationResultSend {
+impl From<SendableCompilationResult> for CompilationResult {
+    fn from(sent: SendableCompilationResult) -> Self {
+        let SendableCompilationResult {
             compilation_unit,
             components,
             diagnostics,
@@ -1283,7 +1265,7 @@ impl CompilationResult {
     }
 
     /// Consume the result so that it can be sent to another thread.
-    pub fn into_send(self) -> CompilationResultSend {
+    pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
             diagnostics,
@@ -1312,7 +1294,7 @@ impl CompilationResult {
         // the caller kept one of them, or an instance, alive.
         let compilation_unit = unit.map(std::rc::Rc::unwrap_or_clone);
 
-        CompilationResultSend {
+        SendableCompilationResult {
             compilation_unit,
             components,
             diagnostics,

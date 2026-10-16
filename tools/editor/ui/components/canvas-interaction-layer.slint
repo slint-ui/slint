@@ -1,45 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
 import { CanvasView } from "canvas-view.slint";
-import { Style, TooltipStyle } from "../style.slint";
-import { FillSession } from "inspector/index.slint";
+import { Style } from "../style.slint";
+import { FillSession, ShadowSession } from "inspector/index.slint";
 import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
-
-component CanvasValueTooltip inherits Rectangle {
-    in property <TooltipStyle> style: Style.tooltip;
-    in property <string> label;
-    in property <string> value;
-    in property <string> suffix;
-    in property <string> value-label;
-    in property <Point> pointer-position;
-
-    x: root.pointer-position.x - self.width - root.style.offset;
-    y: root.pointer-position.y - self.height - root.style.offset;
-    width: tip.width + 2 * root.style.padding-inline;
-    height: tip.height + 2 * root.style.padding-block;
-    border-radius: root.style.radius;
-    background: root.style.normal.background;
-    drop-shadow-blur: root.style.shadow.blur;
-    drop-shadow-offset-y: root.style.shadow.offset-y;
-    drop-shadow-color: root.style.shadow.color;
-    accessible-role: AccessibleRole.text;
-    accessible-label: root.value-label;
-    accessible-value: root.value;
-
-    tip := Text {
-        text: root.label + " " + root.value + root.suffix;
-        color: root.style.normal.foreground;
-        font-size: root.style.text.size;
-        font-weight: root.style.text.weight;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        accessible-role: none;
-    }
-}
 
 component SelectedCanvasFrame inherits Rectangle {
     in property <SelectionRectangle> selection;
@@ -217,9 +186,8 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
-        private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
         label: @tr("Rotation");
-        value: "\{(self.normalized-angle / 1deg).round()}";
+        value: EditorAngles.rounded(frame.rotation-tooltip-value).to-fixed(0);
         suffix: "°";
         value-label: @tr("Rotation angle");
         pointer-position: frame.rotation-tooltip-position;
@@ -462,7 +430,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             x: root.absolute-position.x + position.x,
             y: root.absolute-position.y + position.y,
         };
-        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || root.pressed {
+        if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
         }
         root.hover-enabled = true;
@@ -519,7 +487,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active;
+        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
         show-outline-while-moving: root.keep-selection-outline-while-moving(
             Api.current-element.type-name,
         );
@@ -533,7 +501,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
     }
 
-    for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
+    for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         show-outline-while-moving: root.keep-selection-outline-while-moving(
@@ -591,8 +559,6 @@ export component CanvasInteractionLayer inherits TouchArea {
             letter-spacing: Api.current-property-value-data("letter-spacing").value-float
                 * root.text-edit-scale-x * CanvasView.zoom * 1px;
             line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
-            single-line: true;
-            wrap: no-wrap;
             accessible-label: @tr("Inline text editor");
 
             accepted => { root.commit-text-edit(); }

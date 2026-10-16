@@ -632,6 +632,31 @@ export component Test {
     }
 
     #[test]
+    fn test_tooltip_match_case() {
+        let source = r#"
+enum Nums { one, two }
+export component Test {
+    in property <Nums> num;
+    match num {
+        one: Rectangle { }
+        *: Rectangle { }
+    }
+}"#;
+        let (mut dc, uri, _) =
+            crate::language::test::loaded_document_cache_with_experimental(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let offset = TextSize::new(source.find("one:").unwrap() as u32);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "one");
+        match get_tooltip(&mut dc, token).unwrap().contents {
+            HoverContents::Markup(m) => {
+                assert!(m.value.contains("Nums.one"), "got {:?}", m.value)
+            }
+            x => panic!("Found {x:?}"),
+        }
+    }
+
+    #[test]
     fn test_tooltip_shadowed_member() {
         // `Derived` shadows the `@shadowable` `prop` of `Base`, with a different type. The tooltip
         // for a use must describe the property declared in the same component, under its source name.

@@ -102,6 +102,8 @@ pub enum EmbedResourcesKind {
     ///
     /// Useful for MCUs with no file system and little RAM.
     /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
+    ///
+    /// Animated images keep only their first frame.
     EmbedForSoftwareRenderer,
 }
 
@@ -666,8 +668,9 @@ fn compile_resolved(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag, loader) =
+    let (doc, mut diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    diag.remove_infos();
 
     if diag.has_errors()
         || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())

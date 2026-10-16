@@ -8,8 +8,7 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./register": "./register.mjs",
-    "./package.json": "./package.json"
+    "./register": "./register.mjs"
   },
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",

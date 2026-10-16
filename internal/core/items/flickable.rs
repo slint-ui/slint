@@ -11,12 +11,11 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::simulations::PositionSimulation;
-use crate::animations::simulations::bounce::BounceFlick;
 use crate::animations::simulations::ease_in_out_sine::EaseInOutSine;
 use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::spring::SpringPhysicalParameters;
 use crate::animations::simulations::spring_flick::SpringFlick;
+use crate::animations::simulations::{PositionSimulation, Simulation};
 use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
@@ -717,43 +716,37 @@ impl FlickableDataInner {
                     let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
-                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> = (delta.x
-                        != Coord::default())
-                    .then(|| {
-                        let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_x.get().0 as f32;
-                            content_x.set_physic_animation_value(weak.clone());
-                            RefCell::new(FlickAnimation::create_animation(
-                                FlickAnimationParameter::Distance {
-                                    delta: delta.x as f32,
-                                    duration: WHEEL_SCROLL_DURATION,
-                                },
-                                effective_bounce(flick, &geo, Dimension::X),
-                                curr_val,
-                                limit_x,
-                            ))
+                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
+                        (delta.x != Coord::default()).then(|| {
+                            Self::set_simulation(
+                                &content_x,
+                                FlickAnimation::create_animation(
+                                    FlickAnimationParameter::Distance {
+                                        delta: delta.x as f32,
+                                        duration: WHEEL_SCROLL_DURATION,
+                                    },
+                                    effective_bounce(flick, &geo, Dimension::X),
+                                    content_x.get().0 as f32,
+                                    limit_x,
+                                ),
+                            ) as Rc<RefCell<dyn PositionSimulation>>
                         });
-                        simulation as Rc<RefCell<dyn PositionSimulation>>
-                    });
 
-                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> = (delta.y
-                        != Coord::default())
-                    .then(|| {
-                        let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_y.get().0 as f32;
-                            content_y.set_physic_animation_value(weak.clone());
-                            RefCell::new(FlickAnimation::create_animation(
-                                FlickAnimationParameter::Distance {
-                                    delta: delta.y as f32,
-                                    duration: WHEEL_SCROLL_DURATION,
-                                },
-                                effective_bounce(flick, &geo, Dimension::Y),
-                                curr_val,
-                                limit_y,
-                            ))
+                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
+                        (delta.y != Coord::default()).then(|| {
+                            Self::set_simulation(
+                                &content_y,
+                                FlickAnimation::create_animation(
+                                    FlickAnimationParameter::Distance {
+                                        delta: delta.y as f32,
+                                        duration: WHEEL_SCROLL_DURATION,
+                                    },
+                                    effective_bounce(flick, &geo, Dimension::Y),
+                                    content_y.get().0 as f32,
+                                    limit_y,
+                                ),
+                            ) as Rc<RefCell<dyn PositionSimulation>>
                         });
-                        simulation as Rc<RefCell<dyn PositionSimulation>>
-                    });
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
                         self.pending_flicked = true;
@@ -953,16 +946,16 @@ impl FlickableDataInner {
         } else {
             0.
         };
-        Rc::new_cyclic(|weak: &Weak<RefCell<BounceFlick>>| {
-            content.set_physic_animation_value(weak.clone());
-            RefCell::new(FlickAnimation::create_spring_animation(
+        Self::set_simulation(
+            &content,
+            FlickAnimation::create_spring_animation(
                 curr_val,
                 limit,
                 crate::animations::current_tick(),
                 velocity,
                 drag_velocity.abs(),
-            ))
-        })
+            ),
+        )
     }
 
     /// Springs the content back on one axis and adds the simulation to the running ones.
@@ -1029,16 +1022,15 @@ impl FlickableDataInner {
                     flick.carry_momentum(),
                 );
                 let limit = Self::flick_limits(flick_rc, velocity, dimension);
-                let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                    let curr_val = content.get().0 as f32;
-                    content.set_physic_animation_value(weak.clone());
-                    RefCell::new(FlickAnimation::create_animation(
+                let simulation = Self::set_simulation(
+                    &content,
+                    FlickAnimation::create_animation(
                         FlickAnimationParameter::Velocity { velocity: velocity + carried_velocity },
                         effective_bounce(flick, &geo, dimension),
-                        curr_val,
+                        content.get().0 as f32,
                         limit,
-                    ))
-                });
+                    ),
+                );
                 Some(simulation as Rc<RefCell<dyn PositionSimulation>>)
             };
 
@@ -1058,6 +1050,17 @@ impl FlickableDataInner {
             self.running_animation =
                 Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
         }
+    }
+
+    #[must_use]
+    fn set_simulation<S: Simulation + PositionSimulation + 'static>(
+        content: &Pin<&Property<LogicalLength>>,
+        simulation: S,
+    ) -> Rc<RefCell<S>> {
+        Rc::new_cyclic(|weak: &Weak<RefCell<S>>| {
+            content.set_physic_animation_value(weak.clone());
+            RefCell::new(simulation)
+        })
     }
 
     fn scroll_to(
@@ -1093,23 +1096,23 @@ impl FlickableDataInner {
             }
             .apply_pin(flick);
 
-            let flick_velocity = if deflection < 0. { 1. } else { -1. };
+            let flick_velocity = 1f32.copysign(-deflection);
             let limit = FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension);
 
             Some(if cfg!(target_os = "ios") {
-                Rc::new_cyclic(|weak: &Weak<RefCell<EaseInOutSine>>| {
-                    content.set_physic_animation_value(weak.clone());
-                    RefCell::new(EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit))
-                })
+                Self::set_simulation(
+                    &content,
+                    EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit),
+                )
             } else {
-                Rc::new_cyclic(|weak: &Weak<RefCell<SpringFlick>>| {
-                    content.set_physic_animation_value(weak.clone());
-                    RefCell::new(SpringFlick::new(
+                Self::set_simulation(
+                    &content,
+                    SpringFlick::new(
                         deflection,
                         limit,
                         SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
-                    ))
-                })
+                    ),
+                )
             })
         };
 

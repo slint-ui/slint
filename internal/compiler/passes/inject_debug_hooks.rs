@@ -221,19 +221,10 @@ fn property_defaults(
 fn base_state_binds(element: &ElementRc, property_name: &str) -> bool {
     let mut base_type = element.borrow().base_type.clone();
     while let crate::element_type::ElementType::Component(component) = base_type {
-        let root = component.root_element.clone();
-        let mut found = false;
-        object_tree::recurse_elem(&root, &(), &mut |elem, _| {
-            found |= elem.borrow().states.iter().any(|state| {
-                state.property_changes.iter().any(|(property, ..)| {
-                    property.name() == property_name && Rc::ptr_eq(&property.element(), &root)
-                })
-            });
-        });
-        if found {
+        if component.state_changes_root_property(property_name) {
             return true;
         }
-        base_type = root.borrow().base_type.clone();
+        base_type = component.root_element.borrow().base_type.clone();
     }
     false
 }

@@ -68,6 +68,10 @@ pub struct LookupCtx<'a> {
     /// LSP probe: while resolving, the `Type` is set to the `expected_type` at the innermost
     /// node containing the offset. `None` during normal compilation.
     pub expected_type_probe: Option<(TextSize, Type)>,
+
+    /// Whether the value of the expression being resolved is discarded,
+    /// such as a statement that isn't the last of a code block.
+    pub value_discarded: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -90,6 +94,7 @@ impl<'a> LookupCtx<'a> {
             current_token: None,
             local_variables: Default::default(),
             expected_type_probe: None,
+            value_discarded: false,
         }
     }
 

@@ -62,24 +62,7 @@ fn is_default_value(base_type: &BuiltinElement, name: &str, binding: &BindingExp
     };
     binding.animation.is_none()
         && binding.two_way_bindings.is_empty()
-        && same_literal(binding.value_expression(), &Expression::from_constant(default))
-}
-
-/// Anything that isn't a literal compares as different, so a computed binding counts as a use.
-fn same_literal(a: &Expression, b: &Expression) -> bool {
-    match (a, b) {
-        (Expression::NumberLiteral(a, a_unit), Expression::NumberLiteral(b, b_unit)) => {
-            a == b && a_unit == b_unit
-        }
-        (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
-        (Expression::StringLiteral(a), Expression::StringLiteral(b)) => a == b,
-        (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
-        // Colors and other converted literals arrive wrapped in a cast.
-        (Expression::Cast { from: a, to: a_type }, Expression::Cast { from: b, to: b_type }) => {
-            a_type == b_type && same_literal(a, b)
-        }
-        _ => false,
-    }
+        && binding.value_expression().same_literal(&Expression::from_constant(default))
 }
 
 fn lookup_property_distance(mut class: Arc<NativeClass>, name: &str) -> (usize, Arc<NativeClass>) {
@@ -163,7 +146,7 @@ fn builtin_defaults_are_comparable() {
             if let BuiltinPropertyDefault::Expr(default) = &info.default_value {
                 let default = Expression::from_constant(default);
                 assert!(
-                    same_literal(&default, &default),
+                    default.same_literal(&default),
                     "the default of {name}::{property} is a shape same_literal doesn't compare, \
                      so the property always counts as used: {default:?}"
                 );

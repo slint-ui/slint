@@ -13,7 +13,6 @@ import { PreviewDiagnostics } from "preview-diagnostics.slint";
 component CanvasChrome inherits Rectangle {
     in property <ArtboardStyle> style: Style.artboard;
     background: root.style.background;
-    clip: true;
 
     Rectangle {
         x: root.style.padding;

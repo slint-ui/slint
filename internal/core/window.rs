@@ -1882,6 +1882,10 @@ impl WindowInner {
         if let Some(cache) = self.window_adapter().renderer().text_layout_cache() {
             cache.begin_frame();
         }
+        #[cfg(feature = "shared-parley")]
+        if let Some(ctx) = self.try_context() {
+            ctx.font_context().borrow_mut().begin_frame();
+        }
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);

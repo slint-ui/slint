@@ -19,7 +19,7 @@ use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
-use crate::typeregister::TypeRegister;
+use crate::typeregister::{self, TypeRegister};
 use crate::{parser, reject_experimental_feature};
 use interfaces::ImplementedInterface;
 use itertools::Either;
@@ -764,6 +764,20 @@ impl Component {
     pub fn parent_element(&self) -> Option<ElementRc> {
         self.parent_element.borrow().upgrade()
     }
+
+    /// Whether a state of this component changes `property_name` on its root element
+    pub fn state_changes_root_property(&self, property_name: &str) -> bool {
+        let root = &self.root_element;
+        let mut found = false;
+        recurse_elem(root, &(), &mut |elem, _| {
+            found |= elem.borrow().states.iter().any(|state| {
+                state.property_changes.iter().any(|(property, ..)| {
+                    property.name() == property_name && Rc::ptr_eq(&property.element(), root)
+                })
+            });
+        });
+        found
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1456,6 +1470,8 @@ pub struct ListViewInfo {
     pub listview_height: NamedReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: NamedReference,
+    /// The ListView's `ensure-row-visible` function, if it declares one
+    pub ensure_row_visible: Option<NamedReference>,
 }
 
 #[derive(Debug, Clone)]
@@ -1775,7 +1791,7 @@ impl Element {
                 // Already rejected in `resolve_base_type`, with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
-                interfaces::get_implemented_interfaces(&r, node, tr, diag)
+                interfaces::get_implemented_interfaces(node, tr, diag)
             } else {
                 interfaces::disallow_implement_in_non_root(node, tr, diag);
                 (Vec::new(), Vec::new())
@@ -1962,6 +1978,18 @@ impl Element {
         }
     }
 
+    pub(crate) fn declares_ensure_row_visible(listview: &Element) -> bool {
+        let lookup =
+            listview.lookup_property("ensure-row-visible", PropertyLookupMode::InternalName);
+        let Type::Function(function) = lookup.property_type else { return false };
+        function.return_type == Type::Void
+            && function.args
+                == [
+                    Type::Int32,
+                    Type::Enumeration(typeregister::BUILTIN.enums.ScrollBehavior.clone()),
+                ]
+    }
+
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
@@ -2009,6 +2037,7 @@ impl Element {
                     has_binding("content-height") || has_binding("viewport-height"),
                 )
             };
+            let declares_ensure_row_visible = Self::declares_ensure_row_visible(&parent_elem);
             drop(parent_elem); // Drop the borrow before creating NamedReference
 
             let lvi = ListViewInfo {
@@ -2019,6 +2048,9 @@ impl Element {
                     .then(|| NamedReference::new(parent, SmolStr::new_static("content-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
+                ensure_row_visible: declares_ensure_row_visible.then(|| {
+                    NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
+                }),
             };
             // these properties are set by the ListView layouting code
             if let Some(content_height) = &lvi.content_height {
@@ -2775,6 +2807,20 @@ impl Element {
         if self.is_binding_set(&property_name, false) {
             return false;
         }
+
+        debug_assert!(
+            !self
+                .builtin_type()
+                .and_then(|b| b.properties.get(&property_name).cloned())
+                .is_some_and(|info| matches!(
+                    info.default_value,
+                    crate::native_class::BuiltinPropertyDefault::None
+                ) && matches!(
+                    info.property_visibility,
+                    PropertyVisibility::Input | PropertyVisibility::InOut
+                )),
+            "a pass sets the default of {property_name}: mark it `computed` in builtin_elements.rs"
+        );
 
         match self.bindings.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {
@@ -3620,6 +3666,9 @@ fn visit_all_named_references_in_element_dyn(
         }
         vis(&mut lv.listview_height);
         vis(&mut lv.listview_width);
+        if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
+            vis(ensure_row_visible);
+        }
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
