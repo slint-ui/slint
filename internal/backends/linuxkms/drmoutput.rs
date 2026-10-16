@@ -471,7 +471,7 @@ impl DrmOutput {
 
     #[cfg(feature = "gbm")]
     pub fn create_gbm_device(&self) -> Result<gbm::Device<SharedFd>, PlatformError> {
-        #[cfg(feature = "dlopen")]
+        #[cfg(all(feature = "dlopen", not(test)))]
         crate::dlopen::gbm::load()?;
 
         gbm::Device::new(self.drm_device.clone())
