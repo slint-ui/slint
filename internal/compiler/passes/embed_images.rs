@@ -89,6 +89,26 @@ pub async fn embed_images(
 struct ResourceIds {
     by_path: HashMap<SourcePath, EmbeddedResourcesIdx>,
     by_data_uri: HashMap<SmolStr, EmbeddedResourcesIdx>,
+    #[cfg(feature = "renderer-software")]
+    animated: std::collections::HashSet<EmbeddedResourcesIdx>,
+}
+
+#[cfg(feature = "renderer-software")]
+impl ResourceIds {
+    fn warn_if_animated(
+        &self,
+        resource_id: EmbeddedResourcesIdx,
+        diag: &mut BuildDiagnostics,
+        source_location: &Option<crate::diagnostics::SourceLocation>,
+    ) {
+        if self.animated.contains(&resource_id) {
+            diag.push_warning(
+                "Only the first frame of this animated image is embedded for the software renderer"
+                    .into(),
+                source_location,
+            );
+        }
+    }
 }
 
 /// The URL handed to the resource mapper, and the key of the mapped-resource
@@ -212,6 +232,8 @@ fn embed_image(
     let extension = || path.extension().unwrap_or_default().to_string();
 
     if let Some(&resource_id) = resource_ids.by_path.get(path) {
+        #[cfg(feature = "renderer-software")]
+        resource_ids.warn_if_animated(resource_id, diag, source_location);
         return match global_embedded_resources.borrow()[resource_id].kind {
             #[cfg(feature = "renderer-software")]
             EmbeddedResourcesKind::TextureData { .. } => {
@@ -265,13 +287,21 @@ fn embed_image(
 
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
-        return match load_image(_file, _scale_factor, _font_collection) {
-            Ok((img, source_format, original_size)) => {
+        let loaded = _file.read().map_err(image::ImageError::IoError).and_then(|data| {
+            load_image_from_bytes(&data, _file.extension(), _scale_factor, _font_collection)
+                .map(|loaded| (loaded, is_animated(&data)))
+        });
+        return match loaded {
+            Ok(((img, source_format, original_size), animated)) => {
                 let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
                     img,
                     source_format,
                     original_size,
                 )));
+                if animated {
+                    resource_ids.animated.insert(resource_id);
+                }
+                resource_ids.warn_if_animated(resource_id, diag, source_location);
                 ImageReference::EmbeddedTexture { resource_id }
             }
             Err(err) => {
@@ -549,13 +579,43 @@ fn load_image_from_bytes(
     })
 }
 
+/// Detects animations like `load` in `internal/core/graphics/image/animated.rs`.
 #[cfg(feature = "renderer-software")]
-fn load_image(
-    file: SourcePath,
-    scale_factor: f32,
-    font_collection: Option<&SharedFontCollection>,
-) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    load_image_from_bytes(&file.read()?, file.extension(), scale_factor, font_collection)
+fn is_animated(data: &[u8]) -> bool {
+    use image::AnimationDecoder;
+    let cursor = || std::io::Cursor::new(data);
+    let frames = || -> image::ImageResult<Option<image::Frames<'_>>> {
+        Ok(match image::guess_format(data)? {
+            image::ImageFormat::Png => {
+                let decoder = within_limits(image::codecs::png::PngDecoder::new(cursor())?)?;
+                if !decoder.is_apng()? {
+                    return Ok(None);
+                }
+                Some(decoder.apng()?.into_frames())
+            }
+            #[cfg(feature = "image-default-formats")]
+            image::ImageFormat::Gif => {
+                Some(within_limits(image::codecs::gif::GifDecoder::new(cursor())?)?.into_frames())
+            }
+            #[cfg(feature = "image-default-formats")]
+            image::ImageFormat::WebP => {
+                let decoder = within_limits(image::codecs::webp::WebPDecoder::new(cursor())?)?;
+                decoder.has_animation().then(|| decoder.into_frames())
+            }
+            _ => None,
+        })
+    };
+    frames().ok().flatten().is_some_and(|frames| frames.take(2).filter(Result::is_ok).count() == 2)
+}
+
+/// Applies the runtime's decoding limits,
+/// see `with_default_limits` in `internal/core/graphics/image/animated.rs`.
+#[cfg(feature = "renderer-software")]
+fn within_limits<D: image::ImageDecoder>(mut decoder: D) -> image::ImageResult<D> {
+    let (width, height) = decoder.dimensions();
+    image::Limits::default().reserve_buffer(width, height, image::ColorType::Rgba8)?;
+    decoder.set_limits(image::Limits::default())?;
+    Ok(decoder)
 }
 
 fn embed_data_uri(
@@ -569,6 +629,8 @@ fn embed_data_uri(
     _font_collection: Option<&SharedFontCollection>,
 ) -> ImageReference {
     if let Some(&resource_id) = resource_ids.by_data_uri.get(data_uri) {
+        #[cfg(feature = "renderer-software")]
+        resource_ids.warn_if_animated(resource_id, diag, source_location);
         let resources = global_embedded_resources.borrow();
         return match &resources[resource_id].kind {
             #[cfg(feature = "renderer-software")]
@@ -605,14 +667,19 @@ fn embed_data_uri(
             _scale_factor,
             _font_collection,
         )
+        .map(|loaded| (loaded, is_animated(&decoded_data)))
         .map_err(|e| e.to_string())
         {
-            Ok((img, source_format, original_size)) => {
+            Ok(((img, source_format, original_size), animated)) => {
                 let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
                     img,
                     source_format,
                     original_size,
                 )));
+                if animated {
+                    resource_ids.animated.insert(resource_id);
+                }
+                resource_ids.warn_if_animated(resource_id, diag, source_location);
                 return ImageReference::EmbeddedTexture { resource_id };
             }
             Err(err) => {

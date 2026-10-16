@@ -34,6 +34,7 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    press_key,
     screenshot,
     select_fixture_element,
     select_outline_row,
@@ -84,11 +85,6 @@ THRESHOLD_LABELS = (
     "Rectangle radius top-left",
 )
 DISABLED_IDS = ("layout-rectangle", "rotated-rectangle")
-PALETTE_DROP_SIZES = {
-    "Rectangle": (160, 64),
-    "Text": (220, 40),
-    "Image": (160, 96),
-}
 SELECTION_ACCENT = (11, 153, 254)
 
 
@@ -115,7 +111,7 @@ def finish_palette_drag(
     )
 
 
-@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
 def test_component_palette_drop_can_extend_outside_artboard(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -132,15 +128,6 @@ def test_component_palette_drop_can_extend_outside_artboard(
             y=artboard.absolute_position.y + 8,
         )
         begin_palette_drag(window, kind, target)
-        expected_width, expected_height = PALETTE_DROP_SIZES[kind]
-
-        expected_x = round(target.x - artboard.absolute_position.x - expected_width / 2)
-        expected_y = round(
-            target.y - artboard.absolute_position.y - expected_height / 2
-        )
-        assert expected_x < 0
-        assert expected_y < 0
-
         finish_palette_drag(window, target)
         expected = (
             GOLDENS / f"PaletteDropCases.outside-{kind.lower()}.slint"
@@ -171,7 +158,7 @@ def test_palette_preview_follows_rejected_pointer(
         preview = element(
             window, "Rectangle drag preview", role=slint_testing.AccessibleRole.Region
         )
-        expected_width, expected_height = PALETTE_DROP_SIZES["Rectangle"]
+        expected_width, expected_height = 160, 64
         assert preview.size.width == pytest.approx(expected_width)
         assert preview.size.height == pytest.approx(expected_height)
         assert preview.absolute_position.x == pytest.approx(
@@ -498,7 +485,7 @@ def test_invisible_element_keeps_selection_outline_during_drag(
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
-@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
 def test_repeated_palette_drop_preserves_component_kind(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -521,6 +508,9 @@ def test_repeated_palette_drop_preserves_component_kind(
                 GOLDENS / f"RepeatedPaletteDrops.{kind.lower()}-{step}.slint"
             ).read_bytes()
             snapshot.wait_for_applied(expected, "RepeatedPaletteDrops.slint")
+            if kind == "Text":
+                element(window, "Inline text editor")
+                press_key(window, keys.Escape)
             reload_label = f"Reload probe {step}"
             reloaded = expected.replace(b"Reload probe", reload_label.encode(), 1)
             source_file.write_bytes(reloaded)

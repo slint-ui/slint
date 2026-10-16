@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A smooth `ensure-row-visible` must keep scrolling while the pointer moves over the ListView.
+// It used to stop when a pointer move laid out the ListView in a new tick before `content-y` was evaluated,
+// because the scroll looked as if no binding drove it anymore.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+
+    listview := ListView {
+        for i in 1000: Rectangle {
+            height: 50px;
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition, Timer, TimerMode};
+use std::time::Duration;
+
+const ROW_HEIGHT: f32 = 50.;
+const FRAME_MS: u64 = 16;
+const MAX_SCROLL_DURATION_MS: u64 = 3000;
+
+let instance = TestCase::new().unwrap();
+let viewport = instance.get_visible_height();
+
+// `mock_elapsed_time` fires timers right after it advances the tick, before the change handlers evaluate `content-y`.
+// Platform backends deliver pointer events in that order too.
+let pointer_moves = Timer::default();
+let weak = instance.as_weak();
+let mut x = 100.;
+pointer_moves.start(TimerMode::Repeated, Duration::from_millis(FRAME_MS), move || {
+    x += 1.;
+    weak.unwrap()
+        .window()
+        .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, 300.) });
+});
+
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+let target = -(901. * ROW_HEIGHT - viewport);
+let mut elapsed = 0;
+while instance.get_content_y() != target {
+    assert!(elapsed <= MAX_SCROLL_DURATION_MS, "the scroll stopped at {} instead of {target}", instance.get_content_y());
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    elapsed += FRAME_MS;
+}
+```
+
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition};
+
+const ROW_HEIGHT: f32 = 50.;
+
+let instance = TestCase::new().unwrap();
+let viewport = instance.get_visible_height();
+
+let target = -(901. * ROW_HEIGHT - viewport);
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(5);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200., 300.) });
+slint_testing::mock_elapsed_time(5);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200., 320.) });
+slint_testing::mock_elapsed_time(10000000);
+assert_eq!(instance.get_content_y(), target);
+```
+*/

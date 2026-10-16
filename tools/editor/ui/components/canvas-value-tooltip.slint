@@ -8,6 +8,7 @@ export component CanvasValueTooltip inherits Rectangle {
     in property <string> label;
     in property <string> value;
     in property <string> suffix;
+    in property <string> secondary-text;
     in property <string> value-label;
     in property <Point> pointer-position;
 
@@ -22,10 +23,10 @@ export component CanvasValueTooltip inherits Rectangle {
     drop-shadow-color: root.style.shadow.color;
     accessible-role: AccessibleRole.text;
     accessible-label: root.value-label;
-    accessible-value: root.value;
+    accessible-value: root.value + (root.secondary-text == "" ? "" : "\n" + root.secondary-text);
 
     tip := Text {
-        text: root.label + " " + root.value + root.suffix;
+        text: root.label + " " + root.value + root.suffix + (root.secondary-text == "" ? "" : "\n" + root.secondary-text);
         color: root.style.normal.foreground;
         font-size: root.style.text.size;
         font-weight: root.style.text.weight;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! The types that both the expression tree and the LLR use:
-//! units, operators, easing curves, cursors and image references
+//! units, operators, layout orientations, easing curves, cursors and image references
 
 use crate::langtype::Type;
 use smol_str::SmolStr;
@@ -232,6 +232,21 @@ impl ImageReference {
             Self::DataUri(url.as_str().into())
         } else {
             Self::Source(url.into())
+        }
+    }
+}
+
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum Orientation {
+    Horizontal,
+    Vertical,
+}
+
+impl Orientation {
+    pub fn orthogonal(self) -> Self {
+        match self {
+            Orientation::Horizontal => Orientation::Vertical,
+            Orientation::Vertical => Orientation::Horizontal,
         }
     }
 }

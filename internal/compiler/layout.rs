@@ -7,7 +7,7 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::*;
-use crate::expression_types::Unit;
+use crate::expression_types::{Orientation, Unit};
 use crate::langtype::Type;
 use crate::object_tree::{Component, Element, ElementRc, PropertyDeclaration};
 
@@ -18,21 +18,6 @@ use std::rc::{Rc, Weak};
 
 /// Number of slots a cell occupies in a box layout cache: position and size.
 pub const BOX_LAYOUT_CACHE_ENTRIES_PER_CELL: usize = 2;
-
-#[derive(Clone, Debug, Copy, Eq, PartialEq)]
-pub enum Orientation {
-    Horizontal,
-    Vertical,
-}
-
-impl Orientation {
-    pub fn orthogonal(self) -> Self {
-        match self {
-            Orientation::Horizontal => Orientation::Vertical,
-            Orientation::Vertical => Orientation::Horizontal,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Default)]
 pub enum FlexboxLayoutDirection {

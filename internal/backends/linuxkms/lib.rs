@@ -18,7 +18,14 @@ type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<OwnedFd>,
 #[cfg(all(target_os = "linux", feature = "drm"))]
 mod drmoutput;
 
-#[cfg(all(target_os = "linux", feature = "dlopen", any(feature = "libinput", feature = "gbm")))]
+// A test build of this crate also links the library build through the `slint` dev-dependency,
+// and two copies of the `#[no_mangle]` wrappers don't link.
+#[cfg(all(
+    target_os = "linux",
+    feature = "dlopen",
+    not(test),
+    any(feature = "libinput", feature = "gbm")
+))]
 mod dlopen;
 
 #[cfg(target_os = "linux")]

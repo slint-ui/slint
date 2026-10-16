@@ -598,7 +598,7 @@ impl Struct {
 /// Keep the matches over this type exhaustive,
 /// so that adding a variant is a compile error in each consumer:
 /// the conversion to an expression tree (`Expression::from_constant`),
-/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// the lowering for the code generators (`llr::Expression::from_constant`),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
 pub enum ConstantExpression {

@@ -17,7 +17,7 @@ use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::builtin_functions::BuiltinFunction;
 use crate::expression_tree::{Callable, Expression as tree_Expression};
 use crate::expression_types::MouseCursorInner;
-use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::llr::lower_to_item_tree::LoweredElement;
@@ -73,33 +73,6 @@ impl ExpressionLoweringCtx<'_> {
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
     fn property_ty(&self, _: &MemberReference) -> &Type {
         unimplemented!()
-    }
-}
-
-/// Lower a constant expression, such as the default value of a struct field
-/// (see [`crate::langtype::Struct::field_defaults`]),
-/// so that the code generators can compile it with their regular expression compilation.
-pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Expression {
-    match expression {
-        ConstantExpression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
-        ConstantExpression::NumberLiteral(n, _unit) => llr_Expression::NumberLiteral(*n),
-        ConstantExpression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        ConstantExpression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
-        ConstantExpression::Cast { from, to } => {
-            llr_Expression::Cast { from: Box::new(lower_constant_expression(from)), to: to.clone() }
-        }
-        ConstantExpression::UnaryOp { sub, op } => {
-            llr_Expression::UnaryOp { sub: Box::new(lower_constant_expression(sub)), op: *op }
-        }
-        ConstantExpression::Struct { ty, values } => llr_Expression::Struct {
-            ty: ty.clone(),
-            values: values.iter().map(|(k, v)| (k.clone(), lower_constant_expression(v))).collect(),
-        },
-        ConstantExpression::Array { element_ty, values } => llr_Expression::Array {
-            element_ty: element_ty.clone(),
-            values: values.iter().map(lower_constant_expression).collect(),
-            output: llr_ArrayOutput::Model,
-        },
     }
 }
 

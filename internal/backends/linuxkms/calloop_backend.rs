@@ -89,7 +89,7 @@ pub struct Backend {
 
 impl Backend {
     pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
-        #[cfg(all(feature = "dlopen", feature = "libinput"))]
+        #[cfg(all(feature = "dlopen", feature = "libinput", not(test)))]
         {
             crate::dlopen::libudev::load()?;
             crate::dlopen::libinput::load()?;

@@ -1131,7 +1131,7 @@ fn with_layout_item_info(
     ctx: &mut EvalContext,
     cells_variable: &str,
     elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
-    orientation: i_slint_compiler::layout::Orientation,
+    orientation: i_slint_compiler::expression_types::Orientation,
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
@@ -1189,7 +1189,7 @@ fn push_repeater_layout_items(
     ctx: &mut EvalContext,
     repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
-    orientation: i_slint_compiler::layout::Orientation,
+    orientation: i_slint_compiler::expression_types::Orientation,
     cross_size: Option<f32>,
     grid_cross_width: Option<&Expression>,
     cells: &mut Vec<Value>,
@@ -1286,7 +1286,7 @@ fn push_repeater_layout_items(
 /// cache read for one instance. `None` on a non-numeric value, so the caller
 /// falls back to the plain layout info rather than measuring at 0.
 fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usize) -> Option<f32> {
-    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_REPEATER_INDEX_LOCAL;
+    use i_slint_compiler::llr::GRID_MEASURE_REPEATER_INDEX_LOCAL;
     let prev = ctx.locals.insert(
         SmolStr::new_static(GRID_MEASURE_REPEATER_INDEX_LOCAL),
         Value::Number(index as f64),
@@ -1313,13 +1313,13 @@ fn total_row_child_count(
 }
 
 pub(crate) fn llr_to_core_orientation(
-    o: i_slint_compiler::layout::Orientation,
+    o: i_slint_compiler::expression_types::Orientation,
 ) -> i_slint_core::items::Orientation {
     match o {
-        i_slint_compiler::layout::Orientation::Horizontal => {
+        i_slint_compiler::expression_types::Orientation::Horizontal => {
             i_slint_core::items::Orientation::Horizontal
         }
-        i_slint_compiler::layout::Orientation::Vertical => {
+        i_slint_compiler::expression_types::Orientation::Vertical => {
             i_slint_core::items::Orientation::Vertical
         }
     }

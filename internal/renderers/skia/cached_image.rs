@@ -95,6 +95,14 @@ pub(crate) fn as_skia_image(
             canvas,
             surface,
         ),
+        ImageInner::AnimatedImage(animated) => as_skia_image(
+            animated.first_frame(),
+            target_size_fn,
+            image_fit,
+            scale_factor,
+            canvas,
+            surface,
+        ),
         #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))

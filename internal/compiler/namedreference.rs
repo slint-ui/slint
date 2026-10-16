@@ -15,7 +15,8 @@ use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
 use crate::native_class::PropertyVisibility;
-use crate::object_tree::{Element, ElementRc, PropertyAnalysis};
+use crate::object_tree::{Element, ElementRc};
+use crate::property_analysis::PropertyAnalysis;
 
 /// Reference to a property or callback of a given name within an element.
 #[derive(Clone)]
