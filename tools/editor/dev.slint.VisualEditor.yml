@@ -77,6 +77,8 @@ modules:
         --profile package-release --offline
       - install -Dm0755 target/package-release/slint-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/editor/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      # Flatpak exports a MIME package named after the app ID to the host
+      - install -Dm0644 tools/editor/packaging/linux/${FLATPAK_ID}.mime.xml ${FLATPAK_DEST}/share/mime/packages/${FLATPAK_ID}.xml
       # The icon references the shared logo and tile backdrop, and librsvg only
       # resolves references within the document's own directory
       - cp logo/slint-logo-small-dark.svg tools/editor/packaging/tile-backdrop.svg tools/editor/packaging/linux/
