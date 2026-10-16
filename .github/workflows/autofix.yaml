@@ -74,6 +74,8 @@ jobs:
     ci:
         needs: [format_fix, lint_typecheck]
         permissions:
+            # Reads the artifact with the UI testing token of a pull request from a fork.
+            actions: read
             contents: read
             deployments: write
         uses: ./.github/workflows/ci.yaml

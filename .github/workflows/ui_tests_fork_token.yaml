@@ -1,0 +1,48 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# GitHub gives a pull request from a fork neither secrets nor an OIDC token, so its
+# visual editor UI tests can't get the token that installs slint-testing.
+# This mints one for it, once a maintainer approves the `ui-tests-fork-token` environment.
+# The CI run of the pull request picks it up from the artifact, see ci.yaml.
+#
+# `pull_request_target` runs as this repository, so this workflow never checks out
+# or runs code from the pull request.
+# The artifact is readable by anyone, which the token's short lifetime makes acceptable.
+
+name: UI Tests Fork Token
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [master, "feature/*", "pre-release/*"]
+
+permissions: {}
+
+concurrency:
+  group: ui-tests-fork-token-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  mint:
+    if: github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: ui-tests-fork-token
+    permissions:
+      id-token: write
+    steps:
+      - name: Get a testing.slint.dev token
+        id: auth
+        uses: slint-ui/ui-testing-auth@v1
+        with:
+          account-url: https://account-staging.slint.dev
+      - name: Write the token
+        env:
+          TOKEN: ${{ steps.auth.outputs.token }}
+        run: printf '%s' "$TOKEN" > token
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ui-testing-token-${{ github.event.pull_request.head.sha }}
+          path: token
+          retention-days: 1

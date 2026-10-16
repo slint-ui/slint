@@ -122,6 +122,42 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
+            # A pull request from a fork gets no secrets.
+            # Its token comes from ui_tests_fork_token.yaml, once a maintainer approves that run.
+            - name: Get the testing.slint.dev token minted for this pull request
+              if: matrix.run_ui_tests && github.event.pull_request.head.repo.fork
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  NAME: ui-testing-token-${{ github.event.pull_request.head.sha }}
+                  MINTED_BY: pull_request_target .github/workflows/ui_tests_fork_token.yaml
+              run: |
+                  # Any workflow run can upload an artifact by that name, so only take one from the minting workflow.
+                  find_run() {
+                      local runs
+                      runs=$(gh api "repos/$REPO/actions/artifacts?name=$NAME" \
+                          --jq '.artifacts[] | select(.expired | not) | .workflow_run.id')
+                      for run in $runs; do
+                          if [ "$(gh api "repos/$REPO/actions/runs/$run" --jq '.event + " " + .path')" = "$MINTED_BY" ]; then
+                              echo "$run"
+                              return
+                          fi
+                      done
+                  }
+                  for _ in $(seq 60); do
+                      run=$(find_run)
+                      [ -n "$run" ] && break
+                      sleep 30
+                  done
+                  if [ -z "$run" ]; then
+                      echo "::error::No token for this commit." \
+                          "Ask a maintainer to approve the 'UI Tests Fork Token' run of this pull request, then re-run this job."
+                      exit 1
+                  fi
+                  gh run download "$run" --repo "$REPO" --name "$NAME" --dir "$RUNNER_TEMP/ui-testing-token"
+                  token=$(cat "$RUNNER_TEMP/ui-testing-token/token")
+                  echo "::add-mask::$token"
+                  echo "UV_INDEX_SLINT_PRIVATE_PASSWORD=$token" >> "$GITHUB_ENV"
             - name: Install UI test dependencies
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
@@ -129,11 +165,8 @@ jobs:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
-              # GitHub withholds secrets from pull requests from forks.
-              # Until the OIDC setup is ready, those fetch a throwaway token instead.
               run: |
-                  token="${SLINT_TESTING_TOKEN:-$(curl -fsSL https://gist.githubusercontent.com/ogoffart/2404d9d20e3c3edc38f33645987a52bb/raw/slint-testing-token)}"
-                  UV_INDEX_SLINT_PRIVATE_PASSWORD="$token" uv sync --locked
+                  UV_INDEX_SLINT_PRIVATE_PASSWORD="${SLINT_TESTING_TOKEN:-$UV_INDEX_SLINT_PRIVATE_PASSWORD}" uv sync --locked
             # ty needs slint-testing installed, so this also needs the private package.
             - name: Check visual editor UI tests
               if: matrix.run_ui_tests
