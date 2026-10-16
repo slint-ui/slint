@@ -6,6 +6,8 @@ export struct CodeBinding {
     value: string,
 }
 
+export enum InspectorCommitResult { rejected, unchanged, pending }
+
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -617,6 +619,7 @@ export global Api {
     callback show-preview-for(name: string, url: string);
     callback reload-preview();
 
+    pure callback window-active() -> bool;
     in property <int> inspector-generation;
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
@@ -625,7 +628,7 @@ export global Api {
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);

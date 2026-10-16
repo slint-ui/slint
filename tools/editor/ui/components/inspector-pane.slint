@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
-import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, CodeBinding, ElementInformation, InspectorNumberChange, InspectorCommitResult, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
@@ -339,7 +339,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function commit-shadow-number(property-name: string, value: float) -> bool {
-        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]);
+        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]) != InspectorCommitResult.rejected;
     }
 
     pure function shadow-offset-changes(angle: angle, distance: float) -> [InspectorNumberChange] {
@@ -353,7 +353,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function commit-shadow-offsets(angle: angle, distance: float) -> bool {
-        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance));
+        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance)) != InspectorCommitResult.rejected;
     }
 
     function set-rectangle-effect(value: string) -> bool {

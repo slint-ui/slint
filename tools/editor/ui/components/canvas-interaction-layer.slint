@@ -186,9 +186,8 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
-        private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
         label: @tr("Rotation");
-        value: "\{(self.normalized-angle / 1deg).round()}";
+        value: EditorAngles.rounded(frame.rotation-tooltip-value).to-fixed(0);
         suffix: "°";
         value-label: @tr("Rotation angle");
         pointer-position: frame.rotation-tooltip-position;
@@ -431,7 +430,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             x: root.absolute-position.x + position.x,
             y: root.absolute-position.y + position.y,
         };
-        if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-active || root.hover-selection-active || root.pressed {
+        if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
         }
         root.hover-enabled = true;
@@ -488,7 +487,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         selection: selection;
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
-        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-active;
+        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
         show-outline-while-moving: root.keep-selection-outline-while-moving(
             Api.current-element.type-name,
         );
@@ -502,7 +501,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
     }
 
-    for geometry in (FillSession.canvas-active || ShadowSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
+    for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
         show-outline-while-moving: root.keep-selection-outline-while-moving(
