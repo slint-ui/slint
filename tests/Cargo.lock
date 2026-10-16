@@ -4758,6 +4758,7 @@ name = "slint-interpreter"
 version = "1.19.0"
 dependencies = [
  "derive_more",
+ "either",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-winit",
@@ -4765,7 +4766,6 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-core-macros",
- "itertools 0.15.0",
  "js-sys",
  "lyon_path",
  "smol_str 0.3.6",

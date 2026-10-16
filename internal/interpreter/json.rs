@@ -4,7 +4,7 @@
 // cSpell: ignore xfdeg
 //! This module contains the code serialize and deserialize `Value`s to JSON
 
-use std::collections::HashMap;
+use crate::prelude::*;
 
 use i_slint_compiler::langtype;
 use i_slint_core::{
@@ -12,8 +12,6 @@ use i_slint_core::{
     graphics::Image,
     model::{Model, ModelRc},
 };
-
-use crate::Value;
 
 /// Extension trait, adding JSON serialization methods
 pub trait JsonExt
@@ -30,7 +28,7 @@ where
     fn from_json_str(t: &langtype::Type, value: &str) -> Result<Self, String>;
 }
 
-impl JsonExt for crate::Value {
+impl JsonExt for Value {
     fn to_json(&self) -> Result<serde_json::Value, String> {
         value_to_json(self)
     }
@@ -225,7 +223,7 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
                                 None => Err(format!("Found unknown field in struct: {k}")),
                             }
                         })
-                        .collect::<Result<HashMap<smol_str::SmolStr, Value>, _>>()?,
+                        .collect::<Result<HashMap<SmolStr, Value>, _>>()?,
                 );
                 crate::eval::fill_missing_struct_fields(&mut value, s);
                 Ok(value.into())
@@ -502,7 +500,7 @@ fn test_from_json() {
 
 #[test]
 fn test_from_json_struct_missing_field() {
-    let ty = langtype::Type::Struct(std::sync::Arc::new(langtype::Struct::new(
+    let ty = langtype::Type::Struct(alloc::sync::Arc::new(langtype::Struct::new(
         [("name".into(), langtype::Type::String), ("on".into(), langtype::Type::Bool)]
             .into_iter()
             .collect(),
@@ -554,11 +552,9 @@ fn test_to_json() {
     let v = value_to_json_string(&Value::Bool(false)).unwrap();
     assert_eq!(&v, "false");
 
-    let model: ModelRc<Value> = std::rc::Rc::new(i_slint_core::model::VecModel::from(vec![
-        Value::Bool(true),
-        Value::Bool(false),
-    ]))
-    .into();
+    let model: ModelRc<Value> =
+        Rc::new(i_slint_core::model::VecModel::from(vec![Value::Bool(true), Value::Bool(false)]))
+            .into();
     let v = value_to_json_string(&Value::Model(model)).unwrap();
     assert_eq!(&v, "[true,false]");
 

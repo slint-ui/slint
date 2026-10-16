@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![no_std]
 
 /*!
 # Slint interpreter library
@@ -77,6 +78,30 @@ compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
+
+extern crate alloc;
+#[macro_use]
+extern crate std;
+
+mod prelude {
+    pub use alloc::borrow::ToOwned;
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::rc::Rc;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec;
+    pub use alloc::vec::Vec;
+    pub use core::cell::{Cell, OnceCell, RefCell};
+    pub use core::pin::Pin;
+
+    pub use crate::api::Value;
+    pub use crate::instance::Instance;
+    pub use i_slint_core::item_tree::ItemTreeVTable;
+    pub use i_slint_core::{Callback, Property, SlintContext};
+    pub use smol_str::SmolStr;
+    pub use std::collections::HashMap;
+    pub use vtable::VRc;
+}
 
 mod api;
 mod bindings;
