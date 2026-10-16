@@ -143,10 +143,9 @@ export component InspectorShadowControl inherits Rectangle {
             }
             toggled => {
                 self.focus();
-                let enabled = self.checked;
                 self.checked = root.effect-enabled;
                 ShadowSession.close();
-                Api.set-shadow-enabled(Api.current-element, root.inner, enabled);
+                Api.toggle-shadow(Api.current-element, root.inner);
             }
         }
     }

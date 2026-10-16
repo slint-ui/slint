@@ -25,8 +25,10 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
         image = Image.open(
             BytesIO(window.grab_window_with_mime_type("image/bmp"))
         ).convert("RGB")
+        if not settle:
+            return image
         data = image.tobytes()
-        stable = not settle or data == previous
+        stable = data == previous
         previous = data
         return image if stable else None
 

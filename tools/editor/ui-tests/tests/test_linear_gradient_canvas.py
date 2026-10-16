@@ -149,9 +149,11 @@ def test_live_rgb_typing_recaptures_alpha_for_the_next_edit(
             control(
                 window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
             ).invoke_accessible_default_action()
+            expect(field).to_have_value("ABCDEF")
             field.invoke_accessible_default_action()
         press_keys(window, "654321")
         press_key(window, keys.Return)
+        expect(field).to_have_value("654321")
         original.assert_unchanged_now()
         click(window, "Close Custom")
         expected = replace_once(
