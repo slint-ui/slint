@@ -810,6 +810,7 @@ impl ComponentCompiler {
 
 /// This is the entry point of the crate, it can be used to load a `.slint` file and
 /// compile it into a [`CompilationResult`].
+#[derive(Clone)]
 pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,

@@ -4,11 +4,14 @@
 // cSpell: ignore fileloader notacolor
 import { test, expect } from "vitest";
 import * as path from "node:path";
+import { setTimeout as delayed } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import {
     loadFile,
+    loadFileAsync,
     loadSource,
+    loadSourceAsync,
     language,
     CompileError,
     StyledText,
@@ -574,4 +577,93 @@ test("file loader", () => {
     const test = new demo.App();
 
     expect(test.test_text).toStrictEqual("Hello World");
+});
+
+test("async file loader", async () => {
+    // b.slint arrives first and starts loading shared.slint, which a.slint then waits for.
+    const delays: Record<string, number> = {
+        "a.slint": 30,
+        "b.slint": 5,
+        "shared.slint": 50,
+    };
+    const files: Record<string, string> = {
+        "a.slint": `import { Shared } from "shared.slint";
+            export component A { out property <string> text: Shared.text + "A"; }`,
+        "b.slint": `import { Shared } from "shared.slint";
+            export component B { out property <string> text: Shared.text + "B"; }`,
+        "shared.slint": `export global Shared { out property <string> text: "Shared"; }`,
+    };
+    const requested: string[] = [];
+    const demo = (await loadSourceAsync(
+        `import { A } from "a.slint";
+        import { B } from "b.slint";
+        export component App {
+            out property <string> text: a.text + b.text;
+            a := A {}
+            b := B {}
+        }`,
+        path.join(dirname, "resources/async-fileloader.slint"),
+        {
+            fileLoader: (filePath) => {
+                const name = path.basename(filePath);
+                requested.push(name);
+                return delayed(delays[name], files[name]);
+            },
+        },
+    )) as any;
+
+    expect(new demo.App().text).toStrictEqual("SharedASharedB");
+    expect(requested.sort()).toStrictEqual([
+        "a.slint",
+        "b.slint",
+        "shared.slint",
+    ]);
+});
+
+test("async file loader falls back to the file system for undefined", async () => {
+    const demo = (await loadFileAsync(
+        path.join(dirname, "resources/test-fileloader.slint"),
+        {
+            fileLoader: async (filePath) =>
+                filePath.includes("lib.slint")
+                    ? `import { Test as Base } from "test.slint";
+                       export component Test inherits Base {
+                           in-out property <string> text: self.check;
+                       }`
+                    : undefined,
+        },
+    )) as any;
+
+    expect(new demo.App().test_text).toStrictEqual("Test");
+});
+
+test("async file loader rejects", async () => {
+    let error: CompileError | undefined;
+    try {
+        await loadFileAsync(
+            path.join(dirname, "resources/test-fileloader.slint"),
+            {
+                quiet: true,
+                fileLoader: () => Promise.reject(new Error("not in the store")),
+            },
+        );
+    } catch (e) {
+        error = e as CompileError;
+    }
+    expect(error).toBeInstanceOf(CompileError);
+    expect(error!.diagnostics[0].message).toContain("not in the store");
+});
+
+test("synchronous loadFile with an async file loader", () => {
+    let error: CompileError | undefined;
+    try {
+        loadFile(path.join(dirname, "resources/test-fileloader.slint"), {
+            quiet: true,
+            fileLoader: () => Promise.reject(new Error("never awaited")),
+        });
+    } catch (e) {
+        error = e as CompileError;
+    }
+    expect(error).toBeInstanceOf(CompileError);
+    expect(error!.diagnostics[0].message).toContain("loadFileAsync()");
 });
