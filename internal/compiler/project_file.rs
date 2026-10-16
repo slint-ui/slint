@@ -21,11 +21,9 @@ pub struct ProjectFileData {
 
     pub include_paths: Option<Vec<PathBuf>>,
 
-    pub style: Option<String>,
-
     pub enable_experimental_features: Option<bool>,
 
-    pub entry: Option<PathBuf>,
+    pub main: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -36,14 +34,14 @@ pub struct ProjectFile {
 
 pub const FILE_NAME: &str = "slint-project.json";
 
-/// Returns whether `path` names a project file, which tools compile by compiling its entry.
+/// Returns whether `path` names a project file, which tools compile by compiling its main file.
 pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
 /// Resolves the file a tool was asked to compile.
 ///
-/// A project file resolves to its entry and applies itself, without a search.
+/// A project file resolves to its main file and applies itself, without a search.
 /// Any other path resolves to itself, with the project file found for its directory.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
     if !is_project_file(input) {
@@ -56,10 +54,10 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Str
     }
     let project_file = ProjectFile::load(input)
         .map_err(|error| format!("Cannot load {}: {error}", input.display()))?;
-    let entry = project_file.entry().ok_or_else(|| {
-        format!("{} has no 'entry' to compile", project_file.source_path().display())
+    let main = project_file.main().ok_or_else(|| {
+        format!("{} has no 'main' to compile", project_file.source_path().display())
     })?;
-    Ok((entry, Some(project_file)))
+    Ok((main, Some(project_file)))
 }
 
 /// Searches `directory` and its ancestors for a project file,
@@ -119,19 +117,15 @@ impl ProjectFile {
         self.data.include_paths.as_ref()
     }
 
-    pub fn style(&self) -> Option<&str> {
-        self.data.style.as_deref()
-    }
-
     pub fn enable_experimental_features(&self) -> Option<bool> {
         self.data.enable_experimental_features
     }
 
     /// The `.slint` file to compile when a tool is given this project file.
-    pub fn entry(&self) -> Option<PathBuf> {
+    pub fn main(&self) -> Option<PathBuf> {
         let project_directory =
             SourcePath::new(&self.source_path).parent().into_native_path().unwrap_or_default();
-        self.data.entry.clone().map(|entry| resolve_relative_path(&project_directory, entry))
+        self.data.main.clone().map(|main| resolve_relative_path(&project_directory, main))
     }
 
     pub fn into_compiler_configuration(
@@ -163,29 +157,20 @@ impl ProjectFile {
                 *path = resolve_relative_path(&project_directory, path.clone());
             }
         }
-        data.entry = self.entry();
+        data.main = self.main();
         data
     }
 }
 
 impl ProjectFileData {
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
-        let Self {
-            schema: _,
-            library_paths,
-            include_paths,
-            style,
-            enable_experimental_features,
-            entry: _,
-        } = self;
+        let Self { schema: _, library_paths, include_paths, enable_experimental_features, main: _ } =
+            self;
         if let Some(include_paths) = include_paths {
             compiler_config.include_paths = include_paths.clone();
         }
         if let Some(library_paths) = library_paths {
             compiler_config.library_paths = library_paths.clone();
-        }
-        if let Some(style) = style {
-            compiler_config.style = Some(style.clone());
         }
         if let Some(enable_experimental_features) = enable_experimental_features {
             compiler_config.enable_experimental = *enable_experimental_features;
@@ -197,6 +182,7 @@ impl ProjectFileData {
 #[derive(Clone, Debug, Default)]
 pub struct Overrides {
     pub project: ProjectFileData,
+    pub style: Option<String>,
     pub embed_resources: Option<crate::EmbedResourcesKind>,
     pub const_scale_factor: Option<f32>,
     #[cfg(feature = "bundle-translations")]
@@ -221,6 +207,7 @@ impl Overrides {
         }
         let Self {
             project,
+            style,
             embed_resources,
             const_scale_factor,
             #[cfg(feature = "bundle-translations")]
@@ -233,6 +220,9 @@ impl Overrides {
             use_sdf_fonts,
         } = self;
         project.apply_to(config);
+        if let Some(style) = style {
+            config.style = Some(style.clone());
+        }
         if let Some(embed_resources) = embed_resources {
             config.embed_resources = *embed_resources;
         }
@@ -264,6 +254,7 @@ impl Overrides {
     pub fn merge(&mut self, other: Self) {
         let Self {
             project,
+            style,
             embed_resources,
             const_scale_factor,
             #[cfg(feature = "bundle-translations")]
@@ -279,19 +270,18 @@ impl Overrides {
             schema,
             library_paths,
             include_paths,
-            style,
             enable_experimental_features,
-            entry,
+            main,
         } = project;
         replace_if_supplied(&mut self.project.schema, schema);
         replace_if_supplied(&mut self.project.library_paths, library_paths);
         replace_if_supplied(&mut self.project.include_paths, include_paths);
-        replace_if_supplied(&mut self.project.style, style);
+        replace_if_supplied(&mut self.style, style);
         replace_if_supplied(
             &mut self.project.enable_experimental_features,
             enable_experimental_features,
         );
-        replace_if_supplied(&mut self.project.entry, entry);
+        replace_if_supplied(&mut self.project.main, main);
         replace_if_supplied(&mut self.embed_resources, embed_resources);
         replace_if_supplied(&mut self.const_scale_factor, const_scale_factor);
         #[cfg(feature = "bundle-translations")]
@@ -395,7 +385,7 @@ mod tests {
     #[test]
     fn build_overrides_apply_after_project_settings_and_existing_defaults() {
         with_project_file_contents(
-            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent","enable-experimental-features":true}"#,
+            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"enable-experimental-features":true}"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
                 let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
@@ -405,11 +395,11 @@ mod tests {
                     project: super::ProjectFileData {
                         include_paths: Some(vec![]),
                         library_paths: Some(HashMap::new()),
-                        style: Some(String::new()),
                         enable_experimental_features: Some(false),
                         ..Default::default()
                     },
                     debug_info: Some(false),
+                    style: Some(String::new()),
                     const_scale_factor: Some(0.),
                     ..Default::default()
                 };
@@ -430,11 +420,11 @@ mod tests {
             project: super::ProjectFileData {
                 include_paths: Some(vec![PathBuf::from("startup")]),
                 library_paths: Some(HashMap::from([("startup".into(), PathBuf::from("lib"))])),
-                style: Some("fluent".into()),
                 enable_experimental_features: Some(true),
                 ..Default::default()
             },
             debug_info: Some(true),
+            style: Some("fluent".into()),
             ..Default::default()
         };
         overrides.merge(super::Overrides {
@@ -449,7 +439,7 @@ mod tests {
         });
         assert_eq!(overrides.project.include_paths, Some(vec![]));
         assert_eq!(overrides.project.library_paths, Some(HashMap::new()));
-        assert_eq!(overrides.project.style.as_deref(), Some("fluent"));
+        assert_eq!(overrides.style.as_deref(), Some("fluent"));
         assert_eq!(overrides.project.enable_experimental_features, Some(false));
         assert_eq!(overrides.debug_info, Some(false));
     }
@@ -458,13 +448,11 @@ mod tests {
     fn partially_specified_project_file_is_valid() {
         let parsed = load_project_file(
             r#"{
-                "style": "fluent",
                 "enable-experimental-features": true
             }"#,
         )
         .unwrap();
 
-        assert_eq!(parsed.style(), Some("fluent"));
         assert_eq!(parsed.enable_experimental_features(), Some(true));
         assert_eq!(parsed.library_paths(), None);
         assert_eq!(parsed.include_paths(), None);
@@ -500,12 +488,12 @@ mod tests {
         let parsed = load_project_file(
             r#"{
                 "$schema": "https://slint.dev/slint-project.schema.json",
-                "style": "fluent"
+                "include-paths": ["include"]
             }"#,
         )
         .unwrap();
 
-        assert_eq!(parsed.style(), Some("fluent"));
+        assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
     }
 
     #[test]
@@ -514,7 +502,6 @@ mod tests {
             load_project_file(r#"{"$schema": "https://slint.dev/slint-project.schema.json"}"#)
                 .unwrap();
 
-        assert_eq!(parsed.style(), None);
         assert_eq!(parsed.include_paths(), None);
     }
 
@@ -522,13 +509,12 @@ mod tests {
     fn line_comments_are_accepted() {
         let parsed = load_project_file(
             r#"{
-                // The widget style for this project.
-                "style": "fluent" // trailing comment
+                "include-paths": ["include"] // trailing comment
             }"#,
         )
         .unwrap();
 
-        assert_eq!(parsed.style(), Some("fluent"));
+        assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
     }
 
     #[test]
@@ -536,14 +522,13 @@ mod tests {
         let parsed = load_project_file(
             r#"{
                 /* Disabled until the upgrade:
-                   "style": "material",
+                   "include-paths": ["disabled"],
                 */
                 "include-paths": ["include"] /* here too */
             }"#,
         )
         .unwrap();
 
-        assert_eq!(parsed.style(), None);
         assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
     }
 
@@ -551,17 +536,19 @@ mod tests {
     fn comment_markers_inside_strings_are_kept() {
         let parsed = load_project_file(
             r#"{
-                "include-paths": ["not//a/comment", "not/*a*/comment"],
-                "style": "with \" quote // and slashes"
+                "include-paths": ["not//a/comment", "not/*a*/comment", "with \" quote // and slashes"]
             }"#,
         )
         .unwrap();
 
         assert_eq!(
             parsed.include_paths(),
-            Some(&vec![PathBuf::from("not//a/comment"), PathBuf::from("not/*a*/comment")])
+            Some(&vec![
+                PathBuf::from("not//a/comment"),
+                PathBuf::from("not/*a*/comment"),
+                PathBuf::from("with \" quote // and slashes")
+            ])
         );
-        assert_eq!(parsed.style(), Some(r#"with " quote // and slashes"#));
     }
 
     #[test]
@@ -573,7 +560,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(parsed.style(), None);
         assert_eq!(parsed.include_paths(), None);
     }
 
@@ -583,7 +569,7 @@ mod tests {
             r#"{
                 // one
                 // two
-                "style": nonsense
+                "include-paths": nonsense
             }"#,
         )
         .unwrap_err();
@@ -606,7 +592,6 @@ mod tests {
             let parsed = load_project_file(case).unwrap();
             assert_eq!(parsed.library_paths(), None);
             assert_eq!(parsed.include_paths(), None);
-            assert_eq!(parsed.style(), None);
             assert_eq!(parsed.enable_experimental_features(), None);
         }
     }
@@ -625,7 +610,6 @@ mod tests {
             r#"{
                 "library-paths": {"widgets": "libraries/widgets.slint"},
                 "include-paths": ["include", "../shared"],
-                "style": "fluent",
                 "enable-experimental-features": true
             }"#,
             |path| {
@@ -648,7 +632,6 @@ mod tests {
                         project_directory.join("libraries/widgets.slint"),
                     )])
                 );
-                assert_eq!(compiler_config.style.as_deref(), Some("fluent"));
                 assert!(compiler_config.enable_experimental);
             },
         );
@@ -684,47 +667,53 @@ mod tests {
     }
 
     #[test]
-    fn the_entry_is_relative_to_the_project_file() {
-        with_project_file_contents(r#"{ "entry": "ui/main.slint" }"#, |path| {
+    fn the_main_file_is_relative_to_the_project_file() {
+        with_project_file_contents(r#"{ "main": "ui/main.slint" }"#, |path| {
             let project = ProjectFile::load(path).unwrap();
-            assert_eq!(project.entry(), Some(path.parent().unwrap().join("ui/main.slint")));
+            assert_eq!(project.main(), Some(path.parent().unwrap().join("ui/main.slint")));
         });
     }
 
     #[test]
-    fn a_project_file_input_resolves_to_its_entry() {
-        with_project_file_contents(r#"{ "entry": "main.slint", "style": "material" }"#, |path| {
-            let (slint_file, project) = resolve_input(path).unwrap();
-            assert_eq!(slint_file, path.parent().unwrap().join("main.slint"));
-            assert_eq!(project.unwrap().style(), Some("material"));
-        });
+    fn a_project_file_input_resolves_to_its_main_file() {
+        with_project_file_contents(
+            r#"{ "main": "main.slint", "include-paths": ["include"] }"#,
+            |path| {
+                let (slint_file, project) = resolve_input(path).unwrap();
+                assert_eq!(slint_file, path.parent().unwrap().join("main.slint"));
+                assert_eq!(project.unwrap().include_paths(), Some(&vec![PathBuf::from("include")]));
+            },
+        );
     }
 
     #[test]
-    fn a_project_file_input_without_an_entry_is_an_error() {
+    fn a_project_file_input_without_a_main_file_is_an_error() {
         with_project_file_contents("{}", |path| {
             let error = resolve_input(path).unwrap_err();
-            assert!(error.contains("'entry'"), "{error}");
+            assert!(error.contains("'main'"), "{error}");
         });
     }
 
     #[test]
     fn a_project_file_input_ignores_a_nearer_project_file() {
-        with_project_file_contents(r#"{ "entry": "ui/main.slint", "style": "outer" }"#, |path| {
-            let ui = path.parent().unwrap().join("ui");
-            fs::create_dir_all(&ui).unwrap();
-            fs::write(ui.join(FILE_NAME), r#"{ "style": "inner" }"#).unwrap();
+        with_project_file_contents(
+            r#"{ "main": "ui/main.slint", "include-paths": ["outer"] }"#,
+            |path| {
+                let ui = path.parent().unwrap().join("ui");
+                fs::create_dir_all(&ui).unwrap();
+                fs::write(ui.join(FILE_NAME), r#"{ "include-paths": ["inner"] }"#).unwrap();
 
-            let (_, project) = resolve_input(path).unwrap();
+                let (_, project) = resolve_input(path).unwrap();
 
-            fs::remove_dir_all(&ui).unwrap();
-            assert_eq!(project.unwrap().style(), Some("outer"));
-        });
+                fs::remove_dir_all(&ui).unwrap();
+                assert_eq!(project.unwrap().include_paths(), Some(&vec![PathBuf::from("outer")]));
+            },
+        );
     }
 
     #[test]
     fn a_slint_file_input_resolves_to_itself() {
-        with_project_file_contents(r#"{ "entry": "other.slint" }"#, |path| {
+        with_project_file_contents(r#"{ "main": "other.slint" }"#, |path| {
             let main = path.parent().unwrap().join("main.slint");
             let (slint_file, project) = resolve_input(&main).unwrap();
             assert_eq!(slint_file, main);

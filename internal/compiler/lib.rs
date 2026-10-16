@@ -214,7 +214,7 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
-    /// The project file that a tool was given as input, whose entry is being compiled.
+    /// The project file that a tool was given as input, whose main file is being compiled.
     /// Generated Python code loads it at run time instead of the entry,
     /// so that run time applies the same project file.
     pub input_project_file: Option<std::path::PathBuf>,

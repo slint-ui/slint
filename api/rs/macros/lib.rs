@@ -429,7 +429,7 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 ///
 /// ### Project File
 ///
-/// Settings such as the style or the include paths can come from a `slint-project.json` file.
+/// Settings such as include paths can come from a `slint-project.json` file.
 /// The search for it starts in the directory of the `.rs` file and goes up from there.
 ///
 /// A macro body that only re-exports from a single `.slint` file, such as

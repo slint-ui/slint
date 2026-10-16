@@ -675,9 +675,8 @@ impl ComponentCompiler {
     ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
-    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
-        self.overrides.project.style = Some(style.clone());
+        self.overrides.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -729,7 +728,7 @@ impl ComponentCompiler {
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a `slint-project.json`, its `entry` is compiled with its settings.
+    /// If the path is a `slint-project.json`, its `main` is compiled with its settings.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
     /// This function is `async` but in practice, this is only asynchronous if
@@ -894,9 +893,8 @@ impl Compiler {
     /// let result = spin_on::spin_on(compiler.build_from_path("hello.slint"));
     /// ```
     ///
-    /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
-        self.overrides.project.style = Some(style.clone());
+        self.overrides.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -966,7 +964,7 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a `slint-project.json`, its `entry` is compiled with its settings.
+    /// If the path is a `slint-project.json`, its `main` is compiled with its settings.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
     /// A `slint-project.json` in the directory of `path`, or in a directory above it,
@@ -2880,35 +2878,6 @@ mod project_file_tests {
         spin_on::spin_on(Compiler::default().build_from_path(&main))
     }
 
-    // A style name the compiler rejects proves which style actually reached it.
-    const REJECTED_STYLE: &str = r#"{ "style": "no-such-style" }"#;
-
-    #[test]
-    fn the_project_file_style_is_used() {
-        with_project(REJECTED_STYLE, |root| {
-            let result = compile(root, "export component Main inherits Window { }");
-            let messages =
-                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
-            assert!(
-                messages.iter().any(|message| message.contains("no-such-style")),
-                "expected the project file style to reach the compiler: {messages:?}"
-            );
-        });
-    }
-
-    #[test]
-    fn an_explicit_style_wins_over_the_project_file() {
-        with_project(REJECTED_STYLE, |root| {
-            let mut compiler = Compiler::default();
-            compiler.set_style("fluent".into());
-            let main = root.join("main.slint");
-            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
-
-            let result = spin_on::spin_on(compiler.build_from_path(&main));
-            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-        });
-    }
-
     #[test]
     fn the_project_file_include_paths_are_used() {
         with_project(r#"{ "include-paths": ["include"] }"#, |root| {
@@ -3023,38 +2992,15 @@ mod project_file_tests {
     // The C++ interpreter API goes through the deprecated ComponentCompiler.
     #[test]
     fn the_deprecated_compiler_reads_the_project_file() {
-        with_project(REJECTED_STYLE, |root| {
+        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
+            std::fs::create_dir(root.join("include")).unwrap();
+            std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
+                .unwrap();
             let main = root.join("main.slint");
-            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+            std::fs::write(&main, r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#).unwrap();
 
             #[allow(deprecated)]
             let mut compiler = super::ComponentCompiler::new();
-            #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(&main));
-            assert!(definition.is_none());
-            #[allow(deprecated)]
-            let messages = compiler
-                .diagnostics()
-                .iter()
-                .map(|diagnostic| diagnostic.message().to_string())
-                .collect::<Vec<_>>();
-            assert!(
-                messages.iter().any(|message| message.contains("no-such-style")),
-                "expected the project file style to reach the compiler: {messages:?}"
-            );
-        });
-    }
-
-    #[test]
-    fn an_explicit_style_wins_for_the_deprecated_compiler() {
-        with_project(REJECTED_STYLE, |root| {
-            let main = root.join("main.slint");
-            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
-
-            #[allow(deprecated)]
-            let mut compiler = super::ComponentCompiler::new();
-            #[allow(deprecated)]
-            compiler.set_style("fluent".into());
             #[allow(deprecated)]
             let definition = spin_on::spin_on(compiler.build_from_path(&main));
             assert!(definition.is_some());
@@ -3062,38 +3008,34 @@ mod project_file_tests {
     }
 
     #[test]
-    fn a_project_file_path_compiles_its_entry() {
-        with_project(r#"{ "entry": "ui/main.slint", "style": "no-such-style" }"#, |root| {
+    fn a_project_file_path_compiles_its_main_file() {
+        with_project(r#"{ "main": "ui/main.slint" }"#, |root| {
             std::fs::create_dir_all(root.join("ui")).unwrap();
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
-            let messages =
-                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
-            assert!(
-                messages.iter().any(|message| message.contains("no-such-style")),
-                "expected the entry to compile with the project file style: {messages:?}"
-            );
+            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+            assert!(result.component_names().any(|name| name == "Main"));
         });
     }
 
     #[test]
-    fn a_project_file_path_without_an_entry_is_reported() {
-        with_project(r#"{ "style": "fluent" }"#, |root| {
+    fn a_project_file_path_without_a_main_file_is_reported() {
+        with_project("{}", |root| {
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
             assert!(result.has_errors());
             let messages =
                 result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
-            assert!(messages.iter().any(|message| message.contains("'entry'")), "{messages:?}");
+            assert!(messages.iter().any(|message| message.contains("'main'")), "{messages:?}");
         });
     }
 
     #[test]
-    fn the_deprecated_compiler_compiles_the_entry_of_a_project_file() {
-        with_project(r#"{ "entry": "main.slint" }"#, |root| {
+    fn the_deprecated_compiler_compiles_the_main_file_of_a_project_file() {
+        with_project(r#"{ "main": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
@@ -3111,7 +3053,7 @@ mod project_file_tests {
     #[test]
     #[cfg(feature = "internal")]
     fn a_compiler_can_ignore_the_project_file() {
-        with_project(REJECTED_STYLE, |root| {
+        with_project("{", |root| {
             let mut compiler = Compiler::default();
             compiler.set_reads_project_file(false);
             let main = root.join("main.slint");
