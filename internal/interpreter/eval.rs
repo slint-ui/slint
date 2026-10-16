@@ -1831,12 +1831,16 @@ fn load_image_reference(
         // Without the compiler, only the images it embedded in the unit show
         #[cfg(not(feature = "std"))]
         Ref::DataUri(_) | Ref::Source(_) => Err(Default::default()),
-        Ref::EmbeddedTexture { resource_id } => match unit.embedded_resources.get(*resource_id) {
-            Some(i_slint_compiler::embedded_resources::EmbeddedResource::Texture(texture)) => {
-                Ok(crate::static_resources::texture_image(texture))
+        Ref::EmbeddedTexture { resource_id } => {
+            match unit
+                .embedded_resources
+                .get(*resource_id)
+                .and_then(crate::static_resources::texture_of)
+            {
+                Some(image) => Ok(image),
+                None => Err(Default::default()),
             }
-            _ => Err(Default::default()),
-        },
+        }
         Ref::EmbeddedData { .. } => Ok(Default::default()),
     };
     image.unwrap_or_else(|_| {
@@ -2495,18 +2499,17 @@ fn call_builtin_function(
         }
         BuiltinFunction::RegisterBitmapFont => {
             if let [Expression::NumberLiteral(resource_id)] = arguments
-                && let Some(i_slint_compiler::embedded_resources::EmbeddedResource::BitmapFont(
-                    font,
-                )) = ctx.compilation_unit.embedded_resources.get(
-                    i_slint_compiler::embedded_resources::EmbeddedResourcesIdx(
+                && let Some(font) = ctx
+                    .compilation_unit
+                    .embedded_resources
+                    .get(i_slint_compiler::embedded_resources::EmbeddedResourcesIdx(
                         *resource_id as usize,
-                    ),
-                )
+                    ))
+                    .and_then(crate::static_resources::bitmap_font_of)
                 && let Some(root) = find_root_instance(ctx)
             {
                 match root.try_window_adapter() {
                     Ok(adapter) => {
-                        let font = crate::static_resources::shared_font(font);
                         adapter.renderer().register_shared_bitmap_font(&font);
                         root.bitmap_fonts.borrow_mut().push(font);
                     }

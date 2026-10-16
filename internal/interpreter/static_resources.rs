@@ -5,11 +5,77 @@
 //! software renderer takes them.
 
 use alloc::rc::Rc;
+use core::cell::RefCell;
 use i_slint_compiler::embedded_resources as unit;
 use i_slint_core::graphics::{
     Image, ImageCacheKey, ImageInner, Rgba8Pixel, SharedBitmapFont, SharedBitmapGlyph,
     SharedBitmapGlyphs, SharedImageBuffer, SharedPixelBuffer,
 };
+
+i_slint_core::thread_local! {
+    static REGISTERED: RefCell<alloc::collections::BTreeMap<u64, Registered>> =
+        RefCell::default();
+}
+
+/// An embedded resource in the form the renderer takes it, see [`register()`].
+#[derive(Clone)]
+#[cfg_attr(not(feature = "internal"), expect(dead_code))]
+pub enum Registered {
+    Texture(Image),
+    BitmapFont(Rc<SharedBitmapFont>),
+}
+
+/// Converts `resource` into the form the renderer takes, and keeps it under `key` for
+/// [`registered()`], until [`retain()`] drops it.
+/// Nothing is converted if `key` is known already.
+#[cfg(feature = "internal")]
+pub fn register(key: u64, resource: &unit::EmbeddedResource) {
+    if registered(key).is_some() {
+        return;
+    }
+    let registered = match resource {
+        unit::EmbeddedResource::Texture(texture) => Registered::Texture(texture_image(texture)),
+        unit::EmbeddedResource::BitmapFont(font) => Registered::BitmapFont(shared_font(font)),
+        unit::EmbeddedResource::NotInUnit | unit::EmbeddedResource::Registered(_) => return,
+    };
+    REGISTERED.with(|r| r.borrow_mut().insert(key, registered));
+}
+
+/// Keeps only the resources registered under `keys`. The others are freed once no design
+/// uses them anymore.
+#[cfg(feature = "internal")]
+pub fn retain(keys: &[u64]) {
+    REGISTERED.with(|r| r.borrow_mut().retain(|key, _| keys.contains(key)));
+}
+
+/// The resource [`register()`] keeps under `key`.
+pub fn registered(key: u64) -> Option<Registered> {
+    REGISTERED.with(|r| r.borrow().get(&key).cloned())
+}
+
+/// The texture that `resource` is, or refers to.
+pub fn texture_of(resource: &unit::EmbeddedResource) -> Option<Image> {
+    match resource {
+        unit::EmbeddedResource::Texture(texture) => Some(texture_image(texture)),
+        unit::EmbeddedResource::Registered(key) => match registered(*key)? {
+            Registered::Texture(texture) => Some(texture),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// The bitmap font that `resource` is, or refers to.
+pub fn bitmap_font_of(resource: &unit::EmbeddedResource) -> Option<Rc<SharedBitmapFont>> {
+    match resource {
+        unit::EmbeddedResource::BitmapFont(font) => Some(shared_font(font)),
+        unit::EmbeddedResource::Registered(key) => match registered(*key)? {
+            Registered::BitmapFont(font) => Some(font),
+            _ => None,
+        },
+        _ => None,
+    }
+}
 
 /// The image that `texture` is, as large as the whole image: the pixels outside the
 /// texture's rectangle are transparent.
@@ -115,14 +181,10 @@ const LIVE: &str = r#"export component Live inherits Window {
 }"#;
 
 #[cfg(all(test, feature = "internal", feature = "std"))]
-fn fonts_of(unit: &i_slint_compiler::llr::CompilationUnit) -> alloc::vec::Vec<Rc<SharedBitmapFont>> {
-    unit.embedded_resources
-        .iter()
-        .filter_map(|resource| match resource {
-            unit::EmbeddedResource::BitmapFont(font) => Some(shared_font(font)),
-            _ => None,
-        })
-        .collect()
+fn fonts_of(
+    unit: &i_slint_compiler::llr::CompilationUnit,
+) -> alloc::vec::Vec<Rc<SharedBitmapFont>> {
+    unit.embedded_resources.iter().filter_map(bitmap_font_of).collect()
 }
 
 #[cfg(all(test, feature = "internal", feature = "std"))]
@@ -131,6 +193,19 @@ fn unused_resources_are_freed() {
     let unit = compile_embedding_textures(LIVE);
     let font = Rc::downgrade(&fonts_of(&unit)[0]);
     assert_eq!(font.strong_count(), 0);
+
+    let image = unit::EmbeddedResource::Texture(unit::Texture {
+        total_size: unit::Size { width: 1, height: 1 },
+        original_size: unit::Size { width: 1, height: 1 },
+        rect: unit::Rect::from_ltrb(0, 0, 1, 1).unwrap(),
+        data: vec![255, 0, 0],
+        format: unit::PixelFormat::Rgb,
+    });
+    register(0xf00d, &image);
+    retain(&[0xf00d]);
+    assert!(matches!(registered(0xf00d), Some(Registered::Texture(_))));
+    retain(&[]);
+    assert!(registered(0xf00d).is_none());
 }
 
 #[cfg(all(test, feature = "internal", feature = "std"))]
@@ -145,4 +220,27 @@ fn a_texture_becomes_the_whole_image() {
     };
     let pixels = texture_image(&texture).to_rgba8().unwrap();
     assert_eq!(pixels.as_slice(), [Rgba8Pixel::new(0, 0, 0, 0), Rgba8Pixel::new(10, 20, 30, 255)]);
+}
+
+#[cfg(all(test, feature = "internal", feature = "std"))]
+#[test]
+fn a_unit_reads_back_with_registered_resources() {
+    use i_slint_compiler::llr::serialize;
+    let (unit, resources) =
+        serialize::to_bytes_and_resources(compile_embedding_textures(LIVE)).unwrap();
+    let keys: alloc::vec::Vec<u64> = (0..resources.len() as u64).map(|i| 0x5eed_0000 + i).collect();
+    for (key, bytes) in keys.iter().zip(&resources) {
+        register(*key, &serialize::resource_from_bytes(bytes).unwrap());
+    }
+    let restored =
+        serialize::from_bytes_with_registered_resources(&unit, keys.iter().copied()).unwrap();
+    let restored =
+        crate::CompilationResult::from_compilation_unit(restored, i_slint_core::InternalToken);
+    assert!(restored.component("Live").is_some());
+
+    let registered_fonts = keys
+        .iter()
+        .filter(|key| matches!(registered(**key), Some(Registered::BitmapFont(_))))
+        .count();
+    assert_eq!(registered_fonts, 1);
 }

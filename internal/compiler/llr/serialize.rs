@@ -44,6 +44,42 @@ pub fn from_bytes(bytes: &[u8]) -> postcard::Result<CompilationUnit> {
     Ok(unit)
 }
 
+/// Serializes `unit` like [`to_bytes()`], but without its embedded resources,
+/// and serializes each of them on its own,
+/// so that a receiver can keep the resources it already has.
+/// Read with [`from_bytes_with_registered_resources()`] and [`resource_from_bytes()`].
+pub fn to_bytes_and_resources(
+    mut unit: CompilationUnit,
+) -> postcard::Result<(Vec<u8>, Vec<Vec<u8>>)> {
+    let resources = core::mem::take(&mut unit.embedded_resources)
+        .iter()
+        .map(postcard::to_allocvec)
+        .collect::<postcard::Result<_>>()?;
+    Ok((to_bytes(&unit)?, resources))
+}
+
+/// Deserializes a unit written by [`to_bytes_and_resources()`].
+/// Its embedded resources become references to the `resource_keys`, in order,
+/// under which the reader registered them.
+pub fn from_bytes_with_registered_resources(
+    unit: &[u8],
+    resource_keys: impl IntoIterator<Item = u64>,
+) -> postcard::Result<CompilationUnit> {
+    let mut unit = from_bytes(unit)?;
+    unit.embedded_resources = resource_keys
+        .into_iter()
+        .map(crate::embedded_resources::EmbeddedResource::Registered)
+        .collect();
+    Ok(unit)
+}
+
+/// Deserializes one of the embedded resources written by [`to_bytes_and_resources()`].
+pub fn resource_from_bytes(
+    bytes: &[u8],
+) -> postcard::Result<crate::embedded_resources::EmbeddedResource> {
+    postcard::from_bytes(bytes)
+}
+
 /// The native classes of the unit's items, by name.
 ///
 /// A deserialized unit can't take them from the builtin elements, since building those
