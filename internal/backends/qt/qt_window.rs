@@ -1686,6 +1686,10 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         SharedImageBuffer::Gray8(img) => {
             (qttypes::ImageFormat::Grayscale8, img.width(), img.as_bytes())
         }
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { .. } => {
+            panic!("unsupported image format: alpha maps are only drawn by the software renderer")
+        }
     };
     let width: i32 = buffer.width() as _;
     let height: i32 = buffer.height() as _;

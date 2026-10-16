@@ -23,11 +23,14 @@ impl slint::platform::Platform for TestPlatform {
 slint::slint! {
     export component TestCase inherits Window {
         in property <image> source;
+        in property <brush> tint;
+        background: black;
         Image {
             x: 0; y: 0;
             width: 4phx;
             height: 4phx;
             source: root.source;
+            colorize: root.tint;
             image-rendering: pixelated;
         }
     }
@@ -38,6 +41,33 @@ fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
         renderer.render(&mut buffer, SIZE);
+    }));
+    buffer
+}
+
+#[cfg(feature = "image-pixel-format-alpha-map")]
+struct LineBuffer<'a>(&'a mut [Rgb8Pixel]);
+
+#[cfg(feature = "image-pixel-format-alpha-map")]
+impl slint::platform::software_renderer::LineBufferProvider for LineBuffer<'_> {
+    type TargetPixel = Rgb8Pixel;
+
+    fn process_line(
+        &mut self,
+        line: usize,
+        range: core::ops::Range<usize>,
+        render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+    ) {
+        render_fn(&mut self.0[line * SIZE..][range]);
+    }
+}
+
+#[cfg(feature = "image-pixel-format-alpha-map")]
+fn render_by_line(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
+    let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); SIZE * SIZE];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.render_by_line(LineBuffer(&mut buffer));
     }));
     buffer
 }
@@ -81,5 +111,37 @@ fn optional_pixel_formats_render() {
             _ => Rgb8Pixel::new(0, 0, 0xff),
         };
         assert_eq!(*p, expected, "rgb565 mismatch at {i}");
+    }
+
+    #[cfg(feature = "image-pixel-format-alpha-map")]
+    alpha_map_renders(&window, &ui);
+}
+
+/// The opacity of its color, or of the colorize color.
+#[cfg(feature = "image-pixel-format-alpha-map")]
+fn alpha_map_renders(window: &MinimalSoftwareWindow, ui: &TestCase) {
+    let mut alpha = SharedPixelBuffer::<u8>::new(SIZE as u32, SIZE as u32);
+    for (i, p) in alpha.make_mut_slice().iter_mut().enumerate() {
+        *p = if i % 2 == 0 { 0x00 } else { 0xff };
+    }
+    let buffer = i_slint_core::graphics::SharedImageBuffer::AlphaMap {
+        alpha,
+        color: slint::Color::from_rgb_u8(0, 0xff, 0),
+    };
+    ui.set_source(slint::Image::from(i_slint_core::graphics::ImageInner::EmbeddedImage {
+        cache_key: i_slint_core::graphics::ImageCacheKey::Invalid,
+        buffer,
+    }));
+    for (tint, color) in [
+        (slint::Color::default(), Rgb8Pixel::new(0, 0xff, 0)),
+        (slint::Color::from_rgb_u8(0xff, 0, 0), Rgb8Pixel::new(0xff, 0, 0)),
+    ] {
+        ui.set_tint(tint.into());
+        for rendered in [render(window), render_by_line(window)] {
+            for (i, p) in rendered.iter().enumerate() {
+                let expected = if i % 2 == 0 { Rgb8Pixel::new(0, 0, 0) } else { color };
+                assert_eq!(*p, expected, "alpha map mismatch at {i} with {tint:?}");
+            }
+        }
     }
 }
