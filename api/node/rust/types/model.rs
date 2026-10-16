@@ -15,7 +15,7 @@ use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 
 use crate::weak_ref::WeakValueRef;
-use crate::{JsAnchorOwner, to_js_unknown, to_value};
+use crate::{JsAnchorOwner, to_js_unknown, to_js_unknown_of_type, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
@@ -849,10 +849,9 @@ pub(crate) fn js_into_rust_model(
     row_data_type: &Type,
     anchor_owner: &JsAnchorOwner,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
-    if ReadOnlyRustModel::instance_of(env, maybe_js_impl)? {
-        let read_only =
-            ClassInstance::<ReadOnlyRustModel>::from_unknown(maybe_js_impl.to_unknown())?;
-        return Ok(read_only.0.clone());
+    if RustModel::instance_of(env, maybe_js_impl)? {
+        let rust_model = ClassInstance::<RustModel>::from_unknown(maybe_js_impl.to_unknown())?;
+        return Ok(rust_model.model.clone());
     }
 
     let terminals = maybe_js_impl
@@ -976,41 +975,54 @@ pub fn js_model_notify_reset(notify: ExternalRef<SharedModelNotify>) {
     notify.reset();
 }
 
+/// A model from Slint, such as an array declared in a `.slint` file.
 #[napi]
-pub struct ReadOnlyRustModel(ModelRc<slint_interpreter::Value>);
-
-impl From<ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
-    fn from(model: ModelRc<slint_interpreter::Value>) -> Self {
-        Self(model)
-    }
+#[derive(Clone)]
+pub struct RustModel {
+    pub(crate) model: ModelRc<slint_interpreter::Value>,
+    pub(crate) row_type: Option<(Type, JsAnchorOwner)>,
 }
 
 // Implement minimal Model<T> interface
 #[napi]
-impl ReadOnlyRustModel {
+impl RustModel {
     #[napi]
     pub fn row_count(&self) -> u32 {
-        self.0.row_count() as u32
+        self.model.row_count() as u32
     }
 
     #[napi]
     pub fn row_data<'a>(&self, env: &'a Env, row: u32) -> Result<Unknown<'a>> {
-        let Some(data) = self.0.row_data(row as usize) else {
+        let Some(data) = self.model.row_data(row as usize) else {
             return ().into_unknown(env);
         };
-        crate::to_js_unknown(env, &data)
+        match &self.row_type {
+            Some((ty, owner)) => to_js_unknown_of_type(env, &data, ty, owner),
+            None => to_js_unknown(env, &data),
+        }
     }
 
     #[napi]
-    pub fn set_row_data(&self, env: &Env, _row: u32, _data: Unknown<'_>) {
-        crate::console_err!(
-            *env,
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
-        )
+    pub fn set_row_data(&self, env: &Env, row: u32, data: Unknown<'_>) -> Result<()> {
+        let Some((ty, owner)) = &self.row_type else {
+            crate::console_err!(
+                *env,
+                "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
+            );
+            return Ok(());
+        };
+        if row as usize >= self.model.row_count() {
+            return Err(napi::Error::from_reason(format!(
+                "setRowData: row {row} is out of range for a model of {} rows",
+                self.model.row_count()
+            )));
+        }
+        self.model.set_row_data(row as usize, to_value(env, data, ty, owner)?);
+        Ok(())
     }
 
     pub fn into_js<'a>(self, env: &'a Env) -> Result<Unknown<'a>> {
-        let model = self.0.clone();
+        let model = self.clone();
 
         let mut obj = self.into_instance(env)?.as_object(env);
 
@@ -1034,7 +1046,7 @@ impl ReadOnlyRustModel {
 
 #[napi]
 pub struct ModelIterator {
-    model: ModelRc<slint_interpreter::Value>,
+    model: RustModel,
     row: usize,
     env: Env,
 }
@@ -1046,15 +1058,12 @@ impl ModelIterator {
     #[napi]
     pub fn next(&mut self) -> Result<Unknown<'_>> {
         let mut result = Object::new(&self.env)?;
-        if self.row >= self.model.row_count() {
+        if self.row >= self.model.model.row_count() {
             result.set_named_property("done", true)?;
         } else {
             let row = self.row;
             self.row += 1;
-            result.set_named_property(
-                "value",
-                self.model.row_data(row).and_then(|value| to_js_unknown(&self.env, &value).ok()),
-            )?
+            result.set_named_property("value", self.model.row_data(&self.env, row as u32)?)?
         }
         result.into_unknown(&self.env)
     }
