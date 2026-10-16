@@ -9,10 +9,11 @@ import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorColorField } from "color-field.slint";
 import { InspectorSegment } from "segment.slint";
 import { InspectorEffectSlider } from "effect-slider.slint";
+import { InspectorValueField } from "value-field.slint";
 
 export component InspectorShadowControl inherits FocusScope {
     in property <bool> inner;
-    private property <string> title: root.inner ? @tr("Inner shadow") : @tr("Drop shadow");
+    private property <string> title: ShadowSession.label(root.inner);
     height: Style.inspector-field.height;
     key-pressed(event) => {
         if event.text == Key.Return || event.text == " " { root.activate(); return accept; }
@@ -117,27 +118,50 @@ export component InspectorShadowPicker inherits FocusScope {
                 }
             }
         }
-        InspectorEffectSlider {
+        HorizontalLayout {
+            spacing: Metrics.space-small;
+            for axis in [
+                { horizontal: true, label: @tr("Shadow offset X"), prefix: "X" },
+                { horizontal: false, label: @tr("Shadow offset Y"), prefix: "Y" },
+            ]: InspectorValueField {
+                accessible-name: axis.label;
+                prefix: axis.prefix;
+                value: (axis.horizontal ? ShadowSession.values.offset-x : ShadowSession.values.offset-y).to-fixed(0);
+                commit-key: ShadowSession.key;
+                width: (parent.width - Metrics.space-small) / 2;
+                accepted(text) => {
+                    if !text.is-float() { return false; }
+                    let values = ShadowSession.values;
+                    return ShadowSession.commit(ShadowGesture.offset, ShadowSession.updated(values, ShadowGesture.offset,
+                        axis.horizontal ? text.to-float() : values.offset-x,
+                        axis.horizontal ? values.offset-y : text.to-float()));
+                }
+            }
+        }
+        for effect in [
+            { kind: ShadowGesture.blur, label: @tr("Blur"), name: @tr("Shadow blur"), minimum: 0, maximum: ShadowSession.maximum-blur },
+            { kind: ShadowGesture.spread, label: @tr("Spread"), name: @tr("Shadow spread"), minimum: ShadowSession.minimum-spread, maximum: ShadowSession.maximum-spread },
+        ]: InspectorEffectSlider {
             width: parent.width;
-            accessible-name: @tr("Shadow blur");
-            label: @tr("Blur");
-            value: ShadowSession.values.blur;
-            minimum: 0;
-            maximum: ShadowSession.maximum-blur;
-            commit-key: ShadowSession.key + ":blur";
-            started => { ShadowSession.start(ShadowGesture.blur, false); }
+            accessible-name: effect.name;
+            label: effect.label;
+            value: effect.kind == ShadowGesture.blur ? ShadowSession.values.blur : ShadowSession.values.spread;
+            minimum: effect.minimum;
+            maximum: effect.maximum;
+            commit-key: ShadowSession.key + (effect.kind == ShadowGesture.blur ? ":blur" : ":spread");
+            started => { ShadowSession.start(effect.kind, false); }
             preview(value) => {
-                return ShadowSession.preview(ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
+                return ShadowSession.preview(ShadowSession.updated(ShadowSession.values, effect.kind, value, 0));
             }
             accepted(value) => {
-                return ShadowSession.commit(ShadowGesture.blur, ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
+                return ShadowSession.commit(effect.kind, ShadowSession.updated(ShadowSession.values, effect.kind, value, 0));
             }
             canceled => { ShadowSession.cancel(); }
         }
         HorizontalLayout {
             spacing: Metrics.space-small;
             for action in [
-                { value: ShadowSession.inner ? "drop" : "inner", label: ShadowSession.inner ? @tr("Drop shadow") : @tr("Inner shadow") },
+                { value: ShadowSession.inner ? "drop" : "inner", label: ShadowSession.label(!ShadowSession.inner) },
                 { value: "none", label: @tr("Remove shadow") },
             ]: InspectorSegment {
                 kind: "text";

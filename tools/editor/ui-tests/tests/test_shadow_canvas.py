@@ -5,6 +5,7 @@
 
 import math
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,28 @@ from ui_driver import (
 )
 
 
-@pytest.fixture(params=["drop", "inner"])
+@dataclass(frozen=True)
+class ShadowFamily:
+    name: str
+    title: str
+    direction: int
+
+    @property
+    def prefix(self) -> str:
+        return f"{self.name}-shadow-"
+
+    @property
+    def other(self) -> str:
+        return "drop" if self.name == "inner" else "inner"
+
+
+@pytest.fixture(
+    params=[
+        ShadowFamily("drop", "Drop shadow", 1),
+        ShadowFamily("inner", "Inner shadow", -1),
+    ],
+    ids=lambda family: family.name,
+)
 def shadow_family(request):
     return request.param
 
@@ -44,18 +66,16 @@ def shadow_family(request):
 def shadow_scene(tmp_path, shadow_family):
     source = tmp_path / "Main.slint"
     source.write_bytes(
-        (Path(__file__).parents[1] / "fixtures" / "drop-shadow.slint")
+        (Path(__file__).parents[1] / "fixtures" / "shadow-template.slint")
         .read_bytes()
-        .replace(b"drop-shadow-", f"{shadow_family}-shadow-".encode())
+        .replace(b"@shadow-prefix@", shadow_family.prefix.encode())
     )
     return source
 
 
 def open_shadow(window, family):
     select_outline_row(window, "shadow-card")
-    control = inspector_field(
-        window, f"{family.capitalize()} shadow", slint_testing.AccessibleRole.Button
-    )
+    control = inspector_field(window, family.title, slint_testing.AccessibleRole.Button)
     point = center(control)
     gesture(window, point, point)
     element(window, "Shadow offset handle")
@@ -64,7 +84,7 @@ def open_shadow(window, family):
 def move_shadow_panel(window, family):
     panel = element(window, id="InspectorShadowPicker::panel")
     files = element(window, "Files")
-    start = center(element(window, f"Move {family.capitalize()} shadow picker"))
+    start = center(element(window, f"Move {family.title} picker"))
     end = offset_position(
         start,
         files.absolute_position.x - panel.absolute_position.x,
@@ -95,24 +115,24 @@ def test_shadow_handles_keep_focus_for_consecutive_edits(
                 start,
                 offset_position(
                     start,
-                    dx * (-1 if shadow_family == "inner" else 1),
-                    dy * (-1 if shadow_family == "inner" else 1),
+                    dx * shadow_family.direction,
+                    dy * shadow_family.direction,
                     0,
                 ),
             )
             expected = expected.replace(
-                f"{shadow_family}-shadow-{name}: {old}px;".encode(),
-                f"{shadow_family}-shadow-{name}: {dragged}px;".encode(),
+                f"{shadow_family.prefix}{name}: {old}px;".encode(),
+                f"{shadow_family.prefix}{name}: {dragged}px;".encode(),
             )
             snapshot.wait_for_applied(expected)
             for handle in ("offset", "blur", "spread"):
                 expect(query(window, f"Shadow {handle} handle")).to_be_visible()
-            if shadow_family == "inner":
+            if shadow_family.name == "inner":
                 key = keys.LeftArrow if name == "spread" else keys.DownArrow
             press_key(window, key)
             expected = expected.replace(
-                f"{shadow_family}-shadow-{name}: {dragged}px;".encode(),
-                f"{shadow_family}-shadow-{name}: {keyed}px;".encode(),
+                f"{shadow_family.prefix}{name}: {dragged}px;".encode(),
+                f"{shadow_family.prefix}{name}: {keyed}px;".encode(),
             )
             snapshot.wait_for_applied(expected)
 
@@ -189,7 +209,10 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
         open_shadow(window, shadow_family)
         element(window, "Shadow color", role=slint_testing.AccessibleRole.TextInput)
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
-        for label in ("Shadow angle", "Shadow distance", "Shadow spread", "Hex color"):
+        element(window, "Shadow spread", role=slint_testing.AccessibleRole.Slider)
+        for label in ("Shadow offset X", "Shadow offset Y"):
+            element(window, label, role=slint_testing.AccessibleRole.TextInput)
+        for label in ("Shadow angle", "Shadow distance", "Hex color"):
             assert not elements(window, label)
         swatch = element(window, "Shadow color color picker")
         gesture(window, center(swatch), center(swatch))
@@ -198,6 +221,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
         expect(query(window, "Hex color")).to_be_hidden()
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
         snapshot.assert_unchanged()
+        screenshot(window).save(tmp_path / "shadow-picker.png")
 
 
 @pytest.mark.parametrize(
@@ -239,16 +263,11 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
         open_shadow(window, shadow_family)
         move_shadow_panel(window, shadow_family)
         start = center(element(window, f"Shadow {handle} handle"))
+        scale = percent / 100 * (shadow_family.direction if handle != "offset" else 1)
         end = offset_position(
             start,
-            dx
-            * percent
-            / 100
-            * (-1 if shadow_family == "inner" and handle != "offset" else 1),
-            dy
-            * percent
-            / 100
-            * (-1 if shadow_family == "inner" and handle != "offset" else 1),
+            dx * scale,
+            dy * scale,
             math.radians(rotation),
         )
         before = screenshot(window)
@@ -297,8 +316,8 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
             expected = baseline
             for name, old, new in changes:
                 expected = expected.replace(
-                    f"{shadow_family}-shadow-{name}: {old}px;".encode(),
-                    f"{shadow_family}-shadow-{name}: {new}px;".encode(),
+                    f"{shadow_family.prefix}{name}: {old}px;".encode(),
+                    f"{shadow_family.prefix}{name}: {new}px;".encode(),
                 )
             snapshot.wait_for_applied(expected)
             for name in ("offset", "blur", "spread"):
@@ -408,7 +427,7 @@ def test_shadow_offset_tooltip_stays_inside_the_viewport(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize("change", ["selection", "source", "effect"])
+@pytest.mark.parametrize("change", ["selection", "source", "effect", "coexist"])
 def test_shadow_drag_rejects_a_changed_target(
     shadow_family,
     editor_binary,
@@ -420,12 +439,19 @@ def test_shadow_drag_rejects_a_changed_target(
     baseline = shadow_scene.read_bytes()
     external = (
         baseline.replace(
-            f"{shadow_family}-shadow-".encode(),
-            b"drop-shadow-" if shadow_family == "inner" else b"inner-shadow-",
+            shadow_family.prefix.encode(),
+            b"drop-shadow-" if shadow_family.name == "inner" else b"inner-shadow-",
         )
         if change == "effect"
         else baseline + b"\n// External edit\n"
     )
+    if change == "coexist":
+        other = shadow_family.other
+        external = baseline.replace(
+            b"        background: #e5eaff;",
+            b"        background: #e5eaff;\n"
+            + f"        {other}-shadow-color: #00000040;".encode(),
+        )
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
@@ -444,6 +470,12 @@ def test_shadow_drag_rejects_a_changed_target(
         else:
             shadow_scene.write_bytes(external)
             snapshot.wait_for_applied(external)
+            if change == "effect" or (
+                change == "coexist" and shadow_family.name == "inner"
+            ):
+                expect(query(window, "Shadow offset handle")).to_be_hidden()
+            elif change == "coexist":
+                expect(query(window, "Shadow offset handle")).to_be_visible()
 
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         if change == "selection":
@@ -480,14 +512,14 @@ def test_shadow_canvas_limits(
         window = first_window(editor)
         open_shadow(window, shadow_family)
         move_shadow_panel(window, shadow_family)
-        direction = -1 if shadow_family == "inner" else 1
+        direction = shadow_family.direction
         start = center(element(window, f"Shadow {handle} handle"))
         gesture(
             window, start, offset_position(start, dx * direction, dy * direction, 0)
         )
         changed = baseline.replace(
-            f"{shadow_family}-shadow-{handle}: {old}px".encode(),
-            f"{shadow_family}-shadow-{handle}: {expected}px".encode(),
+            f"{shadow_family.prefix}{handle}: {old}px".encode(),
+            f"{shadow_family.prefix}{handle}: {expected}px".encode(),
         )
         snapshot.wait_for_applied(changed)
         press_shortcut(window, keys.Control, "z")
@@ -509,7 +541,7 @@ def test_removing_shadow_externally_closes_the_session(
     removed = b"".join(
         line
         for line in baseline.splitlines(keepends=True)
-        if not line.lstrip().startswith(f"{shadow_family}-shadow-".encode())
+        if not line.lstrip().startswith(shadow_family.prefix.encode())
     )
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
@@ -530,9 +562,7 @@ def test_removing_shadow_externally_closes_the_session(
         shadow_scene.write_bytes(removed)
         snapshot.wait_for_applied(removed)
         expect(query(window, "Shadow offset handle")).to_be_hidden()
-        expect(
-            query(window, f"Close {shadow_family.capitalize()} shadow")
-        ).to_be_hidden()
+        expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
         if dragging:
             window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         snapshot.wait_for_applied(removed)
@@ -544,7 +574,7 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
     baseline = b"".join(
         line
         for line in shadow_scene.read_bytes().splitlines(keepends=True)
-        if not line.lstrip().startswith(f"{shadow_family}-shadow-".encode())
+        if not line.lstrip().startswith(shadow_family.prefix.encode())
     )
     shadow_scene.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(tmp_path)
@@ -555,23 +585,19 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         edit_field(
             window,
             "Rectangle effect",
-            shadow_family,
+            shadow_family.name,
             slint_testing.AccessibleRole.Combobox,
         )
         added = wait_for_source_change(shadow_scene, baseline)
-        assert f"{shadow_family}-shadow-color:".encode() in added
+        assert f"{shadow_family.prefix}color:".encode() in added
         open_shadow(window, shadow_family)
         move_shadow_panel(window, shadow_family)
-        point = center(
-            element(window, f"Move {shadow_family.capitalize()} shadow picker")
-        )
+        point = center(element(window, f"Move {shadow_family.title} picker"))
         gesture(window, point, point)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline)
         expect(query(window, "Shadow offset handle")).to_be_hidden()
-        expect(
-            query(window, f"Close {shadow_family.capitalize()} shadow")
-        ).to_be_hidden()
+        expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
 
 
 @pytest.mark.parametrize("action", ["switch", "Remove shadow"])
@@ -585,7 +611,7 @@ def test_shadow_actions_are_available_without_a_context_menu(
     action,
     input_method,
 ):
-    other = "drop" if shadow_family == "inner" else "inner"
+    other = shadow_family.other
     if action == "switch":
         action = f"{other.capitalize()} shadow"
     baseline = shadow_scene.read_bytes()
@@ -600,9 +626,7 @@ def test_shadow_actions_are_available_without_a_context_menu(
             )
             gesture(window, point, point)
         else:
-            point = center(
-                element(window, f"Move {shadow_family.capitalize()} shadow picker")
-            )
+            point = center(element(window, f"Move {shadow_family.title} picker"))
             gesture(window, point, point)
             panel = element(window, id="InspectorShadowPicker::panel")
             target = element(panel, action, role=slint_testing.AccessibleRole.Button)
@@ -616,7 +640,7 @@ def test_shadow_actions_are_available_without_a_context_menu(
                 round((rect.y + rect.height) * scale),
             )
             unfocused = image.crop(bounds).tobytes()
-            for _ in range(16):
+            for _ in range(len(elements(panel)) + 1):
                 press_key(window, keys.Tab)
                 if screenshot(window).crop(bounds).tobytes() != unfocused:
                     break
@@ -624,14 +648,12 @@ def test_shadow_actions_are_available_without_a_context_menu(
                 raise AssertionError(f"Cannot reach {action} with Tab")
             press_key(window, keys.Return)
         expected = wait_for_source_change(shadow_scene, baseline)
-        assert f"{shadow_family}-shadow-".encode() not in expected
+        assert shadow_family.prefix.encode() not in expected
         if action != "Remove shadow":
             assert f"{other}-shadow-color:".encode() in expected
         else:
             assert f"{other}-shadow-".encode() not in expected
-        expect(
-            query(window, f"Close {shadow_family.capitalize()} shadow")
-        ).to_be_hidden()
+        expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline)
 
@@ -652,12 +674,12 @@ def test_small_shadow_handles_remain_individually_draggable(
         .replace(b"width: 240px", b"width: 10px")
         .replace(b"height: 160px", b"height: 10px")
         .replace(
-            f"{shadow_family}-shadow-spread: 10px".encode(),
-            f"{shadow_family}-shadow-spread: -6px".encode(),
+            f"{shadow_family.prefix}spread: 10px".encode(),
+            f"{shadow_family.prefix}spread: -6px".encode(),
         )
         .replace(
-            f"{shadow_family}-shadow-blur: 32px".encode(),
-            f"{shadow_family}-shadow-blur: 0px".encode(),
+            f"{shadow_family.prefix}blur: 32px".encode(),
+            f"{shadow_family.prefix}blur: 0px".encode(),
         )
         .replace(
             b"        x: 160px;",
@@ -677,7 +699,7 @@ def test_small_shadow_handles_remain_individually_draggable(
         end = offset_position(
             start,
             8,
-            8 if shadow_family == "inner" and handle == "blur" else -8,
+            8 if shadow_family.name == "inner" and handle == "blur" else -8,
             math.radians(rotation),
         )
         gesture(window, start, end)
@@ -687,7 +709,7 @@ def test_small_shadow_handles_remain_individually_draggable(
             before = next(
                 line
                 for line in baseline.splitlines()
-                if f"{shadow_family}-shadow-{name}:".encode() in line
+                if f"{shadow_family.prefix}{name}:".encode() in line
             )
             assert before not in changed.splitlines()
 
@@ -705,9 +727,7 @@ def test_shadow_picker_does_not_undo_a_stale_preview(
         start = center(element(window, "Shadow offset handle"))
         gesture(window, start, offset_position(start, 20, 12, 0))
         changed = wait_for_source_change(shadow_scene, baseline)
-        point = center(
-            element(window, f"Move {shadow_family.capitalize()} shadow picker")
-        )
+        point = center(element(window, f"Move {shadow_family.title} picker"))
         gesture(window, point, point)
         broken = changed + b"\nthis is invalid Slint\n"
         shadow_scene.write_bytes(broken)
@@ -721,16 +741,14 @@ def test_shadow_picker_does_not_undo_a_stale_preview(
         gesture(
             window,
             start,
-            offset_position(start, 0, 8 if shadow_family == "inner" else -8, 0),
+            offset_position(start, 0, 8 if shadow_family.name == "inner" else -8, 0),
         )
         edited = changed.replace(
-            f"{shadow_family}-shadow-blur: 32px".encode(),
-            f"{shadow_family}-shadow-blur: 48px".encode(),
+            f"{shadow_family.prefix}blur: 32px".encode(),
+            f"{shadow_family.prefix}blur: 48px".encode(),
         )
         snapshot.wait_for_applied(edited)
-        point = center(
-            element(window, f"Move {shadow_family.capitalize()} shadow picker")
-        )
+        point = center(element(window, f"Move {shadow_family.title} picker"))
         gesture(window, point, point)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(changed)
@@ -743,10 +761,10 @@ def test_shadow_blur_uses_inspector_defaults_and_resolved_bindings(
     shadow_family, editor_binary, editor_environment, shadow_scene, expression, expected
 ):
     baseline = shadow_scene.read_bytes().replace(
-        f"        {shadow_family}-shadow-blur: 32px;\n".encode(),
+        f"        {shadow_family.prefix}blur: 32px;\n".encode(),
         b""
         if expression is None
-        else f"        {shadow_family}-shadow-blur: {expression};\n".encode(),
+        else f"        {shadow_family.prefix}blur: {expression};\n".encode(),
     )
     baseline = baseline.replace(
         b"    shadow-card :=",
@@ -788,8 +806,8 @@ def test_shadow_drag_back_to_start_leaves_no_draft_or_history_entry(
         assert (actual.x, actual.y) == pytest.approx((start.x, start.y))
         press_key(window, keys.RightArrow)
         expected = baseline.replace(
-            f"{shadow_family}-shadow-offset-x: 24px".encode(),
-            f"{shadow_family}-shadow-offset-x: 25px".encode(),
+            f"{shadow_family.prefix}offset-x: 24px".encode(),
+            f"{shadow_family.prefix}offset-x: 25px".encode(),
         )
         snapshot.wait_for_applied(expected)
         press_shortcut(window, keys.Control, "z")

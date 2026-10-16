@@ -22,7 +22,8 @@ export struct ShadowValues {
 export global ShadowSession {
     out property <bool> inner;
     out property <string> prefix: inner ? "inner-shadow-" : "drop-shadow-";
-    out property <string> title: inner ? @tr("Inner shadow") : @tr("Drop shadow");
+    out property <string> title: ShadowSession.label(inner);
+    out property <float> direction: inner ? -1 : 1;
     out property <bool> open;
     out property <bool> dragging;
     in-out property <bool> canvas-focus;
@@ -30,6 +31,7 @@ export global ShadowSession {
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
     private property <bool> shadow-exists: Api.has-shadow(prefix);
+    private property <bool> selected-inner: !Api.has-shadow("drop-shadow-") && Api.has-shadow("inner-shadow-");
     out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
@@ -56,6 +58,7 @@ export global ShadowSession {
 
     changed selection-key => { ShadowSession.check-selection(); }
     changed shadow-exists => { ShadowSession.check-selection(); }
+    changed selected-inner => { ShadowSession.check-selection(); }
     changed key => {
         if ShadowSession.dragging { ShadowSession.cancel(); }
     }
@@ -67,7 +70,8 @@ export global ShadowSession {
     function check-selection() {
         if ShadowSession.open && !ShadowSession.compiling && Api.current-element.source-uri != ""
             && Diagnostics.preview-editable && Api.selection.highlight-index >= 0
-            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists) {
+            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists
+                || ShadowSession.inner != ShadowSession.selected-inner) {
             ShadowSession.close();
         }
     }
@@ -79,6 +83,17 @@ export global ShadowSession {
             blur: gesture == ShadowGesture.blur ? primary.round().clamp(0, ShadowSession.maximum-blur) : values.blur,
             spread: gesture == ShadowGesture.spread ? primary.round().clamp(ShadowSession.minimum-spread, ShadowSession.maximum-spread) : values.spread,
         };
+    }
+
+    public pure function label(inner: bool) -> string {
+        return inner ? @tr("Inner shadow") : @tr("Drop shadow");
+    }
+
+    public pure function moved(values: ShadowValues, gesture: ShadowGesture, dx: float, dy: float, blur-scale: float) -> ShadowValues {
+        return ShadowSession.updated(values, gesture,
+            gesture == ShadowGesture.offset ? values.offset-x + dx
+                : gesture == ShadowGesture.blur ? values.blur - ShadowSession.direction * dy * blur-scale : values.spread + ShadowSession.direction * dx,
+            values.offset-y + dy);
     }
 
     public function begin(position: Point, size: Size, inner: bool) {
