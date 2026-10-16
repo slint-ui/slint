@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Everything related to scroll in a listview
+//! Everything related to scrolling in a ListView
 
 // cSpell: ignore Jetpack
 
@@ -18,8 +18,10 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 /// The ListView viewport edge that a scrolled-to row ends up at.
-#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+#[derive(Debug, Default, Clone, Copy)]
 pub(crate) enum RowAlignment {
+    #[default]
     Top,
     Bottom,
 }
@@ -29,8 +31,8 @@ impl RowAlignment {
     /// If `None` we don't need to scroll because it is fully in view
     pub(super) fn for_row(top: Coord, height: Coord, viewport_height: Coord) -> Option<Self> {
         if top < 0 as Coord || height > viewport_height {
-            // 1) Row begins before the viewport begin
-            // 2) Rows are taller than the viewport height
+            // 1) Row begins before the viewport begins
+            // 2) Row is taller than the viewport height
             (top != 0 as Coord).then_some(Self::Top)
         } else if top + height > viewport_height {
             // Row bottom beyond the viewport height

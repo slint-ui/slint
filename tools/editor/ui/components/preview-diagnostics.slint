@@ -10,16 +10,16 @@ import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component PreviewDiagnostics inherits Rectangle {
     in property <PreviewDiagnosticsStyle> style: Style.preview-diagnostics;
-    private property <bool> blocked: !Diagnostics.preview-editable;
     private property <bool> empty: Diagnostics.preview-availability == PreviewAvailability.NoComponent;
     private property <bool> stale: Diagnostics.preview-availability == PreviewAvailability.Stale;
     private property <bool> warnings-open;
     private property <string> title: root.empty ? @tr("Nothing to preview")
         : root.stale ? @tr("Preview paused") : @tr("Couldn't preview this file");
 
-    if root.blocked: Rectangle {
+    if !Diagnostics.preview-editable: TouchArea { }
+
+    if Diagnostics.preview-status-visible: Rectangle {
         background: root.style.veil;
-        TouchArea { }
 
         card := Rectangle {
             width: max(0px, min(root.style.max-width, root.width - 2 * root.style.margin));
@@ -115,7 +115,7 @@ export component PreviewDiagnostics inherits Rectangle {
         }
     }
 
-    if !root.blocked && Diagnostics.warnings.length > 0: Rectangle {
+    if !Diagnostics.preview-status-visible && Diagnostics.warnings.length > 0: Rectangle {
         width: min(root.style.max-width, root.width - 2 * root.style.margin);
         height: warning-layout.preferred-height;
         x: (parent.width - self.width) / 2;

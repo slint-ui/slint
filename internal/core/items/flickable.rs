@@ -292,13 +292,6 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
-    /// Stops any running scroll animation, leaving the content where it is.
-    pub(crate) fn stop_animation(self: Pin<&Self>) {
-        self.data.inner.borrow_mut().running_animation = None;
-        Self::FIELD_OFFSETS.content_x().apply_pin(self).remove_binding();
-        Self::FIELD_OFFSETS.content_y().apply_pin(self).remove_binding();
-    }
-
     pub fn scroll_to(
         self: Pin<&Self>,
         self_rc: &ItemRc,

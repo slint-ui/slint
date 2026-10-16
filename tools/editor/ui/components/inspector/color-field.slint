@@ -169,7 +169,7 @@ export component InspectorColorField inherits Rectangle {
 
     private property <int> focus-generation: FillSession.focus-generation;
     changed focus-generation => {
-        if FillSession.request.target.key == root.preview-key {
+        if !FillSession.request.target.canvas && FillSession.request.target.key == root.preview-key {
             if root.is-literal-color { solid-field.focus-swatch(); }
             else { swatch-focus.focus(); }
         }

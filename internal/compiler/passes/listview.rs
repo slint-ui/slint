@@ -5,13 +5,50 @@
 
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 use crate::expression_tree::{Callable, Expression};
 use crate::langtype::Type;
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, DEFAULT_SLOT_NAME, Element, ElementRc};
 use crate::typeregister;
 use std::rc::Rc;
 
-pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+/// Reports a `ListView` with `ensure-row-visible` whose children don't end up directly in a `Flickable`.
+pub fn check_children_in_flickable(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    let root = component.root_element.borrow();
+    if component.id != "ListView" || !Element::declares_ensure_row_visible(&root) {
+        return;
+    }
+    if matches!(children_type(&ElementType::Component(component.clone())), ElementType::Builtin(b) if b.name == "Flickable")
+    {
+        return;
+    }
+    let message = "Place '@children' directly in a 'Flickable' so that 'ensure-row-visible' can scroll this 'ListView'";
+    match component.child_insertion_points.borrow().get(DEFAULT_SLOT_NAME) {
+        Some(children) => diag.push_error(message.into(), &children.node),
+        None => match &component.node {
+            Some(node) => diag.push_error(message.into(), &node.DeclaredIdentifier()),
+            None => diag.push_error(message.into(), &*root),
+        },
+    }
+    if let Some(binding) = root.bindings.binding_cell_including_synthetic("ensure-row-visible") {
+        diag.push_note("'ensure-row-visible' is declared here".into(), &*binding.borrow());
+    }
+}
+
+/// The type of the element that the children of an element of type `ty` end up in,
+/// like `ElementType::lookup_type_for_child_element`.
+fn children_type(ty: &ElementType) -> ElementType {
+    let ElementType::Component(component) = ty else { return ty.clone() };
+    let parent = component
+        .child_insertion_points
+        .borrow()
+        .get(DEFAULT_SLOT_NAME)
+        .map_or_else(|| component.root_element.clone(), |children| children.parent.clone());
+    let base_type = parent.borrow().base_type.clone();
+    children_type(&base_type)
+}
+
+pub fn lower_ensure_row_visible(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,
@@ -30,6 +67,16 @@ pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnosti
             else {
                 return Some(element_rc.clone());
             };
+            // The ensure-row-visible is already routed to the correct function so we don't have to do it again
+            if matches!(
+                &binding.borrow().expression,
+                Expression::FunctionCall {
+                    function: Callable::Builtin(BuiltinFunction::ListViewEnsureRowVisible),
+                    ..
+                }
+            ) {
+                return Some(element_rc.clone());
+            }
             if !matches!(&binding.borrow().expression, Expression::CodeBlock(v) if v.is_empty()) {
                 diag.push_error(
                     "Remove the body of 'ensure-row-visible', the compiler provides it for a 'ListView'".into(),
@@ -41,10 +88,7 @@ pub fn handle_listview(root_component: &Rc<Component>, diag: &mut BuildDiagnosti
                 .as_ref()
                 .filter(|p| p.borrow().builtin_type().is_some_and(|b| b.name == "Flickable"))
             else {
-                diag.push_error(
-                    "Place the 'for' of a 'ListView' with 'ensure-row-visible' directly in a 'Flickable'".into(),
-                    &*binding.borrow(),
-                );
+                // See `check_children_in_flickable`.
                 return Some(element_rc.clone());
             };
 

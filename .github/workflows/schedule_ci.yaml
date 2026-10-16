@@ -22,9 +22,20 @@ jobs:
     if: github.repository == 'slint-ui/slint'
     runs-on: ubuntu-latest
     steps:
+      # GitHub doesn't start workflows from the events of a run dispatched with GITHUB_TOKEN.
+      # notify_ci_failure.yaml needs the runs to be dispatched with a GitHub App token.
+      - name: Create a token to dispatch with
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-actions: write
+          permission-contents: read
+
       - name: Trigger CI on branches with recent changes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           if [ -n "${{ inputs.branch }}" ]; then
             echo "Triggering full CI for ${{ inputs.branch }}"

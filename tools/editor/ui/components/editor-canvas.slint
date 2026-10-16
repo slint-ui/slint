@@ -13,7 +13,6 @@ import { PreviewDiagnostics } from "preview-diagnostics.slint";
 component CanvasChrome inherits Rectangle {
     in property <ArtboardStyle> style: Style.artboard;
     background: root.style.background;
-    clip: true;
 
     Rectangle {
         x: root.style.padding;
@@ -47,7 +46,7 @@ export component EditorCanvas inherits TouchArea {
     callback real-element-selected();
 
     scroll-event(event) => {
-        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+        return CanvasView.scroll(event, { x: self.mouse-x, y: self.mouse-y });
     }
     Rectangle { background: root.style.background; }
 

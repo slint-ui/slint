@@ -185,6 +185,6 @@ export component ShadowedMemberIsADifferentDeclaration {
     implement ShadowsBase <=> self;
 //            >          <error{'text' occurs in 'ShadowsBase' and 'DerivedFromShadowable'}
 
-    in-out property <string> text;
+    @shadowable in-out property <string> text;
     out property <int> count;
 }

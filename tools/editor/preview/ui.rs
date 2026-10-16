@@ -233,6 +233,7 @@ pub fn initialize_editor(
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
+    api.on_reset_selected_element_border_radius(super::reset_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     api.on_inspector_values(super::inspector::values);
@@ -1619,6 +1620,28 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn numeric_property_defaults_and_resolved_bindings() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        for (code, kind, value_kind, expected) in [
+            ("", PropertyValueKind::Float, PropertyValueKind::Float, 16.),
+            ("28px", PropertyValueKind::Float, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
+        ] {
+            api.on_current_property_value_data(move |_| PropertyValue {
+                code: code.into(),
+                kind,
+                value_kind,
+                value_float: 28.,
+                ..Default::default()
+            });
+            assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -1785,6 +1808,174 @@ mod tests {
         });
     }
 
+    type RadiusChange = (super::CanvasCorner, Option<f32>);
+
+    fn drag_corner_radius(
+        corner: super::CanvasCorner,
+        radius_properties: &'static [(&'static str, f32)],
+        single_corner: bool,
+        radii: &[f32],
+    ) -> Vec<Vec<RadiusChange>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_current_property_value_data(move |name| {
+            let Some(&(_, radius)) =
+                radius_properties.iter().find(|(property, _)| *property == name.as_str())
+            else {
+                return PropertyValue::default();
+            };
+            PropertyValue {
+                code: format!("{radius}px").into(),
+                value_float: radius,
+                ..Default::default()
+            }
+        });
+        let changes = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = changes.clone();
+        api.on_override_selected_element_border_radius(move |corner, radius, single| {
+            assert_eq!(single, single_corner);
+            recorded.borrow_mut().push((corner, Some(radius)));
+        });
+        let recorded = changes.clone();
+        api.on_reset_selected_element_border_radius(move |corner| {
+            recorded.borrow_mut().push((corner, None));
+        });
+        editor.show().unwrap();
+
+        let bounds = |label: &str| {
+            let element =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            (element.absolute_position(), element.size())
+        };
+        let (frame_origin, frame_size) = bounds("Selected Rectangle");
+        let zoom = frame_size.width / 180.;
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(
+                frame_origin.x + frame_size.width / 2.,
+                frame_origin.y + frame_size.height / 2.,
+            ),
+        });
+        let (name, on_left, on_top) = match corner {
+            super::CanvasCorner::TopLeft => ("top-left", true, true),
+            super::CanvasCorner::TopRight => ("top-right", false, true),
+            super::CanvasCorner::BottomRight => ("bottom-right", false, false),
+            super::CanvasCorner::BottomLeft => ("bottom-left", true, false),
+        };
+        let (handle_origin, handle_size) = bounds(&format!("Rectangle radius {name}"));
+        let mut position = LogicalPosition::new(
+            handle_origin.x + handle_size.width / 2.,
+            handle_origin.y + handle_size.height / 2.,
+        );
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position });
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+
+        let steps = radii
+            .iter()
+            .map(|radius| {
+                let offset = radius * zoom;
+                position = LogicalPosition::new(
+                    if on_left {
+                        frame_origin.x + offset
+                    } else {
+                        frame_origin.x + frame_size.width - offset
+                    },
+                    if on_top {
+                        frame_origin.y + offset
+                    } else {
+                        frame_origin.y + frame_size.height - offset
+                    },
+                );
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position });
+                changes.take()
+            })
+            .collect();
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        steps
+    }
+
+    #[test]
+    fn corner_radius_drag_shrinks_adjacent_corners_to_fit() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(
+            TopLeft,
+            &[
+                ("border-top-left-radius", 40.),
+                ("border-top-right-radius", 100.),
+                ("border-bottom-right-radius", 0.),
+                ("border-bottom-left-radius", 60.),
+            ],
+            true,
+            &[100., 50., 200.],
+        );
+        assert_eq!(
+            steps,
+            [
+                vec![(TopLeft, Some(100.)), (TopRight, Some(80.)), (BottomLeft, Some(20.))],
+                vec![(TopLeft, Some(50.)), (TopRight, None), (BottomLeft, None)],
+                vec![(TopLeft, Some(120.)), (TopRight, Some(60.)), (BottomLeft, Some(0.))],
+            ]
+        );
+    }
+
+    #[test]
+    fn corner_radius_drag_shrinks_adjacent_corners_of_bottom_right() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(
+            BottomRight,
+            &[
+                ("border-top-left-radius", 0.),
+                ("border-top-right-radius", 60.),
+                ("border-bottom-right-radius", 40.),
+                ("border-bottom-left-radius", 100.),
+            ],
+            true,
+            &[100., 50., 200.],
+        );
+        assert_eq!(
+            steps,
+            [
+                vec![(BottomRight, Some(100.)), (BottomLeft, Some(80.)), (TopRight, Some(20.))],
+                vec![(BottomRight, Some(50.)), (BottomLeft, None), (TopRight, None)],
+                vec![(BottomRight, Some(120.)), (BottomLeft, Some(60.)), (TopRight, Some(0.))],
+            ]
+        );
+    }
+
+    #[test]
+    fn linked_corner_radius_drag_stops_at_half_the_shorter_side() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(TopLeft, &[("border-radius", 40.)], false, &[50., 200.]);
+        assert_eq!(steps, [vec![(TopLeft, Some(50.))], vec![(TopLeft, Some(60.))]]);
+    }
+
     #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
@@ -1824,6 +2015,71 @@ mod tests {
         session.invoke_begin(request);
         session.invoke_close_picker(true, false);
         assert_eq!(commits.get(), 1);
+    }
+
+    #[test]
+    fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
+        use slint::platform::{Key, WindowEvent};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Rectangle".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.set_undo_enabled(true);
+        let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = undo_count.clone();
+        api.on_undo(move || count.set(count.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                angle: 90.,
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
+            target: super::FillSessionTarget {
+                canvas: true,
+                key: "replaced-inspector-field".into(),
+                session_key: ":0:0:0:background".into(),
+                property_name: "background".into(),
+                size: slint::LogicalSize::new(200., 200.),
+            },
+            ..Default::default()
+        });
+        session.invoke_edit_stop_color(0);
+        assert!(session.get_open());
+        assert!(session.get_stop_panel_open());
+        slint::platform::update_timers_and_animations();
+        find_element(&editor, "Hex color").invoke_accessible_default_action();
+        session.invoke_close_picker(false, true);
+        slint::platform::update_timers_and_animations();
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        assert_eq!(undo_count.get(), 1);
     }
 
     #[test]

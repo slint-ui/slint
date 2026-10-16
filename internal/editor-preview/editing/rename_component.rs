@@ -1364,23 +1364,9 @@ mod tests {
     ) -> Vec<text_edit::EditedText> {
         let changed_text = apply_text_changes(document_cache, edit);
         let changed_text_count = changed_text.len();
-        let code = {
-            let mut map: HashMap<Url, String> = document_cache
-                .all_url_documents()
-                .map(|(url, dn)| (url, dn.source_file.as_ref()))
-                .map(|(url, sf)| (url, sf.source().unwrap().to_string()))
-                .collect();
-            for ct in &changed_text {
-                map.insert(ct.url.clone(), ct.contents.clone());
-            }
-            map
-        };
 
-        // changed code compiles fine:
-        let enable_experimental =
-            document_cache.compiler_configuration().compiler_config.enable_experimental;
         let new_document_cache =
-            test::recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental);
+            test::recompile_test_with_edits(document_cache, &changed_text, allow_warnings);
 
         // try to apply the reverse change. That should lead to the same result
         let reversed_edit = text_edit::reversed_edit(document_cache, edit).unwrap();

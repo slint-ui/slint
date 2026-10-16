@@ -46,6 +46,7 @@ async fn parse_source(
 
     let mut document_cache = crate::DocumentCache::new(config);
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    diag.enable_experimental = enable_experimental;
 
     document_cache.load_url(&url, None, source_code, &mut diag).await.unwrap();
 
@@ -110,6 +111,25 @@ pub fn compile_test_with_sources_experimental(
     recompile_test_with_sources(style, code, allow_warnings, true)
 }
 
+#[track_caller]
+pub fn recompile_test_with_edits(
+    document_cache: &crate::DocumentCache,
+    edited: &[crate::editing::text_edit::EditedText],
+    allow_warnings: bool,
+) -> crate::DocumentCache {
+    let mut code: HashMap<lsp_types::Url, String> = document_cache
+        .all_url_documents()
+        .map(|(url, document)| (url, document.source_file.source().unwrap().to_string()))
+        .collect();
+    for edited_text in edited {
+        code.insert(edited_text.url.clone(), edited_text.contents.clone());
+    }
+    let enable_experimental =
+        document_cache.compiler_configuration().compiler_config.enable_experimental;
+    recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental)
+}
+
+#[track_caller]
 pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
@@ -154,9 +174,9 @@ pub fn recompile_test_with_sources(
     for d in diagnostics.iter() {
         tracing::debug!("    {:?}: {d}", d.level());
     }
-    assert!(!diagnostics.has_errors());
+    assert!(!diagnostics.has_errors(), "{:#?}", diagnostics.to_string_vec());
     if !allow_warnings {
-        assert!(diagnostics.is_empty());
+        assert!(diagnostics.is_empty(), "{:#?}", diagnostics.to_string_vec());
     }
 
     type_loader

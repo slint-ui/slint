@@ -19,6 +19,8 @@ use num_traits::float::Float;
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
+///
+/// Clones of a Brush share the same underlying data, so cloning is cheap.
 #[derive(Clone, PartialEq, Debug, derive_more::From)]
 #[repr(C)]
 #[non_exhaustive]

@@ -192,6 +192,8 @@ private:
 
 /// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A
 /// brush is either a solid color or a linear gradient.
+///
+/// Copies of a Brush share the same underlying data, so copying is cheap.
 class Brush
 {
 public:

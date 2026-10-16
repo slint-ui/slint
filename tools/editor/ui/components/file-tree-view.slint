@@ -112,11 +112,9 @@ component FileTreeRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: stretch;
             cross-axis-alignment: center;
             padding-left: root.style.row.padding-inline;
             padding-right: root.style.row.padding-inline;
-            spacing: 0px;
 
             if root.gutter-segments > 0: HorizontalLayout {
                 horizontal-stretch: 0;
@@ -155,7 +153,6 @@ component FileTreeRow inherits Rectangle {
             HorizontalLayout {
                 horizontal-stretch: 1;
                 spacing: root.style.row.gap;
-                alignment: stretch;
                 cross-axis-alignment: center;
                 padding-right: root.style.row.padding-inline;
                 min-height: root.style.row.height;
@@ -202,7 +199,6 @@ component FileTreeRow inherits Rectangle {
                         color: root.style.row.foreground;
                         font-size: root.style.row.font-size;
                         overflow: elide;
-                        wrap: no-wrap;
                     }
                 }
             }
@@ -229,8 +225,6 @@ component FileTreeRow inherits Rectangle {
                 color: root.style.row.foreground;
                 font-size: root.style.row.font-size;
                 vertical-alignment: center;
-                single-line: true;
-                wrap: no-wrap;
                 accessible-label: @tr("Rename {}", root.node.label);
                 init => {
                     self.focus();
@@ -263,7 +257,6 @@ component FileTreeRow inherits Rectangle {
         color: root.error-color;
         font-size: root.style.row.font-size;
         overflow: elide;
-        wrap: no-wrap;
     }
 
     context-menu := ContextMenuArea {
@@ -276,6 +269,11 @@ component FileTreeRow inherits Rectangle {
                     root.focus-row();
                     root.begin-rename();
                 }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Copy Path");
+                activated => { Api.copy-file-path(root.node.path); }
             }
         }
 
@@ -294,8 +292,10 @@ component FileTreeRow inherits Rectangle {
             }
         }
     }
-    if root.diagnostic-description != "": Tooltip {
-        text: @markdown("\{root.diagnostic-description}");
+    Tooltip {
+        text: root.diagnostic-description != ""
+            ? @markdown("\{root.diagnostic-description}")
+            : @markdown("\{root.node.path}");
     }
 }
 

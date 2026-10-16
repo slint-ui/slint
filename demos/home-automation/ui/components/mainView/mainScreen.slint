@@ -286,8 +286,6 @@ export component MainScreen inherits Rectangle {
     Rectangle {
         x: 0;
         y: 0;
-        width: root.width;
-        height: root.height;
         cache-rendering-hint: door-component-loaded;
 
         navigation := Rectangle {
@@ -342,11 +340,9 @@ export component MainScreen inherits Rectangle {
 
                 tabs := HorizontalLayout {
                     alignment: center;
-                    spacing: 0px;
                     y: AppState.graphics-accelerator-available ? 0 : -5px;
                     home := PageButton {
                         label: "Home";
-                        target-page: 0;
                     }
 
                     PageButton {
@@ -384,8 +380,6 @@ export component MainScreen inherits Rectangle {
         fs-holder := Rectangle {
             y: 20px;
             if AppState.graphics-accelerator-available: Rectangle {
-                width: 100%;
-                height: 100%;
                 Backdrop {
                     y: -fs-holder.y;
                 }
@@ -401,8 +395,6 @@ export component MainScreen inherits Rectangle {
             }
 
             if !AppState.graphics-accelerator-available: Rectangle {
-                width: 100%;
-                height: 100%;
                 Backdrop {
                     y: -fs-holder.y;
                 }

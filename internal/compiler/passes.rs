@@ -54,6 +54,7 @@ mod optimize_useless_rectangles;
 #[cfg(test)]
 pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
+mod redundant_property_bindings;
 mod remove_aliases;
 mod remove_constant_conditions;
 mod remove_return;
@@ -174,9 +175,16 @@ pub async fn run_passes(
         return raw_type_loader;
     }
 
+    let mut checked_components = std::collections::HashSet::new();
+    doc.visit_all_used_components(|component| {
+        if checked_components.insert(std::rc::Rc::as_ptr(component)) {
+            listview::check_children_in_flickable(component, diag);
+        }
+    });
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     doc.visit_all_used_components(|component| {
-        listview::handle_listview(component, diag);
+        listview::lower_ensure_row_visible(component, diag);
     });
 
     collect_subcomponents::collect_subcomponents(doc);
@@ -426,4 +434,5 @@ pub fn run_import_passes(
     check_expressions::check_expressions(doc, diag);
     windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
+    redundant_property_bindings::check_redundant_property_bindings(doc, diag);
 }

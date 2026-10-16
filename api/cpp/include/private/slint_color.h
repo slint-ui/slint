@@ -53,6 +53,16 @@ struct Rgb565Pixel
     friend bool operator==(const Rgb565Pixel &lhs, const Rgb565Pixel &rhs) = default;
 };
 
+/// A grayscale pixel: a single luminance channel encoded as 8 bits.
+struct Gray8Pixel
+{
+    /// The luminance, between 0 (black) and 255 (white).
+    uint8_t luminance;
+
+    /// \private
+    friend bool operator==(const Gray8Pixel &, const Gray8Pixel &) = default;
+};
+
 namespace private_api {
 class LinearGradientBrush;
 class RadialGradientBrush;

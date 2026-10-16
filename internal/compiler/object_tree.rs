@@ -764,6 +764,20 @@ impl Component {
     pub fn parent_element(&self) -> Option<ElementRc> {
         self.parent_element.borrow().upgrade()
     }
+
+    /// Whether a state of this component changes `property_name` on its root element
+    pub fn state_changes_root_property(&self, property_name: &str) -> bool {
+        let root = &self.root_element;
+        let mut found = false;
+        recurse_elem(root, &(), &mut |elem, _| {
+            found |= elem.borrow().states.iter().any(|state| {
+                state.property_changes.iter().any(|(property, ..)| {
+                    property.name() == property_name && Rc::ptr_eq(&property.element(), root)
+                })
+            });
+        });
+        found
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1777,7 +1791,7 @@ impl Element {
                 // Already rejected in `resolve_base_type`, with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
-                interfaces::get_implemented_interfaces(&r, node, tr, diag)
+                interfaces::get_implemented_interfaces(node, tr, diag)
             } else {
                 interfaces::disallow_implement_in_non_root(node, tr, diag);
                 (Vec::new(), Vec::new())
@@ -1964,7 +1978,7 @@ impl Element {
         }
     }
 
-    fn declares_ensure_row_visible(listview: &Element) -> bool {
+    pub(crate) fn declares_ensure_row_visible(listview: &Element) -> bool {
         let lookup =
             listview.lookup_property("ensure-row-visible", PropertyLookupMode::InternalName);
         let Type::Function(function) = lookup.property_type else { return false };
@@ -2793,6 +2807,20 @@ impl Element {
         if self.is_binding_set(&property_name, false) {
             return false;
         }
+
+        debug_assert!(
+            !self
+                .builtin_type()
+                .and_then(|b| b.properties.get(&property_name).cloned())
+                .is_some_and(|info| matches!(
+                    info.default_value,
+                    crate::native_class::BuiltinPropertyDefault::None
+                ) && matches!(
+                    info.property_visibility,
+                    PropertyVisibility::Input | PropertyVisibility::InOut
+                )),
+            "a pass sets the default of {property_name}: mark it `computed` in builtin_elements.rs"
+        );
 
         match self.bindings.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {

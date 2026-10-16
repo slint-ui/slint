@@ -36,6 +36,8 @@ struct DataTransferInner {
 /// `DataTransfer` abstracts over the various ways of transferring data within an application
 /// and between applications.
 ///
+/// Clones of a DataTransfer share the same underlying data, so cloning is cheap.
+///
 /// The details will depend on the current platform, but the common features are:
 ///
 /// - Each `DataTransfer` contains multiple views over the same data in different formats

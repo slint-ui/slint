@@ -8,7 +8,7 @@
 //! where one was given.
 //! See [`crate::display::gbmdmabufdisplay`] for the buffers that device renders into.
 
-// cSpell: ignore dmabuf lavapipe
+// cSpell: ignore dmabuf dmabufs lavapipe
 
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
@@ -97,6 +97,10 @@ const QUEUE_FAMILY_FOREIGN: &std::ffi::CStr = c"VK_EXT_queue_family_foreign";
 /// wgpu doesn't ask for it on its own either.
 pub const EXTERNAL_SEMAPHORE_FD: &std::ffi::CStr = c"VK_KHR_external_semaphore_fd";
 
+/// The extensions that import a dma-buf as a linear image, see `LinearImport`.
+pub(crate) const LINEAR_DMABUF_IMPORT: [&std::ffi::CStr; 2] =
+    [ash::khr::external_memory_fd::NAME, ash::ext::external_memory_dma_buf::NAME];
+
 /// Creates the Vulkan-backed wgpu device the dma-buf renderers draw with.
 pub fn init_wgpu(
     requested_graphics_api: Option<&RequestedGraphicsAPI>,
@@ -129,26 +133,42 @@ pub fn init_wgpu(
         descriptor.label = Some("Slint linuxkms dma-buf device");
     }
 
-    if !adapter.features().contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF) {
+    if adapter.features().contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF) {
+        // Importing the scanout buffer by its modifier needs this whatever the application
+        // asked for.
+        descriptor.required_features |= wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF;
+    } else if descriptor.required_features.contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF)
+    {
+        return Err(PlatformError::Other(
+            "The WGPU configuration requires VULKAN_EXTERNAL_MEMORY_DMA_BUF, which the Vulkan \
+             driver doesn't offer"
+                .into(),
+        ));
+    } else if !imports_linear_dmabufs(&adapter, descriptor.required_features) {
         let display_access = if acquire_drm_display_available() {
             ""
         } else {
             ", and VK_EXT_acquire_drm_display, which direct display access needs"
         };
         return Err(PlatformError::Other(format!(
-            "The Vulkan driver lacks VK_EXT_external_memory_dma_buf or \
-             VK_EXT_image_drm_format_modifier, which rendering into a scanout buffer \
+            "The Vulkan driver lacks VK_KHR_external_memory_fd or \
+             VK_EXT_external_memory_dma_buf, which rendering into a scanout buffer \
              needs{display_access}"
         )));
     }
-
-    // Importing the scanout buffer needs this whatever the application asked for.
-    descriptor.required_features |= wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF;
 
     let (device, queue) = open_device(&adapter, &descriptor)
         .map_err(|e| format!("Error creating a Vulkan device for dma-buf rendering: {e}"))?;
 
     Ok((instance, adapter, device, queue))
+}
+
+fn imports_linear_dmabufs(adapter: &wgpu::Adapter, features: wgpu::Features) -> bool {
+    // Safety: the hal adapter is only queried, within this scope.
+    unsafe { adapter.as_hal::<wgpu::hal::api::Vulkan>() }.is_some_and(|hal_adapter| {
+        let enabled = hal_adapter.required_device_extensions(features);
+        LINEAR_DMABUF_IMPORT.iter().all(|extension| enabled.contains(extension))
+    })
 }
 
 /// Opens the device with [`QUEUE_FAMILY_FOREIGN`] and [`EXTERNAL_SEMAPHORE_FD`] where
@@ -219,6 +239,20 @@ fn open_device_with_extensions(
     })
 }
 
+/// The Vulkan version that both the instance and the physical device support.
+///
+/// # Safety
+/// `physical_device` must belong to `instance`.
+pub(crate) unsafe fn api_version(
+    instance: &wgpu::hal::vulkan::InstanceShared,
+    physical_device: ash::vk::PhysicalDevice,
+) -> u32 {
+    let device_api_version =
+        unsafe { instance.raw_instance().get_physical_device_properties(physical_device) }
+            .api_version;
+    instance.instance_api_version().min(device_api_version)
+}
+
 /// Drivers can offer [`EXTERNAL_SEMAPHORE_FD`] for opaque file descriptors only.
 /// Needs Vulkan 1.1, where external semaphores, the extension's prerequisite, are core.
 ///
@@ -227,14 +261,10 @@ fn open_device_with_extensions(
 /// The instance behind `hal_adapter` must be alive.
 unsafe fn exports_sync_file_semaphores(hal_adapter: &wgpu::hal::vulkan::Adapter) -> bool {
     let instance = hal_adapter.shared_instance();
-    if instance.instance_api_version() < ash::vk::API_VERSION_1_1 {
-        return false;
-    }
     // Safety: the physical device belongs to the instance, which outlives this call.
-    let device = unsafe {
-        instance.raw_instance().get_physical_device_properties(hal_adapter.raw_physical_device())
-    };
-    if device.api_version < ash::vk::API_VERSION_1_1 {
+    if unsafe { api_version(instance, hal_adapter.raw_physical_device()) }
+        < ash::vk::API_VERSION_1_1
+    {
         return false;
     }
     let info = ash::vk::PhysicalDeviceExternalSemaphoreInfo::default()

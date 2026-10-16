@@ -54,7 +54,7 @@ pub fn start(file: &Path) -> Rc<RefCell<LiveReloadingComponent>> {
 
 /// [`start`] for a test that needs the worker's compiler configured.
 pub fn start_with(
-    factory: impl Fn() -> Compiler + Send + 'static,
+    factory: impl FnOnce() -> Compiler + Send + 'static,
     file: &Path,
 ) -> Rc<RefCell<LiveReloadingComponent>> {
     i_slint_backend_testing::init_integration_test_with_system_time();

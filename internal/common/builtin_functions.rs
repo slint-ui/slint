@@ -237,7 +237,8 @@ macro_rules! for_each_builtin_function {
             /// `i_slint_core::window::default_window_title`
             DefaultWindowTitle: pure fn default_window_title() -> SharedString { crate::window::default_window_title() }
             PathPointAt: #[cfg(feature = "path")] pure fn path_point_at(path: ItemArg<Path> => ElementReference, t: f32) -> LogicalPosition {
-                logical_position_to_api(path.item.point_at(&path.rc, t))
+                let point = path.item.point_at(&path.rc, t);
+                crate::api::LogicalPosition::new(point.x, point.y)
             }
             PathAngleAt: #[cfg(feature = "path")] pure fn path_angle_at(path: ItemArg<Path> => ElementReference, t: f32) -> f32 => Angle {
                 path.item.angle_at(&path.rc, t)

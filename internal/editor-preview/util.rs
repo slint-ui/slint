@@ -191,6 +191,7 @@ struct ExpressionContextInfo {
     element: syntax_nodes::Element,
     property_name: SmolStr,
     is_animate: bool,
+    match_subject: Option<syntax_nodes::Expression>,
     /// Expression to resolve for the probe, with its parent (used only to special-case a typed
     /// `let`). `None` when the cursor isn't in a resolvable expression.
     binding_expr: Option<(SyntaxNode, SyntaxNode)>,
@@ -352,6 +353,12 @@ pub fn with_lookup_ctx<R>(
         add_codeblock_local_variables(&cb, to_offset, &mut lookup_context);
     }
 
+    if let Some(subject) = &expr_context_info.match_subject {
+        let ty = Expression::from_expression_node(subject.clone(), &mut lookup_context).ty();
+        lookup_context.property_type = ty.clone();
+        lookup_context.expected_type = ty;
+    }
+
     // Narrow `expected_type` to the type expected at the cursor (comparison rhs, call argument,
     // struct field, ...) by resolving the binding expression with the probe set.
     if let Some((expr, boundary)) = &expr_context_info.binding_expr
@@ -449,6 +456,7 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
                                 element,
                                 property_name: prop_name,
                                 is_animate: false,
+                                match_subject: None,
                                 binding_expr,
                             });
                         }
@@ -467,6 +475,16 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
                 let element = syntax_nodes::Element::new(n.parent()?)?;
                 break (element, "$model".into(), false);
             }
+            SyntaxKind::MatchCase => {
+                let match_element = n.parent()?;
+                return Some(ExpressionContextInfo {
+                    element: syntax_nodes::Element::new(match_element.parent()?)?,
+                    property_name: SmolStr::default(),
+                    is_animate: false,
+                    match_subject: match_element.child_node(SyntaxKind::Expression).map(Into::into),
+                    binding_expr,
+                });
+            }
             SyntaxKind::Element => {
                 // oops: missed it
                 let element = syntax_nodes::Element::new(n)?;
@@ -475,7 +493,13 @@ fn lookup_expression_context(mut n: SyntaxNode, offset: TextSize) -> Option<Expr
             _ => n = n.parent()?,
         }
     };
-    Some(ExpressionContextInfo { element, property_name: prop_name, is_animate, binding_expr })
+    Some(ExpressionContextInfo {
+        element,
+        property_name: prop_name,
+        is_animate,
+        match_subject: None,
+        binding_expr,
+    })
 }
 
 /// If `n` is a binding / code-block container, the expression holding `offset` to probe, with
