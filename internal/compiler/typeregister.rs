@@ -66,7 +66,7 @@ macro_rules! declare_enums {
                     stringify!($vis) == "pub",
                 )),* }
             }
-            fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
+            pub(crate) fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
                 [$(&self.$Name),*].into_iter()
             }
             fn fill_register(&self, register: &mut TypeRegister) {
