@@ -7,6 +7,7 @@
 // cSpell: ignore Jetpack
 
 use crate::Coord;
+use crate::animations::simulations::PositionSimulation;
 use crate::animations::simulations::accelerate::Accelerate;
 use crate::animations::simulations::decelerate::Decelerate;
 use crate::item_tree::ItemWeak;
@@ -94,12 +95,16 @@ impl AccelerateJumpDecelerate {
         jumped: bool,
         flickable: &ItemWeak,
     ) -> Option<()> {
+        let now = crate::animations::current_tick();
+        let reverses = |simulation: &dyn PositionSimulation| {
+            simulation.remaining_distance(now).signum() != distance.signum()
+        };
+        let accelerate = || {
+            let simulation = ScrollToRowMotion::new(viewport_height).accelerate(distance);
+            Some(Phase::Accelerating(alignment, super::start_simulation(flickable, simulation)?))
+        };
         match self.phase.clone() {
-            Phase::PendingSmooth => {
-                let simulation = ScrollToRowMotion::new(viewport_height).accelerate(distance);
-                self.phase =
-                    Phase::Accelerating(alignment, super::start_simulation(flickable, simulation)?);
-            }
+            Phase::PendingSmooth => self.phase = accelerate()?,
             Phase::Accelerating(_, simulation) => {
                 let accelerating = simulation.upgrade()?;
                 let speed = {
@@ -107,11 +112,13 @@ impl AccelerateJumpDecelerate {
                     let braking_deceleration =
                         ScrollToRowMotion::new(viewport_height).braking_deceleration();
                     if !jumped
-                        && distance.abs() > accelerating.braking_distance(braking_deceleration)
+                        && (reverses(&*accelerating)
+                            || distance.abs() > accelerating.braking_distance(braking_deceleration))
                     {
-                        // If we didn't jump and the target is still far, just update the remaining distance
+                        // If we didn't jump and the target is behind or still far, just update the remaining distance
                         // to go on with the accelerating phase
                         accelerating.set_remaining_distance(distance);
+                        self.phase = Phase::Accelerating(alignment, simulation);
                         return Some(());
                     }
                     accelerating.speed()
@@ -121,8 +128,14 @@ impl AccelerateJumpDecelerate {
                     Phase::Decelerating(alignment, super::start_simulation(flickable, simulation)?);
             }
             Phase::Decelerating(_, simulation) => {
-                simulation.upgrade()?.borrow_mut().set_remaining_distance(distance);
-                self.phase = Phase::Decelerating(alignment, simulation);
+                let decelerating = simulation.upgrade()?;
+                if reverses(&*decelerating.borrow()) {
+                    // See `Decelerate::set_remaining_distance`.
+                    self.phase = accelerate()?;
+                } else {
+                    decelerating.borrow_mut().set_remaining_distance(distance);
+                    self.phase = Phase::Decelerating(alignment, simulation);
+                }
             }
         }
         Some(())
