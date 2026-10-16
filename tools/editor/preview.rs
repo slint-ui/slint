@@ -801,6 +801,25 @@ pub(super) fn request_preview_path(path: &Path, component: Option<String>) -> bo
     request_preview(component)
 }
 
+/// Previews `path` in the open project, keeping its root, as a click in the file tree does.
+///
+/// Returns `false` without doing anything when no project is open or `path` is outside its root.
+#[cfg(target_os = "macos")]
+pub(crate) fn preview_in_open_project(path: &Path) -> bool {
+    let root = PREVIEW_STATE.with_borrow(|preview_state| {
+        let api = preview_state.api.upgrade()?;
+        if api.get_startup_wizard_visible() {
+            return None;
+        }
+        preview_state.current_project_root.as_ref()?.to_file_path().ok()
+    });
+    let in_root = root
+        .and_then(|root| std::fs::canonicalize(root).ok())
+        .zip(std::fs::canonicalize(path).ok())
+        .is_some_and(|(root, path)| path.starts_with(root));
+    in_root && request_preview_path(path, None)
+}
+
 fn request_preview(component: PreviewComponent) -> bool {
     let to_lsp = PREVIEW_STATE.with_borrow(|preview_state| preview_state.to_lsp.borrow().clone());
     let Some(to_lsp) = to_lsp else {

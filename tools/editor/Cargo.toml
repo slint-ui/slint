@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore nucleo pathdiff zbus
+# cSpell: ignore nucleo NSURL pathdiff zbus
 
 [package]
 name = "slint-editor"
@@ -68,10 +68,10 @@ i-slint-editor-preview = { path = "../../internal/editor-preview", features = ["
 spin_on = { workspace = true }
 tempfile = "3"
 
-# Used by the visual editor for the auto-updater.
+# Used by the visual editor for the auto-updater, the title bar, and opening files from Finder.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError", "NSDate"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSToolbar", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString", "NSBundle", "NSError", "NSDate", "NSURL"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
 

@@ -28,6 +28,8 @@ use slint::ComponentHandle;
 mod file_dialog;
 #[cfg(target_os = "linux")]
 mod flatpak;
+#[cfg(target_os = "macos")]
+mod open_documents;
 mod preview;
 #[cfg(target_os = "macos")]
 mod sparkle;
@@ -60,8 +62,9 @@ fn main() -> Result<()> {
         return editor_preview::child_process::run();
     }
 
+    let headless = headless_requested();
     // Set up the Slint backend (installing the macOS unified-title-bar hook)
-    select_backend()?;
+    select_backend(headless)?;
 
     let editor_ui = preview::ui::create_ui()?;
 
@@ -95,6 +98,22 @@ fn main() -> Result<()> {
         true
     });
     startup::setup(&editor_ui, &settings, start_project.clone(), close_project);
+    // Installing the handler connects to AppKit, which headless runs such as UI tests don't use.
+    #[cfg(target_os = "macos")]
+    if !headless {
+        let start_project = start_project.clone();
+        open_documents::install(move |file| {
+            if preview::preview_in_open_project(&file) {
+                return;
+            }
+            match Project::from_file(&file, None) {
+                Ok(project) => {
+                    start_project(project);
+                }
+                Err(err) => tracing::warn!("Failed to open {}: {err}", file.display()),
+            }
+        });
+    }
     if let Some(file) = cli.file {
         let project = Project::from_file(file, cli.component)?;
         start_project(project);
@@ -154,12 +173,15 @@ struct Cli {
     component: Option<String>,
 }
 
-fn select_backend() -> std::result::Result<(), slint::PlatformError> {
-    let headless_requested = std::env::var("SLINT_BACKEND").is_ok_and(|backend| {
+fn headless_requested() -> bool {
+    std::env::var("SLINT_BACKEND").is_ok_and(|backend| {
         i_slint_backend_selector::parse_backend_env_var(&backend.to_ascii_lowercase()).0
             == "headless"
-    });
-    if headless_requested {
+    })
+}
+
+fn select_backend(headless: bool) -> std::result::Result<(), slint::PlatformError> {
+    if headless {
         return i_slint_backend_selector::with_platform(|_| Ok(()));
     }
 
