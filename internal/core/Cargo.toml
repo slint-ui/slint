@@ -64,6 +64,10 @@ image-pixel-format-rgb565 = []
 # need it don't pay for the extra conversion code.
 image-pixel-format-gray8 = []
 
+# (internal) Store an image's pixels as an alpha map: a single 8 bit alpha channel for one color.
+# The interpreter uses it for the alpha maps that the compiler pre-renders.
+image-pixel-format-alpha-map = []
+
 box-shadow-cache = []
 
 testing = []

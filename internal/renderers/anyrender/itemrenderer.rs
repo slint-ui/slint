@@ -1346,6 +1346,8 @@ fn load_image(
                         SharedImageBuffer::RGB565(_) => unreachable!(),
                         #[cfg(feature = "image-pixel-format-gray8")]
                         SharedImageBuffer::Gray8(_) => unreachable!(),
+                        #[cfg(feature = "image-pixel-format-alpha-map")]
+                        SharedImageBuffer::AlphaMap { .. } => unreachable!(),
                     };
 
                     let width = pixels.width();
@@ -1501,6 +1503,12 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::Alpha,
         ),
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { alpha, color } => {
+            return image_buffer_to_peniko_image(&SharedImageBuffer::RGBA8(
+                SharedImageBuffer::alpha_map_to_rgba8(alpha, *color),
+            ));
+        }
     };
 
     Some(peniko::ImageData {

@@ -2325,6 +2325,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    let colorize = match &buffer {
+                        SharedImageBuffer::AlphaMap { color, .. } if colorize.alpha() == 0 => {
+                            *color
+                        }
+                        _ => colorize,
+                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {

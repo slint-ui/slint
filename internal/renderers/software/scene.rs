@@ -507,6 +507,15 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
+                SceneTexture {
+                    data: &alpha.as_bytes()[start..end],
+                    pixel_stride: stride as u16,
+                    format: TexturePixelFormat::AlphaMap,
+                    extra: self.extra,
+                }
+            }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,

@@ -21,6 +21,7 @@ default = []
 vello = ["dep:anyrender_vello", "dep:vello", "i-slint-core/unstable-wgpu-30"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-alpha-map = ["i-slint-core/image-pixel-format-alpha-map"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
