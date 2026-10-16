@@ -155,8 +155,8 @@ pub(super) fn start_simulation<S: Simulation + PositionSimulation + 'static>(
     Some(flickable.as_pin_ref().start_content_simulation(&flickable_rc, simulation, Dimension::Y))
 }
 
-/// Moves a request on after a layout pass, which put its row at `top` with `height` in the viewport.
-/// `jumped` is whether the layout pass jumped to the landing distance before the row.
+/// Determine the new request state of the scroll to state machine
+/// Accelerating -> jumping -> Deccelerating
 pub(super) fn advance_scroll_to_row(
     mut request: ScrollToRowRequest,
     top: Coord,
@@ -219,8 +219,9 @@ pub(super) struct SmoothScrollLayout {
     pub(super) layout_end: Coord,
 }
 
-/// Plans the layout pass for the smooth scroll of `request`, if it has one.
-/// `content_y` is the position before the layout pass.
+/// If there is no scroll to request we handle it as a normal scroll
+/// if one is ongoing, plan the steps for this layout pass for smooth scrolling (like determining
+/// if we should jump and where to land)
 pub(super) fn smooth_scroll_layout(
     request: Option<&ScrollToRowRequest>,
     state: &RepeaterLayoutState,
@@ -240,6 +241,7 @@ pub(super) fn smooth_scroll_layout(
                 .collect::<Vec<_>>();
             let (top_anchor, row_height) = row_geometry(state, &heights, request.row);
             let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
+            // If the acceleration simulation reaches the maximum velocity we jump
             let jump = if let ScrollToRowState::Accelerating(_, simulation) = &request.state
                 && let Some(simulation) = simulation.upgrade()
                 && motion.should_jump(distance as f32, &simulation.borrow())
