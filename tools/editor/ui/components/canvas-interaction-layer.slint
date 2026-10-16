@@ -285,6 +285,10 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
 export component CanvasInteractionLayer inherits TouchArea {
     in property <bool> shift-pressed;
+    // The preview area, in the layer's coordinates.
+    // The layer itself covers the whole canvas, so elements placed outside the root stay reachable.
+    in property <Point> content-origin;
+    in property <Size> content-size;
     private property <bool> hover-enabled;
     private property <int> preview-generation: Hover.preview-generation;
     mouse-cursor: EditorCursors.canvas-default;
@@ -314,8 +318,8 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <Point> hover-window-position;
     private property <float> zoom: CanvasView.zoom;
     changed zoom => { root.refresh-hover(); }
-    private property <Point> canvas-origin: root.absolute-position;
-    private property <Size> canvas-size: { width: root.width, height: root.height };
+    private property <Point> canvas-origin: content.absolute-position;
+    private property <Size> canvas-size: root.content-size;
     private property <SelectionRectangle> primary-selection: root.selections[Api.selection.highlight-index];
     init => {
         FillSession.canvas-origin = root.canvas-origin;
@@ -419,16 +423,16 @@ export component CanvasInteractionLayer inherits TouchArea {
     function refresh-hover() {
         if root.has-hover && root.hover-enabled {
             root.update-hover({
-                x: root.hover-window-position.x - root.absolute-position.x,
-                y: root.hover-window-position.y - root.absolute-position.y,
+                x: root.hover-window-position.x - content.absolute-position.x,
+                y: root.hover-window-position.y - content.absolute-position.y,
             });
         }
     }
 
     function update-hover(position: Point) {
         root.hover-window-position = {
-            x: root.absolute-position.x + position.x,
-            y: root.absolute-position.y + position.y,
+            x: content.absolute-position.x + position.x,
+            y: content.absolute-position.y + position.y,
         };
         if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
@@ -448,123 +452,136 @@ export component CanvasInteractionLayer inherits TouchArea {
             return;
         }
         Api.unselect();
-        let preview = CanvasView.to-preview({ x: self.pressed-x, y: self.pressed-y });
+        let preview = CanvasView.to-preview({
+            x: self.pressed-x - root.content-origin.x,
+            y: self.pressed-y - root.content-origin.y,
+        });
         Api.select-at(preview.x, preview.y, false);
         root.real-element-selected();
     }
     pointer-event(event) => {
         if event.kind == PointerEventKind.move {
-            root.update-hover({ x: self.mouse-x, y: self.mouse-y });
+            root.update-hover({
+                x: self.mouse-x - root.content-origin.x,
+                y: self.mouse-y - root.content-origin.y,
+            });
         }
     }
 
-    for geometry in Hover.geometry: Rectangle {
-        x: geometry.x * CanvasView.zoom;
-        y: geometry.y * CanvasView.zoom;
-        width: geometry.width * CanvasView.zoom;
-        height: geometry.height * CanvasView.zoom;
-        transform-origin: { x: self.width / 2, y: self.height / 2 };
-        transform-rotation: geometry.angle;
-        visible: !root.hover-selection-active;
-        accessible-role: AccessibleRole.region;
-        // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
-        accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
-        Rectangle {
-            x: -Style.selection-frame.hover-width;
-            y: -Style.selection-frame.hover-width;
-            width: parent.width + 2 * Style.selection-frame.hover-width;
-            height: parent.height + 2 * Style.selection-frame.hover-width;
-            border-width: Style.selection-frame.hover-width;
-            border-color: Style.selection-frame.accent;
-            border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius * CanvasView.zoom + self.border-width : 0px;
-            border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius * CanvasView.zoom + self.border-width : 0px;
-            border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius * CanvasView.zoom + self.border-width : 0px;
-            border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius * CanvasView.zoom + self.border-width : 0px;
-        }
-    }
+    content := Rectangle {
+        x: root.content-origin.x;
+        y: root.content-origin.y;
+        width: root.content-size.width;
+        height: root.content-size.height;
 
-    for selection[idx] in root.selections: SelectedCanvasFrame {
-        selection: selection;
-        primary: idx == Api.selection.highlight-index;
-        shift-pressed: root.shift-pressed;
-        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
-        show-outline-while-moving: root.keep-selection-outline-while-moving(
-            Api.current-element.type-name,
-        );
-        pointer-hovered(position) => {
-            root.update-hover(position);
-        }
-        hover-suppressed => { root.suppress-hover(); }
-        focus-requested => { root.real-element-selected(); }
-        double-clicked => {
-            root.begin-text-edit();
-        }
-    }
-
-    for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
-        geometry: geometry;
-        gesture-active: root.hover-selection-active;
-        show-outline-while-moving: root.keep-selection-outline-while-moving(
-            Hover.element.type-name,
-        );
-        gesture-started => {
-            root.hover-enabled = false;
-            root.hover-selection-active = true;
-        }
-        gesture-ended => {
-            root.hover-selection-active = false;
-        }
-        pointer-hovered(position) => {
-            root.update-hover(position);
-        }
-        real-element-selected => {
-            root.real-element-selected();
-        }
-    }
-
-    if root.text-editing: FocusScope {
-        x: root.text-edit-position.x * CanvasView.zoom;
-        y: root.text-edit-position.y * CanvasView.zoom;
-        width: root.text-edit-size.width * CanvasView.zoom;
-        height: root.text-edit-size.height * CanvasView.zoom;
-        init => {
-            input.focus();
-            input.select-all();
-        }
-
-        capture-key-pressed(event) => {
-            if event.text == Key.Escape {
-                root.commit-text-edit();
-                return accept;
+        for geometry in Hover.geometry: Rectangle {
+            x: geometry.x * CanvasView.zoom;
+            y: geometry.y * CanvasView.zoom;
+            width: geometry.width * CanvasView.zoom;
+            height: geometry.height * CanvasView.zoom;
+            transform-origin: { x: self.width / 2, y: self.height / 2 };
+            transform-rotation: geometry.angle;
+            visible: !root.hover-selection-active;
+            accessible-role: AccessibleRole.region;
+            // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
+            accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
+            Rectangle {
+                x: -Style.selection-frame.hover-width;
+                y: -Style.selection-frame.hover-width;
+                width: parent.width + 2 * Style.selection-frame.hover-width;
+                height: parent.height + 2 * Style.selection-frame.hover-width;
+                border-width: Style.selection-frame.hover-width;
+                border-color: Style.selection-frame.accent;
+                border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius * CanvasView.zoom + self.border-width : 0px;
+                border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius * CanvasView.zoom + self.border-width : 0px;
+                border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius * CanvasView.zoom + self.border-width : 0px;
+                border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius * CanvasView.zoom + self.border-width : 0px;
             }
-            reject
         }
 
-        input := TextInput {
-            width: parent.width;
-            height: parent.height;
-            text <=> root.text-edit-value;
-            color: Api.current-property-value-data("color").value-brush;
-            font-family: Api.current-property-value-data("font-family").value-string;
-            font-size: Api.current-property-value-data("font-size").value-float
-                * root.text-edit-scale-y * CanvasView.zoom * 1px;
-            font-weight: Api.current-property-value-data("font-weight").value-int;
-            font-italic: Api.current-property-value-data("font-italic").value-bool;
-            horizontal-alignment: root.horizontal-text-alignment(
-                Api.current-property-value-data("horizontal-alignment").value-int,
+        for selection[idx] in root.selections: SelectedCanvasFrame {
+            selection: selection;
+            primary: idx == Api.selection.highlight-index;
+            shift-pressed: root.shift-pressed;
+            interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
+            show-outline-while-moving: root.keep-selection-outline-while-moving(
+                Api.current-element.type-name,
             );
-            vertical-alignment: root.vertical-text-alignment(
-                Api.current-property-value-data("vertical-alignment").value-int,
-            );
-            letter-spacing: Api.current-property-value-data("letter-spacing").value-float
-                * root.text-edit-scale-x * CanvasView.zoom * 1px;
-            line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
-            accessible-label: @tr("Inline text editor");
+            pointer-hovered(position) => {
+                root.update-hover(position);
+            }
+            hover-suppressed => { root.suppress-hover(); }
+            focus-requested => { root.real-element-selected(); }
+            double-clicked => {
+                root.begin-text-edit();
+            }
+        }
 
-            accepted => { root.commit-text-edit(); }
-            changed has-focus => {
-                if !self.has-focus && !root.commit-text-edit() {
-                    self.focus();
+        for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
+            geometry: geometry;
+            gesture-active: root.hover-selection-active;
+            show-outline-while-moving: root.keep-selection-outline-while-moving(
+                Hover.element.type-name,
+            );
+            gesture-started => {
+                root.hover-enabled = false;
+                root.hover-selection-active = true;
+            }
+            gesture-ended => {
+                root.hover-selection-active = false;
+            }
+            pointer-hovered(position) => {
+                root.update-hover(position);
+            }
+            real-element-selected => {
+                root.real-element-selected();
+            }
+        }
+
+        if root.text-editing: FocusScope {
+            x: root.text-edit-position.x * CanvasView.zoom;
+            y: root.text-edit-position.y * CanvasView.zoom;
+            width: root.text-edit-size.width * CanvasView.zoom;
+            height: root.text-edit-size.height * CanvasView.zoom;
+            init => {
+                input.focus();
+                input.select-all();
+            }
+
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.commit-text-edit();
+                    return accept;
+                }
+                reject
+            }
+
+            input := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text <=> root.text-edit-value;
+                color: Api.current-property-value-data("color").value-brush;
+                font-family: Api.current-property-value-data("font-family").value-string;
+                font-size: Api.current-property-value-data("font-size").value-float
+                    * root.text-edit-scale-y * CanvasView.zoom * 1px;
+                font-weight: Api.current-property-value-data("font-weight").value-int;
+                font-italic: Api.current-property-value-data("font-italic").value-bool;
+                horizontal-alignment: root.horizontal-text-alignment(
+                    Api.current-property-value-data("horizontal-alignment").value-int,
+                );
+                vertical-alignment: root.vertical-text-alignment(
+                    Api.current-property-value-data("vertical-alignment").value-int,
+                );
+                letter-spacing: Api.current-property-value-data("letter-spacing").value-float
+                    * root.text-edit-scale-x * CanvasView.zoom * 1px;
+                line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
+                accessible-label: @tr("Inline text editor");
+
+                accepted => { root.commit-text-edit(); }
+                changed has-focus => {
+                    if !self.has-focus && !root.commit-text-edit() {
+                        self.focus();
+                    }
                 }
             }
         }
