@@ -4,7 +4,9 @@
 # cspell:ignore tobytes
 
 import math
+import time
 from pathlib import Path
+from typing import cast
 
 import pytest
 import slint_testing
@@ -98,6 +100,47 @@ def test_shadow_handles_keep_focus_for_consecutive_edits(
             snapshot.wait_for_applied(expected)
 
 
+@pytest.mark.parametrize("shift", [keys.Shift, keys.ShiftR])
+@pytest.mark.parametrize("dragging", [False, True])
+def test_shadow_guides_only_show_while_shift_is_held(
+    editor_binary, editor_environment, shadow_scene, tmp_path, shift, dragging
+):
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, shadow_scene.read_bytes())
+        window = first_window(editor)
+        open_shadow(window)
+        move_shadow_panel(window)
+        plain = screenshot(window)
+        spread = center(element(window, "Shadow spread handle"))
+        scale = plain.width / window.root_element.size.width
+        color = cast(
+            tuple[int, int, int],
+            plain.getpixel((round(spread.x * scale), round((spread.y + 3) * scale))),
+        )
+        assert color[0] > 220 and color[1] > 170 and color[2] < 80
+
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=shift))
+        guides = screenshot(window)
+        assert guides.tobytes() != plain.tobytes()
+        start = center(element(window, "Shadow offset handle"))
+        button = slint_testing.PointerEventButton.Left
+        if dragging:
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            guides = screenshot(window)
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=shift))
+        hidden = screenshot(window)
+        assert hidden.tobytes() != guides.tobytes()
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=shift))
+        assert screenshot(window).tobytes() == guides.tobytes()
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=shift))
+        assert screenshot(window).tobytes() == hidden.tobytes()
+        if dragging:
+            window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
+        snapshot.assert_unchanged()
+
+
 def test_shadow_panel_uses_the_existing_solid_color_picker(
     editor_binary,
     editor_environment,
@@ -131,7 +174,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
     ],
 )
 @pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
-@pytest.mark.parametrize("outcome", ["commit", "cancel"])
+@pytest.mark.parametrize("outcome", ["commit", "cancel", "return"])
 def test_shadow_canvas_gestures_preview_cancel_and_undo(
     editor_binary,
     editor_environment,
@@ -171,17 +214,40 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
         snapshot.assert_unchanged()
         assert screenshot(window).tobytes() != before.tobytes()
         if handle == "offset":
-            element(
-                window,
-                "offset-x: 44 px · offset-y: 44 px",
-                role=slint_testing.AccessibleRole.Text,
-            )
+            expect(
+                element(
+                    window,
+                    "Shadow angle and distance",
+                    role=slint_testing.AccessibleRole.Text,
+                )
+            ).to_have_value("45°\nDistance 62 px")
+        if outcome == "return":
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        positions = {
+            name: center(element(window, f"Shadow {name} handle"))
+            for name in ("offset", "blur", "spread")
+        }
         if outcome == "cancel":
             press_key(window, keys.Escape)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        if outcome == "cancel":
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                start if outcome == "return" else end, button
+            )
+        )
+        if outcome != "commit":
             snapshot.assert_unchanged()
         else:
+            deadline = time.monotonic() + 0.5
+            while time.monotonic() < deadline:
+                for name in ("offset", "blur", "spread"):
+                    handles = elements(window, f"Shadow {name} handle")
+                    assert len(handles) == 1, (
+                        f"Shadow {name} handle disappeared after releasing {handle}"
+                    )
+                    position = center(handles[0])
+                    assert (position.x, position.y) == pytest.approx(
+                        (positions[name].x, positions[name].y), abs=0.01
+                    ), f"Shadow {name} handle jumped after releasing {handle}"
             expected = baseline
             for name, old, new in changes:
                 expected = expected.replace(
@@ -190,12 +256,75 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
                 )
             snapshot.wait_for_applied(expected)
             for name in ("offset", "blur", "spread"):
-                expect(query(window, f"Shadow {name} handle")).to_be_visible()
+                position = center(element(window, f"Shadow {name} handle"))
+                assert (position.x, position.y) == pytest.approx(
+                    (positions[name].x, positions[name].y), abs=0.01
+                )
             element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
             press_shortcut(window, keys.Control, "z")
             snapshot.wait_for_applied(baseline)
             press_shortcut(window, keys.Control, keys.Shift, "z")
             snapshot.wait_for_applied(expected)
+
+
+@pytest.mark.parametrize(
+    "x,y,angle,distance",
+    [(3, 4, 53, 5), (-3, 4, 127, 5), (-3, -4, 233, 5), (3, -4, 307, 5), (0, 0, 0, 0)],
+)
+@pytest.mark.parametrize("rotation,percent", [(0, 100), (30, 200)])
+def test_shadow_offset_tooltip_uses_angle_and_distance(
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    x,
+    y,
+    angle,
+    distance,
+    rotation,
+    percent,
+):
+    baseline = shadow_scene.read_bytes().replace(
+        b"        x: 160px;",
+        f"        transform-rotation: {rotation}deg;\n        x: 160px;".encode(),
+    )
+    shadow_scene.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
+        open_shadow(window)
+        move_shadow_panel(window)
+        start = center(element(window, "Shadow offset handle"))
+        end = offset_position(
+            start,
+            (x - 24) * percent / 100,
+            (y - 32) * percent / 100,
+            math.radians(rotation),
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        tooltip = element(
+            window, "Shadow angle and distance", role=slint_testing.AccessibleRole.Text
+        )
+        expect(tooltip).to_have_value(f"{angle}°\nDistance {distance} px")
+        handle = center(element(window, "Shadow offset handle"))
+        assert tooltip.absolute_position.x + tooltip.size.width == pytest.approx(
+            handle.x - 12, abs=0.01
+        )
+        assert tooltip.absolute_position.y + tooltip.size.height == pytest.approx(
+            handle.y - 12, abs=0.01
+        )
+        snapshot.assert_unchanged()
+        press_key(window, keys.Escape)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        expect(query(window, "Shadow angle and distance")).to_be_hidden()
+        snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize("change", ["selection", "source"])

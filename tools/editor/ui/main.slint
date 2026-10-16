@@ -724,13 +724,14 @@ export component EditorUi inherits Window {
                     return reject;
                 }
                 Rectangle {
-                    visible: ShadowSession.canvas-active;
+                    visible: ShadowSession.canvas-visible;
                     x: canvas-viewport.absolute-position.x - shadow-layer.absolute-position.x;
                     y: canvas-viewport.absolute-position.y - shadow-layer.absolute-position.y;
                     width: canvas-viewport.width;
                     height: canvas-viewport.height;
                     clip: true;
                     ShadowOverlay {
+                        show-guides: editor.shift-pressed;
                         x: FillSession.canvas-origin.x - parent.absolute-position.x;
                         y: FillSession.canvas-origin.y - parent.absolute-position.y;
                         width: FillSession.canvas-size.width;

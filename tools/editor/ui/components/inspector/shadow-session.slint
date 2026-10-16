@@ -27,9 +27,10 @@ export global ShadowSession {
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
     private property <bool> shadow-exists: Api.has-shadow("drop-shadow-");
-    out property <bool> canvas-active: open && Diagnostics.preview-editable
+    out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
+    out property <bool> canvas-active: canvas-visible && Diagnostics.preview-editable;
     out property <string> key: Api.current-element.source-uri + ":" + Api.current-element.source-version
         + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     private property <string> selection-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
@@ -44,6 +45,9 @@ export global ShadowSession {
         blur: Api.number-property("drop-shadow-blur", 16),
         spread: Api.number-property("drop-shadow-spread", 0),
     };
+    changed source-values => { ShadowSession.pending = false; }
+    private property <int> source-version: Api.current-element.source-version;
+    changed source-version => { ShadowSession.pending = false; }
     out property <ShadowValues> values: dragging || pending ? draft : source-values;
     out property <Point> anchor-position;
     out property <Size> anchor-size;
@@ -53,7 +57,6 @@ export global ShadowSession {
     changed shadow-exists => { ShadowSession.check-selection(); }
     changed key => {
         if ShadowSession.dragging { ShadowSession.cancel(); }
-        ShadowSession.pending = false;
     }
     private property <bool> compiling: Diagnostics.compiling;
     changed compiling => { if !ShadowSession.compiling { ShadowSession.check-selection(); } }
