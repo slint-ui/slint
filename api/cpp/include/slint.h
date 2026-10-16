@@ -809,6 +809,7 @@ inline void set_xdg_app_id(std::string_view xdg_app_id)
     SharedString s = xdg_app_id;
     cbindgen_private::slint_set_xdg_app_id(&s);
 }
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
 /// Sets a custom asset loader callback that is consulted before loading images from the file
 /// system. The callback receives an asset identifier (a string) and should return
 /// `std::optional<std::vector<uint8_t>>` with the asset data, or `std::nullopt` to fall through to
@@ -839,5 +840,6 @@ inline void set_asset_loader(F callback)
             },
             new F(std::move(callback)), [](void *data) { delete static_cast<F *>(data); });
 }
+#endif
 
 } // namespace slint
