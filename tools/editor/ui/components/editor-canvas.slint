@@ -36,6 +36,10 @@ export component EditorCanvas inherits TouchArea {
         x: root.canvas-origin.x + root.artboard-style.padding * CanvasView.zoom,
         y: root.canvas-origin.y + root.artboard-style.padding * CanvasView.zoom,
     };
+    private property <Size> preview-size: {
+        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom,
+        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom,
+    };
     init => { CanvasView.viewport-size = root.viewport-size; }
     changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
 
@@ -93,8 +97,8 @@ export component EditorCanvas inherits TouchArea {
     Rectangle {
         x: root.preview-origin.x;
         y: root.preview-origin.y;
-        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
-        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        width: root.preview-size.width;
+        height: root.preview-size.height;
         DropArea {
             can-drop(event) => {
                 if !Diagnostics.preview-editable || AppState.palette-drag-cancelled {
@@ -146,11 +150,13 @@ export component EditorCanvas inherits TouchArea {
             accessible-role: AccessibleRole.region;
             accessible-label: @tr("Canvas drop marker");
         }
+    }
 
-        if Diagnostics.preview-editable: CanvasInteractionLayer {
-            shift-pressed: root.shift-pressed;
-            real-element-selected => { root.real-element-selected(); }
-        }
+    if Diagnostics.preview-editable: CanvasInteractionLayer {
+        shift-pressed: root.shift-pressed;
+        content-origin: root.preview-origin;
+        content-size: root.preview-size;
+        real-element-selected => { root.real-element-selected(); }
     }
     PreviewDiagnostics { }
 }
