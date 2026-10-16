@@ -64,10 +64,7 @@ A row above the viewport, or a row taller than the viewport, ends up at the top 
 Any other row ends up at the bottom edge.
 A row that's already fully visible doesn't move, but a running scroll animation stops.
 If `row` is out of range, the call does nothing.
-
-:::note
-The list always jumps to the row, also with `ScrollBehavior.smooth`.
-:::
+Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate, see [`ScrollBehavior`](/reference/property-types/builtin-enums/#scrollbehavior).
 
 ```slint {9}
 import { Button, ListView, VerticalBox } from "std-widgets.slint";
