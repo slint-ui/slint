@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Switch } from "std-widgets.slint";
+import { SwitchBase } from "../../../controls/src/headless.slint";
 
 import { Api } from "../../api.slint";
 import { Style, Colors, Metrics, Typography } from "../../style.slint";
@@ -70,10 +70,39 @@ export component InspectorShadowControl inherits Rectangle {
                 }
             }
         }
-        toggle := Switch {
+        toggle := SwitchBase {
             accessible-label: root.inner ? @tr("Enable inner shadow") : @tr("Enable drop shadow");
             enabled: Diagnostics.preview-editable;
             checked: root.effect-enabled;
+            indicator-width: Metrics.control-medium;
+            indicator-height: Metrics.icon-medium;
+            spacing: 0px;
+            indicator << Rectangle {
+                opacity: toggle.enabled ? 1 : Metrics.disabled-opacity;
+                background: toggle.checked ? Colors.accent
+                    : toggle.hovered || toggle.pressed ? Style.inspector-field.appearance.hover.background
+                    : Style.inspector-field.appearance.normal.background;
+                border-color: toggle.checked ? Colors.accent : Colors.muted;
+                border-width: Metrics.border-width;
+                border-radius: self.height / 2;
+                Rectangle {
+                    x: toggle.checked ? parent.width - self.width - 2px : 2px;
+                    y: 2px;
+                    width: parent.height - 4px;
+                    height: self.width;
+                    border-radius: self.height / 2;
+                    background: toggle.checked ? Colors.on-accent : Colors.muted;
+                }
+                if toggle.enabled && toggle.has-focus: Rectangle {
+                    x: -2px;
+                    y: -2px;
+                    width: parent.width + 4px;
+                    height: parent.height + 4px;
+                    border-width: Metrics.focus-width;
+                    border-color: Colors.focus;
+                    border-radius: self.height / 2;
+                }
+            }
             toggled => {
                 self.focus();
                 if !Api.set-shadow-enabled(Api.current-element, root.inner, self.checked) {
