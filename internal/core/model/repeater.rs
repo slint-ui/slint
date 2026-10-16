@@ -276,11 +276,9 @@ impl ListViewProperties for TypedListViewProps<'_> {
 /// are visible, instantiates/updates those, lays them out, and cleans up
 /// off-screen instances. Returns whether any instance was created.
 ///
-/// If a scroll request is ongoing it will be used to update the running animation
-/// - if scroll request is ongoing: scroll properties are update and if the simulation requires a jump the landing position
-/// gets calculated
-/// - update visible instances (remove not required instances, instantiate instances which are visible)
-/// - update the scroll request state phase if one is ongoing
+/// With an ongoing scroll request, a layout pass also:
+/// - plans the smooth scroll, including whether to jump and where the jump lands,
+/// - advances the request to its next phase.
 fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,

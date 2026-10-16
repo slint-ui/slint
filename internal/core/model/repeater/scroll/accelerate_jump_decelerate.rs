@@ -68,15 +68,14 @@ impl AccelerateJumpDecelerate {
         // If the acceleration simulation reaches the maximum velocity we jump
         let motion = ScrollToRowMotion::new(viewport_height);
         let landing = motion.landing_distance as Coord;
-        let jump = if let Phase::Accelerating(_, simulation) = &self.phase
+        if let Phase::Accelerating(_, simulation) = &self.phase
             && let Some(simulation) = simulation.upgrade()
             && motion.should_jump(distance as f32, &simulation.borrow())
         {
             Some(landing)
         } else {
             None
-        };
-        jump
+        }
     }
 
     /// Is used to determine how large is the instantiation span.
