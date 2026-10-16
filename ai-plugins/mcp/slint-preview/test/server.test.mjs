@@ -87,6 +87,7 @@ test("serves the view as an MCP App with the interpreter hosts allowed", async (
         assert.ok(csp.resourceDomains.includes(origin), origin);
         assert.ok(csp.connectDomains.includes(origin), origin);
     }
+    assert.ok(csp.resourceDomains.includes("blob:"));
 });
 
 test("lists the view resource", async () => {
