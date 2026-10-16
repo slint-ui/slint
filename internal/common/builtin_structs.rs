@@ -218,7 +218,7 @@ macro_rules! for_each_builtin_structs {
             pub struct ConstraintAdjustment {
                 /// The popup can be slid along the respective axis to fit
                 /// fully on screen
-                slide: bool,
+                slide: bool = true,
                 /// The popup can be flipped to the other edge of the anchor rect
                 /// if it fits then on screen
                 flip: bool,
