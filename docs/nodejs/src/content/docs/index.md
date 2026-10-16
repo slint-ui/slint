@@ -379,8 +379,8 @@ The types used for properties in .slint design markup each translate to specific
 | `bool` | `Boolean` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | `RgbaColor` | |
-| `brush` | `Brush` | |
+| `color` | `Brush` | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a CSS color string. |
+| `brush` | `Brush` | Assign a `Brush`, an `RgbaColor`, or a CSS color string. |
 | `keys` | `Keys` | |
 | `image` | `ImageData` | |
 | `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
