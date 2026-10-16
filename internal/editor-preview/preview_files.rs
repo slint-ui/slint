@@ -12,14 +12,17 @@
 //! such as the loaded sources and the fonts they import.
 
 use crate::DocumentCache;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::expression_types::ImageReference;
+use i_slint_compiler::object_tree::visit_all_expressions;
 use i_slint_compiler::source_path::clean_path;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// The images and fonts a `.slint` can reference.
-/// The compiler records assets only in the full pass pipeline, which the `DocumentCache` doesn't run,
-/// so they're recognized by their name.
+/// Within the roots, these are served even when no loaded document references them,
+/// such as from a document that changed on disk and isn't reloaded yet.
 const ASSET_EXTENSIONS: &[&str] = &[
     // images, mirroring `i_slint_core::graphics::image_mime_type_from_extension`
     "png", "jpg", "jpeg", "svg", "svgz", "gif", "webp", "bmp", "ico", "avif", //
@@ -38,6 +41,8 @@ pub(crate) struct PreviewFileAccess {
     /// to be named `.slint`, so this is what says a file belongs to the project
     /// rather than its name does.
     project_files: HashSet<PathBuf>,
+    /// The images and fonts the loaded documents reference, wherever they are.
+    referenced_resources: HashSet<PathBuf>,
 }
 
 impl PreviewFileAccess {
@@ -69,12 +74,13 @@ impl PreviewFileAccess {
             })
             .collect();
 
-        Self { roots, project_files }
+        Self { roots, project_files, referenced_resources: referenced_resources(document_cache) }
     }
 
     /// Whether a preview may be sent the contents of `path`, read from disk.
     ///
-    /// A file has to sit in one of the roots — that is what keeps a viewer to
+    /// A file a loaded document references is part of the project wherever it is.
+    /// Any other file has to sit in one of the roots — that is what keeps a viewer to
     /// the project being previewed — and be part of that project: either the
     /// compiler already loaded it, or it is named like an asset a `.slint` can
     /// reference. Without the second half, a viewer could ask for the `.env` or
@@ -83,14 +89,48 @@ impl PreviewFileAccess {
         // The two halves normalize differently on purpose: the root test has to
         // resolve `..` and symlinks to mean anything, while the compiler's paths
         // are cleaned but not canonical, so that is what they compare against.
+        let cleaned = clean_path(path);
+        if self.referenced_resources.contains(&cleaned) {
+            return true;
+        }
         let Ok(canonical) = path.canonicalize() else {
             return false;
         };
         if !self.roots.iter().any(|root| canonical.starts_with(root)) {
             return false;
         }
-        self.project_files.contains(&clean_path(path)) || is_asset(path)
+        self.project_files.contains(&cleaned) || is_asset(path)
     }
+}
+
+/// The files the `@image-url`s and font imports of the loaded documents resolve to.
+fn referenced_resources(document_cache: &DocumentCache) -> HashSet<PathBuf> {
+    fn collect_images(expression: &Expression, resources: &mut HashSet<PathBuf>) {
+        if let Expression::ImageReference { resource_ref: ImageReference::Source(path), .. } =
+            expression
+            && let Some(path) = path.as_native_path()
+        {
+            resources.insert(clean_path(path));
+        }
+        expression.visit(|expression| collect_images(expression, resources));
+    }
+
+    let mut resources = HashSet::new();
+    for document in document_cache.all_documents() {
+        resources.extend(
+            document
+                .custom_fonts
+                .iter()
+                .filter_map(|(path, _)| path.as_native_path())
+                .map(clean_path),
+        );
+        for component in &document.inner_components {
+            visit_all_expressions(component, |expression, _| {
+                collect_images(expression, &mut resources)
+            });
+        }
+    }
+    resources
 }
 
 fn is_asset(path: &Path) -> bool {
@@ -166,6 +206,37 @@ mod tests {
     }
 
     #[test]
+    fn reads_the_resources_a_loaded_document_references_wherever_they_are() {
+        let project = tempfile::tempdir().unwrap();
+        let [ui, assets] = ["ui", "assets"].map(|directory| project.path().join(directory));
+        std::fs::create_dir(&ui).unwrap();
+        std::fs::create_dir(&assets).unwrap();
+        // Outside the roots, and not named like an asset.
+        let background = assets.join("background.tga");
+        let font = assets.join("font.ttf");
+        let unreferenced = assets.join("other.tga");
+        for file in [&background, &font, &unreferenced] {
+            std::fs::write(file, []).unwrap();
+        }
+        let source = ui.join("main.slint");
+        let contents = r#"
+            import "../assets/font.ttf";
+            export component Main {
+                Image { source: @image-url("../assets/background.tga"); }
+            }
+        "#;
+        std::fs::write(&source, contents).unwrap();
+
+        let mut session = crate::test::session_with(empty_document_cache());
+        crate::test::load(&mut session, &source, contents);
+        let access = access(&session.document_cache);
+
+        assert!(access.allows(&background));
+        assert!(access.allows(&font));
+        assert!(!access.allows(&unreferenced));
+    }
+
+    #[test]
     fn a_library_mapped_to_a_file_makes_its_directory_readable() {
         let library = tempfile::tempdir().unwrap();
         let entry_point = library.path().join("lib.slint");
@@ -207,8 +278,8 @@ mod tests {
         crate::test::load(&mut session, &main, main_source);
         recorded.borrow_mut().clear();
 
-        // `other.slint` is a document the compiler loaded.
-        // `logo.png` isn't, because the `DocumentCache` only runs the import passes.
+        // `other.slint` is a document the compiler loaded,
+        // `logo.png` a resource that `main.slint` references.
         let requested = ["other.slint", "logo.png"]
             .map(|file| lsp_types::Url::from_file_path(project.path().join(file)).unwrap());
         session.send_files_to_preview(0, &requested, &[]);
