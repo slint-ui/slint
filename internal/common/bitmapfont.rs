@@ -18,6 +18,7 @@ pub trait Storage: Clone + Debug + 'static {
 
 /// The data in `Vec`s, as the compiler builds a font.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Owned;
 
 impl Storage for Owned {
@@ -27,6 +28,7 @@ impl Storage for Owned {
 /// A pre-rendered glyph with the alpha map and associated metrics
 #[repr(C)]
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapGlyph<S: Storage> {
     /// The starting x-coordinate for the glyph, relative to the base line
     /// This is a fixed point number that is shifted by 6 bits
@@ -49,6 +51,7 @@ pub struct BitmapGlyph<S: Storage> {
 /// A set of pre-rendered glyphs at a given pixel size
 #[repr(C)]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapGlyphs<S: Storage> {
     /// The font size in pixels at which the glyphs were pre-rendered. The boundaries of glyphs may exceed this
     /// size, if the font designer has chosen so. This is only used for matching.
@@ -60,6 +63,7 @@ pub struct BitmapGlyphs<S: Storage> {
 /// A subset of an entire font that is pre-rendered at selected sizes.
 #[repr(C)]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapFont<S: Storage> {
     /// The family name of the font, in UTF-8
     pub family_name: S::Slice<u8>,

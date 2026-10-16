@@ -9,10 +9,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     i_slint_backend_testing::init_no_event_loop();
     i_slint_backend_testing::configure_test_fonts();
 
-    run_test(testcase, false)?;
+    run_test(testcase, false, false)?;
 
     #[cfg(feature = "inject-debug-hooks")]
-    run_test(testcase, true)?;
+    run_test(testcase, true, false)?;
+
+    #[cfg(feature = "llr-round-trip")]
+    run_test(testcase, false, true)?;
 
     Ok(())
 }
@@ -20,13 +23,18 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 fn run_test(
     testcase: &test_driver_lib::TestCase,
     inject_debug_hooks: bool,
+    llr_round_trip: bool,
 ) -> Result<(), Box<dyn Error>> {
     if inject_debug_hooks && testcase.is_ignored("interpreter-debug-hooks") {
         eprintln!("Ignoring test {} for the debug hooks", testcase.relative_path.display());
         return Ok(());
     }
 
-    let mode = if inject_debug_hooks { " (with debug hooks)" } else { "" };
+    let mode = match (inject_debug_hooks, llr_round_trip) {
+        (true, _) => " (with debug hooks)",
+        (false, true) => " (after an LLR round trip)",
+        (false, false) => "",
+    };
 
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let include_paths = test_driver_lib::extract_include_paths(&source)
@@ -83,6 +91,8 @@ fn run_test(
         .into());
     }
 
+    let result = if llr_round_trip { round_trip(result)? } else { result };
+
     for component_name in result.component_names() {
         let component = result.component(component_name).unwrap();
         let instance = component.create().unwrap();
@@ -107,4 +117,17 @@ fn run_test(
     }
 
     Ok(())
+}
+
+/// `result`, rebuilt from its compilation unit after serializing and deserializing it.
+fn round_trip(
+    result: slint_interpreter::CompilationResult,
+) -> Result<slint_interpreter::CompilationResult, Box<dyn Error>> {
+    use i_slint_compiler::llr::serialize;
+    let unit = result.into_compilation_unit(i_slint_core::InternalToken).ok_or("no unit")?;
+    let unit = serialize::from_bytes(&serialize::to_bytes(&unit)?)?;
+    Ok(slint_interpreter::CompilationResult::from_compilation_unit(
+        unit,
+        i_slint_core::InternalToken,
+    ))
 }
