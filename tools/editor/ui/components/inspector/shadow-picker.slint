@@ -4,7 +4,7 @@
 import { SwitchBase } from "../../../controls/src/headless.slint";
 
 import { Api } from "../../api.slint";
-import { Style, Colors, Metrics, Typography } from "../../style.slint";
+import { Style, Colors, Metrics, Typography, Motion } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 import { ShadowSession, ShadowGesture } from "shadow-session.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
@@ -79,19 +79,56 @@ export component InspectorShadowControl inherits Rectangle {
             spacing: 0px;
             indicator << Rectangle {
                 opacity: toggle.enabled ? 1 : Metrics.disabled-opacity;
-                background: toggle.checked ? Colors.accent
-                    : toggle.hovered || toggle.pressed ? Style.inspector-field.appearance.hover.background
-                    : Style.inspector-field.appearance.normal.background;
-                border-color: toggle.checked ? Colors.accent : Colors.muted;
-                border-width: Metrics.border-width;
+                background: Style.inspector-slider.track;
+                border-color: toggle.hovered || toggle.pressed
+                    ? Style.inspector-slider.hover-border : Style.inspector-slider.track-border;
+                border-width: Metrics.hairline-width;
                 border-radius: self.height / 2;
+                inner-shadow-color: Style.rotation-dial.shadow.color;
+                inner-shadow-blur: Style.rotation-dial.shadow.blur;
+                inner-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+                for on in [false, true]: Rectangle {
+                    x: parent.width * (on ? 0.75 : 0.25) - self.width / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: on ? 1.5px : 6px;
+                    height: on ? 7px : 6px;
+                    border-radius: on ? 0.75px : self.height / 2;
+                    background: on ? Colors.muted.with-alpha(0.3) : transparent;
+                    border-width: on ? 0px : Metrics.border-width;
+                    border-color: Colors.muted.with-alpha(0.3);
+                }
                 Rectangle {
-                    x: toggle.checked ? parent.width - self.width - 2px : 2px;
-                    y: 2px;
-                    width: parent.height - 4px;
-                    height: self.width;
+                    x: toggle.checked ? parent.width - self.width : 0px;
+                    width: parent.width / 2 + Metrics.space-tight;
+                    height: parent.height;
                     border-radius: self.height / 2;
-                    background: toggle.checked ? Colors.on-accent : Colors.muted;
+                    background: Style.rotation-dial.ring;
+                    border-width: Metrics.hairline-width;
+                    border-color: Style.rotation-dial.ring-border;
+                    drop-shadow-color: Style.rotation-dial.shadow.color;
+                    drop-shadow-blur: Style.rotation-dial.shadow.blur;
+                    drop-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+                    animate x { duration: Motion.fast; easing: ease-out; }
+                    Rectangle {
+                        x: 1px;
+                        y: 1px;
+                        width: parent.width - 2px;
+                        height: parent.height - 2px;
+                        border-radius: self.height / 2;
+                        background: Style.rotation-dial.face;
+                        border-width: Metrics.hairline-width;
+                        border-color: Style.rotation-dial.face-border;
+                    }
+                    Rectangle {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: toggle.checked ? 1.5px : 6px;
+                        height: toggle.checked ? 7px : 6px;
+                        border-radius: toggle.checked ? 0.75px : self.height / 2;
+                        background: toggle.checked ? Style.rotation-dial.dot : transparent;
+                        border-width: toggle.checked ? 0px : Metrics.border-width;
+                        border-color: Colors.muted;
+                    }
                 }
                 if toggle.enabled && toggle.has-focus: Rectangle {
                     x: -2px;
