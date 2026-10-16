@@ -5,7 +5,7 @@
 // MCP server over stdio that renders .slint source inline as an MCP App.
 // See https://github.com/modelcontextprotocol/ext-apps for the UI extension.
 
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -24,6 +24,11 @@ const INTERPRETER_HOSTS = [
     "https://docs.slint.dev",
     "https://snapshots.slint.dev",
 ];
+// A client that shows the view has it check in quickly; one that doesn't never will.
+const VIEW_START_TIMEOUT_MS = Number(
+    process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 3000,
+);
+// The first preview downloads and compiles the interpreter, about 9 MB of WebAssembly.
 const SCREENSHOT_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS ?? 20000,
 );
@@ -65,7 +70,7 @@ const tools = [
                 channel: {
                     type: "string",
                     enum: ["release", "snapshot"],
-                    description: `'release' uses Slint ${SLINT_RELEASE}, 'snapshot' the latest development build.`,
+                    description: `'snapshot' (the default) runs the latest development build of Slint, 'release' runs Slint ${SLINT_RELEASE}.`,
                 },
             },
         },
@@ -87,7 +92,7 @@ const tools = [
         name: "get_preview_screenshot",
         title: "Get Slint Preview Screenshot",
         description:
-            "Get a PNG screenshot of the latest preview_slint preview, as the user sees it. " +
+            "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
             "Waits until the preview has rendered. Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
     },
@@ -95,37 +100,43 @@ const tools = [
         name: "publish_preview_capture",
         title: "Publish Slint Preview Capture",
         description:
-            "Hand the server the preview's PNG capture, or why there is none.",
+            "Tell the server that the preview view started, or hand it the preview's PNG capture or why there is none.",
         inputSchema: {
             type: "object",
             properties: {
-                key: { type: "string" },
+                previewId: { type: "string" },
+                started: { type: "boolean" },
                 png: { type: "string" },
                 width: { type: "integer" },
                 height: { type: "integer" },
+                runtime: { type: "string" },
                 error: { type: "string" },
             },
-            required: ["key"],
+            required: ["previewId"],
         },
         _meta: { ui: { visibility: ["app"] } },
     },
 ];
 
-// Identifies a preview_slint call. The view computes the same key from the tool input,
-// so its capture can be matched to the call without passing an ID through the host.
-function previewKey({ path, source, style, channel }) {
-    const json = JSON.stringify([
-        path ?? null,
-        source ?? null,
-        style ?? null,
-        channel ?? null,
-    ]);
-    return createHash("sha256").update(json).digest("hex");
+// The latest preview_slint call, whether its view has started, its capture once the view
+// publishes it, and the get_preview_screenshot calls waiting for any of these to change.
+let latestPreview = null;
+
+function notify(preview) {
+    for (const listener of preview.listeners.splice(0)) listener();
 }
 
-// The latest preview_slint call, its capture once the view publishes it, and the
-// get_preview_screenshot calls waiting for that capture.
-let latestPreview = null;
+function nextChange(preview, ms) {
+    return new Promise((resolve) => {
+        const done = () => {
+            clearTimeout(timer);
+            preview.listeners = preview.listeners.filter((l) => l !== done);
+            resolve();
+        };
+        const timer = setTimeout(done, ms);
+        preview.listeners.push(done);
+    });
+}
 
 const IMAGE_MIME_TYPES = {
     ".png": "image/png",
@@ -171,39 +182,62 @@ const toolCalls = {
         if (typeof args.path === "string" && !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be absolute");
         }
-        for (const waiter of latestPreview?.waiters ?? []) waiter(null);
-        latestPreview = { key: previewKey(args), capture: null, waiters: [] };
-        return textResult("Rendering the Slint preview.");
+        const previous = latestPreview;
+        latestPreview = {
+            id: randomUUID(),
+            requestedAt: Date.now(),
+            viewStarted: false,
+            capture: null,
+            listeners: [],
+        };
+        if (previous) notify(previous);
+        // The view reads the ID from _meta, or from the text if a client drops _meta.
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Rendering Slint preview ${latestPreview.id}.`,
+                },
+            ],
+            _meta: { "slint/previewId": latestPreview.id },
+        };
     },
     get_preview_screenshot: async () => {
         const preview = latestPreview;
         if (!preview) {
             return textResult("Call preview_slint first.", true);
         }
-        const capture =
-            preview.capture ??
-            (await new Promise((resolve) => {
-                const timer = setTimeout(() => {
-                    preview.waiters = preview.waiters.filter((w) => w !== done);
-                    resolve(null);
-                }, SCREENSHOT_TIMEOUT_MS);
-                const done = (capture) => {
-                    clearTimeout(timer);
-                    resolve(capture);
-                };
-                preview.waiters.push(done);
-            }));
-        if (!capture) {
+        const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
+        const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
+        while (!preview.capture && preview === latestPreview) {
+            const deadline = preview.viewStarted
+                ? captureDeadline
+                : Math.min(viewDeadline, captureDeadline);
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            await nextChange(preview, remaining);
+        }
+        const { id, capture } = preview;
+        if (preview !== latestPreview) {
             return textResult(
-                preview === latestPreview
-                    ? `No screenshot arrived within ${SCREENSHOT_TIMEOUT_MS / 1000} seconds. ` +
-                          "This client may not display previews; use `slint-viewer --screenshot` instead."
-                    : "A newer preview_slint call replaced this preview. Call get_preview_screenshot again.",
+                `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
             );
         }
+        if (!preview.viewStarted) {
+            return textResult(
+                `The view for preview ${id} didn't start within ${VIEW_START_TIMEOUT_MS / 1000} seconds. ` +
+                    "This client may not display previews; use `slint-viewer --screenshot` instead.",
+            );
+        }
+        if (!capture) {
+            return textResult(
+                `Preview ${id} didn't finish rendering within ${SCREENSHOT_TIMEOUT_MS / 1000} seconds.`,
+            );
+        }
+        const runtime = capture.runtime ? ` with ${capture.runtime}` : "";
         if (capture.error) {
             return textResult(
-                `The preview has no screenshot: ${capture.error}`,
+                `Preview ${id}${runtime} has no screenshot: ${capture.error}`,
             );
         }
         return {
@@ -211,26 +245,35 @@ const toolCalls = {
                 { type: "image", data: capture.png, mimeType: "image/png" },
                 {
                     type: "text",
-                    text: `Screenshot of the preview, ${capture.width}×${capture.height} px.`,
+                    text: `Screenshot of preview ${id}, rendered${runtime}, ${capture.width}×${capture.height} px.`,
                 },
             ],
         };
     },
     publish_preview_capture: (args) => {
-        if (typeof args.key !== "string") {
-            throw rpcError(-32602, "'key' must be a string");
+        if (typeof args.previewId !== "string") {
+            throw rpcError(-32602, "'previewId' must be a string");
         }
         const preview = latestPreview;
-        if (args.key !== preview?.key) {
-            return textResult("This capture belongs to an older preview.");
+        if (args.previewId !== preview?.id) {
+            return textResult("This belongs to an older preview.");
         }
-        preview.capture =
-            typeof args.png === "string"
-                ? { png: args.png, width: args.width, height: args.height }
-                : { error: String(args.error ?? "unknown error") };
-        for (const waiter of preview.waiters) waiter(preview.capture);
-        preview.waiters = [];
-        return textResult("Capture received.");
+        preview.viewStarted = true;
+        if (!args.started) {
+            const runtime =
+                typeof args.runtime === "string" ? args.runtime : undefined;
+            preview.capture =
+                typeof args.png === "string"
+                    ? {
+                          png: args.png,
+                          width: args.width,
+                          height: args.height,
+                          runtime,
+                      }
+                    : { error: String(args.error ?? "unknown error"), runtime };
+        }
+        notify(preview);
+        return textResult("Received.");
     },
     read_slint_file: (args) => {
         if (typeof args.path !== "string" || !isAbsolute(args.path)) {

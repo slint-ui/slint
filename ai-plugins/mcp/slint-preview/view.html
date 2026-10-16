@@ -16,24 +16,19 @@
   }
   body {
     margin: 0;
-    padding: 12px;
     background: transparent;
     color: var(--text);
     font: 13px/1.4 system-ui, sans-serif;
   }
-  /* !important overrides the inline size Slint sets from the component's preferred size. */
-  canvas {
-    display: block;
-    outline: none;
-    min-width: min(320px, 100%) !important;
-    min-height: 120px !important;
-    max-width: 100% !important;
-  }
+  /* The canvas keeps the component's size, so its layout doesn't change, and a transform scales it to fit. */
+  #stage { position: relative; overflow: hidden; }
+  canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; outline: none; }
   canvas[hidden] { display: none; }
-  #status { color: var(--muted); white-space: pre-wrap; }
+  #status { margin: 8px; color: var(--muted); white-space: pre-wrap; }
   #status:empty { display: none; }
   #status.error { color: var(--error); }
-  #diagnostics { margin: 8px 0 0; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
+  #diagnostics { margin: 8px; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
+  #diagnostics:empty { display: none; }
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
   .warning { color: var(--warning); }
@@ -41,7 +36,7 @@
 </head>
 <body>
 <div id="status">Waiting for Slint source…</div>
-<canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
+<div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
 <ul id="diagnostics"></ul>
 <script type="module">
   const INTERPRETER_URLS = { release: "__RELEASE_URL__", snapshot: "__SNAPSHOT_URL__" };
@@ -51,6 +46,7 @@
   let canvas = document.getElementById("preview");
   const pristineCanvas = canvas.cloneNode();
   const diagnosticsEl = document.getElementById("diagnostics");
+  const stage = document.getElementById("stage");
 
   let nextId = 1;
   const pending = new Map();
@@ -109,6 +105,26 @@
     notify("ui/notifications/size-changed", { width, height });
   }).observe(document.body);
 
+  // Scales the canvas down to the available width, keeping its proportions.
+  // Transforms don't change the canvas's layout size, which Slint uses as the window size.
+  function fitCanvas() {
+    if (canvas.hidden) {
+      stage.style.height = "0";
+      return;
+    }
+    const scale = Math.min(1, stage.clientWidth / canvas.offsetWidth);
+    canvas.style.transform = scale < 1 ? `scale(${scale})` : "";
+    stage.style.height = `${Math.ceil(canvas.offsetHeight * scale)}px`;
+  }
+  const fitObserver = new ResizeObserver(fitCanvas);
+  fitObserver.observe(stage);
+  fitObserver.observe(canvas);
+
+  function showCanvas(visible) {
+    canvas.hidden = !visible;
+    fitCanvas();
+  }
+
   function showStatus(text, className = "") {
     statusEl.textContent = text;
     statusEl.className = className;
@@ -129,12 +145,19 @@
     // A new fragment imports a fresh module instance, with its own WebAssembly memory.
     // Stack traces of the module's panics include the fragment.
     const tag = `#instance-${++interpreterLoads}`;
-    const slint = import((INTERPRETER_URLS[channel] ?? INTERPRETER_URLS.release) + tag).then(async (slint) => {
+    const name = channel === "release" ? "release" : "snapshot";
+    const url = INTERPRETER_URLS[name];
+    const slint = import(url + tag).then(async (slint) => {
       await slint.default();
       slint.run_event_loop();
       return slint;
     });
-    interpreter = { tag, slint, panicked, panic };
+    // wasm-pack publishes the interpreter's package.json next to it.
+    const runtime = fetch(new URL("package.json", url))
+      .then((response) => response.json())
+      .then(({ version }) => `Slint ${version} (${name})`)
+      .catch(() => `Slint (${name})`);
+    interpreter = { tag, slint, panicked, panic, runtime };
     return interpreter;
   }
 
@@ -163,8 +186,11 @@
     // The dead module keeps its listeners on the old canvas and media queries.
     darkQueryLists.length = 0;
     const freshCanvas = pristineCanvas.cloneNode();
+    fitObserver.unobserve(canvas);
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
+    fitObserver.observe(canvas);
+    fitCanvas();
     showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
     reportToModel(
       "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
@@ -180,6 +206,7 @@
   }
 
   let instance = null;
+  let runtime = null;
   async function render({ source, path, style, channel }) {
     let url = "main.slint";
     let loadImport = null;
@@ -214,6 +241,7 @@
       reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
+    runtime = await current.runtime;
     showStatus("Compiling…");
     const { component, diagnostics } = await untilPanic(
       current,
@@ -232,19 +260,19 @@
     const problems = diagnostics.filter((d) => d.level <= 1);
     if (problems.length) {
       reportToModel(
-        "The Slint preview reported:\n" +
+        `The Slint preview, with ${runtime}, reported:\n` +
           problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
       );
     } else {
-      reportToModel("The Slint preview compiled without errors or warnings.");
+      reportToModel(`The Slint preview, with ${runtime}, compiled without errors or warnings.`);
     }
 
     if (!component) {
-      canvas.hidden = true;
+      showCanvas(false);
       showStatus("");
       return;
     }
-    canvas.hidden = false;
+    showCanvas(true);
     instance = await untilPanic(
       current,
       instance ? component.create_with_existing_window(instance) : component.create("preview"),
@@ -253,11 +281,22 @@
     showStatus("");
   }
 
-  // See previewKey in server.mjs.
-  async function previewKey({ path, source, style, channel }) {
-    const json = JSON.stringify([path ?? null, source ?? null, style ?? null, channel ?? null]);
-    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(json));
-    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  // Each preview_slint result names its preview, and each tool input renders the next one.
+  const previewIds = [];
+  const previewIdWaiters = [];
+  function receivePreviewId(result) {
+    const id = result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    if (!id) return;
+    publish({ previewId: id, started: true });
+    const waiter = previewIdWaiters.shift();
+    waiter ? waiter(id) : previewIds.push(id);
+  }
+  function nextPreviewId() {
+    return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
+  }
+
+  function publish(args) {
+    request("tools/call", { name: "publish_preview_capture", arguments: args }).catch(() => {});
   }
 
   const MAX_CAPTURE_SIZE = 1500;
@@ -282,15 +321,14 @@
     return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
   }
 
-  async function publishCapture(args) {
-    const key = await previewKey(args);
-    let capture = { key, error: failureText() };
-    if (!capture.error) {
+  async function publishCapture(previewId) {
+    const error = failureText();
+    if (!error) {
       await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
       await delay(SETTLE_MS);
-      capture = { key, ...captureCanvas() };
     }
-    request("tools/call", { name: "publish_preview_capture", arguments: capture }).catch(() => {});
+    const capture = error ? { error } : captureCanvas();
+    publish({ previewId: await previewId, runtime: runtime ?? undefined, ...capture });
   }
 
   function reportToModel(text) {
@@ -310,6 +348,7 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
+        const previewId = nextPreviewId();
         render(args)
           .catch((e) => {
             if (e instanceof Panic) return;
@@ -319,9 +358,12 @@
             }
             showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
           })
-          .then(() => publishCapture(args));
+          .then(() => publishCapture(previewId));
         break;
       }
+      case "ui/notifications/tool-result":
+        receivePreviewId(message.params);
+        break;
       case "ui/notifications/host-context-changed":
         applyTheme(message.params);
         break;
