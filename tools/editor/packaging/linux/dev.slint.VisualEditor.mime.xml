@@ -2,6 +2,7 @@
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
     <mime-type type="text/x-slint">
         <comment>Slint UI file</comment>
+        <alias type="text/slint"/>
         <sub-class-of type="text/plain"/>
         <glob pattern="*.slint"/>
     </mime-type>
