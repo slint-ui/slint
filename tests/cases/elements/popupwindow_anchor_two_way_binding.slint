@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A popup whose `anchor` is two-way bound must be placed with the bound value.
+
+global G {
+    in-out property <PopupAnchor> a: { x: 30px, y: 40px };
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <bool> popup-open: false;
+
+    callback show-popup();
+    show-popup => {
+        popup.show();
+    }
+
+    callback move-anchor();
+    move-anchor => {
+        G.a = { x: 100px, y: 40px };
+    }
+
+    popup := PopupWindow {
+        x: 10px;
+        y: 20px;
+        width: 50px;
+        height: 50px;
+        close-policy: no-auto-close;
+        anchor <=> G.a;
+
+        init => {
+            root.popup-open = true;
+        }
+
+        Rectangle {
+            background: red;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+
+instance.window().set_size(slint::PhysicalSize::new(300, 300));
+slint_testing::mock_elapsed_time(100);
+
+instance.invoke_show_popup();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_popup_open(), true);
+
+let location = || {
+    let popups = inner.active_popups.borrow();
+    assert_eq!(popups.len(), 1, "We have one open popup");
+    match &popups.first().unwrap().location {
+        slint_testing::PopupWindowLocation::ChildWindow(loc) => (loc.x, loc.y),
+        _ => panic!("The popup is expected to be a ChildWindow"),
+    }
+};
+
+assert_eq!(location(), (10. + 30., 20. + 40.));
+
+instance.invoke_move_anchor();
+slint_testing::mock_elapsed_time(100);
+assert_eq!(location(), (10. + 100., 20. + 40.));
+```
+*/

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    // Important, otherwise the popup show will not be created
+    TouchArea {
+        clicked => {
+            default-popup.show()
+        }
+    }
+
+    default-popup := PopupWindow {
+        // All properties are specified
+        anchor: {
+            location: PopupAnchorLocation.bottom-left,
+            x: root.x,
+            y: root.y,
+            width: root.width,
+            height: root.height,
+            gravity: PopupGravity.bottom-right,
+            constraint-adjustment-y: {
+                slide: true,
+                flip: true,
+                resize: true,
+            },
+            constraint-adjustment-x: {
+                slide: true,
+                flip: true,
+                resize: true,
+            }
+        };
+    }
+}

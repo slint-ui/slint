@@ -375,6 +375,7 @@ pub struct PopupWindow {
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
+    pub anchor: NamedReference,
     pub parent_element: ElementRc,
     pub is_tooltip: bool,
     /// A reference to a synthesized property on the *parent* component that the runtime keeps in sync
@@ -4577,6 +4578,7 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
+                    vis(&mut p.anchor);
                     if let Some(is_open) = &mut p.is_open {
                         vis(is_open);
                     }

@@ -176,6 +176,7 @@ fn try_create_window_with_fallback_renderer(
     shared_backend_data: &Rc<SharedBackendData>,
     attrs: winit::window::WindowAttributes,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
+    parent: Weak<WinitWindowAdapter>,
 ) -> Option<Rc<WinitWindowAdapter>> {
     type RendererFactory =
         fn(&Rc<SharedBackendData>) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>;
@@ -202,6 +203,7 @@ fn try_create_window_with_fallback_renderer(
             attrs.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
+            parent.clone(),
         ))
     })
 }
@@ -943,6 +945,7 @@ impl i_slint_core::platform::Platform for Backend {
                     attrs.clone(),
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,
+                    Weak::default(),
                 )
                 .ok_or_else(|| format!("Winit backend failed to find a suitable renderer: {e}"))
             },
@@ -953,6 +956,7 @@ impl i_slint_core::platform::Platform for Backend {
                     attrs.clone(),
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,
+                    Weak::new(),
                 ))
             },
         )?;

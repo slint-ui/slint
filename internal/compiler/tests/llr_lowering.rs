@@ -67,3 +67,72 @@ export component TestCase inherits Window {
 "#,
     );
 }
+
+/// Compile `source` and run the Rust code generator on it. A panic in the generator
+/// surfaces as a test failure.
+#[cfg(feature = "rust")]
+fn generate_rust(source: &str) {
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let config = CompilerConfiguration::new(OutputFormat::Rust);
+    let (doc, diagnostics, loader) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    generator::generate(
+        OutputFormat::Rust,
+        &mut std::io::sink(),
+        None,
+        &doc,
+        &loader.compiler_config,
+    )
+    .unwrap();
+}
+
+#[cfg(feature = "rust")]
+#[test]
+fn popup_anchor_two_way_binding_to_global_does_not_crash() {
+    generate_rust(
+        r#"
+export global G {
+    in-out property <PopupAnchor> a;
+}
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    popup := PopupWindow {
+        width: 50px;
+        height: 50px;
+        anchor <=> G.a;
+        Rectangle { background: red; }
+    }
+    public function show-popup() {
+        popup.show();
+    }
+}
+"#,
+    );
+}
+
+// `aaa` sorts before `anchor`, so `remove_aliases` keeps `aaa` and drops the popup's `anchor`.
+#[cfg(feature = "rust")]
+#[test]
+fn popup_anchor_two_way_binding_to_local_property_does_not_crash() {
+    generate_rust(
+        r#"
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    popup := PopupWindow {
+        in-out property <PopupAnchor> aaa;
+        anchor <=> aaa;
+        width: 50px;
+        height: 50px;
+        Rectangle { background: red; }
+    }
+    public function show-popup() {
+        popup.show();
+    }
+}
+"#,
+    );
+}

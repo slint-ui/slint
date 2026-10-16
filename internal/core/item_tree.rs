@@ -3067,6 +3067,7 @@ mod tests {
         window_adapter.window.0.show_popup(
             &popup_component,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(crate::items::PopupAnchor::default),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             crate::window::WindowKind::Popup,
@@ -3105,6 +3106,7 @@ mod tests {
         window_adapter.window.0.show_popup(
             &item_tree,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(crate::items::PopupAnchor::default),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             crate::window::WindowKind::Popup,
@@ -3206,6 +3208,7 @@ mod tests {
         window_adapter.window.0.show_popup(
             &popup_component,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
+            alloc::boxed::Box::new(crate::items::PopupAnchor::default),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             crate::window::WindowKind::Popup,
