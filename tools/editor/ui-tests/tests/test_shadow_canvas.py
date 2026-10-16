@@ -594,6 +594,72 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
 
 
+@pytest.mark.parametrize("other_enabled", [False, True])
+def test_shadow_toggle_keeps_unrelated_controls_visually_stable(
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    other_enabled,
+):
+    baseline = shadow_scene.read_bytes()
+    if other_enabled:
+        baseline = baseline.replace(
+            b"        background: #e5eaff;",
+            f"        background: #e5eaff;\n        {shadow_family.other}-shadow-color: #12345678;".encode(),
+        )
+        shadow_scene.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        other = inspector_field(
+            window,
+            f"Enable {shadow_family.other} shadow",
+            slint_testing.AccessibleRole.Switch,
+        )
+        run = element(window, "Run", role=slint_testing.AccessibleRole.Button)
+        before = screenshot(window)
+        scale = before.width / window.root_element.size.width
+        controls = {}
+        for name, control in (("other-switch", other), ("run", run)):
+            position, size = control.absolute_position, control.size
+            bounds = (
+                round(position.x * scale),
+                round(position.y * scale),
+                round((position.x + size.width) * scale),
+                round((position.y + size.height) * scale),
+            )
+            controls[name] = (bounds, before.crop(bounds).tobytes())
+        for _ in range(2):
+            gesture(window, center(switch), center(switch))
+            changed = set()
+            deadline = time.monotonic() + 0.8
+            while time.monotonic() < deadline:
+                frame = screenshot(window, settle=False)
+                for name, (bounds, pixels) in controls.items():
+                    if frame.crop(bounds).tobytes() != pixels and name not in changed:
+                        frame.save(tmp_path / f"flashing-{name}.png")
+                        changed.add(name)
+            baseline = wait_for_source_change(shadow_scene, baseline)
+            assert not changed, f"Unrelated controls flashed: {sorted(changed)}"
+        screenshot(window).save(tmp_path / "stable-shadow-toggle.png")
+
+        shadow_scene.write_bytes(baseline.replace(b"width: 240px;", b"width: ;"))
+        expect(
+            query(window, "Editing paused until the preview is available")
+        ).to_be_visible()
+        expect(switch).to_be_enabled(False)
+        expect(run).to_be_enabled(False)
+        assert run.computed_opacity < 1
+
+
 def test_shadow_switch_focus_ring_requires_tab_navigation(
     shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
 ):
