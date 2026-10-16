@@ -150,7 +150,11 @@ pub(super) fn smooth_scroll_layout(
 ) -> SmoothScrollLayout {
     let Some((request, alignment)) = request.and_then(|r| Some((r, r.smooth_alignment()?))) else {
         // No scroll request ongoing or it is an instant jump
-        return SmoothScrollLayout { jump: None, extra_above: 0., layout_end: viewport_height };
+        return SmoothScrollLayout {
+            jump: None,
+            extra_above: 0 as Coord,
+            layout_end: viewport_height,
+        };
     };
 
     let heights = (0..ops.len())

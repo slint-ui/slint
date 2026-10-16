@@ -95,7 +95,7 @@ impl AccelerateJumpDecelerate {
         top: Coord,
         row_height: Coord,
         alignment: RowAlignment,
-        distance: Coord,
+        distance: f32,
 
         jumped: bool,
         flickable: &ItemWeak,
