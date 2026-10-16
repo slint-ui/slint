@@ -8,6 +8,7 @@ This module contains image and caching related types for the run-time library.
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use super::CachedPath;
 use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use crate::graphics::get_asset_loader;
 use crate::{SharedString, slice::Slice};
 
@@ -92,53 +93,51 @@ impl ImageCache {
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             // Try the custom asset loader first
-            if let Some(loader) = get_asset_loader() {
-                if let Some(result) = loader(path.as_str()) {
-                    return match result {
-                        Ok(data) => {
-                            #[cfg(feature = "svg")]
-                            if path.ends_with(".svg") || path.ends_with(".svgz") {
-                                return Some(ImageInner::Svg(vtable::VRc::new(
-                                    super::svg::load_from_data(&data, cache_key).map_or_else(
-                                        |err| {
-                                            crate::debug_log!(
-                                                "Error loading SVG from custom loader for {}: {}",
-                                                &path,
-                                                err
-                                            );
-                                            None
-                                        },
-                                        Some,
-                                    )?,
-                                )));
-                            }
-                            image::load_from_memory(&data).map_or_else(
-                                |decode_err| {
-                                    crate::debug_log!(
-                                        "Error decoding image from custom loader for {}: {}",
-                                        &path,
-                                        decode_err
-                                    );
-                                    None
-                                },
-                                |image| {
-                                    Some(ImageInner::EmbeddedImage {
-                                        cache_key,
-                                        buffer: super::dynamic_image_to_shared_image_buffer(image),
-                                    })
-                                },
-                            )
+            if let Some(result) = get_asset_loader().and_then(|loader| loader(path.as_str())) {
+                return match result {
+                    Ok(data) => {
+                        #[cfg(feature = "svg")]
+                        if path.ends_with(".svg") || path.ends_with(".svgz") {
+                            return Some(ImageInner::Svg(vtable::VRc::new(
+                                super::svg::load_from_data(&data, cache_key).map_or_else(
+                                    |err| {
+                                        crate::debug_log!(
+                                            "Error loading SVG from custom loader for {}: {}",
+                                            &path,
+                                            err
+                                        );
+                                        None
+                                    },
+                                    Some,
+                                )?,
+                            )));
                         }
-                        Err(msg) => {
-                            crate::debug_log!(
-                                "Error loading asset from custom loader for {}: {}",
-                                &path,
-                                msg
-                            );
-                            None
-                        }
-                    };
-                }
+                        image::load_from_memory(&data).map_or_else(
+                            |decode_err| {
+                                crate::debug_log!(
+                                    "Error decoding image from custom loader for {}: {}",
+                                    &path,
+                                    decode_err
+                                );
+                                None
+                            },
+                            |image| {
+                                Some(ImageInner::EmbeddedImage {
+                                    cache_key,
+                                    buffer: super::dynamic_image_to_shared_image_buffer(image),
+                                })
+                            },
+                        )
+                    }
+                    Err(msg) => {
+                        crate::debug_log!(
+                            "Error loading asset from custom loader for {}: {}",
+                            &path,
+                            msg
+                        );
+                        None
+                    }
+                };
             }
 
             #[cfg(feature = "svg")]

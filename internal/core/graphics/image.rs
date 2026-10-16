@@ -10,15 +10,25 @@ use crate::lengths::{PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 use alloc::rc::Rc;
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-type AssetLoaderFn = Rc<dyn Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>>>;
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+type AssetLoaderFn = Rc<dyn Fn(&str) -> Option<Result<alloc::vec::Vec<u8>, alloc::string::String>>>;
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoaderFn>> = core::cell::RefCell::new(None));
 
 /// Sets a custom asset loader callback that is consulted before loading images from the file system.
@@ -30,14 +40,20 @@ crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoader
 ///
 /// This is useful for loading assets from custom sources such as embedded resources,
 /// network locations, or in-memory storage.
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub fn set_asset_loader(
-    loader: impl Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>> + 'static,
+    loader: impl Fn(&str) -> Option<Result<alloc::vec::Vec<u8>, alloc::string::String>> + 'static,
 ) {
     ASSET_LOADER.with(|l| *l.borrow_mut() = Some(Rc::new(loader)));
 }
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub(crate) fn get_asset_loader() -> Option<AssetLoaderFn> {
     ASSET_LOADER.with(|l| l.borrow().clone())
 }
@@ -1993,7 +2009,10 @@ pub(crate) mod ffi {
     /// `LoaderResult::Found` (data written to `out`),
     /// or `LoaderResult::Error` (error message written to `error_out`).
     /// The user_data pointer is passed to the callback and cleaned up by drop_user_data.
-    #[cfg(all(feature = "std", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_set_asset_loader(
         callback: extern "C" fn(
@@ -2014,7 +2033,9 @@ pub(crate) mod ffi {
             match result {
                 AssetLoaderResult::NotFound => None,
                 AssetLoaderResult::Found => Some(Ok(out_vec.to_vec())),
-                AssetLoaderResult::Error => Some(Err(std::io::Error::other(error_msg.as_str()))),
+                AssetLoaderResult::Error => {
+                    Some(Err(alloc::string::String::from(error_msg.as_str())))
+                }
             }
         });
     }
