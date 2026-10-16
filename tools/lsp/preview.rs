@@ -22,8 +22,8 @@ use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl,
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewDiagnostic, PreviewToLspMessage,
+    SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
 use slint::{PlatformError, SharedString, ToSharedString};
@@ -1807,9 +1807,8 @@ pub fn get_component_info(component_type: &str) -> Option<ComponentInformation> 
 fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &editor_preview::document_cache::SourceFileVersionMap,
-) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
-        Default::default();
+) -> HashMap<Url, (SourceFileVersion, Vec<PreviewDiagnostic>)> {
+    let mut result: HashMap<Url, (SourceFileVersion, Vec<PreviewDiagnostic>)> = Default::default();
 
     // Pre-fill version info and an empty diagnostics to reset the state for the url
     for (path, version) in file_versions.iter() {
@@ -1826,7 +1825,7 @@ fn convert_diagnostics(
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
                     continue;
                 }
-                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
+                data.1.push(i_slint_live_preview::protocol::to_preview_diagnostic(
                     d,
                     preview_state.format(),
                 ));

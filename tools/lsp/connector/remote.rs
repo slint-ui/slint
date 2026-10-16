@@ -1009,6 +1009,47 @@ mod tests {
             .await;
     }
 
+    /// The LSP used to drop every non-empty list, see #14138.
+    #[tokio::test]
+    async fn diagnostics_from_a_viewer_reach_the_lsp() {
+        use i_slint_live_preview::protocol::PreviewDiagnostic;
+
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (viewer, _viewer_rx, connector, mut to_lsp_rx) = connected_viewer().await;
+
+                let sent = PreviewDiagnostic {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(2, 4),
+                        lsp_types::Position::new(2, 9),
+                    ),
+                    severity: lsp_types::DiagnosticSeverity::ERROR,
+                    message: "Unknown property".into(),
+                };
+                viewer
+                    .send(PreviewToLspMessage::Diagnostics {
+                        uri: test_url("test.slint"),
+                        version: None,
+                        diagnostics: vec![sent.clone()],
+                    })
+                    .unwrap();
+
+                let message = expect_message(
+                    &mut to_lsp_rx,
+                    |m| matches!(m, PreviewToLspMessage::Diagnostics { .. }),
+                    "the diagnostics",
+                )
+                .await;
+                let PreviewToLspMessage::Diagnostics { diagnostics, .. } = message else {
+                    unreachable!()
+                };
+                assert_eq!(diagnostics, [sent]);
+
+                connector.disconnect().await;
+            })
+            .await;
+    }
+
     /// A viewer is on the far end of the network: it may not drive the editor.
     #[tokio::test]
     async fn a_code_read_off_the_viewer_completes_the_connection() {

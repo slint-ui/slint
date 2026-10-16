@@ -11,7 +11,7 @@ pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
 pub use pairing::PairingRejection;
-pub use preview_to_lsp::{PreviewTarget, PreviewToLsp, PreviewToLspMessage};
+pub use preview_to_lsp::{PreviewDiagnostic, PreviewTarget, PreviewToLsp, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 
 pub use lsp_types;
@@ -26,7 +26,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
-pub use diagnostics_adapter::{diagnostic_url, to_lsp_diagnostic};
+pub use diagnostics_adapter::{diagnostic_url, to_preview_diagnostic};
 
 pub type SourceFileVersion = Option<i32>;
 pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";

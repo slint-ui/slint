@@ -463,7 +463,7 @@ impl PreviewSession {
             diagnostics: compilation_result
                 .diagnostics()
                 .map(|diagnostic| {
-                    crate::protocol::to_lsp_diagnostic(
+                    crate::protocol::to_preview_diagnostic(
                         &diagnostic,
                         i_slint_compiler::diagnostics::ByteFormat::Utf8,
                     )

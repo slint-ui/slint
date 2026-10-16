@@ -3,23 +3,21 @@
 
 use i_slint_compiler::diagnostics::{self, ByteFormat, Diagnostic, DiagnosticLevel, Spanned};
 
+use super::PreviewDiagnostic;
+
 /// A diagnostic in a source without a URL, such as a relative path in a test, has none.
 pub fn diagnostic_url(d: &Diagnostic) -> Option<lsp_types::Url> {
     Spanned::source_file(d)?.path().to_url()
 }
 
-pub fn to_lsp_diagnostic(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagnostic {
+pub fn to_preview_diagnostic(d: &Diagnostic, format: ByteFormat) -> PreviewDiagnostic {
     let start = diagnostics::diagnostic_line_column_with_format(d, format);
     let end = diagnostics::diagnostic_end_line_column_with_format(d, format);
-    lsp_types::Diagnostic::new(
-        to_range(start, end),
-        Some(to_severity(d.level())),
-        None,
-        None,
-        d.message().to_owned(),
-        None,
-        None,
-    )
+    PreviewDiagnostic {
+        range: to_range(start, end),
+        severity: to_severity(d.level()),
+        message: d.message().to_owned(),
+    }
 }
 
 fn to_range(start: (usize, usize), end: (usize, usize)) -> lsp_types::Range {
