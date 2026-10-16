@@ -26,8 +26,9 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    [polish.md](reference/polish.md).
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
-   environments. For a self-contained snippet, the `preview_slint` tool shows a
-   live preview in the conversation and reports compile errors back to you.
+   environments. The `preview_slint` tool shows a live preview in the
+   conversation, of a `.slint` file by absolute path or of a snippet, and
+   reports compile errors back to you.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
 

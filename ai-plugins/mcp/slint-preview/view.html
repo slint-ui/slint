@@ -164,8 +164,36 @@
     );
   }
 
+  async function readSlintFile(path) {
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
+    const text = result?.content?.[0]?.text ?? "";
+    if (result?.isError) throw new Error(text);
+    return text;
+  }
+
   let instance = null;
-  async function render({ source, style, channel }) {
+  async function render({ source, path, style, channel }) {
+    let url = "main.slint";
+    let loadImport = null;
+    if (path) {
+      showStatus(`Reading ${path}…`);
+      try {
+        source = await readSlintFile(path);
+      } catch (e) {
+        showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
+        reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
+        return;
+      }
+      url = path;
+      // The interpreter reports only a string rejection as the import error.
+      loadImport = (file) => readSlintFile(file).catch((e) => Promise.reject(String(e.message ?? e)));
+    }
+    const baseDir = url.slice(0, url.lastIndexOf("/") + 1);
+    const location = (d) => {
+      const file = d.fileName?.startsWith(baseDir) ? d.fileName.slice(baseDir.length) : d.fileName || url;
+      return `${file}:${d.lineNumber}:${d.columnNumber}`;
+    };
+
     showStatus("Loading the Slint interpreter…");
     const current = loadInterpreter(channel);
     let slint;
@@ -182,14 +210,14 @@
     const { component, diagnostics } = await untilPanic(
       current,
       style
-        ? slint.compile_from_string_with_style(source, "main.slint", style, null)
-        : slint.compile_from_string(source, "main.slint", null),
+        ? slint.compile_from_string_with_style(source, url, style, loadImport)
+        : slint.compile_from_string(source, url, loadImport),
     );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
       const li = document.createElement("li");
       li.className = LEVELS[d.level] ?? "";
-      li.textContent = `main.slint:${d.lineNumber}:${d.columnNumber}: ${LEVELS[d.level]}: ${d.message}`;
+      li.textContent = `${location(d)}: ${LEVELS[d.level]}: ${d.message}`;
       return li;
     }));
 
@@ -197,7 +225,7 @@
     if (problems.length) {
       reportToModel(
         "The Slint preview reported:\n" +
-          problems.map((d) => `main.slint:${d.lineNumber}:${d.columnNumber}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
+          problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
       );
     } else {
       reportToModel("The Slint preview compiled without errors or warnings.");
