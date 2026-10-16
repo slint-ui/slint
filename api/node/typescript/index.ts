@@ -282,9 +282,15 @@ export interface LoadFileOptions {
     libraryPaths?: Record<string, string>;
 
     /**
-     * @hidden
+     * Sets the function that loads the files that `.slint` files import.
+     * It receives the path of the imported file, and returns its source code.
+     * Return `undefined` to load the file from the file system as usual.
+     *
+     * Only {@link loadFileAsync} and {@link loadSourceAsync} wait for a `Promise` that the function returns.
      */
-    fileLoader?: (path: string) => string;
+    fileLoader?: (
+        path: string,
+    ) => string | undefined | Promise<string | undefined>;
 }
 
 type LoadData =
@@ -308,9 +314,7 @@ function translateName(key: string): string {
     return key.replace(/-/g, "_");
 }
 
-function loadSlint(loadData: LoadData): Object {
-    const { filePath, options } = loadData.fileData;
-
+function createCompiler(options?: LoadFileOptions): napi.ComponentCompiler {
     const compiler = new napi.ComponentCompiler();
 
     if (typeof options !== "undefined") {
@@ -327,11 +331,49 @@ function loadSlint(loadData: LoadData): Object {
             compiler.fileLoader = options.fileLoader;
         }
     }
+    return compiler;
+}
 
+function loadSlint(loadData: LoadData): Object {
+    const { filePath, options } = loadData.fileData;
+    const compiler = createCompiler(options);
     const definitions =
         loadData.from === "file"
             ? compiler.buildFromPath(filePath)
             : compiler.buildFromSource(loadData.fileData.source, filePath);
+    return createModule(compiler, definitions, filePath, options);
+}
+
+async function loadSlintAsync(loadData: LoadData): Promise<Object> {
+    const { filePath, options } = loadData.fileData;
+    const compiler = createCompiler(options);
+    const definitions = await new Promise<
+        Record<string, napi.ComponentDefinition>
+    >((resolve, reject) => {
+        const onDone = (
+            error: string | null,
+            definitions?: Record<string, napi.ComponentDefinition>,
+        ) =>
+            error === null ? resolve(definitions!) : reject(new Error(error));
+        if (loadData.from === "file") {
+            compiler.buildFromPathAsync(filePath, onDone);
+        } else {
+            compiler.buildFromSourceAsync(
+                loadData.fileData.source,
+                filePath,
+                onDone,
+            );
+        }
+    });
+    return createModule(compiler, definitions, filePath, options);
+}
+
+function createModule(
+    compiler: napi.ComponentCompiler,
+    definitions: Record<string, napi.ComponentDefinition>,
+    filePath: string,
+    options?: LoadFileOptions,
+): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
@@ -738,6 +780,57 @@ export function loadSource(
     options?: LoadFileOptions,
 ): Object {
     return loadSlint({
+        fileData: { filePath, options, source },
+        from: "source",
+    });
+}
+
+/**
+ * Like {@link loadFile}, but waits for the `Promise` that the {@link LoadFileOptions.fileLoader} returns.
+ *
+ * The following example loads the files that `main.slint` imports from a store,
+ * whose `read()` returns a `Promise` of the source code, or of `undefined` for a file it doesn't have:
+ * ```javascript
+ * import * as slint from "slint-ui";
+ * let ui = await slint.loadFileAsync(new URL("main.slint", import.meta.url), {
+ *     fileLoader: (path) => store.read(path),
+ * });
+ * let main = new ui.Main();
+ * ```
+ *
+ * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
+ * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings.
+ * @returns A `Promise` of the object that {@link loadFile} returns.
+ *          It rejects with a {@link CompileError} if errors occur during compilation.
+ */
+export function loadFileAsync(
+    filePath: string | URL,
+    options?: LoadFileOptions,
+): Promise<Object> {
+    const pathname =
+        filePath instanceof URL ? fileURLToPath(filePath) : filePath;
+    return loadSlintAsync({
+        fileData: { filePath: pathname, options },
+        from: "file",
+    });
+}
+
+/**
+ * Like {@link loadSource}, but waits for the `Promise` that the {@link LoadFileOptions.fileLoader} returns.
+ *
+ * @param source The Slint source code to load.
+ * @param filePath A path to the file to show log and resolve relative import and images.
+ *                 Relative paths are resolved against the process' current working directory.
+ * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings.
+ * @returns A `Promise` of the object that {@link loadSource} returns.
+ *          It rejects with a {@link CompileError} if errors occur during compilation.
+ */
+export function loadSourceAsync(
+    source: string,
+    filePath: string,
+    options?: LoadFileOptions,
+): Promise<Object> {
+    return loadSlintAsync({
         fileData: { filePath, options, source },
         from: "source",
     });
