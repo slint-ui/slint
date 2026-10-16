@@ -5,6 +5,7 @@
 // MCP server over stdio that renders .slint source inline as an MCP App.
 // See https://github.com/modelcontextprotocol/ext-apps for the UI extension.
 
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -23,6 +24,9 @@ const INTERPRETER_HOSTS = [
     "https://docs.slint.dev",
     "https://snapshots.slint.dev",
 ];
+const SCREENSHOT_TIMEOUT_MS = Number(
+    process.env.SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS ?? 20000,
+);
 
 const pluginVersion = JSON.parse(
     readFileSync(
@@ -38,7 +42,8 @@ const tools = [
         description:
             "Render .slint code as a live, interactive preview in the conversation. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
-            "Compile errors are reported back to you once the preview has loaded.",
+            "Compile errors are reported back to you once the preview has loaded. " +
+            "Then call get_preview_screenshot to see the preview as the user sees it.",
         inputSchema: {
             type: "object",
             properties: {
@@ -78,7 +83,49 @@ const tools = [
         },
         _meta: { ui: { visibility: ["app"] } },
     },
+    {
+        name: "get_preview_screenshot",
+        title: "Get Slint Preview Screenshot",
+        description:
+            "Get a PNG screenshot of the latest preview_slint preview, as the user sees it. " +
+            "Waits until the preview has rendered. Check it before you judge how the UI looks.",
+        inputSchema: { type: "object", properties: {} },
+    },
+    {
+        name: "publish_preview_capture",
+        title: "Publish Slint Preview Capture",
+        description:
+            "Hand the server the preview's PNG capture, or why there is none.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                key: { type: "string" },
+                png: { type: "string" },
+                width: { type: "integer" },
+                height: { type: "integer" },
+                error: { type: "string" },
+            },
+            required: ["key"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
+    },
 ];
+
+// Identifies a preview_slint call. The view computes the same key from the tool input,
+// so its capture can be matched to the call without passing an ID through the host.
+function previewKey({ path, source, style, channel }) {
+    const json = JSON.stringify([
+        path ?? null,
+        source ?? null,
+        style ?? null,
+        channel ?? null,
+    ]);
+    return createHash("sha256").update(json).digest("hex");
+}
+
+// The latest preview_slint call, its capture once the view publishes it, and the
+// get_preview_screenshot calls waiting for that capture.
+let latestPreview = null;
 
 const IMAGE_MIME_TYPES = {
     ".png": "image/png",
@@ -124,7 +171,66 @@ const toolCalls = {
         if (typeof args.path === "string" && !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be absolute");
         }
+        for (const waiter of latestPreview?.waiters ?? []) waiter(null);
+        latestPreview = { key: previewKey(args), capture: null, waiters: [] };
         return textResult("Rendering the Slint preview.");
+    },
+    get_preview_screenshot: async () => {
+        const preview = latestPreview;
+        if (!preview) {
+            return textResult("Call preview_slint first.", true);
+        }
+        const capture =
+            preview.capture ??
+            (await new Promise((resolve) => {
+                const timer = setTimeout(() => {
+                    preview.waiters = preview.waiters.filter((w) => w !== done);
+                    resolve(null);
+                }, SCREENSHOT_TIMEOUT_MS);
+                const done = (capture) => {
+                    clearTimeout(timer);
+                    resolve(capture);
+                };
+                preview.waiters.push(done);
+            }));
+        if (!capture) {
+            return textResult(
+                preview === latestPreview
+                    ? `No screenshot arrived within ${SCREENSHOT_TIMEOUT_MS / 1000} seconds. ` +
+                          "This client may not display previews; use `slint-viewer --screenshot` instead."
+                    : "A newer preview_slint call replaced this preview. Call get_preview_screenshot again.",
+            );
+        }
+        if (capture.error) {
+            return textResult(
+                `The preview has no screenshot: ${capture.error}`,
+            );
+        }
+        return {
+            content: [
+                { type: "image", data: capture.png, mimeType: "image/png" },
+                {
+                    type: "text",
+                    text: `Screenshot of the preview, ${capture.width}×${capture.height} px.`,
+                },
+            ],
+        };
+    },
+    publish_preview_capture: (args) => {
+        if (typeof args.key !== "string") {
+            throw rpcError(-32602, "'key' must be a string");
+        }
+        const preview = latestPreview;
+        if (args.key !== preview?.key) {
+            return textResult("This capture belongs to an older preview.");
+        }
+        preview.capture =
+            typeof args.png === "string"
+                ? { png: args.png, width: args.width, height: args.height }
+                : { error: String(args.error ?? "unknown error") };
+        for (const waiter of preview.waiters) waiter(preview.capture);
+        preview.waiters = [];
+        return textResult("Capture received.");
     },
     read_slint_file: (args) => {
         if (typeof args.path !== "string" || !isAbsolute(args.path)) {
@@ -235,17 +341,15 @@ createInterface({ input: process.stdin }).on("line", (line) => {
         });
         return;
     }
-    try {
-        send({
-            jsonrpc: "2.0",
-            id: message.id,
-            result: handler(message.params),
-        });
-    } catch (e) {
-        send({
-            jsonrpc: "2.0",
-            id: message.id,
-            error: { code: e.code ?? -32603, message: e.message },
-        });
-    }
+    Promise.resolve()
+        .then(() => handler(message.params))
+        .then(
+            (result) => send({ jsonrpc: "2.0", id: message.id, result }),
+            (e) =>
+                send({
+                    jsonrpc: "2.0",
+                    id: message.id,
+                    error: { code: e.code ?? -32603, message: e.message },
+                }),
+        );
 });

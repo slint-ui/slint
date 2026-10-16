@@ -82,6 +82,14 @@
     return list;
   };
 
+  // Slint draws with WebGL, which clears the canvas after each frame unless asked to keep it,
+  // and the screenshot reads the canvas later.
+  const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, options) {
+    if (type === "webgl" || type === "webgl2") options = { ...options, preserveDrawingBuffer: true };
+    return nativeGetContext.call(this, type, options);
+  };
+
   function applyTheme(context) {
     if (context?.theme !== "light" && context?.theme !== "dark") return;
     document.documentElement.style.colorScheme = context.theme;
@@ -245,6 +253,46 @@
     showStatus("");
   }
 
+  // See previewKey in server.mjs.
+  async function previewKey({ path, source, style, channel }) {
+    const json = JSON.stringify([path ?? null, source ?? null, style ?? null, channel ?? null]);
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(json));
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  const MAX_CAPTURE_SIZE = 1500;
+  const SETTLE_MS = 500;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function failureText() {
+    if (statusEl.className === "error") return statusEl.textContent;
+    if (!canvas.hidden) return null;
+    return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
+  }
+
+  function captureCanvas() {
+    const scale = Math.min(1, MAX_CAPTURE_SIZE / Math.max(canvas.width, canvas.height));
+    let image = canvas;
+    if (scale < 1) {
+      image = document.createElement("canvas");
+      image.width = Math.round(canvas.width * scale);
+      image.height = Math.round(canvas.height * scale);
+      image.getContext("2d").drawImage(canvas, 0, 0, image.width, image.height);
+    }
+    return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
+  }
+
+  async function publishCapture(args) {
+    const key = await previewKey(args);
+    let capture = { key, error: failureText() };
+    if (!capture.error) {
+      await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
+      await delay(SETTLE_MS);
+      capture = { key, ...captureCanvas() };
+    }
+    request("tools/call", { name: "publish_preview_capture", arguments: capture }).catch(() => {});
+  }
+
   function reportToModel(text) {
     request("ui/update-model-context", { content: [{ type: "text", text }] }).catch(() => {});
   }
@@ -260,16 +308,20 @@
       return;
     }
     switch (message.method) {
-      case "ui/notifications/tool-input":
-        render(message.params?.arguments ?? {}).catch((e) => {
-          if (e instanceof Panic) return;
-          if (e instanceof WebAssembly.RuntimeError) {
-            handlePanic(String(e));
-            return;
-          }
-          showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
-        });
+      case "ui/notifications/tool-input": {
+        const args = message.params?.arguments ?? {};
+        render(args)
+          .catch((e) => {
+            if (e instanceof Panic) return;
+            if (e instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(e));
+              return;
+            }
+            showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
+          })
+          .then(() => publishCapture(args));
         break;
+      }
       case "ui/notifications/host-context-changed":
         applyTheme(message.params);
         break;
