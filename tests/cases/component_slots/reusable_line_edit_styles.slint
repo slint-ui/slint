@@ -1,0 +1,143 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, LineEditStyle, LineEditMetrics, LineEditStyles, LineEditSizes, BasicTheme }
+    from "../../../tools/editor/controls/src/basic.slint";
+export { LineEditStyles, LineEditSizes, BasicTheme }
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 220px;
+    in-out property <LineEditStyle> field-style: LineEditStyles.standard;
+    in-out property <LineEditMetrics> field-size: LineEditSizes.medium;
+    in-out property <bool> enabled: true;
+    out property <brush> field-background: subject.background-color;
+    out property <brush> field-foreground: subject.foreground;
+    out property <brush> field-border: subject.border-color;
+    out property <brush> field-placeholder: subject.placeholder-color;
+    out property <color> field-selection-background: subject.selection-background-color;
+    out property <color> field-selection-foreground: subject.selection-foreground-color;
+    out property <length> field-height: subject.height;
+    out property <length> field-font-size: subject.font-size;
+    out property <length> field-border-width: subject.border-width;
+    out property <brush> default-background: defaults.background-color;
+    out property <bool> test: prefix.width > 0px && suffix.width > 0px
+        && custom.background-color == #123456 && custom.foreground == #abcdef
+        && custom.font-size == 13px && custom.border-radius == 9px;
+
+    public function focus-field() { subject.focus(); }
+    public function focus-other() { other.focus(); }
+
+    VerticalLayout {
+        x: 20px;
+        y: 20px;
+        width: 220px;
+        height: 80px;
+        alignment: start;
+        subject := LineEdit {
+            accessible-label: "Styled field";
+            placeholder-text: "Amount";
+            style: root.field-style;
+            size: root.field-size;
+            enabled: root.enabled;
+            leading << prefix := Text { text: "$"; vertical-alignment: center; }
+            trailing << suffix := Text { text: "USD"; vertical-alignment: center; }
+        }
+    }
+
+    defaults := LineEdit {
+        x: 270px;
+        y: 20px;
+        width: 200px;
+        text: "Default theme";
+    }
+
+    custom := LineEdit {
+        x: 20px;
+        y: 110px;
+        width: 220px;
+        style: root.field-style;
+        size: root.field-size;
+        background-color: #123456;
+        foreground: #abcdef;
+        font-size: 13px;
+        border-radius: 9px;
+    }
+
+    other := FocusScope { x: 450px; y: 180px; width: 30px; height: 30px; }
+}
+
+/*
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
+let mut style = instance.global::<LineEditStyles<'_>>().get_standard();
+style.rest.background_color = brush(0xf0, 0xe0, 0xd0);
+style.rest.foreground = brush(0x10, 0x20, 0x30);
+style.hover.background_color = brush(0xe0, 0xd0, 0xc0);
+style.hover.foreground = brush(0x30, 0x20, 0x10);
+style.hover.border_color = brush(0x80, 0x40, 0x20);
+style.hover.placeholder_color = brush(0x90, 0x70, 0x50);
+style.disabled.background_color = brush(0xd0, 0xc0, 0xb0);
+style.disabled.foreground = brush(0x70, 0x60, 0x50);
+style.selection_background_color = slint::Color::from_rgb_u8(0x60, 0x30, 0x90);
+style.selection_foreground_color = slint::Color::from_rgb_u8(0xff, 0xff, 0xff);
+instance.set_field_style(style.clone());
+let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: slint::LogicalPosition::new(x, y)
+});
+move_to(480., 200.);
+assert_eq!(instance.get_field_background(), style.rest.background_color);
+assert_eq!(instance.get_field_foreground(), style.rest.foreground);
+move_to(120., 30.);
+assert_eq!(instance.get_field_background(), style.hover.background_color);
+assert_eq!(instance.get_field_foreground(), style.hover.foreground);
+assert_eq!(instance.get_field_border(), style.hover.border_color);
+assert_eq!(instance.get_field_placeholder(), style.hover.placeholder_color);
+assert_eq!(instance.get_field_selection_background(), style.selection_background_color);
+assert_eq!(instance.get_field_selection_foreground(), style.selection_foreground_color);
+let field = ElementHandle::find_by_accessible_label(&instance, "Styled field").next().unwrap();
+instance.invoke_focus_field();
+let outline = field.query_descendants().match_id("LineEdit::focus-outline").find_first().unwrap();
+assert_eq!(outline.size().width, field.size().width + 8.);
+assert_eq!(instance.get_field_border_width(), 1.);
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_field_background(), style.disabled.background_color);
+assert_eq!(instance.get_field_foreground(), style.disabled.foreground);
+assert!(field.query_descendants().match_id("LineEdit::focus-outline").find_first().is_none());
+instance.set_enabled(true);
+instance.invoke_focus_other();
+let presets = instance.global::<LineEditSizes<'_>>();
+let mut previous_height = 0.;
+for size in [presets.get_small(), presets.get_medium(), presets.get_large()] {
+    instance.set_field_size(size.clone());
+    assert_eq!(instance.get_field_height(), size.min_height);
+    assert_eq!(instance.get_field_font_size(), size.font_size);
+    assert!(instance.get_field_height() > previous_height);
+    previous_height = instance.get_field_height();
+    assert!(instance.get_test());
+}
+let mut size = presets.get_medium();
+size.min_height = 52.;
+size.padding_horizontal = 20.;
+size.border_width = 3.;
+size.focus_width = 3.;
+size.focus_offset = 2.;
+instance.set_field_size(size);
+assert_eq!(instance.get_field_height(), 52.);
+assert_eq!(instance.get_field_border_width(), 3.);
+instance.invoke_focus_field();
+let outline = field.query_descendants().match_id("LineEdit::focus-outline").find_first().unwrap();
+assert_eq!(outline.size().width, field.size().width + 10.);
+assert_eq!(instance.get_field_height(), 52.);
+let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
+assert!(viewport.absolute_position().x > field.absolute_position().x + 20.);
+assert!(viewport.absolute_position().x + viewport.size().width < field.absolute_position().x + field.size().width - 20.);
+instance.global::<BasicTheme<'_>>().set_background(brush(0x12, 0x34, 0x56));
+assert_eq!(instance.get_default_background(), brush(0x12, 0x34, 0x56));
+assert!(instance.get_test());
+```
+*/

@@ -15,7 +15,7 @@ The basic controls already fill their visual slots.
 Use the headless bases to replace those visuals; copying a basic control's implementation duplicates its styling logic.
 Headless bases provide input behavior and accessibility while the application supplies visuals.
 Set `accessible-label` when a control has no text label, especially for icon-only buttons, sliders, and combo boxes.
-`LineEdit` currently uses individual theme properties and does not expose the style and size structs described below.
+`LineEdit` also exposes optional `leading` and `trailing` slots around its native input.
 
 The controls currently require experimental Slint features for interfaces and typed slots.
 The examples below use paths relative to `tools/editor/controls/examples/`.
@@ -162,7 +162,7 @@ $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
 
-## Switch, CheckBox, Slider, and ComboBox
+## Switch, CheckBox, Slider, ComboBox, and LineEdit
 
 These controls accept their own style and size structs through the same `style` and `size` properties.
 Each style collection has one `standard` preset bound to `BasicTheme`.
@@ -174,6 +174,7 @@ Each size collection exposes `small`, `medium`, and `large` metrics, with medium
 | CheckBox | `CheckBoxStyle` | `CheckBoxStyles.standard` | `CheckBoxMetrics` | `CheckBoxSizes` |
 | Slider | `SliderStyle` | `SliderStyles.standard` | `SliderMetrics` | `SliderSizes` |
 | ComboBox | `ComboBoxStyle` | `ComboBoxStyles.standard` | `ComboBoxMetrics` | `ComboBoxSizes` |
+| LineEdit | `LineEditStyle` | `LineEditStyles.standard` | `LineEditMetrics` | `LineEditSizes` |
 
 ```slint
 import { Switch, SwitchStyle, SwitchStyles, SwitchSizes } from "../src/basic.slint";
@@ -208,7 +209,7 @@ They also include field and popup border geometry, indicator stroke width, and n
 Highlighted and disabled popup items use the normal font weight.
 `ComboBoxPopup` also accepts a popup style and combo-box size metrics when used separately.
 
-All four controls draw an independent focus outline using `style.focus-color`, `size.focus-width`, and `size.focus-offset`.
+All five controls draw an independent focus outline using `style.focus-color`, `size.focus-width`, and `size.focus-offset`.
 Use common color properties for simple changes and `style` for complete state palettes.
 Geometry and typography belong to `size`.
 
@@ -219,6 +220,7 @@ Geometry and typography belong to `size`.
 | Switch | `track-border-width`, `track-radius`, `thumb-radius` |
 | Slider | `handle-border-width`, `handle-radius`, `track-radius` |
 | ComboBox | `border-width`, `border-radius`, `popup-border-width`, `popup-border-radius` |
+| LineEdit | `border-width`, `border-radius` |
 
 Every size struct includes `focus-width` and `focus-offset`.
 Switch sizes include `track-radius` and `thumb-radius`.
@@ -228,11 +230,46 @@ Set a nonnegative radius for a fixed shape.
 Basic controls expose indicator dimensions and popup dimensions for layout adjustments.
 Explicit dimensions take priority over size presets.
 
-The Button, Switch, CheckBox, Slider, and ComboBox pages own their preview size and disabled setting.
-`PreviewSettings` shares the settings UI between these five pages.
+The Button, Switch, CheckBox, Slider, ComboBox, and LineEdit pages own their preview size and disabled setting.
+`PreviewSettings` shares the settings UI between these six pages.
 Size selection applies to the basic styled controls; headless examples retain their custom dimensions.
 The Disabled setting disables the examples while leaving the settings available.
-The Switch, CheckBox, Slider, and ComboBox pages also accept a `preview-style` property for an application's style.
+The Switch, CheckBox, Slider, ComboBox, and LineEdit pages also accept a `preview-style` property for an application's style.
+
+## LineEdit
+
+Use style and size presets independently, including when adding content around the input:
+
+```slint
+import { LineEdit, LineEditStyles, LineEditSizes } from "../src/basic.slint";
+
+LineEdit {
+    accessible-label: "File name";
+    placeholder-text: "my-component";
+    style: LineEditStyles.standard;
+    size: LineEditSizes.large;
+    leading << Text { text: "File:"; }
+    trailing << Text { text: ".slint"; }
+}
+```
+
+`LineEditStyle` contains `rest`, `hover`, and `disabled` palettes with background, foreground, border, and placeholder colors.
+Disabled takes priority over hover.
+Read-only fields use the enabled palette and retain text selection and copying.
+Selection colors and focus color belong to the overall style.
+Selection colors use the `color` type to match the native input.
+Focus draws an independent outline without changing the field border or text layout.
+
+`LineEditMetrics` sets minimum dimensions, padding, spacing, font size and weight, border geometry, and focus dimensions.
+The small, medium, and large presets use minimum heights of 26px, 34px, and 42px.
+Medium preserves the original field's unfocused dimensions and typography.
+Existing direct font, padding, border, and color overrides remain available.
+Background, border, and placeholder color overrides apply while enabled; disabled fields use their style's palette.
+`foreground` and selection color overrides configure the native input directly and remain in effect while disabled.
+Use `style` for foreground colors that vary by state.
+
+The basic control forwards `leading` and `trailing` slots while supplying the field background and placeholder.
+Use `LineEditBase` when replacing those visuals.
 
 ## Share Checkbox Defaults
 
@@ -271,6 +308,7 @@ Move `Switch.track-width` and `track-height`, `CheckBox.indicator-size`, and Sli
 Move detailed ComboBox popup colors into `style.popup`.
 Move border widths, radii, focus width, and focus offset from styles into the corresponding size metrics.
 Move ComboBox item font weights from `style.popup` into `size.font-weight` and `size.selected-item-font-weight`.
+Use `LineEditStyle` and `LineEditMetrics` to share complete text-field appearances and dimensions.
 Existing behavior properties, callbacks, accessibility, font overrides, and standard geometry remain available.
 
 ## Headless Controls

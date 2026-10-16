@@ -1,12 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, BasicTheme } from "../src/basic.slint";
+import {
+    LineEdit,
+    LineEditStyle,
+    LineEditStyles,
+    LineEditMetrics,
+    LineEditSizes,
+    BasicTheme,
+} from "../src/basic.slint";
 import { LineEditBase } from "../src/headless.slint";
 import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
 
 export component LineEditExamples inherits Rectangle {
     vertical-stretch: 0;
+    in property <LineEditStyle> preview-style: LineEditStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+    private property <LineEditMetrics> preview-size: [LineEditSizes.small, LineEditSizes.medium, LineEditSizes.large][clamp(root.size-index, 0, 2)];
     in-out property <int> edits;
     in-out property <int> submissions;
     in-out property <string> last-value;
@@ -14,19 +26,41 @@ export component LineEditExamples inherits Rectangle {
     VerticalLayout {
         padding: 0px;
         spacing: 20px;
+        PreviewSettings {
+            control-name: "LineEdit";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
         ExampleSection {
             title: "Base theme";
             description: "Editable, disabled, read-only, and password fields using BasicTheme.";
             HorizontalLayout {
                 spacing: 16px;
-                LineEdit {
+                name-field := LineEdit {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Name";
                     placeholder-text: "Enter a name";
+                    leading << Text {
+                        text: "Name:";
+                        color: name-field.foreground;
+                        font-size: name-field.font-size;
+                        vertical-alignment: center;
+                    }
+                    trailing << Text {
+                        text: "Optional";
+                        color: name-field.placeholder-color;
+                        font-size: name-field.font-size;
+                        vertical-alignment: center;
+                    }
                     edited(value) => { root.edits += 1; root.last-value = value; }
                     accepted(value) => { root.submissions += 1; root.last-value = value; }
                 }
 
                 LineEdit {
+                    style: root.preview-style;
+                    size: root.preview-size;
                     accessible-label: "Disabled field";
                     text: "Disabled";
                     enabled: false;
@@ -36,12 +70,18 @@ export component LineEditExamples inherits Rectangle {
             HorizontalLayout {
                 spacing: 16px;
                 LineEdit {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Read-only field";
                     text: "Read-only text";
                     read-only: true;
                 }
 
                 LineEdit {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Password";
                     placeholder-text: "Enter a password";
                     input-type: password;
@@ -71,17 +111,19 @@ export component LineEditExamples inherits Rectangle {
             HorizontalLayout {
                 spacing: 16px;
                 LineEdit {
+                    style: root.preview-style;
+                    size: root.preview-size;
+                    enabled: !root.preview-disabled;
                     accessible-label: "Color override field";
                     placeholder-text: "Green field";
                     background-color: #f0fdfa;
                     border-color: #0f766e;
                     foreground: #0f766e;
                     placeholder-color: #0f766e;
-                    border-radius: 16px;
-                    min-height: 40px;
                 }
 
                 bare := LineEditBase {
+                    enabled: !root.preview-disabled;
                     accessible-label: "Headless field";
                     placeholder-text: "Headless field";
                     foreground: #7c3aed;
@@ -110,73 +152,22 @@ export component LineEditExamples inherits Rectangle {
                 }
             }
 
-            decorated := LineEditBase {
-                spacing: 8px;
-                private property <brush> state-background: BasicTheme.background;
-                private property <brush> state-foreground: BasicTheme.foreground;
-                private property <brush> state-border: BasicTheme.border;
-                in property <brush> background-color: decorated.state-background;
-                in property <brush> border-color: decorated.state-border;
-                in property <length> border-width: decorated.has-focus ? 2px : 1px;
-                in property <length> border-radius: 4px;
-                in property <brush> placeholder-color: BasicTheme.disabled-foreground;
-
-                foreground: decorated.state-foreground;
-                selection-background-color: BasicTheme.accent;
-                selection-foreground-color: BasicTheme.accent-foreground;
-                font-size: 14px;
-                font-weight: 400;
-                content-padding: 6px;
-                content-padding-left: 12px;
-                content-padding-right: 12px;
-                min-width: 160px;
-
-                states [
-                    disabled when !decorated.enabled: {
-                        decorated.state-background: BasicTheme.disabled-background;
-                        decorated.state-foreground: BasicTheme.disabled-foreground;
-                    }
-                    focused when decorated.has-focus: {
-                        decorated.state-border: BasicTheme.focus;
-                    }
-                    hover when decorated.hovered: {
-                        decorated.state-border: BasicTheme.foreground;
-                    }
-                ]
-
-                background << Rectangle {
-                    background: decorated.background-color;
-                    border-color: decorated.border-color;
-                    border-width: decorated.border-width;
-                    border-radius: decorated.border-radius;
-                }
-
-                placeholder << placeholder-label := Text {
-                    x: 0px;
-                    y: 0px;
-                    width: 100%;
-                    height: 100%;
-                    text: decorated.placeholder-text;
-                    color: decorated.placeholder-color;
-                    font-family: decorated.font-family;
-                    font-size: decorated.font-size;
-                    font-weight: decorated.font-weight;
-                    font-italic: decorated.font-italic;
-                    horizontal-alignment: decorated.horizontal-alignment;
-                    vertical-alignment: center;
-                    overflow: elide;
-                }
+            LineEdit {
+                style: root.preview-style;
+                size: root.preview-size;
+                enabled: !root.preview-disabled;
                 accessible-label: "File name";
                 placeholder-text: "my-component";
-                min-height: 40px;
                 leading << Text {
                     text: "File:";
                     color: BasicTheme.disabled-foreground;
+                    font-size: root.preview-size.font-size;
                     vertical-alignment: center;
                 }
                 trailing << Text {
                     text: ".slint";
                     color: BasicTheme.disabled-foreground;
+                    font-size: root.preview-size.font-size;
                     vertical-alignment: center;
                 }
             }

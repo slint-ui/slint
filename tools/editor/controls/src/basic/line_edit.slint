@@ -2,48 +2,61 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { LineEditBase } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import { LineEditStyle, LineEditStateStyle, LineEditMetrics } from "line_edit_style.slint";
+import { LineEditStyles, LineEditSizes } from "line_edit_styles.slint";
+import { FocusOutline } from "focus_outline.slint";
 
 export component LineEdit inherits LineEditBase {
-    private property <brush> state-background: BasicTheme.background;
-    private property <brush> state-foreground: BasicTheme.foreground;
-    private property <brush> state-border: BasicTheme.border;
-    in property <brush> background-color: root.state-background;
-    in property <brush> border-color: root.state-border;
-    in property <length> border-width: root.has-focus ? 2px : 1px;
-    in property <length> border-radius: 4px;
-    in property <brush> placeholder-color: BasicTheme.disabled-foreground;
+    in property <LineEditStyle> style: LineEditStyles.standard;
+    in property <LineEditMetrics> size: LineEditSizes.medium;
+    private property <LineEditStateStyle> state-style: root.style.rest;
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> border-color: root.state-style.border-color;
+    in property <length> border-width: root.size.border-width;
+    in property <length> border-radius: root.size.border-radius;
+    in property <brush> placeholder-color: root.state-style.placeholder-color;
 
-    foreground: root.state-foreground;
-    selection-background-color: BasicTheme.accent;
-    selection-foreground-color: BasicTheme.accent-foreground;
-    font-size: 14px;
-    font-weight: 400;
-    content-padding: 6px;
-    content-padding-left: 12px;
-    content-padding-right: 12px;
-    spacing: 8px;
-    min-width: 160px;
-    min-height: 34px;
+    foreground: root.state-style.foreground;
+    selection-background-color: root.style.selection-background-color;
+    selection-foreground-color: root.style.selection-foreground-color;
+    font-size: root.size.font-size;
+    font-weight: root.size.font-weight;
+    content-padding: root.size.padding-vertical;
+    content-padding-left: root.size.padding-horizontal;
+    content-padding-right: root.size.padding-horizontal;
+    spacing: root.size.spacing;
+    min-width: root.size.min-width;
+    min-height: root.size.min-height;
+
+    slot leading;
+    slot trailing;
+    leading << leading;
+    trailing << trailing;
 
     states [
         disabled when !root.enabled: {
-            root.state-background: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
-        }
-        focused when root.has-focus: {
-            root.state-border: BasicTheme.focus;
+            state-style: root.style.disabled;
         }
         hover when root.hovered: {
-            root.state-border: BasicTheme.foreground;
+            state-style: root.style.hover;
         }
     ]
 
     background << Rectangle {
-        background: root.background-color;
-        border-color: root.border-color;
+        background: root.enabled ? root.background-color : root.state-style.background-color;
+        border-color: root.enabled ? root.border-color : root.state-style.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
+
+        focus-outline := FocusOutline {
+            active: root.enabled && root.has-focus;
+            outline-color: root.style.focus-color;
+            target-width: parent.width;
+            target-height: parent.height;
+            line-width: root.size.focus-width;
+            offset: root.size.focus-offset;
+            radius: root.border-radius;
+        }
     }
 
     placeholder << placeholder-label := Text {
@@ -52,7 +65,7 @@ export component LineEdit inherits LineEditBase {
         width: 100%;
         height: 100%;
         text: root.placeholder-text;
-        color: root.placeholder-color;
+        color: root.enabled ? root.placeholder-color : root.state-style.placeholder-color;
         font-family: root.font-family;
         font-size: root.font-size;
         font-weight: root.font-weight;

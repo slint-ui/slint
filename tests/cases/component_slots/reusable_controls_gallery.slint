@@ -142,6 +142,18 @@ assert_eq!(custom_switch.accessible_checked(), Some(true));
 find("LineEdit", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 slint::platform::update_timers_and_animations();
 assert_eq!(instance.get_page(), 5);
+let field_size = find("LineEdit preview size", AccessibleRole::Combobox);
+field_size.mock_single_click(PointerEventButton::Left);
+find("Small", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+let small_field_height = find("Name", AccessibleRole::TextInput).size().height;
+find("LineEdit preview size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+find("Large", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+assert!(find("Name", AccessibleRole::TextInput).size().height > small_field_height);
+find("Disable LineEdit previews", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+assert_eq!(find("Name", AccessibleRole::TextInput).accessible_enabled(), Some(false));
+find("Disable LineEdit previews", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+find("LineEdit preview size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+find("Medium", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
 let field = find("Name", AccessibleRole::TextInput);
 field.set_accessible_value("Slint");
 assert_eq!(field.accessible_value().as_deref(), Some("Slint"));
@@ -151,14 +163,11 @@ assert_eq!(headless_field.accessible_value().as_deref(), Some("Headless"));
 let decorated_field = find("File name", AccessibleRole::TextInput);
 decorated_field.set_accessible_value("component");
 assert_eq!(decorated_field.accessible_value().as_deref(), Some("component"));
-for (field, placeholder_id) in [
-    (&field, "LineEdit::placeholder-label"),
-    (&decorated_field, "LineEditExamples::placeholder-label"),
-] {
+for field in [&field, &decorated_field] {
     field.set_accessible_value("");
     slint::platform::update_timers_and_animations();
     let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
-    let placeholder = field.query_descendants().match_id(placeholder_id).find_first().unwrap();
+    let placeholder = field.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
     assert!((placeholder.absolute_position().x - viewport.absolute_position().x).abs() < 0.01);
     assert!((placeholder.size().width - viewport.size().width).abs() < 0.01);
     assert!(viewport.absolute_position().x >= field.absolute_position().x + 12. - 0.01);
