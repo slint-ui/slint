@@ -30,16 +30,6 @@ crate::thread_local!(static ASSET_LOADER: core::cell::RefCell<Option<AssetLoader
 ///
 /// This is useful for loading assets from custom sources such as embedded resources,
 /// network locations, or in-memory storage.
-///
-/// ```
-/// slint::set_asset_loader(|id| {
-///     if id == "icon.png" {
-///         Some(Ok(my_embedded_icon_bytes.to_vec()))
-///     } else {
-///         None
-///     }
-/// });
-/// ```
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub fn set_asset_loader(
     loader: impl Fn(&str) -> Option<std::io::Result<alloc::vec::Vec<u8>>> + 'static,
