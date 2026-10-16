@@ -856,6 +856,8 @@ mod tests {
             [WatchEvent { path: watched.clone(), kind: FileChangeKind::Changed }]
         );
 
+        // A new sibling changes the modification time of the directory, not of the watched file.
+        fs::write(root.path().join("sibling.slint"), "sibling").unwrap();
         assert_eq!(rescan(&mut state), []);
     }
 
