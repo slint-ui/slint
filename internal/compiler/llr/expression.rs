@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ArrayOutput {
     Slice,
     Model,
@@ -49,6 +50,7 @@ pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 /// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlexboxMeasureCell {
     /// A static height-for-width cell, with its vertical `LayoutInfo`-typed
     /// expression reading the `measure_known_w` local as its width constraint.
@@ -66,6 +68,7 @@ pub enum FlexboxMeasureCell {
 /// [`Expression::BoxLayoutInfoOrthoWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoxMeasureCell {
     /// A static cell: its vertical `LayoutInfo` expression. A height-for-width
     /// cell reads the `measure_known_w` local as its width constraint; any
@@ -78,6 +81,7 @@ pub enum BoxMeasureCell {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
@@ -139,6 +143,7 @@ pub enum Expression {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
         /// The location of the call in the .slint source, for run-time diagnostics
+        #[cfg_attr(feature = "serde", serde(skip))]
         source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
@@ -215,6 +220,7 @@ pub enum Expression {
         output: ArrayOutput,
     },
     Struct {
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
         ty: Arc<crate::langtype::Struct>,
         values: BTreeMap<SmolStr, Expression>,
     },

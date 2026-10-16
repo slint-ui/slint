@@ -193,6 +193,25 @@ impl From<url::Url> for SourcePath {
     }
 }
 
+/// Written as a URL when it has one, so that another host reads a native path of this one
+/// the way it reads the same URL from the editor.
+#[cfg(feature = "serde")]
+impl serde::Serialize for SourcePath {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.to_url() {
+            Some(url) => serializer.serialize_str(url.as_str()),
+            None => serializer.collect_str(self),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SourcePath {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Self::new(String::deserialize(deserializer)?))
+    }
+}
+
 impl Default for SourcePath {
     fn default() -> Self {
         Self::File(PathBuf::new())

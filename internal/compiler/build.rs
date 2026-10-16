@@ -48,7 +48,54 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 
     println!("cargo:rustc-env=SLINT_WIDGETS_LIBRARY={}", output_file_path.display());
 
-    Ok(())
+    write_format_id(&cargo_manifest_dir)
+}
+
+/// The sources that define the types `llr::serialize` writes.
+const SERIALIZED_SOURCES: &[&str] = &[
+    "builtin_functions.rs",
+    "embedded_resources.rs",
+    "expression_types.rs",
+    "langtype.rs",
+    "llr/expression.rs",
+    "llr/item_tree.rs",
+    "llr/serialize.rs",
+    "native_class.rs",
+    "source_path.rs",
+    "translations.rs",
+    "typeregister.rs",
+];
+
+/// The builtin enums and structs, when building from the repository.
+/// A published crate relies on its version instead.
+const SERIALIZED_REPOSITORY_SOURCES: &[&str] =
+    &["../common/enums.rs", "../common/builtin_structs.rs"];
+
+/// Computes `llr::serialize::FORMAT_ID`: a hash of the version and of [`SERIALIZED_SOURCES`]
+/// and [`SERIALIZED_REPOSITORY_SOURCES`].
+fn write_format_id(cargo_manifest_dir: &Path) -> std::io::Result<()> {
+    // FNV-1a, which is stable across Rust versions, unlike `DefaultHasher`
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut write = |bytes: &[u8]| {
+        for byte in bytes {
+            hash = (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    write(std::env::var("CARGO_PKG_VERSION").unwrap().as_bytes());
+    for source in SERIALIZED_SOURCES {
+        let path = cargo_manifest_dir.join(source);
+        println!("cargo:rerun-if-changed={}", path.display());
+        write(&std::fs::read(&path)?);
+    }
+    for source in SERIALIZED_REPOSITORY_SOURCES {
+        let path = cargo_manifest_dir.join(source);
+        if path.exists() {
+            println!("cargo:rerun-if-changed={}", path.display());
+            write(&std::fs::read(&path)?);
+        }
+    }
+    let out = Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("format_id.rs");
+    std::fs::write(out, format!("{hash}u64"))
 }
 
 fn process_style(cargo_manifest_dir: &Path, path: &Path) -> std::io::Result<String> {

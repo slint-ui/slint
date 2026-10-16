@@ -59,6 +59,17 @@ sdf-fonts = ["renderer-software", "dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgeb
 # Translation bundler
 bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
 
+# Serialize the LLR (`llr::serialize`), for sending a compiled unit to another process
+serde = [
+  "serde/std",
+  "serde/rc",
+  "dep:either",
+  "dep:postcard",
+  "smol_str/serde",
+  "typed-index-collections/serde",
+  "url/serde",
+]
+
 # Enable experimental library module support
 experimental-library-module = []
 
@@ -105,6 +116,9 @@ pathdiff = { version = "0.2.3", optional = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
+# `itertools::Either` is a re-export of `either::Either`; this enables its serde impls
+either = { version = "1.13", optional = true, features = ["serde"] }
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 flate2 = { version = "1.1.5", optional = true }
 base64 = { version = "0.23", optional = true }
 data-url = "0.3.2"

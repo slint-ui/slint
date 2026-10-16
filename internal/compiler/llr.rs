@@ -14,6 +14,8 @@ pub mod lower_layout_expression;
 pub mod lower_to_item_tree;
 mod native_class_selection;
 pub mod pretty_print;
+#[cfg(feature = "serde")]
+pub mod serialize;
 
 /// The optimization passes over the LLR
 pub mod optim_passes {

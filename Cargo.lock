@@ -2039,6 +2039,9 @@ name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "embedded-hal"
@@ -3448,6 +3451,7 @@ dependencies = [
  "data-url",
  "derive_more",
  "divan",
+ "either",
  "fdsm",
  "fdsm-ttf-parser",
  "flate2",
@@ -3463,6 +3467,7 @@ dependencies = [
  "nalgebra",
  "num_enum",
  "pathdiff",
+ "postcard",
  "proc-macro2",
  "quote",
  "rayon",

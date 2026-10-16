@@ -122,4 +122,5 @@ pub struct EmbeddedResources {
     derive_more::From,
     derive_more::Display,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmbeddedResourcesIdx(pub usize);

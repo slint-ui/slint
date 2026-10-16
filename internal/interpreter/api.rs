@@ -1260,6 +1260,42 @@ impl CompilationResult {
         self.components.values().cloned()
     }
 
+    /// This is an internal function without API stability guarantees.
+    /// The compilation unit, such as for `i_slint_compiler::llr::serialize`,
+    /// unless the compilation produced none.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn into_compilation_unit(
+        self,
+        _: i_slint_core::InternalToken,
+    ) -> Option<i_slint_compiler::llr::CompilationUnit> {
+        self.into_send().compilation_unit
+    }
+
+    /// This is an internal function without API stability guarantees.
+    /// A result holding `unit`, such as one that `i_slint_compiler::llr::serialize` read,
+    /// with neither diagnostics nor watch paths.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn from_compilation_unit(
+        unit: i_slint_compiler::llr::CompilationUnit,
+        _: i_slint_core::InternalToken,
+    ) -> Self {
+        let components = unit
+            .public_components
+            .iter_enumerated()
+            .map(|(public_index, component)| (component.name.to_string(), public_index))
+            .collect();
+        SendableCompilationResult {
+            compilation_unit: Some(unit),
+            components,
+            diagnostics: Vec::new(),
+            watch_paths: Vec::new(),
+            structs_and_enums: Vec::new(),
+        }
+        .into()
+    }
+
     /// Consume the result so that it can be sent to another thread.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
