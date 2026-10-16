@@ -121,6 +121,10 @@ figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
 
+ai_plugins:
+ - 'ai-plugins/**'
+ - *ci_config
+
 material_components:
  - '.github/workflows/material.yaml'
  - 'ui-libraries/material/**'

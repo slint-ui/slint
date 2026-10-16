@@ -764,6 +764,18 @@ jobs:
             - name: Build todo example app bundle
               run: cmake --build build --target todo
 
+    test-ai-plugins:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'ai_plugins') }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Test the MCP servers
+              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
+
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest
