@@ -460,17 +460,21 @@ impl EditorSession {
         }
         let directory =
             SourcePath::new(&document_path).parent().into_native_path().unwrap_or_default();
-        let Some(path) = i_slint_compiler::project_file::find_project_file_path_with_exists(
-            &directory,
-            |path| {
-                if self.open_project_file_state(path).is_some() {
-                    Ok(true)
-                } else {
-                    path.try_exists()
-                }
-            },
-        )?
-        else {
+        let path = if Self::project_file_source(url).is_some() {
+            Some(document_path)
+        } else {
+            i_slint_compiler::project_file::find_project_file_path_with_exists(
+                &directory,
+                |path| {
+                    if self.open_project_file_state(path).is_some() {
+                        Ok(true)
+                    } else {
+                        path.try_exists()
+                    }
+                },
+            )?
+        };
+        let Some(path) = path else {
             return Ok(DiscoveredProjectFile::None);
         };
         if let Some(state) = self.open_project_file_state(&path) {
@@ -509,25 +513,32 @@ impl EditorSession {
         &mut self,
         url: &Url,
     ) -> crate::Result<VersionedDiagnostics> {
+        let mut initial_error = None;
         let (path, state) = match self.discover_project_file_for_document_url(url).await? {
             DiscoveredProjectFile::None => return Ok(Default::default()),
             DiscoveredProjectFile::File { path, state } => (path, Some(state)),
             DiscoveredProjectFile::Invalid { path, state, error } => {
                 if !self.active_project_file_paths().any(|known| known == path) {
-                    return Err(error);
+                    initial_error = Some(error);
+                } else {
+                    tracing::warn!(
+                        "Failed to reload project file {} for {url}: {error}",
+                        path.display()
+                    );
                 }
-                tracing::warn!(
-                    "Failed to reload project file {} for {url}: {error}",
-                    path.display()
-                );
                 (path, state)
             }
         };
         let contents_changed = self.active_projects.get(&path) != state.as_ref();
         let project_url = SourcePath::new(&path).to_url();
         let settings_changed = self.store_project_file(path, state);
-        if contents_changed && let Some(url) = project_url {
+        if (contents_changed || initial_error.is_some())
+            && let Some(url) = project_url
+        {
             self.send_to_previews(&self.project_file_contents_message(url));
+        }
+        if let Some(error) = initial_error {
+            return Err(error);
         }
         if settings_changed {
             self.reapply_effective_configuration().await
@@ -536,7 +547,7 @@ impl EditorSession {
         }
     }
 
-    fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
+    pub fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
         self.active_projects.values().filter_map(|state| state.parsed.as_ref()?.main()?.to_url())
     }
 
@@ -2616,7 +2627,7 @@ mod tests {
 
         let mut session = session();
         assert!(load_document(&mut session, &document_path).is_err());
-        assert_eq!(session.active_project_file_paths().next(), None);
+        assert_eq!(session.active_project_file_paths().next(), Some(project_path.as_path()));
     }
 
     #[test]
