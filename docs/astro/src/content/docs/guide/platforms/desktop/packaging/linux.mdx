@@ -30,25 +30,28 @@ That's where the runtime and the SDK your application builds against come from:
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 ```
 
-Depending on your programming language, you also need a tool that converts your build tool's lockfile into dependencies that `flatpak-builder` understands.
 The build process is sandboxed just like Flatpaks themselves, and nothing inside it reaches the network.
 Every dependency that would otherwise be downloaded has to be declared up front.
+What else you prepare depends on your programming language:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
-Convert `Cargo.lock` with the [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script.
+Convert `Cargo.lock` into dependencies that `flatpak-builder` understands, with the [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script.
 
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
 
-C++ has no standard, cross-platform package manager.
-Vendor your dependencies instead.
+Embed the images and fonts of your `.slint` files into the executable, as described in [Packaging](/guide/platforms/desktop/packaging/general/).
+By default, the application loads them from their paths in the build directory, which is gone once the Flatpak is installed.
+
+C++ has no standard, cross-platform package manager, so vendor your own dependencies.
 
 </TabItem>
 <TabItem label="NodeJS" icon="node">
 
 Build the executable as described in [Packaging](/guide/platforms/desktop/packaging/general/).
+Your code and its dependencies are already in it, so the Flatpak copies it in rather than building it.
 
 </TabItem>
 <TabItem label="Python" icon="seti:python">
@@ -250,6 +253,7 @@ Configure your project once outside the sandbox, and everything the manifest nee
 cmake -B build
 
 # The crates Slint needs, taken from the revision CMake just fetched
+curl -O https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
 uv run flatpak-cargo-generator.py build/_deps/slint-src/Cargo.lock -o cargo-sources.json
 
 # The revisions to pin below
@@ -390,7 +394,7 @@ Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds
 </TabItem>
 <TabItem label="NodeJS" icon="node">
 
-Put the executable, Slint's addon, and your `.slint` files and other assets in a `dist` directory next to the manifest.
+Put the executable you built, Slint's addon, and your `.slint` files and other assets in a `dist` directory next to the manifest.
 A `dir` source copies that directory into the build:
 
 ```yaml
@@ -549,7 +553,7 @@ and `flatpak-builder` runs the same validation over the metadata it installs.
 
 The build file grew in fragments, so here it is complete and without the annotations, ready to copy and adapt.
 It assumes the desktop entry, the icon, and the metainfo sit next to the manifest in the root of your project.
-Commit them before you build: the `git` source packages what the repository holds, not your working tree.
+A `git` source packages what the repository holds, not your working tree, so commit them before you build.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
@@ -680,6 +684,45 @@ modules:
       - type: git
         path: ./
         branch: HEAD
+```
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+```yaml
+id: com.yourorganization.YourApp
+
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+
+command: your-app
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+
+modules:
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      - mkdir -p ${FLATPAK_DEST}/lib/your-app ${FLATPAK_DEST}/bin
+      - cp -R myapp slint-ui.*.node ui ${FLATPAK_DEST}/lib/your-app/
+      - ln -s ../lib/your-app/myapp ${FLATPAK_DEST}/bin/your-app
+      - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: dir
+        path: dist
+      - type: file
+        path: com.yourorganization.YourApp.desktop
+      - type: file
+        path: icon.png
+      - type: file
+        path: com.yourorganization.YourApp.metainfo.xml
 ```
 
 </TabItem>
