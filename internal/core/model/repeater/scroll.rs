@@ -183,6 +183,8 @@ pub(super) fn advance_scroll_to_row(
                 let braking_deceleration =
                     ScrollToRowMotion::new(viewport_height).braking_deceleration();
                 if !jumped && distance.abs() > accelerating.braking_distance(braking_deceleration) {
+                    // If we didn't jump and the target is still far, just update the remaining distance
+                    // to go on with the accelerating phase
                     accelerating.set_remaining_distance(distance);
                     return Some(ScrollToRowRequest {
                         state: ScrollToRowState::Accelerating(alignment, simulation),
@@ -229,36 +231,37 @@ pub(super) fn smooth_scroll_layout(
     content_y: Coord,
     viewport_height: Coord,
 ) -> SmoothScrollLayout {
-    let motion = ScrollToRowMotion::new(viewport_height);
-    let landing = motion.landing_distance as Coord;
+    let Some((request, alignment)) = &request.and_then(|r| Some((r, r.smooth_alignment()?))) else {
+        // No scroll request ongoing or it is an instant jump
+        return SmoothScrollLayout { jump: None, extra_above: 0., layout_end: viewport_height };
+    };
+
+    let heights = (0..ops.len())
+        .map(|i| ops.height(i).unwrap_or(state.cached_item_height))
+        .collect::<Vec<_>>();
+    let (top_anchor, row_height) = row_geometry(state, &heights, request.row);
+    let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
+
     // The distance of the scroll, estimated unless its row is laid out,
     // and the edge that the row ends up at if the layout pass jumps.
-    let (distance, jump) = request
-        .and_then(|request| {
-            let alignment = request.smooth_alignment()?;
-            let heights = (0..ops.len())
-                .map(|i| ops.height(i).unwrap_or(state.cached_item_height))
-                .collect::<Vec<_>>();
-            let (top_anchor, row_height) = row_geometry(state, &heights, request.row);
-            let distance = alignment.distance(top_anchor + content_y, row_height, viewport_height);
-            // If the acceleration simulation reaches the maximum velocity we jump
-            let jump = if let ScrollToRowState::Accelerating(_, simulation) = &request.state
-                && let Some(simulation) = simulation.upgrade()
-                && motion.should_jump(distance as f32, &simulation.borrow())
-            {
-                Some(alignment)
-            } else {
-                None
-            };
-            Some((distance, jump))
-        })
-        .map_or((None, None), |(distance, jump)| (Some(distance), jump));
+    // If the acceleration simulation reaches the maximum velocity we jump
+    let motion = ScrollToRowMotion::new(viewport_height);
+    let landing = motion.landing_distance as Coord;
+    let jump = if let ScrollToRowState::Accelerating(_, simulation) = &request.state
+        && let Some(simulation) = simulation.upgrade()
+        && motion.should_jump(distance as f32, &simulation.borrow())
+    {
+        Some(*alignment)
+    } else {
+        None
+    };
+
     // Like Android's LinearLayoutManager during a smooth scroll,
     // lay out the rows up to the target, so that the scroll stops exactly on it.
-    let (extra_above, extra_below) = match (jump, distance) {
-        (Some(RowAlignment::Top), _) => (landing, 0 as Coord),
-        (Some(RowAlignment::Bottom), _) => (0 as Coord, landing + viewport_height),
-        (None, Some(distance)) if distance.abs() <= landing + viewport_height => {
+    let (extra_above, extra_below) = match jump {
+        Some(RowAlignment::Top) => (landing, 0 as Coord),
+        Some(RowAlignment::Bottom) => (0 as Coord, landing + viewport_height),
+        None if distance.abs() <= landing + viewport_height => {
             if distance > 0 as Coord {
                 (distance + viewport_height, 0 as Coord)
             } else {
