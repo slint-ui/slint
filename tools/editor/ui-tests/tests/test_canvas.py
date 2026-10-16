@@ -35,6 +35,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     press_key,
+    query,
     screenshot,
     select_fixture_element,
     select_outline_row,
@@ -1545,6 +1546,7 @@ def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
         window.dispatch_event(slint_testing.PointerMoveEvent(corner_position))
         wait_for_radius_tooltip(window, 0)
         for corner, position in radius_handle_positions(window).items():
+            expect(query(window, f"Rectangle radius {corner}")).to_be_visible()
             expected_x = x if "left" in corner else x + width
             expected_y = y if "top" in corner else y + height
             assert (
@@ -1554,13 +1556,6 @@ def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
                 )
                 < 1.5
             )
-        rendered = screenshot(window)
-        scale = rendered.width / window.root_element.size.width
-        sample = (
-            round((corner_position.x + 3) * scale),
-            round(corner_position.y * scale),
-        )
-        assert rendered.getpixel(sample) == pytest.approx((255, 255, 255), abs=20)
 
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(corner_position, button)
