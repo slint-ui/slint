@@ -513,6 +513,8 @@ fn reset_project_state(root: Url) {
         state.current_load_behavior = None;
         state.loading_state = PreviewFutureState::Pending;
         state.current_previewed_component = None;
+        state.resolved_source_url = None;
+        state.config = PreviewConfig::default();
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -3872,6 +3874,8 @@ mod tests {
             );
             state.dependencies.insert(old_url.clone());
             state.resources.insert(old_url.clone());
+            state.config.overrides.project.style = Some("material".into());
+            state.resolved_source_url = Some(old_url.clone());
             state.current_previewed_component =
                 Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });
             state.initial_live_data.insert(live_data_key.clone(), live_data.clone());
@@ -3892,6 +3896,8 @@ mod tests {
             assert_eq!(state.current_project_root, Some(new_root));
             assert_ne!(state.project_generation, old_project_generation);
             assert!(state.current_previewed_component.is_none());
+            assert_eq!(state.config, PreviewConfig::default());
+            assert!(state.resolved_source_url.is_none());
             assert!(state.source_code.is_empty());
             assert!(state.dependencies.is_empty());
             assert!(state.resources.is_empty());

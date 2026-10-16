@@ -89,11 +89,22 @@ impl Project {
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = std::fs::canonicalize(path.as_ref())?;
-        let root = path
-            .parent()
-            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
-        Self::from_root(root, &path, component)
+        let path =
+            std::fs::canonicalize(path.as_ref()).unwrap_or(std::path::absolute(path.as_ref())?);
+        let parent = path.parent().ok_or("Project input has no parent directory")?;
+        let root = if path
+            .file_name()
+            .is_some_and(|name| name == i_slint_compiler::project_file::FILE_NAME)
+        {
+            parent.to_path_buf()
+        } else {
+            i_slint_compiler::project_file::find_project_file_path(parent)
+                .ok()
+                .flatten()
+                .and_then(|project| project.parent().map(Path::to_path_buf))
+                .unwrap_or_else(|| parent.to_path_buf())
+        };
+        Self::from_root(&root, &path, component)
     }
 
     pub(crate) fn from_root(
@@ -101,18 +112,19 @@ impl Project {
         path: &Path,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let root = std::fs::canonicalize(root)?;
-        if !root.is_dir() {
-            return Err(format!("{} is not a directory", root.display()).into());
-        }
-        let path = std::fs::canonicalize(path)?;
-        if !path.is_file()
-            || !path
+        let root = std::fs::canonicalize(root)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(root)?));
+        let path = std::fs::canonicalize(path)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(path)?));
+        if path.file_name().is_none_or(|name| name != i_slint_compiler::project_file::FILE_NAME)
+            && !path
                 .extension()
                 .and_then(|extension| extension.to_str())
                 .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
         {
-            return Err(format!("{} is not a Slint file", path.display()).into());
+            return Err(
+                format!("{} is not a Slint file or slint-project.json", path.display()).into()
+            );
         }
         let url = Url::from_file_path(&path)
             .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
@@ -356,5 +368,23 @@ mod tests {
 
         assert_eq!(project.root, std::fs::canonicalize(directory.path()).unwrap());
         assert_eq!(project.preview.url, expected_url);
+    }
+    #[test]
+    fn project_inputs_keep_the_target_and_discover_the_nearest_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let nested = root.join("ui");
+        std::fs::create_dir(&nested).unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest, "invalid JSON").unwrap();
+        for path in [&manifest, &nested.join("missing.slint")] {
+            let project = Project::from_file(path, None).unwrap();
+            assert_eq!(project.root, root);
+            assert_eq!(project.preview.url, Url::from_file_path(path).unwrap());
+        }
+        let missing_root = root.join("unavailable");
+        let path = missing_root.join("main.slint");
+        assert_eq!(Project::from_root(&missing_root, &path, None).unwrap().root, missing_root);
+        assert!(Project::from_file(root.join("other.json"), None).is_err());
     }
 }
