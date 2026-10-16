@@ -181,7 +181,9 @@ fn generate_public_component(
     let no_default_translation_context = (compiler_config.default_translation_context == crate::DefaultTranslationContext::None)
         .then(|| quote!(compiler.set_default_translation_context(sp::live_preview::DefaultTranslationContext::None);));
     let style = compiler_config.style.iter();
-    let experimental = compiler_config.enable_experimental;
+    let new_with_existing_window_enabled = compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let compiler_factory = quote!(
         let compiler_factory = || {
@@ -207,7 +209,7 @@ fn generate_public_component(
                 sp::Ok(Self(instance, window_adapter))
             }
 
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_context(ctx: sp::SlintContext) -> sp::Result<Self, slint::PlatformError> {
                 #compiler_factory
                 let instance = sp::live_preview::LiveReloadingComponent::new_with_context(compiler_factory, #main_file.into(), Some(#component_name.into()), ctx)?;

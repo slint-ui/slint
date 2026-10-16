@@ -208,6 +208,12 @@ impl Type {
         false
     }
 
+    /// The experimental feature that must be enabled to use this type
+    pub fn experimental_feature(&self) -> Option<crate::ExperimentalFeature> {
+        matches!(self, Type::ComponentFactory)
+            .then_some(crate::ExperimentalFeature::ComponentContainer)
+    }
+
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(

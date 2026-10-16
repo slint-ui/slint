@@ -1333,6 +1333,7 @@ dependencies = [
  "i-slint-compiler",
  "slint-interpreter",
  "spin_on",
+ "test_driver_lib",
  "walkdir",
 ]
 
@@ -5226,6 +5227,7 @@ dependencies = [
 name = "test_driver_lib"
 version = "1.19.0"
 dependencies = [
+ "i-slint-compiler",
  "libtest-mimic",
  "regex",
  "satchel",

@@ -477,7 +477,8 @@ impl PreviewSession {
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
     let config = compiler.compiler_configuration(InternalToken);
     config.style = (!configuration.style.is_empty()).then(|| configuration.style.clone());
-    config.enable_experimental = configuration.enable_experimental;
+    config.experimental_features =
+        i_slint_compiler::ExperimentalFeatures::from_names(&configuration.experimental_features);
 }
 
 impl PreviewSessionHandle {

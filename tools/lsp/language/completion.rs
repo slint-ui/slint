@@ -10,6 +10,7 @@ use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_
 use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
+use i_slint_compiler::ExperimentalFeature;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::element_type::{ElementType, PropertyLookupMode};
 use i_slint_compiler::expression_tree::{Callable, Expression};
@@ -84,11 +85,12 @@ pub(crate) fn completion_at(
         .and_then(|caps| caps.snippet_support)
         .unwrap_or(false);
 
-    let enable_experimental =
-        document_cache.compiler_configuration().compiler_config.enable_experimental;
+    let experimental_features =
+        document_cache.compiler_configuration().compiler_config.experimental_features;
+    let match_enabled = experimental_features.contains(ExperimentalFeature::Match);
+    let interfaces_enabled = experimental_features.contains(ExperimentalFeature::Interfaces);
 
-    if enable_experimental
-        && let Some(match_element) = match_element::case_value_position(&token, offset)
+    if match_enabled && let Some(match_element) = match_element::case_value_position(&token, offset)
     {
         return match_element::case_value_completions(document_cache, &match_element, offset);
     } else if token.kind() == SyntaxKind::StringLiteral {
@@ -102,7 +104,7 @@ pub(crate) fn completion_at(
             });
             if node.kind() == SyntaxKind::ImportSpecifier && !token.text().contains('/') {
                 let mut files = vec!["std-widgets.slint"];
-                if enable_experimental {
+                if interfaces_enabled {
                     files.push("std-widget-interfaces.slint");
                 }
                 result.get_or_insert_with(Vec::new).extend(files.into_iter().map(|file| {
@@ -182,7 +184,7 @@ pub(crate) fn completion_at(
                 );
             }
 
-            if !is_global && !is_interface && enable_experimental {
+            if !is_global && !is_interface && match_enabled {
                 r.push(
                     CompletionItem::new_simple("match".into(), String::new())
                         .with_kind(CompletionItemKind::KEYWORD)
@@ -193,7 +195,7 @@ pub(crate) fn completion_at(
                 );
             }
 
-            if is_root_element && !is_global && !is_interface && enable_experimental {
+            if is_root_element && !is_global && !is_interface && interfaces_enabled {
                 r.push(
                     CompletionItem::new_simple("implement".to_string(), String::new())
                         .with_kind(CompletionItemKind::KEYWORD)
@@ -238,7 +240,7 @@ pub(crate) fn completion_at(
             resolve_expression_scope(ctx, document_cache, snippet_support)
         })?;
     } else if let Some(implement_statement) = syntax_nodes::ImplementStatement::new(node.clone()) {
-        if !enable_experimental {
+        if !interfaces_enabled {
             return None;
         }
         if let Some(double_arrow) = implement_statement.child_token(SyntaxKind::DoubleArrow)
@@ -335,7 +337,7 @@ pub(crate) fn completion_at(
             SyntaxKind::Element => {
                 let element = q.parent()?;
                 if is_interface_root_element(&element) {
-                    if !enable_experimental {
+                    if !interfaces_enabled {
                         return None;
                     }
 
@@ -387,7 +389,7 @@ pub(crate) fn completion_at(
                 return Some(result);
             }
             SyntaxKind::ImplementStatement => {
-                if !enable_experimental {
+                if !interfaces_enabled {
                     return None;
                 }
                 return resolve_implement_interface_name_scope(
@@ -468,7 +470,7 @@ pub(crate) fn completion_at(
                 .with_insert_text(ins_tex, snippet_support)
         })
         .collect();
-        if enable_experimental {
+        if interfaces_enabled {
             r.extend(
                 [
                     ("interface", "interface ${1:Interface} {\n    $0\n}"),
@@ -539,7 +541,7 @@ pub(crate) fn completion_at(
             return properties_for_changed_callbacks(parent, document_cache);
         }
         if parent.kind() == SyntaxKind::ImplementStatement {
-            if !enable_experimental {
+            if !interfaces_enabled {
                 return None;
             }
             return resolve_implement_target_scope(node);

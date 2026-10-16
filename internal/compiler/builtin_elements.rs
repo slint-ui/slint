@@ -49,7 +49,8 @@
 //!
 //! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
-//! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
+//! `builtin_struct(Name)`, `experimental_feature(Feature)` for an element that needs that feature,
+//! `sc` for an element of the Slint SC subset and `skip_inherited` to
 //! leave the docs of the native items out of the element's.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
@@ -172,6 +173,7 @@ macro_rules! flag {
     ($e:ident expands_to_parent_geometry) => { $e.element.default_size_binding = DefaultSizeBinding::ExpandsToParentGeometry };
     ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
+    ($e:ident experimental_feature($f:ident)) => { $e.element.experimental_feature = Some(crate::ExperimentalFeature::$f) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -396,7 +398,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.types.lookup(&kebab(text));
+        let ty = self.types.lookup_including_disabled(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -1030,7 +1032,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @accepts_focus
+        @accepts_focus @experimental_feature(ComponentContainer)
         ComponentContainer: ComponentContainer
     }
 

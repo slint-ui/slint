@@ -1281,6 +1281,6 @@ jobs:
                   [ -d ui ] && ui_inc="-I ui"
                   for f in ${{ matrix.files }}; do
                       echo "::group::$f"
-                      SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 "$GITHUB_WORKSPACE/slint-compiler-bin/slint-compiler" -f cpp -I "$(dirname "$f")" -I . $ui_inc "$f" -o /dev/null
+                      SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window "$GITHUB_WORKSPACE/slint-compiler-bin/slint-compiler" -f cpp -I "$(dirname "$f")" -I . $ui_inc "$f" -o /dev/null
                       echo "::endgroup::"
                   done

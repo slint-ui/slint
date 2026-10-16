@@ -25,6 +25,7 @@ pub mod data_uri;
 pub mod diagnostics;
 pub mod element_type;
 pub mod embedded_resources;
+pub mod experimental_features;
 pub mod expression_tree;
 pub mod expression_types;
 pub mod fileaccess;
@@ -51,6 +52,7 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
+pub use experimental_features::{ExperimentalFeature, ExperimentalFeatures};
 use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
@@ -174,8 +176,10 @@ pub struct CompilerConfiguration {
     /// expose the accessible role and properties
     pub accessibility: bool,
 
-    /// Add support for experimental features
-    pub enable_experimental: bool,
+    /// The experimental language features that compile instead of reporting an error
+    pub experimental_features: ExperimentalFeatures,
+    /// The names in `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that aren't experimental features
+    pub unknown_experimental_features: Vec<String>,
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
@@ -302,7 +306,10 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
         };
 
-        let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
+        let (experimental_features, unknown_experimental_features) =
+            std::env::var("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
+                .map(|list| ExperimentalFeatures::parse_list(&list))
+                .unwrap_or_default();
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
@@ -331,7 +338,8 @@ impl CompilerConfiguration {
             const_scale_factor,
             const_image_sizes,
             accessibility: true,
-            enable_experimental,
+            experimental_features,
+            unknown_experimental_features,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -371,10 +379,28 @@ fn prepare_for_compile(
         compiler_config.accessibility = false;
     }
 
-    diagnostics.enable_experimental = compiler_config.enable_experimental;
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
+    }
+
+    for name in &compiler_config.unknown_experimental_features {
+        diagnostics.push_error_with_span(
+            format!(
+                "SLINT_ENABLE_EXPERIMENTAL_FEATURES contains the unknown feature '{name}'. Use one of [{}]",
+                ExperimentalFeatures::all()
+            ),
+            Default::default(),
+        );
+    }
+    let experimental_features = compiler_config.experimental_features;
+    if !experimental_features.is_empty() {
+        diagnostics.push_info_with_span(
+            format!(
+                "Using experimental features [{experimental_features}], which may change or be removed in any Slint release"
+            ),
+            Default::default(),
+        );
     }
 
     typeloader::TypeLoader::new(compiler_config, diagnostics)
@@ -447,20 +473,24 @@ pub async fn load_root_file_with_raw_type_loader(
     (diagnostics, loader, raw_type_loader)
 }
 
-/// Returns true and emits an error if experimental features should be disabled.
-///
-/// Some experimental features are used internally which is why this function also checks
-/// `TypeRegister::expose_internal_types`.
+/// Returns true and reports an error on `source`, naming `what`, if `feature` is disabled.
 fn reject_experimental_feature(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     type_register: &typeregister::TypeRegister,
-    feature: &str,
+    feature: ExperimentalFeature,
+    what: &str,
     source: &dyn diagnostics::Spanned,
 ) -> bool {
-    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
-        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
-        true
-    } else {
-        false
+    let rejected = !type_register.experimental_features.contains(feature);
+    if rejected {
+        diagnostics.push_error(experimental_feature_error(what, feature), source);
     }
+    rejected
+}
+
+/// The error message for using `what` while `feature` is disabled.
+fn experimental_feature_error(what: &str, feature: ExperimentalFeature) -> String {
+    format!(
+        "'{what}' is experimental. Add '{feature}' to the SLINT_ENABLE_EXPERIMENTAL_FEATURES environment variable or to 'experimental-features' in the project file"
+    )
 }

@@ -488,11 +488,13 @@ fn generate_public_component(
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
-    let experimental = compiler_config.enable_experimental;
+    let new_with_existing_window_enabled = compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
@@ -601,7 +603,7 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
@@ -675,7 +677,9 @@ fn generate_shared_globals(
         .collect::<Vec<_>>();
     let pub_token = if compiler_config.library_name.is_some() { quote!(pub) } else { quote!() };
 
-    let experimental = compiler_config.enable_experimental;
+    let new_with_existing_window_enabled = compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let (library_shared_globals_names, library_shared_globals_types): (Vec<_>, Vec<_>) = doc
         .imports
@@ -703,7 +707,7 @@ fn generate_shared_globals(
     // references them on every tree.
     let optional_window_adapter_helpers = needs_window_adapter.then(|| {
         quote!(
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
                 let adapter = sp::WindowInner::from_pub(window).window_adapter();
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();

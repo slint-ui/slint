@@ -20,7 +20,7 @@ use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::{self, TypeRegister};
-use crate::{parser, reject_experimental_feature};
+use crate::{ExperimentalFeature, parser, reject_experimental_feature};
 use interfaces::ImplementedInterface;
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
@@ -598,7 +598,13 @@ impl Component {
                         ElementType::Global
                     }
                     Some(t) if t == "interface" => {
-                        if reject_experimental_feature(diag, tr, "interface", &node) {
+                        if reject_experimental_feature(
+                            diag,
+                            tr,
+                            ExperimentalFeature::Interfaces,
+                            "interface",
+                            &node,
+                        ) {
                             ElementType::Error
                         } else {
                             ElementType::Interface(None)
@@ -616,7 +622,7 @@ impl Component {
             declared_slots: RefCell::new(declared_slots),
             ..Default::default()
         };
-        c.check_slot_validity(diag);
+        c.check_slot_validity(diag, tr);
         let c = Rc::new(c);
         // x and y on a Window are meaningless
         if c.root_element
@@ -663,8 +669,8 @@ impl Component {
         c
     }
 
-    fn check_slot_validity(&self, diagnostics: &mut BuildDiagnostics) {
-        if !diagnostics.enable_experimental {
+    fn check_slot_validity(&self, diagnostics: &mut BuildDiagnostics, tr: &TypeRegister) {
+        if !tr.experimental_features.contains(ExperimentalFeature::NamedSlots) {
             return;
         }
         if self.is_global() || self.is_interface() {
@@ -843,7 +849,15 @@ fn shadowable_attribute(
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+    node.is_some_and(|node| {
+        !reject_experimental_feature(
+            diag,
+            tr,
+            ExperimentalFeature::Shadowable,
+            "@shadowable",
+            &node,
+        )
+    })
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
@@ -2121,9 +2135,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> MatchElementInfo {
-        if !diag.enable_experimental {
-            diag.push_error("match elements are an experimental feature".into(), &node);
-        }
+        reject_experimental_feature(diag, tr, ExperimentalFeature::Match, "match", &node);
         if node.MatchCase().next().is_none() && node.WildcardMatchCase().is_none() {
             diag.push_error("Expected at least one case".into(), &node);
         }
@@ -3011,7 +3023,21 @@ pub fn type_from_node(
             diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
         }
 
-        if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
+        let disabled_feature = tr
+            .lookup_qualified_including_disabled(&qualified_type.members)
+            .experimental_feature()
+            .filter(|_| prop_type == Type::Invalid);
+        if let Some(feature) = disabled_feature {
+            reject_experimental_feature(
+                diag,
+                tr,
+                feature,
+                &qualified_type.to_smolstr(),
+                &qualified_type_node,
+            );
+        } else if prop_type == Type::Invalid
+            && tr.lookup_element(&qualified_type.to_smolstr()).is_err()
+        {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
             diag.push_error(
