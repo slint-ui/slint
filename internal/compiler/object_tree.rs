@@ -8,18 +8,19 @@
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::expression_tree::{self, BindingExpression, Callable, ConditionLocation, Expression};
-use crate::expression_types::Unit;
+use crate::expression_types::{Orientation, Unit};
 use crate::generator::accessor_names::DeclarationKind;
 use crate::langtype::{
     ConstantExpression, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
 };
-use crate::layout::{LayoutConstraints, Orientation};
+use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::native_class::PropertyVisibility;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
-use crate::typeregister::TypeRegister;
+use crate::typeregister::{self, TypeRegister};
 use crate::{parser, reject_experimental_feature};
 use interfaces::ImplementedInterface;
 use itertools::Either;
@@ -1150,7 +1151,8 @@ impl ElementDebugInfo {
         }
         info.push(',');
         if let Some(layout) = &self.layout {
-            use crate::layout::{Layout, Orientation};
+            use crate::expression_types::Orientation;
+            use crate::layout::Layout;
             match layout {
                 Layout::BoxLayout(b) => match b.orientation {
                     Orientation::Horizontal => info.push_str("h-box"),
@@ -1411,52 +1413,6 @@ pub fn pretty_print(
     writeln!(f, "}}")
 }
 
-#[derive(Clone, Default, Debug)]
-pub struct PropertyAnalysis {
-    /// true if somewhere in the code, there is an expression that changes this property with an assignment
-    pub is_set: bool,
-
-    /// True if this property might be set from a different component.
-    pub is_set_externally: bool,
-
-    /// true if somewhere in the code, an expression is reading this property
-    /// Note: currently this is only set in the binding analysis pass
-    pub is_read: bool,
-
-    /// true if this property is read from another component
-    pub is_read_externally: bool,
-
-    /// True if the property is linked to another property that is read only. That property becomes read-only
-    pub is_linked_to_read_only: bool,
-
-    /// True if this property is linked to another property
-    pub is_linked: bool,
-}
-
-impl PropertyAnalysis {
-    /// Merge analysis from base element for inlining
-    ///
-    /// Contrary to `merge`, we don't keep the external uses because
-    /// they should come from us
-    pub fn merge_with_base(&mut self, other: &PropertyAnalysis) {
-        self.is_set |= other.is_set;
-        self.is_read |= other.is_read;
-    }
-
-    /// Merge the analysis
-    pub fn merge(&mut self, other: &PropertyAnalysis) {
-        self.is_set |= other.is_set;
-        self.is_read |= other.is_read;
-        self.is_read_externally |= other.is_read_externally;
-        self.is_set_externally |= other.is_set_externally;
-    }
-
-    /// Return true if it is read or set or used in any way
-    pub fn is_used(&self) -> bool {
-        self.is_read || self.is_read_externally || self.is_set || self.is_set_externally
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
     pub content_y: NamedReference,
@@ -1470,6 +1426,8 @@ pub struct ListViewInfo {
     pub listview_height: NamedReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: NamedReference,
+    /// The ListView's `ensure-row-visible` function, if it declares one
+    pub ensure_row_visible: Option<NamedReference>,
 }
 
 #[derive(Debug, Clone)]
@@ -1976,6 +1934,18 @@ impl Element {
         }
     }
 
+    pub(crate) fn declares_ensure_row_visible(listview: &Element) -> bool {
+        let lookup =
+            listview.lookup_property("ensure-row-visible", PropertyLookupMode::InternalName);
+        let Type::Function(function) = lookup.property_type else { return false };
+        function.return_type == Type::Void
+            && function.args
+                == [
+                    Type::Int32,
+                    Type::Enumeration(typeregister::BUILTIN.enums.ScrollBehavior.clone()),
+                ]
+    }
+
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
@@ -2023,6 +1993,7 @@ impl Element {
                     has_binding("content-height") || has_binding("viewport-height"),
                 )
             };
+            let declares_ensure_row_visible = Self::declares_ensure_row_visible(&parent_elem);
             drop(parent_elem); // Drop the borrow before creating NamedReference
 
             let lvi = ListViewInfo {
@@ -2033,6 +2004,9 @@ impl Element {
                     .then(|| NamedReference::new(parent, SmolStr::new_static("content-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
+                ensure_row_visible: declares_ensure_row_visible.then(|| {
+                    NamedReference::new(parent, SmolStr::new_static("ensure-row-visible"))
+                }),
             };
             // these properties are set by the ListView layouting code
             if let Some(content_height) = &lvi.content_height {
@@ -3648,6 +3622,9 @@ fn visit_all_named_references_in_element_dyn(
         }
         vis(&mut lv.listview_height);
         vis(&mut lv.listview_width);
+        if let Some(ensure_row_visible) = &mut lv.ensure_row_visible {
+            vis(ensure_row_visible);
+        }
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);

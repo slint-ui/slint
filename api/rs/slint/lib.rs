@@ -491,7 +491,7 @@ pub mod platform {
     ///
     /// It is only enabled when the `renderer-software` Slint feature is enabled.
     pub mod software_renderer {
-        pub use i_slint_renderer_software::*;
+        pub use i_slint_renderer_software::api::*;
     }
 }
 

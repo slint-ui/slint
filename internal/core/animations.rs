@@ -508,14 +508,14 @@ fn easing_test() {
 /// Per-context animation drivers would mean reaching a context from every binding
 /// evaluation, which is a much larger change.
 pub fn update_animations(now: Instant) {
-    CURRENT_ANIMATION_DRIVER.with(|driver| {
-        #[allow(unused_mut)]
-        let mut duration = now.0;
-        #[cfg(feature = "std")]
-        if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
-            let factor = val.parse().unwrap_or(2).max(1);
-            duration /= factor;
-        };
-        driver.update_animations(Instant(duration))
-    });
+    CURRENT_ANIMATION_DRIVER
+        .with(|driver| driver.update_animations(Instant(now.0 / u64::from(slow_down_factor()))));
+}
+
+pub(crate) fn slow_down_factor() -> u32 {
+    #[cfg(feature = "std")]
+    if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
+        return val.parse().unwrap_or(2).max(1);
+    }
+    1
 }

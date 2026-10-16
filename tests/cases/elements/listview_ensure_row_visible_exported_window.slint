@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `UsedWindow` is both an exported root and a sub-component of `TestCase`, so the compiler visits it twice.
+// The second visit used to report "Remove the body of 'ensure-row-visible'" for the std-widgets ListView.
+// Exports are visited in name order, and the error only showed when `UsedWindow` sorted after `TestCase`.
+
+import { ListView } from "std-widgets.slint";
+
+export component UsedWindow inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <length> content-y <=> listview.content-y;
+
+    public function scroll-to-row(row: int) {
+        listview.ensure-row-visible(row, ScrollBehavior.instant);
+    }
+
+    listview := ListView {
+        width: 300px;
+        height: 300px;
+        for i in 20: Rectangle {
+            height: 100px;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <length> content-y <=> inner.content-y;
+
+    callback scroll-to-row(int);
+    scroll-to-row(row) => {
+        inner.scroll-to-row(row);
+    }
+
+    inner := UsedWindow { }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_scroll_to_row(5);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(1., 1.) });
+// Row 5 ends at 600px, so it ends up at the bottom edge of the 300px viewport.
+assert_eq!(instance.get_content_y(), -300.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.invoke_scroll_to_row(5);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 1., 1. }));
+// Row 5 ends at 600px, so it ends up at the bottom edge of the 300px viewport.
+assert_eq(instance.get_content_y(), -300.);
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.scroll_to_row(5);
+// The click only triggers the layout pass; the rows don't react to it.
+slintlib.private_api.send_mouse_click(instance, 150, 150);
+// Row 5 ends at 600px, so it ends up at the bottom edge of the 300px viewport.
+assert.equal(instance.content_y, -300);
+```
+*/

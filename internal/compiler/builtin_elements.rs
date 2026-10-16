@@ -988,6 +988,21 @@ fn build(l: &mut Loader) {
         ///
         /// \footer
         /// <NotInSC>
+        /// ## Animated Images
+        ///
+        /// The `Image` element plays animated GIF, PNG, and WebP images.
+        /// The animation repeats as many times as the image file specifies, then stays on its last frame.
+        ///
+        /// In Rust, enable the `image-default-formats` feature of the `slint` crate for GIF and WebP.
+        /// Images that the compiler embeds for the software renderer show only their first frame.
+        /// In Rust, web builds show only the first frame.
+        ///
+        /// ```slint
+        /// Image {
+        ///     source: @image-url("animation.gif");
+        /// }
+        /// ```
+        ///
         /// ## Accessibility
         ///
         /// ### Alternative text

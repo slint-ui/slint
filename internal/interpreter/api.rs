@@ -1879,6 +1879,35 @@ impl ComponentInstance {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub fn component_item(
+        &self,
+        path: &SourcePath,
+        offset: u32,
+        instance_index: usize,
+        _: i_slint_core::InternalToken,
+    ) -> Option<i_slint_core::items::ItemRc> {
+        crate::highlight::component_item(self.inner.vrc(), path, offset, instance_index)
+    }
+
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub fn item_property(
+        item: &i_slint_core::items::ItemRc,
+        property_name: &str,
+        _: i_slint_core::InternalToken,
+    ) -> Option<Value> {
+        let item_tree = vtable::VRc::borrow(item.item_tree());
+        let instance = item_tree.downcast::<crate::instance::Instance>()?;
+        let (path, local_item_index) = instance.item_table.get(item.index() as usize)?.as_ref()?;
+        let mut owner = &instance.root_sub_component;
+        for &component_index in path {
+            owner = owner.sub_components.get(component_index)?;
+        }
+        owner.items.get(*local_item_index)?.as_ref().get_property(property_name).ok()
+    }
+
     /// Find source elements rendered under `position`, in selection order.
     ///
     /// WARNING: this is not part of the public API

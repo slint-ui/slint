@@ -5,8 +5,7 @@ use std::rc::Rc;
 
 use slint::Rgb8Pixel;
 use slint::platform::software_renderer::{
-    DirtyRegionAlignment, LineBufferProvider, MinimalSoftwareWindow, PhysicalRegion,
-    RepaintBufferType,
+    LineBufferProvider, MinimalSoftwareWindow, PhysicalRegion, RepaintBufferType,
 };
 use slint::platform::{PlatformError, WindowAdapter};
 
@@ -32,7 +31,7 @@ fn assert_aligned(region: &PhysicalRegion) {
 
 fn render_frame(window: &MinimalSoftwareWindow, buffer: &mut [Rgb8Pixel]) {
     assert!(window.draw_if_needed(|renderer| {
-        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(2, 2));
+        renderer.set_dirty_region_alignment(2, 2);
         let region = renderer.render(buffer, WIDTH);
         assert_aligned(&region);
     }));

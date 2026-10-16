@@ -17,9 +17,10 @@ use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::builtin_functions::BuiltinFunction;
 use crate::expression_tree::{Callable, Expression as tree_Expression};
 use crate::expression_types::MouseCursorInner;
-use crate::langtype::{BuiltinStruct, ConstantExpression, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
+use crate::llr::lower_to_item_tree::LoweredElement;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element, ElementRc, ElementWeak, PropertyAnimation};
 
@@ -72,33 +73,6 @@ impl ExpressionLoweringCtx<'_> {
 impl super::TypeResolutionContext for ExpressionLoweringCtx<'_> {
     fn property_ty(&self, _: &MemberReference) -> &Type {
         unimplemented!()
-    }
-}
-
-/// Lower a constant expression, such as the default value of a struct field
-/// (see [`crate::langtype::Struct::field_defaults`]),
-/// so that the code generators can compile it with their regular expression compilation.
-pub fn lower_constant_expression(expression: &ConstantExpression) -> llr_Expression {
-    match expression {
-        ConstantExpression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
-        ConstantExpression::NumberLiteral(n, _unit) => llr_Expression::NumberLiteral(*n),
-        ConstantExpression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        ConstantExpression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
-        ConstantExpression::Cast { from, to } => {
-            llr_Expression::Cast { from: Box::new(lower_constant_expression(from)), to: to.clone() }
-        }
-        ConstantExpression::UnaryOp { sub, op } => {
-            llr_Expression::UnaryOp { sub: Box::new(lower_constant_expression(sub)), op: *op }
-        }
-        ConstantExpression::Struct { ty, values } => llr_Expression::Struct {
-            ty: ty.clone(),
-            values: values.iter().map(|(k, v)| (k.clone(), lower_constant_expression(v))).collect(),
-        },
-        ConstantExpression::Array { element_ty, values } => llr_Expression::Array {
-            element_ty: element_ty.clone(),
-            values: values.iter().map(lower_constant_expression).collect(),
-            output: llr_ArrayOutput::Model,
-        },
     }
 }
 
@@ -292,6 +266,9 @@ fn lower_function_call(
     };
     match function {
         Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments, ctx),
+        Callable::Builtin(BuiltinFunction::ListViewEnsureRowVisible) => {
+            lower_listview_ensure_row_visible(arguments, ctx)
+        }
         Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
             lower_show_popup_window(arguments, ctx)
         }
@@ -635,6 +612,41 @@ fn lower_restart_timer(args: &[tree_Expression], ctx: &ExpressionLoweringCtx) ->
         }
     } else {
         panic!("invalid arguments to RestartTimer");
+    }
+}
+
+fn lower_listview_ensure_row_visible(
+    args: &[tree_Expression],
+    ctx: &mut ExpressionLoweringCtx,
+) -> llr_Expression {
+    let [tree_Expression::ElementReference(e), flickable, row, behavior] = args else {
+        panic!("invalid arguments to ListViewEnsureRowVisible");
+    };
+    let repeated = e.upgrade().unwrap();
+    let enclosing = repeated.borrow().enclosing_component.upgrade().unwrap();
+    let (parent_level, map) = ctx.find_component(&enclosing);
+    let LoweredElement::Repeated { repeated_index } =
+        *map.mapping.element_mapping.get(&repeated.clone().into()).unwrap()
+    else {
+        panic!("ListViewEnsureRowVisible argument isn't a repeated element");
+    };
+
+    let repeater = llr_Expression::PropertyReference(MemberReference::Relative {
+        parent_level,
+        local_reference: LocalMemberReference {
+            sub_component_path: Vec::new(),
+            reference: repeated_index.into(),
+        },
+    });
+    llr_Expression::BuiltinFunctionCall {
+        function: BuiltinFunction::ListViewEnsureRowVisible,
+        arguments: vec![
+            repeater,
+            lower_expression(flickable, ctx),
+            lower_expression(row, ctx),
+            lower_expression(behavior, ctx),
+        ],
+        source_location: None,
     }
 }
 

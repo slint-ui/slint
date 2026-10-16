@@ -8,10 +8,9 @@ use super::{
 };
 use crate::builtin_functions::BuiltinFunction;
 use crate::expression_types::{
-    EasingCurve, ImageReference, MinMaxOp, OperatorClass, operator_class,
+    EasingCurve, ImageReference, MinMaxOp, OperatorClass, Orientation, operator_class,
 };
-use crate::langtype::{Keys, Type};
-use crate::layout::Orientation;
+use crate::langtype::{ConstantExpression, Keys, Type};
 use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
@@ -25,6 +24,26 @@ pub enum ArrayOutput {
 }
 
 pub use crate::expression_types::MouseCursorInner;
+
+/// Name of the local that carries the known width a measure pass measures a
+/// cell at. The generated code binds it around each static measure cell's
+/// `LayoutInfo` expression; shared by the flexbox and box layout measure
+/// passes.
+pub const MEASURE_KNOWN_W_LOCAL: &str = "measure_known_w";
+
+/// Name of the local the generated GridLayout vertical pass binds to the index
+/// of the repeated instance it is about to measure.
+pub const GRID_MEASURE_REPEATER_INDEX_LOCAL: &str = "grid_measure_repeater_index";
+
+/// Name of the local the generated repeated-Row `layout_item_info` binds to the
+/// flattened index of the child it is about to measure.
+pub const GRID_MEASURE_CHILD_INDEX_LOCAL: &str = "grid_measure_child_index";
+
+/// Name of the local that carries the cross-axis (container) width into the
+/// generated `flexbox_layout_item_info_at_cross_width` and
+/// `layout_item_info_at_cross_width` method bodies (the parameter name is
+/// derived from it).
+pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 
 /// One cell of a generated flexbox measure callback: how to re-measure it at a
 /// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
@@ -414,6 +433,33 @@ pub fn split_element_argument<'a>(
 }
 
 impl Expression {
+    /// Lower a constant expression, such as the default value of a struct field
+    /// (see [`crate::langtype::Struct::field_defaults`]),
+    /// so that the code generators can compile it with their regular expression compilation.
+    pub fn from_constant(constant: &ConstantExpression) -> Self {
+        match constant {
+            ConstantExpression::StringLiteral(s) => Self::StringLiteral(s.clone()),
+            ConstantExpression::NumberLiteral(n, _unit) => Self::NumberLiteral(*n),
+            ConstantExpression::BoolLiteral(b) => Self::BoolLiteral(*b),
+            ConstantExpression::EnumerationValue(e) => Self::EnumerationValue(e.clone()),
+            ConstantExpression::Cast { from, to } => {
+                Self::Cast { from: Box::new(Self::from_constant(from)), to: to.clone() }
+            }
+            ConstantExpression::UnaryOp { sub, op } => {
+                Self::UnaryOp { sub: Box::new(Self::from_constant(sub)), op: *op }
+            }
+            ConstantExpression::Struct { ty, values } => Self::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), Self::from_constant(v))).collect(),
+            },
+            ConstantExpression::Array { element_ty, values } => Self::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_constant).collect(),
+                output: ArrayOutput::Model,
+            },
+        }
+    }
+
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
         Some(match ty {
             Type::Invalid
@@ -457,9 +503,7 @@ impl Expression {
                     .iter()
                     .map(|(k, v)| {
                         let value = match s.field_defaults.get(k) {
-                            Some(default_value) => {
-                                super::lower_expression::lower_constant_expression(default_value)
-                            }
+                            Some(default_value) => Expression::from_constant(default_value),
                             None => Expression::default_value_for_type(v)?,
                         };
                         Some((k.clone(), value))
@@ -1158,7 +1202,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                 LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                 LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                 LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
+                LocalMemberIndex::Native { .. }
+                | LocalMemberIndex::Timer(_)
+                | LocalMemberIndex::Repeater(_) => unreachable!(),
             };
         }
 
@@ -1172,6 +1218,7 @@ impl<'a, T> EvaluationContext<'a, T> {
             LocalMemberIndex::Function(function_index) => &sc.functions[*function_index].ret_ty,
             LocalMemberIndex::Callback(callback_index) => &sc.callbacks[*callback_index].ty,
             LocalMemberIndex::Timer(_) => unreachable!("a timer reference has no type"),
+            LocalMemberIndex::Repeater(_) => unreachable!("a repeater reference has no type"),
             LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
@@ -1201,7 +1248,9 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
                     LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                     LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                     LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
+                    LocalMemberIndex::Native { .. }
+                    | LocalMemberIndex::Timer(_)
+                    | LocalMemberIndex::Repeater(_) => unreachable!(),
                 }
             }
         }
@@ -1214,7 +1263,7 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
 
 #[derive(Default, Debug)]
 pub(crate) struct PropertyInfoResult<'a> {
-    pub analysis: Option<&'a crate::object_tree::PropertyAnalysis>,
+    pub analysis: Option<&'a crate::property_analysis::PropertyAnalysis>,
     pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
     pub animation: Option<(&'a Expression, ContextMap)>,
     pub ty: Type,

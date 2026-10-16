@@ -149,6 +149,7 @@ fn builtin_function_is_const(
             true
         }
         BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
+        BuiltinFunction::ListViewEnsureRowVisible => false,
     }
 }
 
@@ -440,30 +441,30 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout.
     ComputeBoxLayoutInfo {
         layout: crate::layout::BoxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
-    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::expression_types::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
     /// Compute the LayoutInfo for the given FlexboxLayout.
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
         /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,

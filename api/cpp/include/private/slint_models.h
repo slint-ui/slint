@@ -1052,12 +1052,17 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
         cbindgen_private::RepeaterLayoutState layout_state {};
+        cbindgen_private::ScrollToRowRequestOpaque scroll_to_row;
         const private_api::Property<bool> *instance_generation;
 
         explicit RepeaterInner(const private_api::Property<bool> *instance_generation)
             : instance_generation(instance_generation)
         {
+            cbindgen_private::slint_repeater_scroll_to_row_construct(&scroll_to_row);
         }
+        ~RepeaterInner() { cbindgen_private::slint_repeater_scroll_to_row_drop(&scroll_to_row); }
+        RepeaterInner(const RepeaterInner &) = delete;
+        RepeaterInner &operator=(const RepeaterInner &) = delete;
 
         /// Call whenever `data` changes outside of `ensure_updated`.
         void instances_changed()
@@ -1291,11 +1296,35 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), content_width, content_height,
-                content_y, listview_width, listview_height);
+                &ops, &inner->layout_state, &inner->scroll_to_row, m->row_count(), content_width,
+                content_height, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
+    }
+
+    /// Scrolls the ListView that the Flickable `flickable_rc` belongs to, so that `row` is fully
+    /// visible, see `Repeater::listview_ensure_row_visible` in Rust.
+    void listview_ensure_row_visible(int row, cbindgen_private::ScrollBehavior behavior,
+                                     const cbindgen_private::ItemRc &flickable_rc) const
+    {
+        refresh_model();
+        const auto m = model.get();
+        if (!inner || !m)
+            return;
+
+        std::vector<float> heights;
+        heights.reserve(inner->data.size());
+        for (const auto &c : inner->data) {
+            heights.push_back(c.ptr ? (*c.ptr)->item_geometry(0).height
+                                    : std::numeric_limits<float>::quiet_NaN());
+        }
+        if (cbindgen_private::slint_repeater_listview_ensure_row_visible(
+                    &inner->layout_state, &inner->scroll_to_row,
+                    private_api::make_slice(heights.data(), heights.size()), m->row_count(), row,
+                    behavior, &flickable_rc)) {
+            inner->is_dirty.set(true);
+        }
     }
 
     /// Returns true if the repeater's model or data has changed since the

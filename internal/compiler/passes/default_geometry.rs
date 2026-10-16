@@ -16,10 +16,10 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::expression_types::{MinMaxOp, Unit};
+use crate::expression_types::{MinMaxOp, Orientation, Unit};
 use crate::langtype::Type;
 use crate::layout::{
-    BuiltinFilter, LayoutConstraints, MergedFixedSize, Orientation, implicit_layout_info_call,
+    BuiltinFilter, LayoutConstraints, MergedFixedSize, implicit_layout_info_call,
     repeated_element_layout_info,
 };
 use crate::object_tree::{Component, ElementRc};

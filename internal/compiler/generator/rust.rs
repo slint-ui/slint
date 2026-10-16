@@ -16,17 +16,12 @@ use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::SourceLocation;
-use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass, Orientation};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
-use crate::layout::Orientation;
-use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{
-    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
-    MEASURE_KNOWN_W_LOCAL,
-};
 use crate::llr::{
-    self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
-    ParentScope, TypeResolutionContext as _,
+    self, ArrayOutput, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext,
+    EvaluationScope, Expression, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
+    MEASURE_KNOWN_W_LOCAL, ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use crate::source_path::SourcePath;
@@ -842,7 +837,7 @@ fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStr
             .map(|field_name| {
                 let value = match the_struct.field_defaults.get(field_name) {
                     Some(expr) => {
-                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        let value = compile_expression(&Expression::from_constant(expr), &ctx);
                         quote!(#value as _)
                     }
                     None => quote!(::core::default::Default::default()),
@@ -3281,7 +3276,9 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 let fn_id = ident(&format!("fn_{}", g.functions[*function_idx].name));
                 MemberAccess::Direct(quote!(#_self.#fn_id))
             }
-            llr::LocalMemberIndex::Native { .. } | llr::LocalMemberIndex::Timer(_) => {
+            llr::LocalMemberIndex::Native { .. }
+            | llr::LocalMemberIndex::Timer(_)
+            | llr::LocalMemberIndex::Repeater(_) => {
                 unreachable!()
             }
         }
@@ -3367,6 +3364,23 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         || MemberAccess::Direct(quote!((#compo_path #timer_field).apply_pin(_self))),
                         |parent_path| {
                             MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #timer_field).apply_pin(x.as_pin_ref()))))
+                        },
+                    )
+                }
+                llr::LocalMemberIndex::Repeater(repeater_index) => {
+                    let (compo_path, sub_component) = follow_sub_component_path(
+                        ctx.compilation_unit,
+                        ctx.parent_sub_component_idx(*parent_level).unwrap(),
+                        &local_reference.sub_component_path,
+                    );
+                    let component_id = inner_component_id(sub_component);
+                    let repeater_ident = format_ident!("repeater{}", usize::from(*repeater_index));
+                    let repeater_field =
+                        access_component_field_offset(&component_id, &repeater_ident);
+                    parent_path.map_or_else(
+                        || MemberAccess::Direct(quote!((#compo_path #repeater_field).apply_pin(_self))),
+                        |parent_path| {
+                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #repeater_field).apply_pin(x.as_pin_ref()))))
                         },
                     )
                 }
@@ -4964,6 +4978,26 @@ fn compile_builtin_function_call(
                     }}
                 }
             })
+        })(),
+        BuiltinFunction::ListViewEnsureRowVisible => (|| {
+            if let [
+                Expression::PropertyReference(repeater),
+                Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+            {
+                let row = compile_expression(row, ctx);
+                let behavior = compile_expression(behavior, ctx);
+                item_owner(flickable).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(flickable, ctx, &owner);
+                    access_member(repeater, ctx).then_named("repeater", |repeater| {
+                        quote!(#repeater.listview_ensure_row_visible(#row, #behavior, &#item_rc))
+                    })
+                })
+            } else {
+                panic!("internal error: invalid args to ListViewEnsureRowVisible {arguments:?}")
+            }
         })(),
         BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             if let [Expression::PropertyReference(pr), constraint_expr] = arguments {

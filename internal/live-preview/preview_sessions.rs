@@ -631,12 +631,7 @@ async fn show_component(
 pub fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
     // Wrap the already-Arc-backed bytes in a Blob without copying.
     let blob = fontique::Blob::new(Arc::new(contents));
-    WindowInner::from_pub(window)
-        .context()
-        .font_context()
-        .borrow_mut()
-        .collection
-        .register_fonts(blob, None);
+    WindowInner::from_pub(window).context().font_context().borrow_mut().register_fonts(blob);
 }
 
 fn install_debug_handler(

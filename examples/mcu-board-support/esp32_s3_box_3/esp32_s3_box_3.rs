@@ -70,6 +70,8 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        // Sized here, not when the event loop starts, so a window created later is too
+        window.set_size(DISPLAY_SIZE);
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -88,6 +90,8 @@ impl Default for EspBackend {
         EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
+
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
@@ -244,10 +248,6 @@ impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let BoardState { mut buffer_provider, touch, mut i2c, _backlight, _int_pin } =
             self.state.borrow_mut().take().expect("event loop already running");
-
-        // Update the Slint window size from the display.
-        let size = slint::PhysicalSize::new(320, 240);
-        self.window.borrow().as_ref().unwrap().set_size(size);
 
         // Variable to track the last touch position.
         let mut last_touch = None;

@@ -1,5 +1,5 @@
 ---
-title: Packaging
+title: Linux Packaging
 description: Package a desktop Slint app for distribution on Linux, using Flatpak
 ---
 
@@ -34,23 +34,29 @@ Depending on your programming language, you also need a tool that converts your 
 The build process is sandboxed just like Flatpaks themselves, and nothing inside it reaches the network.
 Every dependency that would otherwise be downloaded has to be declared up front.
 
-Lockfile conversion scripts exist for every programming language Slint supports:
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
-- Rust
-  - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
-- NodeJS
-  - [`node`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node) - this is the recommended method, supporting `npm`, `yarn` and `pnpm`
-  - [`npm`](https://github.com/flatpak/flatpak-builder-tools/tree/master/npm) (if the `node` script does not work)
-  - [`yarn`](https://github.com/flatpak/flatpak-builder-tools/tree/master/yarn) (if the `node` script does not work)
-- Deno
-  - [`deno`](https://github.com/flatpak/flatpak-builder-tools/tree/master/deno)
-- Python
-  - [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
-  - [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry)
+Convert `Cargo.lock` with the [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
 
 C++ has no standard, cross-platform package manager.
 Vendor your dependencies instead.
-Slint supports Bun, but Flatpak doesn't.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Build the executable as described in [Packaging](/guide/platforms/desktop/packaging/general/).
+
+</TabItem>
+<TabItem label="Python" icon="seti:python">
+
+Convert your lockfile with the [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip) or [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry) script.
+
+</TabItem>
+</Tabs>
 
 ## Creating a Build File
 
@@ -174,7 +180,7 @@ It uses the standard library alone, so it needs no dependencies of its own.
 
 <Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
 
-Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc.
+Skia is configured with `gn`, a build tool the SDK doesn't include, and it's compiled with clang rather than the SDK's gcc.
 That makes for four additions to the manifest:
 
 ```yaml
@@ -233,6 +239,8 @@ Every input is pinned to a commit, so the build stays reproducible, works on eve
 
 Projects created from the Slint template call `find_package(Slint)` and fall back to downloading Slint, and Slint in turn downloads Corrosion.
 The sandbox has no network for either, so both become sources in the manifest, and Slint gets built as its own module that installs into `/app` where `find_package` picks it up.
+Slint's library goes in `/app/lib`, where the dynamic loader of the Flatpak looks,
+so the executable finds it without a run-time search path.
 
 A C++ project has no lockfile of its own, but Slint's C++ library is built from Rust sources, so its crates have to be declared as well.
 Configure your project once outside the sandbox, and everything the manifest needs is on disk:
@@ -324,7 +332,7 @@ project=$PWD
 
 <Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
 
-Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc:
+Skia is configured with `gn`, a build tool the SDK doesn't include, and it's compiled with clang rather than the SDK's gcc:
 
 ```yaml
 # ...
@@ -378,6 +386,29 @@ modules:
 
 The environment and the sources belong to the module that builds Slint, not to your application.
 Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds, so nothing else needs pointing at it.
+
+</TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Put the executable, Slint's addon, and your `.slint` files and other assets in a `dist` directory next to the manifest.
+A `dir` source copies that directory into the build:
+
+```yaml
+# ...
+
+modules:
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      # The executable loads the addon and the .slint files from its own
+      # directory, which a link from bin doesn't change
+      - mkdir -p ${FLATPAK_DEST}/lib/your-app ${FLATPAK_DEST}/bin
+      - cp -R myapp slint-ui.*.node ui ${FLATPAK_DEST}/lib/your-app/
+      - ln -s ../lib/your-app/myapp ${FLATPAK_DEST}/bin/your-app
+    sources:
+      - type: dir
+        path: dist
+```
 
 </TabItem>
 </Tabs>
@@ -690,4 +721,4 @@ Install the result with `flatpak install ./com.yourorganization.YourApp.flatpak`
 A bundle holds your application alone,
 so `--runtime-repo` tells the other machine where to fetch the runtime.
 It's also a snapshot: `flatpak update` can't update an application installed from one.
-To ship updates, serve the `repo` directory over HTTPS and have your users add it as a remote.
+To publish updates, serve the `repo` directory over HTTPS and have your users add it as a remote.
