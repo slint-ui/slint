@@ -74,6 +74,52 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         snapshot.assert_unchanged()
 
 
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_canvas_hovers_and_selects_element_outside_root(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    side: str,
+) -> None:
+    source = fixture_project / "BoundsCases.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        canvas = element(window, "Editor canvas")
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
+        artboard_left = artboard.absolute_position.x
+        artboard_right = artboard_left + artboard.size.width
+        canvas_left = canvas.absolute_position.x
+        canvas_right = canvas_left + canvas.size.width
+        if side == "left":
+            assert artboard_left - canvas_left > 120
+            center_x = (canvas_left + artboard_left) / 2
+        else:
+            assert canvas_right - artboard_right > 120
+            center_x = (artboard_right + canvas_right) / 2
+        expected = (
+            source.read_text()
+            .replace("x: 96px;", f"x: {center_x - 60 - artboard_left}px;", 1)
+            .encode()
+        )
+        source.write_bytes(expected)
+        wait_for_source(source, expected)
+        rectangle = element(window, id="BoundsCases::bounds-rectangle")
+        target = center(rectangle)
+        assert target.x < artboard_left or target.x > artboard_right
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        element(window, "Hovered Rectangle", role=slint_testing.AccessibleRole.Region)
+
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        row = element(
+            window, "bounds-rectangle", role=slint_testing.AccessibleRole.ListItem
+        )
+        expect(row).to_be_selected()
+        element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
+
+
 def test_clear_canvas_selection_does_not_edit_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
