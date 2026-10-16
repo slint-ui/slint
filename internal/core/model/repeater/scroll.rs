@@ -3,8 +3,6 @@
 
 //! Everything related to scrolling in a ListView
 
-// cSpell: ignore Jetpack
-
 use crate::Coord;
 use crate::animations::simulations::{PositionSimulation, Simulation};
 use crate::item_tree::ItemWeak;
@@ -91,7 +89,7 @@ pub(super) fn start_simulation<S: Simulation + PositionSimulation + 'static>(
 }
 
 /// Determine the new request state of the scroll to state machine
-/// Accelerating -> jumping -> Deccelerating
+/// Accelerating -> jumping -> Decelerating
 pub(super) fn advance_scroll_to_row(
     mut request: ScrollToRowRequest,
     top: Coord,

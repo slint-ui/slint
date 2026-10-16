@@ -1,5 +1,11 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 //! A simulation which simulates a scroll to with a constant acceleration at the beginning then a jump and then
 //! a deceleration to keep the simulation short even when the simulation is to a far away row
+
+// cSpell: ignore Jetpack
+
 use crate::Coord;
 use crate::animations::Instant;
 use crate::animations::simulations::accelerate::Accelerate;
@@ -130,7 +136,7 @@ impl AccelerateJumpDecelerate {
                         // If we didn't jump and the target is still far, just update the remaining distance
                         // to go on with the accelerating phase
                         accelerating.set_remaining_distance(distance);
-                        self.phase = Phase::Accelerating(alignment, simulation);
+                        return Some(());
                     }
                     accelerating.speed()
                 };
