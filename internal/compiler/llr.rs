@@ -4,19 +4,26 @@
 // cSpell: ignore optim
 //! The Low Level Representation module
 
+#[cfg(feature = "std")]
 pub mod debug_info;
 mod expression;
 pub use expression::*;
 mod item_tree;
 pub use item_tree::*;
+#[cfg(feature = "std")]
 pub mod lower_expression;
+#[cfg(feature = "std")]
 pub mod lower_layout_expression;
+#[cfg(feature = "std")]
 pub mod lower_to_item_tree;
+#[cfg(feature = "std")]
 mod native_class_selection;
+#[cfg(feature = "std")]
 pub mod pretty_print;
 #[cfg(feature = "serde")]
 pub mod serialize;
 
+#[cfg(feature = "std")]
 /// The optimization passes over the LLR
 pub mod optim_passes {
     pub mod count_property_use;

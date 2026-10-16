@@ -2257,6 +2257,7 @@ dependencies = [
  "lyon_extra",
  "lyon_path",
  "num_enum",
+ "once_cell",
  "pathdiff",
  "postcard",
  "proc-macro2",
