@@ -677,3 +677,24 @@ test("Brush read from a color property", () => {
     app.background = background.darker(0.5);
     expect(app.background.toString()).toBe("#224466");
 });
+
+test("assign brushes to brush and color properties", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <brush> gradient: @linear-gradient(90deg, red 0%, blue 100%);
+            in-out property <brush> target;
+            in-out property <color> color;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // The gradient used to be replaced by its first color.
+    app.target = app.gradient;
+    expect(app.target.toString()).toBe(app.gradient.toString());
+
+    // A `color` property used to reject a `Brush` with a `color`.
+    const plain: Brush = { color: { red: 1, green: 2, blue: 3 } };
+    app.color = plain;
+    expect(app.color.toString()).toBe("#010203");
+});
