@@ -79,6 +79,7 @@ def inspector_field(
                 for control in elements(
                     pane, name, role=slint_testing.AccessibleRole.Button
                 )
+                if control.accessible_enabled
             ]
             if len(controls) == 1 and (
                 pane.absolute_position.y <= controls[0].absolute_position.y
