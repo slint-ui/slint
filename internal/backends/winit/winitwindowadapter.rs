@@ -179,41 +179,9 @@ fn icon_to_winit(
     icon: corelib::graphics::Image,
     size: euclid::Size2D<Coord, PhysicalPx>,
 ) -> Option<winit::window::Icon> {
-    let image_inner: &ImageInner = (&icon).into();
-
-    let pixel_buffer = image_inner.render_to_buffer(Some(size.cast()))?;
-
-    // This could become a method in SharedPixelBuffer...
-    let rgba_pixels: Vec<u8> = match &pixel_buffer {
-        SharedImageBuffer::RGB8(pixels) => pixels
-            .as_bytes()
-            .chunks(3)
-            .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
-            .collect(),
-        SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
-        #[cfg(feature = "image-pixel-format-rgb565")]
-        SharedImageBuffer::RGB565(pixels) => {
-            pixels.as_slice().iter().flat_map(|p| [p.red(), p.green(), p.blue(), 255]).collect()
-        }
-        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
-            .as_bytes()
-            .chunks(4)
-            .flat_map(|rgba| {
-                let alpha = rgba[3] as u32;
-                IntoIterator::into_iter(rgba)
-                    .take(3)
-                    .map(move |component| (*component as u32 * alpha / 255) as u8)
-                    .chain(std::iter::once(alpha as u8))
-            })
-            .collect(),
-        #[cfg(feature = "image-pixel-format-gray8")]
-        SharedImageBuffer::Gray8(pixels) => {
-            pixels.as_bytes().iter().flat_map(|g| [*g, *g, *g, 255]).collect()
-        }
-        _ => return None,
-    };
-
-    winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
+    let pixels =
+        corelib::graphics::image_to_rgba8_with_target_size(&icon, size.cast().to_untyped())?;
+    winit::window::Icon::from_rgba(pixels.as_bytes().to_vec(), pixels.width(), pixels.height()).ok()
 }
 
 /// Images without a cache key, such as ones made from a pixel buffer, compare by identity (#13609).
