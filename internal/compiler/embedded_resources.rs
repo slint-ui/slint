@@ -1,19 +1,64 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore ltrb xywh
+
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 
-#[cfg(feature = "renderer-software")]
-pub use resvg::tiny_skia::IntRect as Rect;
-
 #[derive(Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Size {
     pub width: u32,
     pub height: u32,
 }
 
+/// An integer rectangle, with the accessors of `tiny_skia::IntRect`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Rect {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+}
+
+impl Rect {
+    /// `None` if the rectangle is empty.
+    pub fn from_xywh(x: i32, y: i32, width: u32, height: u32) -> Option<Self> {
+        (width > 0 && height > 0).then_some(Self { x, y, width, height })
+    }
+
+    /// `None` if the rectangle is empty.
+    pub fn from_ltrb(left: i32, top: i32, right: i32, bottom: i32) -> Option<Self> {
+        Self::from_xywh(
+            left,
+            top,
+            u32::try_from(right - left).ok()?,
+            u32::try_from(bottom - top).ok()?,
+        )
+    }
+
+    pub fn x(&self) -> i32 {
+        self.x
+    }
+
+    pub fn y(&self) -> i32 {
+        self.y
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+}
+
 #[derive(Clone, Copy, Debug, strum::Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PixelFormat {
     // 24 bit RGB
     Rgb,
@@ -25,8 +70,8 @@ pub enum PixelFormat {
     AlphaMap([u8; 3]),
 }
 
-#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Texture {
     pub total_size: Size,
     pub original_size: Size,
@@ -35,7 +80,6 @@ pub struct Texture {
     pub format: PixelFormat,
 }
 
-#[cfg(feature = "renderer-software")]
 impl Texture {
     pub fn new_empty() -> Self {
         Self {
@@ -48,8 +92,8 @@ impl Texture {
     }
 }
 
-#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapGlyph {
     pub x: i16,
     pub y: i16,
@@ -60,15 +104,15 @@ pub struct BitmapGlyph {
     pub data: Vec<u8>,
 }
 
-#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapGlyphs {
     pub pixel_size: i16,
     pub glyph_data: Vec<BitmapGlyph>,
 }
 
-#[cfg(feature = "renderer-software")]
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitmapFont {
     pub family_name: String,
     /// Sorted code points; each one's position is its glyph index.
@@ -83,6 +127,17 @@ pub struct BitmapFont {
     pub italic: bool,
     /// true when the font is represented as a signed distance field
     pub sdf: bool,
+}
+
+/// An embedded resource, as the compilation unit carries it for the interpreter.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum EmbeddedResource {
+    /// A resource the code generators embed from the file, which the unit doesn't carry.
+    #[default]
+    NotInUnit,
+    Texture(Texture),
+    BitmapFont(BitmapFont),
 }
 
 #[derive(Debug, Clone)]

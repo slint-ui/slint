@@ -40,6 +40,11 @@ pub use i_slint_core::api::*;
 #[cfg(feature = "std")]
 pub use i_slint_compiler::DefaultTranslationContext;
 
+/// Argument of [`Compiler::set_embed_resources()`]
+#[doc(hidden)]
+#[cfg(all(feature = "internal", feature = "std"))]
+pub use i_slint_compiler::EmbedResourcesKind;
+
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
 #[derive(Debug, Copy, Clone, PartialEq)]

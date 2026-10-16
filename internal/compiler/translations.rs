@@ -453,6 +453,8 @@ mod plural_rule_parser {
                     translations: None,
                     popup_menu: None,
                     type_exports: Default::default(),
+                    const_scale_factor: None,
+                    embedded_resources: Default::default(),
                 },
                 current_scope: crate::llr::EvaluationScope::Global(0.into()),
                 generator_state: (),

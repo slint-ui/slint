@@ -820,6 +820,15 @@ pub struct CompilationUnit {
     #[cfg_attr(feature = "serde", serde(skip))]
     pub type_exports: Vec<TypeExport>,
     pub translations: Option<crate::translations::Translations>,
+    /// The scale factor the compiler rendered the textures and fonts for, which the window
+    /// must then have.
+    pub const_scale_factor: Option<f32>,
+    /// The pre-rendered textures and fonts the unit's code refers to by index, for the
+    /// interpreter. The code generators embed resources from the document instead.
+    pub embedded_resources: TiVec<
+        crate::embedded_resources::EmbeddedResourcesIdx,
+        crate::embedded_resources::EmbeddedResource,
+    >,
 }
 
 // The code generators may run on another thread, so the LLR must not reference the object tree.

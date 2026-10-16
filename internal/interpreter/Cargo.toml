@@ -178,6 +178,12 @@ internal-highlight = ["std"]
 # NOTE: this is not a semver compatible feature
 internal-json = ["std", "dep:serde_json"]
 
+# (internal) Show an image of a single color that the compiler pre-rendered as an alpha map
+# without expanding it to RGBA. Every crate of the build that draws images must enable its
+# `image-pixel-format-alpha-map` feature too.
+# NOTE: this is not a semver compatible feature
+internal-image-pixel-format-alpha-map = ["i-slint-core/image-pixel-format-alpha-map"]
+
 
 [dependencies]
 i-slint-compiler = { workspace = true }
@@ -224,6 +230,7 @@ i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true 
 i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [dev-dependencies]
+i-slint-compiler = { path = "../../internal/compiler", features = ["serde", "renderer-software"] }
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
 spin_on = { workspace = true }
 tempfile = "3"

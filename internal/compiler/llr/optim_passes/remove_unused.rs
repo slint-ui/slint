@@ -246,6 +246,8 @@ mod visitor {
             has_debug_info: _,
             type_exports: _,
             translations: _,
+            const_scale_factor: _,
+            embedded_resources: _,
         }: &mut crate::llr::CompilationUnit,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
