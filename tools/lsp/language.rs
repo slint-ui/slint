@@ -7,11 +7,6 @@ pub mod completion;
 mod formatting;
 mod goto;
 mod hover;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
-))]
-mod preview_files;
 mod semantic_tokens;
 mod signature_help;
 #[cfg(test)]
@@ -147,18 +142,14 @@ pub fn store_user_settings(name: &str, contents: &str) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
-    let file_access = std::cell::OnceCell::new();
-    ctx.session.send_files_to_preview(0, files, |path| {
-        file_access
-            .get_or_init(|| {
-                preview_files::PreviewFileAccess::new(
-                    &ctx.init_param,
-                    &ctx.session.preview_config,
-                    &ctx.session.document_cache,
-                )
+    let workspace_folders: Vec<_> =
+        crate::host_language_search::resolve_workspace_folders(&ctx.init_param)
+            .iter()
+            .filter_map(|folder| {
+                i_slint_compiler::source_path::SourcePath::from_url(&folder.uri).into_native_path()
             })
-            .allows(path)
-    });
+            .collect();
+    ctx.session.send_files_to_preview(0, files, &workspace_folders);
 }
 
 #[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
