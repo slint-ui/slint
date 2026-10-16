@@ -684,7 +684,7 @@ mod tests {
                 let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
                 let imported =
                     Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
-                let error_line = r#"    in property <string> label: "Größe"; foo: 1;"#;
+                let error_line = r#"    in property <string> label: "Next →"; foo: 1;"#;
                 for message in [
                     LspToPreviewMessage::SetConfiguration {
                         config: PreviewConfig { format_utf8: false, ..Default::default() },
