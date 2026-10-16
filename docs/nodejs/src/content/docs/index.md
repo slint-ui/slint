@@ -47,16 +47,9 @@ To use Slint with Bun, ensure the following programs are installed:
 ### Building from Source
 
 Slint-node comes with pre-built binaries for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
-On other systems, installing the `slint-ui` package succeeds, but loading it fails because no matching binary is found.
-`npm install` doesn't build Slint-node from source automatically.
-Instead, build it yourself from a checkout of the [Slint repository](https://github.com/slint-ui/slint):
-run `pnpm install && pnpm build` in `api/node`.
-This requires:
-
-  * **[pnpm](https://www.pnpm.io/)**
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)**
-  * Depending on your operating system, you may need additional components. For a list of required system libraries,
-    see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
+On other systems, `npm install slint-ui` succeeds, but it doesn't build Slint-node from source, so loading it fails.
+To build it yourself and make your application use that build,
+see [Node.js API Build](https://github.com/slint-ui/slint/blob/master/docs/building.md#nodejs-api-build).
 
 ## Getting Started (Node.js)
 
