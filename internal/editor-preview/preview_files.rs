@@ -15,7 +15,7 @@ use crate::DocumentCache;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::expression_types::ImageReference;
 use i_slint_compiler::object_tree::visit_all_expressions;
-use i_slint_compiler::source_path::clean_path;
+use i_slint_compiler::source_path::{SourcePath, clean_path};
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -40,14 +40,23 @@ pub(crate) struct PreviewFileAccess {
     /// Every file the compiler loaded for this project. Sources aren't required
     /// to be named `.slint`, so this is what says a file belongs to the project
     /// rather than its name does.
+    /// It also holds the session's document roots,
+    /// which drop out of the cache while they change on disk.
     project_files: HashSet<PathBuf>,
     /// The images and fonts the loaded documents reference, wherever they are.
     referenced_resources: HashSet<PathBuf>,
 }
 
 impl PreviewFileAccess {
-    pub(crate) fn new(workspace_folders: &[PathBuf], document_cache: &DocumentCache) -> Self {
-        let project_files = document_cache.all_paths_to_watch();
+    pub(crate) fn new(
+        workspace_folders: &[PathBuf],
+        document_cache: &DocumentCache,
+        document_roots: &HashSet<lsp_types::Url>,
+    ) -> Self {
+        let mut project_files = document_cache.all_paths_to_watch();
+        project_files.extend(
+            document_roots.iter().filter_map(|url| SourcePath::from_url(url).into_native_path()),
+        );
         let compiler_config = document_cache.compiler_configuration().compiler_config;
 
         // Deduplicated before canonicalizing: a project has many more files
@@ -145,7 +154,7 @@ mod tests {
     use crate::test::empty_document_cache;
 
     fn access(document_cache: &DocumentCache) -> PreviewFileAccess {
-        PreviewFileAccess::new(&[], document_cache)
+        PreviewFileAccess::new(&[], document_cache, &HashSet::new())
     }
 
     fn cache_with_paths(
@@ -300,8 +309,41 @@ mod tests {
         std::fs::write(&logo, []).unwrap();
 
         let document_cache = empty_document_cache();
-        let access = PreviewFileAccess::new(&[workspace.path().to_path_buf()], &document_cache);
+        let access = PreviewFileAccess::new(
+            &[workspace.path().to_path_buf()],
+            &document_cache,
+            &HashSet::new(),
+        );
 
         assert!(access.allows(&logo));
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn serves_a_previewed_document_while_it_reloads() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewComponent};
+
+        let project = tempfile::tempdir().unwrap();
+        let main = project.path().join("main.slint");
+        let main_source = "export component Main { }";
+        std::fs::write(&main, main_source).unwrap();
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.primary_preview_mut().to_preview = capture;
+        let (url, _) = crate::test::load(&mut session, &main, main_source);
+        session.show_preview(0, PreviewComponent { url: url.clone(), component: None });
+        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
+            .unwrap();
+        recorded.borrow_mut().clear();
+
+        session.send_files_to_preview(0, &[url], &[]);
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::SetContents { .. }]),
+            "{recorded:?}"
+        );
     }
 }

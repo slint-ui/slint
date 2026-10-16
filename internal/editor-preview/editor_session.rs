@@ -751,6 +751,7 @@ impl EditorSession {
                 crate::preview_files::PreviewFileAccess::new(
                     workspace_folders,
                     &self.document_cache,
+                    &self.document_roots(),
                 )
             });
             if !file_access.allows(&path) {
