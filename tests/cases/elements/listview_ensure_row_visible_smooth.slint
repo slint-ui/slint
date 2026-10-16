@@ -82,7 +82,10 @@ let run_until_settled = || {
             "scrolling didn't settle within {MAX_SCROLL_DURATION_MS} ms: {positions:?}"
         );
         let y = advance_frame_and_layout();
-        unchanged_frames = if y == *positions.last().unwrap() { unchanged_frames + 1 } else { 0 };
+        // Far down the list, an f32 `content-y` only has a resolution of a few pixels,
+        // so a scroll from rest takes a few frames until it moves.
+        let started = y != positions[0];
+        unchanged_frames = if started && y == *positions.last().unwrap() { unchanged_frames + 1 } else { 0 };
         positions.push(y);
     }
     positions
@@ -287,7 +290,8 @@ auto run_until_settled = [&] {
     while (unchanged_frames < 3) {
         assert(positions.size() * frame_ms <= max_scroll_duration_ms);
         const float y = advance_frame_and_layout();
-        unchanged_frames = y == positions.back() ? unchanged_frames + 1 : 0;
+        const bool started = y != positions.front();
+        unchanged_frames = started && y == positions.back() ? unchanged_frames + 1 : 0;
         positions.push_back(y);
     }
     return positions;
@@ -492,7 +496,8 @@ function run_until_settled() {
     while (unchanged_frames < 3) {
         assert(positions.length * FRAME_MS <= MAX_SCROLL_DURATION_MS, `scrolling didn't settle within ${MAX_SCROLL_DURATION_MS} ms: ${positions}`);
         const y = advance_frame_and_layout();
-        unchanged_frames = y == positions[positions.length - 1] ? unchanged_frames + 1 : 0;
+        const started = y != positions[0];
+        unchanged_frames = started && y == positions[positions.length - 1] ? unchanged_frames + 1 : 0;
         positions.push(y);
     }
     return positions;
@@ -631,11 +636,9 @@ instance.ensure_row_visible(900, "smooth");
 for (let i = 0; i < 5; ++i) {
     advance_frame_and_layout();
 }
+// `pointer-scrolled` scrolls instantly, without the animation of a mouse wheel.
 instance.window.dispatchEvent({ type: "pointer-scrolled", position: { x: 300, y: 300 }, deltaX: 0, deltaY: 100 });
-const wheel_positions = run_until_settled();
-const wheel_steps = steps(wheel_positions);
-assert(wheel_steps.every((s) => Math.abs(s) <= jump_min_step), `the interrupted scroll must not jump: ${wheel_steps}`);
-const last = wheel_positions[wheel_positions.length - 1];
+const last = instance.content_y;
 assert(
     last > bottom_aligned(900) + MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS * viewport,
     `the interrupted scroll must not reach row 900, stopped at ${last}`,
