@@ -130,7 +130,7 @@ export component InspectorShadowControl inherits Rectangle {
                         border-color: Colors.muted;
                     }
                 }
-                if toggle.enabled && toggle.has-focus: Rectangle {
+                if toggle.enabled && toggle.focus-visible: switch-focus-ring := Rectangle {
                     x: -2px;
                     y: -2px;
                     width: parent.width + 4px;

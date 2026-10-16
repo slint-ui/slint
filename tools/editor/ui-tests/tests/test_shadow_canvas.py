@@ -594,6 +594,44 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
 
 
+def test_shadow_switch_focus_ring_requires_tab_navigation(
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
+):
+    baseline = shadow_scene.read_bytes()
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        ring = query(switch, id="InspectorShadowControl::switch-focus-ring")
+        gesture(window, center(switch), center(switch))
+        disabled = wait_for_source_change(shadow_scene, baseline)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect(ring).to_be_hidden()
+        press_key(window, keys.Space)
+        enabled = wait_for_source_change(shadow_scene, disabled)
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        expect(ring).to_be_hidden()
+        screenshot(window).save(tmp_path / "pointer-focus.png")
+
+        press_key(window, keys.Tab)
+        press_shortcut(window, keys.Shift, keys.Tab)
+        expect(ring).to_be_visible()
+        screenshot(window).save(tmp_path / "keyboard-focus.png")
+        press_key(window, keys.Space)
+        wait_for_source_change(shadow_scene, enabled)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect(ring).to_be_visible()
+
+        gesture(window, center(switch), center(switch))
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        expect(ring).to_be_hidden()
+
+
 @pytest.mark.parametrize("other_enabled", [False, True])
 def test_shadow_switches_enable_independently_and_support_keyboard_undo(
     shadow_family,
