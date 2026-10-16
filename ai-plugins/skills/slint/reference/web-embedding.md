@@ -46,4 +46,6 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
 
 - Before 1.19, hiding the last instance ends the event loop, and later calls fail with "The event loop was already terminated".
   Reuse the window with `create_with_existing_window()`.
-- A Rust panic leaves the module unusable until the page reloads.
+- A Rust panic leaves the module unusable, and its pending promises never settle.
+  The panic hook logs it with `console.error`, starting with "panicked at".
+  To recover without a reload, import the module again under a new URL fragment, such as `#2`, and give it a new canvas.

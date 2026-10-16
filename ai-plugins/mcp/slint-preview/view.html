@@ -30,8 +30,9 @@
     max-width: 100% !important;
   }
   canvas[hidden] { display: none; }
-  #status { color: var(--muted); }
+  #status { color: var(--muted); white-space: pre-wrap; }
   #status:empty { display: none; }
+  #status.error { color: var(--error); }
   #diagnostics { margin: 8px 0 0; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
@@ -47,7 +48,8 @@
   const LEVELS = ["error", "warning", "note"];
 
   const statusEl = document.getElementById("status");
-  const canvas = document.getElementById("preview");
+  let canvas = document.getElementById("preview");
+  const pristineCanvas = canvas.cloneNode();
   const diagnosticsEl = document.getElementById("diagnostics");
 
   let nextId = 1;
@@ -99,34 +101,90 @@
     notify("ui/notifications/size-changed", { width, height });
   }).observe(document.body);
 
-  let slintPromise = null;
-  async function loadSlint(channel) {
+  function showStatus(text, className = "") {
+    statusEl.textContent = text;
+    statusEl.className = className;
+  }
+
+  // A Rust panic leaves the interpreter module unusable, and its pending promises never settle.
+  // The module's panic hook reports the panic through console.error.
+  class Panic extends Error {}
+  let interpreter = null;
+  let interpreterLoads = 0;
+
+  function loadInterpreter(channel) {
     // One interpreter per view: a second module instance can't share the event loop.
-    slintPromise ??= (async () => {
-      const slint = await import(INTERPRETER_URLS[channel] ?? INTERPRETER_URLS.release);
+    if (interpreter) return interpreter;
+    let panic;
+    const panicked = new Promise((_, reject) => (panic = reject));
+    panicked.catch(() => {});
+    // A new fragment imports a fresh module instance, with its own WebAssembly memory.
+    // Stack traces of the module's panics include the fragment.
+    const tag = `#instance-${++interpreterLoads}`;
+    const slint = import((INTERPRETER_URLS[channel] ?? INTERPRETER_URLS.release) + tag).then(async (slint) => {
       await slint.default();
       slint.run_event_loop();
       return slint;
-    })();
-    return slintPromise;
+    });
+    interpreter = { tag, slint, panicked, panic };
+    return interpreter;
+  }
+
+  // A promise can resolve in the same task that panics, so a resolved value may belong to a dead module.
+  async function untilPanic(current, promise) {
+    const result = await Promise.race([promise, current.panicked]);
+    if (current !== interpreter) throw new Panic();
+    return result;
+  }
+
+  const nativeConsoleError = console.error.bind(console);
+  console.error = (...args) => {
+    nativeConsoleError(...args);
+    const [message] = args;
+    // A dead module can panic again from its leftover event listeners.
+    if (typeof message === "string" && message.startsWith("panicked at ") && message.includes(`${interpreter?.tag}:`)) {
+      handlePanic(message.split("\n\nStack:")[0]);
+    }
+  };
+
+  function handlePanic(message) {
+    if (!interpreter) return;
+    interpreter.panic(new Panic(message));
+    interpreter = null;
+    instance = null;
+    // The dead module keeps its listeners on the old canvas and media queries.
+    darkQueryLists.length = 0;
+    const freshCanvas = pristineCanvas.cloneNode();
+    canvas.replaceWith(freshCanvas);
+    canvas = freshCanvas;
+    showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
+    reportToModel(
+      "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
+        `The next preview_slint call starts a fresh interpreter.\n${message}`,
+    );
   }
 
   let instance = null;
   async function render({ source, style, channel }) {
-    statusEl.textContent = "Loading the Slint interpreter…";
+    showStatus("Loading the Slint interpreter…");
+    const current = loadInterpreter(channel);
     let slint;
     try {
-      slint = await loadSlint(channel);
+      slint = await untilPanic(current, current.slint);
     } catch (e) {
-      statusEl.textContent = `Couldn't load the Slint interpreter: ${e}`;
-      statusEl.className = "error";
+      if (e instanceof Panic) throw e;
+      if (current === interpreter) interpreter = null;
+      showStatus(`Couldn't load the Slint interpreter: ${e}`, "error");
       reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
-    statusEl.textContent = "Compiling…";
-    const { component, diagnostics } = style
-      ? await slint.compile_from_string_with_style(source, "main.slint", style, null)
-      : await slint.compile_from_string(source, "main.slint", null);
+    showStatus("Compiling…");
+    const { component, diagnostics } = await untilPanic(
+      current,
+      style
+        ? slint.compile_from_string_with_style(source, "main.slint", style, null)
+        : slint.compile_from_string(source, "main.slint", null),
+    );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
       const li = document.createElement("li");
@@ -147,15 +205,16 @@
 
     if (!component) {
       canvas.hidden = true;
-      statusEl.textContent = "";
+      showStatus("");
       return;
     }
     canvas.hidden = false;
-    instance = instance
-      ? await component.create_with_existing_window(instance)
-      : await component.create("preview");
-    await instance.show();
-    statusEl.textContent = "";
+    instance = await untilPanic(
+      current,
+      instance ? component.create_with_existing_window(instance) : component.create("preview"),
+    );
+    await untilPanic(current, instance.show());
+    showStatus("");
   }
 
   function reportToModel(text) {
@@ -175,8 +234,12 @@
     switch (message.method) {
       case "ui/notifications/tool-input":
         render(message.params?.arguments ?? {}).catch((e) => {
-          statusEl.textContent = `The preview failed: ${e}. Reload to try again.`;
-          statusEl.className = "error";
+          if (e instanceof Panic) return;
+          if (e instanceof WebAssembly.RuntimeError) {
+            handlePanic(String(e));
+            return;
+          }
+          showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
         });
         break;
       case "ui/notifications/host-context-changed":
