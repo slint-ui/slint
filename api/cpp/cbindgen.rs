@@ -538,6 +538,7 @@ fn gen_corelib(
         "PointerScrollEvent",
         "Rect",
         "BitmapFont",
+        "StaticStorage",
         "DataTransferOpaque",
         // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
         // cbindgen can't see those (not extern "C"), and it is no longer reachable
@@ -1062,6 +1063,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
+        .with_src(crate_dir.join("../common/bitmapfont.rs"))
         .with_include("private/slint_config.h")
         .with_include("private/vtable.h")
         .with_include("private/slint_string.h")

@@ -1090,6 +1090,13 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    fn register_shared_bitmap_font(
+        &self,
+        font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>>,
+    ) {
+        fonts::register_shared_bitmap_font(font);
+    }
+
     #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
@@ -1203,7 +1210,7 @@ fn parley_disabled() -> bool {
 /// `text_input_has_parley_layout` reports, and it has to be the one that was drawn.
 #[cfg(feature = "systemfonts")]
 fn uses_parley(font: &fonts::Font) -> bool {
-    matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled()
+    matches!(font, fonts::Font::Vector(_)) && !parley_disabled()
 }
 
 /// The paragraph layout the cursor and hit-testing queries measure against.
@@ -1468,6 +1475,7 @@ fn prepare_scene(
 
 trait ProcessScene {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand);
     fn process_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
@@ -1864,6 +1872,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         self.process_texture_impl(geometry, texture);
     }
 
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
+        self.process_texture_impl(geometry, command.as_texture());
+    }
+
     fn process_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
@@ -1988,6 +2000,17 @@ struct PrepareScene {
 }
 
 impl ProcessScene for PrepareScene {
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
+        let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+        self.vectors.shared_buffers.push(command);
+        self.items.push(SceneItem {
+            pos: geometry.origin,
+            size: geometry.size,
+            z: self.items.len() as u16,
+            command: SceneCommand::SharedBuffer { shared_buffer_index },
+        });
+    }
+
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
@@ -2009,36 +2032,27 @@ impl ProcessScene for PrepareScene {
         };
         match &texture.data {
             target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
-                let texture_index = self.vectors.textures.len() as u16;
                 let pixel_stride =
                     (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
-                self.vectors.textures.push(SceneTexture {
-                    data: texture_data.data,
-                    format: texture_data.pixel_format,
-                    pixel_stride,
-                    extra,
-                });
-                self.items.push(SceneItem {
-                    pos: geometry.origin,
-                    size: geometry.size,
-                    z: self.items.len() as u16,
-                    command: SceneCommand::Texture { texture_index },
-                });
+                self.process_scene_texture(
+                    geometry,
+                    SceneTexture {
+                        data: texture_data.data,
+                        format: texture_data.pixel_format,
+                        pixel_stride,
+                        extra,
+                    },
+                );
             }
-            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
-                let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
-                self.vectors.shared_buffers.push(SharedBufferCommand {
-                    buffer: buffer.clone(),
-                    source_rect: *source_rect,
-                    extra,
-                });
-                self.items.push(SceneItem {
-                    pos: geometry.origin,
-                    size: geometry.size,
-                    z: self.items.len() as u16,
-                    command: SceneCommand::SharedBuffer { shared_buffer_index },
-                });
-            }
+            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => self
+                .process_shared_buffer(
+                    geometry,
+                    SharedBufferCommand {
+                        buffer: buffer.clone(),
+                        source_rect: *source_rect,
+                        extra,
+                    },
+                ),
         }
     }
 
@@ -2467,63 +2481,78 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         continue;
                     };
 
+                    if glyph.sdf {
+                        let geometry = clipped_target.translate(offset).round();
+                        let origin = (geometry.origin - offset.round()).round().cast::<i16>();
+                        let off_x = origin.x - target_rect.origin.x as i16;
+                        let off_y = origin.y - target_rect.origin.y as i16;
+                        let pixel_stride = glyph.pixel_stride;
+                        let mut geometry = geometry.cast();
+                        if geometry.size.width > glyph.width.get() - off_x {
+                            geometry.size.width = glyph.width.get() - off_x
+                        }
+                        if geometry.size.height > glyph.height.get() - off_y {
+                            geometry.size.height = glyph.height.get() - off_y
+                        }
+                        let source_size = geometry.size;
+                        if source_size.is_empty() {
+                            continue;
+                        }
+
+                        let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                        let normalize = |x: Fixed<i32, 8>| {
+                            if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
+                        };
+                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                        let off_x = delta32 * off_x as i32 + fract_x;
+                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                        let off_y = delta32 * off_y as i32 + fract_y;
+                        let extra = SceneTextureExtra {
+                            colorize: color,
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
+                            rotation: self.rotation.orientation,
+                            dx: scale_delta,
+                            dy: scale_delta,
+                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                        };
+                        let geometry = geometry.transformed(self.rotation);
+                        match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                self.processor.process_scene_texture(
+                                    geometry,
+                                    SceneTexture {
+                                        data,
+                                        pixel_stride,
+                                        format: TexturePixelFormat::SignedDistanceField,
+                                        extra,
+                                    },
+                                )
+                            }
+                            fonts::GlyphAlphaMap::Shared { .. }
+                            | fonts::GlyphAlphaMap::Rendered(_) => {
+                                let buffer = SharedBufferData::AlphaMap {
+                                    data: glyph.alpha_map.clone(),
+                                    width: pixel_stride,
+                                    sdf: true,
+                                };
+                                let source_rect = euclid::rect(
+                                    0,
+                                    0,
+                                    buffer.width() as i16,
+                                    buffer.height() as i16,
+                                );
+                                self.processor.process_shared_buffer(
+                                    geometry,
+                                    SharedBufferCommand { buffer, source_rect, extra },
+                                )
+                            }
+                        }
+                        continue;
+                    }
                     let data = match &glyph.alpha_map {
                         fonts::GlyphAlphaMap::Static(data) => {
-                            if glyph.sdf {
-                                let geometry = clipped_target.translate(offset).round();
-                                let origin =
-                                    (geometry.origin - offset.round()).round().cast::<i16>();
-                                let off_x = origin.x - target_rect.origin.x as i16;
-                                let off_y = origin.y - target_rect.origin.y as i16;
-                                let pixel_stride = glyph.pixel_stride;
-                                let mut geometry = geometry.cast();
-                                if geometry.size.width > glyph.width.get() - off_x {
-                                    geometry.size.width = glyph.width.get() - off_x
-                                }
-                                if geometry.size.height > glyph.height.get() - off_y {
-                                    geometry.size.height = glyph.height.get() - off_y
-                                }
-                                let source_size = geometry.size;
-                                if source_size.is_empty() {
-                                    continue;
-                                }
-
-                                let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
-                                let normalize = |x: Fixed<i32, 8>| {
-                                    if x < Fixed::from_integer(0) {
-                                        x + Fixed::from_integer(1)
-                                    } else {
-                                        x
-                                    }
-                                };
-                                let fract_x =
-                                    normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
-                                let off_x = delta32 * off_x as i32 + fract_x;
-                                let fract_y =
-                                    normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                                let off_y = delta32 * off_y as i32 + fract_y;
-                                let texture = SceneTexture {
-                                    data,
-                                    pixel_stride,
-                                    format: TexturePixelFormat::SignedDistanceField,
-                                    extra: SceneTextureExtra {
-                                        colorize: color,
-                                        // color already is mixed with global alpha
-                                        alpha: color.alpha(),
-                                        rotation: self.rotation.orientation,
-                                        dx: scale_delta,
-                                        dy: scale_delta,
-                                        off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                                        off_y: Fixed::try_from_fixed(off_y).unwrap(),
-                                    },
-                                };
-                                self.processor.process_scene_texture(
-                                    geometry.transformed(self.rotation),
-                                    texture,
-                                );
-                                continue;
-                            };
-
                             target_pixel_buffer::TextureDataContainer::Static(
                                 target_pixel_buffer::TextureData::new(
                                     data,
@@ -2533,12 +2562,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 ),
                             )
                         }
-                        fonts::GlyphAlphaMap::Shared(data) => {
+                        fonts::GlyphAlphaMap::Shared { .. } | fonts::GlyphAlphaMap::Rendered(_) => {
                             let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::AlphaMap {
-                                    data: data.clone(),
+                                    data: glyph.alpha_map.clone(),
                                     width: glyph.pixel_stride,
+                                    sdf: false,
                                 },
                                 source_rect,
                             }
@@ -3416,8 +3446,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                 target_pixel_buffer::TextureDataContainer::Shared {
                     buffer: SharedBufferData::AlphaMap {
-                        data: glyph.alpha_map,
+                        data: glyph.alpha_map.into(),
                         width: glyph.pixel_stride,
+                        sdf: false,
                     },
                     source_rect,
                 }

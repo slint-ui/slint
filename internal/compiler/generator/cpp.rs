@@ -1223,7 +1223,7 @@ fn embed_resource(
                 array_size: Some(family_name_size),
                 init: Some(format!(
                     "{{ {} }}",
-                    family_name.as_bytes().iter().map(ToString::to_string).join(", ")
+                    family_name.iter().map(ToString::to_string).join(", ")
                 )),
                 ..Default::default()
             }));
@@ -1261,7 +1261,7 @@ fn embed_resource(
                 }
 
                 declarations.push(Declaration::Var(Var{
-                    ty: "const slint::cbindgen_private::BitmapGlyph".into(),
+                    ty: "const slint::cbindgen_private::BitmapGlyph<slint::cbindgen_private::StaticStorage>".into(),
                     name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource_id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
@@ -1279,7 +1279,7 @@ fn embed_resource(
                 format_smolstr!("slint_embedded_resource_{}_glyphsets", resource_id);
             let glyphsets_size = glyphs.len();
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
+                ty: "const slint::cbindgen_private::BitmapGlyphs<slint::cbindgen_private::StaticStorage>".into(),
                 name: glyphsets_var.clone(),
                 array_size: Some(glyphsets_size),
                 init: Some(format!(
@@ -1297,7 +1297,7 @@ fn embed_resource(
             }));
 
             let init = format!(
-                "slint::cbindgen_private::BitmapFont {{
+                "slint::cbindgen_private::BitmapFont<slint::cbindgen_private::StaticStorage> {{
                         .family_name = slint::private_api::make_slice({family_name_var} , {family_name_size}),
                         .character_map = slint::private_api::make_slice({charmap_var}, {charmap_size}),
                         .units_per_em = {units_per_em},
@@ -1313,7 +1313,8 @@ fn embed_resource(
             );
 
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::BitmapFont".into(),
+                ty: "const slint::cbindgen_private::BitmapFont<slint::cbindgen_private::StaticStorage>"
+                    .into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: None,
                 init: Some(init),
