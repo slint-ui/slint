@@ -182,3 +182,29 @@ export component Example inherits Window {
 ```
 
 To fix the loop, add `height: 0px;` to `panel`, or replace its states with `height: open ? self.preferred-height : 0px;`.
+
+#### Binding Loops Inside a Longer Binding Loop Are Reported
+
+Before 1.19, the compiler skipped a binding loop when all its bindings were part of a longer binding loop it had already reported:
+
+- When the longer loop went through the window layout, it was only a warning, so the code compiled.
+- When the longer loop was an error too, the shorter one only showed up after fixing the longer one.
+
+With edition 1.19, the compiler reports the shorter loop as an error too.
+In this example, the inner `Rectangle` is a cell of the `VerticalLayout` and also reads its width.
+Before, the compiler only warned about the loop through the window layout:
+
+```slint no-test
+export component Example inherits Window {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+                // error: The binding for the property 'width' is part of a binding loop
+                Rectangle { width: parent.width; }
+            }
+        }
+    }
+}
+```
+
+To fix the loop, remove `width: parent.width;`: a layout already stretches its cells to its width.
