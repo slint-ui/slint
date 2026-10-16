@@ -6,6 +6,7 @@
 // See https://github.com/modelcontextprotocol/ext-apps for the UI extension.
 
 import { readFileSync } from "node:fs";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
 
 const VIEW_URI = "ui://slint/preview.html";
@@ -35,12 +36,17 @@ const tools = [
         name: "preview_slint",
         title: "Preview Slint",
         description:
-            "Render self-contained .slint source as a live, interactive preview in the conversation. " +
-            "The source may import from std-widgets.slint but no other files. " +
+            "Render .slint code as a live, interactive preview in the conversation. " +
+            "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "Compile errors are reported back to you once the preview has loaded.",
         inputSchema: {
             type: "object",
             properties: {
+                path: {
+                    type: "string",
+                    description:
+                        "Absolute path of the .slint file to preview. The last exported component is shown.",
+                },
                 source: {
                     type: "string",
                     description:
@@ -57,11 +63,82 @@ const tools = [
                     description: `'release' uses Slint ${SLINT_RELEASE}, 'snapshot' the latest development build.`,
                 },
             },
-            required: ["source"],
         },
         _meta: { ui: { resourceUri: VIEW_URI } },
     },
+    {
+        name: "read_slint_file",
+        title: "Read Slint File",
+        description:
+            "Read a .slint file for the preview, with its @image-url images inlined as data: URIs.",
+        inputSchema: {
+            type: "object",
+            properties: { path: { type: "string" } },
+            required: ["path"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
+    },
 ];
+
+const IMAGE_MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+    ".bmp": "image/bmp",
+};
+
+// The 1.18 interpreter loads an image path with an <img> element, which can't reach the disk from the
+// host's sandbox, so each local image becomes a data: URI.
+function inlineImages(source, file) {
+    return source.replace(/@image-url\(\s*"([^"\\]*)"/g, (match, url) => {
+        if (/^(data|https?):/.test(url) || url.startsWith("@")) return match;
+        const imagePath = isAbsolute(url) ? url : resolve(dirname(file), url);
+        let data;
+        try {
+            data = readFileSync(imagePath);
+        } catch {
+            return match;
+        }
+        const mimeType =
+            IMAGE_MIME_TYPES[extname(imagePath).toLowerCase()] ??
+            "application/octet-stream";
+        return `@image-url("data:${mimeType};base64,${data.toString("base64")}"`;
+    });
+}
+
+function textResult(text, isError = false) {
+    return { content: [{ type: "text", text }], ...(isError && { isError }) };
+}
+
+const toolCalls = {
+    preview_slint: (args) => {
+        if (
+            (typeof args.path === "string") ===
+            (typeof args.source === "string")
+        ) {
+            throw rpcError(-32602, "Pass either 'path' or 'source'");
+        }
+        if (typeof args.path === "string" && !isAbsolute(args.path)) {
+            throw rpcError(-32602, "'path' must be absolute");
+        }
+        return textResult("Rendering the Slint preview.");
+    },
+    read_slint_file: (args) => {
+        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
+            throw rpcError(-32602, "'path' must be an absolute path");
+        }
+        try {
+            return textResult(
+                inlineImages(readFileSync(args.path, "utf8"), args.path),
+            );
+        } catch (e) {
+            return textResult(e.message, true);
+        }
+    },
+};
 
 function readView() {
     return readFileSync(new URL("view.html", import.meta.url), "utf8");
@@ -76,16 +153,11 @@ const handlers = {
     ping: () => ({}),
     "tools/list": () => ({ tools }),
     "tools/call": (params) => {
-        if (params?.name !== "preview_slint") {
+        const call = toolCalls[params?.name];
+        if (!call) {
             throw rpcError(-32602, `Unknown tool: ${params?.name}`);
         }
-        const args = params.arguments ?? {};
-        if (typeof args.source !== "string") {
-            throw rpcError(-32602, "'source' must be a string");
-        }
-        return {
-            content: [{ type: "text", text: "Rendering the Slint preview." }],
-        };
+        return call(params.arguments ?? {});
     },
     "resources/list": () => ({
         resources: [
