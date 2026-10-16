@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
     existsSync,
     mkdirSync,
@@ -37,7 +36,11 @@ function request(method, params) {
 before(async () => {
     server = spawn(process.execPath, [serverPath.pathname], {
         stdio: ["pipe", "pipe", "inherit"],
-        env: { ...process.env, SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "300" },
+        env: {
+            ...process.env,
+            SLINT_PREVIEW_VIEW_START_TIMEOUT_MS: "200",
+            SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "400",
+        },
     });
     createInterface({ input: server.stdout }).on("line", (line) => {
         const message = JSON.parse(line);
@@ -209,29 +212,35 @@ test("the Claude and Codex manifests start this server", () => {
     assert.ok(existsSync(new URL(codex.args[0], pluginRoot)));
 });
 
-// The key the view computes from the preview_slint arguments.
-function previewKey({ path, source, style, channel }) {
-    const json = JSON.stringify([
-        path ?? null,
-        source ?? null,
-        style ?? null,
-        channel ?? null,
-    ]);
-    return createHash("sha256").update(json).digest("hex");
-}
-
 const callTool = async (name, args) =>
     (await request("tools/call", { name, arguments: args })).result;
 
+// Starts a preview and returns its ID, which the view reads from the result.
+async function startPreview(args) {
+    const result = await callTool("preview_slint", args);
+    const previewId = result._meta["slint/previewId"];
+    assert.equal(
+        result.content[0].text,
+        `Rendering Slint preview ${previewId}.`,
+    );
+    return previewId;
+}
+
+test("gives every preview its own ID", async () => {
+    const args = { path: "/project/main.slint" };
+    assert.notEqual(await startPreview(args), await startPreview(args));
+});
+
 test("returns the capture the view publishes for the latest preview", async () => {
-    const args = { source: "export component A {}", style: "fluent" };
-    await callTool("preview_slint", args);
+    const previewId = await startPreview({ source: "export component A {}" });
     const screenshot = callTool("get_preview_screenshot", {});
+    await callTool("publish_preview_capture", { previewId, started: true });
     await callTool("publish_preview_capture", {
-        key: previewKey(args),
+        previewId,
         png: "iVBORw0K",
         width: 320,
         height: 120,
+        runtime: "Slint 1.19.0 (snapshot)",
     });
     const { content, isError } = await screenshot;
     assert.equal(isError, undefined);
@@ -240,7 +249,10 @@ test("returns the capture the view publishes for the latest preview", async () =
         data: "iVBORw0K",
         mimeType: "image/png",
     });
-    assert.match(content[1].text, /320×120/);
+    assert.equal(
+        content[1].text,
+        `Screenshot of preview ${previewId}, rendered with Slint 1.19.0 (snapshot), 320×120 px.`,
+    );
 
     // A capture that already arrived is returned right away.
     const again = await callTool("get_preview_screenshot", {});
@@ -248,43 +260,58 @@ test("returns the capture the view publishes for the latest preview", async () =
 });
 
 test("reports why a preview has no screenshot", async () => {
-    const args = { source: "export component A { colour: red; }" };
-    await callTool("preview_slint", args);
+    const previewId = await startPreview({
+        source: "export component A { colour: red; }",
+    });
     await callTool("publish_preview_capture", {
-        key: previewKey(args),
+        previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
     const { content } = await callTool("get_preview_screenshot", {});
     assert.match(content[0].text, /Unknown property colour/);
 });
 
-test("ignores captures of other previews and times out", async () => {
-    const args = { source: "export component B {}" };
-    await callTool("preview_slint", args);
-    await callTool("publish_preview_capture", {
-        key: previewKey({ source: "export component C {}" }),
+test("ignores a late capture of an earlier preview of the same file", async () => {
+    const args = { path: "/project/main.slint" };
+    const earlier = await startPreview(args);
+    await startPreview(args);
+    const result = await callTool("publish_preview_capture", {
+        previewId: earlier,
         png: "iVBORw0K",
     });
+    assert.match(result.content[0].text, /older preview/);
     const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(content[0].text, /No screenshot arrived/);
+    assert.equal(content[0].type, "text");
 });
 
-test("forgets the capture when the same preview is requested again", async () => {
-    const args = { path: "/project/main.slint" };
-    await callTool("preview_slint", args);
-    await callTool("publish_preview_capture", {
-        key: previewKey(args),
-        png: "iVBORw0K",
-    });
-    await callTool("preview_slint", args);
+test("fails fast when no view starts", async () => {
+    const previewId = await startPreview({ source: "export component B {}" });
+    const start = Date.now();
     const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(content[0].text, /No screenshot arrived/);
+    assert.match(
+        content[0].text,
+        new RegExp(`view for preview ${previewId} didn't start`),
+    );
+    assert.ok(Date.now() - start < 400);
+});
+
+test("waits longer once the view has started", async () => {
+    const previewId = await startPreview({ source: "export component C {}" });
+    await callTool("publish_preview_capture", { previewId, started: true });
+    const { content } = await callTool("get_preview_screenshot", {});
+    assert.match(
+        content[0].text,
+        new RegExp(`Preview ${previewId} didn't finish rendering`),
+    );
 });
 
 test("tells a waiting call that a newer preview replaced it", async () => {
-    await callTool("preview_slint", { source: "export component D {}" });
+    const previewId = await startPreview({ source: "export component D {}" });
     const screenshot = callTool("get_preview_screenshot", {});
-    await callTool("preview_slint", { source: "export component E {}" });
+    await startPreview({ source: "export component E {}" });
     const { content } = await screenshot;
-    assert.match(content[0].text, /newer preview_slint call/);
+    assert.match(
+        content[0].text,
+        new RegExp(`newer preview_slint call replaced preview ${previewId}`),
+    );
 });
