@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
-    SlintStyledText, js_into_rust_model, rust_into_js_model,
+    ReadOnlyRustModel, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys, SlintStyledText,
+    js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -198,67 +198,8 @@ pub fn to_value(
         | Type::UnitProduct(_) => Ok(Value::Number(expect_number(unknown)?)),
         Type::String => Ok(Value::String(expect_string(unknown)?.into())),
         Type::Bool => Ok(Value::Bool(expect_bool(unknown)?)),
-        Type::Color => {
-            match unknown.get_type() {
-                Ok(ValueType::String) => {
-                    let js_string = unknown.coerce_to_string()?;
-                    return string_to_brush(js_string);
-                }
-                Ok(ValueType::Object) => {
-                    let obj = unknown.coerce_to_object()?;
-                    if let Some(direct_brush) =
-                        obj.get::<ExternalRef<Brush>>("brush").ok().flatten()
-                    {
-                        return Ok(Value::Brush(direct_brush.color().into()));
-                    }
-                    return brush_from_color(obj);
-                }
-                _ => {}
-            }
-            Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
-                    ))
-        }
-        Type::Brush => {
-            match unknown.get_type() {
-                Ok(ValueType::String) => {
-                    let js_string = unknown.coerce_to_string()?;
-                    return string_to_brush(js_string);
-                }
-                Ok(ValueType::Object) => {
-                    let obj = unknown.coerce_to_object()?;
-                    // this is used to make the color property of the `Brush` interface optional.
-                    let properties = obj.get_property_names()?;
-                    if properties.get_array_length()? == 0 {
-                        return Ok(Value::Brush(Brush::default()));
-                    }
-                    if let Some(color) = obj.get::<RgbaColor>("color").ok().flatten() {
-                        if color.red() < 0.
-                            || color.green() < 0.
-                            || color.blue() < 0.
-                            || color.alpha() < 0.
-                        {
-                            return Err(napi::Error::from_reason(
-                                "A channel of Color cannot be negative",
-                            ));
-                        }
-
-                        return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-                            color.alpha() as u8,
-                            color.red() as u8,
-                            color.green() as u8,
-                            color.blue() as u8,
-                        ))));
-                    } else {
-                        return brush_from_color(obj);
-                    }
-                }
-                _ => {}
-            }
-            Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
-                    ))
-        }
+        Type::Color => Ok(Value::Brush(js_to_brush(unknown)?.color().into())),
+        Type::Brush => Ok(Value::Brush(js_to_brush(unknown)?)),
         Type::Image => {
             let object = unknown.coerce_to_object()?;
             if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
@@ -403,17 +344,41 @@ pub fn to_value(
     }
 }
 
-fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Value> {
+/// Converts a CSS color string, a brush read from a property, an object with a `color`, or a color.
+fn js_to_brush(unknown: Unknown) -> Result<Brush> {
+    match unknown.get_type()? {
+        ValueType::String => string_to_brush(unknown.coerce_to_string()?),
+        ValueType::Object => {
+            let obj = unknown.coerce_to_object()?;
+            if let Some(brush) = obj.get::<ExternalRef<Brush>>("brush").ok().flatten() {
+                return Ok((*brush).clone());
+            }
+            if let Some(color) = obj.get::<Object>("color")? {
+                return brush_from_color(color);
+            }
+            // The `color` of the `Brush` interface is optional.
+            if obj.get_property_names()?.get_array_length()? == 0 {
+                return Ok(Brush::default());
+            }
+            brush_from_color(obj)
+        }
+        _ => Err(napi::Error::from_reason(
+            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string",
+        )),
+    }
+}
+
+fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Brush> {
     let string = js_string.into_utf8()?.as_str()?.to_string();
 
     let c = string
         .parse::<css_color_parser2::Color>()
         .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
 
-    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b))))
+    Ok(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
 }
 
-fn brush_from_color(rgb_color: Object) -> Result<Value> {
+fn brush_from_color(rgb_color: Object) -> Result<Brush> {
     let red: f64 =
         rgb_color.get("red")?.ok_or(napi::Error::from_reason("Property red is missing"))?;
     let green: f64 =
@@ -426,10 +391,5 @@ fn brush_from_color(rgb_color: Object) -> Result<Value> {
         return Err(napi::Error::from_reason("A channel of Color cannot be negative"));
     }
 
-    Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-        alpha as u8,
-        red as u8,
-        green as u8,
-        blue as u8,
-    ))))
+    Ok(Brush::SolidColor(Color::from_argb_u8(alpha as u8, red as u8, green as u8, blue as u8)))
 }
