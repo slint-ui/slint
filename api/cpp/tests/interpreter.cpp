@@ -407,7 +407,6 @@ SCENARIO("Component Compiler")
         auto result = compiler.build_from_path(SOURCE_DIR "/test.slint");
         REQUIRE(result.has_value());
     }
-
 }
 
 SCENARIO("Component Definition Properties")
