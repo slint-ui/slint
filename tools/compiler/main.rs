@@ -283,6 +283,8 @@ fn main() -> std::io::Result<()> {
         && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
         && name != "-"
         && !name.ends_with(".d.ts")
+        // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
+        && !name.ends_with(".d.slint.ts")
     {
         eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
         std::process::exit(1);

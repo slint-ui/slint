@@ -110,6 +110,20 @@ pub(crate) fn component_positions(
     sources.matching_occurrences(path, offset).map(|(_, geometry)| geometry).collect()
 }
 
+#[cfg(feature = "internal")]
+pub(crate) fn component_item(
+    root: &VRc<ItemTreeVTable, Instance>,
+    path: &SourcePath,
+    offset: u32,
+    instance_index: usize,
+) -> Option<ItemRc> {
+    let sources = SourceOccurrences::new(root);
+    sources
+        .matching_occurrences(path, offset)
+        .nth(instance_index)
+        .map(|(item_index, _)| sources.items[item_index].as_item_rc())
+}
+
 pub(crate) fn element_candidates_at(
     root: &VRc<ItemTreeVTable, Instance>,
     position: LogicalPoint,

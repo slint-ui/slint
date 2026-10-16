@@ -41,6 +41,7 @@ pub mod native_class;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;
+pub mod property_analysis;
 pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]

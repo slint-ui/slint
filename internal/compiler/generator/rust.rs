@@ -16,17 +16,12 @@ use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::SourceLocation;
-use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass};
+use crate::expression_types::{EasingCurve, MinMaxOp, OperatorClass, Orientation};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
-use crate::layout::Orientation;
-use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{
-    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
-    MEASURE_KNOWN_W_LOCAL,
-};
 use crate::llr::{
-    self, ArrayOutput, EvaluationContext as llr_EvaluationContext, EvaluationScope, Expression,
-    ParentScope, TypeResolutionContext as _,
+    self, ArrayOutput, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext,
+    EvaluationScope, Expression, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
+    MEASURE_KNOWN_W_LOCAL, ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
 use crate::source_path::SourcePath;
@@ -842,7 +837,7 @@ fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStr
             .map(|field_name| {
                 let value = match the_struct.field_defaults.get(field_name) {
                     Some(expr) => {
-                        let value = compile_expression(&lower_constant_expression(expr), &ctx);
+                        let value = compile_expression(&Expression::from_constant(expr), &ctx);
                         quote!(#value as _)
                     }
                     None => quote!(::core::default::Default::default()),

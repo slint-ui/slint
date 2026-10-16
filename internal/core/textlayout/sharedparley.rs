@@ -26,7 +26,7 @@ use euclid::num::Zero;
 use i_slint_common::sharedfontique;
 use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[derive(derive_more::Deref, derive_more::DerefMut)]
@@ -37,22 +37,96 @@ pub struct FontContext {
     /// `(ptr, len)` of each `&'static [u8]` already handed to fontique, so repeat
     /// `register_static_font` calls for the same embedded font are skipped.
     registered_static_fonts: HashSet<(usize, usize)>,
+    /// See [`Self::query_font`].
+    resolved_fonts: HashMap<FontQueryKey, Option<ResolvedFont>>,
+}
+
+/// The fields of a [`FontRequest`] that [`FontRequest::query_fontique`] matches on.
+#[derive(PartialEq, Eq, Hash)]
+struct FontQueryKey {
+    family: Option<crate::SharedString>,
+    weight: Option<i32>,
+    italic: bool,
+}
+
+/// What [`FontContext::query_font`] memoizes per font request.
+pub struct ResolvedFont {
+    pub font: fontique::QueryFont,
+    /// `(ascent - descent + leading) / units_per_em`, or `None` without a valid `units_per_em`.
+    pub natural_line_height_ratio: Option<f32>,
+}
+
+impl ResolvedFont {
+    fn new(font: fontique::QueryFont) -> Self {
+        let natural_line_height_ratio =
+            skrifa::FontRef::from_index(font.blob.data(), font.index).ok().and_then(|face| {
+                let location = face.axes().location(font.synthesis.variation_settings());
+                let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
+                let units_per_em = metrics.units_per_em as f32;
+                (units_per_em > 0.0)
+                    .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
+            });
+        Self { font, natural_line_height_ratio }
+    }
 }
 
 impl FontContext {
     pub fn new(inner: parley::FontContext) -> Self {
-        Self { inner, registered_static_fonts: HashSet::default() }
+        Self {
+            inner,
+            registered_static_fonts: HashSet::default(),
+            resolved_fonts: HashMap::default(),
+        }
+    }
+
+    /// The font [`FontRequest::query_fontique`] resolves `request` to, memoized until
+    /// [`Self::begin_frame`].
+    ///
+    /// A layout pass resolves the same few requests once per text item, and each fontique
+    /// query rebuilds its candidate list from the family names.
+    pub fn query_font(&mut self, request: &FontRequest) -> Option<&ResolvedFont> {
+        let key = FontQueryKey {
+            family: request.family.clone(),
+            weight: request.weight,
+            italic: request.italic,
+        };
+        let inner = &mut self.inner;
+        self.resolved_fonts
+            .entry(key)
+            .or_insert_with(|| {
+                request
+                    .query_fontique(&mut inner.collection, &mut inner.source_cache)
+                    .map(ResolvedFont::new)
+            })
+            .as_ref()
+    }
+
+    /// Forgets the memoized fonts, so that fonts registered through a clone of the shared
+    /// collection, which the collection doesn't report, are seen from the next frame on.
+    pub fn begin_frame(&mut self) {
+        self.resolved_fonts.clear();
+    }
+
+    pub fn register_fonts(
+        &mut self,
+        data: fontique::Blob<u8>,
+    ) -> Vec<(fontique::FamilyId, Vec<fontique::FontInfo>)> {
+        self.resolved_fonts.clear();
+        self.inner.collection.register_fonts(data, None)
     }
 
     pub fn register_static_font(&mut self, data: &'static [u8]) {
         let key = (data.as_ptr() as usize, data.len());
         if self.registered_static_fonts.insert(key) {
-            self.inner.collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
+            self.register_fonts(fontique::Blob::new(Arc::new(data)));
         }
     }
 
+    /// Forgets everything registered with and resolved from the previous `collection`.
+    /// Call after replacing it.
     pub fn clear_registered_static_fonts(&mut self) {
         self.registered_static_fonts.clear();
+        self.resolved_fonts.clear();
     }
 }
 
@@ -523,7 +597,7 @@ fn text_content_widths_impl(
 
     // Reads the text, the font request and the line limit, so the cache entry depends on all
     // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
-    let compute = |font_ctx: &mut parley::FontContext| {
+    let compute = |font_ctx: &mut FontContext| {
         let layout_builder =
             shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
 
@@ -557,13 +631,13 @@ fn text_content_widths_impl(
 }
 
 pub fn char_size(
-    font_ctx: &mut parley::FontContext,
+    font_ctx: &mut FontContext,
     text_item: Pin<&dyn crate::item_rendering::HasFont>,
     item_rc: &crate::item_tree::ItemRc,
     ch: char,
 ) -> Option<LogicalSize> {
     let font_request = text_item.font_request(item_rc);
-    let font = font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+    let font = &font_ctx.query_font(&font_request)?.font;
 
     let char_map = font.charmap()?;
 
@@ -598,7 +672,7 @@ pub fn char_size(
 
 /// The height of one line of text: what a shaped single-line layout reports.
 pub fn text_line_height(
-    font_ctx: &mut parley::FontContext,
+    font_ctx: &mut FontContext,
     font_request: &FontRequest,
 ) -> Option<LogicalLength> {
     let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
@@ -606,16 +680,15 @@ pub fn text_line_height(
 }
 
 pub fn font_metrics(
-    font_ctx: &mut parley::FontContext,
+    font_ctx: &mut FontContext,
     font_request: FontRequest,
 ) -> crate::items::FontMetrics {
     let logical_pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).get();
 
-    let Some(font) =
-        font_request.query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)
-    else {
+    let Some(font) = font_ctx.query_font(&font_request) else {
         return crate::items::FontMetrics::default();
     };
+    let font = &font.font;
 
     let face = skrifa::FontRef::from_index(font.blob.data(), font.index).unwrap();
     let location = face.axes().location(font.synthesis.variation_settings());

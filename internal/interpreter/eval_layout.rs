@@ -6,7 +6,7 @@
 
 use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
-use i_slint_compiler::llr::lower_layout_expression::MEASURE_KNOWN_W_LOCAL;
+use i_slint_compiler::llr::MEASURE_KNOWN_W_LOCAL;
 use i_slint_compiler::llr::{BoxMeasureCell, Expression, FlexboxMeasureCell};
 use i_slint_core::SharedVector;
 use i_slint_core::layout::{
