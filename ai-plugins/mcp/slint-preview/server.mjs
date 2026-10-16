@@ -184,7 +184,12 @@ const handlers = {
                         ui: {
                             csp: {
                                 connectDomains: INTERPRETER_HOSTS,
-                                resourceDomains: INTERPRETER_HOSTS,
+                                // The interpreter shows inlined images through blob: URLs,
+                                // which the Codex app blocks unless declared.
+                                resourceDomains: [
+                                    ...INTERPRETER_HOSTS,
+                                    "blob:",
+                                ],
                             },
                             prefersBorder: true,
                         },
