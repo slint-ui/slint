@@ -810,8 +810,8 @@ inline void set_xdg_app_id(std::string_view xdg_app_id)
     cbindgen_private::slint_set_xdg_app_id(&s);
 }
 #if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
-/// Sets a custom image loader callback that is consulted before loading images from the file
-/// system. The callback receives an image identifier (a string) and should return
+/// Sets a custom image loader callback.
+/// The callback receives an image identifier (a string) and should return
 /// `std::optional<std::vector<uint8_t>>` with the image data, or `std::nullopt` to fall through to
 /// the default file system loading. Throw an `std::exception` to abort loading with an error.
 template<std::invocable<const std::string &> F>
