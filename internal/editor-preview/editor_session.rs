@@ -619,6 +619,7 @@ impl EditorSession {
                     workspace_folders,
                     &self.preview_config,
                     &self.document_cache,
+                    &self.document_roots(),
                 )
             });
             if !file_access.allows(&path) {
