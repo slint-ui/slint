@@ -7,9 +7,13 @@
 //! layout info expressions and `init_code` blocks.
 //! Resolves `MemberReference`s by walking the sub-component parent chain.
 
+use crate::HashMap;
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::{RepeaterOrConditional, SubComponentInstance};
+use crate::prelude::*;
+use alloc::rc::{Rc, Weak};
+use core::pin::Pin;
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
@@ -24,9 +28,6 @@ use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
-use std::collections::HashMap;
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
 
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
@@ -862,11 +863,11 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                         .iter_enumerated()
                         .find(|(_, p)| p.name.as_str() == "model_index")
                         .map(|(idx, _)| {
-                            let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
+                            let v = core::pin::Pin::as_ref(&walker.properties[idx]).get();
                             f64::try_from(v).unwrap_or(0.) as usize
                         })
                         .unwrap_or(0);
-                    let parent_pinned = std::pin::Pin::new(parent);
+                    let parent_pinned = core::pin::Pin::new(parent);
                     let repeater = &parent_pinned.repeaters[*repeater_idx];
                     repeater.model_set_row_data(row, new_value);
                 }
@@ -1130,7 +1131,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
 fn with_layout_item_info(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
+    elements: &[either::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
     orientation: i_slint_compiler::expression_types::Orientation,
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
@@ -1146,8 +1147,8 @@ fn with_layout_item_info(
     let mut repeater_steps: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 let offset = cells.len() as u32;
                 let (instances, step) = push_repeater_layout_items(
                     ctx,
@@ -1297,7 +1298,7 @@ fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usiz
 }
 
 fn total_row_child_count(
-    sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
+    sub: &Pin<alloc::rc::Rc<crate::instance::SubComponentInstance>>,
     templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
 ) -> usize {
     use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
@@ -1330,7 +1331,7 @@ fn with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
     flex_props_variable: Option<&str>,
-    elements: &[itertools::Either<
+    elements: &[either::Either<
         (Expression, Expression, Expression),
         i_slint_compiler::llr::LayoutRepeatedElement,
     >],
@@ -1347,7 +1348,7 @@ fn with_flexbox_layout_item_info(
     let mut repeated_indices: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left((h, v, props)) => {
+            either::Either::Left((h, v, props)) => {
                 cells_h.push(eval_expression(ctx, h));
                 cells_v.push(eval_expression(ctx, v));
                 // With no flex-props variable the sub-expression only reads the
@@ -1357,7 +1358,7 @@ fn with_flexbox_layout_item_info(
                     flex_props.push(eval_expression(ctx, props));
                 }
             }
-            itertools::Either::Right(repeater) => {
+            either::Either::Right(repeater) => {
                 let offset = cells_h.len() as u32;
                 let instances = push_repeater_flexbox_items(
                     ctx,
@@ -1462,7 +1463,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
 fn with_grid_input_data(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
+    elements: &[either::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
     sub_expression: &Expression,
 ) -> Value {
     // `repeated_indices` holds `(offset, len)` pairs into `cells`,
@@ -1478,8 +1479,8 @@ fn with_grid_input_data(
 
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(repeater.new_row));
                 let offset = cells.len() as u32;
                 let is_row_repeater = repeater.row_child_templates.is_some();
@@ -1539,9 +1540,9 @@ fn push_repeater_grid_input_data(
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
+    use alloc::rc::Rc;
     use i_slint_compiler::llr::RowChildTemplateInfo;
     use i_slint_core::model::VecModel;
-    use std::rc::Rc;
     let Some(current) = ctx.current.as_ref() else { return (0, 0) };
     let repeater = &current.repeaters[repeater_idx];
     repeater.track_instance_changes();
@@ -1901,7 +1902,7 @@ fn grid_repeater_cache_access(
 /// The location of a builtin function call in the .slint source, which the log
 /// messages it emits borrow through [`LogLocation::get`].
 struct LogLocation<'a> {
-    path: std::borrow::Cow<'a, str>,
+    path: alloc::borrow::Cow<'a, str>,
     line: usize,
     column: usize,
 }

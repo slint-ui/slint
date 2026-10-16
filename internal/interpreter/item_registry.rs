@@ -7,11 +7,11 @@
 //! Covers every builtin item in `i_slint_core::items` plus the backend-specific
 //! widgets exposed through `i_slint_backend_selector::NativeWidgets`.
 
+use crate::HashMap;
 use crate::erased::ErasedItemRc;
 use crate::item_holder::make_item;
 use i_slint_core::items::*;
 use i_slint_core::rtti::BuiltinItem;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub type ItemFactory = fn() -> ErasedItemRc;

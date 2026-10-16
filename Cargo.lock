@@ -7497,6 +7497,7 @@ version = "1.19.0"
 dependencies = [
  "derive_more",
  "document-features",
+ "either",
  "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
@@ -7506,7 +7507,6 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-core-macros",
- "itertools 0.15.0",
  "lyon_path",
  "raw-window-handle",
  "serde_json",

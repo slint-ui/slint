@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![no_std]
 
 /*!
 # Slint interpreter library
@@ -77,6 +78,22 @@ compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
+
+extern crate alloc;
+#[macro_use]
+extern crate std;
+
+/// What the standard library prelude provides, for the modules of this `no_std` crate.
+mod prelude {
+    pub use alloc::borrow::ToOwned;
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec;
+    pub use alloc::vec::Vec;
+}
+
+pub(crate) use std::collections::HashMap;
 
 mod api;
 mod bindings;

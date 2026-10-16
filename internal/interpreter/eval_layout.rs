@@ -6,6 +6,7 @@
 
 use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
+use crate::prelude::*;
 use i_slint_compiler::llr::MEASURE_KNOWN_W_LOCAL;
 use i_slint_compiler::llr::{BoxMeasureCell, Expression, FlexboxMeasureCell};
 use i_slint_core::SharedVector;
@@ -34,7 +35,7 @@ fn to_padding(v: &Value) -> Padding {
     Padding { begin: f("begin"), end: f("end") }
 }
 
-fn to_enum<T: std::str::FromStr + Default>(v: &Value) -> T {
+fn to_enum<T: core::str::FromStr + Default>(v: &Value) -> T {
     match v {
         Value::EnumerationValue(_, n) => n.parse().unwrap_or_default(),
         _ => T::default(),

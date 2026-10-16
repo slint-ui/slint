@@ -11,10 +11,11 @@ use crate::eval::{
     try_walk_to,
 };
 use crate::instance::SubComponentInstance;
+use crate::prelude::*;
+use alloc::rc::Rc;
+use core::pin::Pin;
 use i_slint_compiler::llr::{Expression, LocalMemberIndex, MemberReference};
 use i_slint_core::model::Model;
-use std::pin::Pin;
-use std::rc::Rc;
 
 pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
     // Expected args (from `BuiltinFunction::ShowPopupWindow`):
@@ -112,7 +113,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     let is_open_setter: Box<dyn Fn(bool)> = match is_open_args.first() {
         Some(Expression::PropertyReference(is_open_ref)) => {
             let is_open_ref = is_open_ref.clone();
-            let current_weak = std::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
+            let current_weak = alloc::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
             Box::new(move |value: bool| {
                 if let Some(current) = current_weak.upgrade() {
                     let ctx = EvalContext::new(Pin::new(current));
@@ -329,7 +330,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         let menu_vrc = crate::instance::Instance::new_popup(
             cu.clone(),
             menu_tree,
-            std::rc::Rc::downgrade(&Pin::into_inner(current.clone())),
+            alloc::rc::Rc::downgrade(&Pin::into_inner(current.clone())),
             popup_vrc.globals.clone(),
         );
         crate::instance::finalize_instance(&menu_vrc);
@@ -370,7 +371,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
             };
             let item_index_for_sub = *item_index;
             let sub_menu_owner_weak =
-                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+                alloc::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
             wire_popup_menu_cb(&popup_ctx, &popup_menu.sub_menu, move |args| {
                 let Some(owner) = sub_menu_owner_weak.upgrade() else { return Value::Void };
                 let item = Pin::as_ref(&owner.items[item_index_for_sub]);
@@ -391,7 +392,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
             });
 
             let activated_owner_weak =
-                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+                alloc::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
             let item_index_for_activated = *item_index;
             wire_popup_menu_cb(&popup_ctx, &popup_menu.activated, move |args| {
                 let Some(owner) = activated_owner_weak.upgrade() else { return Value::Void };
@@ -413,8 +414,8 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     // `root.close()` dismisses the popup. The shared `Cell` bridges the
     // popup id (only known after `show_popup`) into the close handler
     // installed before the show.
-    let popup_id_cell: std::rc::Rc<std::cell::Cell<Option<core::num::NonZeroU32>>> =
-        std::rc::Rc::new(std::cell::Cell::new(None));
+    let popup_id_cell: alloc::rc::Rc<core::cell::Cell<Option<core::num::NonZeroU32>>> =
+        alloc::rc::Rc::new(core::cell::Cell::new(None));
     let id_cell_for_close = popup_id_cell.clone();
     let adapter_for_close = adapter.clone();
     wire_popup_menu_cb(&popup_ctx, &popup_menu.close, move |_args| {
@@ -459,13 +460,13 @@ fn new_popup_for(
     item_tree: &i_slint_compiler::llr::ItemTree,
 ) -> vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance> {
     let cu = owner.compilation_unit.clone();
-    let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let parent_weak = alloc::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
     let globals =
         owner.root.get().and_then(|w| w.upgrade()).map(|inst| inst.globals.clone()).unwrap_or_else(
             || {
                 let context = i_slint_core::SlintContext::current()
                     .expect("a component exists, so there is a current context");
-                std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu, context))
+                alloc::rc::Rc::new(crate::globals::GlobalStorage::new(&cu, context))
             },
         );
     crate::instance::Instance::new_popup(cu, item_tree, parent_weak, globals)
@@ -478,7 +479,7 @@ fn bool_binding(
     expr: &Expression,
 ) -> impl Fn() -> bool + 'static {
     let expr = expr.clone();
-    let weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let weak = alloc::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
     move || {
         let Some(owner) = weak.upgrade() else { return false };
         let mut ctx = EvalContext::new(Pin::new(owner));

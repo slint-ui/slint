@@ -7,8 +7,10 @@
 //! see the compilation-unit surface directly.
 
 use crate::instance::Instance;
+use crate::prelude::*;
 use crate::public_api;
 use crate::{AnimationMode, Value};
+use alloc::rc::Rc;
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
@@ -17,7 +19,6 @@ use i_slint_compiler::parser::normalize_identifier;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::item_tree::ItemTreeVTable;
 use smol_str::SmolStr;
-use std::rc::Rc;
 use vtable::VRc;
 
 /// Pair of `TypeLoader`s retained alongside a compiled component for
@@ -34,7 +35,7 @@ pub struct TypeLoaders {
     #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
     pub type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
-    pub raw_type_loader: Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    pub raw_type_loader: Option<alloc::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The object-tree component of each public component, indexed like
     /// `CompilationUnit::public_components`. Highlighting and the LSP
     /// resolve elements against the exact component the definition was
@@ -43,7 +44,7 @@ pub struct TypeLoaders {
     pub originals: std::rc::Rc<
         typed_index_collections::TiVec<
             PublicComponentIdx,
-            std::rc::Rc<i_slint_compiler::object_tree::Component>,
+            alloc::rc::Rc<i_slint_compiler::object_tree::Component>,
         >,
     >,
 }
@@ -182,7 +183,7 @@ impl ComponentDefinitionInner {
             .globals
             .iter()
             .filter(|g| visible_in_public_api(g))
-            .flat_map(|g| g.aliases.iter().cloned().chain(std::iter::once(g.name.clone())))
+            .flat_map(|g| g.aliases.iter().cloned().chain(core::iter::once(g.name.clone())))
     }
 
     fn global_by_name(&self, name: &str) -> Option<&GlobalComponent> {
@@ -353,7 +354,7 @@ pub fn build_from_document(
     let unit = Rc::new(unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
-    type_loaders.originals = std::rc::Rc::new(document.exported_roots().collect());
+    type_loaders.originals = alloc::rc::Rc::new(document.exported_roots().collect());
     unit.public_components
         .keys()
         .map(|public_index| ComponentDefinitionInner {
@@ -482,10 +483,10 @@ pub async fn build_from_source(
             ..error_result(diag.into_iter().collect())
         };
     }
-    let type_loader = std::rc::Rc::new(loader);
+    let type_loader = alloc::rc::Rc::new(loader);
     let type_loaders = TypeLoaders {
         type_loader: Some(type_loader.clone()),
-        raw_type_loader: raw_loader.map(std::rc::Rc::new),
+        raw_type_loader: raw_loader.map(alloc::rc::Rc::new),
         originals: Default::default(),
     };
     let doc = match type_loader.get_document(&path) {
