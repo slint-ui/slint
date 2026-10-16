@@ -46,6 +46,8 @@ pub struct ContentWidths {
 pub trait Renderer: RendererSealed {}
 impl<T: RendererSealed> Renderer for T {}
 
+const NO_BITMAP_FONT_SUPPORT: &str = "Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files";
+
 /// Implementation details behind [`Renderer`], but since this
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
@@ -338,9 +340,13 @@ pub trait RendererSealed {
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
-        crate::debug_log!(
-            "Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files"
-        );
+        crate::debug_log!("{NO_BITMAP_FONT_SUPPORT}");
+    }
+
+    /// Like [`Self::register_bitmap_font`], for a font that the renderer keeps until its
+    /// last owner drops it.
+    fn register_shared_bitmap_font(&self, _font: &Rc<crate::graphics::SharedBitmapFont>) {
+        crate::debug_log!("{NO_BITMAP_FONT_SUPPORT}");
     }
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during

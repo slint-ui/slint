@@ -1090,6 +1090,10 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    fn register_shared_bitmap_font(&self, font: &Rc<i_slint_core::graphics::SharedBitmapFont>) {
+        fonts::register_shared_bitmap_font(font);
+    }
+
     #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
