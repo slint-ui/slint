@@ -2915,6 +2915,7 @@ export component TestCase {
             library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
             format_utf8: false,
             enable_experimental: true,
+            target_version: Some("1.19".into()),
         };
 
         // Configuration flows independently of user settings; a settings file

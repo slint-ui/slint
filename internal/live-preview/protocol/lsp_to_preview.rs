@@ -25,6 +25,17 @@ pub struct PreviewConfig {
     pub library_paths: HashMap<String, PathBuf>,
     pub format_utf8: bool,
     pub enable_experimental: bool,
+    /// The `slint-target-version`, such as "1.19".
+    pub target_version: Option<String>,
+}
+
+impl PreviewConfig {
+    /// The parsed `target_version`. A value that doesn't parse is logged and dropped.
+    #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
+    pub fn slint_target_version(&self) -> Option<i_slint_compiler::project_file::SlintVersion> {
+        let version = self.target_version.as_deref()?;
+        version.parse().inspect_err(|error| tracing::warn!("{error}")).ok()
+    }
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]

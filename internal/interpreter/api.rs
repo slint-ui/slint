@@ -2906,7 +2906,7 @@ mod project_file_tests {
     }
 
     // A style name the compiler rejects proves which style actually reached it.
-    const REJECTED_STYLE: &str = r#"{ "style": "no-such-style" }"#;
+    const REJECTED_STYLE: &str = r#"{ "slint-target-version": "1.19", "style": "no-such-style" }"#;
 
     #[test]
     fn the_project_file_style_is_used() {
@@ -2936,23 +2936,27 @@ mod project_file_tests {
 
     #[test]
     fn the_project_file_include_paths_are_used() {
-        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
-            let include = root.join("include");
-            std::fs::create_dir_all(&include).unwrap();
-            std::fs::write(include.join("shared.slint"), "export component Shared { }").unwrap();
+        with_project(
+            r#"{ "slint-target-version": "1.19", "include-paths": ["include"] }"#,
+            |root| {
+                let include = root.join("include");
+                std::fs::create_dir_all(&include).unwrap();
+                std::fs::write(include.join("shared.slint"), "export component Shared { }")
+                    .unwrap();
 
-            let result = compile(
-                root,
-                r#"import { Shared } from "shared.slint";
+                let result = compile(
+                    root,
+                    r#"import { Shared } from "shared.slint";
                    export component Main inherits Window { Shared { } }"#,
-            );
-            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-        });
+                );
+                assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+            },
+        );
     }
 
     #[test]
     fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
-        with_project(r#"{"include-paths":["include"]}"#, |root| {
+        with_project(r#"{"slint-target-version":"1.19","include-paths":["include"]}"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
@@ -2990,7 +2994,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn explicit_empty_include_paths_apply_to_source_path_compilation() {
-        with_project("{}", |root| {
+        with_project(r#"{ "slint-target-version": "1.19" }"#, |root| {
             let include_directory = root.join("include");
             std::fs::create_dir(&include_directory).unwrap();
             std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
@@ -3088,25 +3092,31 @@ mod project_file_tests {
 
     #[test]
     fn a_project_file_path_compiles_its_entry() {
-        with_project(r#"{ "entry": "ui/main.slint", "style": "no-such-style" }"#, |root| {
-            std::fs::create_dir_all(root.join("ui")).unwrap();
-            std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
+        with_project(
+            r#"{ "slint-target-version": "1.19", "entry": "ui/main.slint", "style": "no-such-style" }"#,
+            |root| {
+                std::fs::create_dir_all(root.join("ui")).unwrap();
+                std::fs::write(
+                    root.join("ui/main.slint"),
+                    "export component Main inherits Window { }",
+                )
                 .unwrap();
 
-            let result =
-                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
-            let messages =
-                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
-            assert!(
-                messages.iter().any(|message| message.contains("no-such-style")),
-                "expected the entry to compile with the project file style: {messages:?}"
-            );
-        });
+                let result =
+                    spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+                let messages =
+                    result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+                assert!(
+                    messages.iter().any(|message| message.contains("no-such-style")),
+                    "expected the entry to compile with the project file style: {messages:?}"
+                );
+            },
+        );
     }
 
     #[test]
     fn a_project_file_path_without_an_entry_is_reported() {
-        with_project(r#"{ "style": "fluent" }"#, |root| {
+        with_project(r#"{ "slint-target-version": "1.19", "style": "fluent" }"#, |root| {
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
             assert!(result.has_errors());
@@ -3118,7 +3128,7 @@ mod project_file_tests {
 
     #[test]
     fn the_deprecated_compiler_compiles_the_entry_of_a_project_file() {
-        with_project(r#"{ "entry": "main.slint" }"#, |root| {
+        with_project(r#"{ "slint-target-version": "1.19", "entry": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 

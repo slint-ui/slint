@@ -1,6 +1,6 @@
 ---
 title: Project File
-description: Configure the style, include paths, and library paths of a project in one place.
+description: Configure the target version, style, include paths, and library paths of a project in one place.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -28,6 +28,7 @@ or in the root of your repository to configure all of them.
 
 ```json
 {
+    "slint-target-version": "1.19",
     // Everyone on the team builds with the same widgets.
     "style": "material",
     "include-paths": ["ui/shared"],
@@ -38,12 +39,13 @@ or in the root of your repository to configure all of them.
 ```
 
 The file is JSON with `//` and `/* */` comments.
-Every setting is optional.
+Every setting is optional, except `slint-target-version`.
 
 ## Settings
 
 | Setting | Type | Description |
 |---------|------|-------------|
+| `slint-target-version` | string | Required. The Slint release whose language behavior to use, such as `"1.19"`. See [Target Version](#target-version). |
 | `style` | string | The widget style, such as `material`. See [Widget Styles](../../../reference/std-widgets/style/). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
@@ -51,6 +53,27 @@ Every setting is optional.
 | `entry` | string | The `.slint` file to compile when you pass the project file itself. See [Compiling the Project File](#compiling-the-project-file). |
 
 Relative paths are resolved against the directory that contains the project file.
+
+## Target Version
+
+Set `slint-target-version` to the Slint release you write your project for, as major and minor version.
+Write it as a string: `"1.19"`, not `1.19`.
+Use the version of Slint you build with, or any older one.
+
+When a Slint release changes the behavior of the language,
+the change applies only to projects that target that release or a newer one.
+A newer Slint keeps compiling your project the way the targeted release did,
+until you raise the target version.
+A Slint older than the target version refuses to compile the project.
+
+Without a project file, Slint uses the behavior from before Slint 1.19.
+
+These releases changed the behavior:
+
+- 1.19: An element created with `if` or `for` counts toward the size of its parent,
+  as a static child does ([#407](https://github.com/slint-ui/slint/issues/407)).
+  A child that sizes itself from that parent then forms a binding loop, which the compiler reports as an error.
+  Set `x` or `y` on such a child to keep it out of its parent's size.
 
 ## Which Setting Wins
 
@@ -63,6 +86,7 @@ From highest to lowest priority:
 
 For example, `--style fluent` wins over a project file that sets `material`,
 and that project file wins over `SLINT_STYLE`.
+`slint-target-version` comes only from the project file.
 
 ## Compiling the Project File
 
@@ -72,6 +96,7 @@ Slint compiles the entry with the settings of that project file and doesn't look
 
 ```json
 {
+    "slint-target-version": "1.19",
     "entry": "ui/main.slint",
     "style": "material"
 }
