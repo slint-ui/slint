@@ -385,6 +385,7 @@ test("language builtin structs: factory defaults", () => {
     expect(evt.button).toStrictEqual("other");
     expect(evt.kind).toStrictEqual("cancel");
     expect(evt.touch_finger_id).toStrictEqual(0);
+    expect(evt.is_activation_click).toStrictEqual(false);
     expect(evt.modifiers).toStrictEqual(language.KeyboardModifiers());
 });
 
