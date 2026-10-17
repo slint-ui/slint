@@ -4,6 +4,12 @@
 /*!
 This module contains image and caching related types for the run-time library.
 */
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+pub(crate) type ImageLoaderFn =
+    alloc::rc::Rc<dyn Fn(&str) -> Option<Result<alloc::vec::Vec<u8>, alloc::string::String>>>;
 
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use super::CachedPath;
@@ -53,20 +59,29 @@ pub(crate) struct ImageCache(
         std::collections::hash_map::RandomState,
         ImageWeightInBytes,
     >,
+    core::cell::RefCell<Option<ImageLoaderFn>>,
 );
 
-crate::thread_local!(pub(crate) static IMAGE_CACHE: core::cell::RefCell<ImageCache>  =
+crate::thread_local!(pub(crate) static IMAGE_CACHE: core::cell::RefCell<ImageCache> =
     core::cell::RefCell::new(
         ImageCache(
             clru::CLruCache::with_config(
                 clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(5 * 1024 * 1024).unwrap())
                     .with_scale(ImageWeightInBytes)
-            )
+            ),
+            core::cell::RefCell::new(None),
         )
     )
 );
 
 impl ImageCache {
+    pub(crate) fn set_image_loader(&mut self, loader: Option<ImageLoaderFn>) {
+        self.1.replace(loader);
+    }
+
+    fn get_image_loader(&self) -> Option<ImageLoaderFn> {
+        self.1.borrow().clone()
+    }
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
     // otherwise a new image is created/loaded from the given callback.
     fn lookup_image_in_cache_or_create(
@@ -93,8 +108,56 @@ impl ImageCache {
         if path.is_empty() {
             return None;
         }
+        let loader = self.get_image_loader();
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
-        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+        self.lookup_image_in_cache_or_create(cache_key, move |cache_key| {
+            // Try the custom asset loader first
+            if let Some(result) = loader.clone().and_then(|loader| loader(path.as_str())) {
+                return match result {
+                    Ok(data) => {
+                        #[cfg(feature = "svg")]
+                        if path.ends_with(".svg") || path.ends_with(".svgz") {
+                            return Some(ImageInner::Svg(vtable::VRc::new(
+                                super::svg::load_from_data(&data, cache_key).map_or_else(
+                                    |err| {
+                                        crate::debug_log!(
+                                            "Error loading SVG from custom loader for {}: {}",
+                                            &path,
+                                            err
+                                        );
+                                        None
+                                    },
+                                    Some,
+                                )?,
+                            )));
+                        }
+                        let format = image::ImageFormat::from_path(path.as_str()).ok();
+                        let shared_data = crate::SharedVector::from_slice(&data);
+                        ImageInner::decode_with_cache_key(
+                            cache_key,
+                            ImageData::Shared(&shared_data),
+                            format,
+                        )
+                        .map_err(|err| {
+                            crate::debug_log!(
+                                "Error decoding image from custom loader for {}: {}",
+                                &path,
+                                err
+                            )
+                        })
+                        .ok()
+                    }
+                    Err(msg) => {
+                        crate::debug_log!(
+                            "Error loading image from custom loader for {}: {}",
+                            &path,
+                            msg
+                        );
+                        None
+                    }
+                };
+            }
+
             #[cfg(feature = "svg")]
             if path.ends_with(".svg") || path.ends_with(".svgz") {
                 return Some(ImageInner::Svg(vtable::VRc::new(

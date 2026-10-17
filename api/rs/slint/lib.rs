@@ -219,6 +219,11 @@ pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
 pub use i_slint_core::component_factory::ComponentFactory;
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
+pub use i_slint_core::graphics::set_image_loader;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 pub use i_slint_core::input::{Keys, KeysParseError};

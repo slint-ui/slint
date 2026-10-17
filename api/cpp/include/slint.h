@@ -809,5 +809,37 @@ inline void set_xdg_app_id(std::string_view xdg_app_id)
     SharedString s = xdg_app_id;
     cbindgen_private::slint_set_xdg_app_id(&s);
 }
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
+/// Sets a custom image loader callback.
+/// The callback receives an image identifier (a string) and should return
+/// `std::optional<std::vector<uint8_t>>` with the image data, or `std::nullopt` to fall through to
+/// the default file system loading. Throw an `std::exception` to abort loading with an error.
+template<std::invocable<const std::string &> F>
+    requires(std::is_convertible_v<std::invoke_result_t<F, const std::string &>,
+                                   std::optional<std::vector<uint8_t>>>)
+inline void set_image_loader(F callback)
+{
+    private_api::assert_main_thread();
+    using cbindgen_private::types::ImageLoaderResult;
+    cbindgen_private::types::slint_set_image_loader(
+            [](void *data, const SharedString *id, SharedVector<uint8_t> *out,
+               SharedString *error_out) -> ImageLoaderResult {
+                std::string s(id->data(), id->data() + id->size());
+                try {
+                    auto result = (*static_cast<F *>(data))(s);
+                    if (result.has_value()) {
+                        *out = SharedVector<uint8_t>(result->size(), 0);
+                        std::copy(result->begin(), result->end(), out->begin());
+                        return ImageLoaderResult::Found;
+                    }
+                    return ImageLoaderResult::NotFound;
+                } catch (const std::exception &e) {
+                    *error_out = e.what();
+                    return ImageLoaderResult::Error;
+                }
+            },
+            new F(std::move(callback)), [](void *data) { delete static_cast<F *>(data); });
+}
+#endif
 
 } // namespace slint
