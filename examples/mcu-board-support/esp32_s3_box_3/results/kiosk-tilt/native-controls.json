@@ -1,0 +1,95 @@
+{
+  "queue": {
+    "passed": true,
+    "results": [
+      {
+        "mode": 1,
+        "elapsed_us": 9998772,
+        "frames": 600,
+        "draw_total_us": 7566406,
+        "draw_max_us": 13454,
+        "raster_total_us": 6956970,
+        "queue_total_us": 589364,
+        "presented": 600,
+        "changed_hash": 600,
+        "repeated_panel_frames": 0,
+        "skipped_panel_cycles": 0,
+        "timeouts": 0,
+        "late_packets": 0,
+        "late_cycles": 0,
+        "truncated": 0,
+        "fps": 60.00736890490152,
+        "draw_mean_us": 12610.676666666666
+      }
+    ],
+    "parity": [
+      {
+        "pixels": 76800,
+        "differences": 0
+      }
+    ],
+    "sensors": []
+  },
+  "settings": {
+    "passed": true,
+    "results": [
+      {
+        "mode": 1,
+        "elapsed_us": 9998117,
+        "frames": 600,
+        "draw_total_us": 7864691,
+        "draw_max_us": 13598,
+        "raster_total_us": 7553584,
+        "queue_total_us": 286026,
+        "presented": 600,
+        "changed_hash": 600,
+        "repeated_panel_frames": 0,
+        "skipped_panel_cycles": 0,
+        "timeouts": 0,
+        "late_packets": 0,
+        "late_cycles": 0,
+        "truncated": 0,
+        "fps": 60.01130012781407,
+        "draw_mean_us": 13107.818333333333
+      }
+    ],
+    "parity": [
+      {
+        "pixels": 76800,
+        "differences": 0
+      }
+    ],
+    "sensors": []
+  },
+  "ink": {
+    "passed": true,
+    "results": [
+      {
+        "mode": 1,
+        "elapsed_us": 9996172,
+        "frames": 600,
+        "draw_total_us": 6012595,
+        "draw_max_us": 10213,
+        "raster_total_us": 5370024,
+        "queue_total_us": 624443,
+        "presented": 600,
+        "changed_hash": 600,
+        "repeated_panel_frames": 0,
+        "skipped_panel_cycles": 0,
+        "timeouts": 0,
+        "late_packets": 0,
+        "late_cycles": 0,
+        "truncated": 0,
+        "fps": 60.02297679551732,
+        "draw_mean_us": 10020.991666666667
+      }
+    ],
+    "parity": [
+      {
+        "pixels": 76800,
+        "differences": 0
+      }
+    ],
+    "sensors": []
+  }
+}

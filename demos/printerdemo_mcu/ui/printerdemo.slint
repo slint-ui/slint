@@ -32,8 +32,6 @@ export component MainWindow inherits Window {
         sidebar := SideBar { }
 
         main-view := Rectangle {
-            background: DemoPalette.page-background;
-
             if PrinterState.active-subpage == SubPage.none: Rectangle {
 
                 if PrinterState.active-page == Pages.home: HomePage { }
@@ -70,13 +68,5 @@ export component MainWindow inherits Window {
                 }
             }
         }
-    }
-
-    screen-corners := Rectangle {
-        width: parent.width + self.border-width * 2;
-        height: parent.height + self.border-width * 2;
-        border-radius: 30px;
-        border-width: 10px;
-        border-color: #212e4a;
     }
 }

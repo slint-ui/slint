@@ -312,6 +312,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyrender"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1755d0ef8e00e87b6b825dfbe5a35d34d3b302e97e80a48e93f9cd361fbada06"
+dependencies = [
+ "kurbo",
+ "peniko",
+ "raw-window-handle",
+ "smallvec",
+]
+
+[[package]]
 name = "arboard"
 version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -947,6 +959,12 @@ checksum = "af491d569909a7e4dee0ad7db7f5341fef5c614d5b8ec8cf765732aba3cff681"
 dependencies = [
  "unicode-width",
 ]
+
+[[package]]
+name = "color"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ec7c5eb7a16992b1904d76c517d170ab353b0e0b3d5a0c81a8a0cd1037893cf"
 
 [[package]]
 name = "color_quant"
@@ -2281,6 +2299,7 @@ dependencies = [
  "glutin",
  "i-slint-common",
  "i-slint-core",
+ "i-slint-renderer-anyrender",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
@@ -2293,12 +2312,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-backend-qt"
+version = "1.19.0"
+dependencies = [
+ "const-field-offset",
+ "i-slint-common",
+ "i-slint-core",
+ "i-slint-core-macros",
+ "vtable",
+]
+
+[[package]]
 name = "i-slint-backend-selector"
 version = "1.19.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
+ "i-slint-backend-qt",
  "i-slint-backend-testing",
  "i-slint-backend-winit",
  "i-slint-common",
@@ -2337,6 +2368,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-renderer-anyrender",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
@@ -2477,6 +2509,19 @@ dependencies = [
  "quote",
  "serde_json",
  "syn 3.0.6",
+]
+
+[[package]]
+name = "i-slint-renderer-anyrender"
+version = "1.19.0"
+dependencies = [
+ "anyrender",
+ "i-slint-core",
+ "kurbo",
+ "lyon_path",
+ "peniko",
+ "rgb",
+ "vtable",
 ]
 
 [[package]]
@@ -4051,6 +4096,18 @@ name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
+
+[[package]]
+name = "peniko"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "839c8299360d2e998bdb106dc0a6cd71dcc5f4df51df1b620361bf50e283cca6"
+dependencies = [
+ "color",
+ "kurbo",
+ "linebender_resource_handle",
+ "smallvec",
+]
 
 [[package]]
 name = "percent-encoding"
