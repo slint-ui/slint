@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+// SIZE=80x64
+
+// A link stays underlined whatever its fractional position.
+export component TestCase inherits Window {
+    width: 80px;
+    height: 64px;
+    background: white;
+    StyledText {
+        x: 4.3px;
+        y: 3.6px;
+        width: 72px;
+        default-font-size: 10.5px;
+        text: @markdown("- [Technology](#technology)\n- [Usage](#usage)");
+    }
+    StyledText {
+        x: 4.3px;
+        y: 33.2px;
+        width: 72px;
+        default-font-size: 11.3px;
+        link-color: #c00;
+        text: @markdown("- [Feedback](#feedback)\n- [Install](#install)");
+    }
+}

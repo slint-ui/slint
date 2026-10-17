@@ -3212,6 +3212,11 @@ use i_slint_core::textlayout::sharedparley::{self, fontique};
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
     type PlatformBrush = Color;
 
+    fn snap_y(&self, y: f32) -> f32 {
+        let origin = (self.current_state.offset.to_vector().cast::<f32>() * self.scale_factor).y;
+        (origin + y).round() - origin
+    }
+
     fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
         Some(*color)
     }

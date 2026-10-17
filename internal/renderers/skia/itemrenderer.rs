@@ -47,6 +47,12 @@ pub struct SkiaItemRenderer<'a> {
 }
 
 impl<'a> SkiaItemRenderer<'a> {
+    /// The device position of the item's origin, when the canvas only translates the item.
+    fn translation_origin(&self) -> Option<skia_safe::Point> {
+        let transform = self.canvas.local_to_device_as_3x3();
+        transform.is_translate().then(|| transform.map_point(skia_safe::Point::default()))
+    }
+
     pub fn new(
         canvas: &'a skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
@@ -1193,12 +1199,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
     }
 
     fn snap_selection_x(&self, x: f32) -> f32 {
-        let transform = self.canvas.local_to_device_as_3x3();
-        if !transform.is_translate() {
-            return x;
-        }
-        let origin = transform.map_point(skia_safe::Point::default()).x;
-        (origin + x).round() - origin
+        let Some(origin) = self.translation_origin() else { return x };
+        (origin.x + x).round() - origin.x
+    }
+
+    fn snap_y(&self, y: f32) -> f32 {
+        let Some(origin) = self.translation_origin() else { return y };
+        (origin.y + y).round() - origin.y
     }
 
     fn draw_glyph_run(
