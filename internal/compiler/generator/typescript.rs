@@ -446,11 +446,25 @@ fn ts_type_name(ty: &Type) -> SmolStr {
         Type::Enumeration(en) if en.public => format_smolstr!("slint.language.{}", en.name),
         Type::Enumeration(_) => SmolStr::new_static("void"),
         Type::Callback(function) | Type::Function(function) => {
+            // Distinct `.slint` names can become the same one, such as `default` and `default_`.
+            let mut used = HashSet::new();
             let args = function
                 .args
                 .iter()
                 .enumerate()
-                .map(|(i, ty)| format!("arg_{}: {}", i, ts_type_name(ty)))
+                .map(|(i, ty)| {
+                    let mut name = match function.arg_names.get(i) {
+                        Some(name) if !name.is_empty() => ident(name),
+                        _ => format_smolstr!("arg_{i}"),
+                    };
+                    if used.contains(&name) {
+                        name = format_smolstr!("arg_{i}");
+                    }
+                    while !used.insert(name.clone()) {
+                        name = format_smolstr!("{name}_");
+                    }
+                    format!("{name}: {}", ts_type_name(ty))
+                })
                 .join(", ");
             format_smolstr!("({}) => {}", args, ts_type_name(&function.return_type))
         }

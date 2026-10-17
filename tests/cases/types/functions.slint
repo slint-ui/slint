@@ -16,6 +16,8 @@ export component TestCase inherits TouchArea {
 
     // Test for #11148
     public function unused_arg(arg: string, arg2: length) { }
+    public function same_name_in_typescript(default: int, default_: int) { }
+    public function fallback_name_taken(arg_2: int, default: int, default_: int) { }
 }
 
 
@@ -47,9 +49,11 @@ export interface Foo3 {
 }
 
 export interface TestCase {
-    fn1: (arg_0: Foo2) => Foo3;
+    fallback_name_taken: (arg_2: number, default_: number, arg_2_: number) => void;
+    fn1: (foo2: Foo2) => Foo3;
     fn2: () => void;
-    unused_arg: (arg_0: string, arg_1: number) => void;
+    same_name_in_typescript: (default_: number, arg_1: number) => void;
+    unused_arg: (arg: string, arg2: number) => void;
 }
 
 export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
