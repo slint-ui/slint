@@ -513,6 +513,9 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::AlphaMap,
                 extra: self.extra,
             },
+            SharedBufferData::SharedImage(_) => unreachable!(
+                "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
+            ),
         }
     }
 }
