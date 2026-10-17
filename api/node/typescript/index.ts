@@ -785,8 +785,12 @@ class EventLoop {
     }
 
     quit() {
-        this.#quit_loop = true;
-        napi.quitEventLoop();
+        try {
+            napi.quitEventLoop();
+        } catch {
+            // Without an event loop to post the quit to, stop the polling fallback directly.
+            this.#quit_loop = true;
+        }
     }
 }
 
