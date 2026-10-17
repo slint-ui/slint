@@ -198,6 +198,63 @@
     );
   }
 
+  // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
+  // them with <img> elements, rather than reading them from a filesystem the browser doesn't have.
+  const FILE_SCHEME = "slint-file:";
+  function toFileUrl(path) {
+    const posix = path.replaceAll("\\", "/");
+    return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
+  }
+  function fromFileUrl(url) {
+    const path = decodeURIComponent(new URL(url).pathname);
+    return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
+  }
+
+  // The view can't read the disk, so it hands each image the interpreter loads from a file to the server.
+  // pendingImages holds the loads still in flight, which the screenshot waits for.
+  const pendingImages = new Set();
+  const nativeImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+  Object.defineProperty(HTMLImageElement.prototype, "src", {
+    configurable: true,
+    get() {
+      return nativeImageSrc.get.call(this);
+    },
+    set(value) {
+      if (typeof value !== "string" || !value.startsWith(FILE_SCHEME)) {
+        nativeImageSrc.set.call(this, value);
+        return;
+      }
+      const path = fromFileUrl(value);
+      const loaded = readImageFile(path).then(
+        (url) =>
+          new Promise((resolve) => {
+            this.addEventListener("load", resolve, { once: true });
+            this.addEventListener("error", resolve, { once: true });
+            nativeImageSrc.set.call(this, url);
+          }),
+        (e) => reportMissingImage(path, e.message ?? e),
+      );
+      pendingImages.add(loaded);
+      loaded.finally(() => pendingImages.delete(loaded));
+    },
+  });
+
+  async function readImageFile(path) {
+    const result = await request("tools/call", { name: "read_image_file", arguments: { path } });
+    const block = result?.content?.[0];
+    if (result?.isError || block?.type !== "image") throw new Error(block?.text ?? "no image data");
+    const bytes = Uint8Array.from(atob(block.data), (c) => c.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], { type: block.mimeType }));
+  }
+
+  function reportMissingImage(path, message) {
+    const li = document.createElement("li");
+    li.className = "warning";
+    li.textContent = `Couldn't load image ${path}: ${message}`;
+    diagnosticsEl.append(li);
+    reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
+  }
+
   async function readSlintFile(path) {
     const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
     const text = result?.content?.[0]?.text ?? "";
@@ -219,13 +276,16 @@
         reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
         return;
       }
-      url = path;
+      url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(file).catch((e) => Promise.reject(String(e.message ?? e)));
+      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
     }
-    const baseDir = url.slice(0, url.lastIndexOf("/") + 1);
+    const posixPath = path?.replaceAll("\\", "/");
+    const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
     const location = (d) => {
-      const file = d.fileName?.startsWith(baseDir) ? d.fileName.slice(baseDir.length) : d.fileName || url;
+      let file = d.fileName || url;
+      if (file.startsWith(FILE_SCHEME)) file = fromFileUrl(file);
+      if (baseDir && file.startsWith(baseDir)) file = file.slice(baseDir.length);
       return `${file}:${d.lineNumber}:${d.columnNumber}`;
     };
 
@@ -326,6 +386,11 @@
     if (!error) {
       await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
       await delay(SETTLE_MS);
+      // Slint requests images when it draws, and draws them again once they load.
+      while (pendingImages.size) {
+        await Promise.allSettled([...pendingImages]);
+        await delay(SETTLE_MS);
+      }
     }
     const capture = error ? { error } : captureCanvas();
     publish({ previewId: await previewId, runtime: runtime ?? undefined, ...capture });

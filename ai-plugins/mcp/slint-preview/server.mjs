@@ -7,7 +7,7 @@
 
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { dirname, extname, isAbsolute, resolve } from "node:path";
+import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 
 const VIEW_URI = "ui://slint/preview.html";
@@ -79,8 +79,18 @@ const tools = [
     {
         name: "read_slint_file",
         title: "Read Slint File",
-        description:
-            "Read a .slint file for the preview, with its @image-url images inlined as data: URIs.",
+        description: "Read a .slint file for the preview.",
+        inputSchema: {
+            type: "object",
+            properties: { path: { type: "string" } },
+            required: ["path"],
+        },
+        _meta: { ui: { visibility: ["app"] } },
+    },
+    {
+        name: "read_image_file",
+        title: "Read Image File",
+        description: "Read an image file that the preview shows.",
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -147,25 +157,6 @@ const IMAGE_MIME_TYPES = {
     ".svg": "image/svg+xml",
     ".bmp": "image/bmp",
 };
-
-// The 1.18 interpreter loads an image path with an <img> element, which can't reach the disk from the
-// host's sandbox, so each local image becomes a data: URI.
-function inlineImages(source, file) {
-    return source.replace(/@image-url\(\s*"([^"\\]*)"/g, (match, url) => {
-        if (/^(data|https?):/.test(url) || url.startsWith("@")) return match;
-        const imagePath = isAbsolute(url) ? url : resolve(dirname(file), url);
-        let data;
-        try {
-            data = readFileSync(imagePath);
-        } catch {
-            return match;
-        }
-        const mimeType =
-            IMAGE_MIME_TYPES[extname(imagePath).toLowerCase()] ??
-            "application/octet-stream";
-        return `@image-url("data:${mimeType};base64,${data.toString("base64")}"`;
-    });
-}
 
 function textResult(text, isError = false) {
     return { content: [{ type: "text", text }], ...(isError && { isError }) };
@@ -280,9 +271,28 @@ const toolCalls = {
             throw rpcError(-32602, "'path' must be an absolute path");
         }
         try {
-            return textResult(
-                inlineImages(readFileSync(args.path, "utf8"), args.path),
-            );
+            return textResult(readFileSync(args.path, "utf8"));
+        } catch (e) {
+            return textResult(e.message, true);
+        }
+    },
+    read_image_file: (args) => {
+        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
+            throw rpcError(-32602, "'path' must be an absolute path");
+        }
+        try {
+            return {
+                content: [
+                    {
+                        type: "image",
+                        data: readFileSync(args.path).toString("base64"),
+                        mimeType:
+                            IMAGE_MIME_TYPES[
+                                extname(args.path).toLowerCase()
+                            ] ?? "application/octet-stream",
+                    },
+                ],
+            };
         } catch (e) {
             return textResult(e.message, true);
         }
