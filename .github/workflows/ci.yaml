@@ -150,8 +150,18 @@ jobs:
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
+                  RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
                   SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
-              run: ./run-tests.sh
+              run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
+
+            - name: Upload UI test failure diagnostics
+              if: failure() && matrix.run_ui_tests
+              uses: actions/upload-artifact@v7
+              with:
+                  name: visual-editor-${{ matrix.os }}-failures
+                  path: ${{ runner.temp }}/visual-editor-ui-tests/**/screenshots/
+                  if-no-files-found: ignore
+                  retention-days: 7
 
             - name: Upload Cargo timing reports
               if: always()
