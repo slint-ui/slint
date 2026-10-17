@@ -253,7 +253,7 @@ Each element is sized according to their `width` or `height` if specified, other
 set to the minimum size which is set with the min-width or min-height property, or
 the minimum size of an inner layout, whatever is bigger.
 
-The elements are placed according to the alignment. The size of elements
+The elements are placed along the layout axis according to the alignment. The size of elements
 is bigger than the minimum size only if the `alignment` property of the layout is `LayoutAlignment.stretch` (the default)
 
 This example show the different alignment possibilities:
@@ -310,6 +310,9 @@ export component Example inherits Window {
 }
 ```
 </CodeSnippetMD>
+
+Across the layout axis, elements stretch to fill the layout by default.
+Use the layout's `cross-axis-alignment`, or an element's `cross-axis-self-alignment`, to change that.
 
 ### Stretch algorithm
 

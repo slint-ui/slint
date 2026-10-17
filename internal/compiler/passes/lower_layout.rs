@@ -1668,7 +1668,16 @@ fn lower_box_layout(
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
-            if let Some(pad_expr) = pad_expr {
+            if let Some(binding) =
+                actual_elem.borrow().binding(pad).filter(|binding| binding.has_binding())
+            {
+                if !fixed_ortho {
+                    diag.push_warning(
+                        format!("The layout stretches the '{ortho}' of this element, so '{pad}' can move it past the edge, consider setting its '{ortho}' too, or using the layout's 'padding' or 'cross-axis-alignment'"),
+                        &*binding,
+                    );
+                }
+            } else if let Some(pad_expr) = pad_expr {
                 actual_elem.borrow_mut().set_binding(pad.into(), pad_expr.clone().into());
             }
             if !fixed_ortho {
