@@ -151,7 +151,9 @@ fn process_tabwidget(
     elem.borrow_mut().base_type = tabwidget_impl;
     let (timers, mut children): (Vec<_>, Vec<_>) = std::mem::take(&mut elem.borrow_mut().children)
         .into_iter()
-        .partition(|child| child.borrow().base_type.to_string() == "Timer");
+        .partition(|child| {
+            matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+        });
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {

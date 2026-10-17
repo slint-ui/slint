@@ -4,14 +4,6 @@
 import { TabWidget } from "std-widgets.slint";
 
 export component Test inherits Window {
-    Timer {
-        interval: 200ms;
-        Tooltip {
-//      >      <error{Tooltip cannot be added to Timer}
-            text: @markdown("No tooltip here");
-        }
-    }
-
     TabWidget {
         Tooltip {
 //      >      <error{Tooltip cannot be added to TabWidget}

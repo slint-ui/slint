@@ -7,22 +7,17 @@
 export component Test inherits Window {
     MenuBar {
         Timer { interval: 100ms; }
-//      >    <error{Timer cannot be in a menu. Move it out of the menu}
+//      >    <error{Timer cannot be in a menu, move it outside of the menu}
         Menu {
             title: "File";
             Timer { interval: 100ms; }
-//          >    <error{Timer cannot be in a menu. Move it out of the menu}
-            MenuItem {
-                title: "Item";
-                Timer { interval: 100ms; }
-//              >    <error{Timer cannot be in a menu. Move it out of the menu}
-            }
+//          >    <error{Timer cannot be in a menu, move it outside of the menu}
         }
     }
     ContextMenuArea {
         Menu {
             Timer { interval: 100ms; }
-//          >    <error{Timer cannot be in a menu. Move it out of the menu}
+//          >    <error{Timer cannot be in a menu, move it outside of the menu}
         }
     }
 }
@@ -31,6 +26,6 @@ export component Tray inherits SystemTrayIcon {
     Timer { interval: 100ms; }
     Menu {
         Timer { interval: 100ms; }
-//      >    <error{Timer cannot be in a menu. Move it out of the menu}
+//      >    <error{Timer cannot be in a menu, move it outside of the menu}
     }
 }

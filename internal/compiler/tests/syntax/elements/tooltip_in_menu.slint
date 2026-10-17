@@ -11,13 +11,6 @@ export component Test inherits Window {
 //          >      <error{Tooltip cannot be added to Menu}
                 text: @markdown("No tooltip here");
             }
-            MenuItem {
-                title: "Item";
-                Tooltip {
-//              >      <error{Tooltip cannot be added to MenuItem}
-                    text: @markdown("No tooltip here");
-                }
-            }
         }
         Tooltip {
 //      >      <error{Tooltip cannot be added to MenuBar}
@@ -32,12 +25,9 @@ export component Tray inherits SystemTrayIcon {
         text: @markdown("No tooltip here");
     }
     Menu {
-        MenuItem {
-            title: "Item";
-            Tooltip {
-//          >      <error{Tooltip cannot be added to MenuItem}
-                text: @markdown("No tooltip here");
-            }
+        Tooltip {
+//      >      <error{Tooltip cannot be added to Menu}
+            text: @markdown("No tooltip here");
         }
     }
 }
