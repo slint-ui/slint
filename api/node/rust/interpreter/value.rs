@@ -344,7 +344,7 @@ pub fn to_value(
     }
 }
 
-/// Converts a CSS color string, a brush read from a property, an object with a `color`, or a color.
+/// Converts a color string, a brush read from a property, an object with a `color`, or a color.
 fn js_to_brush(unknown: Unknown) -> Result<Brush> {
     match unknown.get_type()? {
         ValueType::String => string_to_brush(unknown.coerce_to_string()?),
@@ -371,11 +371,19 @@ fn js_to_brush(unknown: Unknown) -> Result<Brush> {
 fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Brush> {
     let string = js_string.into_utf8()?.as_str()?.to_string();
 
-    let c = string
-        .parse::<css_color_parser2::Color>()
-        .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
+    let color = parse_color(&string)
+        .ok_or_else(|| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
 
-    Ok(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)))
+    Ok(Brush::from(color))
+}
+
+/// Parses a color as a `.slint` file writes it, such as `#rrggbbaa` or a named color.
+fn parse_color(string: &str) -> Option<Color> {
+    use i_slint_common::color_parsing::{named_colors, parse_color_literal};
+    let string = string.trim();
+    let argb = parse_color_literal(string)
+        .or_else(|| named_colors().get(string.to_ascii_lowercase().as_str()).copied())?;
+    Some(Color::from_argb_encoded(argb))
 }
 
 fn brush_from_color(rgb_color: Object) -> Result<Brush> {

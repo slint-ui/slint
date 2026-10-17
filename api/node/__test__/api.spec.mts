@@ -698,3 +698,29 @@ test("assign brushes to brush and color properties", () => {
     app.color = plain;
     expect(app.color.toString()).toBe("#010203");
 });
+
+test("assign a color string", () => {
+    const demo = loadSource(
+        `export component App { in-out property <color> c; }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // A translucent color used to read back as a string it couldn't parse.
+    app.c = "#33669980";
+    expect(app.c.toString()).toBe("#33669980");
+    app.c = app.c.toString();
+    expect(app.c.toString()).toBe("#33669980");
+
+    app.c = "#abc";
+    expect(app.c.toString()).toBe("#aabbcc");
+    app.c = "RebeccaPurple";
+    expect(app.c.toString()).toBe("#663399");
+    app.c = "transparent";
+    expect(app.c.isTransparent).toBe(true);
+    for (const string of ["not a color", "rgb(255, 0, 0)"]) {
+        expect(() => {
+            app.c = string;
+        }).toThrow(`Could not convert ${string} to Brush.`);
+    }
+});
