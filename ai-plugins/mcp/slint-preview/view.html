@@ -20,10 +20,18 @@
     color: var(--text);
     font: 13px/1.4 system-ui, sans-serif;
   }
-  /* The canvas keeps the component's size, so its layout doesn't change, and a transform scales it to fit. */
-  #stage { position: relative; overflow: hidden; }
-  canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; outline: none; }
+  #stage { overflow: hidden; }
+  canvas { display: block; outline: none; }
   canvas[hidden] { display: none; }
+  /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
+  canvas.fitted {
+    width: var(--fit-width) !important;
+    height: var(--fit-height) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
   #status { margin: 8px; color: var(--muted); white-space: pre-wrap; }
   #status:empty { display: none; }
   #status.error { color: var(--error); }
@@ -69,14 +77,45 @@
   const nativeMatchMedia = window.matchMedia.bind(window);
   let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
   const darkQueryLists = [];
+  // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
+  // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
+  // through a "(resolution: …dppx)" query, and reads pointer offsets as logical pixels.
+  const nativeDevicePixelRatio =
+    Object.getOwnPropertyDescriptor(window, "devicePixelRatio") ?? Object.getOwnPropertyDescriptor(Window.prototype, "devicePixelRatio");
+  let fitScale = 1;
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => nativeDevicePixelRatio.get.call(window) * fitScale });
+  const resolutionQueryLists = [];
+  for (const axis of ["offsetX", "offsetY"]) {
+    const nativeOffset = Object.getOwnPropertyDescriptor(MouseEvent.prototype, axis);
+    Object.defineProperty(MouseEvent.prototype, axis, {
+      configurable: true,
+      get() {
+        const offset = nativeOffset.get.call(this);
+        return this.target === canvas ? offset / fitScale : offset;
+      },
+    });
+  }
+
   window.matchMedia = (query) => {
     const list = nativeMatchMedia(query);
     if (query === DARK_QUERY) {
       Object.defineProperty(list, "matches", { get: () => hostIsDark });
       darkQueryLists.push(list);
     }
+    const resolution = query.match(/resolution:\s*([\d.]+)dppx/);
+    if (resolution) {
+      const value = Number(resolution[1]);
+      Object.defineProperty(list, "matches", { get: () => Math.abs(value - window.devicePixelRatio) < 1e-6 });
+      resolutionQueryLists.push(list);
+    }
     return list;
   };
+
+  function setFitScale(scale) {
+    if (scale === fitScale) return;
+    fitScale = scale;
+    for (const list of resolutionQueryLists) list.dispatchEvent(new Event("change"));
+  }
 
   // Slint draws with WebGL, which clears the canvas after each frame unless asked to keep it,
   // and the screenshot reads the canvas later.
@@ -97,32 +136,43 @@
 
   let lastSize = "";
   new ResizeObserver(() => {
-    const width = Math.ceil(document.documentElement.scrollWidth);
-    const height = Math.ceil(document.documentElement.scrollHeight);
+    // The document's scroll size never drops below the frame's current size, so it can't shrink.
+    const width = Math.ceil(document.body.scrollWidth);
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
     const size = `${width}x${height}`;
     if (size === lastSize) return;
     lastSize = size;
     notify("ui/notifications/size-changed", { width, height });
   }).observe(document.body);
 
-  // Scales the canvas down to the available width, keeping its proportions.
-  // Transforms don't change the canvas's layout size, which Slint uses as the window size.
-  function fitCanvas() {
-    if (canvas.hidden) {
-      stage.style.height = "0";
-      return;
-    }
-    const scale = Math.min(1, stage.clientWidth / canvas.offsetWidth);
-    canvas.style.transform = scale < 1 ? `scale(${scale})` : "";
-    stage.style.height = `${Math.ceil(canvas.offsetHeight * scale)}px`;
-  }
-  const fitObserver = new ResizeObserver(fitCanvas);
-  fitObserver.observe(stage);
-  fitObserver.observe(canvas);
+  // The component's preferred size in logical pixels, measured at scale 1.
+  let designSize = null;
 
-  function showCanvas(visible) {
-    canvas.hidden = !visible;
+  function fitCanvas() {
+    if (canvas.hidden || !designSize) return;
+    const scale = Math.min(1, stage.clientWidth / designSize.width);
+    canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
+    canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
+    setFitScale(scale);
+  }
+  new ResizeObserver(fitCanvas).observe(stage);
+
+  // Slint sizes the canvas to the component's preferred size only while auto-resizing at scale 1.
+  function startMeasuring() {
+    designSize = null;
+    canvas.classList.remove("fitted");
+    canvas.dataset.slintAutoResizeToPreferred = "true";
+    canvas.style.visibility = "hidden";
+    setFitScale(1);
+  }
+
+  async function finishMeasuring() {
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(300)]);
+    designSize = { width: canvas.offsetWidth, height: canvas.offsetHeight };
+    canvas.dataset.slintAutoResizeToPreferred = "false";
+    canvas.classList.add("fitted");
     fitCanvas();
+    canvas.style.visibility = "";
   }
 
   function showStatus(text, className = "") {
@@ -185,12 +235,12 @@
     instance = null;
     // The dead module keeps its listeners on the old canvas and media queries.
     darkQueryLists.length = 0;
+    resolutionQueryLists.length = 0;
+    fitScale = 1;
+    designSize = null;
     const freshCanvas = pristineCanvas.cloneNode();
-    fitObserver.unobserve(canvas);
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
-    fitObserver.observe(canvas);
-    fitCanvas();
     showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
     reportToModel(
       "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
@@ -328,16 +378,18 @@
     }
 
     if (!component) {
-      showCanvas(false);
+      canvas.hidden = true;
       showStatus("");
       return;
     }
-    showCanvas(true);
+    canvas.hidden = false;
+    startMeasuring();
     instance = await untilPanic(
       current,
       instance ? component.create_with_existing_window(instance) : component.create("preview"),
     );
     await untilPanic(current, instance.show());
+    await finishMeasuring();
     showStatus("");
   }
 
