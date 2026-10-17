@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore CLOEXEC errno evdev GETSTATE KDGKBMODE KDSKBMODE NOCTTY TCFLSH TCIFLUSH
+// cSpell: ignore EBUSY sigaction SETMASK syscalls waitpid
 
 //! Reading keyboards through evdev doesn't stop the kernel from also feeding the keys to the
 //! active virtual console, where they end up in the shell once the application exits.
