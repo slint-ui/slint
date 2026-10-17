@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
+    RgbaColor, RustModel, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
     SlintStyledText, js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
@@ -103,13 +103,7 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             SlintImageData::from(image.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
         Value::Struct(struct_value) => {
-            let mut o = Object::new(env)?;
-            for (field_name, field_value) in struct_value.iter() {
-                let key = env.create_string(field_name.replace('-', "_"))?;
-                let val = to_js_unknown(env, field_value)?;
-                o.set_property(key, val)?;
-            }
-            o.into_unknown(env)
+            struct_to_js(env, struct_value, |_, value| to_js_unknown(env, value))
         }
         Value::Keys(keys) => {
             SlintKeys::from(keys.clone()).into_instance(env)?.as_object(env).into_unknown(env)
@@ -123,14 +117,7 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             instance.anchor_js_user_data(&mut obj)?;
             obj.into_unknown(env)
         }
-        Value::Model(model) => {
-            if let Some(maybe_js_model) = rust_into_js_model(env, model) {
-                maybe_js_model
-            } else {
-                let model_wrapper: ReadOnlyRustModel = model.clone().into();
-                model_wrapper.into_js(env)
-            }
-        }
+        Value::Model(model) => model_to_js(env, model, None),
         Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
         Value::StyledText(styled_text) => SlintStyledText::from(styled_text.clone())
             .into_instance(env)?
@@ -138,6 +125,52 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             .into_unknown(env),
         _ => ().into_unknown(env),
     }
+}
+
+/// Like `to_js_unknown`, for a `value` of type `ty`:
+/// a model in it takes `setRowData()`, which converts the row with `owner`.
+pub fn to_js_unknown_of_type<'a>(
+    env: &'a Env,
+    value: &Value,
+    ty: &Type,
+    owner: &JsAnchorOwner,
+) -> Result<Unknown<'a>> {
+    match (value, ty) {
+        (Value::Model(model), Type::Array(row_type)) => {
+            model_to_js(env, model, Some(((**row_type).clone(), owner.clone())))
+        }
+        (Value::Struct(struct_value), Type::Struct(s)) => {
+            struct_to_js(env, struct_value, |name, value| match s.fields.get(name) {
+                Some(ty) => to_js_unknown_of_type(env, value, ty, owner),
+                None => to_js_unknown(env, value),
+            })
+        }
+        _ => to_js_unknown(env, value),
+    }
+}
+
+fn model_to_js<'a>(
+    env: &'a Env,
+    model: &ModelRc<Value>,
+    row_type: Option<(Type, JsAnchorOwner)>,
+) -> Result<Unknown<'a>> {
+    match rust_into_js_model(env, model) {
+        Some(js_model) => js_model,
+        None => RustModel { model: model.clone(), row_type }.into_js(env),
+    }
+}
+
+fn struct_to_js<'a>(
+    env: &'a Env,
+    struct_value: &slint_interpreter::Struct,
+    mut field_to_js: impl FnMut(&str, &Value) -> Result<Unknown<'a>>,
+) -> Result<Unknown<'a>> {
+    let mut o = Object::new(env)?;
+    for (field_name, field_value) in struct_value.iter() {
+        let key = env.create_string(field_name.replace('-', "_"))?;
+        o.set_property(key, field_to_js(field_name, field_value)?)?;
+    }
+    o.into_unknown(env)
 }
 
 /// A capability handle for installing hidden anchor properties on an owning

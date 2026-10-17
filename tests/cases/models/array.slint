@@ -243,6 +243,12 @@ assert.equal(instance.index_of_three, 2);
 assert.equal(instance.index_of_missing, -1);
 assert.equal(instance.empty_index_of, -1);
 
+instance.ints.setRowData(2, 33);
+assert.equal(instance.third_int, 33);
+instance.array_of_array.setRowData(3, [7]);
+assert.equal(instance.array_of_array.rowData(3).rowData(0), 7);
+instance.ints.setRowData(2, 3);
+
 assert.equal(instance.index_of_with_side_effect(), 2);
 assert.equal(instance.index_of_value_calls, 1);
 
