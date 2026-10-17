@@ -103,16 +103,19 @@ pub fn quit_event_loop() -> napi::Result<()> {
     i_slint_core::api::quit_event_loop().map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
+thread_local! {
+    static KEEP_EVENT_LOOP_ALIVE: std::cell::RefCell<Option<i_slint_core::context::KeepAlive>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 #[napi]
 pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi::Result<()> {
-    if !quit_on_last_window_closed {
-        i_slint_backend_selector::with_platform(|b| {
-            #[allow(deprecated)]
-            b.set_event_loop_quit_on_last_window_closed(false);
-            Ok(())
-        })
+    let keep_running = !quit_on_last_window_closed;
+    let keep_alive = keep_running
+        .then(|| i_slint_backend_selector::with_global_context(|ctx| ctx.keep_alive()))
+        .transpose()
         .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-    }
+    KEEP_EVENT_LOOP_ALIVE.with(|slot| slot.replace(keep_alive));
     Ok(())
 }
 
