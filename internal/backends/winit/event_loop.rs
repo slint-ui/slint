@@ -70,6 +70,8 @@ pub struct EventLoopState {
 
     /// Set while `pump_events` runs.
     pump: Option<PumpState>,
+    /// Set from the first `pump_events` of a run until it returns `PumpStatus::Exit`.
+    pump_run_active: bool,
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
@@ -83,6 +85,7 @@ impl EventLoopState {
             shared_backend_data,
             loop_error: Default::default(),
             pump: None,
+            pump_run_active: false,
             custom_application_handler,
         }
     }
@@ -366,6 +369,14 @@ impl EventLoopState {
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
         let mut winit_loop = not_running_loop_instance;
 
+        if !self.pump_run_active {
+            self.pump_run_active = true;
+            // Like `run`, so that a quit requested before this run doesn't end it.
+            self.shared_backend_data
+                .event_loop_generation
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+
         self.pump = Some(PumpState {
             instantly: timeout.is_some_and(|duration| duration.is_zero()),
             exit_requested: false,
@@ -375,6 +386,9 @@ impl EventLoopState {
 
         if self.pump.take().is_some_and(|pump| pump.exit_requested) {
             result = winit::platform::pump_events::PumpStatus::Exit(0);
+        }
+        if matches!(result, winit::platform::pump_events::PumpStatus::Exit(_)) {
+            self.pump_run_active = false;
         }
 
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
