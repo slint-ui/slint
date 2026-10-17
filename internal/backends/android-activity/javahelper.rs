@@ -815,7 +815,7 @@ fn callback_popup_menu_action<'local>(
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     match id {
                         0 => text_input.cut(&adaptor, &focus_item),
-                        1 => text_input.copy(&adaptor, &focus_item),
+                        1 => text_input.copy(&adaptor),
                         2 => text_input.paste(&adaptor, &focus_item),
                         3 => text_input.select_all(&adaptor, &focus_item),
                         _ => (),

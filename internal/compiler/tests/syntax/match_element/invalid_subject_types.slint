@@ -18,7 +18,6 @@ export global Settings {
 }
 
 export component ValueTypes {
-    property <brush> fill: #123;
     property <image> picture;
     property <styled-text> rich: @markdown("hi");
     property <Basket> basket: { count: 1 };
@@ -31,11 +30,6 @@ export component ValueTypes {
     property <component-factory> factory;
     property <length> spacing: 10px;
 
-    match fill {
-//        >   <error{Cannot match on 'brush'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
-        #123: Rectangle { }
-        *: Rectangle { }
-    }
     match picture {
 //        >      <error{Cannot match on 'image'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
         @image-url("x.png"): Rectangle { }

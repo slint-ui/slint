@@ -281,6 +281,13 @@ TEST_CASE("Image")
     }
 
     {
+        auto animated_path = SOURCE_DIR "/../../../internal/core/graphics/image/testdata/twice.png";
+        auto actual_path = Image::load_from_path(animated_path).path();
+        REQUIRE(actual_path.has_value());
+        REQUIRE(*actual_path == animated_path);
+    }
+
+    {
         std::ifstream file(SOURCE_DIR "/redpixel.png", std::ios::binary);
         std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
                                   std::istreambuf_iterator<char>());

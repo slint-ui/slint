@@ -152,6 +152,7 @@ api_python: &api_python
 
 api_node: &api_node
  - 'api/node/**'
+ - 'internal/compiler/generator/typescript*{,/**}'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
 

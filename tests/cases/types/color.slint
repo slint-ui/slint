@@ -273,7 +273,7 @@ export interface Test {
     y2: slint.Brush | slint.RgbaColor | string;
 }
 
-export declare const Test: { new(properties?: Partial<Test>): Test & slint.ComponentHandle };
+export declare const Test: { new(properties?: Partial<Test>): Test & Omit<slint.ComponentHandle, keyof Test> };
 ```
 
 ```js

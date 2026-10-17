@@ -28,7 +28,7 @@ export interface InvalidContent {
 //  >             <^error{'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition}
 
     callback init;
-//  >            <error{An interface cannot have an 'init' callback}
+//           >  <error{Cannot override callback 'init'}
 
     match i {
 //  >error{An interface cannot have match elements}
@@ -68,6 +68,13 @@ export interface DefaultPropertyBindings {
     in property <int> in-property;
     out property <int> out-property <=> self.in-property;
 //                                  >                   <error{Interface properties cannot have default bindings}
+}
+
+// Interface callbacks may not alias another callback.
+export interface AliasedCallback {
+    callback a(int);
+    callback b <=> a;
+//             >   <error{Interface callbacks cannot be aliases}
 }
 
 // An interface may not contain a binding statement.

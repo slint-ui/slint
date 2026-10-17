@@ -38,7 +38,6 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
         Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
-        Expression::ItemMemberFunctionCall { function } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
@@ -133,8 +132,19 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
-        BuiltinFunction::SetSelectionOffsets => isize::MAX,
-        BuiltinFunction::HasSelection => PROPERTY_ACCESS_COST,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => isize::MAX,
+        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
@@ -196,6 +206,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
             isize::MAX
         }
+        BuiltinFunction::ScrollTo => isize::MAX,
+        BuiltinFunction::EnsureVisible => isize::MAX,
+        BuiltinFunction::ListViewEnsureRowVisible => isize::MAX,
     }
 }
 
@@ -302,6 +315,66 @@ fn inline_simple_expressions_in_expression(
     };
 
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
+
+    fold_constant_expression(expr, ctx);
+}
+
+/// Folds a comparison of two literals, and a condition on a literal,
+/// such as `vertical == vertical ? 200 : 32` once inlining replaced a constant property.
+/// clang rejects the C++ `Vertical == Vertical` with `-Wtautological-compare`.
+fn fold_constant_expression(expr: &mut Expression, ctx: &EvaluationContext) {
+    match expr {
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            if let Some(value) = fold_literal_comparison(lhs, *op, rhs) {
+                *expr = Expression::BoolLiteral(value);
+            }
+        }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let Expression::BoolLiteral(take_true) = **condition else { return };
+            if true_expr.ty(ctx) != false_expr.ty(ctx) {
+                return;
+            }
+            let taken = if take_true { true_expr } else { false_expr };
+            *expr = std::mem::replace(&mut **taken, Expression::CodeBlock(Vec::new()));
+        }
+        _ => {}
+    }
+}
+
+fn fold_literal_comparison(lhs: &Expression, op: char, rhs: &Expression) -> Option<bool> {
+    if let (Some(a), Some(b)) = (number_literal(lhs), number_literal(rhs)) {
+        let ordering = a.partial_cmp(&b)?;
+        return match op {
+            '=' => Some(ordering.is_eq()),
+            '!' => Some(ordering.is_ne()),
+            '<' => Some(ordering.is_lt()),
+            '>' => Some(ordering.is_gt()),
+            '≤' => Some(ordering.is_le()),
+            '≥' => Some(ordering.is_ge()),
+            _ => None,
+        };
+    }
+    let equal = match (lhs, rhs) {
+        (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+        (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+        _ => return None,
+    };
+    match op {
+        '=' => Some(equal),
+        '!' => Some(!equal),
+        _ => None,
+    }
+}
+
+/// The value of a number literal, seen through the casts that int properties add.
+fn number_literal(expr: &Expression) -> Option<f64> {
+    match expr {
+        Expression::NumberLiteral(n) => Some(*n),
+        Expression::Cast { from, to: Type::Float32 } => number_literal(from),
+        // The generators convert with a saturating truncation, like `as i32`.
+        Expression::Cast { from, to: Type::Int32 } => number_literal(from).map(|n| n as i32 as f64),
+        _ => None,
+    }
 }
 
 /// Whether a function body can be moved to its single call site through `map`.
@@ -361,4 +434,99 @@ fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {
             binding.use_count.set(use_count);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the comparisons and conditions left: those on literals, and the others.
+    /// The runtime ones come with their operator, `?` for a condition.
+    fn comparisons_left(source: &str) -> (Vec<String>, Vec<(char, String)>) {
+        let unit = crate::llr::lower_test_source(source);
+        fn is_literal(e: &Expression) -> bool {
+            match e {
+                Expression::Cast { from, .. } => is_literal(from),
+                _ => matches!(
+                    e,
+                    Expression::NumberLiteral(_)
+                        | Expression::BoolLiteral(_)
+                        | Expression::EnumerationValue(_)
+                ),
+            }
+        }
+        let (mut constant, mut runtime) = (Vec::new(), Vec::new());
+        unit.for_each_expression(&mut |e, ctx| {
+            e.borrow().visit_recursive(&mut |e| {
+                let text = || crate::llr::pretty_print::DisplayExpression(e, ctx).to_string();
+                match e {
+                    Expression::BinaryExpression { lhs, rhs, op } if "=!<>≤≥".contains(*op) => {
+                        if is_literal(lhs) && is_literal(rhs) {
+                            constant.push(text());
+                        } else {
+                            runtime.push((*op, text()));
+                        }
+                    }
+                    Expression::Condition { condition, .. } => {
+                        if matches!(**condition, Expression::BoolLiteral(_)) {
+                            constant.push(text());
+                        } else {
+                            runtime.push(('?', text()));
+                        }
+                    }
+                    _ => {}
+                }
+            })
+        });
+        (constant, runtime)
+    }
+
+    #[test]
+    fn folds_inlined_constants() {
+        // The parent sets the inputs of `upright` and `flat` to constants,
+        // which are inlined into the bindings of `Item`, and those of `live` to runtime values.
+        let source = r#"
+component Item {
+    in property <Orientation> orientation: horizontal;
+    in property <int> level: 1;
+    in property <bool> flag;
+    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
+    out property <bool> is-horizontal: root.orientation != Orientation.vertical;
+    out property <bool> above-two: root.level > 2;
+    out property <bool> below-two: root.level < 2;
+    out property <bool> at-least-two: root.level >= 2;
+    out property <bool> at-most-two: root.level <= 2;
+    out property <bool> is-two: root.level == 2;
+    out property <bool> not-two: root.level != 2;
+    out property <bool> unflagged: root.flag != true;
+}
+
+export component Foo {
+    in property <Orientation> live-orientation;
+    in property <int> live-level;
+    in property <bool> live-flag;
+    VerticalLayout {
+        upright := Item { orientation: vertical; level: 2; flag: true; }
+        flat := Item { level: 5; }
+        live := Item { orientation: root.live-orientation; level: root.live-level; flag: root.live-flag; }
+    }
+    out property <bool> result: !upright.is-horizontal && flat.is-horizontal
+        && !upright.above-two && flat.above-two && !upright.below-two && !flat.below-two
+        && upright.at-least-two && flat.at-least-two && upright.at-most-two && !flat.at-most-two
+        && upright.is-two && !flat.is-two && !upright.not-two && flat.not-two
+        && !upright.unflagged && flat.unflagged;
+    out property <bool> live-result: live.is-horizontal && live.above-two && live.below-two
+        && live.at-least-two && live.at-most-two && live.is-two && live.not-two && live.unflagged;
+}
+"#;
+        let (constant, runtime) = comparisons_left(source);
+        assert!(constant.is_empty(), "{constant:#?}");
+        for kept in ['=', '!', '<', '>', '≤', '≥', '?'] {
+            assert!(
+                runtime.iter().any(|(op, text)| *op == kept && text.contains("live-")),
+                "no '{kept}' on a `live` input left: {runtime:#?}"
+            );
+        }
+    }
 }

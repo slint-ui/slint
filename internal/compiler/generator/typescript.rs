@@ -82,17 +82,34 @@ impl TsInterface {
 
     /// The interface itself, then one `export type Alias = Name;` per extra exported name.
     fn declarations(&self, associated_globals: &[TsInterface]) -> Vec<Declaration> {
-        // A global is reached through the component instance, under each of its names.
-        let globals = associated_globals.iter().flat_map(|glob| {
-            glob.exported_names().map(|exported| Field {
-                name: member(exported),
-                ty: glob.name.clone(),
-                read_only: true,
+        let globals: Vec<Field> = associated_globals
+            .iter()
+            .flat_map(|glob| {
+                glob.exported_names().map(|exported| Field {
+                    name: member(exported),
+                    ty: glob.name.clone(),
+                    read_only: true,
+                })
             })
+            .collect();
+        let unhidden_globals = globals
+            .iter()
+            .filter(|global| self.fields.iter().all(|field| field.name != global.name))
+            .cloned();
+        let globals_symbol = (!globals.is_empty()).then(|| Field {
+            name: "[slint.globalsSymbol]".into(),
+            ty: format_smolstr!("{{ {}; }}", globals.iter().join("; ")),
+            read_only: true,
         });
         let interface = Interface {
             name: self.name.clone(),
-            fields: self.fields.iter().cloned().chain(globals).collect(),
+            fields: self
+                .fields
+                .iter()
+                .cloned()
+                .chain(unhidden_globals)
+                .chain(globals_symbol)
+                .collect(),
         };
         std::iter::once(Declaration::Interface(interface))
             .chain(type_aliases(&self.name, &self.aliases))
@@ -352,8 +369,8 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
         Declaration::DeclaredConst(DeclaredConst {
             name: compo.name.clone(),
             ty: format_smolstr!(
-                "{{ new(properties?: Partial<{name}>): {name} & slint.ComponentHandle }}",
-                name = compo.name
+                "{{ new(properties?: Partial<{name}>): {name} & Omit<slint.ComponentHandle, keyof {name}> }}",
+                name = compo.name,
             ),
         })
     }));

@@ -68,6 +68,10 @@ pub struct LookupCtx<'a> {
     /// LSP probe: while resolving, the `Type` is set to the `expected_type` at the innermost
     /// node containing the offset. `None` during normal compilation.
     pub expected_type_probe: Option<(TextSize, Type)>,
+
+    /// Whether the value of the expression being resolved is discarded,
+    /// such as a statement that isn't the last of a code block.
+    pub value_discarded: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -90,6 +94,7 @@ impl<'a> LookupCtx<'a> {
             current_token: None,
             local_variables: Default::default(),
             expected_type_probe: None,
+            value_discarded: false,
         }
     }
 
@@ -396,19 +401,23 @@ impl LookupObject for IdLookup {
             root: &ElementRc,
             f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
         ) -> Option<R> {
-            if !root.borrow().id.is_empty()
-                && let Some(r) =
-                    f(&root.borrow().id, Expression::ElementReference(Rc::downgrade(root)).into())
-            {
-                return Some(r);
-            }
-            for x in &root.borrow().children {
-                if x.borrow().repeated.is_some() {
-                    continue;
-                }
-                if let Some(r) = visit(x, f) {
+            let mut stack = vec![root.clone()];
+            while let Some(elem) = stack.pop() {
+                let elem_ref = elem.borrow();
+                if !elem_ref.id.is_empty()
+                    && let Some(r) =
+                        f(&elem_ref.id, Expression::ElementReference(Rc::downgrade(&elem)).into())
+                {
                     return Some(r);
                 }
+                stack.extend(
+                    elem_ref
+                        .children
+                        .iter()
+                        .rev()
+                        .filter(|x| x.borrow().repeated.is_none())
+                        .cloned(),
+                );
             }
             None
         }

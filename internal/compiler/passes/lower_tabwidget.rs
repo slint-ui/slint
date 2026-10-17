@@ -153,7 +153,11 @@ fn process_tabwidget(
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
-    let mut children = std::mem::take(&mut elem.borrow_mut().children);
+    let (timers, mut children): (Vec<_>, Vec<_>) = std::mem::take(&mut elem.borrow_mut().children)
+        .into_iter()
+        .partition(|child| {
+            matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+        });
 
     // Every child contributes a count (1 / cond?1:0 / model length), stored in
     // a synthetic property on the TabWidget; offsets are running sums.
@@ -418,7 +422,7 @@ fn process_tabwidget(
         Expression::PropertyReference(NamedReference::new(&content, "min-height".into())).into(),
     );
 
-    elem.borrow_mut().children = vec![tabbar, content];
+    elem.borrow_mut().children = [tabbar, content].into_iter().chain(timers).collect();
 }
 
 fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &str) {

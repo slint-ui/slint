@@ -59,6 +59,10 @@ struct Cli {
     #[cfg_attr(feature = "cpp", doc = "'cpp' generates a C++ header.")]
     #[cfg_attr(feature = "rust", doc = "'rust' generates Rust code.")]
     #[cfg_attr(feature = "python", doc = "'python' generates a typed Python module.")]
+    #[cfg_attr(
+        feature = "typescript",
+        doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
+    )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
@@ -279,6 +283,8 @@ fn main() -> std::io::Result<()> {
         && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
         && name != "-"
         && !name.ends_with(".d.ts")
+        // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
+        && !name.ends_with(".d.slint.ts")
     {
         eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
         std::process::exit(1);

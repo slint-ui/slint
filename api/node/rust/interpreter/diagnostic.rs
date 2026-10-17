@@ -12,6 +12,9 @@ pub enum JsDiagnosticLevel {
     /// The diagnostic found is a warning.
     Warning,
 
+    /// The diagnostic is a suggestion that doesn't affect the compilation.
+    Info,
+
     /// The diagnostic is a note to further help with the error or warning.
     Note,
 }
@@ -21,6 +24,7 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
         match diagnostic_level {
             DiagnosticLevel::Error => JsDiagnosticLevel::Error,
             DiagnosticLevel::Warning => JsDiagnosticLevel::Warning,
+            DiagnosticLevel::Info => JsDiagnosticLevel::Info,
             DiagnosticLevel::Note => JsDiagnosticLevel::Note,
             _ => unimplemented!(),
         }
@@ -57,7 +61,10 @@ impl From<Diagnostic> for JsDiagnostic {
             message: internal_diagnostic.message().into(),
             line_number: line_number as u32,
             column_number: column as u32,
-            file_name: internal_diagnostic.source_path(),
+            file_name: internal_diagnostic
+                .source_file()
+                .map(|path| path.to_string_lossy().into_owned())
+                .or_else(|| internal_diagnostic.source_url()),
         }
     }
 }

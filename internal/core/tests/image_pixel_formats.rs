@@ -53,7 +53,7 @@ fn optional_pixel_formats_render() {
     // Gray8: the luminance is written to all three channels.
     let mut gray = SharedPixelBuffer::<slint::Gray8Pixel>::new(SIZE as u32, SIZE as u32);
     for (i, p) in gray.make_mut_slice().iter_mut().enumerate() {
-        *p = slint::Gray8Pixel::new(if i % 2 == 0 { 0x00 } else { 0xff });
+        *p = slint::Gray8Pixel(if i % 2 == 0 { 0x00 } else { 0xff });
     }
     ui.set_source(slint::Image::from_gray8(gray));
     let rendered = render(&window);

@@ -48,7 +48,7 @@ export component InspectorFillPicker inherits Rectangle {
         main-panel := InspectorPickerPanel {
             style: root.style;
             parent-origin: picker-focus.absolute-position;
-            title: "Custom";
+            title: @tr("Custom");
             z: root.stop-in-front ? 0 : 1;
             activated => {
                 root.stop-in-front = false;
@@ -64,7 +64,7 @@ export component InspectorFillPicker inherits Rectangle {
                     overflow: elide;
                 }
                 Text {
-                    text: "This expression cannot be edited as a fill.";
+                    text: @tr("This expression cannot be edited as a fill.");
                     color: Colors.muted;
                     font-size: Typography.caption.size;
                     wrap: word-wrap;
@@ -75,7 +75,7 @@ export component InspectorFillPicker inherits Rectangle {
                 spacing: Metrics.space-small;
                 InspectorSegment {
                     kind: "text";
-                    label: "Solid";
+                    label: @tr("Solid");
                     selected: FillSession.working-fill.kind == BrushKind.solid;
                     clicked => {
                         picker-focus.focus();
@@ -84,7 +84,7 @@ export component InspectorFillPicker inherits Rectangle {
                 }
                 InspectorSegment {
                     kind: "text";
-                    label: "Gradient";
+                    label: @tr("Gradient");
                     selected: FillSession.working-fill.kind != BrushKind.solid;
                     clicked => {
                         picker-focus.focus();
@@ -136,7 +136,7 @@ export component InspectorFillPicker inherits Rectangle {
             style: root.style;
             parent-origin: picker-focus.absolute-position;
             visible: FillSession.stop-panel-open;
-            title: "Stop color";
+            title: @tr("Stop color");
             z: root.stop-in-front ? 1 : 0;
             activated => {
                 root.stop-in-front = true;

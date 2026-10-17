@@ -328,25 +328,37 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     writeln!(
         out,
         "namespace slint {{ class Brush; class Color; class Keys; struct HsvaColor; struct OklchColor; \
-         template<typename T> struct RgbaColor; struct SharedString; struct StyledText; }}"
+         template<typename T> struct RgbaColor; struct SharedString; struct StyledText; \
+         struct LogicalPosition; }}"
     )?;
-    writeln!(out, "namespace slint::cbindgen_private {{ extern \"C\" {{")?;
+    writeln!(
+        out,
+        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct FontMetrics; extern \"C\" {{"
+    )?;
     macro_rules! print_builtin_functions {
         ($(
             $(#[$attr:meta])*
-            $Name:ident $(($Payload:ident))? :
+            $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
                 $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
         )*) => {
             $(print_builtin_functions!(@ $($name)? ($($params)*) -> $Ret $($body)?);)*
         };
         (@ ($($params:tt)*) -> $Ret:tt) => {};
         // The C function gets the thread's context
-        (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
+        (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
             let params = vec![
                 format!("{} *", rust_type_to_cpp(stringify!($Ret))),
-                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
+                $(format!("const {} *", cpp_param_type!($ty $(=> $as)?))),*
             ];
             writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
+        };
+    }
+    macro_rules! cpp_param_type {
+        ($item:ident => ElementReference) => {
+            "BuiltinItemArg"
+        };
+        ($ty:tt $(=> $as:tt)?) => {
+            rust_type_to_cpp(stringify!($ty))
         };
     }
     i_slint_common::for_each_builtin_function!(print_builtin_functions);
@@ -361,6 +373,7 @@ fn rust_type_to_cpp(rust_type: &str) -> &str {
         "f32" | "Coord" => "float",
         "f64" => "double",
         "RgbaColorU8" => "RgbaColor<uint8_t>",
+        "()" => "void",
         other => other,
     }
 }
@@ -508,6 +521,7 @@ fn gen_corelib(
         "ItemTreeVTable",
         "Slice",
         "WindowAdapterRcOpaque",
+        "BuiltinItemArg",
         "PropertyAnimation",
         "AnimationDirection",
         "EasingCurve",
@@ -554,7 +568,6 @@ fn gen_corelib(
         "StandardListViewItem",
         "Rgb8Pixel",
         "Rgba8Pixel",
-        "Gray8Pixel",
     ];
 
     config.export.exclude = [
@@ -725,7 +738,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -869,6 +882,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
+            "Gray8Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
@@ -939,11 +953,6 @@ fn gen_corelib(
     public_config.export.body.insert(
         "Rgba8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
-            .into(),
-    );
-    public_config.export.body.insert(
-        "Gray8Pixel".to_owned(),
-        "/// \\private\nfriend bool operator==(const Gray8Pixel&, const Gray8Pixel&) = default;"
             .into(),
     );
 
@@ -1301,6 +1310,7 @@ fn gen_interpreter(
         "Value",
         "StructOpaque",
         "ModelNotifyOpaque",
+        "FileLoaderResult",
     ])
     .map(String::from)
     .collect();

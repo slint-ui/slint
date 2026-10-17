@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore glprobe
+
 use std::{num::NonZeroU32, sync::Arc};
 
 use crate::winit_compat::WindowSurfaceSizeExt;
@@ -203,6 +205,16 @@ impl OpenGLContext {
         {
             let ns_view: &objc2_app_kit::NSView = unsafe { ns_view.cast().as_ref() };
             ns_view.setLayerContentsPlacement(objc2_app_kit::NSViewLayerContentsPlacement::TopLeft);
+        }
+
+        // See `glprobe::probe`.
+        #[cfg(target_os = "windows")]
+        if let glutin::display::Display::Wgl(display) = context.display()
+            && !super::glprobe::is_valid_proc_address(
+                display.get_proc_address(c"glCreateShader") as usize
+            )
+        {
+            return Err(super::OPENGL_2_REQUIRED.into());
         }
 
         // Try to default to vsync and ignore if the driver doesn't support it.

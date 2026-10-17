@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /// Styled text that has been parsed and separated into paragraphs
+///
+/// Clones of a StyledText share the same underlying data, so cloning is cheap.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {

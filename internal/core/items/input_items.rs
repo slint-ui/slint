@@ -86,7 +86,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: 0,
                 },));
             }
@@ -132,7 +132,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Down,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
 
@@ -149,7 +149,7 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
-                        modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                        modifiers: window_adapter.window().0.context().modifiers().get().into(),
                         touch_finger_id: 0,
                     },));
                 }
@@ -176,7 +176,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Up,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
 
@@ -186,7 +186,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
                 if self.grabbed.get() {
@@ -197,7 +197,7 @@ impl Item for TouchArea {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let modifiers = window_adapter.window().0.context().0.modifiers.get().into();
+                let modifiers = window_adapter.window().0.context().modifiers().get().into();
                 let r = Self::FIELD_OFFSETS.scroll_event().apply_pin(self).call(&(
                     PointerScrollEvent { delta_x: *delta_x, delta_y: *delta_y, modifiers },
                 ));
@@ -854,7 +854,7 @@ impl Item for SwipeGestureHandler {
     ) -> InputEventFilterResult {
         if !self.enabled() {
             if self.pressed.get() {
-                self.cancel_impl();
+                self.cancel();
             }
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -871,7 +871,7 @@ impl Item for SwipeGestureHandler {
                 )
             }
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventFilterResult::ForwardAndIgnore
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
@@ -917,7 +917,7 @@ impl Item for SwipeGestureHandler {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventResult::EventIgnored
             }
             MouseEvent::Released { position, .. } => {
@@ -1012,11 +1012,7 @@ impl ItemConsts for SwipeGestureHandler {
 }
 
 impl SwipeGestureHandler {
-    pub fn cancel(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.cancel_impl();
-    }
-
-    fn cancel_impl(self: Pin<&Self>) {
+    pub fn cancel(self: Pin<&Self>) {
         if !self.pressed.replace(false) {
             debug_assert!(!self.swiping());
             return;
@@ -1036,25 +1032,6 @@ impl SwipeGestureHandler {
             || (self.handle_swipe_up() && dy < -threshold && dy < -dx.abs() / 2 as Coord)
             || (self.handle_swipe_left() && dx < -threshold && dx < -dy.abs() / 2 as Coord)
             || (self.handle_swipe_right() && dx > threshold && dx > dy.abs() / 2 as Coord)
-    }
-}
-
-#[cfg(feature = "ffi")]
-mod ffi {
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
-        s: Pin<&SwipeGestureHandler>,
-        window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-        self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-        self_index: u32,
-    ) {
-        unsafe {
-            let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-            let self_rc = ItemRc::new(self_component.clone(), self_index);
-            s.cancel(window_adapter, &self_rc);
-        }
     }
 }
 

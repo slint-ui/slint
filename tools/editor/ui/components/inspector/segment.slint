@@ -9,7 +9,7 @@ export component InspectorSegment inherits Rectangle {
     in property <string> kind;
     in property <int> index;
     in property <bool> selected;
-    in property <string> label: "\{root.kind} option \{root.index + 1}";
+    in property <string> label: @tr("{} option {}", root.kind, root.index + 1);
     callback clicked;
 
     height: root.style.height;

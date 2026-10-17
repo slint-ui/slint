@@ -36,7 +36,7 @@ export interface NamedTestCase {
     st: NamedStruct;
 }
 
-export declare const NamedTestCase: { new(properties?: Partial<NamedTestCase>): NamedTestCase & slint.ComponentHandle };
+export declare const NamedTestCase: { new(properties?: Partial<NamedTestCase>): NamedTestCase & Omit<slint.ComponentHandle, keyof NamedTestCase> };
 export declare function NotExportedStruct0(properties?: Partial<NotExportedStruct0>): NotExportedStruct0;
 export declare function NamedStruct(properties?: Partial<NamedStruct>): NamedStruct;
 ```

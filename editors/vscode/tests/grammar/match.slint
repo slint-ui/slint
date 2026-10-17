@@ -1,0 +1,33 @@
+// SYNTAX TEST "source.slint" "match element"
+
+  component Foo {
+      match n {
+//    ^^^^^ keyword.control.match-element.slint
+//          ^ - entity.name.type.element.slint
+//            ^ punctuation.brackets.curly.slint
+          -1: Rectangle { }
+//        ^^ constant.numeric.slint
+//          ^ punctuation.separator.match-case.slint
+//            ^^^^^^^^^ entity.name.type.element.slint
+          -1.5px: Text {
+//        ^^^^^^ constant.numeric.slint
+//                ^^^^ entity.name.type.element.slint
+              text: "a";
+//            ^^^^ variable.other.property.slint
+          }
+          "a": { }
+//        ^^^ string.quoted.double.slint
+//             ^ punctuation.brackets.curly.slint
+//               ^ punctuation.brackets.curly.slint
+          // a comment
+//        ^^^^^^^^^^^^ comment.line.double-slash.slint
+          *: Rectangle { }
+//        ^ keyword.other.wildcard.slint
+//           ^^^^^^^^^ entity.name.type.element.slint
+      }
+//    ^ punctuation.brackets.curly.slint
+      property <int> match-count: 3;
+//                   ^^^^^^^^^^^ - keyword.control.match-element.slint
+      Rectangle { }
+//    ^^^^^^^^^ entity.name.type.element.slint
+  }

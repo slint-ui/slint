@@ -60,7 +60,7 @@ export interface TestCase {
     test: boolean;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 ```
 
 ```js

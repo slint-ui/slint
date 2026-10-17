@@ -12,9 +12,9 @@
 
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::expression_types::{MinMaxOp, Unit};
+use crate::expression_types::{MinMaxOp, Orientation, Unit};
 use crate::langtype::Type;
-use crate::layout::{MergedFixedSize, Orientation, is_layout, repeated_element_layout_info};
+use crate::layout::{MergedFixedSize, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};

@@ -220,8 +220,8 @@ pub(super) fn cached_paragraphs<'a>(
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
     window: &crate::api::Window,
-    font_context: &mut parley::FontContext,
-    shape: &dyn Fn(&mut parley::FontContext) -> Vec<TextParagraph>,
+    font_context: &mut FontContext,
+    shape: &dyn Fn(&mut FontContext) -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {

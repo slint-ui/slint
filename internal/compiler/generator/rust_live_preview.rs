@@ -177,7 +177,7 @@ fn generate_public_component(
     let translation_domain = compiler_config.translation_domain.iter();
     let bundled_translations = compiler_config
         .absolute_bundled_translations_path()
-        .map(|path| quote!(compiler.set_bundled_translations_path(#path.into());));
+        .map(|path| quote!(compiler.set_bundled_translations_path(#path);));
     let no_default_translation_context = (compiler_config.default_translation_context == crate::DefaultTranslationContext::None)
         .then(|| quote!(compiler.set_default_translation_context(sp::live_preview::DefaultTranslationContext::None);));
     let style = compiler_config.style.iter();

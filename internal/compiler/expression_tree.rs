@@ -83,8 +83,19 @@ fn builtin_function_is_const(
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => false,
-        BuiltinFunction::SetSelectionOffsets => false,
-        BuiltinFunction::HasSelection => false,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => false,
+        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => false,
         BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
         BuiltinFunction::StringIsEmpty
         | BuiltinFunction::StringCharacterCount
@@ -137,6 +148,8 @@ fn builtin_function_is_const(
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
             true
         }
+        BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
+        BuiltinFunction::ListViewEnsureRowVisible => false,
     }
 }
 
@@ -428,30 +441,30 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout.
     ComputeBoxLayoutInfo {
         layout: crate::layout::BoxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
-    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::expression_types::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
     /// Compute the LayoutInfo for the given FlexboxLayout.
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
         /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,
@@ -1434,7 +1447,7 @@ impl Expression {
         elem: Option<&ElementRc>,
     ) -> Option<Expression> {
         match default {
-            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::None | BuiltinPropertyDefault::Computed => None,
             BuiltinPropertyDefault::Expr(constant) => Some(Self::from_constant(constant)),
             BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
                 function: function.clone().into(),
@@ -1521,6 +1534,28 @@ impl Expression {
                 ctx.diag.push_error(format!("{what} needs to be done on a property"), node);
                 false
             }
+        }
+    }
+
+    /// Anything that isn't a literal compares as different
+    pub(crate) fn same_literal(&self, other: &Expression) -> bool {
+        match (self, other) {
+            (Expression::NumberLiteral(a, a_unit), Expression::NumberLiteral(b, b_unit)) => {
+                a == b && a_unit == b_unit
+            }
+            (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+            (Expression::StringLiteral(a), Expression::StringLiteral(b)) => a == b,
+            (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+            // Colors and other converted literals arrive wrapped in a cast.
+            (
+                Expression::Cast { from: a, to: a_type },
+                Expression::Cast { from: b, to: b_type },
+            ) => a_type == b_type && a.same_literal(b),
+            (
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(a)),
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(b)),
+            ) => a.same_literal(b),
+            _ => false,
         }
     }
 

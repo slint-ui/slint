@@ -14,7 +14,8 @@ use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::native_class::{NativeClass, PropertyVisibility};
-use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
+use crate::object_tree::{self, Component, ElementRc};
+use crate::property_analysis::PropertyAnalysis;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
@@ -277,7 +278,10 @@ impl LoweredSubComponentMapping {
                     .property_type
                 {
                     Type::Callback(..) => super::NativeMemberKind::Callback,
-                    Type::Function(..) => super::NativeMemberKind::Function,
+                    Type::Function(..) => panic!(
+                        "internal error: a builtin function implements {}, not a reference",
+                        from.name()
+                    ),
                     _ => super::NativeMemberKind::Property,
                 };
                 MemberReference::Relative {
@@ -403,8 +407,8 @@ fn lower_fixed_size_root_layout_info(
     let mut ctx = ExpressionLoweringCtx { inner, state };
     let constraints = component.root_constraints.borrow();
     for (orientation, layout_info) in [
-        (crate::layout::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
-        (crate::layout::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
+        (crate::expression_types::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
+        (crate::expression_types::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
     ] {
         if let Some(e) = super::lower_layout_expression::get_fixed_size_root_layout_info(
             &component.root_element,
@@ -423,57 +427,7 @@ fn lower_sub_component(
     parent_context: Option<&ExpressionLoweringCtxInner>,
     compiler_config: &CompilerConfiguration,
 ) -> LoweredSubComponent {
-    let mut sub_component = SubComponent {
-        name: component_id(component),
-        properties: Default::default(),
-        callbacks: Default::default(),
-        functions: Default::default(),
-        items: Default::default(),
-        repeated: Default::default(),
-        component_containers: Default::default(),
-        popup_windows: Default::default(),
-        menu_item_trees: Vec::new(),
-        timers: Default::default(),
-        sub_components: Default::default(),
-        property_init: Default::default(),
-        change_callbacks: Default::default(),
-        animations: Default::default(),
-        two_way_bindings: Default::default(),
-        const_properties: Default::default(),
-        pre_init_code: Default::default(),
-        init_code: Default::default(),
-        geometries: Default::default(),
-        // just initialize to dummy expression right now and it will be set later
-        layout_info_h: super::Expression::BoolLiteral(false).into(),
-        layout_info_v: super::Expression::BoolLiteral(false).into(),
-        child_of_layout: component.root_element.borrow().child_of_layout,
-        grid_layout_input_for_repeated: None,
-        flexbox_layout_item_info_for_repeated: None,
-        cross_axis_self_alignment_for_repeated: None,
-        layout_order_for_repeated: None,
-        layout_info_v_constrained_for_repeated: None,
-        layout_info_v_at_cross_width_for_repeated: None,
-        grid_row_child_cross_width: None,
-        is_repeated_row: component
-            .root_element
-            .borrow()
-            .grid_layout_cell
-            .as_ref()
-            .is_some_and(|c| c.borrow().child_items.is_some()),
-        grid_layout_children: Default::default(),
-        row_child_templates: None,
-        accessible_prop: Default::default(),
-        element_infos: Default::default(),
-        prop_analysis: Default::default(),
-        debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
-            source_location: crate::diagnostics::Spanned::to_source_location(
-                &*component.root_element.borrow(),
-            ),
-            items: Default::default(),
-            repeated_elements: Default::default(),
-            sub_component_use_sites: Default::default(),
-        }),
-    };
+    let mut sub_component = new_sub_component(component, compiler_config);
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = TiVec::new();
     let mut accessible_prop = Vec::new();
@@ -811,7 +765,82 @@ fn lower_sub_component(
         })
         .collect();
 
-    sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
+    lower_sub_component_tail(
+        &mut sub_component,
+        &mut ctx,
+        component,
+        accessible_prop,
+        change_callbacks,
+    );
+
+    LoweredSubComponent { sub_component, mapping }
+}
+
+fn new_sub_component(
+    component: &Rc<Component>,
+    compiler_config: &CompilerConfiguration,
+) -> SubComponent {
+    SubComponent {
+        name: component_id(component),
+        properties: Default::default(),
+        callbacks: Default::default(),
+        functions: Default::default(),
+        items: Default::default(),
+        repeated: Default::default(),
+        component_containers: Default::default(),
+        popup_windows: Default::default(),
+        menu_item_trees: Vec::new(),
+        timers: Default::default(),
+        sub_components: Default::default(),
+        property_init: Default::default(),
+        change_callbacks: Default::default(),
+        animations: Default::default(),
+        two_way_bindings: Default::default(),
+        const_properties: Default::default(),
+        pre_init_code: Default::default(),
+        init_code: Default::default(),
+        geometries: Default::default(),
+        // just initialize to dummy expression right now and it will be set later
+        layout_info_h: super::Expression::BoolLiteral(false).into(),
+        layout_info_v: super::Expression::BoolLiteral(false).into(),
+        child_of_layout: component.root_element.borrow().child_of_layout,
+        grid_layout_input_for_repeated: None,
+        flexbox_layout_item_info_for_repeated: None,
+        cross_axis_self_alignment_for_repeated: None,
+        layout_order_for_repeated: None,
+        layout_info_v_constrained_for_repeated: None,
+        layout_info_v_at_cross_width_for_repeated: None,
+        grid_row_child_cross_width: None,
+        is_repeated_row: component
+            .root_element
+            .borrow()
+            .grid_layout_cell
+            .as_ref()
+            .is_some_and(|c| c.borrow().child_items.is_some()),
+        grid_layout_children: Default::default(),
+        row_child_templates: None,
+        accessible_prop: Default::default(),
+        element_infos: Default::default(),
+        prop_analysis: Default::default(),
+        debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
+            source_location: crate::diagnostics::Spanned::to_source_location(
+                &*component.root_element.borrow(),
+            ),
+            items: Default::default(),
+            repeated_elements: Default::default(),
+            sub_component_use_sites: Default::default(),
+        }),
+    }
+}
+
+fn lower_sub_component_tail(
+    sub_component: &mut SubComponent,
+    ctx: &mut ExpressionLoweringCtx,
+    component: &Rc<Component>,
+    accessible_prop: Vec<(u32, String, NamedReference)>,
+    change_callbacks: Vec<(NamedReference, Vec<tree_Expression>)>,
+) {
+    sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, ctx)).collect();
 
     for_each_const_properties(ctx.state, component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
@@ -828,21 +857,21 @@ fn lower_sub_component(
         .borrow()
         .font_registration_code
         .iter()
-        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
+        .map(|e| super::lower_expression::lower_expression(e, ctx).into())
         .collect();
 
     sub_component.init_code = component
         .init_code
         .borrow()
         .iter_without_font_registration()
-        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
+        .map(|e| super::lower_expression::lower_expression(e, ctx).into())
         .collect();
 
     sub_component.layout_info_h = super::lower_layout_expression::get_layout_info(
         &component.root_element,
-        &mut ctx,
+        ctx,
         &component.root_constraints.borrow(),
-        crate::layout::Orientation::Horizontal,
+        crate::expression_types::Orientation::Horizontal,
         None,
     )
     .into();
@@ -855,15 +884,15 @@ fn lower_sub_component(
     sub_component.layout_info_v = if measure_at_root_width {
         super::lower_layout_expression::get_root_layout_info_v(
             root_elem,
-            &mut ctx,
+            ctx,
             &component.root_constraints.borrow(),
         )
     } else {
         super::lower_layout_expression::get_layout_info(
             root_elem,
-            &mut ctx,
+            ctx,
             &component.root_constraints.borrow(),
-            crate::layout::Orientation::Vertical,
+            crate::expression_types::Orientation::Vertical,
             None,
         )
     }
@@ -874,7 +903,7 @@ fn lower_sub_component(
             .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =
             super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
-                &mut ctx,
+                ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
             );
@@ -884,7 +913,7 @@ fn lower_sub_component(
         if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
-                    &mut ctx, root_elem,
+                    ctx, root_elem,
                 )
                 .into(),
             );
@@ -892,7 +921,7 @@ fn lower_sub_component(
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
-                &mut ctx,
+                ctx,
                 root_elem,
                 &component.root_constraints.borrow(),
                 true,
@@ -926,7 +955,7 @@ fn lower_sub_component(
         // one from its ortho measure pass.
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
-                &mut ctx,
+                ctx,
                 &component.root_element,
                 &component.root_constraints.borrow(),
                 false,
@@ -940,7 +969,7 @@ fn lower_sub_component(
         // `layout_info` measures at the instance's preferred width.
         sub_component.layout_info_v_at_cross_width_for_repeated =
             super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
-                &mut ctx,
+                ctx,
                 &component.root_element,
                 &component.root_constraints.borrow(),
                 false,
@@ -951,11 +980,8 @@ fn lower_sub_component(
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
         let grid_cell_ref = grid_layout_cell.borrow();
         sub_component.grid_layout_input_for_repeated = Some(
-            super::lower_layout_expression::get_grid_layout_input_for_repeated(
-                &mut ctx,
-                &grid_cell_ref,
-            )
-            .into(),
+            super::lower_layout_expression::get_grid_layout_input_for_repeated(ctx, &grid_cell_ref)
+                .into(),
         );
 
         // Store constraints for children of the Row
@@ -966,16 +992,16 @@ fn lower_sub_component(
                     crate::layout::RowChildTemplate::Static(layout_item) => {
                         let layout_info_h = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
-                            &mut ctx,
+                            ctx,
                             &layout_item.constraints,
-                            crate::layout::Orientation::Horizontal,
+                            crate::expression_types::Orientation::Horizontal,
                             None,
                         );
                         let layout_info_v = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
-                            &mut ctx,
+                            ctx,
                             &layout_item.constraints,
-                            crate::layout::Orientation::Vertical,
+                            crate::expression_types::Orientation::Vertical,
                             None,
                         );
                         let child_index = sub_component.grid_layout_children.push_and_get_key(
@@ -993,7 +1019,7 @@ fn lower_sub_component(
                         // child of the Row, so only the first one that needs
                         // it builds it.
                         let cross_width = super::lower_layout_expression::grid_measure_cross_width(
-                            &mut ctx,
+                            ctx,
                             repeated_element,
                             super::lower_layout_expression::GridMeasureIndex::RowChild,
                         );
@@ -1004,7 +1030,8 @@ fn lower_sub_component(
                         // Inner repeater: layout_info is computed at runtime per instance.
                         if let Some(super::lower_to_item_tree::LoweredElement::Repeated {
                             repeated_index,
-                        }) = mapping.element_mapping.get(&repeated_element.clone().into())
+                        }) =
+                            ctx.inner.mapping.element_mapping.get(&repeated_element.clone().into())
                         {
                             row_child_templates.push(super::RowChildTemplateInfo::Repeated {
                                 repeater_index: *repeated_index,
@@ -1060,10 +1087,8 @@ fn lower_sub_component(
         .into_iter()
         .map(|(nr, exprs)| {
             let prop = ctx.map_property_reference(&nr);
-            let expr = super::lower_expression::lower_expression(
-                &tree_Expression::CodeBlock(exprs),
-                &mut ctx,
-            );
+            let expr =
+                super::lower_expression::lower_expression(&tree_Expression::CodeBlock(exprs), ctx);
             (prop, expr.into())
         })
         .collect();
@@ -1078,10 +1103,8 @@ fn lower_sub_component(
         if item_index >= sub_component.geometries.len() {
             sub_component.geometries.resize(item_index + 1, Default::default());
         }
-        sub_component.geometries[item_index] = Some(lower_geometry(geom, &ctx).into());
+        sub_component.geometries[item_index] = Some(lower_geometry(geom, ctx).into());
     });
-
-    LoweredSubComponent { sub_component, mapping }
 }
 
 fn lower_geometry(
@@ -1178,7 +1201,7 @@ fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> 
     }
 }
 
-fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
+fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::property_analysis::PropertyAnalysis {
     let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
     let mut elem = elem.clone();
     loop {
@@ -1215,11 +1238,28 @@ fn lower_repeated_component(
     ctx: &mut ExpressionLoweringCtx,
     compiler_config: &CompilerConfiguration,
 ) -> RepeatedElement {
-    let e = elem.borrow();
-    let component = e.base_type.as_component().clone();
-    let repeated = e.repeated.as_ref().unwrap();
-
+    let component = elem.borrow().base_type.as_component().clone();
     let sc = lower_sub_component(&component, ctx.state, Some(&ctx.inner), compiler_config);
+    lower_repeated_component_body(
+        elem,
+        parent_component_container,
+        sub_component,
+        ctx,
+        component,
+        sc,
+    )
+}
+
+fn lower_repeated_component_body(
+    elem: &ElementRc,
+    parent_component_container: Option<ElementRc>,
+    sub_component: &SubComponent,
+    ctx: &mut ExpressionLoweringCtx,
+    component: Rc<Component>,
+    sc: LoweredSubComponent,
+) -> RepeatedElement {
+    let e = elem.borrow();
+    let repeated = e.repeated.as_ref().unwrap();
 
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
@@ -1858,14 +1898,7 @@ export component TestCase inherits Window {
     }
     /// The names of the properties of the lowered public component's root sub-component.
     fn root_property_names(source: &str) -> Vec<String> {
-        let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-        let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node =
-            crate::parser::parse(source.into(), Some(SourcePath::new("t.slint")), &mut diags);
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
-        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
-        let unit = super::lower_to_item_tree(&doc, &config);
+        let unit = crate::llr::lower_test_source(source);
         let root = unit.public_components.iter().next().unwrap().item_tree.root;
         unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
     }

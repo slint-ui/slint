@@ -80,7 +80,7 @@ export interface TestCase {
     p6: NewGameParameters;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function Player(properties?: Partial<Player>): Player;
 export declare function NewGameTeam(properties?: Partial<NewGameTeam>): NewGameTeam;
 export declare function NewGameParameters(properties?: Partial<NewGameParameters>): NewGameParameters;

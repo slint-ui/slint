@@ -15,7 +15,7 @@ export component InspectorColorValueField inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
     in property <bool> swatch-enabled: true;
-    in property <string> swatch-accessible-name: root.accessible-name + " color picker";
+    in property <string> swatch-accessible-name: @tr("{} color picker", root.accessible-name);
     in property <string> commit-key: "";
     out property <bool> input-focused: color-input.input-focused || opacity-input.input-focused;
     callback accepted(color, string) -> bool;
@@ -58,8 +58,6 @@ export component InspectorColorValueField inherits Rectangle {
         clip: true;
 
         HorizontalLayout {
-            spacing: 0px;
-
             color-input := InspectorTextFieldBase {
                 style: root.style.field;
                 radius: 0px;
@@ -82,7 +80,7 @@ export component InspectorColorValueField inherits Rectangle {
                 style: root.style.field;
                 radius: 0px;
                 show-focus-border: false;
-                accessible-name: root.accessible-name + " opacity";
+                accessible-name: @tr("{} opacity", root.accessible-name);
                 width: root.style.opacity-width;
                 enabled: root.enabled;
                 live-edit: root.live-edit;
@@ -96,7 +94,6 @@ export component InspectorColorValueField inherits Rectangle {
                 scrub-on-suffix: true;
                 scrub-value: root.data.opacity;
                 scrub-has-minimum: true;
-                scrub-minimum: 0;
                 scrub-has-maximum: true;
                 scrub-maximum: 100;
                 accepted(text) => { return root.accept-opacity(text); }

@@ -5,7 +5,7 @@ export component Bubble inherits Image {
     width: 70px;
     source: @image-url("../images/bubble.jpg");
 
-    in property <string> title: "PREP";
+    in property <string> title;
     in property <string> time: "15 Min";
     in property <image> icon: @image-url("../images/prep.jpg");
 
@@ -21,7 +21,6 @@ export component Bubble inherits Image {
                 Image {
                     width: 8px;
                     source: root.icon;
-                    vertical-alignment: center;
                 }
 
                 Text {

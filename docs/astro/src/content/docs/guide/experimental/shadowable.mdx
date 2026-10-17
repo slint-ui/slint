@@ -86,10 +86,20 @@ export component Derived inherits Base {
 }
 ```
 
+## Interface Members
+
+On an interface member, `@shadowable` means two things:
+
+- A derived interface may redeclare the member, with a warning.
+- A component that implements the interface with `implement I <=> self` must declare the member `@shadowable` too,
+  so components that inherit from it may shadow it.
+
+Members that a component forwards with `implement I <=> child` take the attribute from the interface.
+
 ## Rules
 
 - `@shadowable` can be applied to property, callback and function declarations.
-- It goes on the declaration in the *base* component: it says "this member may be shadowed", not "this member shadows".
+- It goes on the declaration in the *base* component or interface: it says "this member may be shadowed", not "this member shadows".
 - It may be combined with <Link type="Deprecation" label="@deprecated" code /> in either order, but each annotation only once.
 - A shadowing declaration in a derived component may itself be marked `@shadowable` to allow shadowing it further down.
 - Declaring the same name twice on the same element is still an error.

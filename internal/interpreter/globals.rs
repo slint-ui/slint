@@ -298,6 +298,7 @@ fn install_for_global(g: &Rc<GlobalInstance>, storage: &Rc<GlobalStorage>) {
             }
             LocalMemberIndex::Function(_)
             | LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Repeater(_)
             | LocalMemberIndex::Timer(_) => {
                 // Function bodies live on `GlobalComponent::functions[*].code`.
                 // Natives and timers don't appear on globals.

@@ -235,6 +235,8 @@ pub enum DiagnosticLevel {
     Error,
     /// The diagnostic found is a warning.
     Warning,
+    /// The diagnostic is a suggestion that doesn't affect the compilation.
+    Info,
     /// The diagnostic is an note to further help with the error or warning
     Note,
 }
@@ -286,16 +288,21 @@ impl Diagnostic {
     // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
     // this.
     /// Returns the path of the source file where this diagnostic is attached,
-    /// or `None` if the source wasn't loaded from a file, such as one loaded from a URL.
-    #[deprecated(note = "Use `source_path()`, which also names sources that aren't files")]
+    /// or `None` if the source isn't a local file, such as one loaded from a URL.
+    /// [`Self::source_url()`] also names the other sources.
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file()?.path().as_native_path()
     }
 
-    /// Returns the name of the source where this diagnostic is attached:
-    /// the path of a file, or the URL of a source that isn't a local file.
-    pub fn source_path(&self) -> Option<String> {
-        Some(self.span.source_file()?.path().to_string())
+    /// Returns the URL of the source where this diagnostic is attached,
+    /// such as a `file:` URL for a local file.
+    pub fn source_url(&self) -> Option<String> {
+        let path = self.span.source_file()?.path();
+        let url = match path.as_native_path() {
+            Some(native) => SourcePath::new(std::path::absolute(native).ok()?).to_url(),
+            None => path.to_url(),
+        }?;
+        Some(url.into())
     }
 }
 
@@ -418,6 +425,12 @@ impl BuildDiagnostics {
     pub fn push_warning(&mut self, message: String, source: &dyn Spanned) {
         self.push_warning_with_span(message, source.to_source_location());
     }
+    pub fn push_info_with_span(&mut self, message: String, span: SourceLocation) {
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Info)
+    }
+    pub fn push_info(&mut self, message: String, source: &dyn Spanned) {
+        self.push_info_with_span(message, source.to_source_location());
+    }
     pub fn push_note_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Note)
     }
@@ -493,6 +506,11 @@ impl BuildDiagnostics {
         self.inner.is_empty()
     }
 
+    /// Drop the info diagnostics, for outputs that can only show them as warnings.
+    pub fn remove_infos(&mut self) {
+        self.inner.retain(|d| d.level != DiagnosticLevel::Info);
+    }
+
     #[cfg(feature = "display-diagnostics")]
     fn call_diagnostics(
         &self,
@@ -509,6 +527,7 @@ impl BuildDiagnostics {
                 let annotate_snippets_level = match d.level {
                     DiagnosticLevel::Error => annotate_snippets::Level::ERROR,
                     DiagnosticLevel::Warning => annotate_snippets::Level::WARNING,
+                    DiagnosticLevel::Info => annotate_snippets::Level::INFO,
                     DiagnosticLevel::Note => annotate_snippets::Level::NOTE,
                 };
                 let message = annotate_snippets_level.primary_title(d.message());
@@ -610,6 +629,7 @@ impl BuildDiagnostics {
                             quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const NOTE: () = (); NOTE };)
                         ));
                     },
+                    DiagnosticLevel::Info => {}
                 }
             }),
         );

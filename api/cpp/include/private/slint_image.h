@@ -75,6 +75,8 @@ private:
 /// You can construct Image objects from a path to an image file on disk, using
 /// Image::load_from_path().
 ///
+/// Copies of an Image share the same underlying data, so copying is cheap.
+///
 /// Another typical use-case is to render the image content with C++ code.
 /// For this it’s most efficient to create a new SharedPixelBuffer with the known dimensions and
 /// pass the pixel pointer returned by begin() to your rendering function. Afterwards you can create

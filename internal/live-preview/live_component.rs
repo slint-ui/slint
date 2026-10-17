@@ -307,7 +307,7 @@ struct Watcher {
     compile_request: std::sync::mpsc::Sender<u64>,
     /// The result of the latest background compilation, waiting to be applied
     /// on the event-loop thread.
-    pending_result: Option<slint_interpreter::CompilationResultSend>,
+    pending_result: Option<slint_interpreter::SendableCompilationResult>,
     /// Bumped on every detected change so the worker can coalesce bursts of
     /// file events into a single compilation of the latest state.
     generation: u64,
@@ -378,7 +378,7 @@ impl Watcher {
         rx: std::sync::mpsc::Receiver<u64>,
         compiler_factory: CompilerFactory,
         file_name: PathBuf,
-    ) -> std::sync::mpsc::Receiver<slint_interpreter::CompilationResultSend> {
+    ) -> std::sync::mpsc::Receiver<slint_interpreter::SendableCompilationResult> {
         let (first_build, first_build_rx) = std::sync::mpsc::channel();
         let watcher_weak = Arc::downgrade(arc);
         std::thread::Builder::new()

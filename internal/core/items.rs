@@ -54,6 +54,7 @@ use vtable::*;
 mod component_container;
 pub use self::component_container::*;
 mod flickable;
+pub(crate) use flickable::Dimension;
 pub use flickable::{AutoBool, Flickable};
 mod text;
 pub use text::*;
@@ -1545,36 +1546,6 @@ impl ItemConsts for WindowItem {
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_windowitem_close(
-    window_item: Pin<&WindowItem>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) -> bool {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let item_rc = ItemRc::new(self_component.clone(), self_index);
-        window_item.close(window_adapter, &item_rc)
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_windowitem_hide(
-    window_item: Pin<&WindowItem>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let item_rc = ItemRc::new(self_component.clone(), self_index);
-        window_item.hide(window_adapter, &item_rc);
-    }
-}
-
 declare_item_vtable! {
     fn slint_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
@@ -1749,7 +1720,7 @@ impl ContextMenu {
         }
     }
 
-    pub fn is_open(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _: &ItemRc) -> bool {
+    pub fn is_open(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> bool {
         self.popup_id.get().is_some_and(|id| {
             WindowInner::from_pub(window_adapter.window())
                 .active_popups()
@@ -1795,36 +1766,6 @@ impl ItemConsts for ContextMenu {
 
 declare_item_vtable! {
     fn slint_get_ContextMenuVTable() -> ContextMenuVTable for ContextMenu
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_contextmenu_close(
-    s: Pin<&ContextMenu>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        s.close(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_contextmenu_is_open(
-    s: Pin<&ContextMenu>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) -> bool {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        s.is_open(window_adapter, &self_rc)
-    }
 }
 
 /// The implementation of the `BoxShadow` element
@@ -2436,16 +2377,4 @@ fn builtin_struct_field_defaults() {
     assert_eq!(hints.capitalization, CapitalizationMode::Sentences);
     assert!(hints.auto_correct);
     assert!(hints.auto_complete);
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_item_absolute_position(
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) -> crate::lengths::LogicalPoint {
-    let self_rc = ItemRc::new(self_component.clone(), self_index);
-    // Map the item's own geometry origin through the ancestor transforms so the result is the
-    // item's absolute position, not its parent's.
-    self_rc.map_to_window(self_rc.geometry().origin)
 }

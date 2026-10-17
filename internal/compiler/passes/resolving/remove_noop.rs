@@ -7,29 +7,46 @@ use crate::{diagnostics::BuildDiagnostics, expression_tree::Expression, parser::
 ///
 /// This function assumes that the given Expressions will form the an [Expression::CodeBlock], and
 /// will therefore not modify the last Expression in the Vec, as that forms the result value of the
-/// CodeBlock itself.
+/// CodeBlock itself, unless `value_discarded` is set.
 pub fn remove_from_codeblock(
     code_block: &mut Vec<(SyntaxNode, Expression)>,
+    value_discarded: bool,
     diagnostics: &mut BuildDiagnostics,
 ) {
-    if code_block.len() > 1 {
-        // In a code block, only the last expression returns a value.
-        // Therefore all other expressions inside the block are only useful if they have side
-        // effects.
-        //
-        // Remove all expressions without side effects (except for the last one) and emit a
-        // warning.
-        //
-        // Note: Iterate over the indices in reverse, so that all to-be-iterated indices remain
-        // valid when removing items from the vector.
-        for index in (0..(code_block.len() - 1)).rev() {
-            let (node, expression) = &code_block[index];
-            if without_side_effects(expression) {
-                diagnostics.push_warning("Expression has no effect!".to_owned(), node);
-                code_block.remove(index);
+    // In a code block, only the last expression returns a value.
+    // Therefore all other expressions inside the block are only useful if they have side
+    // effects.
+    //
+    // Remove all expressions without side effects and emit a warning.
+    //
+    // Note: Iterate over the indices in reverse, so that all to-be-iterated indices remain
+    // valid when removing items from the vector.
+    let end = if value_discarded { code_block.len() } else { code_block.len().saturating_sub(1) };
+    for index in (0..end).rev() {
+        let (node, expression) = &code_block[index];
+        if without_side_effects(expression) {
+            if !warns_about_own_values(expression) {
+                diagnostics.push_warning("Expression has no effect".to_owned(), node);
             }
+            code_block.remove(index);
         }
     }
+}
+
+/// Warn if the discarded `expression` has no effect, such as `2` in `c ? 2 : f();`.
+pub fn warn_discarded(
+    expression: &Expression,
+    node: &SyntaxNode,
+    diagnostics: &mut BuildDiagnostics,
+) {
+    if !warns_about_own_values(expression) && without_side_effects(expression) {
+        diagnostics.push_warning("Expression has no effect".to_owned(), node);
+    }
+}
+
+/// A discarded code block or conditional warns about its own values
+fn warns_about_own_values(expression: &Expression) -> bool {
+    matches!(expression, Expression::CodeBlock(_) | Expression::Condition { .. })
 }
 
 /// Returns whether the expression is certain to be without side effects.

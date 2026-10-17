@@ -115,7 +115,7 @@ fn vertical_offset(
 
 pub(super) fn layout(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
-    font_context: &mut parley::FontContext,
+    font_context: &mut FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
     options: LayoutOptions,
@@ -146,7 +146,7 @@ pub(super) fn layout(
     }
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
-    let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
+    let get_ellipsis_glyph = |font_context: &mut FontContext| {
         let mut layout = layout_builder.build(font_context, "…", None, None);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;

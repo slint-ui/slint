@@ -69,18 +69,14 @@ def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
         expect(query(window, "Close Custom")).to_be_hidden()
         original.assert_unchanged()
         open_linear(window)
-        assert (
-            control(
-                window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "264052"
-        )
-        assert (
+        expect(
+            control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("264052")
+        expect(
             control(
                 window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "100"
-        )
+            )
+        ).to_have_value("100")
         click(window, "Close Custom")
         original.assert_unchanged()
 
@@ -633,12 +629,9 @@ def test_linear_external_edit_cancels_stale_draft(
         assert scene.read_text() == external
         open_linear(window)
         click(window, "Edit stop 1 color")
-        assert (
-            control(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "ABCDEF"
-        )
+        expect(
+            control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("ABCDEF")
 
 
 def test_linear_extended_axis_round_trip(

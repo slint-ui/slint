@@ -5,9 +5,8 @@ use std::fmt::{Display, Result, Write};
 
 use itertools::{Either, Itertools};
 
-use crate::expression_types::MinMaxOp;
+use crate::expression_types::{MinMaxOp, Orientation};
 use crate::langtype::{StructName, Type};
-use crate::layout::Orientation;
 use crate::llr::debug_info::ItemDebugInfo;
 
 use super::{
@@ -500,6 +499,9 @@ fn print_local_ref<T>(
             LocalMemberIndex::Timer(timer_index) => {
                 write!(f, "timer#{}", usize::from(*timer_index))
             }
+            LocalMemberIndex::Repeater(repeater_index) => {
+                write!(f, "repeater#{}", usize::from(*repeater_index))
+            }
         }
     }
 }
@@ -546,9 +548,6 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     DisplayPropertyRef(function, ctx),
                     arguments.iter().map(e).join(", ")
                 )
-            }
-            Expression::ItemMemberFunctionCall { function } => {
-                write!(f, "{}()", DisplayPropertyRef(function, ctx))
             }
             Expression::ExtraBuiltinFunctionCall { function, arguments, .. } => {
                 write!(f, "{}({})", function, arguments.iter().map(e).join(", "))

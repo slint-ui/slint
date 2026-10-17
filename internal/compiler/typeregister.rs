@@ -450,10 +450,10 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
         return PropertyLookupResult {
             property_type: ty,
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
+            is_shadowable: name == "ensure-visible",
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
-            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -494,6 +494,7 @@ pub fn reserved_member_functions()
     IntoIterator::into_iter([
         ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
         ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
     ])
 }
 

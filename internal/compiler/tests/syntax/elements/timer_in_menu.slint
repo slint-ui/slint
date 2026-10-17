@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+
+//config:generate_all_exported_windows
+
+export component Test inherits Window {
+    MenuBar {
+        Timer { interval: 100ms; }
+//      >    <error{Timer cannot be in a menu, move it outside of the menu}
+        Menu {
+            title: "File";
+            Timer { interval: 100ms; }
+//          >    <error{Timer cannot be in a menu, move it outside of the menu}
+        }
+    }
+    ContextMenuArea {
+        Menu {
+            Timer { interval: 100ms; }
+//          >    <error{Timer cannot be in a menu, move it outside of the menu}
+        }
+    }
+}
+
+export component Tray inherits SystemTrayIcon {
+    Timer { interval: 100ms; }
+    Menu {
+        Timer { interval: 100ms; }
+//      >    <error{Timer cannot be in a menu, move it outside of the menu}
+    }
+}

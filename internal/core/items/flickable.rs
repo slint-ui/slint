@@ -11,9 +11,12 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::simulations::PositionSimulation;
-use crate::animations::simulations::bounce::BounceFlick;
+use crate::animations::simulations::ease_in_out_sine::EaseInOutSine;
 use crate::animations::simulations::rubber_band;
+use crate::animations::simulations::spring::SpringPhysicalParameters;
+use crate::animations::simulations::spring_flick::SpringFlick;
+use crate::animations::simulations::{PositionSimulation, Simulation};
+use crate::api::LogicalPosition;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -21,6 +24,7 @@ use crate::input::{
 use crate::input::{InternalKeyEvent, TouchHistory};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::ItemWeak;
+use crate::items::ScrollBehavior;
 #[cfg(not(any(
     target_os = "ios",
     target_os = "linux",
@@ -69,6 +73,13 @@ const VELOCITY_TRACKER_SAMPLES: usize = 20;
 /// flick
 const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(100);
 
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/VectorizedAnimationSpec.kt#L801
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/animation/animation-core/src/commonMain/kotlin/androidx/compose/animation/core/AnimationSpec.kt#L144-L145
+// https://github.com/androidx/androidx/blob/6c35dc9bdc74b5521a03319c5d98dc4dcfc3a4f9/compose/foundation/foundation/src/commonMain/kotlin/androidx/compose/foundation/Scroll.kt#L203-L205
+const ANDROID_SCROLL_TO_STIFFNESS: f32 = 1500.;
+// Measured on an iPhone
+const UIKIT_SCROLL_TO_DURATION: Duration = Duration::from_millis(300);
+
 // Linux and bare metal use the iOS tracker, which is cheaper than the least-squares fit.
 #[cfg(any(target_os = "ios", target_os = "linux", target_os = "none"))]
 type VelocityTracker = IOsVelocityTracker;
@@ -78,7 +89,7 @@ type VelocityTracker = MacOsVelocityTracker;
 type VelocityTracker = GeneralVelocityTracker<VELOCITY_TRACKER_SAMPLES>;
 
 #[derive(Clone, Copy)]
-enum Dimension {
+pub(crate) enum Dimension {
     X,
     Y,
 }
@@ -281,6 +292,63 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub fn scroll_to(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPosition,
+        scroll_behavior: ScrollBehavior,
+    ) {
+        self.scroll_to_point(self_rc, position.to_euclid(), scroll_behavior);
+    }
+
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
+    fn scroll_to_point(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
+        self.data.inner.borrow_mut().scroll_to(self, self_rc, position, scroll_behavior)
+    }
+
+    fn content(self: Pin<&Self>, dimension: Dimension) -> Pin<&Property<LogicalLength>> {
+        match dimension {
+            Dimension::X => Self::FIELD_OFFSETS.content_x(),
+            Dimension::Y => Self::FIELD_OFFSETS.content_y(),
+        }
+        .apply_pin(self)
+    }
+
+    /// Moves the content along `dimension` with `simulation`, which this Flickable owns.
+    /// Any other scroll or gesture drops the simulation, see [`SimulationSource::Synthetic`].
+    pub(crate) fn start_content_simulation<S: Simulation + PositionSimulation + 'static>(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        simulation: S,
+        dimension: Dimension,
+    ) -> Weak<RefCell<S>> {
+        let simulation = FlickableDataInner::set_simulation(&self.content(dimension), simulation);
+        let weak = Rc::downgrade(&simulation);
+        let simulation = Some(simulation as Rc<RefCell<dyn PositionSimulation>>);
+        let (x_simulation, y_simulation) = match dimension {
+            Dimension::X => (simulation, None),
+            Dimension::Y => (None, simulation),
+        };
+        self.data.inner.borrow_mut().running_animation = Some(RunningSimulation {
+            weak: self_rc.downgrade(),
+            x_simulation,
+            y_simulation,
+            source: SimulationSource::Synthetic,
+        });
+        weak
+    }
+
+    /// Stops the simulation that [`Self::start_content_simulation`] started, and leaves the content where it is.
+    pub(crate) fn stop_content_simulation(self: Pin<&Self>, dimension: Dimension) {
+        self.data.inner.borrow_mut().running_animation = None;
+        self.content(dimension).remove_binding();
+    }
+
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
@@ -353,10 +421,16 @@ impl Flickable {
     }
 
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
-    /// The points have to be in the parent's coordinate space.
-    pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
+    /// The points have to be in the content's coordinate space.
+    /// Returns the `content-x` and `content-y` that the Flickable scrolls to.
+    pub(crate) fn reveal_points(
+        self: Pin<&Self>,
+        self_rc: &ItemRc,
+        pts: &[LogicalPoint],
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
         if pts.is_empty() {
-            return;
+            return LogicalVector::from_lengths(self.content_x(), self.content_y());
         }
 
         // visible viewport size from base Item
@@ -375,8 +449,7 @@ impl Flickable {
         let new_cx = cx + tx;
         let new_cy = cy + ty;
 
-        Self::FIELD_OFFSETS.content_x().apply_pin(self).set(euclid::Length::new(-new_cx));
-        Self::FIELD_OFFSETS.content_y().apply_pin(self).set(euclid::Length::new(-new_cy));
+        self.scroll_to_point(self_rc, LogicalPoint::new(new_cx, new_cy), scroll_behavior)
     }
 
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -434,6 +507,16 @@ struct RunningSimulation {
     weak: ItemWeak,
     x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
     y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
+    source: SimulationSource,
+}
+
+/// What started a [`RunningSimulation`].
+#[derive(Clone, Copy, PartialEq)]
+enum SimulationSource {
+    /// A wheel scroll or a gesture; a following wheel scroll or fling continues its motion.
+    InputEvent,
+    /// A call such as `scroll-to()`; a following wheel scroll or fling replaces its motion.
+    Synthetic,
 }
 
 #[derive(Default)]
@@ -465,6 +548,8 @@ struct FlickableDataInner {
     running_animation: Option<RunningSimulation>,
 
     retained_velocity: Velocity,
+
+    pending_flicked: bool,
 }
 
 impl FlickableDataInner {
@@ -615,8 +700,12 @@ impl FlickableDataInner {
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
-            && let Some(RunningSimulation { x_simulation, y_simulation, .. }) =
-                &self.running_animation
+            && let Some(RunningSimulation {
+                x_simulation,
+                y_simulation,
+                source: SimulationSource::InputEvent,
+                ..
+            }) = &self.running_animation
         {
             // If the animation is not finished, we add the remaining animations delta.
             let now = crate::animations::current_tick();
@@ -679,52 +768,47 @@ impl FlickableDataInner {
                     let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
-                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> = (delta.x
-                        != Coord::default())
-                    .then(|| {
-                        let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_x.get().0 as f32;
-                            content_x.set_physic_animation_value(weak.clone());
-                            RefCell::new(FlickAnimation::create_animation(
-                                FlickAnimationParameter::Distance {
-                                    delta: delta.x as f32,
-                                    duration: WHEEL_SCROLL_DURATION,
-                                },
-                                effective_bounce(flick, &geo, Dimension::X),
-                                curr_val,
-                                limit_x,
-                            ))
+                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
+                        (delta.x != Coord::default()).then(|| {
+                            Self::set_simulation(
+                                &content_x,
+                                FlickAnimation::create_animation(
+                                    FlickAnimationParameter::Distance {
+                                        delta: delta.x as f32,
+                                        duration: WHEEL_SCROLL_DURATION,
+                                    },
+                                    effective_bounce(flick, &geo, Dimension::X),
+                                    content_x.get().0 as f32,
+                                    limit_x,
+                                ),
+                            ) as Rc<RefCell<dyn PositionSimulation>>
                         });
-                        simulation as Rc<RefCell<dyn PositionSimulation>>
-                    });
 
-                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> = (delta.y
-                        != Coord::default())
-                    .then(|| {
-                        let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                            let curr_val = content_y.get().0 as f32;
-                            content_y.set_physic_animation_value(weak.clone());
-                            RefCell::new(FlickAnimation::create_animation(
-                                FlickAnimationParameter::Distance {
-                                    delta: delta.y as f32,
-                                    duration: WHEEL_SCROLL_DURATION,
-                                },
-                                effective_bounce(flick, &geo, Dimension::Y),
-                                curr_val,
-                                limit_y,
-                            ))
+                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
+                        (delta.y != Coord::default()).then(|| {
+                            Self::set_simulation(
+                                &content_y,
+                                FlickAnimation::create_animation(
+                                    FlickAnimationParameter::Distance {
+                                        delta: delta.y as f32,
+                                        duration: WHEEL_SCROLL_DURATION,
+                                    },
+                                    effective_bounce(flick, &geo, Dimension::Y),
+                                    content_y.get().0 as f32,
+                                    limit_y,
+                                ),
+                            ) as Rc<RefCell<dyn PositionSimulation>>
                         });
-                        simulation as Rc<RefCell<dyn PositionSimulation>>
-                    });
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
-                        (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                        self.pending_flicked = true;
                     }
 
                     self.running_animation = Some(RunningSimulation {
                         x_simulation,
                         y_simulation,
                         weak: flick_rc.downgrade(),
+                        source: SimulationSource::InputEvent,
                     });
                     self.last_scroll_event = Some((crate::animations::current_tick(), position));
                 }
@@ -748,7 +832,7 @@ impl FlickableDataInner {
         }
 
         if flicked {
-            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+            self.pending_flicked = true;
             InputEventResult::EventAccepted
         } else if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
             // After reaching the end, keep accepting the input event for a while longer, then time
@@ -768,6 +852,7 @@ impl FlickableDataInner {
         self.retained_velocity = self
             .running_animation
             .as_ref()
+            .filter(|sim| sim.source == SimulationSource::InputEvent)
             .map(|sim| {
                 let now = crate::animations::current_tick();
                 Velocity::new(
@@ -896,11 +981,7 @@ impl FlickableDataInner {
         geo: &LogicalRect,
         drag_velocity: f32,
     ) -> Rc<RefCell<dyn PositionSimulation>> {
-        let content = match dimension {
-            Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
-            Dimension::Y => Flickable::FIELD_OFFSETS.content_y(),
-        }
-        .apply_pin(flick);
+        let content = flick.content(dimension);
         let curr_val = content.get().0 as f32;
         // Spring back to whichever edge we're already past
         let limit = Self::flick_limits(flick_rc, curr_val, dimension);
@@ -915,16 +996,16 @@ impl FlickableDataInner {
         } else {
             0.
         };
-        Rc::new_cyclic(|weak: &Weak<RefCell<BounceFlick>>| {
-            content.set_physic_animation_value(weak.clone());
-            RefCell::new(FlickAnimation::create_spring_animation(
+        Self::set_simulation(
+            &content,
+            FlickAnimation::create_spring_animation(
                 curr_val,
                 limit,
                 crate::animations::current_tick(),
                 velocity,
                 drag_velocity.abs(),
-            ))
-        })
+            ),
+        )
     }
 
     /// Springs the content back on one axis and adds the simulation to the running ones.
@@ -940,6 +1021,7 @@ impl FlickableDataInner {
             weak: flick_rc.downgrade(),
             x_simulation: None,
             y_simulation: None,
+            source: SimulationSource::InputEvent,
         });
         match dimension {
             Dimension::X => running.x_simulation = Some(simulation),
@@ -991,16 +1073,15 @@ impl FlickableDataInner {
                     flick.carry_momentum(),
                 );
                 let limit = Self::flick_limits(flick_rc, velocity, dimension);
-                let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                    let curr_val = content.get().0 as f32;
-                    content.set_physic_animation_value(weak.clone());
-                    RefCell::new(FlickAnimation::create_animation(
+                let simulation = Self::set_simulation(
+                    &content,
+                    FlickAnimation::create_animation(
                         FlickAnimationParameter::Velocity { velocity: velocity + carried_velocity },
                         effective_bounce(flick, &geo, dimension),
-                        curr_val,
+                        content.get().0 as f32,
                         limit,
-                    ))
-                });
+                    ),
+                );
                 Some(simulation as Rc<RefCell<dyn PositionSimulation>>)
             };
 
@@ -1014,12 +1095,88 @@ impl FlickableDataInner {
                 release_simulation(Dimension::Y, estimated_velocity.map(|v| v.y), inside_bounds_y);
 
             if x_simulation.is_some() || y_simulation.is_some() {
-                (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                self.pending_flicked = true;
             }
 
-            self.running_animation =
-                Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
+            self.running_animation = Some(RunningSimulation {
+                weak: flick_rc.downgrade(),
+                x_simulation,
+                y_simulation,
+                source: SimulationSource::InputEvent,
+            });
         }
+    }
+
+    #[must_use]
+    fn set_simulation<S: Simulation + PositionSimulation + 'static>(
+        content: &Pin<&Property<LogicalLength>>,
+        simulation: S,
+    ) -> Rc<RefCell<S>> {
+        Rc::new_cyclic(|weak: &Weak<RefCell<S>>| {
+            content.set_physic_animation_value(weak.clone());
+            RefCell::new(simulation)
+        })
+    }
+
+    fn scroll_to(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        position: LogicalPoint,
+        scroll_behavior: ScrollBehavior,
+    ) -> LogicalVector {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let target = ensure_in_bound(flick, -position, &geo, false, false);
+        if scroll_behavior == ScrollBehavior::Instant {
+            self.running_animation = None;
+
+            flick.content_x.set(target.x_length());
+            flick.content_y.set(target.y_length());
+            return target.to_vector();
+        }
+        let deflection_x = (flick.content_x() - target.x_length()).0;
+        let deflection_y = (flick.content_y() - target.y_length()).0;
+        Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
+        Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
+
+        let simulation = |deflection: f32,
+                          dimension: Dimension|
+         -> Option<Rc<RefCell<dyn PositionSimulation>>> {
+            if deflection == 0. {
+                return None;
+            }
+            let content = flick.content(dimension);
+
+            let flick_velocity = 1f32.copysign(-deflection);
+            let limit = FlickableDataInner::flick_limits(flick_rc, flick_velocity, dimension);
+
+            Some(if cfg!(target_os = "ios") {
+                Self::set_simulation(
+                    &content,
+                    EaseInOutSine::new(-deflection, UIKIT_SCROLL_TO_DURATION, limit),
+                )
+            } else {
+                Self::set_simulation(
+                    &content,
+                    SpringFlick::new(
+                        deflection,
+                        limit,
+                        SpringPhysicalParameters::new_critical_damped(ANDROID_SCROLL_TO_STIFFNESS),
+                    ),
+                )
+            })
+        };
+
+        let x_simulation = simulation(deflection_x as f32, Dimension::X);
+        let y_simulation = simulation(deflection_y as f32, Dimension::Y);
+
+        self.running_animation = Some(RunningSimulation {
+            weak: flick_rc.downgrade(),
+            x_simulation,
+            y_simulation,
+            source: SimulationSource::Synthetic,
+        });
+        target.to_vector()
     }
 }
 
@@ -1036,7 +1193,7 @@ impl FlickableData {
         delta_x: Coord,
         delta_y: Coord,
     ) -> LogicalVector {
-        if window_adapter.window().0.context().0.modifiers.get().shift()
+        if window_adapter.window().0.context().modifiers().get().shift()
             && !cfg!(target_os = "macos")
         {
             // Shift invert coordinate for the purpose of scrolling.
@@ -1069,6 +1226,7 @@ impl FlickableData {
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.track_press(event_time.unwrap_or_else(crate::animations::current_tick));
                 inner.capture_momentum();
+                inner.running_animation = None;
                 let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 content_x.remove_binding(); // Stop animation by removing the binding
                 let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
@@ -1217,10 +1375,9 @@ impl FlickableData {
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
-        match event {
+        let result = match event {
             MouseEvent::Pressed { .. } => {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
-                inner.capture_momentum();
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
@@ -1294,17 +1451,10 @@ impl FlickableData {
                             &content_x,
                             &content_y,
                         );
-                        if flicked {
-                            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-                        }
+                        inner.pending_flicked |= flicked;
                         inner.capture_events = Some(CaptureEvents::MouseMove);
 
                         InputEventResult::GrabMouse
-                    } else if abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD
-                        || abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD
-                    {
-                        // drag in a unsupported direction gives up the grab
-                        InputEventResult::EventIgnored
                     } else {
                         // the mouse was moved, but not enough to start the drag, we still want to accept further events
                         // so that we may pass the threshold at some point
@@ -1322,7 +1472,13 @@ impl FlickableData {
                 InputEventResult::EventIgnored
             }
             MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
+        };
+        let flicked = core::mem::take(&mut inner.pending_flicked);
+        drop(inner);
+        if flicked {
+            (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
         }
+        result
     }
 }
 

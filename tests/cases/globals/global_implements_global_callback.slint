@@ -72,6 +72,9 @@ assert.equal(instance.computed, 6);
 // the same single handler slot: the last handler set wins.
 instance.Provider.compute = function(x) { return x + 100; };
 assert.equal(instance.computed, 105);
+
+instance[slintlib.globalsSymbol].Provider.compute = function(x) { return x + 200; };
+assert.equal(instance.computed, 205);
 ```
 
 ```python

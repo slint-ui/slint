@@ -98,6 +98,7 @@ impl ElementType {
                     },
                 }
             }
+            Self::Interface(None) => crate::typeregister::reserved_property(Cow::Borrowed(name)),
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
         }
     }
@@ -167,8 +168,12 @@ impl ElementType {
             }
             Self::Builtin(builtin) => {
                 let looked_up = tr.lookup_element(name);
+                let accepts_no_children = builtin.disallow_global_types_as_child_elements
+                    && builtin.additional_accepted_child_types.is_empty()
+                    && !builtin.additional_accept_self;
                 if let Ok(ElementType::Builtin(b)) = &looked_up
                     && b.can_be_declared_without_children_slot
+                    && !accepts_no_children
                 {
                     return Ok(ElementType::Builtin(b.clone()));
                 }

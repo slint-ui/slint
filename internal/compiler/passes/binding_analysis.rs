@@ -16,9 +16,9 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, ElementType};
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::expression_types::Unit;
+use crate::expression_types::{Orientation, Unit};
 use crate::langtype::Type;
-use crate::layout::{LayoutItem, Orientation};
+use crate::layout::LayoutItem;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
 use derive_more as dm;
@@ -936,8 +936,16 @@ fn recurse_expression(
     expr: &Expression,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
 ) {
-    const P: ReadType = ReadType::PropertyRead;
     expr.visit(|sub| recurse_expression(elem, sub, vis));
+    visit_expression_reads(elem, expr, vis);
+}
+
+fn visit_expression_reads(
+    elem: &ElementRc,
+    expr: &Expression,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    const P: ReadType = ReadType::PropertyRead;
     match expr {
         Expression::PropertyReference(r) => vis(&r.clone().into(), P),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
@@ -1207,6 +1215,14 @@ fn recurse_expression(
                     }
                 }
             }
+            BuiltinFunction::EnsureVisible => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    vis(
+                        &NamedReference::new(&item.upgrade().unwrap(), SmolStr::default()).into(),
+                        P,
+                    );
+                }
+            }
             BuiltinFunction::ItemFontMetrics => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let item = item.upgrade().unwrap();
@@ -1473,7 +1489,7 @@ fn visit_cell_cross_axis_implicit_dependency(
 /// With `GivenByLayout`, the caller passes the item its width, so a
 /// height-for-width item's vertical info doesn't read it.
 fn visit_implicit_layout_info_dependencies(
-    orientation: crate::layout::Orientation,
+    orientation: crate::expression_types::Orientation,
     cross_size: CrossAxisSize,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),
