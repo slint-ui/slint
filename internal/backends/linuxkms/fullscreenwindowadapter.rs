@@ -223,7 +223,7 @@ fn mouse_cursor_image() -> Image {
     match mouse_pointer_inner {
         i_slint_core::ImageInner::Svg(svg) => {
             let pixels = svg.render(None).unwrap();
-            let cache_key = svg.cache_key();
+            let cache_key = svg.cache_key().clone();
             let mouse_pointer_pixel_image = i_slint_core::graphics::ImageInner::EmbeddedImage {
                 cache_key: cache_key.clone(),
                 buffer: pixels,
