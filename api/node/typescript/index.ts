@@ -7,6 +7,7 @@ export {
     DiagnosticLevel,
     RgbaColor,
     Brush,
+    CloseRequestResponse,
     DataTransfer,
     StyledText,
     Keys,
@@ -106,6 +107,21 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /**
+     * Sets the callback that's invoked when the user tries to close the window.
+     * Return `CloseRequestResponse.KeepWindowShown` to keep the window open.
+     * Otherwise, the window is hidden.
+     *
+     * ```js
+     * app.window.onCloseRequested(() => {
+     *     if (hasUnsavedChanges()) {
+     *         return slint.CloseRequestResponse.KeepWindowShown;
+     *     }
+     * });
+     * ```
+     */
+    onCloseRequested(callback: () => napi.CloseRequestResponse | void): void;
 
     /**
      * Dispatches a window event to the scene.
