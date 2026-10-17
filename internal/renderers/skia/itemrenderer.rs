@@ -488,8 +488,13 @@ impl<'a> SkiaItemRenderer<'a> {
                             / skia_image.height() as f32,
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
-                if let Some(shader) = skia_image
-                    .make_subset(
+                // On the GPU, a repeating shader of a subset of a texture-backed image (a
+                // colorized one) draws nothing, so the whole image is used as it is.
+                let whole = skia_safe::IRect::from_wh(skia_image.width(), skia_image.height());
+                let tile = if src == whole {
+                    Some(skia_image.clone())
+                } else {
+                    skia_image.make_subset(
                         self.canvas
                             .recording_context()
                             .as_mut()
@@ -497,10 +502,10 @@ impl<'a> SkiaItemRenderer<'a> {
                         src,
                         skia_safe::image::RequiredProperties::default(),
                     )
-                    .and_then(|i| {
-                        i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
-                    })
-                {
+                };
+                if let Some(shader) = tile.and_then(|i| {
+                    i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
+                }) {
                     let mut paint = self.default_paint().unwrap_or_default();
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);
