@@ -61,16 +61,21 @@ assert_eq!(t.get_color_brush().color(), green);
 
 ```d.ts
 export interface Test {
-    color_brush: slint.Brush | string;
-    conditional: slint.Brush | string;
-    lighter: slint.Brush | string;
-    r2_col: slint.Brush | slint.RgbaColor | string;
-    seethru: slint.Brush | string;
+    get color_brush(): Required<slint.Brush>;
+    set color_brush(value: slint.Brush | string);
+    get conditional(): Required<slint.Brush>;
+    set conditional(value: slint.Brush | string);
+    get lighter(): Required<slint.Brush>;
+    set lighter(value: slint.Brush | string);
+    get r2_col(): Required<slint.Brush>;
+    set r2_col(value: slint.Brush | slint.RgbaColor | string);
+    get seethru(): Required<slint.Brush>;
+    set seethru(value: slint.Brush | string);
     readonly test: boolean;
     readonly test_rgb: boolean;
 }
 
-export declare const Test: { new(properties?: Partial<Test>): Test & Omit<slint.ComponentHandle, keyof Test> };
+export declare const Test: { new(properties?: Partial<Omit<Test, "color_brush" | "conditional" | "lighter" | "r2_col" | "seethru"> & { color_brush: slint.Brush | string; conditional: slint.Brush | string; lighter: slint.Brush | string; r2_col: slint.Brush | slint.RgbaColor | string; seethru: slint.Brush | string; }>): Test & Omit<slint.ComponentHandle, keyof Test> };
 ```
 
 ```js
