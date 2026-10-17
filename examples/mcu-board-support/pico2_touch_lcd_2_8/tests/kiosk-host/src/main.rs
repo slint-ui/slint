@@ -249,9 +249,21 @@ fn main() {
     assert_eq!(ui.global::<PrinterState>().get_active_page(), Pages::Ink);
     t.advance(12_000_000);
     assert_eq!(ui.global::<PrinterState>().get_active_page(), Pages::Ink);
+    for (y, page) in [(30., Pages::Home), (210., Pages::Settings)] {
+        ui.global::<PrinterState>().set_active_page(Pages::Ink);
+        t.advance(100_000);
+        assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width > 0));
+        t.pointer(24., y, true);
+        t.window.dispatch_event(slint::platform::WindowEvent::PointerReleased {
+            position: slint::LogicalPosition::new(24., y),
+            button: slint::platform::PointerEventButton::Left,
+        });
+        assert_eq!(ui.global::<PrinterState>().get_active_page(), page);
+        assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width == 0));
+        t.step(20_000);
+    }
     ui.global::<PrinterState>().set_active_page(Pages::Home);
     t.step(20_000);
-    assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width == 0));
     for (x, y) in [(0., 0.), (160., 120.), (319., 239.)] {
         ui.global::<Kiosk>().set_enabled(true);
         t.step(20_000);

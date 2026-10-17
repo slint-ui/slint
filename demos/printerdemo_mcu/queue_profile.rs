@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use crate::{Kiosk, MainWindow, Pages, PrinterState, QueueMotion, SettingsMotion, SubPage, kiosk_motion};
+use crate::{
+    InkParticles, Kiosk, MainWindow, Pages, PrinterState, QueueMotion, SettingsMotion, SubPage,
+    kiosk_motion,
+};
 use slint::ComponentHandle;
 
 pub fn start(window: &MainWindow) -> slint::Timer {
@@ -50,6 +53,9 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             }
             if mode != 2 {
                 if let Some(window) = weak.upgrade() {
+                    if !matches!(mode, 4 | 9 | 10 | 12 | 13) {
+                        window.global::<InkParticles>().invoke_release();
+                    }
                     window.global::<PrinterState>().set_active_page(
                         if matches!(mode, 4 | 9 | 10 | 12 | 13) {
                             Pages::Ink
