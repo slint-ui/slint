@@ -100,10 +100,7 @@ pub fn invoke_from_event_loop(
 
 #[napi]
 pub fn quit_event_loop() -> napi::Result<()> {
-    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
-    // Set a flag so process_slint_events returns Exited on the next iteration.
-    uv_event_loop::request_quit();
-    Ok(())
+    i_slint_core::api::quit_event_loop().map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 #[napi]
