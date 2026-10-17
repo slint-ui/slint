@@ -4,6 +4,7 @@
 import { test, expect } from "vitest";
 
 import { runEventLoop, private_api } from "../dist/index.js";
+import { processEvents, ProcessEventsResult } from "../binding.cjs";
 
 test("quit event loop on last window closed with callback", {
     concurrent: false,
@@ -35,4 +36,19 @@ test("quit event loop on last window closed with callback", {
         });
         expect(hidden, `run ${run}`).toBe(true);
     }
+});
+
+test("a quit requested before a run doesn't end it", {
+    concurrent: false,
+}, () => {
+    const compiler = new private_api.ComponentCompiler();
+    const instance = compiler
+        .buildFromSource(`export component App inherits Window {}`, "")
+        .App!.create() as any;
+
+    // Hiding the last window requests a quit while no event loop runs.
+    instance.window().show();
+    instance.window().hide();
+    // The polling fallback of runEventLoop() used to end at its first pump.
+    expect(processEvents()).toBe(ProcessEventsResult.Continue);
 });
