@@ -168,6 +168,16 @@ impl JsAnchorOwner {
         cell.set(id + 1);
         id
     }
+
+    /// Returns the JS object of the owning instance, or `None` once the instance is finalized.
+    pub fn object(&self, env: Env) -> Option<Object<'_>> {
+        // Pure Rust check (no NAPI calls).
+        // Returns None once the owning JsComponentInstance's anchor_seq
+        // Rc has been dropped,
+        // which happens before its other fields are dropped (field declaration order).
+        self.seq.upgrade()?;
+        crate::weak_ref::weak_ref_get_object(&self.owner_weak, env)
+    }
 }
 
 /// Convert a JS value to a Slint [`Value`].
