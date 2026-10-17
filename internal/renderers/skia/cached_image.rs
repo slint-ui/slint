@@ -61,11 +61,7 @@ pub(crate) fn as_skia_image(
             )?;
             let pixels = match svg.render(Some(target_size)).ok()? {
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-                SharedImageBuffer::RGB8(_) | SharedImageBuffer::RGBA8(_) => unreachable!(),
-                #[cfg(feature = "image-pixel-format-rgb565")]
-                SharedImageBuffer::RGB565(_) => unreachable!(),
-                #[cfg(feature = "image-pixel-format-gray8")]
-                SharedImageBuffer::Gray8(_) => unreachable!(),
+                _ => unreachable!(),
             };
 
             let image_info = crate::image_info(
@@ -173,6 +169,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             skia_safe::ColorType::Gray8,
             skia_safe::AlphaType::Opaque,
         ),
+        _ => return None,
     };
     let image_info = crate::image_info(
         skia_safe::ISize::new(size.width as i32, size.height as i32),

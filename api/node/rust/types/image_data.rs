@@ -68,6 +68,7 @@ impl SlintImageData {
                         (self.width() * self.height()) as usize,
                     ));
                 }
+                _ => {}
             }
         }
 

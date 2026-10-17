@@ -226,7 +226,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     }
                     other => other,
                 };
-                let (image_source, flags) = image_buffer_to_image_source(&buffer);
+                let (image_source, flags) = image_buffer_to_image_source(&buffer)?;
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
         };
@@ -318,7 +318,7 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
 
 fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
-) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
+) -> Option<(femtovg::ImageSource<'_>, femtovg::ImageFlags)> {
     fn image_source<Pixel: Clone>(buffer: &SharedPixelBuffer<Pixel>) -> imgref::ImgRef<'_, Pixel> {
         let pixels = buffer.as_slice();
         let read = buffer.width() as u64 * buffer.height() as u64;
@@ -336,13 +336,13 @@ fn image_buffer_to_image_source(
             unreachable!("RGB565 buffers are converted to RGB8 before the femtovg upload")
         }
         SharedImageBuffer::RGB8(buffer) => {
-            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+            Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
         }
         SharedImageBuffer::RGBA8(buffer) => {
-            (image_source(buffer).into(), femtovg::ImageFlags::empty())
+            Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
         }
         SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-            (image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED)
+            Some((image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED))
         }
         #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(buffer) => {
@@ -350,11 +350,12 @@ fn image_buffer_to_image_source(
             let source = image_source(buffer);
             // femtovg takes `rgb::Gray` pixels, which have the same one-byte layout.
             let pixels = buffer.as_bytes()[..source.buf().len()].as_gray();
-            (
+            Some((
                 imgref::ImgRef::new(pixels, source.width(), source.height()).into(),
                 femtovg::ImageFlags::empty(),
-            )
+            ))
         }
+        _ => None,
     }
 }
 
