@@ -76,3 +76,20 @@ test("quit event loop before a window is hidden", {
         expect(quit, `run ${run}`).toBe(true);
     }
 });
+
+test("quit on last window closed after a run that didn't", {
+    concurrent: false,
+}, async () => {
+    const instance = createApp();
+
+    instance.window().show();
+    await runEventLoop({
+        runningCallback: () => setTimeout(() => quitEventLoop(), 2),
+        quitOnLastWindowClosed: false,
+    });
+
+    // The second run used to keep running after its last window was hidden.
+    await runEventLoop(() => {
+        setTimeout(() => instance.window().hide(), 2);
+    });
+});
