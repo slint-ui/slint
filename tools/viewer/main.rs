@@ -364,6 +364,7 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {
         Some(component) => ComponentSelection::Named(component.clone()),
+        None if args.check => ComponentSelection::AllExported,
         None => ComponentSelection::LastExported,
     };
     cc.is_preview = true;
