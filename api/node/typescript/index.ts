@@ -148,14 +148,14 @@ export interface ImageData {
 /**
  * The key of the {@link Window} of a component.
  * `component[windowSymbol]` is the same as `component.window`.
- * It stays the window even when a property, callback, or function of the component is called `window`.
+ * Use it to access the window even when a property, callback, or function of the component is called `window`.
  */
 export const windowSymbol: unique symbol = Symbol("slint.windowSymbol");
 
 /**
  * The key of the globals of a component, by their name in JavaScript.
  * For a global `Logic`, `component[globalsSymbol].Logic` is the same as `component.Logic`.
- * It stays the global even when a property, callback, or function of the component is called `Logic`.
+ * Use it to access the global even when a property, callback, or function of the component is called `Logic`.
  */
 export const globalsSymbol: unique symbol = Symbol("slint.globalsSymbol");
 
@@ -164,14 +164,13 @@ export const globalsSymbol: unique symbol = Symbol("slint.globalsSymbol");
  * show() the window on the screen, access the window and subsequent window properties, or start the
  * Slint event loop with run().
  *
- * Two symbols also reach the window and the globals:
+ * Use `windowSymbol` and `globalsSymbol` to access the window and the globals,
+ * even when a property, callback, or function of the component has the same name:
  *
  * ```js
  * app[slint.windowSymbol];          // the same as app.window
  * app[slint.globalsSymbol].Logic;   // the same as app.Logic, for a global Logic
  * ```
- *
- * They're always there, even when a property, callback, or function of the component has the same name.
  */
 export interface ComponentHandle {
     /**

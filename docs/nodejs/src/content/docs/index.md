@@ -313,8 +313,8 @@ let component = new MainWindow({
 });
 ```
 
-If a property, callback, or function of the component is called `window`, `show`, `hide`, or `run`, it takes that name,
-and `component[slint.windowSymbol]` still reaches the window.
+If a property, callback, or function of the component is called `window`, `show`, `hide`, or `run`, it takes that name.
+Use `component[slint.windowSymbol]` to access the window then.
 Loading such a component emits a `SLINT_SHADOWED_BUILTIN` warning, unless the `quiet` option of `loadFile()` is set.
 
 ### Accessing Properties
@@ -510,8 +510,8 @@ component.Logic.to_uppercase = (str) => {
 };
 ```
 
-Alternatively, reach the global through `slint.globalsSymbol`.
-It's always there, even when a property of the component has the same name as the global:
+Alternatively, use `slint.globalsSymbol` to access the global,
+even when a property of the component has the same name as the global:
 
 ```js
 component[slint.globalsSymbol].Logic.to_uppercase = (str) => str.toUpperCase();
