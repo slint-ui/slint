@@ -339,6 +339,10 @@ test("load images from a file or from data", async () => {
     const svg = ImageData.loadFromPath(svgPath);
     expect(svg.path).toBe(svgPath);
     expect([svg.width, svg.height]).toStrictEqual([20, 10]);
+    // The SVG renders to premultiplied pixels, which `data` returns as RGBA.
+    expect(Array.from(svg.data)).toStrictEqual(
+        Array.from({ length: 20 * 10 }, () => [255, 0, 0, 255]).flat(),
+    );
     instance.setProperty("image", svg);
     expect(instance.getProperty("image-width")).toBe(20);
 
