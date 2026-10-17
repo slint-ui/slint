@@ -26,11 +26,7 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    [polish.md](reference/polish.md).
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
-   environments. The `preview_slint` tool shows a live preview in the
-   conversation, of a `.slint` file by absolute path or of a snippet, and
-   reports compile errors back to you. `get_preview_screenshot` then shows
-   you what the user sees. The preview runs the latest Slint development
-   snapshot; pass `channel: "release"` when the project uses a release.
+   environments.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
 
