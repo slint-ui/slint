@@ -1,0 +1,70 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Collect the per-page Markdown from the docs build and upload it to the R2
+# bucket that Cloudflare AI Search indexes for the docs MCP server
+# (docs-mcp.slint.dev). See scripts/docs-mcp/collect-and-upload.mjs and the
+# separate `docs-mcp` Worker project.
+#
+# Must run after build_docs.yaml in the SAME workflow run, so it can download the
+# docs-* artifacts that build produced. The caller is the `upload-docs-mcp` job in
+# nightly_snapshot.yaml (which needs `docs` and is gated on publish).
+
+name: Upload docs to docs-mcp R2
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        type: string
+        default: "false"
+        required: false
+        description: "Release build? Publishes under the version number instead of master."
+      r2-bucket:
+        type: string
+        required: true
+        description: "Destination R2 bucket name."
+      docs-version:
+        type: string
+        default: ""
+        required: false
+        description: "Override the corpus version (otherwise master, or the Cargo version on release)."
+    secrets:
+      # R2 API token (dashboard: R2 -> Manage R2 API Tokens) + account id, for
+      # rclone's S3 upload. NOT the Workers API token.
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
+      R2_ACCESS_KEY_ID:
+        required: true
+      R2_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install rclone
+        run: sudo apt-get update && sudo apt-get install -y rclone
+      # Pull every docs-* artifact uploaded by build_docs.yaml in this run and
+      # merge them into one tree: artifact/docs/{slint,safety,cpp,node,python,rust}
+      - name: Download docs artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifact
+          pattern: docs-*
+          merge-multiple: true
+      - name: Collect per-page Markdown and sync to R2
+        env:
+          RELEASE_INPUT: ${{ inputs.release }}
+          DOCS_VERSION: ${{ inputs.docs-version }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          node scripts/docs-mcp/collect-and-upload.mjs \
+            --docs-root artifact/docs \
+            --bucket "${{ inputs.r2-bucket }}"
