@@ -138,7 +138,7 @@ use crate::embassy::{EmbassyBackend, PlatformBackend};
 
 const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(240, 320);
 const SPI_ST7789VW_MAX_FREQ: u32 = 62_500_000;
-const HEAP_SIZE: usize = 314 * 1024;
+const HEAP_SIZE: usize = 310 * 1024;
 
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 

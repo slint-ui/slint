@@ -34,7 +34,7 @@ SECTIONS {
 
 __sheap = __euninit;
 _stack_end = __euninit;
-ASSERT(_stack_start >= _stack_end + 20K, "Pico printer requires at least 20 KiB of main-core stack");
+ASSERT(_stack_start >= _stack_end + 24K, "Pico printer requires at least 24 KiB of main-core stack");
 ASSERT(SIZEOF(.core1_stack) == 8K, "Pico core 1 stack must occupy its dedicated 8 KiB SRAM banks");
 
 SECTIONS {
