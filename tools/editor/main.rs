@@ -595,7 +595,7 @@ async fn handle_preview_message(
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            let applied = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
+            let applied = handle_workspace_edit(session, label.as_deref(), edit).await;
             preview::workspace_edit_finished(edit.clone(), applied);
         }
     }
@@ -690,12 +690,37 @@ fn canonical_preview_component(
     Some((PreviewComponent { url, component: component.component.clone() }, path))
 }
 
-fn handle_workspace_edit(
-    document_cache: &editor_preview::DocumentCache,
+async fn handle_workspace_edit(
+    session: &mut editor_preview::EditorSession,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
 ) -> bool {
-    match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
+    let urls = editor_preview::editing::text_edit::EditIterator::new(edit)
+        .map(|(document, _)| document.uri)
+        .collect::<std::collections::HashSet<_>>();
+    for url in &urls {
+        if session
+            .document_cache
+            .get_document(url)
+            .and_then(|document| document.node.as_ref())
+            .is_none()
+            && let Err(error) = session.reload_document(url.clone()).await
+        {
+            tracing::error!(%url, %error, "Failed to load a workspace edit document");
+            return false;
+        }
+    }
+    if urls.iter().any(|url| {
+        session
+            .document_cache
+            .get_document(url)
+            .and_then(|document| document.node.as_ref())
+            .is_none()
+    }) {
+        tracing::warn!(?urls, "Cannot apply a workspace edit with unloaded documents");
+        return false;
+    }
+    match editor_preview::editing::text_edit::apply_workspace_edit(&session.document_cache, edit) {
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
@@ -898,6 +923,94 @@ mod tests {
             url: editor_preview::test::test_file_name(file_name).to_url().unwrap(),
             component: Some(name.into()),
         }
+    }
+
+    #[test]
+    fn workspace_edit_is_applied_during_a_file_watcher_reload() {
+        for changed_file in ["Main.slint", "Child.slint"] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path().canonicalize().unwrap();
+            let path = root.join("Main.slint");
+            let original = "import { Child } from \"Child.slint\"; export component Main inherits Window { width: 100px; Child {} }";
+            let expected = original.replace("100px", "120px");
+            std::fs::write(&path, original).unwrap();
+            std::fs::write(
+                root.join("Child.slint"),
+                "export component Child inherits Rectangle {}",
+            )
+            .unwrap();
+            let url = Url::from_file_path(&path).unwrap();
+            let (mut session, _) = session_with_recording_previews();
+            spin_on::spin_on(session.load_document_impl(original.into(), url.clone(), None));
+            session.show_preview(
+                PRIMARY_PREVIEW_INDEX,
+                PreviewComponent { url: url.clone(), component: Some("Main".into()) },
+            );
+            let edit = editor_preview::editing::create_workspace_edit(
+                url.clone(),
+                None,
+                vec![lsp_types::TextEdit {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(0, 0),
+                        lsp_types::Position::new(0, original.len() as u32),
+                    ),
+                    new_text: expected.clone(),
+                }],
+            );
+            spin_on::spin_on(trigger_editor_file_watcher(
+                &mut session,
+                WatchEvent {
+                    path: root.join(changed_file),
+                    kind: i_slint_live_preview::file_watcher::FileChangeKind::Changed,
+                },
+            ))
+            .unwrap();
+            assert!(session.pending_recompile.contains(&url));
+            assert!(
+                session
+                    .document_cache
+                    .get_document(&url)
+                    .and_then(|document| document.node.as_ref())
+                    .is_none()
+            );
+            spin_on::spin_on(handle_preview_message(
+                PreviewToLspMessage::SendWorkspaceEdit { label: Some("Resize".into()), edit },
+                PRIMARY_PREVIEW_INDEX,
+                &mut session,
+                &root,
+            ));
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                expected,
+                "watcher event for {changed_file}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_workspace_edit_document_prevents_partial_writes() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let path = root.join("Main.slint");
+        let original = "export component Main inherits Window { width: 100px; }";
+        std::fs::write(&path, original).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let missing = Url::from_file_path(root.join("Missing.slint")).unwrap();
+        let (mut session, _) = session_with_recording_previews();
+        spin_on::spin_on(session.load_document_impl(original.into(), url.clone(), None));
+        let edit = lsp_types::TextEdit {
+            range: lsp_types::Range::new(
+                lsp_types::Position::new(0, 0),
+                lsp_types::Position::new(0, original.len() as u32),
+            ),
+            new_text: original.replace("100px", "120px"),
+        };
+        let edit = editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+            editor_preview::editing::create_text_document_edit(url, None, vec![edit.clone()]),
+            editor_preview::editing::create_text_document_edit(missing, None, vec![edit]),
+        ]);
+        assert!(!spin_on::spin_on(handle_workspace_edit(&mut session, Some("Resize"), &edit)));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
 
     #[test]

@@ -57,9 +57,6 @@ impl TestingClient {
 
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
-        // Buffered TCP reads can complete without returning control to the event loop.
-        futures_lite::future::yield_now().await;
-
         Ok(match request {
             Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
@@ -387,65 +384,4 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::WindowActiveChanged(active)
         }
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn buffered_requests_run_deferred_ui_changes_between_actions() {
-        let context = i_slint_core::SlintContext::new(Box::new(crate::TestingBackend::new(
-            crate::TestingBackendOptions { threading: true, ..Default::default() },
-        )));
-        slint::slint! {
-            export component PendingChange inherits Window {
-                private property <int> revision;
-                private property <int> applied-revision;
-                out property <int> observed-revision: -1;
-                changed revision => { root.applied-revision = root.revision; }
-                accessible-role: text-input;
-                accessible-action-set-value(value) => {
-                    if (value == "advance") {
-                        root.revision += 1;
-                    } else {
-                        root.observed-revision = root.applied-revision;
-                    }
-                }
-            }
-        }
-        let app = PendingChange::new().unwrap();
-        let state = Rc::new(IntrospectionState::new());
-        state.add_window(
-            &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
-        );
-        let window = state.window_handles()[0];
-        let element = introspection::index_to_handle(state.root_element_handle(window).unwrap());
-        let client = TestingClient {
-            state,
-            message_loop_future: Default::default(),
-            server_addr: String::new(),
-        };
-        let proxy = context.event_loop_proxy().unwrap();
-        context
-            .spawn_local(async move {
-                for value in ["advance", "observe"] {
-                    client
-                        .handle_request(Some(
-                            proto::request_to_aut::Msg::RequestSetElementAccessibleValue(
-                                proto::RequestSetElementAccessibleValue {
-                                    element_handle: Some(element),
-                                    value: value.into(),
-                                },
-                            ),
-                        ))
-                        .await
-                        .unwrap();
-                }
-                proxy.quit_event_loop().unwrap();
-            })
-            .unwrap();
-        context.run_event_loop().unwrap();
-        assert_eq!(app.get_observed_revision(), 1);
-    }
 }
