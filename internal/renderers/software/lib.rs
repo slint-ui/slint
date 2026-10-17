@@ -1090,6 +1090,10 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    fn register_shared_bitmap_font(&self, font: &Rc<i_slint_core::graphics::SharedBitmapFont>) {
+        fonts::register_shared_bitmap_font(font);
+    }
+
     #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
@@ -2325,6 +2329,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    let colorize = match &buffer {
+                        SharedImageBuffer::AlphaMap { color, .. } if colorize.alpha() == 0 => {
+                            *color
+                        }
+                        _ => colorize,
+                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {

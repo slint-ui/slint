@@ -12,14 +12,17 @@
 use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
 use crate::instance::{Instance, SubComponentInstance};
+use crate::prelude::*;
+use alloc::rc::{Rc, Weak};
+use core::pin::Pin;
 use i_slint_compiler::llr::{
     self, Animation, Expression, LocalMemberIndex, MemberReference, MutExpression, SubComponent,
 };
 use i_slint_core::Property;
 use i_slint_core::items::PropertyAnimation;
 use i_slint_core::rtti::AnimatedBindingKind;
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
+#[cfg(not(feature = "std"))]
+use num_traits::Float as _;
 use vtable::VRc;
 
 use i_slint_core::item_tree::ItemTreeVTable;
@@ -126,7 +129,7 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                     }
                     continue;
                 }
-                let interval = std::time::Duration::from_millis(interval_ms as u64);
+                let interval = core::time::Duration::from_millis(interval_ms as u64);
                 let Some(timer) = owner.timers.get(idx) else { continue };
                 if timer.running() && timer.interval() == interval {
                     continue;
@@ -549,7 +552,7 @@ fn install_two_way_binding(
         let path_set = path_get.clone();
         pa.as_ref().link_two_way_to_model_data(
             body_weak,
-            move |body_weak: &std::rc::Weak<SubComponentInstance>| {
+            move |body_weak: &alloc::rc::Weak<SubComponentInstance>| {
                 let body = Pin::new(body_weak.upgrade()?);
                 let data = Pin::as_ref(&body.properties[data_prop]).get();
                 if path_get.is_empty() {
@@ -558,7 +561,7 @@ fn install_two_way_binding(
                     extract_field(data, &path_get).filter(|v| !matches!(v, Value::Void))
                 }
             },
-            move |body_weak: &std::rc::Weak<SubComponentInstance>, value: &Value| {
+            move |body_weak: &alloc::rc::Weak<SubComponentInstance>, value: &Value| {
                 let Some(body) = body_weak.upgrade().map(Pin::new) else { return };
                 let Some((parent_weak, rep_idx)) = body.repeated_in.get() else { return };
                 let Some(parent) = parent_weak.upgrade().map(Pin::new) else { return };

@@ -580,6 +580,7 @@ async fn handle_preview_message(
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
+        | ConnectSerial { .. }
         | DisconnectRemote
         | SubmitPairingCode { .. }
         | CancelPairing

@@ -9,11 +9,12 @@
 use crate::Value;
 use crate::erased::{SubComponentCallback, SubComponentProperty};
 use crate::eval::{EvalContext, eval_expression};
+use crate::prelude::*;
+use alloc::rc::Rc;
+use core::pin::Pin;
 use i_slint_compiler::llr::{CompilationUnit, GlobalIdx, LocalMemberIndex};
 use i_slint_core::rtti;
 use i_slint_core::{Callback, Property};
-use std::pin::Pin;
-use std::rc::Rc;
 use typed_index_collections::TiVec;
 
 /// Name-based access to a native (builtin) global like `NativeStyleMetrics`,
@@ -104,7 +105,7 @@ pub struct GlobalInstance {
     /// `SubComponentInstance::callback_trackers`.
     pub callback_trackers: TiVec<
         i_slint_compiler::llr::CallbackIdx,
-        Option<std::pin::Pin<Rc<i_slint_core::properties::Property<()>>>>,
+        Option<core::pin::Pin<Rc<i_slint_core::properties::Property<()>>>>,
     >,
     /// One `ChangeTracker` per entry of the global's `change_callbacks`.
     pub change_trackers: Vec<i_slint_core::properties::ChangeTracker>,
@@ -118,12 +119,12 @@ pub struct GlobalInstance {
 pub struct GlobalStorage {
     globals: TiVec<GlobalIdx, Option<Rc<GlobalInstance>>>,
     /// The owning instance, so global bindings can reach the window.
-    pub root: std::cell::OnceCell<
+    pub root: core::cell::OnceCell<
         vtable::VWeak<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
     >,
     pub context: i_slint_core::SlintContext,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
-    pub debug_hook_callback: std::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
+    pub debug_hook_callback: core::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
 
 impl GlobalStorage {
@@ -172,7 +173,7 @@ impl GlobalStorage {
                     properties,
                     callbacks,
                     callback_trackers,
-                    change_trackers: std::iter::repeat_with(Default::default)
+                    change_trackers: core::iter::repeat_with(Default::default)
                         .take(global.change_callbacks.len())
                         .collect(),
                     native: None,
@@ -181,9 +182,9 @@ impl GlobalStorage {
             .collect();
         Self {
             globals,
-            root: std::cell::OnceCell::new(),
+            root: core::cell::OnceCell::new(),
             context,
-            debug_hook_callback: std::cell::RefCell::new(None),
+            debug_hook_callback: core::cell::RefCell::new(None),
         }
     }
 
@@ -198,17 +199,17 @@ impl GlobalStorage {
         compilation_unit: &'a CompilationUnit,
         name: &str,
     ) -> Option<(&'a i_slint_compiler::llr::GlobalComponent, &'a Rc<GlobalInstance>)> {
-        let needle = i_slint_compiler::parser::normalize_identifier(name);
+        let needle = i_slint_compiler::names::normalize_identifier(name);
         for (idx, global) in compilation_unit.globals.iter_enumerated() {
             if !global.exported {
                 continue;
             }
             let name_matches =
-                i_slint_compiler::parser::normalize_identifier(&global.name) == needle;
+                i_slint_compiler::names::normalize_identifier(&global.name) == needle;
             let alias_matches = global
                 .aliases
                 .iter()
-                .any(|a| i_slint_compiler::parser::normalize_identifier(a) == needle);
+                .any(|a| i_slint_compiler::names::normalize_identifier(a) == needle);
             if name_matches || alias_matches {
                 return self.get(idx).map(|inst| (global, inst));
             }

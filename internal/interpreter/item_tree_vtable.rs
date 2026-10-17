@@ -8,6 +8,8 @@
 //! a precomputed offset table.
 
 use crate::instance::Instance;
+use crate::prelude::*;
+use core::pin::Pin;
 use i_slint_core::SharedString;
 use i_slint_core::SlintContext;
 use i_slint_core::accessibility::{
@@ -22,7 +24,6 @@ use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
-use std::pin::Pin;
 use vtable::{VRef, VRefMut, VWeak};
 
 i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance);
@@ -39,7 +40,7 @@ pub(crate) fn sub_component_path_of(
         target_ptr: *const crate::instance::SubComponentInstance,
         path: &mut Vec<i_slint_compiler::llr::SubComponentInstanceIdx>,
     ) -> bool {
-        if std::ptr::eq(current as *const _, target_ptr) {
+        if core::ptr::eq(current as *const _, target_ptr) {
             return true;
         }
         for (idx, nested) in current.sub_components.iter().enumerate() {
@@ -458,7 +459,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
 fn resolve_accessible_item(
     instance: &Instance,
     item_index: u32,
-) -> Option<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
+) -> Option<(Pin<alloc::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
     let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref)?;
     let mut owner = instance.root_sub_component.clone();
     for &sub_idx in entry.0.iter() {
@@ -479,7 +480,7 @@ fn resolve_accessible_item(
 fn resolve_accessible_candidates(
     instance: &Instance,
     item_index: u32,
-) -> Vec<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
+) -> Vec<(Pin<alloc::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
     let mut out = Vec::new();
     let Some(entry) = instance.item_table.get(item_index as usize).and_then(Option::as_ref) else {
         return out;
@@ -506,7 +507,7 @@ fn resolve_accessible_candidates(
 /// PascalCase form the lowering derives from the enum's kebab-case
 /// `Display` (see `lower_to_item_tree`).
 fn accessible_string_property_name(what: AccessibleStringProperty) -> String {
-    i_slint_compiler::generator::to_pascal_case(&what.to_string())
+    i_slint_compiler::names::to_pascal_case(&what.to_string())
 }
 
 fn accessibility_action_name(action: &AccessibilityAction) -> &'static str {

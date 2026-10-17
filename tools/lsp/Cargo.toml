@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore nucleo
+# cSpell: ignore nucleo serialport
 [package]
 name = "slint-lsp"
 description = "A language server protocol implementation for Slint"
@@ -88,8 +88,17 @@ preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
 preview-external = ["i-slint-editor-preview/preview-external"]
 ## Support the remote preview via a WebSocket connection
 preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/preview-remote"]
+## Support the remote preview on a microcontroller connected to a serial port
+preview-serial = [
+  "preview-remote",
+  "i-slint-compiler/serde",
+  "i-slint-compiler/renderer-software",
+  "i-slint-live-preview/serial",
+  "dep:serialport",
+  "dep:spin_on",
+]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "preview", "preview-serial"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics", "builtin-docs"] }
@@ -133,6 +142,8 @@ crossbeam-channel = "0.5"                                                       
 lsp-server = "0.10"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 mdns-sd = { version = "0.20.0", default-features = false }
+serialport = { version = "4.10", default-features = false, optional = true }
+spin_on = { workspace = true, optional = true }
 # Unicode XID property lookup used by the host-language accessor scanner to
 # tokenize identifiers in Rust/C++ source rather than scanning byte-by-byte.
 icu_properties = { version = "2.2.0", features = ["compiled_data"] }

@@ -15,6 +15,7 @@ links = "i_slint_backend_qt"                   # just so we can pass metadata to
 
 [features]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-alpha-map = ["i-slint-core/image-pixel-format-alpha-map"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]

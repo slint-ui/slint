@@ -7,6 +7,10 @@
 use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
+use crate::prelude::*;
+use alloc::rc::{Rc, Weak};
+use core::cell::{OnceCell, RefCell};
+use core::pin::Pin;
 use i_slint_compiler::llr::{
     self, CompilationUnit, ItemInstanceIdx, PublicComponentIdx, RepeatedElementIdx,
     SubComponentIdx, SubComponentInstanceIdx,
@@ -16,9 +20,6 @@ use i_slint_core::model::{Conditional, Repeater};
 use i_slint_core::properties::ChangeTracker;
 use i_slint_core::window::WindowAdapterRc;
 use i_slint_core::{Callback, Property};
-use std::cell::{OnceCell, RefCell};
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
 use typed_index_collections::TiVec;
 use vtable::{VRc, VWeak};
 
@@ -189,7 +190,7 @@ pub struct SubComponentInstance {
     /// open popup's id (handed out by `WindowInner::show_popup`) so a
     /// later `popup.close()` in the same sub-component can resolve which
     /// popup to tear down.
-    pub popup_ids: Vec<std::cell::Cell<Option<std::num::NonZeroU32>>>,
+    pub popup_ids: Vec<core::cell::Cell<Option<core::num::NonZeroU32>>>,
     /// Set on the root sub-component of a repeated `Instance`. Points back to
     /// the parent sub-component holding the `Repeater` this instance belongs to.
     /// Used by `ModelDataAssignment` to write back into the model.
@@ -257,6 +258,9 @@ pub struct Instance {
     /// reconstruction. Both sides are `None` on sub-tree / popup / repeated
     /// instances — only the top-level definition sets them.
     pub type_loaders: crate::component::TypeLoaders,
+    /// The bitmap fonts this instance registered, which the renderer only keeps weakly,
+    /// see `RendererSealed::register_shared_bitmap_font()`.
+    pub bitmap_fonts: RefCell<Vec<Rc<i_slint_core::graphics::SharedBitmapFont>>>,
 }
 
 impl Drop for Instance {
@@ -406,6 +410,7 @@ impl Instance {
         // `pre_init_code` and image decoding need the renderer's Slint context
         // before `attach_to_window` runs `set_component` on show.
         adapter.renderer().set_window_adapter(&adapter);
+        apply_const_scale_factor(&self.root_sub_component.compilation_unit, &adapter);
         // A freshly created adapter belongs to the outermost root instance;
         // caching it only on a sub-tree would leave the root creating a
         // second one later, splitting the tree across two windows.
@@ -743,6 +748,7 @@ impl Instance {
             disable_window_attachment,
         );
         if let Some(adapter) = window_adapter {
+            apply_const_scale_factor(&compilation_unit, &adapter);
             let _ = vrc.window_adapter.set(adapter);
         }
         // Set the outer-tree handle before finalizing so bindings that
@@ -846,6 +852,7 @@ fn build_instance(
         init_code_run: OnceCell::new(),
         embedded_in: OnceCell::new(),
         type_loaders,
+        bitmap_fonts: RefCell::default(),
     });
     let weak = VRc::downgrade(&vrc);
     let _ = vrc.self_weak.set(weak.clone());
@@ -965,11 +972,11 @@ fn build_sub_component_instance(
             repeaters,
             parent,
             root: OnceCell::new(),
-            change_trackers: std::iter::repeat_with(ChangeTracker::default)
+            change_trackers: core::iter::repeat_with(ChangeTracker::default)
                 .take(2 * sc.timers.len() + sc.change_callbacks.len())
                 .collect(),
-            timers: std::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
-            popup_ids: vec![std::cell::Cell::new(None); sc.popup_windows.len()],
+            timers: core::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
+            popup_ids: vec![core::cell::Cell::new(None); sc.popup_windows.len()],
             repeated_in: OnceCell::new(),
             menubar: RefCell::new(None),
         }
@@ -1071,7 +1078,7 @@ type ZSortEntry = Option<Vec<llr::ZSource>>;
 fn build_tree_nodes(
     root: &llr::TreeNode,
 ) -> (Vec<ItemTreeNode>, Vec<DynamicEntry>, Vec<ItemEntry>, Vec<ZSortEntry>) {
-    use itertools::Either;
+    use either::Either;
 
     let mut out = Vec::new();
     let mut dyn_table: Vec<DynamicEntry> = Vec::new();
@@ -1474,4 +1481,12 @@ fn value_to_flexbox_layout_item_info(
         return info.into();
     };
     crate::eval_layout::flexbox_item_info_from_struct(&s)
+}
+
+/// Give the window the scale factor the unit's textures and fonts were rendered for.
+fn apply_const_scale_factor(unit: &CompilationUnit, adapter: &WindowAdapterRc) {
+    if let Some(factor) = unit.const_scale_factor {
+        i_slint_core::window::WindowInner::from_pub(adapter.window())
+            .set_const_scale_factor(factor);
+    }
 }

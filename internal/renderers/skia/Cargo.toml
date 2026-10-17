@@ -21,6 +21,7 @@ path = "lib.rs"
 # the C++ crate's CMakeLists.txt
 [features]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-alpha-map = ["i-slint-core/image-pixel-format-alpha-map"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]

@@ -4,40 +4,57 @@
 use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::Type;
 use crate::native_class::NativeClass;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
 use derive_more::{From, Into};
 use smol_str::SmolStr;
-use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 use typed_index_collections::TiVec;
 
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PropertyIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FunctionIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallbackIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GlobalIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PublicComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ItemInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RepeatedElementIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TimerIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridLayoutChildIdx(usize);
 
 /// Describes one child in a repeated Row template.
 /// Used by code generators to handle any number of interleaved static children and
 /// inner repeaters within a repeated Row in a GridLayout.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RowChildTemplateInfo {
     /// A static child. `child_index` is an index into `SubComponent::grid_layout_children`.
     Static { child_index: GridLayoutChildIdx },
@@ -66,6 +83,7 @@ pub fn static_child_count(templates: &[RowChildTemplateInfo]) -> usize {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LayoutRepeatedElement {
     pub repeater_index: RepeatedElementIdx,
     /// Template of children for a repeated Row (statics and inner repeaters in declaration order).
@@ -81,6 +99,7 @@ pub struct LayoutRepeatedElement {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridLayoutRepeatedElement {
     pub new_row: bool,
     pub repeater_index: RepeatedElementIdx,
@@ -97,12 +116,14 @@ impl PropertyIdx {
 /// Layout info (constraints) for a direct child of a repeated Row in a GridLayout.
 /// Used to generate `layout_item_info` which returns layout info for a specific child.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridLayoutChildLayoutInfo {
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
 }
 
 #[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MutExpression(RefCell<Expression>);
 
 impl From<Expression> for MutExpression {
@@ -118,6 +139,7 @@ impl MutExpression {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Animation {
     /// The expression is a Struct with the animation fields
     Static(Expression),
@@ -126,6 +148,7 @@ pub enum Animation {
 
 /// How a property binding should be installed at runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BindingKind {
     /// A constant expression — can be evaluated once with `set`.
     Constant,
@@ -138,6 +161,7 @@ pub enum BindingKind {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BindingExpression {
     pub expression: MutExpression,
     pub animation: Option<Animation>,
@@ -149,6 +173,7 @@ pub struct BindingExpression {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GlobalComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -171,6 +196,7 @@ pub struct GlobalComponent {
     /// True if this component is imported from an external library
     pub from_library: bool,
     /// Analysis for each properties
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub prop_analysis: TiVec<PropertyIdx, crate::property_analysis::PropertyAnalysis>,
 }
 
@@ -185,6 +211,7 @@ impl GlobalComponent {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, From, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LocalMemberIndex {
     #[from]
     Property(PropertyIdx),
@@ -210,6 +237,7 @@ pub enum LocalMemberIndex {
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum NativeMemberKind {
     /// A regular `Property` on the native item (`TouchArea.pressed`,
     /// `Rectangle.background`, etc.).
@@ -226,6 +254,7 @@ impl LocalMemberIndex {
 
 /// A reference to a property, callback, or function, in the context of a SubComponent
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MemberReference {
     /// The property or callback is withing a global
     Global { global_index: GlobalIdx, member: LocalMemberIndex },
@@ -272,6 +301,7 @@ impl From<LocalMemberReference> for MemberReference {
 
 /// A reference to something within an ItemTree
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LocalMemberReference {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     pub reference: LocalMemberIndex,
@@ -284,6 +314,7 @@ impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TwoWayBinding {
     pub prop1: LocalMemberReference,
     pub prop2: MemberReference,
@@ -347,6 +378,7 @@ impl TwoWayBinding {
 }
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Property {
     pub name: SmolStr,
     pub ty: Type,
@@ -356,6 +388,7 @@ pub struct Property {
 }
 
 #[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Callback {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -375,6 +408,7 @@ pub struct Callback {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -388,6 +422,7 @@ pub struct Function {
 #[derive(Debug, Clone)]
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ListViewInfo {
     pub content_y: MemberReference,
     /// `None` when the user explicitly sets `content-height` on the ListView;
@@ -408,6 +443,7 @@ pub struct ListViewInfo {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RepeatedElement {
     pub model: MutExpression,
     /// Within the sub_tree's root component. None for `if`
@@ -429,6 +465,7 @@ pub struct RepeatedElement {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ComponentContainerElement {
     /// The index of the `ComponentContainer` in the enclosing components `item_tree` array
     pub component_container_item_tree_index: u32,
@@ -439,15 +476,17 @@ pub struct ComponentContainerElement {
 }
 
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Item {
+    #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::native_class"))]
     pub ty: Arc<NativeClass>,
     pub name: SmolStr,
     /// Index in the item tree array
     pub index_in_tree: u32,
 }
 
-impl std::fmt::Debug for Item {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Item {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Item")
             .field("ty", &self.ty.class_name)
             .field("name", &self.name)
@@ -457,10 +496,11 @@ impl std::fmt::Debug for Item {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TreeNode {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     /// Either an index in the items, or the local dynamic index for repeater or component container
-    pub item_index: itertools::Either<ItemInstanceIdx, u32>,
+    pub item_index: either::Either<ItemInstanceIdx, u32>,
     pub children: Vec<TreeNode>,
     pub is_accessible: bool,
     /// If set, this node's children have dynamic z-ordering.
@@ -472,6 +512,7 @@ pub struct TreeNode {
 
 /// The z value of a child in a dynamically z-ordered parent
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ZSource {
     /// The z value of the child. The expression must be side-effect free and only
     /// reference globals or properties of the item tree root's sub-component
@@ -527,6 +568,7 @@ impl TreeNode {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -614,16 +656,22 @@ pub struct SubComponent {
     pub accessible_prop: BTreeMap<(u32, String), MutExpression>,
 
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub element_infos: BTreeMap<u32, String>,
 
+    #[cfg(feature = "std")]
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
 
     /// Populated when `CompilerConfiguration::debug_info` is set.
     /// The interpreter uses it for highlighting and live preview.
+    #[cfg(feature = "std")]
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
@@ -631,6 +679,7 @@ pub struct PopupWindow {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PopupMenu {
     pub item_tree: ItemTree,
     pub sub_menu: MemberReference,
@@ -640,6 +689,7 @@ pub struct PopupMenu {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
@@ -674,6 +724,7 @@ impl SubComponent {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SubComponentInstance {
     pub ty: SubComponentIdx,
     pub name: SmolStr,
@@ -683,6 +734,7 @@ pub struct SubComponentInstance {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ItemTree {
     pub root: SubComponentIdx,
     pub tree: TreeNode,
@@ -692,12 +744,14 @@ pub struct ItemTree {
 /// generated public API is `slint::Window`-shaped (a `ComponentHandle` impl
 /// with `show`/`hide`/`run`/`window`) or something else.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TopLevelComponentType {
     Window,
     SystemTrayIcon,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
@@ -748,6 +802,7 @@ impl TypeExport {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompilationUnit {
     pub public_components: TiVec<PublicComponentIdx, PublicComponent>,
     /// Storage for all sub-components
@@ -756,14 +811,24 @@ pub struct CompilationUnit {
     pub used_sub_components: Vec<SubComponentIdx>,
     pub globals: TiVec<GlobalIdx, GlobalComponent>,
     pub popup_menu: Option<PopupMenu>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub has_debug_info: bool,
     /// Every name the generated module re-exports for a declared type, plus the
     /// renamed `export { Original as Alias }` aliases of components. Types renamed to
     /// resolve a same-name collision are absent: they were never public. (Global
     /// aliases are on [`GlobalComponent::aliases`].)
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub type_exports: Vec<TypeExport>,
-    #[cfg(feature = "bundle-translations")]
     pub translations: Option<crate::translations::Translations>,
+    /// The scale factor the compiler rendered the textures and fonts for, which the window
+    /// must then have.
+    pub const_scale_factor: Option<f32>,
+    /// The pre-rendered textures and fonts the unit's code refers to by index, for the
+    /// interpreter. The code generators embed resources from the document instead.
+    pub embedded_resources: TiVec<
+        crate::embedded_resources::EmbeddedResourcesIdx,
+        crate::embedded_resources::EmbeddedResource,
+    >,
 }
 
 // The code generators may run on another thread, so the LLR must not reference the object tree.
@@ -926,26 +991,27 @@ impl CompilationUnit {
             }
         }
         // Every item tree, by its root sub-component
-        let mut trees: HashMap<SubComponentIdx, &TreeNode> = HashMap::new();
+        let mut trees: TiVec<SubComponentIdx, Option<&TreeNode>> =
+            self.sub_components.iter().map(|_| None).collect();
         for c in &self.public_components {
-            trees.insert(c.item_tree.root, &c.item_tree.tree);
+            trees[c.item_tree.root] = Some(&c.item_tree.tree);
         }
         if let Some(p) = &self.popup_menu {
-            trees.insert(p.item_tree.root, &p.item_tree.tree);
+            trees[p.item_tree.root] = Some(&p.item_tree.tree);
         }
         for sc in self.sub_components.iter() {
             for r in &sc.repeated {
-                trees.insert(r.sub_tree.root, &r.sub_tree.tree);
+                trees[r.sub_tree.root] = Some(&r.sub_tree.tree);
             }
             for p in &sc.popup_windows {
-                trees.insert(p.item_tree.root, &p.item_tree.tree);
+                trees[p.item_tree.root] = Some(&p.item_tree.tree);
             }
         }
         // Visit with the context from `for_each_sub_components` because it has the
         // repeater parent scopes set up, which is needed to resolve expressions that
         // are inlined into the z expressions
         self.for_each_sub_components(&mut |idx, _, ctx| {
-            if let Some(tree) = trees.get(&idx) {
+            if let Some(tree) = trees[idx] {
                 visit_tree(tree, ctx, visitor);
             }
         });
@@ -974,6 +1040,7 @@ fn visit_function_bodies<'a>(
 
 /// Depending on the type, this can also be a Callback or a Function
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PublicProperty {
     /// The identifier as written in the `.slint` source, preserving any
     /// hyphens and the original casing. The interpreter's public API

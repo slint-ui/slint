@@ -7,13 +7,14 @@
 //! The trait methods dispatch by name to the item's `rtti::BuiltinItem` metadata.
 
 use crate::Value;
+use crate::prelude::*;
+use alloc::rc::Rc;
 use core::pin::Pin;
 use i_slint_core::graphics::Brush;
 use i_slint_core::items::{ItemVTable, PropertyAnimation};
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{AnimatedBindingKind, TwoWayBindingMapping};
 use i_slint_core::{Callback, Property};
-use std::rc::Rc;
 use vtable::VRef;
 
 /// Erased access to a boxed native item such as `Rectangle`, `Text` or `TouchArea`.

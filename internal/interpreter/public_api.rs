@@ -12,12 +12,13 @@ use crate::Value;
 use crate::api::SetPropertyError;
 use crate::eval::{EvalContext, invoke_callback, invoke_function, load_property, store_property};
 use crate::instance::{Instance, SubComponentInstance};
+use crate::prelude::*;
+use alloc::rc::Rc;
+use core::pin::Pin;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::llr::{MemberReference, PublicComponent, PublicProperty};
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::model::Model;
-use std::pin::Pin;
-use std::rc::Rc;
 use vtable::VRc;
 
 /// Look up a public property by name on the given public component.
@@ -27,7 +28,7 @@ pub fn find_public_property<'a>(
     public: &'a PublicComponent,
     name: &str,
 ) -> Option<&'a PublicProperty> {
-    let normalized = i_slint_compiler::parser::normalize_identifier(name);
+    let normalized = i_slint_compiler::names::normalize_identifier(name);
     public.public_properties.get(normalized.as_str())
 }
 
@@ -229,7 +230,7 @@ fn resolve_global<'a>(
     let cu = &instance.root_sub_component.compilation_unit;
     let (_global, global_instance) = instance.globals.find_by_name(cu, global_name)?;
     let global_instance = global_instance.clone();
-    let needle = i_slint_compiler::parser::normalize_identifier(prop_name);
+    let needle = i_slint_compiler::names::normalize_identifier(prop_name);
     let global = &cu.globals[global_instance.global_idx];
     let prop = global.public_properties.get(needle.as_str())?;
     Some((prop, global_instance))
@@ -353,7 +354,7 @@ pub fn invoke_global(
             let function = &global.functions[fn_idx];
             let expr = function.code.borrow().clone();
             let mut ctx = crate::eval::EvalContext::for_global(
-                std::rc::Rc::downgrade(&instance.globals),
+                alloc::rc::Rc::downgrade(&instance.globals),
                 cu.clone(),
             );
             ctx.function_arg_types = function.args.clone();

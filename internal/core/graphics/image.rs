@@ -325,6 +325,13 @@ pub enum SharedImageBuffer {
     /// This variant is only available with the `image-pixel-format-gray8` feature.
     #[cfg(feature = "image-pixel-format-gray8")]
     Gray8(SharedPixelBuffer<Gray8Pixel>),
+    /// This variant holds an alpha map: each pixel is the opacity of `color`, encoded as
+    /// unsigned byte.
+    ///
+    /// This variant is only available with the internal `image-pixel-format-alpha-map` feature.
+    #[doc(hidden)]
+    #[cfg(feature = "image-pixel-format-alpha-map")]
+    AlphaMap { alpha: SharedPixelBuffer<u8>, color: crate::Color },
 }
 
 impl SharedImageBuffer {
@@ -351,6 +358,30 @@ impl SharedImageBuffer {
             Self::RGB565(buffer) => buffer.size(),
             #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(buffer) => buffer.size(),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            Self::AlphaMap { alpha, .. } => alpha.size(),
+        }
+    }
+
+    /// The pixels of an alpha map in RGBA, for code that can't draw an alpha map, see
+    /// [`Self::AlphaMap`].
+    #[doc(hidden)]
+    #[cfg(feature = "image-pixel-format-alpha-map")]
+    pub fn alpha_map_to_rgba8(
+        alpha: &SharedPixelBuffer<u8>,
+        color: crate::Color,
+    ) -> SharedPixelBuffer<Rgba8Pixel> {
+        SharedPixelBuffer {
+            width: alpha.width,
+            height: alpha.height,
+            data: alpha
+                .data
+                .iter()
+                .map(|a| {
+                    let a = (*a as u16 * color.alpha() as u16 / 255) as u8;
+                    Rgba8Pixel::new(color.red(), color.green(), color.blue(), a)
+                })
+                .collect(),
         }
     }
 }
@@ -374,6 +405,10 @@ impl PartialEq for SharedImageBuffer {
             #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(lhs_buffer) => {
                 matches!(other, Self::Gray8(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
+            }
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            Self::AlphaMap { alpha: lhs_alpha, color: lhs_color } => {
+                matches!(other, Self::AlphaMap { alpha: rhs_alpha, color: rhs_color } if lhs_alpha.data.as_ptr().eq(&rhs_alpha.data.as_ptr()) && lhs_color == rhs_color)
             }
         }
     }
@@ -1166,6 +1201,8 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => Some(map_pixels(buffer)),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => Some(map_pixels(buffer)),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { .. } => None,
         })
     }
 
@@ -1196,6 +1233,10 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { alpha, color } => {
+                SharedImageBuffer::alpha_map_to_rgba8(&alpha, color)
+            }
         })
     }
 
@@ -1220,6 +1261,14 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { alpha, color } => {
+                let mut buffer = SharedImageBuffer::alpha_map_to_rgba8(&alpha, color);
+                for pixel in buffer.make_mut_slice() {
+                    *pixel = Image::rgba_to_premultiplied_rgba(*pixel);
+                }
+                buffer
+            }
         })
     }
 

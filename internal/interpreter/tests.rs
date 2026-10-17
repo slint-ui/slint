@@ -3,6 +3,7 @@
 
 // cSpell: ignore descendents dontcrash
 
+use crate::prelude::*;
 #[cfg(feature = "internal")]
 use i_slint_compiler::source_path::SourcePath;
 #[allow(unused_imports)]
@@ -545,8 +546,8 @@ fn set_global_log_message_handler(
 fn context_debug_handler_overrides_platform() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -584,8 +585,8 @@ fn context_debug_handler_overrides_platform() {
 fn log_messages_carry_the_slint_source_location() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -626,8 +627,8 @@ export component MainWindow inherits Window {
 fn rejected_model_modification_reports_the_source_location() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -699,8 +700,8 @@ fn platform_debug_handler_is_fallback() {
 fn global_debug_messages_use_context_handler() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -1072,12 +1073,12 @@ fn a_definition_kept_alive_across_into_send_still_works() {
 
 /// Poll a future that is expected to be immediately ready. The compiler is only
 /// asynchronous when an async file loader is set, which these tests don't use.
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
     let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
+    match core::future::Future::poll(future.as_mut(), &mut cx) {
+        core::task::Poll::Ready(result) => result,
+        core::task::Poll::Pending => unreachable!("Compiler returned Pending"),
     }
 }
 

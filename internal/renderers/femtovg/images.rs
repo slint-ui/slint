@@ -226,6 +226,13 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     }
                     other => other,
                 };
+                #[cfg(feature = "image-pixel-format-alpha-map")]
+                let buffer = match buffer {
+                    SharedImageBuffer::AlphaMap { alpha, color } => SharedImageBuffer::RGBA8(
+                        SharedImageBuffer::alpha_map_to_rgba8(&alpha, color),
+                    ),
+                    other => other,
+                };
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
@@ -334,6 +341,10 @@ fn image_buffer_to_image_source(
         #[cfg(feature = "image-pixel-format-rgb565")]
         SharedImageBuffer::RGB565(..) => {
             unreachable!("RGB565 buffers are converted to RGB8 before the femtovg upload")
+        }
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { .. } => {
+            unreachable!("alpha maps are converted to RGBA8 before the femtovg upload")
         }
         SharedImageBuffer::RGB8(buffer) => {
             (image_source(buffer).into(), femtovg::ImageFlags::empty())

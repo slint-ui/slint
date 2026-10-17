@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Shown when there's no design to show, or instead of one that couldn't be shown.
+export component IdleScreen inherits Window {
+    in property <string> message;
+    in property <string> detail;
+    background: #1e1e1e;
+
+    VerticalLayout {
+        alignment: center;
+        padding: 16px;
+        spacing: 12px;
+
+        Text {
+            text: "Slint Viewer";
+            font-size: 24px;
+            color: white;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.message;
+            font-size: 14px;
+            color: #d0d0d0;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.detail;
+            font-size: 12px;
+            color: #909090;
+            horizontal-alignment: center;
+        }
+    }
+}

@@ -921,6 +921,13 @@ async fn handle_preview_to_lsp_message(
                 crate::editor_preview::spawn_local(remote.connect(addresses, port));
             }
         }
+        M::ConnectSerial { port } => {
+            tracing::debug!("Preview asked to connect to the serial port {port}");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+                crate::editor_preview::spawn_local(remote.connect_serial(port));
+            }
+        }
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]

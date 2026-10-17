@@ -103,6 +103,9 @@ pub enum PreviewToLspMessage {
     Exited,
     /// Clear the highlight in the visual editor run preview.
     ClearHighlight,
+    /// The preview UI asked to show the design on a microcontroller connected to
+    /// this serial port. The LSP main process compiles the design and sends it.
+    ConnectSerial { port: String },
 }
 
 /// One transport from a preview back to the LSP.

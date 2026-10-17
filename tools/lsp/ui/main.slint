@@ -310,6 +310,12 @@ export component PreviewUi inherits Window {
                                     font-weight: 700;
                                     color: Palette.foreground;
                                 }
+                                if Api.remote-connection-error != "": Text {
+                                    text: Api.remote-connection-error;
+                                    horizontal-alignment: center;
+                                    color: #d33;
+                                    wrap: word-wrap;
+                                }
                                 Text {
                                     text: @tr("Disconnect to view here.");
                                     horizontal-alignment: center;

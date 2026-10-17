@@ -4,6 +4,7 @@
 // cSpell: ignore stru
 
 use super::*;
+use crate::prelude::*;
 use core::ptr::NonNull;
 use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units, path_to_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
@@ -1162,6 +1163,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions
 
 #[cfg(test)]
 mod tests {
+    use crate::prelude::*;
+
     #[test]
     fn no_strong_reference_leak_per_ffi_call() {
         i_slint_backend_testing::init_no_event_loop();

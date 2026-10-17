@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![no_std]
 
 /*!
 # Slint interpreter library
@@ -72,11 +73,31 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-1-18"))]
+#[cfg(not(any(feature = "compat-1-18", feature = "internal-mcu-interpreter")))]
 compile_error!(
     "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
+
+extern crate alloc;
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
+
+/// What the standard library prelude provides, for the modules of this `no_std` crate.
+mod prelude {
+    pub use alloc::borrow::ToOwned;
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec;
+    pub use alloc::vec::Vec;
+}
+
+#[cfg(not(feature = "std"))]
+pub(crate) use hashbrown::HashMap;
+#[cfg(feature = "std")]
+pub(crate) use std::collections::HashMap;
 
 mod api;
 mod bindings;
@@ -99,6 +120,7 @@ mod item_tree_vtable;
 pub mod json;
 mod popup;
 mod public_api;
+mod static_resources;
 mod value_model;
 
 #[doc(inline)]

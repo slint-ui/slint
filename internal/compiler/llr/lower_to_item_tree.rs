@@ -208,6 +208,25 @@ pub fn lower_to_item_tree(
         type_exports: type_exports(document, &exported_roots),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
+        #[cfg(not(feature = "bundle-translations"))]
+        translations: None,
+        const_scale_factor: compiler_config.const_scale_factor,
+        embedded_resources: document
+            .embedded_file_resources
+            .borrow()
+            .iter()
+            .map(|resource| match &resource.kind {
+                #[cfg(feature = "renderer-software")]
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(texture) => {
+                    crate::embedded_resources::EmbeddedResource::Texture(texture.clone())
+                }
+                #[cfg(feature = "renderer-software")]
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(font) => {
+                    crate::embedded_resources::EmbeddedResource::BitmapFont(font.clone())
+                }
+                _ => crate::embedded_resources::EmbeddedResource::NotInUnit,
+            })
+            .collect(),
     };
     super::optim_passes::run_passes(&mut root);
     root

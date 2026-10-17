@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore jtag
+
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
@@ -29,9 +31,21 @@ use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
 use static_cell::StaticCell;
 
+/// See [`crate::HostLink`].
+static RESTART_ON_PANIC: core::sync::atomic::AtomicBool =
+    core::sync::atomic::AtomicBool::new(false);
+
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    esp_println::println!("Panic: {:?}", info);
+    match info.location() {
+        Some(location) => esp_println::println!("Panic at {location}: {}", info.message()),
+        None => esp_println::println!("Panic: {}", info.message()),
+    }
+    if RESTART_ON_PANIC.load(core::sync::atomic::Ordering::Relaxed) {
+        // Lets the message leave the USB FIFO
+        Delay::new().delay_ms(100);
+        esp_hal::system::software_reset()
+    }
     loop {}
 }
 
@@ -95,6 +109,61 @@ const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
+    init_board();
+}
+
+/// Like [`init`], and returns the USB-Serial-JTAG port that the USB-C connector is wired to.
+pub fn init_with_host_link() -> impl crate::HostLink {
+    RESTART_ON_PANIC.store(true, core::sync::atomic::Ordering::Relaxed);
+    let usb_device = init_board();
+    UsbSerialHostLink(esp_hal::usb_serial_jtag::UsbSerialJtag::new(usb_device).split().0)
+}
+
+/// Receives through the USB-Serial-JTAG port, and sends through `esp_println` like the log
+/// output.
+struct UsbSerialHostLink(esp_hal::usb_serial_jtag::UsbSerialJtagRx<'static, esp_hal::Blocking>);
+
+impl crate::HostLink for UsbSerialHostLink {
+    fn read(&mut self, buffer: &mut [u8]) -> usize {
+        // The FIFO only holds one 64 byte USB packet: stopping at the first empty read
+        // would receive one packet per call.
+        const PAUSE: esp_hal::time::Duration = esp_hal::time::Duration::from_millis(2);
+        let mut len = self.0.drain_rx_fifo(buffer);
+        if len == 0 {
+            return 0;
+        }
+        let mut last_data = Instant::now();
+        while len < buffer.len() {
+            let read = self.0.drain_rx_fifo(&mut buffer[len..]);
+            if read > 0 {
+                len += read;
+                last_data = Instant::now();
+            } else if last_data.elapsed() > PAUSE {
+                break;
+            }
+        }
+        len
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        esp_println::Printer::write_bytes(bytes);
+    }
+
+    fn board_name(&self) -> &str {
+        "ESP32-S3-BOX-3"
+    }
+
+    fn free_memory(&self) -> Option<usize> {
+        Some(esp_alloc::HEAP.free())
+    }
+
+    fn reset(&mut self) {
+        esp_hal::system::software_reset()
+    }
+}
+
+/// Initializes the board and returns the USB device peripheral, which it doesn't use.
+fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
@@ -242,6 +311,8 @@ pub fn init() {
         })),
     }))
     .expect("backend already initialized");
+
+    peripherals.USB_DEVICE
 }
 
 impl EspBackend {

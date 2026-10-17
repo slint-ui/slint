@@ -46,6 +46,17 @@ anyrender = [
 # Additionally render cases with everything pre-rendered at compile time: bitmap fonts and
 # pre-decoded textures (the MCU-style `EmbedTextures` path).
 software-embed-assets = ["software"]
+# Render the embed-assets cases through the interpreter too, after sending the compiled unit
+# through `i_slint_compiler::llr::serialize`, as a microcontroller receives it. Compares against
+# the `software_embed_assets` references.
+interpreter-embed-assets = [
+  "software",
+  "dep:slint-interpreter",
+  "slint-interpreter/internal",
+  "dep:i-slint-compiler",
+  "i-slint-compiler/renderer-software",
+  "dep:spin_on",
+]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
@@ -60,6 +71,8 @@ kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+i-slint-compiler = { workspace = true, features = ["std", "serde"], optional = true }
+spin_on = { workspace = true, optional = true }
 # Provides `configure_test_fonts()` to register the bundled test fonts at runtime so the default
 # software driver resolves fonts deterministically without importing a .ttf.
 i-slint-backend-testing = { workspace = true, features = ["internal"], optional = true }

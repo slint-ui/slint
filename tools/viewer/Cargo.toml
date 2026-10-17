@@ -78,7 +78,7 @@ remote = [
 default = ["backend-default", "renderer-femtovg", "renderer-software", "remote"]
 
 [dependencies]
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["std"] }
 i-slint-core = { workspace = true }
 i-slint-renderer-software = { workspace = true, features = ["std"] }
 i-slint-renderer-skia = { workspace = true, optional = true }
