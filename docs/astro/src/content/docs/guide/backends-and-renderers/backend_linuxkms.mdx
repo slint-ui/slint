@@ -96,20 +96,35 @@ The configure output reports which of the two libraries the build ends up with.
 </TabItem>
 </Tabs>
 
-:::note[Note]
-Without libseat, the application must run as a user privileged to access the input and DRM/KMS device
-files; typically that's the root user.
+### Device Access With libseat
 
-While the event loop runs, Slint switches off the keyboard of the active virtual console,
-so that keystrokes don't also reach the shell on that console.
-If the application is killed and the console keyboard stays off, restore it with `kbd_mode -u`.
-:::
+libseat manages access to the GPU and input devices through a seat manager such as logind or seatd.
+It also manages the virtual console's keyboard mode.
 
-:::note[Note]
-Without libinput the application renders but receives no input events, and the
-<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut that otherwise quits the application is
-not available. Quit the event loop from a timer or another thread instead.
-:::
+Without libseat, run the application as a user with access to the input and DRM/KMS device files, typically root.
+When libinput is enabled, Slint disables the active virtual console's keyboard while the event loop runs.
+This prevents keystrokes, including passwords, from also reaching the shell on that console.
+Slint flushes queued console input and restores the previous keyboard mode when the event loop exits, including during panic unwinding.
+Caught panics and panics in other threads don't restore the keyboard while the event loop is still running.
+If disabling the keyboard fails, Slint warns and continues; keystrokes may still reach the console.
+
+Slint also restores the keyboard before terminating on `SIGINT`, `SIGTERM`, or `SIGHUP`.
+The process still terminates by the original signal.
+Signals already handled or ignored by the application keep their existing behavior.
+Install application handlers before starting the event loop.
+Set `SLINT_KMS_NO_SIGNAL_HANDLER=1` before launching the application to disable Slint's signal handlers.
+The application then owns restoration on signals; normal event-loop cleanup still restores the keyboard.
+
+`SIGKILL` and aborting panics can't restore the keyboard through this cleanup.
+If the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
+Replace `/dev/tty1` with the affected console; `-u` selects Unicode mode.
+
+### Input Events With libinput
+
+libinput reads mouse, touch, and keyboard events from input devices.
+Without libinput, the application renders but receives no input events.
+The <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut for quitting the application is then unavailable.
+Quit the event loop from a timer or another thread instead.
 
 ## Renderers
 
