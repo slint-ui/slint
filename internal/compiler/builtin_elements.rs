@@ -1422,8 +1422,6 @@ fn build(l: &mut Loader) {
         ///     width: 200px;
         ///     height: 100px;
         ///     area := TouchArea {
-        ///         width: parent.width;
-        ///         height: parent.height;
         ///         clicked => {
         ///             rect2.background = #ff0;
         ///         }
@@ -3365,12 +3363,11 @@ fn build(l: &mut Loader) {
         ///     height: 100px;
         ///
         ///     popup := PopupWindow {
-        ///         Rectangle { height:100%; width: 100%; background: yellow; }
+        ///         Rectangle { background: yellow; }
         ///         x: 20px; y: 20px; height: 50px; width: 50px;
         ///     }
         ///
         ///     TouchArea {
-        ///         height:100%; width: 100%;
         ///         clicked => { popup.show(); }
         ///     }
         /// }
