@@ -17,6 +17,13 @@ from ui_driver import (
 )
 
 
+def project_file(main: str | None = None) -> str:
+    contents = {"slint-edition": "1.19"}
+    if main is not None:
+        contents["main"] = main
+    return json.dumps(contents)
+
+
 def test_startup_page_shows_project_actions_without_editor_panes(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -64,7 +71,7 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     target = fixture_project / "Main.slint"
     if project_input != "source":
         target = fixture_project / "slint-project.json"
-        target.write_text(json.dumps({"main": "Main.slint"}))
+        target.write_text(project_file("Main.slint"))
 
     with launch_editor(editor_binary, editor_environment, target) as editor:
         window = first_window(editor)
@@ -137,7 +144,7 @@ def test_manifest_without_entry_reports_compilation_error_and_allows_navigation(
     tmp_path: Path,
 ) -> None:
     manifest = fixture_project / "slint-project.json"
-    manifest.write_text("{}")
+    manifest.write_text(project_file())
     with launch_editor(editor_binary, editor_environment, manifest) as editor:
         window = first_window(editor)
         diagnostics = element(
@@ -193,9 +200,9 @@ def test_broken_project_recovers_when_repaired_on_disk(
         if broken_input == "malformed-surrounding-manifest":
             target = fixture_project / "Main.slint"
     elif broken_input == "missing-entry":
-        target.write_text(json.dumps({"main": repaired_source.name}))
+        target.write_text(project_file(repaired_source.name))
     elif broken_input == "no-entry":
-        target.write_text("{}")
+        target.write_text(project_file())
     elif broken_input == "missing-source":
         target = fixture_project / "missing.slint"
     elif broken_input == "missing-root":
@@ -213,6 +220,7 @@ def test_broken_project_recovers_when_repaired_on_disk(
                         for error in [
                             "EOF while parsing",
                             "has no 'main'",
+                            "'slint-edition' is missing",
                             "No component found",
                             "File not registered",
                         ]
@@ -231,16 +239,16 @@ def test_broken_project_recovers_when_repaired_on_disk(
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(source)
             if broken_input == "malformed-surrounding-manifest":
-                (fixture_project / "slint-project.json").write_text("{}")
+                (fixture_project / "slint-project.json").write_text(project_file())
         else:
             repaired_source.write_text(source)
             if broken_input != "missing-entry":
-                target.write_text(json.dumps({"main": repaired_source.name}))
+                target.write_text(project_file(repaired_source.name))
         element(window, "Repaired project", role=slint_testing.AccessibleRole.Text)
         assert editor.process.poll() is None
 
 
-@pytest.mark.parametrize("manifest_contents", ["{", "{}"])
+@pytest.mark.parametrize("manifest_contents", ["{", project_file()])
 def test_switching_to_a_broken_project_removes_the_previous_preview(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -302,5 +310,5 @@ def test_switching_to_a_broken_project_removes_the_previous_preview(
         assert not elements(
             window, "Fixture text", role=slint_testing.AccessibleRole.Text
         )
-        manifest.write_text(json.dumps({"main": sibling.name}))
+        manifest.write_text(project_file(sibling.name))
         element(window, "Recovered project", role=slint_testing.AccessibleRole.Text)

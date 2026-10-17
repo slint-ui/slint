@@ -335,9 +335,9 @@ Where the width comes from differs per layout kind:
 
 A non-layout parent gets its `layoutinfo-*` from `default_geometry::gen_layout_info_prop`,
 which merges what each child reports.
-Merging a repeated child needs `enable_experimental`:
+Merging a repeated child needs `slint-edition` 1.19 or newer
+(`CompilerConfiguration::repeated_children_constrain_parent`):
 a child that sizes itself from that parent is a binding loop error once merged (#13972).
-It becomes the default with the first edition.
 A repeated child has no single `LayoutInfo` to read, so `repeated_element_layout_info`
 synthesizes a one-cell `BoxLayout` over it and folds every instance through
 `box_layout_info_ortho`, close to the merge two static siblings get: the box

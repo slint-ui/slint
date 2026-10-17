@@ -609,6 +609,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
     println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
     println!("cargo:rerun-if-env-changed=SLINT_ENABLE_EXPERIMENTAL_FEATURES");
+    println!("cargo:rerun-if-env-changed=SLINT_EDITION");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
@@ -855,6 +856,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
         fs::write(
             &project_file,
             r#"{
+                "slint-edition": "1.19",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"}
             }"#,
@@ -888,6 +890,7 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
         fs::write(
             &project_file,
             r#"{
+                "slint-edition": "1.19",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"}
             }"#,
@@ -921,7 +924,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
+            r#"{"slint-edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -1030,7 +1033,8 @@ fn compiler_configuration_defaults_without_project_file() {
         assert!(project_file.is_none());
 
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{"include-paths":["include"]}"#).unwrap();
+        fs::write(&project_file, r#"{"slint-edition":"1.19","include-paths":["include"]}"#)
+            .unwrap();
 
         let (config, _) = CompilerConfiguration::new().resolve_project_file(test_root).unwrap();
         assert_eq!(config.include_paths, vec![test_root.join("include")]);
@@ -1046,8 +1050,16 @@ fn project_file_discovery_starts_at_the_slint_file_directory() {
         let ui_dir = test_root.join("ui");
         fs::create_dir_all(&ui_dir).unwrap();
 
-        fs::write(project_file_path_in(&test_root), r#"{"include-paths":["top"]}"#).unwrap();
-        fs::write(project_file_path_in(&ui_dir), r#"{"include-paths":["nested"]}"#).unwrap();
+        fs::write(
+            project_file_path_in(&test_root),
+            r#"{"slint-edition":"1.19","include-paths":["top"]}"#,
+        )
+        .unwrap();
+        fs::write(
+            project_file_path_in(&ui_dir),
+            r#"{"slint-edition":"1.19","include-paths":["nested"]}"#,
+        )
+        .unwrap();
 
         let input_file = ui_dir.join("main.slint");
         let output_file = test_root.join("main.rs");
@@ -1086,7 +1098,7 @@ fn project_file_errors_are_compilation_errors() {
 
     with_temp_test_dir("project-file-error", |test_root| {
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, "{}").unwrap();
+        fs::write(&project_file, r#"{ "slint-edition": "1.19" }"#).unwrap();
 
         let error = compile_with_output_path(
             &project_file,
@@ -1111,7 +1123,8 @@ fn output_path_compilation_tracks_project_file_dependency() {
         let input_file = test_root.join("main.slint");
         let output_file = test_root.join("main.rs");
 
-        fs::write(&project_file, r#"{"include-paths":["include"]}"#).unwrap();
+        fs::write(&project_file, r#"{"slint-edition":"1.19","include-paths":["include"]}"#)
+            .unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
 
         let config = CompilerConfiguration::new();
@@ -1164,10 +1177,17 @@ fn a_project_file_input_compiles_its_main_file() {
         fs::create_dir_all(&shared_dir).unwrap();
 
         let project_file = project_file_path_in(&test_root);
-        fs::write(&project_file, r#"{ "main": "ui/main.slint", "include-paths": ["shared"] }"#)
-            .unwrap();
+        fs::write(
+            &project_file,
+            r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
+        )
+        .unwrap();
         // Nearer to the main file, but not the project file that was passed in.
-        fs::write(project_file_path_in(&ui_dir), r#"{ "include-paths": ["nowhere"] }"#).unwrap();
+        fs::write(
+            project_file_path_in(&ui_dir),
+            r#"{ "slint-edition": "1.19", "include-paths": ["nowhere"] }"#,
+        )
+        .unwrap();
         fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
         let main = ui_dir.join("main.slint");
         fs::write(

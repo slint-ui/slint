@@ -220,7 +220,12 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag, &symbol_counters);
+        default_geometry::default_geometry(
+            component,
+            diag,
+            &symbol_counters,
+            type_loader.compiler_config.repeated_children_constrain_parent(),
+        );
         crate::layout::mark_repeated_cells_child_of_layout(component);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);

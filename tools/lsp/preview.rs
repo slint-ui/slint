@@ -2300,7 +2300,7 @@ mod tests {
             Default::default(),
             SourcePath::from_url(&target.url),
             None,
-            r#"{"main":"main.slint"}"#.into(),
+            r#"{"slint-edition":"1.19","main":"main.slint"}"#.into(),
             "fluent".into(),
             None,
             move |path| {
@@ -2381,7 +2381,11 @@ mod tests {
         )
         .unwrap();
         for has_entry in [true, false] {
-            let source = if has_entry { r#"{"main":"main.slint"}"# } else { "{}" };
+            let source = if has_entry {
+                r#"{"slint-edition":"1.19","main":"main.slint"}"#
+            } else {
+                r#"{"slint-edition":"1.19"}"#
+            };
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.source_code.insert(
                     manifest.to_url().unwrap(),
@@ -2436,8 +2440,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some("{}"), true),
-            (Some("{}"), false),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
