@@ -170,6 +170,7 @@ impl ElementType {
                 let looked_up = tr.lookup_element(name);
                 if let Ok(ElementType::Builtin(b)) = &looked_up
                     && b.can_be_declared_without_children_slot
+                    && b.name != builtin.name
                 {
                     return Ok(ElementType::Builtin(b.clone()));
                 }

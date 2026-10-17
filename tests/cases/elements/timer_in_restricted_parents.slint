@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A Timer is accepted in parents that otherwise restrict their children.
+
+import { TabWidget } from "std-widgets.slint";
+
+component Leaf {
+    Rectangle { }
+}
+
+export component TestCase inherits Window {
+    out property <int> in-leaf;
+    out property <int> in-path;
+    out property <int> in-tab-widget;
+
+    Leaf {
+        Timer {
+            interval: 100ms;
+            triggered => { in-leaf += 1; }
+        }
+    }
+
+    Path {
+        MoveTo { x: 0; y: 0; }
+        LineTo { x: 10; y: 10; }
+        Timer {
+            interval: 100ms;
+            triggered => { in-path += 1; }
+        }
+    }
+
+    TabWidget {
+        Tab { title: "a"; }
+        Timer {
+            interval: 100ms;
+            triggered => { in-tab-widget += 1; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(110);
+assert_eq!(instance.get_in_leaf(), 1);
+assert_eq!(instance.get_in_path(), 1);
+assert_eq!(instance.get_in_tab_widget(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(110);
+assert_eq(instance.get_in_leaf(), 1);
+assert_eq(instance.get_in_path(), 1);
+assert_eq(instance.get_in_tab_widget(), 1);
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.mock_elapsed_time(110);
+assert.equal(instance.in_leaf, 1);
+assert.equal(instance.in_path, 1);
+assert.equal(instance.in_tab_widget, 1);
+```
+*/
