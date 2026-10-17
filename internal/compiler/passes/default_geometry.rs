@@ -9,6 +9,7 @@
     This pass must be run after lower_layout
 */
 
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -22,10 +23,10 @@ use crate::layout::{
     BuiltinFilter, LayoutConstraints, MergedFixedSize, implicit_layout_info_call,
     repeated_element_layout_info,
 };
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, Document, Element, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 pub fn default_geometry(
     root_component: &Rc<Component>,
@@ -55,9 +56,6 @@ pub fn default_geometry(
             };
 
             let is_image = builtin_type.name == "Image";
-            if is_image {
-                adjust_image_clip_rect(elem, &builtin_type);
-            }
 
             if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
@@ -721,38 +719,105 @@ fn maybe_center_in_parent(
     });
 }
 
-fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Arc<BuiltinElement>) {
+/// Run after inlining: instances of a remaining sub-component share the native class of its elements.
+pub fn adjust_image_clip_rects(doc: &Document) {
+    let mut defaulted = HashSet::new();
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |elem, _| {
+                if elem.borrow().repeated.is_some() {
+                    return;
+                }
+                let builtin = elem.borrow().builtin_type();
+                if let Some(builtin) = builtin
+                    && builtin.name == "Image"
+                {
+                    adjust_image_clip_rect(elem, &builtin, &mut defaulted);
+                }
+            },
+        );
+    });
+}
+
+fn adjust_image_clip_rect(
+    elem: &ElementRc,
+    builtin: &Arc<BuiltinElement>,
+    defaulted: &mut HashSet<(*const RefCell<Element>, &'static str)>,
+) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
-    if builtin.native_class.properties.keys().any(|p| {
+    if !builtin.native_class.properties.keys().any(|p| {
         // Deliberately count synthetic debug hooks here (via binding_cell_including_synthetic): they also count as
         // "used" by the native class selection in the LLR, so the ClippedImage native class gets selected —
         // and a ClippedImage without the synthesized clip defaults renders/measures as a
         // zero-size clip. This condition must match the class-selection semantics.
         elem.borrow().binding_cell_including_synthetic(p).is_some()
+            || elem.borrow().named_references.is_referenced(p)
             || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
-        let source = NamedReference::new(elem, SmolStr::new_static("source"));
-        let x = NamedReference::new(elem, SmolStr::new_static("source-clip-x"));
-        let y = NamedReference::new(elem, SmolStr::new_static("source-clip-y"));
-        let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
-            source_location: None,
-            lhs: Box::new(Expression::StructFieldAccess {
-                base: Box::new(Expression::FunctionCall {
-                    function: BuiltinFunction::ImageSize.into(),
-                    arguments: vec![Expression::PropertyReference(source.clone())],
-                    source_location: None,
-                }),
-                name: dim.into(),
-            }),
-            rhs: Expression::PropertyReference(prop).into(),
-            op: '-',
-        };
+        return;
+    }
 
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
+    let mut image = elem.clone();
+    let mut instances = Vec::new();
+    while let ElementType::Component(base) = &image.clone().borrow().base_type {
+        instances.push(image);
+        image = base.root_element.clone();
+    }
+
+    for (name, dim, offset) in [
+        ("source-clip-width", "width", "source-clip-x"),
+        ("source-clip-height", "height", "source-clip-y"),
+    ] {
+        let default = default_clip(&image, dim, offset);
+        if image.borrow_mut().set_binding_if_not_set(name.into(), || default) {
+            defaulted.insert((Rc::as_ptr(&image), name));
+        }
+        if !defaulted.contains(&(Rc::as_ptr(&image), name)) {
+            continue;
+        }
+        for instance in &instances {
+            let Some(hooked) = instance
+                .borrow()
+                .binding_cell_including_synthetic(name)
+                .map(|b| b.borrow().expression.is_synthetic_debug_hook())
+            else {
+                continue;
+            };
+            let default = default_clip(instance, dim, offset);
+            if hooked {
+                // The hook holds what the instance inherited when it was injected, before this default.
+                let mut binding = BindingExpression::from(default);
+                binding.priority = i32::MAX;
+                instance.borrow_mut().set_binding(name.into(), binding);
+            } else {
+                // A state binding on the instance falls back to this default.
+                instance.borrow_mut().set_binding_if_not_set(name.into(), || default);
+            }
+        }
+    }
+}
+
+/// `image-size(source).width - source-clip-x`, or the same for the height.
+fn default_clip(image: &ElementRc, dim: &str, offset: &'static str) -> Expression {
+    Expression::BinaryExpression {
+        source_location: None,
+        lhs: Box::new(Expression::StructFieldAccess {
+            base: Box::new(Expression::FunctionCall {
+                function: BuiltinFunction::ImageSize.into(),
+                arguments: vec![Expression::PropertyReference(NamedReference::new(
+                    image,
+                    SmolStr::new_static("source"),
+                ))],
+                source_location: None,
+            }),
+            name: dim.into(),
+        }),
+        rhs: Expression::PropertyReference(NamedReference::new(image, SmolStr::new_static(offset)))
+            .into(),
+        op: '-',
     }
 }
 
