@@ -270,9 +270,7 @@ pub async fn run_passes(
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
     }
-    doc.visit_all_used_components(|component| {
-        default_geometry::adjust_image_clip_rects(component);
-    });
+    default_geometry::adjust_image_clip_rects(doc);
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);

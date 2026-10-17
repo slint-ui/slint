@@ -18,7 +18,7 @@ component Framed inherits Rectangle {
     in property <image> source <=> img.source;
     out property <length> image-width: img.width;
     out property <length> image-height: img.height;
-    img := Image { x: 0; y: 0; }
+    img := Image { }
 }
 
 component StateIcon inherits Image {
@@ -29,11 +29,11 @@ component StateIcon inherits Image {
 }
 
 component ReadIcon inherits Image {}
+component CroppedIcon inherits Image { source-clip-width: 10; }
 component TileIcon inherits Image {}
 
 component Row inherits Rectangle {
     Icon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         horizontal-tiling: repeat;
     }
@@ -41,40 +41,32 @@ component Row inherits Rectangle {
 
 export component TestCase inherits Rectangle {
     icon := Icon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     Icon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         horizontal-alignment: left;
     }
     // The default clip follows the source of each instance.
     small-icon := Icon {
-        x: 0; y: 0;
         source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
     }
     clipped-icon := Icon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         source-clip-x: 20;
     }
     Row { }
 
     big-icon := BigIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     left-icon := LeftIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     other-icon := OtherIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     OtherBigIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         vertical-alignment: top;
     }
@@ -88,27 +80,32 @@ export component TestCase inherits Rectangle {
     }
 
     state-icon := StateIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     StateIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         aligned: true;
     }
 
     read-icon := ReadIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
-    out property <bool> read-alignment: read-icon.horizontal-alignment == ImageHorizontalAlignment.center;
+
+    // A clip the component sets, or that only a state sets, is kept.
+    cropped-icon := CroppedIcon {
+        source: @image-url("cat.jpg");
+    }
+    state-cropped-icon := Icon {
+        source: @image-url("cat.jpg");
+        states [
+            cropped when false: { source-clip-width: 10; }
+        ]
+    }
 
     tile-icon := TileIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
     }
     for tiling in [ImageTiling.repeat, ImageTiling.none]: TileIcon {
-        x: 0; y: 0;
         source: @image-url("cat.jpg");
         horizontal-tiling: tiling;
     }
@@ -121,7 +118,8 @@ export component TestCase inherits Rectangle {
         && other-icon.width == 320px && other-icon.height == 480px
         && framed.image-width == 320px && framed.image-height == 480px
         && state-icon.width == 320px && state-icon.height == 480px
-        && read-alignment && read-icon.width == 320px && read-icon.height == 480px
+        && read-icon.horizontal-alignment == ImageHorizontalAlignment.center && read-icon.width == 320px && read-icon.height == 480px
+        && cropped-icon.width == 10px && state-cropped-icon.width == 320px
         && tile-icon.width == 320px && tile-icon.height == 480px;
 }
 
