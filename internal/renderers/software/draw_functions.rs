@@ -574,7 +574,8 @@ fn unit_rgb565_sampling_preserves_offsets_clipping_and_alpha() {
                             let value =
                                 (((off_y + 1) * 6 + source_x) as u16 + i as u16).wrapping_mul(2707);
                             if alpha == 255 {
-                                *pixel = P::from_rgb565(value);
+                                let color = Rgb565Pixel(value);
+                                *pixel = P::from_rgb(color.red(), color.green(), color.blue());
                             } else {
                                 let color = Rgb565Pixel(value);
                                 pixel.blend(PremultipliedRgbaColor::premultiply(
@@ -1440,7 +1441,8 @@ const B_MASK: u16 = 0b0000_0000_0001_1111;
 fn copy_rgb565_pixels<P: TargetPixel>(pixels: &mut [P], source: &[u8]) {
     assert_eq!(source.len(), pixels.len() * 2);
     for (pixel, bytes) in pixels.iter_mut().zip(source.chunks_exact(2)) {
-        *pixel = P::from_rgb565(u16::from_ne_bytes([bytes[0], bytes[1]]));
+        let color = Rgb565Pixel(u16::from_ne_bytes([bytes[0], bytes[1]]));
+        *pixel = P::from_rgb(color.red(), color.green(), color.blue());
     }
 }
 
@@ -1545,7 +1547,8 @@ fn rgb565_copies_preserve_every_color_alignment_and_tail() {
                         &source[source_offset..source_offset + count * 2],
                     );
                     for (i, pixel) in expected[target_offset..target_offset + count].iter_mut().enumerate() {
-                        *pixel = P::from_rgb565(i as u16);
+                        let color = Rgb565Pixel(i as u16);
+                        *pixel = P::from_rgb(color.red(), color.green(), color.blue());
                     }
                     assert_eq!(
                         bytemuck::cast_slice::<P, u8>(&actual),
