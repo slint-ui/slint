@@ -1,10 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Separate file because hiding the last window sets a sticky exit flag
-// inside winit that can't be cleared via pump_app_events, poisoning
-// any subsequent process_events call in the same process.
-
 import { test, expect } from "vitest";
 
 import { runEventLoop, private_api } from "../dist/index.js";
@@ -27,10 +23,16 @@ test("quit event loop on last window closed with callback", {
     const instance = definition.App!.create() as any;
     expect(instance).not.toBeNull();
 
-    instance.window().show();
-    await runEventLoop(() => {
-        setTimeout(() => {
-            instance.window().hide();
-        }, 2);
-    });
+    // The second run used to return at once on Linux, see #4468.
+    for (const run of [1, 2]) {
+        let hidden = false;
+        instance.window().show();
+        await runEventLoop(() => {
+            setTimeout(() => {
+                instance.window().hide();
+                hidden = true;
+            }, 2);
+        });
+        expect(hidden, `run ${run}`).toBe(true);
+    }
 });
