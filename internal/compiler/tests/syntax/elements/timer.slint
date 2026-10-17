@@ -8,6 +8,10 @@ export component Def {
 //      >        <error{Timer cannot have children elements}
         Error {}
 //      >    <error{Unknown element 'Error'}
+        Timer { interval: 100ms; }
+//      >    <error{Timer cannot have children elements}
+        Tooltip { text: "tip"; }
+//      >      <error{Timer cannot have children elements}
     }
 
     Timer {
@@ -24,4 +28,17 @@ export component Def {
 
     }
 
+}
+
+export component InMenuItem inherits Window {
+    MenuBar {
+        Menu {
+            MenuItem {
+                Timer { interval: 100ms; }
+//              >    <error{MenuItem cannot have children elements}
+                Tooltip { text: "tip"; }
+//              >      <error{MenuItem cannot have children elements}
+            }
+        }
+    }
 }

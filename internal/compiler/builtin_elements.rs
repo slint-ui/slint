@@ -3589,7 +3589,7 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
         Timer {
             /// The interval between timer ticks. This property is mandatory.
             /// ```slint "interval: 250ms;"
@@ -4151,9 +4151,9 @@ fn build(l: &mut Loader) {
         /// :::
         ///
         /// :::note{Note}
-        /// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
-        /// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
-        /// use `if` / `for` to build its entries dynamically.
+        /// A `SystemTrayIcon` can contain one <Link type="Menu" /> child, and that `Menu` must not
+        /// be inside a `for`. The menu itself may use `if` / `for` to build its entries dynamically.
+        /// <Link type="Timer" /> children are also allowed.
         /// :::
         ///
         /// \skip_children
