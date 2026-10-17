@@ -17,6 +17,20 @@
     overflow: auto;
 }
 
+/* Dark brand chrome for the editor and preview panes */
+.content.editor,
+.content.preview {
+    background: var(--brand-code-bg);
+    border-color: var(--brand-line);
+    color: var(--brand-text);
+    box-shadow: none;
+}
+
+.content.editor > div,
+.content.preview > div {
+    border-color: var(--brand-line);
+}
+
 .content input {
     margin: 8px;
 }
@@ -130,27 +144,108 @@
 }
 
 .dialog {
-    font: var(--default-font);
-    padding: 0px;
+    font-family: var(--brand-sans);
+    font-size: 13px;
+    color: var(--color_dark);
+    padding: 0;
+    border: 1px solid var(--color_gray);
+    border-radius: var(--brand-radius-lg);
+    box-shadow: var(--brand-shadow-soft);
+    background: var(--color_white);
+    max-width: min(440px, 92vw);
+    max-height: 88vh;
+    overflow: auto;
+}
+
+.dialog::backdrop {
+    background: rgba(6, 10, 14, 0.5);
+    backdrop-filter: blur(4px);
 }
 
 .dialog .dialog_content {
-    padding: 5px;
+    padding: 4px 20px 8px;
 }
 
 .dialog .titlebar {
-    border-bottom: 1px solid black;
-    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 8px 10px 0;
 }
 
 .dialog .titlebar .close_button {
-    padding: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--color_dark_gray);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.dialog .titlebar .close_button:hover {
+    background: var(--color_gray);
+    color: var(--color_dark);
 }
 
 .dialog .button_row {
-    padding: 5px;
-    margin-top: 10px;
-    text-align: center;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 20px 20px;
+}
+
+/* Primary action */
+.dialog .button_row button {
+    font-family: var(--brand-sans);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--color_white);
+    background: var(--brand-gradient);
+    border: none;
+    border-radius: var(--brand-radius);
+    padding: 9px 18px;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.2s ease,
+        opacity 0.15s ease;
+}
+
+.dialog .button_row button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(53, 27, 180, 0.35);
+}
+
+.dialog .button_row button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.dialog .button_row button:focus-visible {
+    outline: 2px solid var(--color_focus_blue);
+    outline-offset: 2px;
+}
+
+/* Secondary buttons (copy / forget token) */
+.dialog .button {
+    font-family: var(--brand-sans);
+    font-size: 13px;
+    color: var(--color_dark);
+    background: var(--color_gray);
+    border: 1px solid var(--color_dark_20);
+    border-radius: var(--brand-radius);
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.dialog .button:hover {
+    background: var(--color_dark_20);
 }
 
 .dialog.report_export_url .url {
