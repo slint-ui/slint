@@ -261,6 +261,16 @@ fn main() {
         assert_eq!(ui.global::<PrinterState>().get_active_page(), page);
         assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width == 0));
         t.step(20_000);
+        ui.global::<PrinterState>().set_active_page(Pages::Ink);
+        t.clock.set(t.clock.get() + 20_000);
+        slint::platform::update_timers_and_animations();
+        assert!(
+            ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width == 0),
+            "Ink buffers must wait for the new page layout",
+        );
+        t.step(0);
+        t.advance(100_000);
+        assert!(ui.global::<InkParticles>().get_frames().iter().all(|image| image.size().width > 0));
     }
     ui.global::<PrinterState>().set_active_page(Pages::Home);
     t.step(20_000);

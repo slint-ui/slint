@@ -64,6 +64,7 @@ struct Animation {
 
 impl Animation {
     fn release(&mut self) {
+        self.size = (0, 0);
         if self.entered.take().is_some() {
             self.tiles = core::array::from_fn(|_| None);
             for index in 0..4 {
