@@ -772,7 +772,8 @@ fn write_sub_element(
 
 /// Generate .mdx page files for each exported builtin element.
 pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std::error::Error>> {
-    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
+    let register = i_slint_compiler::typeregister::TypeRegister::builtin();
+    register.borrow_mut().set_experimental_features(i_slint_compiler::ExperimentalFeatures::all());
     let register = register.borrow();
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;

@@ -24,7 +24,7 @@ pub struct PreviewConfig {
     pub include_paths: Vec<PathBuf>,
     pub library_paths: HashMap<String, PathBuf>,
     pub format_utf8: bool,
-    pub enable_experimental: bool,
+    pub experimental_features: Vec<String>,
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]

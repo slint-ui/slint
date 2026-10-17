@@ -3,5 +3,5 @@
 
 {
     "entry": "ui/main.slint",
-    "enable-experimental-features": true
+    "experimental-features": ["component-container", "custom-mouse-cursor"]
 }

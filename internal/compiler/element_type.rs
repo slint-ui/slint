@@ -52,6 +52,14 @@ impl PartialEq for ElementType {
 }
 
 impl ElementType {
+    /// The experimental feature that must be enabled to use this element
+    pub fn experimental_feature(&self) -> Option<crate::ExperimentalFeature> {
+        match self {
+            Self::Builtin(b) => b.experimental_feature,
+            _ => None,
+        }
+    }
+
     /// Resolve a name written in `.slint` source.
     /// Resolve `name` in the given [`PropertyLookupMode`]. See
     /// [`crate::object_tree::Element::lookup_property`]. Only a component or an interface can have
@@ -320,6 +328,8 @@ pub struct BuiltinElement {
     pub can_be_declared_without_children_slot: bool,
     /// When true this element is part of the Slint SC (safety-critical) subset.
     pub slint_sc: bool,
+    /// The experimental feature that must be enabled to use this element
+    pub experimental_feature: Option<crate::ExperimentalFeature>,
 }
 
 /// How [`crate::object_tree::Element::lookup_property`] resolves a name.

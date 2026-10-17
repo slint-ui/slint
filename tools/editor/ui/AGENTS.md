@@ -10,7 +10,7 @@ Do not substitute `slint-viewer`, a headless run, or the software renderer.
 From the repository root:
 
 ```sh
-SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-editor -- examples/7guis/counter.slint
 ```

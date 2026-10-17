@@ -277,6 +277,8 @@ fn process_diagnostics(
 
     let diags = compile_diagnostics
         .iter()
+        // Every test enables all experimental features.
+        .filter(|d| !d.message().starts_with("Using experimental features"))
         .filter(|d| {
             canonical(
                 i_slint_compiler::diagnostics::Spanned::source_file(*d)
@@ -517,7 +519,7 @@ fn process_file_source(
     if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "renderer-software") {
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
-    compiler_config.enable_experimental = true;
+    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the

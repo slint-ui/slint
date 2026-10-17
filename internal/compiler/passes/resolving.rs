@@ -2332,7 +2332,13 @@ impl Expression {
         ctx: &mut LookupCtx,
         arg_type: Option<Type>,
     ) -> Expression {
-        if crate::reject_experimental_feature(ctx.diag, ctx.type_register, "closures", &node) {
+        if crate::reject_experimental_feature(
+            ctx.diag,
+            ctx.type_register,
+            crate::ExperimentalFeature::Closures,
+            "closures",
+            &node,
+        ) {
             return Expression::Invalid;
         }
         let has_expected_arg_type = arg_type.is_some();

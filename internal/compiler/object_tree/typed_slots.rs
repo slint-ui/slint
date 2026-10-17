@@ -208,7 +208,13 @@ impl Element {
         tr: &TypeRegister,
     ) {
         for declaration in node.SlotDeclaration() {
-            Self::assert_experimental_slots(diag, &declaration, "named slots");
+            crate::reject_experimental_feature(
+                diag,
+                tr,
+                crate::ExperimentalFeature::NamedSlots,
+                "named slots",
+                &declaration,
+            );
             declared_slots.push(self::declaration(declaration, tr, diag));
         }
 
@@ -216,7 +222,13 @@ impl Element {
             if se.kind() != SyntaxKind::SlotForwarding {
                 continue;
             }
-            if !Self::assert_experimental_slots(diag, &se, "slot forwarding") {
+            if crate::reject_experimental_feature(
+                diag,
+                tr,
+                crate::ExperimentalFeature::NamedSlots,
+                "slot forwarding",
+                &se,
+            ) {
                 continue;
             }
 
@@ -365,7 +377,13 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) {
-        if !Self::assert_experimental_slots(diag, &se, "named slots") {
+        if crate::reject_experimental_feature(
+            diag,
+            tr,
+            crate::ExperimentalFeature::NamedSlots,
+            "named slots",
+            &se,
+        ) {
             return;
         }
         let name_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
@@ -416,18 +434,6 @@ impl Element {
         r.borrow_mut().children.push(element);
     }
 
-    pub(super) fn assert_experimental_slots(
-        diagnostics: &mut BuildDiagnostics,
-        node: &SyntaxNode,
-        what: &str,
-    ) -> bool {
-        if diagnostics.enable_experimental {
-            return true;
-        }
-        diagnostics.push_error(format!("'{what}' is an experimental feature"), node);
-        false
-    }
-
     pub(super) fn sub_element_slot_placeholder_name(
         node: &SyntaxNode,
         declared_slots: &[DeclaredSlot],
@@ -475,7 +481,13 @@ impl Element {
         diagnostics: &mut BuildDiagnostics,
         type_register: &TypeRegister,
     ) {
-        Self::assert_experimental_slots(diagnostics, node, "named slots");
+        crate::reject_experimental_feature(
+            diagnostics,
+            type_register,
+            crate::ExperimentalFeature::NamedSlots,
+            "named slots",
+            node,
+        );
         if let Some(existing) = component_child_insertion_points.get(slot_name.as_str()) {
             if matches!(existing.node, ChildInsertionPointNode::SlotForwarding(_)) {
                 diagnostics.push_error(

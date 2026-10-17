@@ -105,12 +105,6 @@ impl<'a> LookupCtx<'a> {
         }
     }
 
-    /// Whether lookup offers experimental entries: enabled experimental features,
-    /// or the builtin widget library, which may use them.
-    fn experimental_lookup_enabled(&self) -> bool {
-        self.diag.enable_experimental || self.type_register.expose_internal_types
-    }
-
     /// Arm the LSP probe at `offset`, seeded with the current `expected_type` as fallback.
     pub fn set_expected_type_probe(&mut self, offset: TextSize) {
         self.expected_type_probe = Some((offset, self.expected_type.clone()));
@@ -1099,7 +1093,11 @@ impl LookupObject for MouseCursorSpecific {
         }
         r.or_else(|| {
             // Experimental until the language has enums with data.
-            if !ctx.experimental_lookup_enabled() {
+            if !ctx
+                .type_register
+                .experimental_features
+                .contains(crate::ExperimentalFeature::CustomMouseCursor)
+            {
                 return None;
             }
             f(&SmolStr::new_static("custom"), BuiltinMacroFunction::CustomMouseCursor.into())
@@ -1457,7 +1455,11 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
             .or_else(|| {
                 // Experimental: pending optional types for the -1 result, and closures.
-                if !ctx.experimental_lookup_enabled() {
+                if !ctx
+                    .type_register
+                    .experimental_features
+                    .contains(crate::ExperimentalFeature::Closures)
+                {
                     return None;
                 }
                 f("index-of", member_macro(BuiltinMacroFunction::ArrayIndexOf))

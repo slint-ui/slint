@@ -23,7 +23,7 @@ import {
     PYTHON_BASE_URL,
 } from "@slint/common-files/src/utils/site-config";
 
-const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
+const experimentalDocs = !!process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES;
 
 // Starlight prepends the base path to every sidebar link that is not a full
 // URL (http/https). Strip BASE_PATH so the re-added prefix produces the

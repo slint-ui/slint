@@ -47,7 +47,7 @@ Every setting is optional.
 | `style` | string | The widget style, such as `material`. See [Widget Styles](../../../reference/std-widgets/style/). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
-| `enable-experimental-features` | boolean | Turns on features that aren't stable yet. |
+| `experimental-features` | array of strings | The [experimental features](https://snapshots.slint.dev/master/docs/slint/guide/experimental/overview/) to turn on, such as `["interfaces", "match"]`. |
 | `entry` | string | The `.slint` file to compile when you pass the project file itself. See [Compiling the Project File](#compiling-the-project-file). |
 
 Relative paths are resolved against the directory that contains the project file.

@@ -1788,8 +1788,10 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-            if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
-                experimental = Some(value);
+            if let Some(names) = config_object.get("experimental").and_then(|v| v.as_array()) {
+                experimental = Some(i_slint_compiler::ExperimentalFeatures::from_names(
+                    names.iter().filter_map(serde_json::Value::as_str),
+                ));
             }
         }
     }
@@ -1800,7 +1802,7 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
                 include_paths,
                 library_paths,
                 style,
-                enable_experimental_features: experimental,
+                experimental_features: experimental,
                 ..Default::default()
             },
             ..Default::default()
@@ -1908,15 +1910,25 @@ pub mod tests {
     }
 
     #[test]
-    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+    fn configuration_parser_keeps_known_experimental_features() {
+        let overrides =
+            parse_configuration(vec![serde_json::json!({"experimental": ["match", "interface"]})]);
+        assert_eq!(
+            overrides.compiler.project.experimental_features,
+            Some([i_slint_compiler::ExperimentalFeature::Match].into_iter().collect())
+        );
+    }
+
+    #[test]
+    fn configuration_parser_ignores_empty_collections_and_preserves_empty_features() {
         for configuration in [
-            serde_json::json!({"experimental": false}),
-            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+            serde_json::json!({"experimental": []}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": []}),
         ] {
             let overrides = parse_configuration(vec![configuration]);
             assert_eq!(overrides.compiler.project.include_paths, None);
             assert_eq!(overrides.compiler.project.library_paths, None);
-            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            assert_eq!(overrides.compiler.project.experimental_features, Some(Default::default()));
             for paths in ["startup", "project"] {
                 let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
                     i_slint_compiler::generator::OutputFormat::Interpreter,
@@ -2914,7 +2926,7 @@ export component TestCase {
             include_paths: vec![PathBuf::from("/includes")],
             library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
             format_utf8: false,
-            enable_experimental: true,
+            experimental_features: vec!["match".into()],
         };
 
         // Configuration flows independently of user settings; a settings file

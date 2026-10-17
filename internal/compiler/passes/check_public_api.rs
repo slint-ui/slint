@@ -165,7 +165,7 @@ fn component_selected_by_either_of_its_names() {
 fn synthesized_properties_stay_out_of_public_api() {
     let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     config.style = Some("fluent".into());
-    config.enable_experimental = true;
+    config.experimental_features = crate::ExperimentalFeatures::all();
     let mut diags = BuildDiagnostics::default();
     let doc_node = crate::parser::parse(
         r#"

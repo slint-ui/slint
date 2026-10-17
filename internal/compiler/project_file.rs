@@ -23,7 +23,7 @@ pub struct ProjectFileData {
 
     pub style: Option<String>,
 
-    pub enable_experimental_features: Option<bool>,
+    pub experimental_features: Option<crate::ExperimentalFeatures>,
 
     pub entry: Option<PathBuf>,
 }
@@ -123,8 +123,8 @@ impl ProjectFile {
         self.data.style.as_deref()
     }
 
-    pub fn enable_experimental_features(&self) -> Option<bool> {
-        self.data.enable_experimental_features
+    pub fn experimental_features(&self) -> Option<crate::ExperimentalFeatures> {
+        self.data.experimental_features
     }
 
     /// The `.slint` file to compile when a tool is given this project file.
@@ -175,7 +175,7 @@ impl ProjectFileData {
             library_paths,
             include_paths,
             style,
-            enable_experimental_features,
+            experimental_features,
             entry: _,
         } = self;
         if let Some(include_paths) = include_paths {
@@ -187,8 +187,9 @@ impl ProjectFileData {
         if let Some(style) = style {
             compiler_config.style = Some(style.clone());
         }
-        if let Some(enable_experimental_features) = enable_experimental_features {
-            compiler_config.enable_experimental = *enable_experimental_features;
+        if let Some(experimental_features) = experimental_features {
+            compiler_config.experimental_features = *experimental_features;
+            compiler_config.unknown_experimental_features.clear();
         }
     }
 }
@@ -280,17 +281,14 @@ impl Overrides {
             library_paths,
             include_paths,
             style,
-            enable_experimental_features,
+            experimental_features,
             entry,
         } = project;
         replace_if_supplied(&mut self.project.schema, schema);
         replace_if_supplied(&mut self.project.library_paths, library_paths);
         replace_if_supplied(&mut self.project.include_paths, include_paths);
         replace_if_supplied(&mut self.project.style, style);
-        replace_if_supplied(
-            &mut self.project.enable_experimental_features,
-            enable_experimental_features,
-        );
+        replace_if_supplied(&mut self.project.experimental_features, experimental_features);
         replace_if_supplied(&mut self.project.entry, entry);
         replace_if_supplied(&mut self.embed_resources, embed_resources);
         replace_if_supplied(&mut self.const_scale_factor, const_scale_factor);
@@ -385,6 +383,7 @@ fn resolve_relative_path(project_directory: &Path, path: PathBuf) -> PathBuf {
 mod tests {
     use super::{FILE_NAME, ProjectFile, find_project_file_path, is_project_file, resolve_input};
     use crate::generator::OutputFormat;
+    use crate::{ExperimentalFeature, ExperimentalFeatures};
     use std::{
         collections::HashMap,
         fs,
@@ -395,7 +394,7 @@ mod tests {
     #[test]
     fn build_overrides_apply_after_project_settings_and_existing_defaults() {
         with_project_file_contents(
-            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent","enable-experimental-features":true}"#,
+            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent","experimental-features":["match"]}"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
                 let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
@@ -406,7 +405,7 @@ mod tests {
                         include_paths: Some(vec![]),
                         library_paths: Some(HashMap::new()),
                         style: Some(String::new()),
-                        enable_experimental_features: Some(false),
+                        experimental_features: Some(ExperimentalFeatures::default()),
                         ..Default::default()
                     },
                     debug_info: Some(false),
@@ -417,7 +416,7 @@ mod tests {
                 assert!(config.include_paths.is_empty());
                 assert!(config.library_paths.is_empty());
                 assert_eq!(config.style.as_deref(), Some(""));
-                assert!(!config.enable_experimental);
+                assert!(config.experimental_features.is_empty());
                 assert!(!config.debug_info);
                 assert_eq!(config.const_scale_factor, Some(0.));
             },
@@ -431,7 +430,7 @@ mod tests {
                 include_paths: Some(vec![PathBuf::from("startup")]),
                 library_paths: Some(HashMap::from([("startup".into(), PathBuf::from("lib"))])),
                 style: Some("fluent".into()),
-                enable_experimental_features: Some(true),
+                experimental_features: Some(ExperimentalFeatures::all()),
                 ..Default::default()
             },
             debug_info: Some(true),
@@ -441,7 +440,7 @@ mod tests {
             project: super::ProjectFileData {
                 include_paths: Some(vec![]),
                 library_paths: Some(HashMap::new()),
-                enable_experimental_features: Some(false),
+                experimental_features: Some(ExperimentalFeatures::default()),
                 ..Default::default()
             },
             debug_info: Some(false),
@@ -450,7 +449,7 @@ mod tests {
         assert_eq!(overrides.project.include_paths, Some(vec![]));
         assert_eq!(overrides.project.library_paths, Some(HashMap::new()));
         assert_eq!(overrides.project.style.as_deref(), Some("fluent"));
-        assert_eq!(overrides.project.enable_experimental_features, Some(false));
+        assert_eq!(overrides.project.experimental_features, Some(ExperimentalFeatures::default()));
         assert_eq!(overrides.debug_info, Some(false));
     }
 
@@ -459,15 +458,37 @@ mod tests {
         let parsed = load_project_file(
             r#"{
                 "style": "fluent",
-                "enable-experimental-features": true
+                "experimental-features": ["match", "closures"]
             }"#,
         )
         .unwrap();
 
         assert_eq!(parsed.style(), Some("fluent"));
-        assert_eq!(parsed.enable_experimental_features(), Some(true));
+        assert_eq!(
+            parsed.experimental_features(),
+            Some([ExperimentalFeature::Match, ExperimentalFeature::Closures].into_iter().collect())
+        );
         assert_eq!(parsed.library_paths(), None);
         assert_eq!(parsed.include_paths(), None);
+    }
+
+    #[test]
+    fn project_features_replace_unknown_environment_names() {
+        let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
+        config.unknown_experimental_features = vec!["1".into()];
+        super::ProjectFileData {
+            experimental_features: Some([ExperimentalFeature::Match].into_iter().collect()),
+            ..Default::default()
+        }
+        .apply_to(&mut config);
+        assert!(config.unknown_experimental_features.is_empty());
+    }
+
+    #[test]
+    fn unknown_experimental_features_are_rejected() {
+        let error =
+            load_project_file(r#"{"experimental-features": ["match", "unknown"]}"#).unwrap_err();
+        assert!(error.to_string().contains("unknown variant `unknown`"), "{error}");
     }
 
     #[test]
@@ -482,7 +503,7 @@ mod tests {
             r#"{
                 "library-paths": {"widgets": "libs"},
                 "include-paths": ["include"],
-                "enable-experimental-features": true
+                "experimental-features": ["match", "closures"]
             }"#,
         )
         .unwrap();
@@ -492,7 +513,10 @@ mod tests {
             Some(&HashMap::from([("widgets".into(), PathBuf::from("libs"))]))
         );
         assert_eq!(parsed.include_paths(), Some(&vec![PathBuf::from("include")]));
-        assert_eq!(parsed.enable_experimental_features(), Some(true));
+        assert_eq!(
+            parsed.experimental_features(),
+            Some([ExperimentalFeature::Match, ExperimentalFeature::Closures].into_iter().collect())
+        );
     }
 
     #[test]
@@ -607,7 +631,7 @@ mod tests {
             assert_eq!(parsed.library_paths(), None);
             assert_eq!(parsed.include_paths(), None);
             assert_eq!(parsed.style(), None);
-            assert_eq!(parsed.enable_experimental_features(), None);
+            assert_eq!(parsed.experimental_features(), None);
         }
     }
 
@@ -626,7 +650,7 @@ mod tests {
                 "library-paths": {"widgets": "libraries/widgets.slint"},
                 "include-paths": ["include", "../shared"],
                 "style": "fluent",
-                "enable-experimental-features": true
+                "experimental-features": ["match", "closures"]
             }"#,
             |path| {
                 let project = ProjectFile::load(path).unwrap();
@@ -649,7 +673,9 @@ mod tests {
                     )])
                 );
                 assert_eq!(compiler_config.style.as_deref(), Some("fluent"));
-                assert!(compiler_config.enable_experimental);
+                assert!(
+                    compiler_config.experimental_features.contains(ExperimentalFeature::Closures)
+                );
             },
         );
     }
@@ -664,7 +690,7 @@ mod tests {
             assert_eq!(compiler_config.include_paths, default_config.include_paths);
             assert_eq!(compiler_config.library_paths, default_config.library_paths);
             assert_eq!(compiler_config.style, default_config.style);
-            assert_eq!(compiler_config.enable_experimental, default_config.enable_experimental);
+            assert_eq!(compiler_config.experimental_features, default_config.experimental_features);
         });
     }
 
