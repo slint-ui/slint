@@ -41,9 +41,14 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
   Page fonts don't reach the canvas: call `register_font_from_memory(bytes)` before compiling.
 - `compile_from_string_with_style(source, url, "fluent", null)` picks a style.
   The last argument of both compile functions loads imports: `(url) => Promise<string>`.
+- Images don't go through that callback.
+  With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
+  With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
 
 ## Pitfalls
 
 - Before 1.19, hiding the last instance ends the event loop, and later calls fail with "The event loop was already terminated".
   Reuse the window with `create_with_existing_window()`.
-- A Rust panic leaves the module unusable until the page reloads.
+- A Rust panic leaves the module unusable, and its pending promises never settle.
+  The panic hook logs it with `console.error`, starting with "panicked at".
+  To recover without a reload, import the module again under a new URL fragment, such as `#2`, and give it a new canvas.
