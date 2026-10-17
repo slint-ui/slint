@@ -3063,7 +3063,7 @@ fn resolve_struct_field_default_value(
         ctx.property_type = field_ty.clone();
         Expression::from_expression_node(node.clone(), &mut ctx).maybe_convert_to(
             field_ty.clone(),
-            &node,
+            Some(&node.clone().into()),
             ctx.diag,
             &ctx.symbol_counters,
         )
