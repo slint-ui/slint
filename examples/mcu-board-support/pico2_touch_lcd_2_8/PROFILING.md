@@ -7,6 +7,8 @@ Further work targets lower CPU rendering time while preserving pixels, particle 
 
 The [native-controls regression report](results/stock-150/native-controls-14175/report.md) compares the retained Pico firmware with PR #14175 using fresh device measurements.
 
+The [Ink surface-motion report](results/stock-150/ink-motion/report.md) covers independent slosh, settling ripples, and subtle idle variation.
+
 ## Detailed Serial-Baseline Measurements
 
 The optional `pico2-renderer-profile` image adds nested clock reads around renderer stages.

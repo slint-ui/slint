@@ -1,0 +1,25 @@
+{
+  "source_commit": "fe1bf81ded91f5f4f5debcfc7b953f7b8cd907d2",
+  "elf_sha256": "81bf85a53ba6ebabcb44a916981e6498878f6bb13b5d395ef53b4184175ea6e5",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "spi_hz": 48000000,
+  "profile_features": [
+    "pico2",
+    "pico2-queue-profile"
+  ],
+  "release_lto": "thin",
+  "codegen_units": 1,
+  "target_cpu": "cortex-m33",
+  "host_tests_passed": 42,
+  "live_tilt_restored": true,
+  "baseline_elf_sha256": "e7d9fa2c715b023326887f1defd11098c739380153e1ce265b6575bb809ad7fb",
+  "pre_audit_elf_sha256": "5b7854fe5a5e73b6dd758bd90d272a27ab973f48bc722fb0b97f72fbf7c35e24",
+  "pixel_replay": {
+    "frames_per_vial": 900,
+    "vials": 4,
+    "bytes": 48384000,
+    "before_sha256": "38f412ebb26b2c1a9dac33b293feb1f1999e9113dc2f875ca73db32e22ffbb4b",
+    "after_sha256": "38f412ebb26b2c1a9dac33b293feb1f1999e9113dc2f875ca73db32e22ffbb4b"
+  }
+}

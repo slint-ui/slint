@@ -25,11 +25,11 @@ The restart was confirmed by reset run and window counters before selecting a wo
 
 | Workload | Before Raster | After Raster | Change | After Changing FPS |
 | --- | ---: | ---: | ---: | ---: |
-| Queue auto-scroll | 10.145 ms | 10.711 ms | +5.6% | 58.63 |
-| Settings auto-scroll | 10.059 ms | 10.252 ms | +1.9% | 58.59 |
-| Boosted tilted Ink | 6.280 ms | 5.632 ms | -10.3% | 58.59 |
-| Queue finger replay | 10.126 ms | 10.877 ms | +7.4% | 58.61 |
-| Settings finger replay | 10.593 ms | 10.820 ms | +2.1% | 58.57 |
+| Queue auto-scroll | 10.145 ms | 10.696 ms | +5.4% | 58.66 |
+| Settings auto-scroll | 10.059 ms | 10.224 ms | +1.6% | 58.64 |
+| Boosted tilted Ink | 6.280 ms | 5.630 ms | -10.3% | 58.62 |
+| Queue finger replay | 10.126 ms | 10.858 ms | +7.2% | 58.63 |
+| Settings finger replay | 10.593 ms | 10.791 ms | +1.9% | 58.62 |
 
 These are Slint raster times, separate from the native Ink simulation and composition.
 Boosted tilted Ink's animation/composition interval is 5.326 ms before and 5.331 ms after.
@@ -78,7 +78,7 @@ The targeted software-renderer and printer UI checks above completed successfull
 The final ARM ELF was disassembled.
 The RGB565 fill and big-endian copy routines remain in executable SRAM at `0x2000607c` and `0x20006124`.
 The copy loop uses word loads and stores with `rev16` to swap two RGB565 pixels per instruction.
-The linked code and read-only data reported by `llvm-size` decrease from 1,805,844 to 1,634,152 bytes, a reduction of 171,692 bytes.
+The linked code and read-only data reported by `llvm-size` decrease from 1,805,844 to 1,634,160 bytes, a reduction of 171,684 bytes.
 
 Five display-memory readbacks pass with zero mismatches, including Queue and Settings in both orientations and Ink at rotation 0.
 A combined capture sequence recovered into BOOTSEL before completing the sixth, flipped Ink readback.
