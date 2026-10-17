@@ -143,7 +143,7 @@ export component ListItem {
                 Image {
                     width: 16px;
                     height: 16px;
-                    y: (parent.height - self.height) / 2;
+                    cross-axis-self-alignment: center;
                     visible: root.is-selected;
                     colorize: text.color;
                     source: Icons.check-mark;
