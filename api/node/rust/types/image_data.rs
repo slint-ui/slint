@@ -7,10 +7,7 @@ use i_slint_core::{
     ImageInner,
     graphics::{Image, SharedImageBuffer, SharedPixelBuffer},
 };
-use napi::{
-    Env,
-    bindgen_prelude::{Buffer, External, ToNapiValue, Unknown},
-};
+use napi::bindgen_prelude::{Buffer, Either, External, Uint8Array, Undefined};
 
 // This is needed for typedoc check JsImageData::image
 pub type ImageData = Image;
@@ -34,6 +31,26 @@ impl SlintImageData {
     #[napi(constructor)]
     pub fn new(width: u32, height: u32) -> Self {
         Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }
+    }
+
+    /// Loads the image from the file at `path`.
+    ///
+    /// @throws {Error} if the file can't be read or decoded.
+    #[napi(factory)]
+    pub fn load_from_path(path: String) -> napi::Result<Self> {
+        Image::load_from_path(std::path::Path::new(&path))
+            .map(Self::from)
+            .map_err(|e| napi::Error::from_reason(format!("{path}: {e}")))
+    }
+
+    /// Decodes the image from `data`, the content of an image file.
+    ///
+    /// @throws {Error} if the data can't be decoded.
+    #[napi(factory)]
+    pub fn load_from_data(data: Uint8Array, format: Option<String>) -> napi::Result<Self> {
+        Image::load_from_data(&data, format.as_deref())
+            .map(Self::from)
+            .map_err(|e| napi::Error::from_reason(e.to_string()))
     }
 
     /// Returns the width of the image in pixels.
@@ -75,10 +92,10 @@ impl SlintImageData {
     }
 
     #[napi(getter)]
-    pub fn path<'a>(&self, env: &'a Env) -> napi::Result<Unknown<'a>> {
+    pub fn path(&self) -> Either<String, Undefined> {
         match self.inner.path() {
-            None => ().into_unknown(env),
-            Some(p) => env.create_string(p.to_string_lossy().as_ref())?.into_unknown(env),
+            None => Either::B(()),
+            Some(p) => Either::A(p.to_string_lossy().into_owned()),
         }
     }
 

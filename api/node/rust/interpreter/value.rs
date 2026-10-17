@@ -260,6 +260,9 @@ pub fn to_value(
                     ))
         }
         Type::Image => {
+            if matches!(unknown.get_type()?, napi::ValueType::Undefined | napi::ValueType::Null) {
+                return Ok(Value::Image(Image::default()));
+            }
             let object = unknown.coerce_to_object()?;
             if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
                 Ok(Value::Image((*direct_image).clone()))
