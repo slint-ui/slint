@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import contextlib
+import json
 import logging
 import time
 from collections.abc import Iterator
@@ -55,5 +56,32 @@ def capture_failure(application: slint_testing.Application, error: Exception) ->
         artifact = report.artifacts / f"failure-{report.screenshots}.png"
         artifact.write_bytes(window.grab_window_as_png())
         error.add_note(f"Failure screenshot (pytest temporary directory): {artifact}")
+
+        def describe(element: slint_testing.Element) -> dict:
+            return {
+                "label": element.accessible_label,
+                "value": element.accessible_value,
+                "rect": list(element.absolute_rect),
+            }
+
+        state = {
+            "test": report.name,
+            "selection": [
+                describe(element)
+                for element in window.query_descendants()
+                .match_accessible_role(slint_testing.AccessibleRole.Region)
+                .find_all()
+                if element.accessible_label.startswith("Selected ")
+            ],
+            "inline_text_editor": [
+                describe(element)
+                for element in window.query_descendants()
+                .match_accessible_label("Inline text editor")
+                .find_all()
+            ],
+        }
+        artifact = artifact.with_suffix(".json")
+        artifact.write_text(json.dumps(state, indent=2) + "\n")
+        error.add_note(f"Failure UI state: {artifact}")
     except Exception:
-        logging.getLogger(__name__).exception("Screenshot unavailable")
+        logging.getLogger(__name__).exception("Failure diagnostics unavailable")
