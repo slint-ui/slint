@@ -16,6 +16,11 @@ fn main() -> std::io::Result<()> {
     println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", primary_font.display());
     println!("cargo:rustc-env=SLINT_FONT_PATH={}", fonts_dir.display());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_EDITION={}.{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
 
     let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
@@ -127,6 +132,7 @@ fn generate_source(
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = embed_resources;
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintVersion::current());
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
     let (root_component, diag, loader) =

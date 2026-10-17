@@ -99,7 +99,7 @@ You can specify the preferred size of elements with the `preferred-width` and `p
 When not explicitly set, the preferred size depends on the children, and is the preferred size of the
 child that has the bigger preferred size, whose `x` and `y` property are not set.
 The preferred size is therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
-A child created with `if` or `for` is left out, unless experimental features are enabled.
+A child created with `if` or `for` is left out, unless the [project file](../../../tooling/project-file/#edition) targets Slint 1.19 or newer.
 A `Flickable` or `ScrollView` is the exception: it takes its content size from a layout child, static or repeated, and from nothing else.
 
 A special case is to set the preferred size to be the size of the parent using `100%` as value.

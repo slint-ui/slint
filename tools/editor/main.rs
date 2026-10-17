@@ -774,7 +774,7 @@ mod tests {
         let source = project_directory.join("main.slint");
         std::fs::write(&source, "export component Main {}").unwrap();
         let manifest = project_directory.join("slint-project.json");
-        std::fs::write(&manifest, r#"{"main":"main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
         let project = Project::from_file(&manifest, None).unwrap();
         let component = project.preview.clone();
         let (mut session, messages) = session_with_recording_previews();

@@ -518,6 +518,7 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintVersion::current());
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the

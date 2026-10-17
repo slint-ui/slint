@@ -699,7 +699,7 @@ mod tests {
     fn the_project_file_is_a_loaded_file() {
         with_test_directory(|root| {
             let project_file = root.join(i_slint_compiler::project_file::FILE_NAME);
-            std::fs::write(&project_file, "{}").unwrap();
+            std::fs::write(&project_file, r#"{ "slint-edition": "1.19" }"#).unwrap();
             let source_path = root.join("src/main.rs");
 
             let mut diag = BuildDiagnostics::default();

@@ -2047,6 +2047,7 @@ enum {}
                         PathBuf::from("/libraries/widgets"),
                     )])),
                     enable_experimental_features: Some(true),
+                    slint_edition: Some(i_slint_compiler::project_file::SlintVersion::V1_19),
                     ..Default::default()
                 },
                 ..Default::default()

@@ -137,6 +137,11 @@ fn main() -> std::io::Result<()> {
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_EDITION={}.{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
     println!("cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1");
     Ok(())
 }
@@ -337,6 +342,7 @@ fn compile_and_generate(
     );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintVersion::current());
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());

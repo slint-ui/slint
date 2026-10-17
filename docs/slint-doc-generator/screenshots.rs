@@ -542,6 +542,7 @@ fn init_compiler(args: &ScreenshotsArgs) -> slint_interpreter::Compiler {
         None => ComponentSelection::LastExported,
     };
     config.enable_experimental = true;
+    config.edition = Some(i_slint_compiler::project_file::SlintVersion::current());
 
     compiler
 }

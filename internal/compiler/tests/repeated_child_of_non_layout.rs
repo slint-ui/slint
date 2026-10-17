@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! With experimental features on, a repeated (`if`/`for`) child of a non-layout
+//! With edition 1.19, a repeated (`if`/`for`) child of a non-layout
 //! parent contributes its constraints to that parent (#407), which is what these
 //! diagnostics are about. A `.slint` behavior test can't see either case: one is
 //! the absence of a warning, the other a warning.
@@ -9,14 +9,15 @@
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::parser::parse;
+use i_slint_compiler::project_file::SlintVersion;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
 /// Every diagnostic compiling `source` produces, at any level.
-fn diagnostics(source: &str, experimental: bool) -> Vec<String> {
+fn diagnostics(source: &str, merge_repeated: bool) -> Vec<String> {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diag);
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
-    config.enable_experimental = experimental;
+    config.edition = merge_repeated.then_some(SlintVersion::V1_19);
     let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
     diag.to_string_vec()
 }

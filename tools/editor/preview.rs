@@ -3228,7 +3228,11 @@ mod tests {
         )
         .unwrap();
         for has_entry in [true, false] {
-            let source = if has_entry { r#"{"main":"main.slint"}"# } else { "{}" };
+            let source = if has_entry {
+                r#"{"slint-edition":"1.19","main":"main.slint"}"#
+            } else {
+                r#"{"slint-edition":"1.19"}"#
+            };
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.source_code.insert(
                     manifest.to_url().unwrap(),
@@ -3296,9 +3300,10 @@ mod tests {
                 component: Some("Main".into()),
             });
             state.document_cache.replace(Some(Rc::new(cache)));
-            for (url, source) in
-                [(manifest.clone(), "{}"), (extra.clone(), "export component Extra {}")]
-            {
+            for (url, source) in [
+                (manifest.clone(), r#"{"slint-edition":"1.19"}"#),
+                (extra.clone(), "export component Extra {}"),
+            ] {
                 state
                     .source_code
                     .insert(url, SourceCodeCacheEntry { version: Some(2), code: source.into() });
@@ -3328,8 +3333,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some("{}"), true),
-            (Some("{}"), false),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),

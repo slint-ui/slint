@@ -183,6 +183,10 @@ pub struct CompilerConfiguration {
     /// Add support for experimental features
     pub enable_experimental: bool,
 
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before editions existed.
+    pub edition: Option<project_file::SlintVersion>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -238,6 +242,11 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
+    pub fn repeated_children_constrain_parent(&self) -> bool {
+        self.edition.is_some_and(|version| version >= project_file::SlintVersion::V1_19)
+    }
+
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
         #[cfg(feature = "bundle-translations")]
@@ -310,6 +319,11 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        // Undocumented. Selects an edition without a project file,
+        // for the test drivers or to try a `.slint` file in slint-viewer.
+        let edition =
+            std::env::var("SLINT_EDITION").ok().and_then(|value| edition_from_env(&value));
+
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -338,6 +352,7 @@ impl CompilerConfiguration {
             const_image_sizes,
             accessibility: true,
             enable_experimental,
+            edition,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -360,6 +375,21 @@ impl CompilerConfiguration {
             slint_sc,
             is_preview: false,
         }
+    }
+}
+
+/// Panics on an invalid value, which would otherwise make a test driver test the wrong behavior.
+fn edition_from_env(value: &str) -> Option<project_file::SlintVersion> {
+    if value.is_empty() {
+        return None;
+    }
+    let current = project_file::SlintVersion::current();
+    match value.parse() {
+        Ok(edition) if edition > current => {
+            panic!("SLINT_EDITION is {edition}, newer than this Slint {current}")
+        }
+        Ok(edition) => Some(edition),
+        Err(message) => panic!("SLINT_EDITION: {message}"),
     }
 }
 
@@ -468,5 +498,28 @@ fn reject_experimental_feature(
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{edition_from_env, project_file::SlintVersion};
+
+    #[test]
+    fn slint_edition_variable_selects_the_edition() {
+        assert_eq!(edition_from_env("1.19"), Some(SlintVersion::V1_19));
+        assert_eq!(edition_from_env(""), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "SLINT_EDITION: '1.19.0' is not a Slint version")]
+    fn a_malformed_slint_edition_variable_panics() {
+        edition_from_env("1.19.0");
+    }
+
+    #[test]
+    #[should_panic(expected = "SLINT_EDITION is 999.0, newer than this Slint")]
+    fn a_newer_slint_edition_variable_panics() {
+        edition_from_env("999.0");
     }
 }
