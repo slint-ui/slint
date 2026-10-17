@@ -258,7 +258,12 @@ fn gen_layout_info_prop_from_children(
                         // return above doesn't catch it. A ComponentContainer's
                         // placeholder is a fake `if false:` repeater, and the container
                         // reports the embedded tree's constraints itself.
-                        if r.is_listview.is_some() || cb.is_component_placeholder {
+                        // Experimental for now: a child that sizes itself from this
+                        // parent is a binding loop error once merged (#13972).
+                        if !diag.enable_experimental
+                            || r.is_listview.is_some()
+                            || cb.is_component_placeholder
+                        {
                             return None;
                         }
                         return Some((

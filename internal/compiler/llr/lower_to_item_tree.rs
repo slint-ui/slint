@@ -1905,7 +1905,7 @@ export component TestCase inherits Window {
 
     #[test]
     fn fixed_size_root_does_not_fold_children() {
-        let children = "Rectangle { for i in 5: Rectangle { min-width: 1px; height: 2px; } }";
+        let children = "Rectangle { Rectangle { min-width: 1px; height: 2px; } }";
         let names = |size: &str| {
             let names = root_property_names(&format!(
                 "export component Main inherits Window {{ {size} {children} }}"

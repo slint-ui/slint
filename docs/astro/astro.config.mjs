@@ -320,6 +320,10 @@ export default defineSlintDocsConfig({
                                                   label: "Custom Mouse Cursor",
                                                   slug: "guide/experimental/custom-mouse-cursor",
                                               },
+                                              {
+                                                  label: "Repeated Child Constraints",
+                                                  slug: "guide/experimental/repeated-child-constraints",
+                                              },
                                           ],
                                       },
                                   ]
