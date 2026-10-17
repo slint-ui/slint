@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import robotoDataUrl from "../../../../ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf?url&inline";
 import wasmDataUrl from "@interpreter/slint_wasm_interpreter_bg.wasm?url&inline";
 import initialize, {
     compile_from_string,
+    register_font_from_memory,
     run_event_loop,
     type WrappedInstance,
 } from "@interpreter/slint_wasm_interpreter.js";
@@ -12,7 +14,11 @@ import {
     defaultClock,
     deriveUnattributedOverhead,
 } from "../performance/timing";
-import type { TimingTrace } from "../performance/timing";
+import type {
+    TimingTrace,
+    ExportValidationTiming,
+    PresentationTiming,
+} from "../performance/timing";
 import type { Diagnostic } from "../plugin/snapshot";
 import { warningSummaries } from "../plugin/snapshot";
 import { exportFailure } from "./export-diagnostic";
@@ -20,15 +26,16 @@ import { exportFailure } from "./export-diagnostic";
 type PreviewState = "initializing" | "compiling" | "ready" | "error";
 type RenderRequest = {
     readonly source: string;
-    readonly validationSource?: string;
     readonly revision: number;
     readonly trace?: TimingTrace;
     readonly warnings: readonly Diagnostic[];
     readonly acceptedAtMonotonicMs: number;
+    readonly retainAssets?: () => () => void;
 };
 type WorkingTrace = Omit<
     TimingTrace,
     | "phases"
+    | "breakdowns"
     | "outcome"
     | "completedAtEpochMs"
     | "totalUiMs"
@@ -36,6 +43,7 @@ type WorkingTrace = Omit<
     | "coldStart"
 > & {
     phases: TimingTrace["phases"];
+    breakdowns: TimingTrace["breakdowns"];
     outcome?: TimingTrace["outcome"];
     completedAtEpochMs?: number;
     coldStart?: boolean;
@@ -49,16 +57,80 @@ export class PreviewController {
     private instance: WrappedInstance | undefined;
     private initialized = false;
     private renderedSource: string | undefined;
-    private exportValidation:
-        | { source: string; warning?: Diagnostic }
-        | undefined;
     private runtimeFailure: string | undefined;
+    private validatedPackages = new WeakMap<object, { warning?: Diagnostic }>();
+    public hasValidatedExport(pkg: object): boolean {
+        return !this.runtimeFailure && this.validatedPackages.has(pkg);
+    }
     /** The newest accepted source or diagnostic action, regardless of state. */
     private nextRevision = 0;
     private minimumRevision = 0;
     private pendingRender: RenderRequest | undefined;
     private processing = false;
+    private pendingExport?: {
+        source?: string;
+        revision: number;
+        warnings: readonly Diagnostic[];
+        resolve: (valid: boolean) => void;
+        acceptedAt: number;
+        cacheKey?: object;
+        timing: {
+            queueMs: number;
+            compilationMs: number;
+            cacheHit: boolean;
+            outcome: ExportValidationTiming["outcome"];
+        };
+    };
     private initializationPromise: Promise<void> | undefined;
+    private warmupPromise: Promise<void> | undefined;
+    private compiledPreviews = new Map<
+        string,
+        {
+            component: NonNullable<
+                Awaited<ReturnType<typeof compile_from_string>>["component"]
+            >;
+            releaseAssets: () => void;
+        }
+    >();
+    public releaseCompiledPreviews(): void {
+        for (const entry of this.compiledPreviews.values()) {
+            entry.component.free();
+            entry.releaseAssets();
+        }
+        this.compiledPreviews.clear();
+    }
+
+    public warmup(): Promise<void> {
+        if (this.warmupPromise) return this.warmupPromise;
+        this.warmupPromise = (async () => {
+            const start = defaultClock.monotonicNow();
+            const wasmBytes = Uint8Array.from(
+                atob(wasmDataUrl.split(",")[1]),
+                (byte) => byte.charCodeAt(0),
+            );
+            await initialize({ module_or_path: wasmBytes });
+            try {
+                run_event_loop();
+            } catch {
+                /* The browser event loop exits through an exception. */
+            }
+            await this.initializeKeepalive();
+            register_font_from_memory(
+                Uint8Array.from(atob(robotoDataUrl.split(",")[1]), (byte) =>
+                    byte.charCodeAt(0),
+                ),
+            );
+            this.wasmInitializationDurationMs = Math.max(
+                0,
+                defaultClock.monotonicNow() - start,
+            );
+            this.initialized = true;
+        })();
+        void this.warmupPromise.catch(() => {
+            this.warmupPromise = undefined;
+        });
+        return this.warmupPromise;
+    }
     private wasmInitializationDurationMs = 0;
     private readonly freedInstances = new WeakSet<object>();
     /** True after Slint has acquired the preview canvas's WebGL context. */
@@ -102,7 +174,7 @@ export class PreviewController {
         revision = this.nextRevision + 1,
         trace?: TimingTrace,
         warnings: readonly Diagnostic[] = [],
-        validationSource?: string,
+        retainAssets?: () => () => void,
     ): Promise<void> {
         if (this.initializationPromise !== undefined) {
             return this.initializationPromise;
@@ -114,7 +186,7 @@ export class PreviewController {
             trace,
             warnings,
             acceptedAtMonotonicMs,
-            validationSource,
+            retainAssets,
         );
         void this.initializationPromise.catch(() => {
             this.initializationPromise = undefined;
@@ -127,7 +199,7 @@ export class PreviewController {
         revision: number,
         trace?: TimingTrace,
         warnings: readonly Diagnostic[] = [],
-        validationSource?: string,
+        retainAssets?: () => () => void,
     ): void {
         if (
             !Number.isSafeInteger(revision) ||
@@ -141,15 +213,62 @@ export class PreviewController {
         this.nextRevision = revision;
         this.pendingRender = {
             source,
-            validationSource,
             revision,
             trace,
             warnings,
             acceptedAtMonotonicMs: defaultClock.monotonicNow(),
+            retainAssets,
         };
         if (this.initialized && !this.processing) {
             void this.drainRenderQueue();
         }
+    }
+
+    public validateExport(
+        source: string | undefined,
+        revision: number,
+        warnings: readonly Diagnostic[],
+        onTiming?: (timing: ExportValidationTiming) => void,
+        cacheKey?: object,
+    ): Promise<boolean> {
+        if (!this.isCurrentRevision(revision)) return Promise.resolve(false);
+        this.pendingExport?.resolve(false);
+        const acceptedAt = defaultClock.monotonicNow();
+        const timing = {
+            queueMs: 0,
+            compilationMs: 0,
+            cacheHit: false,
+            outcome: "superseded" as ExportValidationTiming["outcome"],
+        };
+        const result = new Promise<boolean>((resolve) => {
+            this.pendingExport = {
+                source,
+                revision,
+                warnings,
+                acceptedAt,
+                cacheKey,
+                timing,
+                resolve: (valid) => {
+                    const totalMs = Math.max(
+                        0,
+                        defaultClock.monotonicNow() - acceptedAt,
+                    );
+                    onTiming?.({
+                        ...timing,
+                        sourcePreparationMs: 0,
+                        totalMs,
+                        queueMs:
+                            timing.outcome === "superseded"
+                                ? Math.max(0, totalMs - timing.compilationMs)
+                                : timing.queueMs,
+                        completedAtEpochMs: defaultClock.epochNow(),
+                    });
+                    resolve(valid);
+                },
+            };
+        });
+        if (this.initialized && !this.processing) void this.drainRenderQueue();
+        return result;
     }
 
     public showDiagnostic(
@@ -200,6 +319,7 @@ export class PreviewController {
         const previousInstance = this.instance;
         this.instance = undefined;
         this.renderedSource = undefined;
+        this.releaseCompiledPreviews();
         this.diagnostics.hidden = true;
         this.diagnostics.textContent = "";
         delete this.diagnostics.dataset.severity;
@@ -252,7 +372,7 @@ export class PreviewController {
         trace: TimingTrace | undefined,
         warnings: readonly Diagnostic[],
         acceptedAtMonotonicMs: number,
-        validationSource?: string,
+        retainAssets?: () => () => void,
     ): Promise<void> {
         this.canvas.style.visibility = "hidden";
         this.setState("initializing", revision);
@@ -268,27 +388,20 @@ export class PreviewController {
             trace === undefined ? undefined : cloneTrace(trace);
         try {
             const initializationStart = defaultClock.monotonicNow();
-            const wasmBytes = Uint8Array.from(
-                atob(wasmDataUrl.split(",")[1]),
-                (byte) => byte.charCodeAt(0),
-            );
-            await initialize({ module_or_path: wasmBytes });
-            try {
-                run_event_loop();
-            } catch {
-                // The browser event loop intentionally exits through an exception.
-            }
-            await this.initializeKeepalive();
-            this.wasmInitializationDurationMs = Math.max(
-                0,
-                defaultClock.monotonicNow() - initializationStart,
-            );
+            const coldStart = !this.initialized;
+            await this.warmup();
             if (workingTrace !== undefined) {
-                workingTrace.phases.wasmInitialization =
-                    this.wasmInitializationDurationMs;
-                workingTrace.coldStart = true;
+                workingTrace.phases.wasmInitialization = coldStart
+                    ? Math.min(
+                          this.wasmInitializationDurationMs,
+                          Math.max(
+                              0,
+                              defaultClock.monotonicNow() - initializationStart,
+                          ),
+                      )
+                    : 0;
+                workingTrace.coldStart = coldStart;
             }
-            this.initialized = true;
             try {
                 await this.renderSource(
                     source,
@@ -296,7 +409,7 @@ export class PreviewController {
                     workingTrace,
                     warnings,
                     acceptedAtMonotonicMs,
-                    validationSource,
+                    retainAssets,
                 );
             } catch (error) {
                 this.showError(
@@ -324,7 +437,11 @@ export class PreviewController {
         } finally {
             this.processing = false;
         }
-        if (this.initialized && this.pendingRender !== undefined) {
+        if (
+            this.initialized &&
+            (this.pendingRender !== undefined ||
+                this.pendingExport !== undefined)
+        ) {
             await this.drainRenderQueue();
         }
     }
@@ -333,7 +450,80 @@ export class PreviewController {
         if (!this.initialized || this.processing) return;
         this.processing = true;
         try {
-            while (this.pendingRender !== undefined) {
+            while (
+                this.pendingRender !== undefined ||
+                this.pendingExport !== undefined
+            ) {
+                if (this.pendingRender === undefined) {
+                    const request = this.pendingExport!;
+                    this.pendingExport = undefined;
+                    request.timing.queueMs = Math.max(
+                        0,
+                        defaultClock.monotonicNow() - request.acceptedAt,
+                    );
+                    try {
+                        if (!this.isCurrentRevision(request.revision)) {
+                            request.resolve(false);
+                            continue;
+                        }
+                        if (this.runtimeFailure)
+                            throw Error(this.runtimeFailure);
+                        const cachedValidation =
+                            request.cacheKey &&
+                            this.validatedPackages.get(request.cacheKey);
+                        request.timing.cacheHit = !!cachedValidation;
+                        let warning: Diagnostic | undefined =
+                            cachedValidation?.warning;
+                        if (!cachedValidation && request.source !== undefined) {
+                            const compilationStart =
+                                defaultClock.monotonicNow();
+                            try {
+                                warning = await this.compileExport(
+                                    request.source,
+                                );
+                            } finally {
+                                request.timing.compilationMs = request.timing
+                                    .cacheHit
+                                    ? 0
+                                    : Math.max(
+                                          0,
+                                          defaultClock.monotonicNow() -
+                                              compilationStart,
+                                      );
+                            }
+                            if (request.cacheKey)
+                                this.validatedPackages.set(request.cacheKey, {
+                                    warning,
+                                });
+                        }
+                        const current = this.isCurrentRevision(
+                            request.revision,
+                        );
+                        if (current) {
+                            this.showWarnings([
+                                ...request.warnings,
+                                ...(warning ? [warning] : []),
+                            ]);
+                            this.setState("ready", request.revision);
+                        }
+                        request.timing.outcome = !current
+                            ? "superseded"
+                            : request.source === undefined && !cachedValidation
+                              ? "skipped"
+                              : warning
+                                ? "failed"
+                                : "valid";
+                        request.resolve(current && warning === undefined);
+                    } catch (error) {
+                        request.timing.outcome = "crashed";
+                        this.showError(
+                            this.errorMessage(error),
+                            request.revision,
+                        );
+                        request.resolve(false);
+                    }
+                    continue;
+                }
                 const request = this.pendingRender;
                 this.pendingRender = undefined;
                 try {
@@ -343,7 +533,7 @@ export class PreviewController {
                         request.trace,
                         request.warnings,
                         request.acceptedAtMonotonicMs,
-                        request.validationSource,
+                        request.retainAssets,
                     );
                 } catch (error) {
                     this.showError(
@@ -396,13 +586,43 @@ export class PreviewController {
         }
     }
 
+    private async compileExport(
+        source: string,
+    ): Promise<Diagnostic | undefined> {
+        if (this.runtimeFailure) throw Error(this.runtimeFailure);
+        this.setState("compiling");
+        let result: Awaited<ReturnType<typeof compile_from_string>> | undefined;
+        try {
+            result = await compile_from_string(source, "", undefined);
+            const component = result.component;
+            component?.free();
+            const error = result.error_string.trim();
+            return error !== ""
+                ? exportFailure(
+                      `Export compilation failed:\n${error}`,
+                      "EXPORT_COMPILATION_ERROR",
+                  )
+                : component === undefined
+                  ? exportFailure(
+                        "Slint compiler did not return an export component",
+                        "EXPORT_COMPILATION_ERROR",
+                    )
+                  : undefined;
+        } catch (error) {
+            this.runtimeFailure = `Export compiler failed: ${this.errorMessage(error)}. Restart the plugin to reset the interpreter.`;
+            throw Error(this.runtimeFailure);
+        } finally {
+            if (!this.runtimeFailure) result?.free();
+        }
+    }
+
     private async renderSource(
         source: string,
         revision: number,
         trace: TimingTrace | undefined,
         warnings: readonly Diagnostic[],
         acceptedAtMonotonicMs: number,
-        validationSource?: string,
+        retainAssets?: () => () => void,
     ): Promise<void> {
         const workingTrace =
             trace === undefined ? undefined : cloneTrace(trace);
@@ -418,64 +638,8 @@ export class PreviewController {
         }
         if (this.runtimeFailure) throw Error(this.runtimeFailure);
         const renderWarnings = [...warnings];
-        const completePreview = async (
-            outcome: "unchanged" | "rendered",
-        ): Promise<void> => {
+        const completePreview = (outcome: "unchanged" | "rendered"): void => {
             this.canvas.style.visibility = "visible";
-            if (validationSource !== undefined && validationSource !== source) {
-                if (validationSource !== this.exportValidation?.source) {
-                    this.setState("compiling", revision);
-                    const validationStart = defaultClock.monotonicNow();
-                    let validation:
-                        | Awaited<ReturnType<typeof compile_from_string>>
-                        | undefined;
-                    try {
-                        validation = await compile_from_string(
-                            validationSource,
-                            "",
-                            undefined,
-                        );
-                        const component = validation.component;
-                        component?.free();
-                        const error = validation.error_string.trim();
-                        const warning =
-                            error !== ""
-                                ? exportFailure(
-                                      `Export compilation failed:\n${error}`,
-                                      "EXPORT_COMPILATION_ERROR",
-                                  )
-                                : component === undefined
-                                  ? exportFailure(
-                                        "Slint compiler did not return an export component",
-                                        "EXPORT_COMPILATION_ERROR",
-                                    )
-                                  : undefined;
-                        this.exportValidation = {
-                            source: validationSource,
-                            warning,
-                        };
-                    } catch (error) {
-                        this.runtimeFailure = `Export compiler failed: ${this.errorMessage(error)}. Restart the plugin to reset the interpreter.`;
-                        throw Error(this.runtimeFailure);
-                    } finally {
-                        if (!this.runtimeFailure) validation?.free();
-                        if (workingTrace)
-                            workingTrace.phases.slintCompilation =
-                                (workingTrace.phases.slintCompilation ?? 0) +
-                                Math.max(
-                                    0,
-                                    defaultClock.monotonicNow() -
-                                        validationStart,
-                                );
-                    }
-                }
-                const warning = this.exportValidation?.warning;
-                if (warning) {
-                    renderWarnings.push(warning);
-                    if (this.isCurrentRevision(revision))
-                        this.dispatch("preview-export-error", revision);
-                }
-            }
             if (!this.isCurrentRevision(revision)) {
                 finishTrace(
                     workingTrace,
@@ -496,12 +660,12 @@ export class PreviewController {
             this.dispatch("preview-rendered", revision, finished);
         };
         if (this.instance !== undefined && this.renderedSource === source) {
-            await completePreview("unchanged");
+            completePreview("unchanged");
             return;
         }
         if (workingTrace !== undefined) {
             const initializationMs = workingTrace.coldStart
-                ? this.wasmInitializationDurationMs
+                ? (workingTrace.phases.wasmInitialization ?? 0)
                 : 0;
             workingTrace.phases.previewQueue = Math.max(
                 0,
@@ -510,11 +674,23 @@ export class PreviewController {
         }
         this.setState("compiling", revision);
         const compilationStart = defaultClock.monotonicNow();
-        const result = await compile_from_string(source, "", undefined);
+        const cached = this.compiledPreviews.get(source);
+        if (cached) {
+            this.compiledPreviews.delete(source);
+            this.compiledPreviews.set(source, cached);
+        }
+        const result = cached
+            ? { component: cached.component, error_string: "", free: () => {} }
+            : await compile_from_string(source, "", undefined);
         if (workingTrace !== undefined) {
             workingTrace.phases.slintCompilation =
                 (workingTrace.phases.slintCompilation ?? 0) +
-                Math.max(0, defaultClock.monotonicNow() - compilationStart);
+                (cached
+                    ? 0
+                    : Math.max(
+                          0,
+                          defaultClock.monotonicNow() - compilationStart,
+                      ));
         }
         try {
             if (!this.isCurrentRevision(revision)) {
@@ -547,6 +723,25 @@ export class PreviewController {
                     acceptedAtMonotonicMs,
                 );
                 return;
+            }
+            if (!cached && retainAssets && source.length <= 8 * 1024 * 1024) {
+                const releaseAssets = retainAssets();
+                this.compiledPreviews.set(source, { component, releaseAssets });
+                let bytes = [...this.compiledPreviews.keys()].reduce(
+                    (sum, key) => sum + key.length * 2,
+                    0,
+                );
+                while (
+                    this.compiledPreviews.size > 2 ||
+                    bytes > 16 * 1024 * 1024
+                ) {
+                    const key = this.compiledPreviews.keys().next().value!;
+                    const old = this.compiledPreviews.get(key)!;
+                    this.compiledPreviews.delete(key);
+                    bytes -= key.length * 2;
+                    old.component.free();
+                    old.releaseAssets();
+                }
             }
             let instance: WrappedInstance | undefined;
             try {
@@ -604,8 +799,14 @@ export class PreviewController {
                     );
                     return;
                 }
+                this.canvas.style.visibility = "visible";
                 const presentationStart = defaultClock.monotonicNow();
-                await waitForPresentation();
+                const presentation = await waitForPresentation();
+                if (workingTrace)
+                    workingTrace.breakdowns = {
+                        ...workingTrace.breakdowns,
+                        presentation,
+                    };
                 if (workingTrace !== undefined) {
                     workingTrace.phases.presentation = Math.max(
                         0,
@@ -626,12 +827,13 @@ export class PreviewController {
                 if (instance !== undefined) this.freeInstance(instance);
                 throw error;
             } finally {
-                component.free();
+                if (this.compiledPreviews.get(source)?.component !== component)
+                    component.free();
             }
         } finally {
             result.free();
         }
-        await completePreview("rendered");
+        completePreview("rendered");
     }
 
     private setState(state: PreviewState, revision = this.nextRevision): void {
@@ -710,6 +912,8 @@ export class PreviewController {
     }
 
     private supersedePendingRender(): void {
+        this.pendingExport?.resolve(false);
+        this.pendingExport = undefined;
         const pending = this.pendingRender;
         this.pendingRender = undefined;
         if (pending !== undefined) {
@@ -811,11 +1015,17 @@ function finishTrace(
     return completed;
 }
 
-async function waitForPresentation(): Promise<void> {
+async function waitForPresentation(): Promise<PresentationTiming> {
     const nextFrame = (): Promise<void> =>
         typeof requestAnimationFrame === "function"
             ? new Promise((resolve) => requestAnimationFrame(() => resolve()))
             : new Promise((resolve) => setTimeout(resolve, 0));
+    const started = defaultClock.monotonicNow();
     await nextFrame();
+    const first = defaultClock.monotonicNow();
     await nextFrame();
+    return {
+        firstFrameMs: Math.max(0, first - started),
+        secondFrameMs: Math.max(0, defaultClock.monotonicNow() - first),
+    };
 }
