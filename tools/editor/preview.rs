@@ -2415,6 +2415,7 @@ async fn parse_source(
     if !style.is_empty() {
         cc.style = Some(style);
     }
+    cc.target_version = config.slint_target_version();
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
     cc.enable_experimental |= config.enable_experimental;

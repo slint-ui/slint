@@ -3,5 +3,6 @@
 
 // A style the compiler rejects, so the test can tell which style it used.
 {
+    "slint-target-version": "1.19",
     "style": "no-such-style"
 }

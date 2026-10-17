@@ -478,6 +478,7 @@ fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration
     let config = compiler.compiler_configuration(InternalToken);
     config.style = (!configuration.style.is_empty()).then(|| configuration.style.clone());
     config.enable_experimental = configuration.enable_experimental;
+    config.target_version = configuration.slint_target_version();
 }
 
 impl PreviewSessionHandle {
@@ -675,6 +676,26 @@ mod tests {
         let diagnostics: Vec<_> = result.diagnostics().map(|d| d.to_string()).collect();
         assert!(!result.has_errors(), "{diagnostics:?}");
         assert!(result.component("App").is_some());
+    }
+
+    #[test]
+    fn preview_configuration_sets_the_target_version() {
+        let mut compiler = slint_interpreter::Compiler::new();
+        for (version, expected) in [
+            (Some("1.19"), Some(i_slint_compiler::project_file::SlintVersion::V1_19)),
+            (Some("not a version"), None),
+            (None, None),
+        ] {
+            apply_configuration(
+                &mut compiler,
+                &PreviewConfig { target_version: version.map(Into::into), ..Default::default() },
+            );
+            assert_eq!(
+                compiler.compiler_configuration(InternalToken).target_version,
+                expected,
+                "{version:?}"
+            );
+        }
     }
 
     #[tokio::test]

@@ -60,7 +60,8 @@ const PLAIN: &str = "export component Main inherits Window { }";
 
 #[test]
 fn include_paths_come_from_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-paths": ["include"] }"#));
+    let project =
+        Project::new(Some(r#"{ "slint-target-version": "1.19", "include-paths": ["include"] }"#));
     project.write("include/shared.slint", "export component Shared { }");
     let main = project.write("main.slint", IMPORTS_SHARED);
 
@@ -70,7 +71,8 @@ fn include_paths_come_from_the_project_file() {
 
 #[test]
 fn an_include_path_argument_wins_over_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-paths": ["unusable"] }"#));
+    let project =
+        Project::new(Some(r#"{ "slint-target-version": "1.19", "include-paths": ["unusable"] }"#));
     project.write("other/shared.slint", "export component Shared { }");
     let main = project.write("main.slint", IMPORTS_SHARED);
 
@@ -81,7 +83,9 @@ fn an_include_path_argument_wins_over_the_project_file() {
 
 #[test]
 fn library_paths_come_from_the_project_file() {
-    let project = Project::new(Some(r#"{ "library-paths": {"widgets": "widgets.slint"} }"#));
+    let project = Project::new(Some(
+        r#"{ "slint-target-version": "1.19", "library-paths": {"widgets": "widgets.slint"} }"#,
+    ));
     project.write("widgets.slint", "export component Widget { }");
     let main = project.write(
         "main.slint",
@@ -96,7 +100,8 @@ fn library_paths_come_from_the_project_file() {
 #[test]
 fn the_project_file_style_reaches_the_compiler() {
     // A style name the compiler rejects shows which style it actually used.
-    let project = Project::new(Some(r#"{ "style": "no-such-style" }"#));
+    let project =
+        Project::new(Some(r#"{ "slint-target-version": "1.19", "style": "no-such-style" }"#));
     let main = project.write("main.slint", PLAIN);
 
     let output = project.compile(&main, &[]);
@@ -106,7 +111,8 @@ fn the_project_file_style_reaches_the_compiler() {
 
 #[test]
 fn a_style_argument_wins_over_the_project_file() {
-    let project = Project::new(Some(r#"{ "style": "no-such-style" }"#));
+    let project =
+        Project::new(Some(r#"{ "slint-target-version": "1.19", "style": "no-such-style" }"#));
     let main = project.write("main.slint", PLAIN);
 
     let output = project.compile(&main, &["--style", "fluent"]);
@@ -125,7 +131,7 @@ fn an_unreadable_project_file_is_reported() {
 
 #[test]
 fn the_project_file_is_a_dependency_in_the_depfile() {
-    let project = Project::new(Some(r#"{ "style": "fluent" }"#));
+    let project = Project::new(Some(r#"{ "slint-target-version": "1.19", "style": "fluent" }"#));
     let main = project.write("main.slint", PLAIN);
     let depfile = project.root.join("generated.d");
 
@@ -152,8 +158,9 @@ fn compiling_without_a_project_file_works() {
 
 #[test]
 fn a_project_file_argument_compiles_its_entry() {
-    let project =
-        Project::new(Some(r#"{ "entry": "ui/main.slint", "include-paths": ["include"] }"#));
+    let project = Project::new(Some(
+        r#"{ "slint-target-version": "1.19", "entry": "ui/main.slint", "include-paths": ["include"] }"#,
+    ));
     project.write("include/shared.slint", "export component Shared { }");
     let main = project.write("ui/main.slint", IMPORTS_SHARED);
     let depfile = project.root.join("generated.d");
@@ -174,7 +181,7 @@ fn a_project_file_argument_compiles_its_entry() {
 
 #[test]
 fn a_project_file_argument_without_an_entry_is_reported() {
-    let project = Project::new(Some(r#"{ "style": "fluent" }"#));
+    let project = Project::new(Some(r#"{ "slint-target-version": "1.19", "style": "fluent" }"#));
 
     let output = project.compile(&project.root.join("slint-project.json"), &[]);
     assert!(!output.status.success());
@@ -184,7 +191,8 @@ fn a_project_file_argument_without_an_entry_is_reported() {
 #[cfg(feature = "python")]
 #[test]
 fn generated_python_loads_the_project_file_it_was_generated_from() {
-    let project = Project::new(Some(r#"{ "entry": "ui/main.slint" }"#));
+    let project =
+        Project::new(Some(r#"{ "slint-target-version": "1.19", "entry": "ui/main.slint" }"#));
     project.write("ui/main.slint", PLAIN);
     let generated = project.root.join("app_window.py");
     std::fs::write(&generated, "").unwrap();
