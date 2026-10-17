@@ -6,18 +6,7 @@ use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::platform::PlatformError;
 
-use crate::drmoutput::{DrmOutput, SharedFd};
-
-struct OwnedFramebufferHandle {
-    handle: drm::control::framebuffer::Handle,
-    device: SharedFd,
-}
-
-impl Drop for OwnedFramebufferHandle {
-    fn drop(&mut self) {
-        self.device.destroy_framebuffer(self.handle).ok();
-    }
-}
+use crate::drmoutput::{DrmOutput, OwnedFramebufferHandle, SharedFd};
 
 pub struct GbmDisplay {
     pub drm_output: DrmOutput,
@@ -30,8 +19,7 @@ impl GbmDisplay {
     pub fn new(drm_output: DrmOutput) -> Result<GbmDisplay, PlatformError> {
         //eprintln!("mode {}/{}", width, height);
 
-        let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
-            .map_err(|e| format!("Error creating gbm device: {e}"))?;
+        let gbm_device = drm_output.create_gbm_device()?;
 
         let surface_format = gbm::Format::Xrgb8888;
 

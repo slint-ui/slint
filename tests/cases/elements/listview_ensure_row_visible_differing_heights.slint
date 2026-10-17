@@ -1,0 +1,219 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> clicked-index: -1;
+    out property <length> clicked-y;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000: Rectangle {
+            // Row 700 is taller than the viewport.
+            height: (i == 700 ? 1000 : i.mod(10) * 50 + 10) * 1px;
+            background: i.mod(2) == 0 ? blue : red;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                    root.clicked-y = self.mouse-y;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+
+const PROBE_INSET: f32 = 2.;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+const TALL_ROW: i32 = 700;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let viewport = instance.get_visible_height();
+let row_height = |row: i32| if row == TALL_ROW { 1000. } else { ((row % 10) * 50 + 10) as f32 };
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let assert_top_aligned = |row: i32| {
+    assert_eq!(row_at(PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+    assert_eq!(row_at(row_height(row) - PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+};
+
+let assert_bottom_aligned = |row: i32| {
+    assert_eq!(row_at(viewport - PROBE_INSET), row, "row {row} must end at the viewport's bottom edge");
+    assert_eq!(
+        row_at(viewport - row_height(row) + PROBE_INSET),
+        row,
+        "row {row} must end at the viewport's bottom edge"
+    );
+};
+
+let scroll_to = |row: i32| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+};
+
+assert_top_aligned(0);
+
+// Close below the viewport.
+scroll_to(5);
+assert_bottom_aligned(5);
+
+// Far below the viewport.
+scroll_to(905);
+assert_bottom_aligned(905);
+
+// The last row.
+scroll_to(999);
+assert_bottom_aligned(999);
+
+// Far above the viewport.
+scroll_to(13);
+assert_top_aligned(13);
+
+// Close above the viewport.
+scroll_to(11);
+assert_top_aligned(11);
+
+// Far below again, from a position reached by scrolling up.
+scroll_to(507);
+assert_bottom_aligned(507);
+
+// A row taller than the viewport, below it and without an instance yet, starts at the top edge.
+assert!(row_height(TALL_ROW) > viewport);
+scroll_to(TALL_ROW);
+assert_eq!(row_at(PROBE_INSET), TALL_ROW);
+assert_eq!(instance.get_clicked_y(), PROBE_INSET, "row {TALL_ROW} must start at the viewport's top edge");
+```
+
+```cpp
+using slint::PointerEventButton;
+using slint::language::ScrollBehavior;
+
+constexpr float probe_inset = 2.;
+constexpr int tall_row = 700;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+float viewport = instance.get_visible_height();
+auto row_height = [](int row) { return row == tall_row ? 1000.f : float((row % 10) * 50 + 10); };
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto assert_top_aligned = [&](int row) {
+    assert_eq(row_at(probe_inset), row);
+    assert_eq(row_at(row_height(row) - probe_inset), row);
+};
+
+auto assert_bottom_aligned = [&](int row) {
+    assert_eq(row_at(viewport - probe_inset), row);
+    assert_eq(row_at(viewport - row_height(row) + probe_inset), row);
+};
+
+auto scroll_to = [&](int row) {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 300., 620. }));
+};
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+
+assert(row_height(tall_row) > viewport);
+scroll_to(tall_row);
+assert_eq(row_at(probe_inset), tall_row);
+assert_eq(instance.get_clicked_y(), probe_inset);
+```
+
+```js
+const PROBE_INSET = 2;
+const TALL_ROW = 700;
+
+var instance = new slint.TestCase({});
+const viewport = instance.visible_height;
+const row_height = (row) => (row == TALL_ROW ? 1000 : (row % 10) * 50 + 10);
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function assert_top_aligned(row) {
+    assert.equal(row_at(PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+    assert.equal(row_at(row_height(row) - PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+}
+
+function assert_bottom_aligned(row) {
+    assert.equal(row_at(viewport - PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+    assert.equal(row_at(viewport - row_height(row) + PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+}
+
+function scroll_to(row) {
+    instance.ensure_row_visible(row, "instant");
+    // Outside the ListView: the click only triggers the layout pass.
+    slintlib.private_api.send_mouse_click(instance, 300, 620);
+}
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+
+assert(row_height(TALL_ROW) > viewport);
+scroll_to(TALL_ROW);
+assert.equal(row_at(PROBE_INSET), TALL_ROW);
+assert.equal(instance.clicked_y, PROBE_INSET, `row ${TALL_ROW} must start at the viewport's top edge`);
+```
+*/

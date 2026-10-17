@@ -256,7 +256,6 @@ component BaseWithMembers {
     callback speak(string);
 //                 >    <note{'BaseWithMembers' declares 'speak' here, 'ValidInterface' expects 'callback speak();'}
     public function reset() {}
-    @children
 }
 
 export component DerivedConflicts inherits BaseWithMembers {
@@ -271,7 +270,6 @@ interface CallbackInterface {
 component BaseWithFunction {
     public function action() {}
 //                  >    <note{'BaseWithFunction' declares 'action' here, 'CallbackInterface' expects 'callback action();'}
-    @children
 }
 
 export component ImplementFunctionConflict inherits BaseWithFunction {

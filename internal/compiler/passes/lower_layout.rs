@@ -6,11 +6,14 @@
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
+use crate::expression_types::{MinMaxOp, Orientation, Unit};
 use crate::langtype::Type;
-use crate::langtype::{ElementType, PropertyLookupMode};
 use crate::layout::*;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::{TypeRegister, layout_info_type};
@@ -40,7 +43,7 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
         prop_name.clone(),
         PropertyDeclaration {
             property_type: function_ty,
-            visibility: crate::object_tree::PropertyVisibility::Private,
+            visibility: PropertyVisibility::Private,
             pure: Some(true),
             synthesized: true,
             ..Default::default()
@@ -785,7 +788,8 @@ impl GridLayout {
                 let e = nr.element();
                 let mut nr = nr.clone();
                 if e.borrow().repeated.is_some()
-                    && let crate::langtype::ElementType::Component(c) = e.borrow().base_type.clone()
+                    && let crate::element_type::ElementType::Component(c) =
+                        e.borrow().base_type.clone()
                 {
                     nr = NamedReference::new(&c.root_element, nr.name().clone())
                 };
@@ -917,7 +921,7 @@ impl GridLayout {
                         let e = nr.element();
                         let mut nr = nr.clone();
                         if e.borrow().repeated.is_some()
-                            && let crate::langtype::ElementType::Component(c) =
+                            && let crate::element_type::ElementType::Component(c) =
                                 e.borrow().base_type.clone()
                         {
                             nr = NamedReference::new(&c.root_element, nr.name().clone())
@@ -1947,8 +1951,7 @@ fn lower_dialog_layout(
                 );
             }
             true
-        } else if matches!(&layout_child.borrow().lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        {
+        } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
             match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
@@ -2456,6 +2459,18 @@ fn check_number_literal_is_positive_integer(
         }
         _ => false,
     }
+}
+
+/// Whether lowering `parent` requires `name` to be set on its child `elem`,
+/// even to its default value: the `kind` of a StandardButton in a Dialog
+pub(crate) fn dialog_requires_binding(parent: &ElementRc, elem: &Element, name: &str) -> bool {
+    name == "kind"
+        && parent.borrow().builtin_type().is_some_and(|b| b.name == "Dialog")
+        && is_standard_button(elem)
+}
+
+fn is_standard_button(elem: &Element) -> bool {
+    matches!(&elem.lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {

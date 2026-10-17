@@ -7,6 +7,8 @@
 //! an HTTP server implementing MCP's Streamable HTTP transport, allowing MCP clients
 //! (e.g. Claude) to inspect and interact with the running UI.
 //!
+//! `SLINT_MCP_HOST` sets the address to bind to, defaulting to `127.0.0.1`.
+//!
 //! # Usage
 //!
 //! Build with the `mcp` feature and set the environment variable:
@@ -962,8 +964,21 @@ async fn handle_connection(state: &IntrospectionState, mut stream: async_net::Tc
     }
 }
 
-async fn run_server(state: Rc<IntrospectionState>, port: u16) {
-    let addr = format!("127.0.0.1:{port}");
+// IPv6 hosts need brackets in the socket address so the port isn't parsed as part of the address.
+fn bind_address(host: &str, port: u16) -> String {
+    if host.starts_with('[') || !host.contains(':') {
+        format!("{host}:{port}")
+    } else {
+        format!("[{host}]:{port}")
+    }
+}
+
+async fn run_server(
+    state: Rc<IntrospectionState>,
+    host: std::borrow::Cow<'static, str>,
+    port: u16,
+) {
+    let addr = bind_address(&host, port);
     let listener = match async_net::TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {
@@ -1011,6 +1026,9 @@ pub fn init() -> Result<(), EventLoopError> {
             return Ok(());
         }
     };
+    let host = std::env::var("SLINT_MCP_HOST")
+        .map(std::borrow::Cow::Owned)
+        .unwrap_or(std::borrow::Cow::Borrowed("127.0.0.1"));
 
     if INIT_INSTALLED.with(|installed| installed.get()) {
         return Ok(());
@@ -1042,9 +1060,10 @@ pub fn init() -> Result<(), EventLoopError> {
             return;
         }
 
+        let host = host.clone();
         let state = state_clone.clone();
         let spawn_result = i_slint_core::with_existing_context(|context| {
-            context.spawn_local(async move { run_server(state, port).await })
+            context.spawn_local(async move { run_server(state, host, port).await })
         })
         .expect("uninitialized platform");
         match spawn_result {
@@ -1102,6 +1121,14 @@ mod tests {
         let resp = resp.unwrap();
         assert!(resp["result"]["isError"].as_bool().unwrap_or(false));
         assert!(resp["result"]["content"][0]["text"].as_str().unwrap().contains("Invalid handle"));
+    }
+
+    #[test]
+    fn test_bind_address() {
+        assert_eq!(bind_address("127.0.0.1", 8080), "127.0.0.1:8080");
+        assert_eq!(bind_address("0.0.0.0", 8080), "0.0.0.0:8080");
+        assert_eq!(bind_address("::1", 8080), "[::1]:8080");
+        assert_eq!(bind_address("[::1]", 8080), "[::1]:8080");
     }
 
     #[test]

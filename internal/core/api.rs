@@ -661,8 +661,10 @@ impl Window {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
         // Events a backend delivers in the internal representation are reported as the public
         // event they correspond to, if there is one.
-        let hook_installed =
-            self.0.try_context().is_some_and(|ctx| ctx.0.window_event_hook.borrow().is_some());
+        let hook_installed = self
+            .0
+            .try_context()
+            .is_some_and(|ctx| ctx.platform_context().window_event_hook.borrow().is_some());
         let event_for_hook = hook_installed
             .then(|| match &event {
                 crate::platform::WindowEvent::Internal(event) => event.public_representation(),
@@ -748,7 +750,7 @@ impl Window {
                 self.0.set_window_item_geometry(size.to_euclid());
                 self.0.window_adapter().renderer().resize(size.to_physical(self.scale_factor()))?;
                 if let Some(item_rc) = self.0.focus_item.borrow().upgrade() {
-                    item_rc.try_scroll_into_visible();
+                    item_rc.try_scroll_into_visible(crate::items::ScrollBehavior::Instant);
                 }
                 WindowEventDispatchResult::Accepted
             }
@@ -787,7 +789,7 @@ impl Window {
         };
         if let Some(event_for_hook) = event_for_hook
             && let Some(ctx) = self.0.try_context()
-            && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
+            && let Some(hook) = ctx.platform_context().window_event_hook.borrow().as_ref()
         {
             hook(&self.0.window_adapter(), &event_for_hook, dispatch_result.clone());
         }

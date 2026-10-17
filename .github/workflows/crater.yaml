@@ -177,7 +177,6 @@ jobs:
                     - "https://github.com/swedishembedded/sven"
                     - "https://github.com/junelva/wl-gammarelay-applet"
                     #- "https://github.com/FelgoSDK/RustyWeather" # lives in this repository as demos/weather-demo
-                    - "https://github.com/masak1yu/winxmerge"
                     - "https://github.com/IDE0224/rust-calendar-app"
                     - "https://github.com/ninjitsuytber/Aegis-OTA"
                     #- "https://github.com/TuEmb/can-viewer-rs" # depends on pcan-basic, which can't be fetched
@@ -362,6 +361,7 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/ahqsoftwares/tauri-ahq-store"
                       sub_path: "src-setup"
+                      toolchain: nightly # its .cargo/config.toml passes -Z threads=2
                     - git_url: "https://github.com/qarmin/czkawka"
                       sub_path: krokiet
                     - git_url: "https://github.com/Vjze/Rust_demo"  # this is using SurrealismUI
@@ -419,7 +419,19 @@ jobs:
                     - git_url: "https://github.com/R3alCl0ud/Rust4Diva"
                       sub_path: "."
                       extra_packages: libarchive-dev
+                      extra_commands: |
+                          cargo update
+                          # zip 2.6 added a type parameter to ZipFile, which cra 0.1.4 doesn't pass
+                          cargo update zip --precise 2.4.2
+                    - git_url: "https://github.com/masak1yu/winxmerge"
+                      sub_path: "."
+                      extra_commands: |
+                          cargo update
+                          # zip 2.6 added a type parameter to ZipFile, which calamine 0.26 doesn't pass
+                          cargo update zip --precise 2.4.2
+                    # n_music replaced its Slint UIs with Qt Quick and Jetpack Compose after this revision
                     - git_url: "https://github.com/Enn3Developer/n_music"
+                      git_rev: "4a26c2da537f68d1c39995809b5ec2908aa008ba"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
                       sub_path: "n_music_desktop"
                       extra_commands: |
@@ -429,6 +441,7 @@ jobs:
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/Enn3Developer/n_music"
+                      git_rev: "4a26c2da537f68d1c39995809b5ec2908aa008ba"
                       sub_path: "n_music_android"
                       extra_commands: |
                           sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' Cargo.toml
@@ -555,10 +568,6 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/borgbase/vykar"
                       sub_path: "crates/vykar-gui"
-                      extra_commands: |
-                          cargo update
-                          # tray-icon 0.26.1 renamed with_icon_templated
-                          cargo update tray-icon --precise 0.26.0
                     # depends on lofty 0.23, which can't be resolved
                     #- git_url: "https://github.com/vicrodh/qbz"
                     #  sub_path: "crates/qbz-ui"
@@ -652,9 +661,10 @@ jobs:
                       sub_path: "app"
                     - git_url: "https://github.com/myst6re/mumba"
                       sub_path: "gui"
-                    - git_url: "https://github.com/jpfaria/OpenRig"
-                      sub_path: "crates/adapter-gui"
-                      extra_packages: alsa-utils libasound2-dev
+                    # the repository is gone
+                    #- git_url: "https://github.com/jpfaria/OpenRig"
+                    #  sub_path: "crates/adapter-gui"
+                    #  extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/yfn020/slintcn"
                       sub_path: "examples/showcase"
                     - git_url: "https://github.com/taichi765/TsukuyomiDMX"
@@ -1213,9 +1223,9 @@ jobs:
                       files: "ui/appwindow.slint"
                     #- git_url: "https://github.com/vudinhkhoa0/DEMO_DOAN_CTDL-GT" # entry .slint file not identified yet
                     # Cannot build in the crater matrix for a reason outside Slint (noted per entry):
-                    # build.rs needs the liboqs native library (not packaged)
-                    - git_url: "https://github.com/GurudattaRK/PQrypt"
-                      files: "desktop/ui/main.slint"
+                    # the repository is gone
+                    #- git_url: "https://github.com/GurudattaRK/PQrypt"
+                    #  files: "desktop/ui/main.slint"
                     # depends on Slint via git, so the crates.io patch does not apply
                     - git_url: "https://github.com/Montel/ruqola-rust"
                       files: "ruqola-rust-slint/src/slint/mainwindow.slint"

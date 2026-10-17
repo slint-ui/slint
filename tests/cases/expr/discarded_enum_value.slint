@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An enum value in a statement whose value is discarded still resolves
+// against the type of the block, but doesn't make the handler return.
+
+export component TestCase {
+    in-out property <int> calls;
+
+    callback handle(string) -> EventResult;
+    handle(text) => {
+        if text == "q" {
+            calls += 1;
+            accept;
+        } else if text == "w" {
+            calls += 10;
+            return accept;
+        }
+        reject
+    }
+
+    callback check() -> bool;
+    check => {
+        calls = 0;
+        handle("q") == EventResult.reject && calls == 1
+            && handle("w") == EventResult.accept && calls == 11
+            && handle("e") == EventResult.reject && calls == 11
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.invoke_check());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.invoke_check());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.check());
+```
+*/

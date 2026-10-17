@@ -102,6 +102,8 @@ pub enum EmbedResourcesKind {
     ///
     /// Useful for MCUs with no file system and little RAM.
     /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
+    ///
+    /// Animated images keep only their first frame.
     EmbedForSoftwareRenderer,
 }
 
@@ -289,9 +291,7 @@ impl CompilerConfiguration {
     #[must_use]
     fn with_absolute_paths(mut self, manifest_dir: &std::path::Path) -> Self {
         let to_absolute_path = |path: &mut std::path::PathBuf| {
-            if path.is_relative() {
-                *path = manifest_dir.join(&path);
-            }
+            *path = project_file::resolve_relative_path(manifest_dir, std::mem::take(path));
         };
 
         for path in
@@ -359,9 +359,6 @@ pub enum CompileError {
     /// Cannot write the generated file
     #[display("Cannot write the generated file: {_0}")]
     SaveError(std::io::Error),
-    /// The project file could not be read
-    #[display("{_0}")]
-    ProjectFileError(#[error(not(source))] String),
 }
 
 fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
@@ -558,9 +555,11 @@ pub fn compile_with_config(
     let manifest_path = std::path::PathBuf::from(
         env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?,
     );
-    let (path, project_file) =
-        project_file::resolve_input(&manifest_path.join(relative_slint_file_path.as_ref()))
-            .map_err(CompileError::ProjectFileError)?;
+    let (path, project_file) = project_file::resolve_input(&project_file::resolve_relative_path(
+        &manifest_path,
+        relative_slint_file_path.as_ref().to_path_buf(),
+    ))
+    .map_err(|error| CompileError::CompileError(vec![error]))?;
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
@@ -636,7 +635,7 @@ pub fn compile_with_output_path(
     config: CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
     let (slint_file, project_file) = project_file::resolve_input(input_slint_file_path.as_ref())
-        .map_err(CompileError::ProjectFileError)?;
+        .map_err(|error| CompileError::CompileError(vec![error]))?;
     compile_resolved(
         &slint_file,
         project_file.as_ref(),
@@ -666,8 +665,9 @@ fn compile_resolved(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag, loader) =
+    let (doc, mut diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
+    diag.remove_infos();
 
     if diag.has_errors()
         || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
@@ -809,6 +809,7 @@ mod tests {
         let config = CompilerConfiguration::new().with_include_paths(Vec::from([
             root_path_prefix().join("some/absolute/path"),
             PathBuf::from("some/relative/path"),
+            PathBuf::from("windows\\style"),
         ]));
 
         let manifest_path = root_path_prefix().join("path/to/manifest");
@@ -818,6 +819,7 @@ mod tests {
             Vec::from([
                 root_path_prefix().join("some/absolute/path"),
                 manifest_path.join("some/relative/path"),
+                manifest_path.join("windows").join("style"),
             ])
         )
     }
@@ -1075,6 +1077,28 @@ fn project_file_discovery_loads_present_paths() {
         // The message for reading a directory differs per platform, so only pin that
         // it errors instead of being swallowed like a missing file.
         assert!(CompilerConfiguration::new().resolve_project_file(test_root).is_err());
+    });
+}
+
+#[test]
+fn project_file_errors_are_compilation_errors() {
+    use std::fs;
+
+    with_temp_test_dir("project-file-error", |test_root| {
+        let project_file = project_file_path_in(test_root);
+        fs::write(&project_file, "{}").unwrap();
+
+        let error = compile_with_output_path(
+            &project_file,
+            test_root.join("main.rs"),
+            CompilerConfiguration::new(),
+        )
+        .unwrap_err();
+
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        assert_eq!(messages, vec![format!("{} has no 'entry' to compile", project_file.display())]);
     });
 }
 

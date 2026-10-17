@@ -133,6 +133,20 @@ enum DiscoveredProjectFile {
     Invalid { path: PathBuf, error: Box<dyn std::error::Error> },
 }
 
+fn preview_configuration(
+    configuration: &crate::document_cache::CompilerConfiguration,
+    hide_ui: Option<bool>,
+) -> PreviewConfig {
+    PreviewConfig {
+        hide_ui,
+        style: configuration.compiler_config.style.clone().unwrap_or_default(),
+        include_paths: configuration.compiler_config.include_paths.clone(),
+        library_paths: configuration.compiler_config.library_paths.clone(),
+        format_utf8: configuration.format == crate::ByteFormat::Utf8,
+        enable_experimental: configuration.compiler_config.enable_experimental,
+    }
+}
+
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
@@ -211,9 +225,10 @@ impl EditorSession {
         previews: Vec<PreviewConnection>,
     ) -> Self {
         let compiler_config_defaults = document_cache.configuration_with_import_callback();
+        let preview_config = preview_configuration(&compiler_config_defaults, None);
         Self {
             document_cache,
-            preview_config: Default::default(),
+            preview_config,
             open_urls: Default::default(),
             previews,
             pending_recompile: Default::default(),
@@ -387,14 +402,7 @@ impl EditorSession {
         diagnostics.extend(removed.into_iter().map(|url| (url, None, Vec::new())));
         diagnostics.extend(project_diagnostics);
 
-        self.preview_config = PreviewConfig {
-            hide_ui: overrides.hide_ui,
-            style: compiler_config.compiler_config.style.clone().unwrap_or_default(),
-            include_paths: compiler_config.compiler_config.include_paths.clone(),
-            library_paths: compiler_config.compiler_config.library_paths.clone(),
-            format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
-            enable_experimental: compiler_config.compiler_config.enable_experimental,
-        };
+        self.preview_config = preview_configuration(&compiler_config, overrides.hide_ui);
         self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
             config: self.preview_config.clone(),
         });
@@ -993,6 +1001,41 @@ pub fn collect_diagnostics(
 #[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
 mod preview_tests {
     use super::*;
+
+    #[test]
+    fn initial_preview_configuration_preserves_compiler_defaults() {
+        for enable_experimental in [true, false] {
+            let mut compiler_config = crate::document_cache::CompilerConfiguration::default();
+            compiler_config.compiler_config.style = Some("fluent".into());
+            compiler_config.compiler_config.include_paths = vec![PathBuf::from("/include")];
+            compiler_config.compiler_config.library_paths =
+                HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]);
+            compiler_config.compiler_config.enable_experimental = enable_experimental;
+            compiler_config.format = crate::ByteFormat::Utf16;
+            let (to_preview, messages) = crate::test::preview_capture();
+            let session =
+                EditorSession::new(crate::DocumentCache::new(compiler_config), to_preview);
+
+            session.send_state_to_preview(0);
+
+            let messages = messages.borrow();
+            let configuration = messages.iter().find_map(|message| match message {
+                LspToPreviewMessage::SetConfiguration { config } => Some(config),
+                _ => None,
+            });
+            assert_eq!(
+                configuration,
+                Some(&PreviewConfig {
+                    hide_ui: None,
+                    style: "fluent".into(),
+                    include_paths: vec![PathBuf::from("/include")],
+                    library_paths: HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]),
+                    format_utf8: false,
+                    enable_experimental,
+                })
+            );
+        }
+    }
 
     fn session_with_recording_previews()
     -> (EditorSession, [crate::test::CapturedPreviewMessages; 2]) {

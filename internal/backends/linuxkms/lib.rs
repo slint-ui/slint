@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore drmoutput fullscreenwindowadapter
+// cSpell: ignore dmabuf drmoutput fullscreenwindowadapter
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
@@ -18,6 +18,16 @@ type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::rc::Rc<OwnedFd>,
 #[cfg(all(target_os = "linux", feature = "drm"))]
 mod drmoutput;
 
+// A test build of this crate also links the library build through the `slint` dev-dependency,
+// and two copies of the `#[no_mangle]` wrappers don't link.
+#[cfg(all(
+    target_os = "linux",
+    feature = "dlopen",
+    not(test),
+    any(feature = "libinput", feature = "gbm")
+))]
+mod dlopen;
+
 #[cfg(target_os = "linux")]
 mod display;
 
@@ -30,10 +40,16 @@ mod renderer {
     #[cfg(enable_skia)]
     pub mod skia;
 
+    #[cfg(gbm_dmabuf)]
+    pub mod dmabuf;
     #[cfg(feature = "renderer-femtovg")]
     pub mod femtovg;
     #[cfg(feature = "renderer-femtovg-wgpu")]
+    pub mod femtovg_dmabuf;
+    #[cfg(feature = "renderer-femtovg-wgpu")]
     pub mod femtovg_wgpu;
+    #[cfg(skia_wgpu_30)]
+    pub mod skia_dmabuf;
 
     #[cfg(feature = "renderer-software")]
     pub mod sw;

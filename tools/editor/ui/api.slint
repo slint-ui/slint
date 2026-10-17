@@ -6,6 +6,8 @@ export struct CodeBinding {
     value: string,
 }
 
+export enum InspectorCommitResult { rejected, unchanged, pending }
+
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -377,6 +379,38 @@ export struct ElementInformation {
     offset: int,
 }
 
+export struct InlineTextEditStart {
+    success: bool,
+    text: string,
+    color: brush,
+}
+
+export global InlineTextEdit {
+    in property <bool> can-edit;
+    in property <bool> active;
+    in property <bool> commit-pending;
+    in property <float> scale: 1;
+    in property <bool> grow-width;
+
+    callback begin() -> InlineTextEditStart;
+    callback commit(text: string) -> bool;
+    private property <bool> deferred-selection;
+    private property <Point> deferred-selection-position;
+
+    public function defer-selection(position: Point) {
+        self.deferred-selection-position = position;
+        self.deferred-selection = true;
+    }
+
+    callback finished(accepted: bool) -> bool;
+    finished(accepted) => {
+        let select = self.deferred-selection && accepted;
+        self.deferred-selection = false;
+        if select { Api.select-at(self.deferred-selection-position.x, self.deferred-selection-position.y, false); }
+        return select;
+    }
+}
+
 export struct PaletteEntry {
     name: string,
     value: PropertyValue,
@@ -444,6 +478,9 @@ export global Api {
     in-out property <string> update-version;
     in-out property <string> update-error;
     in property <bool> focus-previewed-element;
+    in property <string> preview-default-font-family;
+    in property <float> preview-default-font-size: 12;
+    in property <int> preview-default-font-weight;
     callback check-for-update();
 
     // ## Component Data for ComponentList:
@@ -487,9 +524,45 @@ export global Api {
     in-out property <ElementInformation> current-element;
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
-    pure callback current-property-value-data(property-name: string) -> PropertyValue;
-    pure callback current-property-value(property-name: string, fallback: string) -> string;
-    pure callback current-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback source-property-value(property-name: string, fallback: string) -> string;
+    pure callback source-color-field-data(property-name: string) -> ColorFieldData;
+    public pure function number-property(name: string, fallback: float) -> float {
+        let property = Api.source-property-value-data(name, {});
+        return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
+            ? property.value-float : fallback;
+    }
+    public pure function has-shadow(prefix: string) -> bool {
+        return Api.source-property-value-data(prefix + "color", {}).code != ""
+            || Api.source-property-value-data(prefix + "blur", {}).code != ""
+            || Api.source-property-value-data(prefix + "spread", {}).code != ""
+            || Api.source-property-value-data(prefix + "offset-x", {}).code != ""
+            || Api.source-property-value-data(prefix + "offset-y", {}).code != "";
+    }
+    function shadow-code(name: string, fallback: string) -> string {
+        let code = Api.source-property-value-data(name, {}).code;
+        return code != "" ? code : fallback;
+    }
+    function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
+        return [
+            { name: prefix + "color", value: enabled ? Api.shadow-code(prefix + "color", prefix == "inner-shadow-" ? "#00000030" : "#00000040") : "" },
+            { name: prefix + "blur", value: enabled ? Api.shadow-code(prefix + "blur", "16px") : "" },
+            { name: prefix + "spread", value: enabled ? Api.shadow-code(prefix + "spread", "0px") : "" },
+            { name: prefix + "offset-x", value: enabled ? Api.shadow-code(prefix + "offset-x", "0px") : "" },
+            { name: prefix + "offset-y", value: enabled ? Api.shadow-code(prefix + "offset-y", "8px") : "" },
+        ];
+    }
+    public function set-shadow-effect(element: ElementInformation, value: string) -> bool {
+        if value != "none" && value != "drop" && value != "inner" { return false; }
+        Api.inspector-cancel();
+        let drop = Api.shadow-bindings("drop-shadow-", value == "drop");
+        let inner = Api.shadow-bindings("inner-shadow-", value == "inner");
+        return Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
+            drop[0], drop[1], drop[2], drop[3], drop[4],
+            inner[0], inner[1], inner[2], inner[3], inner[4],
+        ]);
+    }
     pure callback image-source-file-name(source: string) -> string;
     callback choose-image-file(source-uri: string) -> string;
 
@@ -515,6 +588,7 @@ export global Api {
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);
+    callback copy-file-path(path: string);
 
     // ## preview data
 
@@ -545,13 +619,13 @@ export global Api {
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
+    callback reset-selected-element-border-radius(corner: CanvasCorner);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
     callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
-    callback override-element-text(override-id: string, text: string) -> string;
 
     callback selected-element-delete();
 
@@ -580,6 +654,7 @@ export global Api {
     callback show-preview-for(name: string, url: string);
     callback reload-preview();
 
+    pure callback window-active() -> bool;
     in property <int> inspector-generation;
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
@@ -588,7 +663,7 @@ export global Api {
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
@@ -597,6 +672,11 @@ export global Api {
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
     pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
+    public function commit-code-binding(element: ElementInformation, name: string, value: string) -> bool {
+        return value != "" && element.source-uri != ""
+            && Api.test-code-binding(element.source-uri, element.source-version, element.offset, name, value)
+            && Api.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
+    }
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 

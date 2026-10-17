@@ -4,13 +4,14 @@
 // cSpell: ignore readback Texel unpadded
 use std::{cell::RefCell, pin::Pin, rc::Rc};
 
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
 use i_slint_core::renderer::DrawOutcome;
 
-use crate::{BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface};
+use crate::{BeginRendering, FemtoVGRenderer, FemtoVGRendererExt, GraphicsBackend, WindowSurface};
 
 use wgpu_30 as wgpu;
 
@@ -36,6 +37,7 @@ pub struct WGPUBackend {
     surface: RefCell<Option<wgpu::Surface<'static>>>,
     alpha_modes: RefCell<Vec<wgpu::CompositeAlphaMode>>,
     snapshot_output: RefCell<Option<femtovg::renderer::WGPURenderOutput>>,
+    pre_present_callback: RefCell<Option<Box<dyn Fn()>>>,
 }
 
 pub enum WGPUWindowSurface {
@@ -197,6 +199,7 @@ impl GraphicsBackend for WGPUBackend {
             surface: Default::default(),
             alpha_modes: Default::default(),
             snapshot_output: Default::default(),
+            pre_present_callback: Default::default(),
         }
     }
 
@@ -275,6 +278,9 @@ impl GraphicsBackend for WGPUBackend {
         surface: Self::WindowSurface,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let WGPUWindowSurface::Surface(st) = surface {
+            if let Some(callback) = self.pre_present_callback.borrow().as_ref() {
+                callback();
+            }
             self.queue.borrow().as_ref().unwrap().present(st);
         }
         Ok(())
@@ -390,6 +396,12 @@ impl FemtoVGRenderer<WGPUBackend> {
                 surface.configure(device, surface_config);
             }
         });
+    }
+
+    /// Set the callback invoked right before a frame is presented, used by
+    /// windowing backends that want to notify the window system first.
+    pub fn set_pre_present_callback(&self, callback: Option<Box<dyn Fn()>>) {
+        *self.graphics_backend.pre_present_callback.borrow_mut() = callback;
     }
 
     /// Configure the renderer with pre-initialized WGPU objects. This is used by both the
@@ -595,6 +607,18 @@ impl FemtoVGWGPURenderer {
         height: u32,
         format: wgpu::TextureFormat,
     ) -> Result<(), PlatformError> {
+        self.render_to_texture_view_impl(texture_view, width, height, format, || self.0.render())
+    }
+
+    /// Renders into `texture_view` with `render`, which draws the scene through `self.0`.
+    fn render_to_texture_view_impl<T>(
+        &self,
+        texture_view: &wgpu::TextureView,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+        render: impl FnOnce() -> Result<T, PlatformError>,
+    ) -> Result<T, PlatformError> {
         *self.0.graphics_backend.render_output.borrow_mut() =
             Some(femtovg::renderer::WGPURenderOutput {
                 view: texture_view.clone(),
@@ -602,7 +626,7 @@ impl FemtoVGWGPURenderer {
                 height,
                 format,
             });
-        let result = self.0.render();
+        let result = render();
         *self.0.graphics_backend.render_output.borrow_mut() = None;
         result
     }
@@ -617,6 +641,67 @@ impl FemtoVGWGPURenderer {
             size.height,
             texture.format(),
         )
+    }
+}
+
+/// Rendering for Slint's own backends.
+/// `slint` doesn't re-export this trait, so it isn't part of the public API.
+#[doc(hidden)]
+pub trait FemtoVGWGPURendererExt {
+    /// Render the scene to the given texture, rotated by `rotation_angle_degrees` around the
+    /// origin and then moved by `translation`.
+    ///
+    /// Use this for a screen mounted in a different orientation than the window's,
+    /// where the translation brings the rotated scene back into the texture.
+    /// `post_render_cb` draws on top of the finished scene, for a cursor the platform renders.
+    ///
+    /// Leaves the texture untouched where [`Self::can_draw`] is false.
+    fn render_to_texture_transformed(
+        &self,
+        texture: &wgpu::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), PlatformError>;
+
+    /// Whether rendering draws anything, which it doesn't for a zero-sized window or without
+    /// a component, for example.
+    fn can_draw(&self) -> Result<bool, PlatformError>;
+}
+
+#[doc(hidden)]
+impl FemtoVGWGPURendererExt for FemtoVGWGPURenderer {
+    fn render_to_texture_transformed(
+        &self,
+        texture: &wgpu::Texture,
+        rotation_angle_degrees: f32,
+        translation: (f32, f32),
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), PlatformError> {
+        let size = texture.size();
+        self.render_to_texture_view_impl(
+            &texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            size.width,
+            size.height,
+            texture.format(),
+            || {
+                // The texture is the screen, whose size the rotation needs, not the window's.
+                self.0.render_transformed_with_post_callback(
+                    rotation_angle_degrees,
+                    translation,
+                    PhysicalWindowSize::new(size.width, size.height),
+                    post_render_cb,
+                )
+            },
+        )
+        .map(|_| ())
+    }
+
+    fn can_draw(&self) -> Result<bool, PlatformError> {
+        let window_adapter = self.0.window_adapter()?;
+        let window = window_adapter.window();
+        Ok(self.0.can_draw(window.size())
+            && i_slint_core::window::WindowInner::from_pub(window).try_component().is_some())
     }
 }
 

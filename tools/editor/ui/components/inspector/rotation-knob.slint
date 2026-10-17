@@ -6,7 +6,7 @@ import { Style, Metrics, RotationDialStyle } from "../../style.slint";
 export component InspectorRotationKnob inherits FocusScope {
     in property <RotationDialStyle> style: Style.rotation-dial;
     in property <float> value;
-    in property <string> accessible-name: "Rotation knob";
+    in property <string> accessible-name: @tr("Rotation knob");
     in property <angle> angle-offset: 0deg;
     in property <string> commit-key;
     out property <float> visual-value: root.dragging ? root.drag-value : root.value;

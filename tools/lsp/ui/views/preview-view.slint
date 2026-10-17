@@ -276,7 +276,6 @@ export component PreviewView inherits Rectangle {
                     color: root.select-mode ? Colors.black : Colors.transparent;
                     fill-color: root.select-mode ? Colors.white : Colors.transparent;
 
-                    is-moveable: false;
                     is-resizable <=> preview-area-container.is-resizable;
 
                     x-position: parent.x;

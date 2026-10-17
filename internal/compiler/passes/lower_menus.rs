@@ -97,9 +97,11 @@
 //! ```
 //!
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{BuiltinFunction, Callable, Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use core::cell::RefCell;
 use i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
@@ -674,6 +676,15 @@ fn lower_menu_items(
                         "MenuItem shortcuts are currently only supported in the MenuBar".into(),
                         &*binding,
                     );
+                }
+
+                if matches!(&element.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+                {
+                    diag.push_error(
+                        "Timer cannot be in a menu, move it outside of the menu".into(),
+                        &*element.borrow(),
+                    );
+                    return false;
                 }
 
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {

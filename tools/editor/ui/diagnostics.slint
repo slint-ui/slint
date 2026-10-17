@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export enum DiagnosticLevel { Debug, Note, Warning, Error }
+export enum DiagnosticLevel { Debug, Note, Info, Warning, Error }
 
 export struct Diagnostic {
     file: string,
@@ -25,6 +25,8 @@ export global Diagnostics {
     in property <bool> compiling;
     in property <PreviewAvailability> preview-availability: Platform.uses-mock-data ? DiagnosticsMock.availability : PreviewAvailability.Unavailable;
     out property <bool> preview-editable: self.preview-availability == PreviewAvailability.Current;
+    out property <bool> preview-status-visible: !self.preview-editable
+        && (self.errors.length > 0 || self.preview-availability == PreviewAvailability.NoComponent);
 
     pure callback file-diagnostics(path: string) -> FileDiagnosticSummary;
     file-diagnostics(path) => {

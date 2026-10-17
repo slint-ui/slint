@@ -8,10 +8,13 @@ use itertools::Either;
 use smol_str::SmolStr;
 
 use super::lower_to_item_tree::LoweredElement;
-use super::{GridLayoutRepeatedElement, LayoutRepeatedElement};
-use crate::expression_tree::MinMaxOp;
+use super::{
+    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
+    GridLayoutRepeatedElement, LayoutRepeatedElement, MEASURE_KNOWN_W_LOCAL,
+};
+use crate::expression_types::{MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, EnumerationValue, Type};
-use crate::layout::{FlexboxAxisRelation, GridLayoutCell, Orientation, RowColExpr};
+use crate::layout::{FlexboxAxisRelation, GridLayoutCell, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::llr::{BoxMeasureCell, FlexboxMeasureCell};
@@ -100,12 +103,6 @@ fn box_layout_has_height_for_width_repeated_cell(layout: &crate::layout::BoxLayo
         }
     })
 }
-
-/// Name of the local that carries the known width a measure pass measures a
-/// cell at. The generated code binds it around each static measure cell's
-/// `LayoutInfo` expression; shared by the flexbox and box layout measure
-/// passes.
-pub const MEASURE_KNOWN_W_LOCAL: &str = "measure_known_w";
 
 pub(super) fn compute_box_layout_info(
     layout: &crate::layout::BoxLayout,
@@ -973,7 +970,7 @@ fn flexbox_layout_data(
             return Some(width_override.cloned().unwrap_or_else(|| {
                 crate::expression_tree::Expression::NumberLiteral(
                     f32::MAX as f64,
-                    crate::expression_tree::Unit::Px,
+                    crate::expression_types::Unit::Px,
                 )
             }));
         }
@@ -1490,14 +1487,6 @@ struct GridLayoutCellConstraintsResult {
     compute_cells: Option<(String, Vec<Either<llr_Expression, LayoutRepeatedElement>>)>,
 }
 
-/// Name of the local the generated GridLayout vertical pass binds to the index
-/// of the repeated instance it is about to measure.
-pub const GRID_MEASURE_REPEATER_INDEX_LOCAL: &str = "grid_measure_repeater_index";
-
-/// Name of the local the generated repeated-Row `layout_item_info` binds to the
-/// flattened index of the child it is about to measure.
-pub const GRID_MEASURE_CHILD_INDEX_LOCAL: &str = "grid_measure_child_index";
-
 /// Which slot of the cell's cache read the measuring loop fills in, and so
 /// which local it binds. These are the only locals [`grid_measure_cross_width`]
 /// introduces.
@@ -1786,7 +1775,7 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let has_constrained_layoutinfo_v = elem_b.layout_info_v_with_constraint.is_some()
         || matches!(
             &elem_b.base_type,
-            crate::langtype::ElementType::Component(base_comp)
+            crate::element_type::ElementType::Component(base_comp)
                 if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
         );
     if has_constrained_layoutinfo_v {
@@ -1880,7 +1869,7 @@ pub(crate) fn get_root_layout_info_v(
     let measure_width = Expression::Condition {
         condition: Box::new(Expression::BinaryExpression {
             lhs: Box::new(width.clone()),
-            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_tree::Unit::Px)),
+            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_types::Unit::Px)),
             op: '>',
             source_location: None,
         }),
@@ -2349,7 +2338,7 @@ pub fn get_layout_info_v_constrained_for_repeated(
     let width_constraint = default_cross_axis_constraint(element).unwrap_or_else(|| {
         crate::expression_tree::Expression::NumberLiteral(
             f32::MAX as f64,
-            crate::expression_tree::Unit::Px,
+            crate::expression_types::Unit::Px,
         )
     });
     Some(get_flex_cell_layout_info(
@@ -2360,12 +2349,6 @@ pub fn get_layout_info_v_constrained_for_repeated(
         Some(width_constraint),
     ))
 }
-
-/// Name of the local that carries the cross-axis (container) width into the
-/// generated `flexbox_layout_item_info_at_cross_width` and
-/// `layout_item_info_at_cross_width` method bodies (the parameter name is
-/// derived from it).
-pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 
 /// Like [`get_layout_info_v_constrained_for_repeated`], but measures at the
 /// width passed in the [`CROSS_WIDTH_LOCAL`] local instead of the

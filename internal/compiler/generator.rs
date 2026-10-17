@@ -443,38 +443,7 @@ pub fn handle_property_bindings_init(
     });
 }
 
-/// Convert a ascii kebab string to pascal case
-pub fn to_pascal_case(str: &str) -> String {
-    let mut result = Vec::with_capacity(str.len());
-    let mut next_upper = true;
-    for x in str.as_bytes() {
-        if *x == b'-' {
-            next_upper = true;
-        } else if next_upper {
-            result.push(x.to_ascii_uppercase());
-            next_upper = false;
-        } else {
-            result.push(*x);
-        }
-    }
-    String::from_utf8(result).unwrap()
-}
-
-/// Convert a ascii pascal case string to kebab case
-pub fn to_kebab_case(str: &str) -> String {
-    let mut result = Vec::with_capacity(str.len());
-    for x in str.as_bytes() {
-        if x.is_ascii_uppercase() {
-            if !result.is_empty() {
-                result.push(b'-');
-            }
-            result.push(x.to_ascii_lowercase());
-        } else {
-            result.push(*x);
-        }
-    }
-    String::from_utf8(result).unwrap()
-}
+pub use crate::names::{to_kebab_case, to_pascal_case};
 
 /// The number of arguments taken by the accessibility action of the given name, where the name
 /// is the `AccessibilityAction` variant in pascal case (such as `SetSelectionOffsets`).

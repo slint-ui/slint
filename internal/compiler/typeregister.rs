@@ -9,12 +9,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::expression_tree::BuiltinFunction;
-use crate::langtype::{
-    BuiltinElement, BuiltinStruct, ElementType, Enumeration, Function, PropertyLookupResult,
-    Struct, Type,
-};
-use crate::object_tree::{Component, PropertyVisibility};
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
+use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::Component;
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -89,7 +88,7 @@ fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
         public,
         values: values
             .iter()
-            .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())
+            .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
         node: None,
@@ -451,10 +450,10 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
         return PropertyLookupResult {
             property_type: ty,
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
+            is_shadowable: name == "ensure-visible",
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
-            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -476,7 +475,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: false,
-                        property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                        property_visibility: crate::native_class::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
                         is_slint_sc: false,
@@ -495,6 +494,7 @@ pub fn reserved_member_functions()
     IntoIterator::into_iter([
         ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
         ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
     ])
 }
 
@@ -786,7 +786,7 @@ pub mod builtin_structs {
         ($enum:ident :: $value:ident) => {
             Some(ConstantExpression::EnumerationValue(
                 BUILTIN.enums.$enum.clone()
-                    .try_value_from_string(&crate::generator::to_kebab_case(stringify!($value)))
+                    .try_value_from_string(&crate::names::to_kebab_case(stringify!($value)))
                     .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value))),
             ))
         };

@@ -9,7 +9,10 @@
       "default": "./dist/index.js"
     },
     "./register": "./register.mjs",
-    "./package.json": "./package.json"
+    "./esbuild": {
+      "types": "./esbuild.d.mts",
+      "default": "./esbuild.mjs"
+    }
   },
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -29,13 +32,14 @@
   "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@napi-rs/cli": "3.10.6",
+    "@napi-rs/cli": "3.10.8",
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
+    "esbuild": "0.28.2",
     "image-js": "1.7.1",
     "typescript": "catalog:",
-    "verdaccio": "6.10.4",
+    "verdaccio": "6.10.5",
     "vitest": "catalog:"
   },
   "engines": {

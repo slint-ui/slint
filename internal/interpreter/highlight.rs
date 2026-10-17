@@ -110,6 +110,20 @@ pub(crate) fn component_positions(
     sources.matching_occurrences(path, offset).map(|(_, geometry)| geometry).collect()
 }
 
+#[cfg(feature = "internal")]
+pub(crate) fn component_item(
+    root: &VRc<ItemTreeVTable, Instance>,
+    path: &SourcePath,
+    offset: u32,
+    instance_index: usize,
+) -> Option<ItemRc> {
+    let sources = SourceOccurrences::new(root);
+    sources
+        .matching_occurrences(path, offset)
+        .nth(instance_index)
+        .map(|(item_index, _)| sources.items[item_index].as_item_rc())
+}
+
 pub(crate) fn element_candidates_at(
     root: &VRc<ItemTreeVTable, Instance>,
     position: LogicalPoint,
@@ -484,7 +498,9 @@ fn visit_element_for_position(
         // `inner_components` — descend explicitly. The wrapper's root
         // element carries the same source node as the repeated element.
         let base = match &element.borrow().base_type {
-            i_slint_compiler::langtype::ElementType::Component(c) => Some(c.root_element.clone()),
+            i_slint_compiler::element_type::ElementType::Component(c) => {
+                Some(c.root_element.clone())
+            }
             _ => None,
         };
         if let Some(root) = base {

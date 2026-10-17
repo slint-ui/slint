@@ -16,7 +16,7 @@ use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
 use crate::source_path::SourcePath;
 use crate::typeregister::TypeRegister;
 use crate::{CompilerConfiguration, expression_tree};
-use crate::{fileaccess, langtype, layout, parser};
+use crate::{element_type, fileaccess, layout, parser};
 use core::future::Future;
 use itertools::Itertools;
 
@@ -187,7 +187,7 @@ impl Snapshotter {
             .all_elements()
             .values()
             .filter_map(|ty| match ty {
-                langtype::ElementType::Component(c) if c.is_global() => Some(c),
+                element_type::ElementType::Component(c) if c.is_global() => Some(c),
                 _ => None,
             })
             .for_each(|c| {
@@ -554,6 +554,7 @@ impl Snapshotter {
                     content_width: lv.content_width.as_ref().map(|width| width.snapshot(self)),
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
+                    ensure_row_visible: lv.ensure_row_visible.as_ref().map(|e| e.snapshot(self)),
                 }),
             });
 
@@ -667,19 +668,19 @@ impl Snapshotter {
 
     pub(crate) fn snapshot_element_type(
         &mut self,
-        element_type: &langtype::ElementType,
-    ) -> langtype::ElementType {
+        element_type: &element_type::ElementType,
+    ) -> element_type::ElementType {
         // Components need to get adapted, the rest is fine I think...
         match element_type {
-            langtype::ElementType::Component(component) => {
+            element_type::ElementType::Component(component) => {
                 // Some components that will get compiled out later...
-                langtype::ElementType::Component(
+                element_type::ElementType::Component(
                     Weak::upgrade(&self.use_component(component))
                         .expect("I can unwrap at this point"),
                 )
             }
-            langtype::ElementType::Interface(base) => {
-                langtype::ElementType::Interface(base.as_ref().map(|component| {
+            element_type::ElementType::Interface(base) => {
+                element_type::ElementType::Interface(base.as_ref().map(|component| {
                     Weak::upgrade(&self.use_component(component))
                         .expect("I can unwrap at this point")
                 }))

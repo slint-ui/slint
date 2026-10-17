@@ -93,7 +93,7 @@ export global FillSession {
             ? Api.gradient-axis-point(FillSession.axis, position)
             : Api.linear-gradient-point(FillSession.working-fill.angle, FillSession.request.target.size, position);
     }
-    pure function stop-position(point: Point) -> float {
+    public pure function stop-position(point: Point) -> float {
         return FillSession.working-fill.kind == BrushKind.conic
             ? Api.conic-gradient-position(FillSession.axis, point)
             : FillSession.working-fill.kind == BrushKind.radial

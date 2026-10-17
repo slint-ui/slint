@@ -136,7 +136,7 @@ export component InspectorValueField inherits FocusScope {
                 enabled: root.enabled;
                 mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
                 accessible-role: AccessibleRole.slider;
-                accessible-label: root.accessible-name + " scrubber";
+                accessible-label: @tr("{} scrubber", root.accessible-name);
                 accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
                 pointer-event(event) => {
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -159,7 +159,7 @@ export component InspectorValueField inherits FocusScope {
         enabled: root.enabled;
         mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
         accessible-role: AccessibleRole.slider;
-        accessible-label: root.accessible-name + " scrubber";
+        accessible-label: @tr("{} scrubber", root.accessible-name);
         accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {

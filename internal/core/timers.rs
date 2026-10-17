@@ -317,16 +317,25 @@ impl Drop for ActivationGuard<'_> {
 }
 
 impl TimerList {
-    /// Returns the timeout of the timer that should fire the soonest, or None if there
-    /// is no timer active.
+    /// Returns the timeout of the timer that should fire the soonest,
+    /// on any context sharing the current context's platform.
+    /// Returns None if there is no timer active.
     pub fn next_timeout() -> Option<Instant> {
-        current_timers().and_then(|timers| timers.borrow().first_timeout())
+        match crate::context::SlintContext::current() {
+            Some(ctx) => ctx.platform_context().next_timer_timeout(),
+            None => current_timers().and_then(|timers| timers.borrow().first_timeout()),
+        }
     }
 
-    /// Activates any expired timers by calling their callback function. Returns true if any timers were
-    /// activated; false if none was due, or if this is a re-entrant call.
+    /// Activates the expired timers of every context sharing the current context's platform,
+    /// by calling their callback function.
+    /// Returns whether any timer was activated.
+    /// A context whose timers are already being activated is skipped.
     pub fn maybe_activate_timers(now: Instant) -> bool {
-        current_timers().is_some_and(|timers| Self::activate_expired(&timers, now))
+        match crate::context::SlintContext::current() {
+            Some(ctx) => ctx.platform_context().activate_timers(now),
+            None => current_timers().is_some_and(|timers| Self::activate_expired(&timers, now)),
+        }
     }
 
     /// The current instant on this list's clock, or the zero origin while no context owns

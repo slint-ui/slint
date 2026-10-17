@@ -80,7 +80,7 @@ pub fn add_code_actions(
 
     let cases = analyze(document_cache, &match_element, None)?;
     let (title, values) = match MatchSubjectDomain::of(&cases.subject_type) {
-        MatchSubjectDomain::Unknown => return None,
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return None,
         MatchSubjectDomain::Unbounded => ("Add '*' case", vec!["*".to_string()]),
         MatchSubjectDomain::Exhaustive(domain) => {
             if cases.has_non_literal_case {
@@ -213,7 +213,7 @@ pub fn case_value_completions(
         .map(|value| value.text_range());
     let cases = analyze(document_cache, match_element, skip)?;
     match MatchSubjectDomain::of(&cases.subject_type) {
-        MatchSubjectDomain::Unknown => None,
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => None,
         MatchSubjectDomain::Unbounded => {
             if match_element.WildcardMatchCase().is_some() {
                 return None;
@@ -249,16 +249,9 @@ pub fn case_value_completions(
 
 #[cfg(test)]
 mod tests {
-    use crate::editor_preview;
     use crate::language::completion::tests::{get_completions, get_completions_experimental};
-    use crate::language::{get_code_actions, token_descr};
-    use i_slint_editor_preview::test::{
-        loaded_document_cache, loaded_document_cache_with_experimental,
-    };
-    use lsp_types::{
-        ClientCapabilities, CodeActionOrCommand, CompletionItem, CompletionItemKind, Position,
-        TextEdit, Url,
-    };
+    use crate::language::test::CodeActionRequest;
+    use lsp_types::{CompletionItem, CompletionItemKind};
 
     fn match_body(body: &str) -> String {
         format!(
@@ -347,6 +340,20 @@ export component Test {{
         .unwrap();
         assert_eq!(labels(&results), ["*"]);
         assert_eq!(results[0].kind, Some(CompletionItemKind::KEYWORD));
+    }
+
+    #[test]
+    fn match_case_values_unsupported_subject() {
+        let results = get_completions_experimental(
+            r#"export component Test {
+    in-out property <image> picture;
+
+    match picture { 🔺 }
+}
+"#,
+        )
+        .unwrap_or_default();
+        assert!(!labels(&results).contains(&"*"));
     }
 
     #[test]
@@ -449,146 +456,166 @@ export component Test {{
         }
     }
 
-    fn code_action_edits(
-        document_cache: &mut editor_preview::DocumentCache,
-        url: &Url,
-        pos: Position,
-    ) -> Vec<(String, Vec<TextEdit>)> {
-        let capabilities = ClientCapabilities::default();
-        let Some((token, _)) = token_descr(document_cache, url, &pos) else {
-            return Vec::new();
-        };
-        get_code_actions(document_cache, token, &capabilities)
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|action| match action {
-                CodeActionOrCommand::CodeAction(action) => {
-                    let edits = match action.edit.and_then(|edit| edit.document_changes) {
-                        Some(lsp_types::DocumentChanges::Edits(edits)) => edits
-                            .into_iter()
-                            .flat_map(|edit| edit.edits)
-                            .filter_map(|edit| match edit {
-                                lsp_types::OneOf::Left(edit) => Some(edit),
-                                lsp_types::OneOf::Right(_) => None,
-                            })
-                            .collect(),
-                        _ => Vec::new(),
-                    };
-                    Some((action.title, edits))
-                }
-                CodeActionOrCommand::Command(_) => None,
-            })
-            .collect()
-    }
-
-    fn match_document(source: &str) -> (editor_preview::DocumentCache, Url) {
-        let (dc, url, _) = loaded_document_cache_with_experimental(source.into());
-        (dc, url)
-    }
-
     const NUMS: &str = "enum Nums { one, two, three }\n";
 
     #[test]
     fn test_code_actions_fill_missing_enum_cases() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        one: Rectangle {{ }}
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         one: Rectangle {{ }}
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 26), Position::new(6, 26)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_missing_enum_cases_qualified() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        Nums.one: Rectangle {{ }}
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         Nums.one: Rectangle {{ }}
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 31), Position::new(6, 31)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_missing_bool_case() {
-        let (mut dc, url) = match_document(
+        let actions = CodeActionRequest::at(
             r#"export component Test {
     in-out property <bool> flag: true;
 
-    match flag {
+    match 🔺flag {
         true: Rectangle { }
     }
 }
 "#,
-        );
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(3, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(4, 27), Position::new(4, 27)),
-                    "\n        false: { }".into()
-                )]
-            )]
-        );
+        )
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                r#"export component Test {
+    in-out property <bool> flag: true;
+
+    match flag {
+        true: Rectangle { }
+        false: { }
+    }
+}
+"#,
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_add_wildcard_case() {
-        let (mut dc, url) = match_document(
+        let actions = CodeActionRequest::at(
             r#"export component Test {
     in-out property <int> num: 0;
 
-    match num {
+    match 🔺num {
         0: Rectangle { }
     }
 }
 "#,
-        );
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(3, 10)),
-            vec![(
-                "Add '*' case".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(4, 24), Position::new(4, 24)),
-                    "\n        *: { }".into()
-                )]
-            )]
-        );
+        )
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add '*' case"]);
+        actions
+            .assert(
+                "Add '*' case",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                r#"export component Test {
+    in-out property <int> num: 0;
+
+    match num {
+        0: Rectangle { }
+        *: { }
+    }
+}
+"#,
+            )
+            .compiles();
+    }
+
+    #[test]
+    fn test_code_actions_no_wildcard_for_unsupported_subject() {
+        CodeActionRequest::at(
+            r#"export component Test {
+    in-out property <image> picture;
+
+    match 🔺picture {
+        @image-url("x.png"): Rectangle { }
+    }
+}
+"#,
+        )
+        .experimental()
+        .load()
+        .assert_empty();
     }
 
     #[test]
     fn test_code_actions_no_fill_for_exhaustive_match() {
-        let (mut dc, url) = match_document(&format!(
+        let source = format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
@@ -605,14 +632,21 @@ export component Test {{
     }}
 }}
 "#
-        ));
-        assert_eq!(code_action_edits(&mut dc, &url, Position::new(5, 10)), vec![]);
-        assert_eq!(code_action_edits(&mut dc, &url, Position::new(11, 10)), vec![]);
+        );
+        let subject = "match ".len();
+        CodeActionRequest::at_offset(&source, source.find("match num").unwrap() + subject)
+            .experimental()
+            .load()
+            .assert_empty();
+        CodeActionRequest::at_offset(&source, source.rfind("match num").unwrap() + subject)
+            .experimental()
+            .load()
+            .assert_empty();
     }
 
     #[test]
     fn test_code_actions_match_trigger_positions() {
-        let (mut dc, url) = match_document(&format!(
+        let source = format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
@@ -626,246 +660,382 @@ export component Test {{
     }}
 }}
 "#
-        ));
-        let offered = |dc: &mut editor_preview::DocumentCache, pos| {
-            code_action_edits(dc, &url, pos).into_iter().map(|(title, _)| title).collect::<Vec<_>>()
-        };
-
-        // The `match` keyword, the subject and the closing brace all act on the match element
-        assert_eq!(offered(&mut dc, Position::new(5, 5)), ["Add missing cases"]);
-        assert_eq!(offered(&mut dc, Position::new(5, 10)), ["Add missing cases"]);
-        assert_eq!(offered(&mut dc, Position::new(11, 4)), ["Add missing cases"]);
-        // Inside a case, the case body is not the match element
-        assert!(offered(&mut dc, Position::new(6, 13)).is_empty());
-        // A nested match offers its own missing values
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(7, 18)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(8, 34), Position::new(8, 34)),
-                    "\n                one: { }\n                three: { }".into()
-                )]
-            )]
         );
+        let outer = source.find("match num").unwrap();
+        for offset in [
+            outer + "m".len(),
+            outer + "match ".len(),
+            source.rfind("    }\n}").unwrap() + "    ".len(),
+        ] {
+            let actions = CodeActionRequest::at_offset(&source, offset).experimental().load();
+            assert_eq!(actions.titles(), ["Add missing cases"], "offset {offset}");
+        }
+        CodeActionRequest::at_offset(&source, source.find("Rectangle").unwrap())
+            .experimental()
+            .load()
+            .assert_empty();
+        let actions = CodeActionRequest::at_offset(
+            &source,
+            source.rfind("match num").unwrap() + "match ".len(),
+        )
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{
+        one: Rectangle {{
+            match num {{
+                two: Rectangle {{ }}
+                one: {{ }}
+                three: {{ }}
+            }}
+        }}
+    }}
+}}
+"#
+                ),
+            )
+            .skip_compile("the outer match stays non-exhaustive");
     }
 
     #[test]
     fn test_code_actions_fill_empty_match_body() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{ }}
+    match 🔺num {{ }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(5, 15), Position::new(5, 16)),
-                    "\n        one: { }\n        two: { }\n        three: { }\n    ".into()
-                )]
-            )]
-        );
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{
+        one: {{ }}
+        two: {{ }}
+        three: {{ }}
+    }}
+}}
+"#
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_one_line_match() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{ one: Rectangle {{ }} }}
+    match 🔺num {{ one: Rectangle {{ }} }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(5, 34), Position::new(5, 35)),
-                    "\n        two: { }\n        three: { }\n    ".into()
-                )]
-            )]
-        );
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{ one: Rectangle {{ }}
+        two: {{ }}
+        three: {{ }}
+    }}
+}}
+"#
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_preserves_trailing_comment() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{ /* keep */ }}
+    match 🔺num {{ /* keep */ }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(5, 26), Position::new(5, 27)),
-                    "\n        one: { }\n        two: { }\n        three: { }\n    ".into()
-                )]
-            )]
-        );
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{ /* keep */
+        one: {{ }}
+        two: {{ }}
+        three: {{ }}
+    }}
+}}
+"#
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_trailing_comment_without_cases() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{ // start
+    match 🔺num {{ // start
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(5, 24), Position::new(5, 24)),
-                    "\n        one: { }\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{ // start
+        one: {{ }}
+        two: {{ }}
+        three: {{ }}
+    }}
+}}
+"#
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_trailing_comment_on_last_case() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        one: Rectangle {{ }} // keep
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         one: Rectangle {{ }} // keep
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 34), Position::new(6, 34)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_several_trailing_comments() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        one: Rectangle {{ }} /* a */ /* b */
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         one: Rectangle {{ }} /* a */ /* b */
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 42), Position::new(6, 42)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_keeps_comment_on_its_own_line() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{
+    match 🔺num {{
         one: Rectangle {{ }}
         // keep
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 26), Position::new(6, 26)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match num {{
+        one: Rectangle {{ }}
+        two: {{ }}
+        three: {{ }}
+        // keep
+    }}
+}}
+"#
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_tab_indented() {
-        let (mut dc, url) = match_document(&format!(
-            "{NUMS}\nexport component Test {{\n\tin-out property <Nums> num: one;\n\n\tmatch num {{\n\t\tone: Rectangle {{ }}\n\t}}\n}}\n"
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 3)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 20), Position::new(6, 20)),
-                    "\n\t\ttwo: { }\n\t\tthree: { }".into()
-                )]
-            )]
-        );
+        let actions = CodeActionRequest::at(&format!(
+                "{NUMS}\nexport component Test {{\n\tin-out property <Nums> num: one;\n\n\tma🔺tch num {{\n\t\tone: Rectangle {{ }}\n\t}}\n}}\n"
+            ))
+            .experimental().load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions.assert("Add missing cases", Some(lsp_types::CodeActionKind::QUICKFIX), &format!(
+                "{NUMS}\nexport component Test {{\n\tin-out property <Nums> num: one;\n\n\tmatch num {{\n\t\tone: Rectangle {{ }}\n\t\ttwo: {{ }}\n\t\tthree: {{ }}\n\t}}\n}}\n"
+            )).compiles();
     }
 
     #[test]
     fn test_code_actions_fill_with_duplicate_case() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        one: Rectangle {{ }}
+        one: Rectangle {{ }}
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         one: Rectangle {{ }}
         one: Rectangle {{ }}
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(7, 26), Position::new(7, 26)),
-                    "\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .skip_compile("the duplicate case stays");
     }
 
     #[test]
     fn test_code_actions_match_inside_for() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+struct Item {{ num: Nums }}
+
+export component Test {{
+    in-out property <[Item]> items;
+
+    for item in items: Rectangle {{
+        match i🔺tem.num {{
+            one: Rectangle {{ }}
+        }}
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 struct Item {{ num: Nums }}
 
 export component Test {{
@@ -874,94 +1044,106 @@ export component Test {{
     for item in items: Rectangle {{
         match item.num {{
             one: Rectangle {{ }}
+            two: {{ }}
+            three: {{ }}
         }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(8, 15)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(9, 30), Position::new(9, 30)),
-                    "\n            two: { }\n            three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .compiles();
     }
 
     #[test]
     fn test_code_actions_fill_with_typo_case() {
-        let (mut dc, url) = match_document(&format!(
+        let actions = CodeActionRequest::at(&format!(
             r#"{NUMS}
+export component Test {{
+    in-out property <Nums> num: one;
+
+    match 🔺num {{
+        onee: Rectangle {{ }} // cspell:disable-line
+    }}
+}}
+"#
+        ))
+        .experimental()
+        .load();
+        assert_eq!(actions.titles(), ["Add missing cases"]);
+        actions
+            .assert(
+                "Add missing cases",
+                Some(lsp_types::CodeActionKind::QUICKFIX),
+                &format!(
+                    r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
     match num {{
         onee: Rectangle {{ }} // cspell:disable-line
+        one: {{ }}
+        two: {{ }}
+        three: {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(
-            code_action_edits(&mut dc, &url, Position::new(5, 10)),
-            vec![(
-                "Add missing cases".to_string(),
-                vec![TextEdit::new(
-                    lsp_types::Range::new(Position::new(6, 50), Position::new(6, 50)),
-                    "\n        one: { }\n        two: { }\n        three: { }".into()
-                )]
-            )]
-        );
+                ),
+            )
+            .skip_compile("the misspelled case stays");
     }
 
     #[test]
     fn test_code_actions_no_fill_for_non_literal_case() {
-        let (mut dc, url) = match_document(&format!(
+        CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
     in-out property <Nums> other: two;
 
-    match num {{
+    match 🔺num {{
         other: Rectangle {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(code_action_edits(&mut dc, &url, Position::new(6, 10)), vec![]);
+        ))
+        .experimental()
+        .load()
+        .assert_empty();
     }
 
     #[test]
     fn test_code_actions_no_fill_for_missing_brace() {
-        let (mut dc, url) = match_document(&format!(
+        CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num
+    match 🔺num
         one: Rectangle {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(code_action_edits(&mut dc, &url, Position::new(5, 10)), vec![]);
+        ))
+        .experimental()
+        .load()
+        .assert_empty();
     }
 
     #[test]
     fn test_code_actions_fill_requires_experimental() {
-        let (mut dc, url, _) = loaded_document_cache(format!(
+        CodeActionRequest::at(&format!(
             r#"{NUMS}
 export component Test {{
     in-out property <Nums> num: one;
 
-    match num {{
+    match 🔺num {{
         one: Rectangle {{ }}
     }}
 }}
 "#
-        ));
-        assert_eq!(code_action_edits(&mut dc, &url, Position::new(5, 10)), vec![]);
+        ))
+        .load()
+        .assert_empty();
     }
 }

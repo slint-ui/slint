@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component ListView inherits Rectangle {
+    in-out property <length> content-y;
+    in-out property <length> content-height;
+    in-out property <length> content-width;
+    out property <length> visible-height: self.height;
+    out property <length> visible-width: self.width;
+    public function ensure-row-visible(row: int, behavior: ScrollBehavior) {}
+//  >                                                                       <note{'ensure-row-visible' is declared here}
+    @children
+//  >       <error{Place '@children' directly in a 'Flickable' so that 'ensure-row-visible' can scroll this 'ListView'}
+}
+
+export component Test inherits Window {
+    ListView {
+        for x in 2: Rectangle { height: 10px; }
+    }
+}

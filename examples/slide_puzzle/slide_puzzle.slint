@@ -250,8 +250,6 @@ export component MainWindow inherits Window {
             x: (parent.width - self.width) / 2;
 
             HorizontalLayout {
-                spacing: 0px;
-
                 for theme[idx] in root.themes: TouchArea {
                     t := Text {
                         width: 100%; height: 100%;

@@ -717,7 +717,9 @@ def test_deleted_selected_element_clears_inspector(
         select_element(window, "Image")
         element(window, "Selected Image", role=slint_testing.AccessibleRole.Region)
         original = source.read_text()
-        source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
+        updated = original[: original.index("    inspect-image :=")] + "}\n"
+        source.write_text(updated)
+        wait_for_source(source, updated.encode())
         wait_until(
             lambda: (
                 not elements(

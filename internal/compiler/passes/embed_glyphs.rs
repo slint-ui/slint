@@ -3,12 +3,13 @@
 
 // cSpell: ignore fsdm msdf msdfgen
 use crate::CompilerConfiguration;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::BuildDiagnostics;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs};
-#[cfg(not(target_arch = "wasm32"))]
-use crate::expression_tree::BuiltinFunction;
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::Unit;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -95,17 +96,15 @@ fn swash_font_ref(font: &Font) -> swash::FontRef<'_> {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn embed_glyphs<'a>(
-    _component: &Document,
+pub fn embed_glyphs(
+    _doc: &Document,
     _compiler_config: &CompilerConfiguration,
-    _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _font_weights: Vec<u16>,
     _characters_seen: BTreeSet<char>,
-    _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
+    _font_collection: &SharedFontCollection,
     _diag: &mut BuildDiagnostics,
-) -> bool {
-    false
+) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]

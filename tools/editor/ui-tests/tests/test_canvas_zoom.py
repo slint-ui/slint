@@ -252,6 +252,46 @@ def test_canvas_scroll_and_space_pan(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("axis", ["vertical", "horizontal"])
+def test_shift_wheel_zooms_around_pointer(
+    editor_binary, editor_environment, fixture_project, axis
+):
+    source = fixture_project / "Main.slint"
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        center_canvas_selection(window)
+        frame = element(window, "Selected Rectangle")
+        canvas = element(window, "Editor canvas")
+        before = frame.absolute_position
+        pointer = slint_testing.LogicalPosition(x=before.x + 30, y=before.y + 20)
+
+        def shift_wheel(delta: float) -> None:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    pointer,
+                    delta_x=delta if axis == "horizontal" else 0,
+                    delta_y=delta if axis == "vertical" else 0,
+                )
+            )
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+        shift_wheel(120)
+        expect(canvas).to_have_value("125%")
+        assert frame.size.width == pytest.approx(180 * 1.25)
+        assert frame.absolute_position.x == pytest.approx(pointer.x - 30 * 1.25)
+        assert frame.absolute_position.y == pytest.approx(pointer.y - 20 * 1.25)
+        shift_wheel(-120)
+        shift_wheel(-120)
+        expect(canvas).to_have_value("75%")
+        assert frame.absolute_position.x == pytest.approx(pointer.x - 30 * 0.75)
+        assert frame.absolute_position.y == pytest.approx(pointer.y - 20 * 0.75)
+        original.assert_unchanged()
+
+
 def test_zoom_during_inline_edit_preserves_text(
     editor_binary, editor_environment, fixture_project
 ):
@@ -274,6 +314,29 @@ def test_zoom_during_inline_edit_preserves_text(
         original.wait_for_applied(
             replace_once(baseline, b'text: "Fixture text";', b'text: "Hello world";')
         )
+
+
+def test_inline_text_scales_at_200_percent(
+    editor_binary, editor_environment, fixture_project, tmp_path
+):
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "root-text")
+        center_canvas_selection(window, "Text")
+        zoom_canvas(window, 200)
+        element(window, "Text move handle").double_click(
+            slint_testing.PointerEventButton.Left
+        )
+        text = element(window, "Inline text editor")
+        assert text.size.width == pytest.approx(360)
+        assert text.size.height == pytest.approx(96)
+        screenshot(window).save(tmp_path / "inline-text-200.png")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("percent", [50, 125, 200])

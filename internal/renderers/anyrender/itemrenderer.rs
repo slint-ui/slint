@@ -53,6 +53,7 @@ pub struct AnyrenderItemRenderer<'a, S: PaintScene> {
     image_cache: &'a std::cell::RefCell<crate::ImageConversionCache>,
     item_image_cache: &'a ItemCache<Option<crate::SharedImageData>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
+    texture_importer: Option<&'a dyn crate::TextureImporter>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
 }
@@ -100,6 +101,7 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
             image_cache,
             item_image_cache,
             text_layout_cache,
+            texture_importer: None,
             state_stack: vec![],
             current_state: RenderState {
                 clip_rect: LogicalRect::from_size(
@@ -110,6 +112,15 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 alpha: 1.,
             },
         }
+    }
+
+    /// Draw images that wrap a GPU texture through `texture_importer`.
+    pub fn with_texture_importer(
+        mut self,
+        texture_importer: Option<&'a dyn crate::TextureImporter>,
+    ) -> Self {
+        self.texture_importer = texture_importer;
+        self
     }
 }
 
@@ -225,6 +236,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 resolve_image_fit(),
                 self.scale_factor,
                 self.image_cache,
+                self.texture_importer,
             )
         });
         let Some(image_data) = image_data else {
@@ -317,6 +329,17 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                     == (0, 0, image_data.width, image_data.height)
                 {
                     Some(image_data.clone())
+                } else if let Some(tile) = self.texture_importer.and_then(|importer| {
+                    let texture = match image_inner {
+                        ImageInner::NineSlice(nine) => nine.image(),
+                        _ => source.clone(),
+                    };
+                    importer.import_texture(
+                        &texture,
+                        Some(euclid::rect(crop_x, crop_y, crop_w, crop_h)),
+                    )
+                }) {
+                    Some(tile)
                 } else {
                     self.image_cache.borrow_mut().get_or_insert(
                         ImageCacheKey::new(image_inner),
@@ -742,6 +765,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             ImageFit::Fill,
             self.scale_factor,
             self.image_cache,
+            self.texture_importer,
         ) else {
             return;
         };
@@ -1290,6 +1314,7 @@ fn load_image(
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
     image_cache: &std::cell::RefCell<crate::ImageConversionCache>,
+    texture_importer: Option<&dyn crate::TextureImporter>,
 ) -> Option<crate::SharedImageData> {
     use crate::imagecache::ImageVariant;
 
@@ -1349,14 +1374,26 @@ fn load_image(
         // Backend storage is only produced by other renderers in the same
         // process; their data is not usable here.
         ImageInner::BackendStorage(..) => None,
-        ImageInner::NineSlice(n) => {
-            load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, image_cache)
-        }
-        // Remaining variants hold live GPU resources (borrowed GL textures,
-        // wgpu textures behind the unstable-wgpu-* features) that this
-        // backend-agnostic renderer cannot import.
+        ImageInner::NineSlice(n) => load_image(
+            n.image(),
+            target_size_fn,
+            ImageFit::Preserve,
+            scale_factor,
+            image_cache,
+            texture_importer,
+        ),
+        ImageInner::AnimatedImage(animated) => load_image(
+            animated.first_frame(),
+            target_size_fn,
+            image_fit,
+            scale_factor,
+            image_cache,
+            texture_importer,
+        ),
+        // Remaining variants hold live GPU resources. Borrowed GL textures
+        // can't be drawn.
         #[allow(unreachable_patterns)]
-        _ => None,
+        _ => texture_importer?.import_texture(&image, None),
     }
 }
 

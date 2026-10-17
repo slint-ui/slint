@@ -4,18 +4,17 @@
 //! Code generator for the Slint SC (safety-critical) runtime.
 
 use crate::CompilerConfiguration;
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{ByteFormat, SourceLocation, Spanned};
+use crate::element_type::PropertyLookupMode;
 use crate::embedded_resources::{EmbeddedResources, EmbeddedResourcesIdx, EmbeddedResourcesKind};
-use crate::expression_tree::{
-    BindingExpression, BuiltinFunction, Callable, ConditionLocation, Expression, ImageReference,
-    Unit,
-};
+use crate::expression_tree::{BindingExpression, Callable, ConditionLocation, Expression};
+use crate::expression_types::{ImageReference, Unit};
 use crate::generator::accessor_names::{AccessorKind, rust_accessor_ident};
-use crate::langtype::{EnumerationValue, PropertyLookupMode, StructName, Type};
+use crate::langtype::{EnumerationValue, StructName, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{
-    Document, Element, ElementRc, GeometryProps, PropertyDeclaration, PropertyVisibility,
-};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Document, Element, ElementRc, GeometryProps, PropertyDeclaration};
 use itertools::Either;
 use proc_macro2::{Delimiter, Group, Ident, Spacing, Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};

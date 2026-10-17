@@ -3,21 +3,21 @@
 
 //! The declaration of the functions built into the run-time
 
+use crate::expression_types::Orientation;
 use crate::langtype::Function;
-use crate::layout::Orientation;
 use smol_str::{SmolStr, StrExt};
 use std::sync::Arc;
 
 macro_rules! declare_builtin_functions {
     ($(
         $(#[$attr:meta])*
-        $Name:ident $(($Payload:ident))? :
+        $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
             $purity:ident fn $($runtime:ident)?
-                ($(& $context:ident $(,)?)? $($param:ident: $ty:tt $(=> $as:tt)?),*)
+                ($(& $context:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*)
                 -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
     )*) => {
         /// A function built into the run-time.
-        /// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
+        /// The functions of builtin elements name their variant in `builtin_elements.rs`.
         #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
         pub enum BuiltinFunction {
             $($(#[$attr])* $Name $(($Payload))?,)*
@@ -125,8 +125,8 @@ macro_rules! builtin_type {
     (NoArgCallback) => { $crate::typeregister::noarg_callback_type() };
     (ScaleFactor) => {
         $crate::langtype::Type::UnitProduct(vec![
-            ($crate::expression_tree::Unit::Phx, 1),
-            ($crate::expression_tree::Unit::Px, -1),
+            ($crate::expression_types::Unit::Phx, 1),
+            ($crate::expression_types::Unit::Px, -1),
         ])
     };
     (Int32) => { $crate::langtype::Type::Int32 };

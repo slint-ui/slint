@@ -22,7 +22,7 @@
 //! The `Empty` behind the conditional `Repeater` is never used.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::typeloader::TypeLoader;
 use crate::{expression_tree, object_tree::*};
 use std::cell::RefCell;

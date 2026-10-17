@@ -675,7 +675,7 @@ fn matching_decl_in_inheritance_chain(
             && node.text_range() == declaration_node.text_range()
             && Arc::ptr_eq(&node.source_file, source_file)
         {
-            if decl.visibility == object_tree::PropertyVisibility::Private {
+            if decl.visibility == i_slint_compiler::native_class::PropertyVisibility::Private {
                 return false;
             }
             if !decl.property_type.ok_for_public_api() {
@@ -686,7 +686,7 @@ fn matching_decl_in_inheritance_chain(
         let base = element_borrow.base_type.clone();
         drop(element_borrow);
         match base {
-            i_slint_compiler::langtype::ElementType::Component(c) => {
+            i_slint_compiler::element_type::ElementType::Component(c) => {
                 element = c.root_element.clone();
             }
             _ => return false,
@@ -772,7 +772,7 @@ impl TokenInformation {
             }) {
                 return true;
             }
-            if let i_slint_compiler::langtype::ElementType::Component(c) =
+            if let i_slint_compiler::element_type::ElementType::Component(c) =
                 &element.borrow().base_type
             {
                 check_element(&c.root_element, node)
@@ -803,14 +803,14 @@ impl TokenInformation {
             ) => Rc::ptr_eq(&nl.element(), &nr.element()) && nl.name() == nr.name(),
             (
                 crate::token_info::TokenInfo::ElementType(
-                    i_slint_compiler::langtype::ElementType::Component(c),
+                    i_slint_compiler::element_type::ElementType::Component(c),
                 ),
                 crate::token_info::TokenInfo::ElementRc(e),
             )
             | (
                 crate::token_info::TokenInfo::ElementRc(e),
                 crate::token_info::TokenInfo::ElementType(
-                    i_slint_compiler::langtype::ElementType::Component(c),
+                    i_slint_compiler::element_type::ElementType::Component(c),
                 ),
             ) => {
                 if let Some(ce) = c.node.as_ref().map(|cn| cn.Element()) {
@@ -838,7 +838,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalProperty(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -863,7 +863,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalCallback(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -888,7 +888,7 @@ impl TokenInformation {
                 crate::token_info::TokenInfo::IncompleteNamedReference(nr1, nr2),
                 crate::token_info::TokenInfo::LocalFunction(s),
             ) => {
-                matches!(nr1, i_slint_compiler::langtype::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
+                matches!(nr1, i_slint_compiler::element_type::ElementType::Component(c) if s.parent().is_some_and(|n| check_element(&c.root_element, &n)))
                     && Some(nr2)
                         == i_slint_compiler::parser::identifier_text(&s.DeclaredIdentifier())
                             .as_ref()
@@ -1050,12 +1050,12 @@ impl DeclarationNodeQuery {
                     crate::token_info::TokenInfo::IncompleteNamedReference(element_type, name) => {
                         if name == &self.token_info.name {
                             match &element_type {
-                                i_slint_compiler::langtype::ElementType::Component(component) => {
-                                    find_declared_identifier_in_element(
-                                        &self,
-                                        &component.node.as_ref()?.Element(),
-                                    )
-                                }
+                                i_slint_compiler::element_type::ElementType::Component(
+                                    component,
+                                ) => find_declared_identifier_in_element(
+                                    &self,
+                                    &component.node.as_ref()?.Element(),
+                                ),
                                 _ => None,
                             }
                         } else {
@@ -1364,23 +1364,9 @@ mod tests {
     ) -> Vec<text_edit::EditedText> {
         let changed_text = apply_text_changes(document_cache, edit);
         let changed_text_count = changed_text.len();
-        let code = {
-            let mut map: HashMap<Url, String> = document_cache
-                .all_url_documents()
-                .map(|(url, dn)| (url, dn.source_file.as_ref()))
-                .map(|(url, sf)| (url, sf.source().unwrap().to_string()))
-                .collect();
-            for ct in &changed_text {
-                map.insert(ct.url.clone(), ct.contents.clone());
-            }
-            map
-        };
 
-        // changed code compiles fine:
-        let enable_experimental =
-            document_cache.compiler_configuration().compiler_config.enable_experimental;
         let new_document_cache =
-            test::recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental);
+            test::recompile_test_with_edits(document_cache, &changed_text, allow_warnings);
 
         // try to apply the reverse change. That should lead to the same result
         let reversed_edit = text_edit::reversed_edit(document_cache, edit).unwrap();

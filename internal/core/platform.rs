@@ -82,8 +82,7 @@ pub trait Platform {
     /// This is being phased out, see #1499.
     fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
         assert!(!quit_on_last_window_closed);
-        crate::context::GLOBAL_CONTEXT
-            .with(|ctx| (*ctx.get().unwrap().0.window_count.borrow_mut()) += 1);
+        crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().keep_alive_forever());
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop
@@ -122,8 +121,7 @@ pub trait Platform {
     ///
     /// A double click event is a series of two pointer clicks.
     fn click_interval(&self) -> core::time::Duration {
-        // 500ms is the default delay according to https://en.wikipedia.org/wiki/Double-click#Speed_and_timing
-        core::time::Duration::from_millis(500)
+        crate::input::DEFAULT_CLICK_INTERVAL
     }
 
     /// Returns the current rate at which the text cursor should flash or blink.

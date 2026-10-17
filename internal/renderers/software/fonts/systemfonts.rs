@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use i_slint_common::sharedfontique::{HashedBlob, fontique};
 use i_slint_core::lengths::ScaleFactor;
+use i_slint_core::textlayout::sharedparley::FontContext;
 
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
@@ -41,14 +42,14 @@ fn get_swash_font_info_for_query_font(font: &fontique::QueryFont) -> (swash::Cac
 pub fn match_font(
     request: &super::FontRequest,
     scale_factor: super::ScaleFactor,
-    collection: &mut fontique::Collection,
-    source_cache: &mut fontique::SourceCache,
+    font_context: &mut FontContext,
 ) -> Option<VectorFont> {
     if request.family.is_some() {
         let requested_pixel_size: PhysicalLength =
             (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-        if let Some(font) = request.query_fontique(collection, source_cache) {
+        if let Some(font) = font_context.query_font(request) {
+            let font = font.font.clone();
             let (swash_key, swash_offset) = get_swash_font_info_for_query_font(&font);
             Some(VectorFont::new(font, swash_key, swash_offset, requested_pixel_size))
         } else {
@@ -62,24 +63,23 @@ pub fn match_font(
 pub fn fallbackfont(
     font_request: &super::FontRequest,
     scale_factor: ScaleFactor,
-    collection: &mut fontique::Collection,
-    source_cache: &mut fontique::SourceCache,
+    font_context: &mut FontContext,
 ) -> VectorFont {
     let requested_pixel_size: PhysicalLength =
         (font_request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    let font = font_request.query_fontique(collection, source_cache).unwrap();
+    let font = font_context.query_font(font_request).unwrap().font.clone();
     let (swash_key, swash_offset) = get_swash_font_info_for_query_font(&font);
     VectorFont::new(font, swash_key, swash_offset, requested_pixel_size)
 }
 
 #[cfg(not(target_family = "wasm"))]
 pub fn register_font_from_path(
-    collection: &mut fontique::Collection,
+    font_context: &mut FontContext,
     path: &std::path::Path,
 ) -> Result<(), alloc::boxed::Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
     let contents = std::fs::read(requested_path)?;
-    collection.register_fonts(contents.into(), None);
+    font_context.register_fonts(contents.into());
     Ok(())
 }

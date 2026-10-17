@@ -5,10 +5,12 @@
 // Generate mdx documentation files for builtin elements using data from
 // the compiler's TypeRegister.
 
-use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
+use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::native_class::{
+    BuiltinPropertyDefault, BuiltinPropertyInfo, PropertyVisibility,
 };
-use i_slint_compiler::object_tree::PropertyVisibility;
 
 use std::collections::HashSet;
 use std::fmt::Write as FmtWrite;
@@ -287,8 +289,7 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
 // -- Type formatting helpers --
 
 /// Format a default value expression for documentation output.
-fn format_default_expr(expr: &i_slint_compiler::expression_tree::Expression) -> String {
-    use i_slint_compiler::expression_tree::Expression;
+fn format_default_expr(expr: &Expression) -> String {
     match expr {
         Expression::EnumerationValue(v) => {
             v.enumeration.values.get(v.value).map(|s| s.to_string()).unwrap_or_default()
@@ -465,7 +466,7 @@ fn write_slint_property(
     let raw_doc = info.docs.as_deref().unwrap_or("");
     let (description, doc_default) = extract_default(raw_doc);
     let mut default_value = match &info.default_value {
-        BuiltinPropertyDefault::Expr(expr) => format_default_expr(&expr.to_expression()),
+        BuiltinPropertyDefault::Expr(expr) => format_default_expr(&Expression::from_constant(expr)),
         _ => String::new(),
     };
     if default_value.is_empty()

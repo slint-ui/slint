@@ -19,6 +19,7 @@ from ui_driver import (
     palette_row,
     press_key,
     press_keys,
+    press_shortcut,
     query,
     select_outline_row,
 )
@@ -81,6 +82,60 @@ def test_file_tree_renames_file_inline(
             message="renamed file exists and original is gone",
         ).to_equal(True)
         assert target.read_text() == expected
+
+
+def test_file_tree_renames_file_from_context_menu(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    target = fixture_project / "Renamed.slint"
+    expected = source.read_text()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        file_row(window, source).single_click(slint_testing.PointerEventButton.Right)
+        element(window, "Rename").single_click(slint_testing.PointerEventButton.Left)
+        element(
+            window, "Rename Main.slint", role=slint_testing.AccessibleRole.TextInput
+        )
+
+        press_key(window, keys.Backspace)
+        press_keys(window, "Renamed")
+        press_key(window, keys.Return)
+
+        expect.poll(
+            lambda: target.is_file() and not source.exists(),
+            message="renamed file exists and original is gone",
+        ).to_equal(True)
+        assert target.read_text() == expected
+
+
+def test_file_tree_copies_path_from_context_menu(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        file_row(window, source).single_click(slint_testing.PointerEventButton.Right)
+        element(window, "Copy Path").single_click(slint_testing.PointerEventButton.Left)
+
+        file_row(window, source).single_click(slint_testing.PointerEventButton.Right)
+        element(window, "Rename").single_click(slint_testing.PointerEventButton.Left)
+        field = element(
+            window, "Rename Main.slint", role=slint_testing.AccessibleRole.TextInput
+        )
+        press_shortcut(window, keys.Control, "a")
+        press_shortcut(window, keys.Control, "v")
+        expect(field).to_have_value(str(source))
+
+        press_key(window, keys.Escape)
+        expect(query(window, "Rename Main.slint")).to_be_hidden()
+        assert source.is_file()
 
 
 def test_file_tree_saves_rename_when_focus_moves(

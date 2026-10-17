@@ -41,7 +41,7 @@ pub mod opengl;
 #[cfg(feature = "wgpu-30")]
 pub mod wgpu;
 #[cfg(feature = "wgpu-30")]
-pub use wgpu::FemtoVGWGPURenderer;
+pub use wgpu::{FemtoVGWGPURenderer, FemtoVGWGPURendererExt};
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
@@ -164,6 +164,10 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         .map(|_| ())
     }
 
+    fn can_draw(&self, window_size: i_slint_core::api::PhysicalSize) -> bool {
+        window_size.width > 0 && window_size.height > 0 && self.canvas.borrow().is_some()
+    }
+
     fn internal_render_with_post_callback(
         &self,
         rotation_angle_degrees: f32,
@@ -193,15 +197,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         let window = window_adapter.window();
         let window_size = window.size();
 
-        let Some((width, height)): Option<(NonZeroU32, NonZeroU32)> =
-            window_size.width.try_into().ok().zip(window_size.height.try_into().ok())
-        else {
-            // Nothing to render
-            return Ok(DrawOutcome::Success);
-        };
-
-        if self.canvas.borrow().is_none() {
-            // Nothing to render
+        if !self.can_draw(window_size) {
             return Ok(DrawOutcome::Success);
         }
 
@@ -224,14 +220,23 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
                     select_render_target(&mut femtovg_canvas, render_target);
 
-                    // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                    if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                    // A gradient that isn't opaque blends over what the target holds, which may
+                    // be undefined.
+                    let clear_color =
+                        if let Some(Brush::SolidColor(clear_color)) = &window_background_brush {
+                            Some(self::itemrenderer::to_femtovg_color(clear_color))
+                        } else if window_background_brush.as_ref().is_some_and(|b| !b.is_opaque()) {
+                            Some(femtovg::Color::rgba(0, 0, 0, 0))
+                        } else {
+                            None
+                        };
+                    if let Some(clear_color) = clear_color {
                         femtovg_canvas.clear_rect(
                             0,
                             0,
                             surface_size.width,
                             surface_size.height,
-                            self::itemrenderer::to_femtovg_color(&clear_color),
+                            clear_color,
                         );
                     }
                 }
@@ -252,7 +257,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     let commands = femtovg_canvas.flush_to_output(surface.render_output());
                     self.graphics_backend.submit_commands(commands);
 
-                    femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    femtovg_canvas.set_size(window_size.width, window_size.height, scale);
                     select_render_target(&mut femtovg_canvas, render_target);
                     drop(femtovg_canvas);
 
@@ -273,8 +278,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     &self.box_shadow_cache,
                     &self.text_layout_cache,
                     window,
-                    width.get(),
-                    height.get(),
+                    window_size.width,
+                    window_size.height,
                     render_target,
                 );
 

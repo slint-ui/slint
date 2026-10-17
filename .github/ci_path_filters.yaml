@@ -152,6 +152,7 @@ api_python: &api_python
 
 api_node: &api_node
  - 'api/node/**'
+ - 'internal/compiler/generator/typescript*{,/**}'
  - *js_config
  - '.github/workflows/node_test_reusable.yaml'
 
@@ -180,6 +181,11 @@ tests:
 # The other members of the tests/ workspace, which only the integration tests build.
 integration_tests:
  - 'tests/{screenshots,manual,backends,issues}/**'
+
+# The widget styles and the widget tests, which run once per style.
+widget_tests:
+ - *widgets
+ - 'tests/cases/widgets/**'
 
 examples:
  # Some examples are tested separately and can be excluded from here

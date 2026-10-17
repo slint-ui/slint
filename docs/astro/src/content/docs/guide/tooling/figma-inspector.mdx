@@ -1,119 +1,91 @@
 ---
-title: Figma Variable Export
-description: Exporting Figma Variables to Slint Design Tokens
+title: Figma to Slint
+description: Preview Figma selections with Slint, export editable UI projects, and generate snippets in Dev Mode.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+The **Figma to Slint** plugin turns a selected Figma design into Slint source.
+Preview the result in Figma, then export a project to continue building your application in Slint.
+Conversion and preview run locally without sending your design to an external service.
 
-## Introduction
-The "Figma to Slint" plugin bridges the gap between Figma designs and Slint user interfaces. It provides two primary functionalities:
+![Figma to Slint showing a rendered button component family above its generated Slint source, with Export ZIP and Copy Slint controls.](../../../../assets/guide/tooling/figma-preview-family.webp)
 
-1.  **Object Inspection:** Allows developers to select any object on the Figma canvas and view its properties (like dimensions, colors, fonts, etc.)formatted as a Slint code snippet. This is useful for quickly translating visual design elements into Slint code.  When paired with the variable export, this inserts variables into the code, if they are used in the Figma file.
-2.  **Variable Export:** Enables the reliable export of design tokens (variables for colors, numbers, strings, and booleans) defined in Figma directly into `.slint` files. This feature fully supports Figma's modes, allowing for themeable designs (e.g., light and dark modes) and generates the necessary Slint structs, enums, and global instances to use these tokens seamlessly in your Slint application.
+## Install the Plugin
 
-## Setting up the Figma Inspector
-First of all, find and enable the "Figma to Slint" plugin in the Figma Plugin Manager.
-The inspector currently has 2 functions.  One is to inspect individual Figma objects for their properties, and the other is to export the variables defined in Figma so they are useable in Slint directly.
+Open [Figma to Slint in Figma Community](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint) and run it in a design file.
 
-## Key Features of Variable Export
+## Preview a Selection
 
--   **Type Conversion:**
+1. Select a frame, component, instance, or other layer on the Figma canvas.
+2. Run **Figma to Slint**.
+3. Compare the **Rendered with Slint** preview with your design.
+4. Inspect **Generated Slint source** below the preview.
 
-    The plugin maps Figma variable types to their corresponding Slint types as follows:
+Select another layer to update the preview and source.
+Start with a single component or a small frame to review the conversion before exporting a larger screen.
 
-    | Figma Variable Type | Slint Type |
-    | ------------------- | ---------- |
-    | Color               | `brush`    |
-    | Float               | `length`   |
-    | String              | `string`   |
-    | Boolean             | `bool`     |
+Use the pin button to keep the current preview root while selecting other layers in Figma.
+Unpin it to follow the selection again.
+Pinning resets when you restart the plugin or switch pages or files.
 
--   **Mode Support:**
-  For a figma file where Mode `MyCollection` has modes `light` and `dark`, the exporter will create a Slint `enum` for mode selection (e.g., `MyCollectionMode { light, dark }`).
-  The file also contains a `Scheme` struct (`MyCollection-Scheme`) representing the structure of variables. A `Scheme-Mode` struct (`MyCollection-Scheme-Mode`) holds instances of the `Scheme` for each mode. And finally a global instance (`my_collection`) which contains:
-        -   `mode`: An instance of `Scheme-Mode` holding the resolved values for each mode.
-        -   `current-mode`: An `in-out` property using the mode `enum` to control the active mode.
-        -   `current`: An `out` property dynamically selecting the correct scheme instance based on `current-mode`.
--   **Reliable Variable Resolution:** Automatically resolves all variable aliases (references) to their concrete values, ensuring consistent and predictable output regardless of how variables reference each other.
--   **Hierarchy Generation:** Interprets `/` in Figma like
-    `colors/background/primary`
-  to generate nested Slint structs so the corresponding variables are nested for dot notation in Slint, thus the above example turns into `colors.background.primary`
--   **Robust Mode Handling:** Intelligently matches Figma modes to ensure all variables export with their correct values, even when mode IDs don't match perfectly between collections and variables.
--   **Name Sanitization:** Cleans up collection, variable, and mode names to be valid Slint identifiers (e.g., converting spaces and special characters to underscores, handling leading digits).
--   **Export Options:**
-    -   **Separate Files:** Exports each Figma collection into its own `.slint` file. Creates `<collection_name>.slint` files with automatic cross-collection imports when needed.
-    -   **Single File:** Combines all collections into a single `design-tokens.slint` file for simpler project integration.
--   **README Generation:** Creates a `README.md` file alongside the export, summarizing exported collections, renamed variables, and any warnings.
+### Copy the Source
 
-## Usage
+Choose **Copy Slint** to copy the generated source.
+Use it to inspect the conversion or bring a small selection into an existing Slint file.
 
-1.  **Inspector:**
-    -   Bring up the plugin UI and select any object you'd like to inspect.
-    ![alt text](../../../../assets/guide/tooling/inspect.webp)
+![Generated Slint source with syntax highlighting and the Export ZIP and Copy Slint actions.](../../../../assets/guide/tooling/figma-source-panel.webp)
 
-2.  **Variables:**
-    -   To see and export variables, check the "Use Figma Variables" checkbox in the plugin UI.
-    ![alt text](../../../../assets/guide/tooling/use-variables.webp)
-    -   Now when selecting objects to inspect you should see variable names instead of resolved values (if they are assigned)
-    ![alt text](../../../../assets/guide/tooling/inspect-variables.webp)
-3.  **Export:** Click the "Export" button and choose:
-    ![alt text](../../../../assets/guide/tooling/export-variables.webp)
-    -   `Separate Files Per Collection…`: Recommended for organization. Creates `<collection_name>.slint` files.
-    -   `Single Design-Tokens File…`: Creates `design-tokens.slint` for simpler project integration.
-4.  **Integrate:**
-    -   Place the generated `.slint` file(s) in your Slint project.
+For a complete selection with reusable components and image assets, choose **Export ZIP**.
+The project export can differ from the preview source because it includes reusable component definitions and separate asset files.
 
+## Export an Editable Project
 
-## Design-Token File Structure
+Choose **Export ZIP**, then extract the downloaded archive.
+Open `main.slint` in the [Slint extension for Visual Studio Code](../vscode/) to preview and edit the result.
 
-1. **Import**
-    ```slint no-test
-    // If separate files:
-    import { Colors } from "colors.slint";
-    import { Spacing } from "spacing.slint";
-    ```
-    ```slint no-test
-    // If single file:
-    import { Colors, Spacing } from "design-tokens.slint";
-    ```
+The archive contains:
 
-2. **Use variables**
-    ```slint no-test
-    // Use the tokens:
-    export component MyComponent inherits Rectangle {
-        background: Colors.current.background.primary; // Access via .current for mode switching
-        height: Spacing.medium; // Access directly if single-mode or not mode-dependent
-    }
-    ```
+```text
+main.slint
+assets/
+fonts/
+    README.txt
+README.txt
+```
 
-3.  **Mode Switching:** (For multi-mode collections)
-   Modify the `current-mode` property of the imported global:
+| File or Folder | Purpose |
+| --- | --- |
+| `main.slint` | Generated UI source, including reusable components for supported Figma components and variants. |
+| `assets/` | Images and other exported visual assets referenced by the source. |
+| `fonts/README.txt` | Required font families, styles, and instructions for adding font files. |
+| `README.txt` | Instructions for opening the project and conversion warnings. |
 
-    ```slint no-test
-    // Example: In your main component's logic
-    init => {
-        // Set initial mode
-        Colors.current-mode = ColorsMode.dark;
-    }
-    // Or in response to a user action:
-    clicked => {
-        Colors.current-mode = (Colors.current-mode == ColorsMode.light) ? ColorsMode.dark : ColorsMode.light;
-    }
-    ```
+Keep `assets/` and `fonts/` beside `main.slint` so relative paths resolve.
+Add application behavior, callbacks, and data bindings in your Slint project.
+Exporting the design doesn't implement your application's logic.
 
-    -   All properties accessed via `<collection_name>.current.*` will automatically update.
+### Keep Design Tokens and Variants
 
-## Naming Conventions & Sanitization
+For supported component families, the export generates reusable Slint components with properties for their variants.
+Supported variable bindings appear in a generated `DesignTokens` global.
+Collections with multiple modes have properties for choosing a mode.
+Inspect the generated names in `main.slint` before connecting these properties to your application.
+Diagnostics identifies bindings that retain their captured values instead of a shared token reference.
 
--   **Hierarchy:** Figma uses `/` in variable names (e.g., `radius/small`, `font/body/weight`).  The export will use these to create nested Slint structs for code completion clarity.
--   **Sanitization:** Collection names, variable names (path segments), and mode names are automatically sanitized:
-    -   Spaces and invalid characters (`&`, `+`, `:`, `-`, etc.) are typically converted to `-` for collection/struct names and `_` for property/enum names.
-    -   Leading/trailing invalid characters are removed.
-    -   Names starting with a digit are prefixed with `_` or `m_`.
-    -   Any variable named exactly `mode` at the root of a collection is renamed to `mode-var` in the Slint output to avoid conflicts with the generated scheme `mode` property.
+### Match the Fonts
 
-    #### Example
-    Variable `Color & Shade (only #hex values)` in a collection named `Color Primitives`
-    would get turned into
-    `color-primitives.color_and_shade_only_hex_values`
+Font files aren't included in the ZIP.
+Read `fonts/README.txt`, add the required fonts, and uncomment their import lines at the top of `main.slint`.
+Update the import extensions if your fonts use a different file format.
+
+The export runs with fallback fonts before you add them, but text appearance and layout can change.
+The Figma preview can use images for text that the plugin's embedded fonts can't render faithfully.
+The project export keeps supported text editable, so check it again with the correct fonts.
+
+## Generate Snippets in Dev Mode
+
+Use Figma **Dev Mode** when you need the Slint properties of an individual selected layer.
+Choose **Slint** in the code panel's language selector.
+The plugin also provides snippets through Figma's VS Code extension.
+
+Dev Mode snippets describe the selected layer only.
+Use the plugin's preview and ZIP export to convert its child layers and export a complete UI.

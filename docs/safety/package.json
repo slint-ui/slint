@@ -25,7 +25,7 @@
     "astro": "catalog:",
     "astro-mermaid": "2.1.0",
     "esbuild": "0.28.2",
-    "mermaid": "12.0.0",
+    "mermaid": "12.1.0",
     "sharp": "catalog:",
     "starlight-sidebar-topics": "0.9.0",
     "typescript": "catalog:"

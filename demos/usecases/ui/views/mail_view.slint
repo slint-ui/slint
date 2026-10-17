@@ -204,7 +204,6 @@ export component MailBoxView {
                 spacing: 8px;
 
                 ExtendedLineEdit {
-                    vertical-stretch: 0;
                     placeholder-text: "Search by Sender";
 
                     Icon {
@@ -301,7 +300,6 @@ export component MailMessageView {
                     y: 0;
 
                     mail-text := Text {
-                        vertical-alignment: top;
                         font-size: 14px;
                         font-weight: FontWeight.normal;
                         color: Palette.foreground;
@@ -355,7 +353,6 @@ export component MailView {
     }
 
     sidebar-dialog := MailSideBarDialog {
-        sidebar-x: 0;
         sidebar-y: root.absolute-position.y;
         sidebar-height: DialogGlobal.window-height - root.absolute-position.y;
     }

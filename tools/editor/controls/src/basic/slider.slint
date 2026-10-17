@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SliderBase, LinearSliderSurface } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component Slider inherits SliderBase {
+    in property <length> handle-width: 20px;
+    in property <length> handle-height: 20px;
+    in property <length> track-thickness: 4px;
+    preferred-width: root.orientation == Orientation.vertical ? 32px : 200px;
+    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
+    private property <brush> state-handle: BasicTheme.accent;
+    private property <brush> state-fill: BasicTheme.accent;
+    private property <brush> state-track: BasicTheme.hover-background;
+    in property <brush> track-color: root.state-track;
+    in property <brush> fill-color: root.state-fill;
+    in property <brush> handle-color: root.state-handle;
+    in property <brush> handle-border-color: root.has-focus ? BasicTheme.focus : BasicTheme.border;
+    in property <length> handle-border-width: root.has-focus ? 2px : 1px;
+    in property <length> handle-radius: min(root.handle-width, root.handle-height) / 2;
+    in property <length> track-radius: root.track-thickness / 2;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-handle: BasicTheme.disabled-foreground;
+            root.state-fill: BasicTheme.disabled-foreground;
+            root.state-track: BasicTheme.disabled-background;
+        }
+        pressed when root.pressed: {
+            root.state-handle: BasicTheme.accent-pressed;
+        }
+        hover when root.hovered: {
+            root.state-handle: BasicTheme.accent-hover;
+        }
+    ]
+
+    surface << LinearSliderSurface {
+        handle-width: root.handle-width;
+        handle-height: root.handle-height;
+        track-thickness: root.track-thickness;
+        track << Rectangle {
+            background: root.track-color;
+            border-radius: root.track-radius;
+            Rectangle {
+                x: root.orientation == Orientation.horizontal && root.inverted
+                    ? parent.width * root.visual-position : 0px;
+                y: root.orientation == Orientation.vertical && !root.inverted
+                    ? parent.height * root.visual-position : 0px;
+                width: root.orientation == Orientation.horizontal ? parent.width * root.position : parent.width;
+                height: root.orientation == Orientation.vertical ? parent.height * root.position : parent.height;
+                background: root.fill-color;
+                border-radius: root.track-radius;
+            }
+        }
+
+        handle << Rectangle {
+            background: root.handle-color;
+            border-color: root.handle-border-color;
+            border-width: root.handle-border-width;
+            border-radius: root.handle-radius;
+        }
+    }
+}

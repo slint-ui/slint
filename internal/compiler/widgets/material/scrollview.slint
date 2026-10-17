@@ -34,8 +34,6 @@ component ScrollBar inherits Rectangle {
     clip: true;
 
     state-layer := Rectangle {
-        width: 100%;
-        height: 100%;
         background: MaterialPalette.accent-background;
         border-radius: 4px;
         opacity: 0;
@@ -51,8 +49,6 @@ component ScrollBar inherits Rectangle {
         height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(min(32px, root.height), parent.height * (root.page-size / (root.maximum + root.page-size)));
 
         background := Rectangle {
-            width: 100%;
-            height: 100%;
             border-radius: 4px;
             border-color: MaterialPalette.border;
             border-width: 1px;
@@ -61,9 +57,6 @@ component ScrollBar inherits Rectangle {
 
     touch-area := TouchArea {
         property <{pressed-value: length, maximum: length, x:length, y: length}> saved-values;
-
-        width: parent.width;
-        height: parent.height;
 
         function update-saved-values() {
             self.saved-values = { pressed-value: -root.value, maximum: root.maximum, x: self.mouse-x, y: self.mouse-y };

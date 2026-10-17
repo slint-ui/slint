@@ -265,6 +265,8 @@ private:
 /// `StyledText::from_plain_text()` to wrap plain text without formatting.
 ///
 /// Assign the result to a `styled-text` property in a Slint component to display it.
+///
+/// Copies of a StyledText share the same underlying data, so copying is cheap.
 struct StyledText
 {
 public:

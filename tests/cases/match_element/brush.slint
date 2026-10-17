@@ -1,0 +1,77 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <int> choice: 0;
+    in-out property <string> clicked-case;
+    property <brush> fill: choice == 0 ? #ff0000 : choice == 1 ? Colors.blue : @linear-gradient(90deg, red, blue);
+
+    match fill {
+        #ff0000: TouchArea {
+            clicked => {
+                clicked-case = "red";
+            }
+        }
+        blue: TouchArea {
+            clicked => {
+                clicked-case = "blue";
+            }
+        }
+        *: TouchArea {
+            clicked => {
+                clicked-case = "other";
+            }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_case(), "red");
+
+instance.set_choice(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_case(), "blue");
+
+instance.set_choice(2);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_case(), "other");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_case(), "red");
+
+instance.set_choice(1);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_case(), "blue");
+
+instance.set_choice(2);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_case(), "other");
+```
+
+```js
+var instance = new slint.TestCase();
+
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_case, "red");
+
+instance.choice = 1;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_case, "blue");
+
+instance.choice = 2;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_case, "other");
+```
+*/

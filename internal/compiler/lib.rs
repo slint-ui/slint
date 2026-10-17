@@ -23,8 +23,10 @@ pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod element_type;
 pub mod embedded_resources;
 pub mod expression_tree;
+pub mod expression_types;
 pub mod fileaccess;
 pub mod generator;
 pub mod langtype;
@@ -34,9 +36,12 @@ pub mod literals;
 pub mod llr;
 pub mod lookup;
 pub mod namedreference;
+pub mod names;
+pub mod native_class;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;
+pub mod property_analysis;
 pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
@@ -109,6 +114,11 @@ pub enum ComponentSelection {
 
     /// The component with the given name is generated
     Named(String),
+
+    /// All exported components, regardless if they inherit Window or not
+    ///
+    /// A document that exports no component, such as a library of globals, is valid.
+    AllExported,
 }
 
 /// Type alias for the callback to open files mentioned in `import` statements
