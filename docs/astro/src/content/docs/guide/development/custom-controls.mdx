@@ -601,8 +601,6 @@ export component ToggleSwitch inherits Rectangle {
     }
 
     touch-area := TouchArea {
-        width: root.width;
-        height: root.height;
         clicked => {
             if (root.enabled) {
                 root.checked = !root.checked;
@@ -673,9 +671,7 @@ export component MySlider inherits Rectangle {
 export component Recipe inherits Window {
     VerticalBox {
         alignment: start;
-        slider := MySlider {
-            maximum: 100;
-        }
+        slider := MySlider { }
         Text {
             text: "Value: \{round(slider.value)}";
         }
@@ -728,9 +724,7 @@ export component MySlider inherits Rectangle {
 export component Recipe inherits Window {
     VerticalBox {
         alignment: start;
-        slider := MySlider {
-            maximum: 100;
-        }
+        slider := MySlider { }
         Text {
             text: "Value: \{round(slider.value)}";
         }
@@ -945,8 +939,6 @@ component Splitter inherits TouchArea {
     mouse-cursor: ew-resize;
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         background: blue;
     }
 }
