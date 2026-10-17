@@ -1,6 +1,6 @@
 ---
 title: Project File
-description: Configure the main file, include paths, and library paths of a project in one place.
+description: Configure the target version, main file, include paths, and library paths of a project in one place.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -28,6 +28,7 @@ or in the root of your repository to configure all of them.
 
 ```json
 {
+    "slint-target-version": "1.19",
     "main": "ui/main.slint",
     "include-paths": ["ui/shared"],
     "library-paths": {
@@ -37,18 +38,40 @@ or in the root of your repository to configure all of them.
 ```
 
 The file is JSON with `//` and `/* */` comments.
-Every setting is optional.
+Every setting is optional, except `slint-target-version`.
 
 ## Settings
 
 | Setting | Type | Description |
 |---------|------|-------------|
+| `slint-target-version` | string | Required. The Slint release whose language behavior to use, such as `"1.19"`. See [Target Version](#target-version). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
 | `enable-experimental-features` | boolean | Turns on features that aren't stable yet. |
 | `main` | string | The `.slint` file to compile when you pass the project file itself. See [Compiling the Project File](#compiling-the-project-file). |
 
 Relative paths are resolved against the directory that contains the project file.
+
+## Target Version
+
+Set `slint-target-version` to the Slint release you write your project for, as major and minor version.
+Write it as a string: `"1.19"`, not `1.19`.
+Use the version of Slint you build with, or any older one.
+
+When a Slint release changes the behavior of the language,
+the change applies only to projects that target that release or a newer one.
+A newer Slint keeps compiling your project the way the targeted release did,
+until you raise the target version.
+A Slint older than the target version refuses to compile the project.
+
+Without a project file, Slint uses the behavior from before Slint 1.19.
+
+These releases changed the behavior:
+
+- 1.19: An element created with `if` or `for` counts toward the size of its parent,
+  as a static child does ([#407](https://github.com/slint-ui/slint/issues/407)).
+  A child that sizes itself from that parent then forms a binding loop, which the compiler reports as an error.
+  Set `x` or `y` on such a child to keep it out of its parent's size.
 
 ## Which Setting Wins
 
@@ -59,6 +82,8 @@ From highest to lowest priority:
 2. The project file.
 3. A compiler default.
 
+`slint-target-version` comes only from the project file.
+
 ## Compiling the Project File
 
 Set `main` to the main `.slint` file of your application,
@@ -67,6 +92,7 @@ Slint compiles the main file with the settings of that project file and doesn't 
 
 ```json
 {
+    "slint-target-version": "1.19",
     "main": "ui/main.slint"
 }
 ```

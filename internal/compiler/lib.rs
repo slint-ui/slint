@@ -183,6 +183,10 @@ pub struct CompilerConfiguration {
     /// Add support for experimental features
     pub enable_experimental: bool,
 
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before target versions existed.
+    pub target_version: Option<project_file::SlintVersion>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -238,6 +242,11 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
+    pub fn repeated_children_constrain_parent(&self) -> bool {
+        self.target_version.is_some_and(|version| version >= project_file::SlintVersion::V1_19)
+    }
+
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
         #[cfg(feature = "bundle-translations")]
@@ -310,6 +319,11 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        // Undocumented. Selects a target version without a project file,
+        // for the test drivers or to try a `.slint` file in slint-viewer.
+        let target_version =
+            std::env::var("SLINT_TARGET_VERSION").ok().and_then(|version| version.parse().ok());
+
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -338,6 +352,7 @@ impl CompilerConfiguration {
             const_image_sizes,
             accessibility: true,
             enable_experimental,
+            target_version,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,

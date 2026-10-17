@@ -32,6 +32,7 @@ pub fn default_geometry(
     root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
+    merge_repeated_children: bool,
 ) {
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
@@ -48,7 +49,7 @@ pub fn default_geometry(
             w100 |= fix_percent_size(elem, parent, "width", diag, symbol_counters);
             h100 |= fix_percent_size(elem, parent, "height", diag, symbol_counters);
 
-            gen_layout_info_prop(elem, diag, symbol_counters);
+            gen_layout_info_prop(elem, diag, symbol_counters, merge_repeated_children);
 
             let builtin_type = match elem.borrow().builtin_type() {
                 Some(b) if !elem.borrow().is_flickable_content => b,
@@ -191,14 +192,15 @@ fn gen_layout_info_prop(
     elem: &ElementRc,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
+    merge_repeated_children: bool,
 ) {
     if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_content {
         return;
     }
     for c in elem.borrow().children.iter().filter(|c| has_no_explicit_position(c)) {
-        gen_layout_info_prop(c, diag, symbol_counters);
+        gen_layout_info_prop(c, diag, symbol_counters, merge_repeated_children);
     }
-    gen_layout_info_prop_from_children(elem, diag, symbol_counters);
+    gen_layout_info_prop_from_children(elem, diag, symbol_counters, merge_repeated_children);
 }
 
 fn has_no_explicit_position(elem: &ElementRc) -> bool {
@@ -209,6 +211,7 @@ fn gen_layout_info_prop_from_children(
     elem: &ElementRc,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
+    merge_repeated_children: bool,
 ) {
     let child_infos = elem
         .borrow()
@@ -256,9 +259,9 @@ fn gen_layout_info_prop_from_children(
                         // return above doesn't catch it. A ComponentContainer's
                         // placeholder is a fake `if false:` repeater, and the container
                         // reports the embedded tree's constraints itself.
-                        // Experimental for now: a child that sizes itself from this
-                        // parent is a binding loop error once merged (#13972).
-                        if !diag.enable_experimental
+                        // A child that sizes itself from this parent is a binding loop
+                        // error once merged (#13972).
+                        if !merge_repeated_children
                             || r.is_listview.is_some()
                             || cb.is_component_placeholder
                         {

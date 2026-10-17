@@ -2905,23 +2905,27 @@ mod project_file_tests {
 
     #[test]
     fn the_project_file_include_paths_are_used() {
-        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
-            let include = root.join("include");
-            std::fs::create_dir_all(&include).unwrap();
-            std::fs::write(include.join("shared.slint"), "export component Shared { }").unwrap();
+        with_project(
+            r#"{ "slint-target-version": "1.19", "include-paths": ["include"] }"#,
+            |root| {
+                let include = root.join("include");
+                std::fs::create_dir_all(&include).unwrap();
+                std::fs::write(include.join("shared.slint"), "export component Shared { }")
+                    .unwrap();
 
-            let result = compile(
-                root,
-                r#"import { Shared } from "shared.slint";
+                let result = compile(
+                    root,
+                    r#"import { Shared } from "shared.slint";
                    export component Main inherits Window { Shared { } }"#,
-            );
-            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-        });
+                );
+                assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+            },
+        );
     }
 
     #[test]
     fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
-        with_project(r#"{"include-paths":["include"]}"#, |root| {
+        with_project(r#"{"slint-target-version":"1.19","include-paths":["include"]}"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
@@ -2959,7 +2963,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn explicit_empty_include_paths_apply_to_source_path_compilation() {
-        with_project("{}", |root| {
+        with_project(r#"{ "slint-target-version": "1.19" }"#, |root| {
             let include_directory = root.join("include");
             std::fs::create_dir(&include_directory).unwrap();
             std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
@@ -3017,24 +3021,27 @@ mod project_file_tests {
     // The C++ interpreter API goes through the deprecated ComponentCompiler.
     #[test]
     fn the_deprecated_compiler_reads_the_project_file() {
-        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
-            std::fs::create_dir(root.join("include")).unwrap();
-            std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
-                .unwrap();
-            let main = root.join("main.slint");
-            std::fs::write(&main, r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#).unwrap();
+        with_project(
+            r#"{ "slint-target-version": "1.19", "include-paths": ["include"] }"#,
+            |root| {
+                std::fs::create_dir(root.join("include")).unwrap();
+                std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
+                    .unwrap();
+                let main = root.join("main.slint");
+                std::fs::write(&main, r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#).unwrap();
 
-            #[allow(deprecated)]
-            let mut compiler = super::ComponentCompiler::new();
-            #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(&main));
-            assert!(definition.is_some());
-        });
+                #[allow(deprecated)]
+                let mut compiler = super::ComponentCompiler::new();
+                #[allow(deprecated)]
+                let definition = spin_on::spin_on(compiler.build_from_path(&main));
+                assert!(definition.is_some());
+            },
+        );
     }
 
     #[test]
     fn a_project_file_path_compiles_its_main_file() {
-        with_project(r#"{ "main": "ui/main.slint" }"#, |root| {
+        with_project(r#"{ "slint-target-version": "1.19", "main": "ui/main.slint" }"#, |root| {
             std::fs::create_dir_all(root.join("ui")).unwrap();
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
@@ -3048,7 +3055,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_file_path_without_a_main_file_is_reported() {
-        with_project("{}", |root| {
+        with_project(r#"{ "slint-target-version": "1.19" }"#, |root| {
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
             assert!(result.has_errors());
@@ -3060,7 +3067,7 @@ mod project_file_tests {
 
     #[test]
     fn the_deprecated_compiler_compiles_the_main_file_of_a_project_file() {
-        with_project(r#"{ "main": "main.slint" }"#, |root| {
+        with_project(r#"{ "slint-target-version": "1.19", "main": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 

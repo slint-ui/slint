@@ -144,6 +144,7 @@ fn preview_configuration(
         library_paths: configuration.compiler_config.library_paths.clone(),
         format_utf8: configuration.format == crate::ByteFormat::Utf8,
         enable_experimental: configuration.compiler_config.enable_experimental,
+        target_version: configuration.compiler_config.target_version.map(|v| v.to_string()),
     }
 }
 
@@ -270,6 +271,7 @@ impl EditorSession {
             mut include_paths,
             library_paths,
             enable_experimental_features,
+            slint_target_version,
             schema: _,
             main: _,
         } = overrides;
@@ -294,6 +296,9 @@ impl EditorSession {
         let mut enable_experimental = enable_experimental_features.map(|value| {
             (value, override_source(workspace.enable_experimental_features.is_some()).to_string())
         });
+        let mut target_version = slint_target_version.map(|value| {
+            (value, override_source(workspace.slint_target_version.is_some()).to_string())
+        });
         let mut project_diagnostics = Vec::new();
 
         for path in &self.project_file_paths {
@@ -304,6 +309,7 @@ impl EditorSession {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
                     enable_experimental_features: project_enable_experimental,
+                    slint_target_version: project_target_version,
                     schema: _,
                     main: _,
                 } = project.resolved_data();
@@ -339,6 +345,13 @@ impl EditorSession {
                     "experimental features",
                     &mut warn,
                 );
+                keep_first(
+                    &mut target_version,
+                    project_target_version,
+                    &source,
+                    "slint-target-version",
+                    &mut warn,
+                );
             }
             project_diagnostics.push((
                 url.clone(),
@@ -353,6 +366,7 @@ impl EditorSession {
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
                 enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
+                slint_target_version: target_version.map(|(version, _)| version),
                 schema: None,
                 main: None,
             },
@@ -1005,6 +1019,8 @@ mod preview_tests {
             compiler_config.compiler_config.library_paths =
                 HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]);
             compiler_config.compiler_config.enable_experimental = enable_experimental;
+            compiler_config.compiler_config.target_version =
+                Some(i_slint_compiler::project_file::SlintVersion::V1_19);
             compiler_config.format = crate::ByteFormat::Utf16;
             let (to_preview, messages) = crate::test::preview_capture();
             let session =
@@ -1026,6 +1042,7 @@ mod preview_tests {
                     library_paths: HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]),
                     format_utf8: false,
                     enable_experimental,
+                    target_version: Some("1.19".into()),
                 })
             );
         }
@@ -1241,7 +1258,8 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let document = temp.path().join("editing.slint");
         let disk_dependency = temp.path().join("disk-only.slint");
-        std::fs::write(temp.path().join(FILE_NAME), "{}").unwrap();
+        std::fs::write(temp.path().join(FILE_NAME), r#"{ "slint-target-version": "1.19" }"#)
+            .unwrap();
         std::fs::write(&document, r#"import { DiskOnly } from "disk-only.slint"; export component Main inherits DiskOnly {}"#).unwrap();
         std::fs::write(&disk_dependency, "export component DiskOnly inherits DoesNotExist {}")
             .unwrap();
@@ -1293,8 +1311,13 @@ mod tests {
         let document = temp.path().join("editing.slint");
         let entry = entry_directory.join("main.slint");
         let dependency = entry_directory.join("dependency.slint");
-        std::fs::write(&project, r#"{ "main": "main/main.slint" }"#).unwrap();
-        std::fs::write(entry_directory.join(FILE_NAME), "{}").unwrap();
+        std::fs::write(
+            &project,
+            r#"{ "slint-target-version": "1.19", "main": "main/main.slint" }"#,
+        )
+        .unwrap();
+        std::fs::write(entry_directory.join(FILE_NAME), r#"{ "slint-target-version": "1.19" }"#)
+            .unwrap();
         std::fs::write(&entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
         std::fs::write(&dependency, "export component Dependency {}").unwrap();
         write_document(&document);
@@ -1329,7 +1352,11 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let entry = temp.path().join("main.slint");
         let document = temp.path().join("editing.slint");
-        std::fs::write(temp.path().join(FILE_NAME), r#"{ "main": "main.slint" }"#).unwrap();
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-target-version": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
         write_document(&entry);
         write_document(&document);
         let mut session = session();
@@ -1353,7 +1380,11 @@ mod tests {
     fn closing_a_main_file_reports_errors_from_disk_on_queued_reload() {
         let temp = TempDir::new().unwrap();
         let entry = temp.path().join("main.slint");
-        std::fs::write(temp.path().join(FILE_NAME), r#"{ "main": "main.slint" }"#).unwrap();
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-target-version": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
         std::fs::write(&entry, "export component Main inherits DoesNotExist {}").unwrap();
         let entry_url = Url::from_file_path(&entry).unwrap();
         let mut session = session();
@@ -1374,7 +1405,11 @@ mod tests {
                         .any(|diagnostic| diagnostic.message.contains("DoesNotExist"))
             }));
         }
-        std::fs::write(temp.path().join(FILE_NAME), r#"{ "main": "main.slint" }"#).unwrap();
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-target-version": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
         spin_on::spin_on(
             session
                 .reload_active_project_file(&temp.path().join(FILE_NAME), FileChangeKind::Changed),
@@ -1398,13 +1433,21 @@ mod tests {
         let mut session = session();
         for directory in &project_directories {
             std::fs::create_dir(directory).unwrap();
-            std::fs::write(directory.join(FILE_NAME), r#"{ "main": "../shared.slint" }"#).unwrap();
+            std::fs::write(
+                directory.join(FILE_NAME),
+                r#"{ "slint-target-version": "1.19", "main": "../shared.slint" }"#,
+            )
+            .unwrap();
             let document = directory.join("editing.slint");
             write_document(&document);
             open_document(&mut session, &document).unwrap();
         }
         let first_project = project_directories[0].join(FILE_NAME);
-        std::fs::write(&first_project, r#"{ "main": "../replacement.slint" }"#).unwrap();
+        std::fs::write(
+            &first_project,
+            r#"{ "slint-target-version": "1.19", "main": "../replacement.slint" }"#,
+        )
+        .unwrap();
         spin_on::spin_on(
             session.reload_active_project_file(&first_project, FileChangeKind::Changed),
         )
@@ -1450,7 +1493,8 @@ mod tests {
         let project = temp.path().join(FILE_NAME);
         let entry = temp.path().join("main.slint");
         let document = temp.path().join("editing.slint");
-        std::fs::write(&project, r#"{ "main": "main.slint" }"#).unwrap();
+        std::fs::write(&project, r#"{ "slint-target-version": "1.19", "main": "main.slint" }"#)
+            .unwrap();
         write_document(&entry);
         write_document(&document);
         let mut session = session();
@@ -1476,8 +1520,16 @@ mod tests {
         std::fs::create_dir_all(&nested_directory).unwrap();
         let nested_project_path = nested_directory.join(FILE_NAME);
         let document_path = nested_directory.join("main.slint");
-        std::fs::write(&top_project_path, r#"{ "include-paths": ["top"] }"#).unwrap();
-        std::fs::write(&nested_project_path, r#"{ "include-paths": ["nested"] }"#).unwrap();
+        std::fs::write(
+            &top_project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["top"] }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &nested_project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["nested"] }"#,
+        )
+        .unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -1495,7 +1547,11 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "include-paths": ["include"] }"#).unwrap();
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["include"] }"#,
+        )
+        .unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -1513,7 +1569,7 @@ mod tests {
             let directory = temp.path().join(name);
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
-            std::fs::write(&path, r#"{"enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            std::fs::write(&path, r#"{"slint-target-version":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
             session.project_file_paths.push(path.clone());
             session.active_projects.insert(path.clone(), ProjectFile::load(&path).unwrap());
         }
@@ -1536,8 +1592,12 @@ mod tests {
             let directory = temp.path().join(name);
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
-            std::fs::write(&path, serde_json::json!({"library-paths": libraries}).to_string())
-                .unwrap();
+            std::fs::write(
+                &path,
+                serde_json::json!({"slint-target-version": "1.19", "library-paths": libraries})
+                    .to_string(),
+            )
+            .unwrap();
             session.project_file_paths.push(path.clone());
             session.active_projects.insert(path.clone(), ProjectFile::load(&path).unwrap());
             project_paths.push(path);
@@ -1583,6 +1643,30 @@ mod tests {
     }
 
     #[test]
+    fn the_target_version_reaches_the_preview_and_a_conflict_is_reported() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().join(FILE_NAME);
+        let inner_directory = temp.path().join("nested");
+        std::fs::create_dir_all(&inner_directory).unwrap();
+        let inner = inner_directory.join(FILE_NAME);
+        std::fs::write(&outer, r#"{ "slint-target-version": "1.19" }"#).unwrap();
+        std::fs::write(&inner, r#"{ "slint-target-version": "1.18" }"#).unwrap();
+        let mut session = session();
+        for path in [&outer, &inner] {
+            session.project_file_paths.push(path.clone());
+            session.active_projects.insert(path.clone(), ProjectFile::load(path).unwrap());
+        }
+
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+
+        assert_eq!(session.preview_config.target_version.as_deref(), Some("1.19"));
+        let inner_url = Url::from_file_path(&inner).unwrap();
+        let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains("slint-target-version '1.18'"), "{warnings:?}");
+    }
+
+    #[test]
     fn project_diagnostics_follow_final_configuration_and_clear() {
         let temp = TempDir::new().unwrap();
         let outer = temp.path().join(FILE_NAME);
@@ -1593,10 +1677,10 @@ mod tests {
         write_document(&document);
         std::fs::write(
             &outer,
-            r#"{"enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#,
+            r#"{"slint-target-version":"1.19","enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#,
         )
         .unwrap();
-        std::fs::write(&inner, r#"{"enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        std::fs::write(&inner, r#"{"slint-target-version":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
             session.project_file_paths.push(path.clone());
@@ -1702,7 +1786,7 @@ mod tests {
         let document_path = temp.path().join("main.slint");
         std::fs::write(
             &project_path,
-            r#"{ "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#,
         )
         .unwrap();
         write_document(&document_path);
@@ -1793,12 +1877,12 @@ mod tests {
         let document_b = project_b.join("main.slint");
         std::fs::write(
             project_a.join(FILE_NAME),
-            r#"{ "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
+            r#"{ "slint-target-version": "1.19", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
         )
         .unwrap();
         std::fs::write(
             project_b.join(FILE_NAME),
-            r#"{ "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
         )
         .unwrap();
         write_document(&document_a);
@@ -1834,8 +1918,13 @@ mod tests {
             let directory = temp.path().join(directory);
             std::fs::create_dir_all(&directory).unwrap();
             let project_path = directory.join(FILE_NAME);
-            std::fs::write(&project_path, format!(r#"{{ "include-paths": ["{include_path}"] }}"#))
-                .unwrap();
+            std::fs::write(
+                &project_path,
+                format!(
+                    r#"{{ "slint-target-version": "1.19", "include-paths": ["{include_path}"] }}"#
+                ),
+            )
+            .unwrap();
             let document_path = directory.join("main.slint");
             write_document(&document_path);
             load_document(&mut session, &document_path).unwrap();
@@ -1856,7 +1945,13 @@ mod tests {
         for path in project_paths.iter().rev() {
             let include_path =
                 if path == &project_paths[0] { "first-include" } else { "second-include" };
-            std::fs::write(path, format!(r#"{{ "include-paths": ["{include_path}"] }}"#)).unwrap();
+            std::fs::write(
+                path,
+                format!(
+                    r#"{{ "slint-target-version": "1.19", "include-paths": ["{include_path}"] }}"#
+                ),
+            )
+            .unwrap();
             spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
                 .unwrap();
         }
@@ -1875,10 +1970,16 @@ mod tests {
         let outer = temp.path().to_path_buf();
         let inner = outer.join("nested");
         std::fs::create_dir_all(&inner).unwrap();
-        std::fs::write(outer.join(FILE_NAME), r#"{ "library-paths": {"widgets": "outer.slint"} }"#)
-            .unwrap();
-        std::fs::write(inner.join(FILE_NAME), r#"{ "library-paths": {"widgets": "inner.slint"} }"#)
-            .unwrap();
+        std::fs::write(
+            outer.join(FILE_NAME),
+            r#"{ "slint-target-version": "1.19", "library-paths": {"widgets": "outer.slint"} }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            inner.join(FILE_NAME),
+            r#"{ "slint-target-version": "1.19", "library-paths": {"widgets": "inner.slint"} }"#,
+        )
+        .unwrap();
         write_document(&outer.join("main.slint"));
         write_document(&inner.join("main.slint"));
 
@@ -1910,7 +2011,11 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "include-paths": ["first"] }"#).unwrap();
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["first"] }"#,
+        )
+        .unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -1931,7 +2036,11 @@ mod tests {
         );
         assert!(session.pending_recompile.contains(&document_url));
 
-        std::fs::write(&project_path, r#"{ "include-paths": ["second"] }"#).unwrap();
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["second"] }"#,
+        )
+        .unwrap();
         spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
             .unwrap();
 
@@ -1944,7 +2053,11 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "include-paths": ["first"] }"#).unwrap();
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["first"] }"#,
+        )
+        .unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -1966,7 +2079,11 @@ mod tests {
         assert!(session.pending_recompile.contains(&document_url));
 
         // A project file created again is found the next time the document loads.
-        std::fs::write(&project_path, r#"{ "include-paths": ["second"] }"#).unwrap();
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-target-version": "1.19", "include-paths": ["second"] }"#,
+        )
+        .unwrap();
         spin_on::spin_on(session.reload_document(document_url)).unwrap();
 
         assert_eq!(
