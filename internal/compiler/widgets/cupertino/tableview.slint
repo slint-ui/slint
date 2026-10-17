@@ -37,7 +37,6 @@ component TableViewColumn inherits Rectangle {
             colorize: CupertinoPalette.foreground;
             visible: root.sort-order != SortOrder.unsorted;
             width: 8px;
-            y: (parent.height - self.height) / 2;
             source: root.sort-order == SortOrder.ascending ? Icons.chevron-down : Icons.chevron-up;
             accessible-role: none;
 

@@ -141,7 +141,7 @@ export component BaseDialog {
                     spacing: MaterialStyleMetrics.spacing_16;
 
                     if root.has_icon : Icon {
-                        x: (parent.width - self.width) / 2;
+                        cross-axis-self-alignment: center;
                         colorize: MaterialPalette.on_surface;
                         source: root.icon;
                     }
