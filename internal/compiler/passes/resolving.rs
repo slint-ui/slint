@@ -595,16 +595,16 @@ impl Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
         if let Some(code_block_node) = node.CodeBlock() {
-            Self::from_codeblock_node(code_block_node, ctx).maybe_convert_to(
+            Self::from_codeblock_node(code_block_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                &code_block_node,
                 ctx.diag,
                 &ctx.symbol_counters,
             )
         } else if let Some(expr_node) = node.Expression() {
-            Self::from_expression_node(expr_node, ctx).maybe_convert_to(
+            Self::from_expression_node(expr_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                &expr_node,
                 ctx.diag,
                 &ctx.symbol_counters,
             )
@@ -622,9 +622,9 @@ impl Expression {
             debug_assert!(ctx.diag.has_errors());
             return Expression::Invalid;
         };
-        Self::from_codeblock_node(code_block, ctx).maybe_convert_to(
+        Self::from_codeblock_node(code_block.clone(), ctx).maybe_convert_to(
             ctx.return_type().clone(),
-            &node,
+            &code_block,
             ctx.diag,
             &ctx.symbol_counters,
         )
