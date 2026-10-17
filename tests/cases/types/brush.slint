@@ -29,10 +29,17 @@ export component Test inherits Rectangle {
             && self.background != self.colo;
     }
 
+    // Properties named like colors are used as an angle and a position, not colors.
+    property <angle> tan: 90deg;
+    property <float> peru: 40%;
+    out property <bool> test_named_like_colors:
+        @linear-gradient(tan, red, blue peru) == @linear-gradient(90deg, red, blue 40%);
+
     out property <bool> test_rgb: rgb(color_brush.red, color_brush.green, color_brush.blue) == color_brush;
 
     out property<bool> test: lighter == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col
-        && test_circle.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4 && test_rgb;
+        && test_circle.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4 && test_rgb
+        && test_named_like_colors;
 }
 
 /*
@@ -83,6 +90,7 @@ export interface Test {
     get seethru(): Required<slint.Brush>;
     set seethru(value: slint.Brush | string);
     readonly test: boolean;
+    readonly test_named_like_colors: boolean;
     readonly test_rgb: boolean;
 }
 
