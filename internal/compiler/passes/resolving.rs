@@ -83,7 +83,7 @@ fn resolve_expression(
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
                     .maybe_convert_to(
                         lookup_ctx.property_type.clone(),
-                        node,
+                        Some(&node.clone().into()),
                         lookup_ctx.diag,
                         &lookup_ctx.symbol_counters,
                     )
@@ -454,7 +454,12 @@ impl Expression {
             }
         };
         if !matches!(ctx.property_type, Type::Callback { .. } | Type::Function { .. }) {
-            e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag, &ctx.symbol_counters)
+            e.maybe_convert_to(
+                ctx.property_type.clone(),
+                Some(&node.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            )
         } else {
             // Binding to a callback or function shouldn't happen
             assert!(ctx.diag.has_errors());
@@ -521,7 +526,7 @@ impl Expression {
             let mut expr = std::mem::replace(&mut statements_or_exprs[index], Expression::Invalid);
             expr = expr.maybe_convert_to(
                 common_return_type.clone(),
-                &node,
+                Some(&node.clone().into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -566,8 +571,12 @@ impl Expression {
         // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
         ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
 
-        let value =
-            Box::new(value.maybe_convert_to(ty.clone(), &node, ctx.diag, &ctx.symbol_counters));
+        let value = Box::new(value.maybe_convert_to(
+            ty.clone(),
+            Some(&node.into()),
+            ctx.diag,
+            &ctx.symbol_counters,
+        ));
 
         Expression::StoreLocalVariable { name, value }
     }
@@ -584,7 +593,12 @@ impl Expression {
         Expression::ReturnStatement(e.map(|n| {
             let e = ctx
                 .with_expected_type(return_type.clone(), |ctx| Self::from_expression_node(n, ctx));
-            Box::new(e.maybe_convert_to(return_type, &node, ctx.diag, &ctx.symbol_counters))
+            Box::new(e.maybe_convert_to(
+                return_type,
+                Some(&node.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            ))
         }))
     }
 
@@ -595,16 +609,16 @@ impl Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
         if let Some(code_block_node) = node.CodeBlock() {
-            Self::from_codeblock_node(code_block_node, ctx).maybe_convert_to(
+            Self::from_codeblock_node(code_block_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                Some(&code_block_node.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
         } else if let Some(expr_node) = node.Expression() {
-            Self::from_expression_node(expr_node, ctx).maybe_convert_to(
+            Self::from_expression_node(expr_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                Some(&expr_node.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
@@ -622,12 +636,22 @@ impl Expression {
             debug_assert!(ctx.diag.has_errors());
             return Expression::Invalid;
         };
-        Self::from_codeblock_node(code_block, ctx).maybe_convert_to(
+        Self::from_codeblock_node(code_block.clone(), ctx).maybe_convert_to(
             ctx.return_type().clone(),
-            &node,
+            Some(&code_block.into()),
             ctx.diag,
             &ctx.symbol_counters,
         )
+    }
+
+    /// Resolve `node` as a value of type `ty`, converting it to that type.
+    fn from_expression_node_as(
+        node: syntax_nodes::Expression,
+        ty: Type,
+        ctx: &mut LookupCtx,
+    ) -> Self {
+        ctx.with_expected_type(ty.clone(), |ctx| Self::from_expression_node(node.clone(), ctx))
+            .maybe_convert_to(ty, Some(&node.into()), ctx.diag, &ctx.symbol_counters)
     }
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
@@ -938,19 +962,9 @@ impl Expression {
             let cx_syn = syntax_nodes::Expression::from(cx_node.as_node().unwrap().clone());
             let cy_syn = syntax_nodes::Expression::from(cy_node.as_node().unwrap().clone());
             let cx =
-                Box::new(Expression::from_expression_node(cx_syn.clone(), ctx).maybe_convert_to(
-                    Type::LogicalLength,
-                    &cx_syn,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ));
+                Box::new(Expression::from_expression_node_as(cx_syn, Type::LogicalLength, ctx));
             let cy =
-                Box::new(Expression::from_expression_node(cy_syn.clone(), ctx).maybe_convert_to(
-                    Type::LogicalLength,
-                    &cy_syn,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ));
+                Box::new(Expression::from_expression_node_as(cy_syn, Type::LogicalLength, ctx));
             Some((cx, cy))
         };
 
@@ -971,14 +985,7 @@ impl Expression {
                 );
                 return Expression::Invalid;
             }
-            let angle = Box::new(
-                Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
-                    Type::Angle,
-                    &angle_expr,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ),
-            );
+            let angle = Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
             (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
             if !all_subs.first().is_some_and(|n| {
@@ -991,23 +998,28 @@ impl Expression {
             let mut idx = 1;
 
             // Parse optional radius (a length expression that is not the "at" keyword).
-            // Only consume the node when it actually resolves to a length-compatible type;
-            // a colour keyword like `blue` must not silently become a failed conversion.
+            // A value that isn't a length, like `#00f`, isn't consumed.
             let radius = if all_subs.get(idx).is_some_and(|n| {
                 n.kind() == SyntaxKind::Expression
                     && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
             }) {
                 let r = all_subs.get(idx).unwrap();
                 let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
-                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
-                if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
-                    let radius = Box::new(
-                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag, &ctx.symbol_counters),
-                    );
-                    idx += 1;
-                    Some(radius)
-                } else {
-                    None
+                let expr = ctx.with_expected_type(Type::LogicalLength, |ctx| {
+                    Expression::from_expression_node(r_syn.clone(), ctx)
+                });
+                match expr.ty() {
+                    Type::Invalid => return Expression::Invalid,
+                    Type::LogicalLength | Type::Float32 | Type::Int32 => {
+                        idx += 1;
+                        Some(Box::new(expr.maybe_convert_to(
+                            Type::LogicalLength,
+                            Some(&r_syn.into()),
+                            ctx.diag,
+                            &ctx.symbol_counters,
+                        )))
+                    }
+                    _ => None,
                 }
             } else {
                 None
@@ -1066,12 +1078,8 @@ impl Expression {
                         return Expression::Invalid;
                     }
                 };
-                let angle = Box::new(
-                    Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
-                        Type::Angle,
-                        &angle_expr,
-                        ctx.diag, &ctx.symbol_counters),
-                );
+                let angle =
+                    Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
                 idx = 2; // consumed "from" and angle
                 angle
             } else {
@@ -1115,6 +1123,10 @@ impl Expression {
             Color(Expression),
             Finished,
         }
+        let stop_type = match &grad_kind {
+            GradKind::Conic { .. } => Type::Angle,
+            _ => Type::Float32,
+        };
         let mut current_stop = Stop::Empty;
         for n in all_subs.iter().skip(stops_start_idx) {
             if n.kind() == SyntaxKind::Comma {
@@ -1134,15 +1146,18 @@ impl Expression {
                     )),
                 }
             } else {
-                // To facilitate color literal conversion, adjust the expected type.
-                let e = ctx.with_expected_type(Type::Color, |ctx| {
+                let expected_type = match current_stop {
+                    Stop::Color(_) => stop_type.clone(),
+                    _ => Type::Color,
+                };
+                let e = ctx.with_expected_type(expected_type, |ctx| {
                     Expression::from_expression_node(n.as_node().unwrap().clone().into(), ctx)
                 });
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
                         current_stop = Stop::Color(e.maybe_convert_to(
                             Type::Color,
-                            n,
+                            Some(n),
                             ctx.diag,
                             &ctx.symbol_counters,
                         ))
@@ -1151,16 +1166,15 @@ impl Expression {
                         ctx.diag.push_error("Expected comma".into(), n);
                         break;
                     }
-                    Stop::Color(col) => {
-                        let stop_type = match &grad_kind {
-                            GradKind::Conic { .. } => Type::Angle,
-                            _ => Type::Float32,
-                        };
-                        stops.push((
-                            col,
-                            e.maybe_convert_to(stop_type, n, ctx.diag, &ctx.symbol_counters),
-                        ))
-                    }
+                    Stop::Color(col) => stops.push((
+                        col,
+                        e.maybe_convert_to(
+                            stop_type.clone(),
+                            Some(n),
+                            ctx.diag,
+                            &ctx.symbol_counters,
+                        ),
+                    )),
                 }
             }
         }
@@ -1226,13 +1240,14 @@ impl Expression {
                 Expression::RadialGradient { center, radius, stops }
             }
             GradKind::Conic { from_angle, center } => {
+                let node = NodeOrToken::from(node);
                 // Normalize stop angles to 0-1 range by dividing by 360deg
                 let normalized_stops = stops
                     .into_iter()
                     .map(|(color, angle_expr)| {
                         let angle_typed = angle_expr.maybe_convert_to(
                             Type::Angle,
-                            &node,
+                            Some(&node),
                             ctx.diag,
                             &ctx.symbol_counters,
                         );
@@ -1247,8 +1262,12 @@ impl Expression {
                     .collect();
 
                 // Convert from_angle to degrees (don't normalize to 0-1)
-                let from_angle_degrees =
-                    from_angle.maybe_convert_to(Type::Angle, &node, ctx.diag, &ctx.symbol_counters);
+                let from_angle_degrees = from_angle.maybe_convert_to(
+                    Type::Angle,
+                    Some(&node),
+                    ctx.diag,
+                    &ctx.symbol_counters,
+                );
 
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
@@ -1364,7 +1383,7 @@ impl Expression {
                         function: BuiltinFunction::ColorToStyledText.into(),
                         arguments: vec![expr.maybe_convert_to(
                             Type::Color,
-                            &expr_node,
+                            Some(&expr_node.clone().into()),
                             ctx.diag,
                             &ctx.symbol_counters,
                         )],
@@ -1377,7 +1396,7 @@ impl Expression {
                         function: BuiltinFunction::StringToStyledText.into(),
                         arguments: vec![expr.maybe_convert_to(
                             Type::String,
-                            &expr_node,
+                            Some(&expr_node.clone().into()),
                             ctx.diag,
                             &ctx.symbol_counters,
                         )],
@@ -1425,7 +1444,7 @@ impl Expression {
             let n = pl.Expression();
             let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::Int32,
-                &n,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -1440,7 +1459,7 @@ impl Expression {
         let subs = node.Expression().map(|n| {
             Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::String,
-                &n,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
@@ -1928,7 +1947,12 @@ impl Expression {
                         .into_iter()
                         .zip(function.args.iter())
                         .map(|((e, node), ty)| {
-                            e.maybe_convert_to(ty.clone(), &node, ctx.diag, &ctx.symbol_counters)
+                            e.maybe_convert_to(
+                                ty.clone(),
+                                node.as_ref(),
+                                ctx.diag,
+                                &ctx.symbol_counters,
+                            )
                         })
                         .collect()
                 }
@@ -1964,7 +1988,8 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
-        let mut lhs = Self::from_expression_node(lhs_n.clone(), ctx);
+        let mut lhs =
+            ctx.without_expected_type(|ctx| Self::from_expression_node(lhs_n.clone(), ctx));
         let op = node
             .children_with_tokens()
             .find_map(|n| match n.kind() {
@@ -1995,17 +2020,10 @@ impl Expression {
                 Type::Invalid
             }
         };
-        let rhs = ctx.with_expected_type(expected_ty.clone(), |ctx| {
-            Self::from_expression_node(rhs_n.clone(), ctx)
-        });
+        let rhs = Self::from_expression_node_as(rhs_n, expected_ty, ctx);
         Expression::SelfAssignment {
             lhs: Box::new(lhs),
-            rhs: Box::new(rhs.maybe_convert_to(
-                expected_ty,
-                &rhs_n,
-                ctx.diag,
-                &ctx.symbol_counters,
-            )),
+            rhs: Box::new(rhs),
             op,
             node: Some(NodeOrToken::Node(node.into())),
         }
@@ -2115,11 +2133,15 @@ impl Expression {
             }
         };
         let lhs = match lhs_target {
-            Some(ty) => lhs.maybe_convert_to(ty, &lhs_n, ctx.diag, &ctx.symbol_counters),
+            Some(ty) => {
+                lhs.maybe_convert_to(ty, Some(&lhs_n.into()), ctx.diag, &ctx.symbol_counters)
+            }
             None => lhs,
         };
         let rhs = match rhs_target {
-            Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
+            Some(ty) => {
+                rhs.maybe_convert_to(ty, Some(&rhs_n.into()), ctx.diag, &ctx.symbol_counters)
+            }
             None => rhs,
         };
         Expression::BinaryExpression {
@@ -2152,7 +2174,9 @@ impl Expression {
         };
 
         let exp = match op {
-            '!' => exp.maybe_convert_to(Type::Bool, &node, ctx.diag, &ctx.symbol_counters),
+            '!' => {
+                exp.maybe_convert_to(Type::Bool, Some(&node.into()), ctx.diag, &ctx.symbol_counters)
+            }
             '+' | '-' => {
                 let ty = exp.ty();
                 if ty.default_unit().is_none()
@@ -2184,11 +2208,7 @@ impl Expression {
     ) -> Expression {
         let value_discarded = std::mem::take(&mut ctx.value_discarded);
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
-        let condition = ctx
-            .with_expected_type(Type::Bool, |ctx| {
-                Self::from_expression_node(condition_n.clone(), ctx)
-            })
-            .maybe_convert_to(Type::Bool, &condition_n, ctx.diag, &ctx.symbol_counters);
+        let condition = Self::from_expression_node_as(condition_n, Type::Bool, ctx);
         ctx.value_discarded = value_discarded;
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
         ctx.value_discarded = value_discarded;
@@ -2200,12 +2220,16 @@ impl Expression {
         let result_ty = common_expression_type(&true_expr, &false_expr);
         let true_expr = true_expr.maybe_convert_to(
             result_ty.clone(),
-            &true_expr_n,
+            Some(&true_expr_n.into()),
             ctx.diag,
             &ctx.symbol_counters,
         );
-        let false_expr =
-            false_expr.maybe_convert_to(result_ty, &false_expr_n, ctx.diag, &ctx.symbol_counters);
+        let false_expr = false_expr.maybe_convert_to(
+            result_ty,
+            Some(&false_expr_n.into()),
+            ctx.diag,
+            &ctx.symbol_counters,
+        );
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
@@ -2223,11 +2247,7 @@ impl Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
         let array_expr =
             ctx.without_expected_type(|ctx| Self::from_expression_node(array_expr_n, ctx));
-        let index_expr = ctx
-            .with_expected_type(Type::Int32, |ctx| {
-                Self::from_expression_node(index_expr_n.clone(), ctx)
-            })
-            .maybe_convert_to(Type::Int32, &index_expr_n, ctx.diag, &ctx.symbol_counters);
+        let index_expr = Self::from_expression_node_as(index_expr_n, Type::Int32, ctx);
 
         let ty = array_expr.ty();
         if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
@@ -2288,7 +2308,7 @@ impl Expression {
         for (e, n) in values.iter_mut().zip(node.Expression()) {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                &n,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -2424,7 +2444,12 @@ impl Expression {
             } else if n.kind() == SyntaxKind::Expression {
                 let node = n.into_node().unwrap();
                 let expr = Expression::from_expression_node(node.clone().into(), ctx);
-                expr.maybe_convert_to(Type::String, &node, ctx.diag, &ctx.symbol_counters)
+                expr.maybe_convert_to(
+                    Type::String,
+                    Some(&node.into()),
+                    ctx.diag,
+                    &ctx.symbol_counters,
+                )
             } else {
                 continue;
             };
@@ -2767,15 +2792,10 @@ fn continue_lookup_within_element(
                 rest =
                     format!(". Use '{id}.{}' to access the property with the same name", nr.name());
             }
-        } else if let Some(LookupResult::Expression {
-            expression: Expression::EnumerationValue(value),
-            ..
-        }) = crate::lookup::TypeSpecificLookup.lookup(ctx, &elem.borrow().id)
+        } else if let Some(qualified) =
+            crate::lookup::TypeSpecificLookup::qualified_name(ctx, &elem.borrow().id)
         {
-            rest = format!(
-                ". Use '{}.{value}' to access the enumeration value",
-                value.enumeration.name
-            );
+            rest = format!(". Did you mean '{qualified}'?");
         }
         ctx.diag.push_error(format!("Cannot take reference of an element{rest}"), &node);
         return None;

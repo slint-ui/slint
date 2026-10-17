@@ -755,7 +755,7 @@ module.exports = grammar({
             "arguments",
             seq(
               field("type", $.radial_gradient_kind),
-              optional(field("radius", $.length_value)),
+              optional(field("radius", $.expression)),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
@@ -774,7 +774,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("from", field("from_angle", $.angle_value))),
+              optional(seq("from", field("from_angle", $.expression))),
               optional(seq(
                 "at",
                 field("center_x", $.expression),

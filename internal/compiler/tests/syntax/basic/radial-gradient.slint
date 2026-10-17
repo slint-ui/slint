@@ -9,7 +9,7 @@ export X := Rectangle {
 //                                              > <error{Expected two length values after 'at'}
     property<brush> g3: @radial_gradient(circle, blue, red);
     property<brush> g4: @radial_gradient(circle, blue 45%, red red);
-//                                                             > <error{Cannot convert color to float}
+//                                                             > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
     property<brush> g5: @radial-gradient(ellipse at top, #e66465, transparent);
 //                      >                                                    <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
     property<brush> g6: @radial-gradient(circle, blue 45%, red 88%);
@@ -19,7 +19,9 @@ export X := Rectangle {
 //                      >                                      <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
 
     property<brush> g9: @radial-gradient(circle blue, blue, red);
-//                                              >  <error{'circle' must be followed by a comma, a radius, or 'at'}
+//                                              >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+    property<brush> g9b: @radial-gradient(circle #00f, blue, red);
+//                                               >  <error{'circle' must be followed by a comma, a radius, or 'at'}
 
     property<brush> g10: @radial-gradient(circle, blue 10% red 20%, yellow);
 //                                                         >  <error{Expected comma}
@@ -32,4 +34,6 @@ export X := Rectangle {
 
     property<brush> g14: @radial-gradient(circle 80px, red, blue);
     property<brush> g15: @radial-gradient(circle 80px at 50px 50px, red, blue);
+    property<brush> g16: @radial-gradient(circle at red 50px, red, blue);
+//                                                  >  <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
 }
