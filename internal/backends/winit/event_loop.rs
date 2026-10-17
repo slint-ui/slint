@@ -55,13 +55,21 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
+struct PumpState {
+    /// Pump events for the shortest amount of time possible.
+    instantly: bool,
+    /// winit never resets the exit of a pumped loop (on Linux),
+    /// so a pumped loop records its exit here instead of calling `exit()`.
+    exit_requested: bool,
+}
+
 pub struct EventLoopState {
     shared_backend_data: Rc<SharedBackendData>,
 
     loop_error: Option<PlatformError>,
 
-    /// Set to true when pumping events for the shortest amount of time possible.
-    pumping_events_instantly: bool,
+    /// Set while `pump_events` runs.
+    pump: Option<PumpState>,
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
@@ -74,7 +82,7 @@ impl EventLoopState {
         Self {
             shared_backend_data,
             loop_error: Default::default(),
-            pumping_events_instantly: Default::default(),
+            pump: None,
             custom_application_handler,
         }
     }
@@ -168,7 +176,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     == generation
                 {
                     self.suspend_all_hidden_windows();
-                    event_loop.exit()
+                    if let Some(pump) = &mut self.pump {
+                        pump.exit_requested = true;
+                    } else {
+                        event_loop.exit()
+                    }
                 }
                 // else ignore the event, since it's from a previous run of the event loop
             }
@@ -264,7 +276,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             event_loop.set_control_flow(ControlFlow::wait_duration(next_timer));
         }
 
-        if self.pumping_events_instantly {
+        if self.pump.as_ref().is_some_and(|pump| pump.instantly) {
             event_loop.set_control_flow(ControlFlow::Poll);
         }
     }
@@ -354,11 +366,16 @@ impl EventLoopState {
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
         let mut winit_loop = not_running_loop_instance;
 
-        self.pumping_events_instantly = timeout.is_some_and(|duration| duration.is_zero());
+        self.pump = Some(PumpState {
+            instantly: timeout.is_some_and(|duration| duration.is_zero()),
+            exit_requested: false,
+        });
 
-        let result = winit_loop.pump_app_events(timeout, &mut self);
+        let mut result = winit_loop.pump_app_events(timeout, &mut self);
 
-        self.pumping_events_instantly = false;
+        if self.pump.take().is_some_and(|pump| pump.exit_requested) {
+            result = winit::platform::pump_events::PumpStatus::Exit(0);
+        }
 
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
         // Winit does not support creating multiple instances of the event loop.
