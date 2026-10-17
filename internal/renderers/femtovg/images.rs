@@ -216,15 +216,14 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
                 // femtovg has no 16-bit texture format; expand to RGB8 for the upload.
                 #[cfg(feature = "image-pixel-format-rgb565")]
-                let buffer = match buffer {
-                    SharedImageBuffer::RGB565(b) => {
-                        let mut rgb = SharedPixelBuffer::<Rgb8Pixel>::new(b.width(), b.height());
-                        for (dst, src) in rgb.make_mut_slice().iter_mut().zip(b.as_slice()) {
-                            *dst = (*src).into();
-                        }
-                        SharedImageBuffer::RGB8(rgb)
+                let buffer = if let SharedImageBuffer::RGB565(b) = &buffer {
+                    let mut rgb = SharedPixelBuffer::<Rgb8Pixel>::new(b.width(), b.height());
+                    for (dst, src) in rgb.make_mut_slice().iter_mut().zip(b.as_slice()) {
+                        *dst = (*src).into();
                     }
-                    other => other,
+                    SharedImageBuffer::RGB8(rgb)
+                } else {
+                    buffer
                 };
                 let (image_source, flags) = image_buffer_to_image_source(&buffer)?;
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()

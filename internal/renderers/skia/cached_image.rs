@@ -63,9 +63,10 @@ pub(crate) fn as_skia_image(
                 Default::default(),
                 transform_scale,
             )?;
-            let pixels = match svg.render(Some(target_size)).ok()? {
-                SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-                _ => unreachable!(),
+            let SharedImageBuffer::RGBA8Premultiplied(pixels) =
+                svg.render(Some(target_size)).ok()?
+            else {
+                unreachable!()
             };
 
             let image_info = crate::image_info(
