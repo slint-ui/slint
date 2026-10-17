@@ -135,6 +135,13 @@ The editor compiles the `.slint` file and sends the result to the remote viewer,
 
 `--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
 
+## Project File
+
+The viewer reads the [project file](../project-file/) `slint-project.json`, like the other Slint tools.
+`-I`, `-L`, and `--style` win over its settings:
+any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
+Pass `-I ""` or `-L ""` to use no include or library paths at all.
+
 ## Command-Line Options
 
 Run `slint-viewer --help` for the authoritative, always-current list. The common options:
@@ -152,10 +159,10 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--pairing-code <code>` | Always require this pairing code of 4 to 12 digits instead of showing a generated one, for devices with no usable display. Use at least 8 digits on networks you don't control. |
 | `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
-| `--style <style>` | Set the widget style. Defaults to `fluent`. |
+| `--style <style>` | Set the widget style. Wins over the style of the project file. Defaults to `fluent`. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
-| `-I <path>` | Add an include path for imported `.slint` files or images. |
-| `-L <library=path>` | Add a library path for `@library` imports. |
+| `-I <path>` | Add an include path for imported `.slint` files or images. Replaces the include paths of the project file. |
+| `-L <library=path>` | Add a library path for `@library` imports. Replaces the library paths of the project file. |
 | `--on <callback> <handler>` | Run a shell command when a callback is invoked. See [Callback Handlers](#callback-handlers). |
 
 Use `-` in place of a file path to read from standard input or write to standard output.
