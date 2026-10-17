@@ -5259,6 +5259,7 @@ version = "1.19.0"
 dependencies = [
  "bytemuck",
  "divan",
+ "libm",
  "mcu-board-support",
  "slint",
  "slint-build",

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
+#[path = "ink_particles/slosh.rs"]
+mod slosh;
 #[path = "ink_particles/tilt.rs"]
 mod tilt;
 
@@ -20,7 +22,7 @@ const MAX_PARTICLES: usize = PARTICLES + EXTRA_PARTICLES;
 pub struct FrameState {
     size: (usize, usize),
     level: Option<u16>,
-    tilt: Option<([i16; 2], i32)>,
+    surface: Option<tilt::Surface>,
     surface_rows: core::ops::Range<i32>,
     rows: Vec<[u16; 2]>,
 }
@@ -211,15 +213,18 @@ impl<'a, P: Pixel> Paint<'a, P> {
 
     pub fn step(&mut self) -> bool {
         if self.row < self.vial.height {
-            let rows =
-                if self.vial.tilt.as_ref().is_some_and(|t| t.up != [0, -1024]) { 2 } else { 8 };
+            let rows = if self.vial.tilt.as_ref().is_some_and(|t| t.surface.up != [0, -1024]) {
+                2
+            } else {
+                8
+            };
             let end = (self.row + rows).min(self.vial.height);
             self.vial.restore_rows(self.pixels, self.state, self.row..end);
             self.row = end;
             if end == self.vial.height {
                 self.state.size = (self.vial.width, self.vial.height);
                 self.state.level = Some(self.vial.level);
-                self.state.tilt = self.vial.tilt_key();
+                self.state.surface = self.vial.surface_key();
                 self.state.surface_rows = self.vial.surface_rows();
                 self.state.rows.clear();
                 self.state.rows.resize(self.vial.height, [self.vial.width as u16, 0]);
@@ -427,8 +432,8 @@ impl Vial {
         self.tilt = Some(tilt);
     }
 
-    fn tilt_key(&self) -> Option<([i16; 2], i32)> {
-        self.tilt.as_ref().map(|t| (t.up, t.cut))
+    fn surface_key(&self) -> Option<tilt::Surface> {
+        self.tilt.as_ref().map(|t| t.surface)
     }
 
     fn surface_rows(&self) -> core::ops::Range<i32> {
@@ -448,9 +453,11 @@ impl Vial {
         }
         tilt.surface_rows = i32::MAX..i32::MIN;
         for x in 0..self.width {
-            let base = (tilt.cut * 1024 - tilt.up[0] as i32 * (x as i32 * 256 + 128))
-                / tilt.up[1] as i32
-                - 3 * 256;
+            let base = (tilt.surface.cut * 1024
+                - tilt.surface.up[0] as i32 * (x as i32 * 256 + 128))
+                / tilt.surface.up[1] as i32
+                - 3 * 256
+                + tilt.surface.ripple_offset(x, self.width);
             let start = base.div_euclid(256);
             let fraction = base.rem_euclid(256) as u32;
             tilt.starts[x] = start as i16;
@@ -562,7 +569,7 @@ impl Vial {
         self.restore_rows(pixels, state, 0..self.height);
         state.size = (self.width, self.height);
         state.level = Some(self.level);
-        state.tilt = self.tilt_key();
+        state.surface = self.surface_key();
         state.surface_rows = self.surface_rows();
         state.rows.clear();
     }
@@ -576,7 +583,7 @@ impl Vial {
     ) {
         let changed = state.size != (self.width, self.height) || state.level != Some(self.level);
         if let Some(tilt) = &self.tilt {
-            let moved = state.tilt != self.tilt_key();
+            let moved = state.surface != self.surface_key();
             let surface = state.surface_rows.start.min(tilt.surface_rows.start)
                 ..state.surface_rows.end.max(tilt.surface_rows.end);
             for row in rows {
@@ -687,7 +694,9 @@ impl Vial {
             if b.state != 1 {
                 return None;
             }
-            let to_surface = (tilt.cut - tilt::projection(tilt.up, b.x, b.y)).max(0) as u32;
+            let to_surface = (tilt.surface.cut_at(b.x, self.width)
+                - tilt::projection(tilt.surface.up, b.x, b.y))
+            .max(0) as u32;
             let fade = ((b.age as u32 * 3).min(32)
                 * (to_surface.saturating_sub(radius as u32 * 256) / 24).min(32))
                 / 32;
@@ -740,7 +749,7 @@ impl Vial {
         let x0 = (cx >> 4) - radius as i32;
         let y0 = (cy >> 4) - radius as i32;
         let left = x0.max(0).min(self.width as i32);
-        let clip_top = if self.tilt.as_ref().is_some_and(|t| t.up != [0, -1024]) {
+        let clip_top = if self.tilt.as_ref().is_some_and(|t| t.surface.up != [0, -1024]) {
             0
         } else {
             self.surface as i32 + 2
@@ -756,13 +765,13 @@ impl Vial {
             let mut row_left = left;
             let mut row_right = right;
             if let Some(t) = &self.tilt
-                && t.up != [0, -1024]
+                && t.surface.up != [0, -1024]
             {
-                let line = t.cut * 1024 - t.up[1] as i32 * (py * 256 + 128);
-                if t.up[0] > 0 {
-                    row_right = row_right.min((line / t.up[0] as i32 / 256).max(row_left));
-                } else if t.up[0] < 0 {
-                    row_left = row_left.max((line / t.up[0] as i32 / 256).min(row_right));
+                let line = t.surface.cut * 1024 - t.surface.up[1] as i32 * (py * 256 + 128);
+                if t.surface.up[0] > 0 {
+                    row_right = row_right.min((line / t.surface.up[0] as i32 / 256).max(row_left));
+                } else if t.surface.up[0] < 0 {
+                    row_left = row_left.max((line / t.surface.up[0] as i32 / 256).min(row_right));
                 } else if line < 0 {
                     continue;
                 }
@@ -872,6 +881,7 @@ mod tests {
         vial.set_level(512);
         let mut frames = Vec::new();
         for x in [-1, 0, 1] {
+            vial.tilt = None;
             vial.advance_tilt([x, -1024], 0);
             let mut pixels = vec![0; 48 * 140];
             vial.restore(&mut pixels);
@@ -883,10 +893,45 @@ mod tests {
         }
         let surface = &vial.surface_pixels;
         assert_ne!(surface[2 * 48 + 24], surface[2 * 48 + 4]);
-        vial.advance_tilt([724, -724], 1);
-        assert_eq!(vial.tilt.as_ref().unwrap().up, [512, -886]);
-        vial.advance_tilt([-1024, 0], 2);
-        assert_eq!(vial.tilt.as_ref().unwrap().up, [-512, -886]);
+        vial.tilt = None;
+        vial.advance_tilt([724, -724], 0);
+        assert_eq!(vial.tilt.as_ref().unwrap().surface.up, [512, -886]);
+        vial.tilt = None;
+        vial.advance_tilt([-1024, 0], 0);
+        assert_eq!(vial.tilt.as_ref().unwrap().surface.up, [-512, -886]);
+    }
+
+    #[test]
+    fn ripples_bend_the_surface_without_moving_contact_points() {
+        let mut vial = Vial::new(48, 140, 0);
+        vial.set_level(512);
+        vial.advance_tilt([0, -1024], 0);
+        for tick in 1..=4 {
+            vial.advance_tilt([350, -962], tick);
+        }
+        let tilt = vial.tilt.as_ref().unwrap();
+        assert!(tilt.surface.ripple[0].abs() >= 64);
+        let mut flat = tilt::Tilt::new(4);
+        flat.surface = tilt::Surface { ripple: [0; 2], ..tilt.surface };
+        let rippled = vial.surface_pixels.clone();
+        let rippled_starts = tilt.starts.clone();
+        vial.prepare_surface(&mut flat);
+        assert_ne!(rippled, vial.surface_pixels);
+        assert_eq!(rippled_starts[0], flat.starts[0]);
+        assert_eq!(rippled_starts[47], flat.starts[47]);
+    }
+
+    #[test]
+    fn idle_surface_modes_keep_contact_points_and_balance_displaced_area() {
+        for width in [32, 48, 51] {
+            for ripple in [[140, 39], [-140, 39], [140, -39], [-140, -39]] {
+                let surface = tilt::Surface { up: [0, -1024], cut: 0, ripple };
+                assert_eq!(surface.ripple_offset(0, width), 0);
+                assert_eq!(surface.ripple_offset(width - 1, width), 0);
+                let area: i32 = (0..width).map(|x| surface.ripple_offset(x, width)).sum();
+                assert!(area.abs() <= width as i32, "width {width}: area {area}");
+            }
+        }
     }
 
     #[test]
@@ -932,7 +977,7 @@ mod tests {
             v.set_held(false, tick);
             let t = v.tilt.as_ref().unwrap();
             let before = t.bubbles;
-            let cut = t.cut;
+            let cut = t.surface.cut;
             v.advance_tilt([724, -724], tick);
             let after = &v.tilt.as_ref().unwrap().bubbles;
             for i in PARTICLES..MAX_PARTICLES {
