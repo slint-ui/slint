@@ -3240,8 +3240,11 @@ fn build(l: &mut Loader) {
         //!
         //! ### Commands
         //! <SlintProperty propName="commands" typeName="string">
-        //! A string providing the commands according to the SVG path specification.
-        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! A string with the commands in the SVG path syntax.
+        //!
+        //! :::note[Note]
+        //! This property is special: you can set it with any expression, but other expressions can't read it.
+        //! :::
         //! </SlintProperty>
         //!
         //! ## Path Using SVG Path Elements
