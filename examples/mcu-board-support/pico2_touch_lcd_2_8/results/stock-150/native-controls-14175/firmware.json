@@ -1,0 +1,26 @@
+{
+  "pr_url": "https://github.com/slint-ui/slint/pull/14175",
+  "pr_head": "eb347e2df9229bb28d4fa861623cfd3083537b05",
+  "baseline_source": "9c73986225cc95e6256692a319823edd80bc2edc",
+  "updated_source": "ed3b60d5fb2e17882f9f4da7bab82873cb7551e2",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "spi_hz": 48000000,
+  "release_lto": "thin",
+  "codegen_units": 1,
+  "target_cpu": "cortex-m33",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "before_elf_sha256": "196004b3ea74c07e740e82f06690e68fe9ca0a778596ed2ba9eca50bb5f1c3b3",
+  "after_elf_sha256": "72e5413d49b78ab3019b47dde2d55966d0f49f391e129884b9d6fe337855cf6b",
+  "normal_elf_sha256": "3c1cc98b956ffd142bd99a5ed0eee1e8ee86a0ac3273c67397dcdd7fc65ccab6",
+  "main_stack_reserved_bytes": 25156,
+  "core1_stack_bytes": 8192,
+  "heap_reserved_bytes": 317440,
+  "before_linked_text_bytes": 1805844,
+  "after_linked_text_bytes": 1634152,
+  "profiling_controls": {
+    "native_ui_deep": "4c9d4df98a2dc0982d03adace3b3f25fea6060ac327e0b67ba85d4ee741709a3",
+    "old_ui_deep": "8c5840ff5e8461eb16003e7b55370d648e4f8f58eada1b3878dcee16248cb74d",
+    "old_ui_coarse": "e71a4006e349a40f20aa589856aa1e46e267bdf2898674cb4b459004846baff6"
+  }
+}

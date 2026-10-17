@@ -5,6 +5,8 @@
 The stock-speed printer runs at the measured panel cadence with maximum-size Ink boost enabled.
 Further work targets lower CPU rendering time while preserving pixels, particle counts, and input behavior.
 
+The [native-controls regression report](results/stock-150/native-controls-14175/report.md) compares the retained Pico firmware with PR #14175 using fresh device measurements.
+
 ## Detailed Serial-Baseline Measurements
 
 The optional `pico2-renderer-profile` image adds nested clock reads around renderer stages.

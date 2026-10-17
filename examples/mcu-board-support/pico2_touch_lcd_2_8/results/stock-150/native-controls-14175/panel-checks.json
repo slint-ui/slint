@@ -1,0 +1,30 @@
+{
+  "checks": [
+    {
+      "rotation": "0",
+      "workload": "auto",
+      "response": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "rotation": "0",
+      "workload": "settings-auto",
+      "response": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "rotation": "0",
+      "workload": "ink-boost",
+      "response": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "rotation": "1",
+      "workload": "auto",
+      "response": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "rotation": "1",
+      "workload": "settings-auto",
+      "response": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    }
+  ],
+  "completion": "Interrupted by watchdog recovery before the sixth Ink readback at rotation 1."
+}
