@@ -13,6 +13,30 @@ use smol_str::StrExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// The include paths of `SLINT_INCLUDE_PATH` and the library paths of `SLINT_LIBRARY_PATH`.
+pub(crate) fn paths_from_env() -> (Vec<PathBuf>, HashMap<String, PathBuf>) {
+    let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
+        Some(paths) => {
+            std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
+        }
+        None => Vec::new(),
+    };
+    let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
+        Some(paths) => std::env::split_paths(&paths)
+            .filter_map(|entry| {
+                entry
+                    .to_str()
+                    .unwrap_or_default()
+                    .split('=')
+                    .collect_tuple()
+                    .map(|(k, v)| (k.into(), v.into()))
+            })
+            .collect(),
+        None => HashMap::new(),
+    };
+    (include_paths, library_paths)
+}
+
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string.
 #[napi(js_name = "ComponentCompiler")]
@@ -28,25 +52,7 @@ impl JsComponentCompiler {
     #[napi(constructor)]
     pub fn new() -> Self {
         let mut compiler = Compiler::default();
-        let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
-            Some(paths) => {
-                std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
-            }
-            None => Vec::new(),
-        };
-        let library_paths = match std::env::var_os("SLINT_LIBRARY_PATH") {
-            Some(paths) => std::env::split_paths(&paths)
-                .filter_map(|entry| {
-                    entry
-                        .to_str()
-                        .unwrap_or_default()
-                        .split('=')
-                        .collect_tuple()
-                        .map(|(k, v)| (k.into(), v.into()))
-                })
-                .collect(),
-            None => HashMap::new(),
-        };
+        let (include_paths, library_paths) = paths_from_env();
 
         // Environment variables rank below the project file, so they bypass the setters.
         let config = compiler.compiler_configuration(i_slint_core::InternalToken);

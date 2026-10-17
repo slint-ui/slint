@@ -356,8 +356,19 @@ test("a consumer TypeScript project type-checks against slint-ui", async () => {
     const dir = await consumerProject("typecheck");
     await install("npm", dir, [`slint-ui@${VERSION}`, "typescript"]);
     writeFileSync(
+        join(dir, "app.slint"),
+        "export component App inherits Window { in-out property <int> counter; }\n",
+    );
+    await run("npx", ["slint-typegen", "app.slint", "-o", "app.d.slint.ts"], {
+        cwd: dir,
+        env: npmEnv(),
+    });
+    writeFileSync(
         join(dir, "index.ts"),
-        'import * as slint from "slint-ui";\nconst _loadFile: typeof slint.loadFile = slint.loadFile;\n',
+        'import * as slint from "slint-ui";\n' +
+            'import { App } from "./app.slint";\n' +
+            "const _loadFile: typeof slint.loadFile = slint.loadFile;\n" +
+            "const counter: number = new App().counter;\n",
     );
     writeFileSync(
         join(dir, "tsconfig.json"),
@@ -367,6 +378,7 @@ test("a consumer TypeScript project type-checks against slint-ui", async () => {
                 moduleResolution: "nodenext",
                 noEmit: true,
                 skipLibCheck: true,
+                allowArbitraryExtensions: true,
                 types: [],
             },
             files: ["index.ts"],

@@ -284,6 +284,12 @@ mod typescript_ast {
     }
 }
 
+/// Whether TypeScript reads a file named `file_name`, with the output of [`generate`], as declarations.
+pub fn is_declaration_file_name(file_name: &str) -> bool {
+    // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
+    file_name.ends_with(".d.ts") || file_name.ends_with(".d.slint.ts")
+}
+
 /// Returns the text of the TypeScript code produced by the given root component
 pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std::io::Result<File> {
     let mut file = File::default();

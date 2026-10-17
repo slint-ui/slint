@@ -5,7 +5,7 @@
 
 import { test, expect } from "vitest";
 import { execSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -169,6 +169,36 @@ console.log(counter, val);
                 false,
             );
         }
+    } finally {
+        rmSync(dir, { recursive: true });
+    }
+}, 120_000);
+
+test("slint-typegen generates the declarations of slint-compiler", () => {
+    const dir = setupTypeCheckDir();
+    try {
+        const bin = join(__dirname, "..", "bin", "slint-typegen.mjs");
+        const expected = readFileSync(join(dir, "app.slint.d.ts"), "utf8");
+        rmSync(join(dir, "app.slint.d.ts"));
+
+        execSync(`node ${JSON.stringify(bin)} app.slint`, { cwd: dir });
+        expect(readFileSync(join(dir, "app.slint.d.ts"), "utf8")).toBe(
+            expected,
+        );
+
+        execSync(`node ${JSON.stringify(bin)} app.slint -o app.d.slint.ts`, {
+            cwd: dir,
+        });
+        expect(readFileSync(join(dir, "app.d.slint.ts"), "utf8")).toBe(
+            expected,
+        );
+
+        expect(() =>
+            execSync(`node ${JSON.stringify(bin)} app.slint -o app.ts`, {
+                cwd: dir,
+                stdio: "pipe",
+            }),
+        ).toThrow("name it 'app.ts.d.ts'");
     } finally {
         rmSync(dir, { recursive: true });
     }

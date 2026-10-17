@@ -13,6 +13,9 @@ pub use types::*;
 mod uv_event_loop;
 pub use uv_event_loop::*;
 
+mod typescript_declarations;
+pub use typescript_declarations::*;
+
 use napi::Env;
 use napi::bindgen_prelude::*;
 
