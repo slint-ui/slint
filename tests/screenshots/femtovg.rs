@@ -84,10 +84,8 @@ impl WindowAdapter for ScreenshotWindow {
 
 /// The WGPU instance, device, and queue shared by every FemtoVG screenshot test.
 ///
-/// `cargo test` runs tests in parallel, each on its own thread; building this stack once and
-/// cloning its `Send + Sync` handles into each thread's [`ScreenshotBackend`] avoids requesting
-/// several devices from the same adapter concurrently, which crashed Windows CI with
-/// `STATUS_ACCESS_VIOLATION`.
+/// `cargo test` runs tests in parallel, each on its own thread. Initialize the device once and
+/// clone its `Send + Sync` handles into each thread's [`ScreenshotBackend`].
 struct SharedWgpu {
     instance: wgpu::Instance,
     device: wgpu::Device,
@@ -97,7 +95,14 @@ struct SharedWgpu {
 fn shared_wgpu() -> Option<&'static SharedWgpu> {
     static WGPU: OnceLock<Option<SharedWgpu>> = OnceLock::new();
     WGPU.get_or_init(|| {
-        let instance = wgpu::Instance::default();
+        let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle_from_env();
+        // Match Slint's backend selection. Initializing both DX12 and Mesa's OpenGL driver
+        // crashes inside D3D12 on Windows CI before an adapter can be requested.
+        descriptor.backends = i_slint_core::graphics::wgpu_30::mask_backends(
+            descriptor.backends,
+            i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
+        );
+        let instance = wgpu::Instance::new(descriptor);
         let adapter =
             spin_on::spin_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
                 .ok();
