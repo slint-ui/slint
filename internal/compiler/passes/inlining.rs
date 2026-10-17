@@ -198,11 +198,14 @@ fn inline_element(
 
         children_by_slot.entry(slot).or_default().push(child);
     }
+    for slot in std::mem::take(&mut elem_mut.cleared_slots) {
+        children_by_slot.entry(crate::parser::normalize_identifier(&slot)).or_default();
+    }
 
+    let mut reexported = HashSet::new();
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
-            if slot.interface.is_none()
-                || children_by_slot.contains_key(&slot.name)
+            if (slot.interface.is_some() && children_by_slot.contains_key(&slot.name))
                 || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
             {
                 continue;
@@ -210,15 +213,18 @@ fn inline_element(
             if let Some(cip) = inlined_insertion_points.get(slot.name.as_str())
                 && let Some(parent) = mapping.get(&element_key(cip.parent.clone()))
             {
-                root_component
-                    .child_insertion_points
-                    .borrow_mut()
-                    .entry(slot.name.to_string())
-                    .or_insert_with(|| ChildrenInsertionPoint {
+                if let Entry::Vacant(entry) =
+                    root_component.child_insertion_points.borrow_mut().entry(slot.name.to_string())
+                {
+                    entry.insert(ChildrenInsertionPoint {
                         parent: parent.clone(),
                         insertion_index: cip.insertion_index,
                         node: cip.node.clone(),
                     });
+                    if slot.interface.is_none() {
+                        reexported.insert(slot.name.clone());
+                    }
+                }
                 let mut declarations = root_component.declared_slots.borrow_mut();
                 if !declarations.iter().any(|s| s.name == slot.name) {
                     declarations.push(slot.clone());
@@ -262,6 +268,7 @@ fn inline_element(
         slot_name: SmolStr,
         insertion_index: usize,
         node: ChildInsertionPointNode,
+        supplied: bool,
         children: Vec<ElementRc>,
     }
 
@@ -270,7 +277,9 @@ fn inline_element(
         HashMap::new();
 
     for (slot_name, inlined_cip) in inlined_insertion_points.iter() {
-        let children = children_by_slot.remove(slot_name.as_str()).unwrap_or_default();
+        let supplied_children = children_by_slot.remove(slot_name.as_str());
+        let supplied = supplied_children.is_some();
+        let children = supplied_children.unwrap_or_default();
         if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
             insertions_by_parent
                 .entry(element_key(insertion_element.clone()))
@@ -280,6 +289,7 @@ fn inline_element(
                     slot_name: slot_name.as_str().into(),
                     insertion_index: inlined_cip.insertion_index,
                     node: inlined_cip.node.clone(),
+                    supplied,
                     children,
                 });
         } else if !children.is_empty() {
@@ -324,19 +334,33 @@ fn inline_element(
         for insertion in insertions {
             let adjusted_index = insertion.insertion_index.checked_add_signed(offset).unwrap();
             let inserted_len = insertion.children.len();
+            let is_reexported = reexported.contains(&insertion.slot_name);
+            let kept_marker = if is_reexported {
+                Some(&insertion.slot_name)
+            } else {
+                forwarded_sources_by_target
+                    .get(insertion.slot_name.as_str())
+                    .and_then(|sources| sources.first())
+            };
             let removed_len = named_slots::take_defaults(
                 &destination[adjusted_index..],
                 &insertion.slot_name,
-                inserted_len > 0,
-                forwarded_sources_by_target
-                    .get(insertion.slot_name.as_str())
-                    .and_then(|sources| sources.first()),
+                insertion.supplied,
+                kept_marker,
                 &mut removed_defaults,
             );
             destination.splice(adjusted_index..adjusted_index + removed_len, insertion.children);
             let mut root_points = root_component.child_insertion_points.borrow_mut();
+            if is_reexported && let Some(cip) = root_points.get_mut(insertion.slot_name.as_str()) {
+                *cip = ChildrenInsertionPoint {
+                    parent: insertion_element.clone(),
+                    insertion_index: adjusted_index,
+                    node: insertion.node.clone(),
+                };
+            }
             for (name, cip) in root_points.iter_mut() {
                 if Rc::ptr_eq(&cip.parent, elem)
+                    && !is_reexported
                     && (name.as_str() == insertion.slot_name.as_str()
                         || forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
@@ -349,7 +373,7 @@ fn inline_element(
                     };
                 }
             }
-            if root_points.is_empty()
+            if !root_points.contains_key(DEFAULT_SLOT_NAME)
                 && Rc::ptr_eq(elem, &root_component.root_element)
                 && insertion.slot_name == DEFAULT_SLOT_NAME
             {
@@ -648,6 +672,7 @@ fn duplicate_element_with_mapping(
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
         slot_default: elem.slot_default.clone(),
+        cleared_slots: elem.cleared_slots.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
@@ -1011,6 +1036,10 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
 fn element_require_inlining(elem: &ElementRc) -> bool {
     if !elem.borrow().children.is_empty() {
         // the generators assume that the children list is complete, which sub-components may break
+        return true;
+    }
+
+    if !elem.borrow().cleared_slots.is_empty() {
         return true;
     }
 

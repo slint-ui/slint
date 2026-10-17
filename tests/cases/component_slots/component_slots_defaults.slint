@@ -81,6 +81,80 @@ component ForwardedCounting inherits Rectangle {
     }
 }
 
+component HeaderOverride inherits Host {
+    header << Rectangle {
+        height: 2px;
+    }
+}
+
+component SecondLevelOverride inherits HeaderOverride {
+    header << Rectangle {
+        height: 3px;
+    }
+}
+
+component SecondLevel inherits HeaderOverride { }
+
+component ThirdFilled inherits AdjacentHost {
+    third << Rectangle {
+        height: 4px;
+    }
+}
+
+component ForwardedOverride inherits Forwarded {
+    heading << Rectangle {
+        height: 2px;
+    }
+}
+
+component GapHost inherits Rectangle {
+    slot lead;
+    slot tail << Rectangle {
+        height: 1px;
+    }
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        lead { }
+
+        tail { }
+    }
+}
+
+component GapFilled inherits GapHost {
+    lead << Rectangle {
+        height: 2px;
+    }
+}
+
+component RootSlotHost inherits VerticalLayout {
+    slot body << Rectangle {
+        height: 1px;
+    }
+    padding: 0px;
+    spacing: 0px;
+    Rectangle {
+        height: 10px;
+    }
+
+    body { }
+
+    Rectangle {
+        height: 100px;
+    }
+}
+
+component RootSlotOverride inherits RootSlotHost {
+    body << Rectangle {
+        height: 2px;
+    }
+}
+
+component HeaderCleared inherits Host {
+    header << { }
+}
+
 export component TestCase inherits Window {
     out property <bool> test: defaults.min-height == 35px && defaults.min-width == 300px
         && replaced-header.min-height == 29px && replaced-header.min-width == 20px
@@ -90,10 +164,34 @@ export component TestCase inherits Window {
         && forwarded-defaults.min-height == 35px && forwarded-defaults.min-width == 300px
         && forwarded-replacement.min-height == 27px
         && replaced-counting.inits == 0 && kept-counting.inits == 1
-        && forwarded-counting.inits == 0;
+        && forwarded-counting.inits == 0
+        && derived-override.min-height == 26px && derived-override-2.min-height == 26px
+        && derived-replaced.min-height == 28px
+        && second-level-override.min-height == 27px
+        && second-level-override-replaced.min-height == 29px
+        && second-level-replaced.min-height == 28px
+        && third-filled.min-height == 7px && third-filled-replaced.min-height == 11px
+        && forwarded-override.min-height == 26px
+        && forwarded-override-replaced.min-height == 27px
+        && derived-override-footer-replaced.min-height == 14px
+        && gap-filled.min-height == 3px && gap-filled-tail-replaced.min-height == 6px
+        && gap-filled-lead-replaced.min-height == 4px
+        && root-slot-override.min-height == 112px
+        && root-slot-override-replaced.min-height == 114px
+        && in-for.min-height == 56px && in-for-kept.min-height == 52px
+        && in-if.min-height == 28px && in-if-kept.min-height == 26px
+        && cleared-header.min-height == 24px && cleared-header.min-width == 0px
+        && cleared-counting.inits == 0
+        && derived-cleared.min-height == 24px && derived-cleared-replaced.min-height == 28px
+        && derived-assignment-cleared.min-height == 24px
+        && adjacent-first-cleared.min-height == 2px
+        && adjacent-first-cleared-third-filled.min-height == 10px
+        && adjacent-third-cleared.min-height == 3px
+        && in-for-cleared.min-height == 48px;
     out property <int> replaced-ticks: replaced-counting.ticks;
     out property <int> kept-ticks: kept-counting.ticks;
     out property <int> forwarded-ticks: forwarded-counting.ticks;
+    out property <int> cleared-ticks: cleared-counting.ticks;
 
     defaults := Host { }
 
@@ -150,6 +248,149 @@ export component TestCase inherits Window {
     forwarded-counting := ForwardedCounting {
         outer << Rectangle { }
     }
+
+    derived-override := HeaderOverride { }
+
+    derived-override-2 := HeaderOverride { }
+
+    derived-replaced := HeaderOverride {
+        header << Rectangle {
+            height: 4px;
+        }
+    }
+
+    second-level-override := SecondLevelOverride { }
+
+    second-level-override-replaced := SecondLevelOverride {
+        header << Rectangle {
+            height: 5px;
+        }
+    }
+
+    second-level-replaced := SecondLevel {
+        header << Rectangle {
+            height: 4px;
+        }
+    }
+
+    third-filled := ThirdFilled { }
+
+    third-filled-replaced := ThirdFilled {
+        third << Rectangle {
+            height: 8px;
+        }
+    }
+
+    forwarded-override := ForwardedOverride { }
+
+    forwarded-override-replaced := ForwardedOverride {
+        heading << Rectangle {
+            height: 3px;
+        }
+    }
+
+    derived-override-footer-replaced := HeaderOverride {
+        footer << Rectangle {
+            height: 5px;
+        }
+    }
+
+    gap-filled := GapFilled { }
+
+    gap-filled-tail-replaced := GapFilled {
+        tail << Rectangle {
+            height: 4px;
+        }
+    }
+
+    gap-filled-lead-replaced := GapFilled {
+        lead << Rectangle {
+            height: 3px;
+        }
+    }
+
+    root-slot-override := RootSlotOverride { }
+
+    root-slot-override-replaced := RootSlotOverride {
+        body << Rectangle {
+            height: 4px;
+        }
+    }
+
+    in-for := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        for i in 2: HeaderOverride {
+            header << Rectangle {
+                height: 4px;
+            }
+        }
+    }
+
+    in-for-kept := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        for i in 2: HeaderOverride { }
+    }
+
+    in-if := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        if true: HeaderOverride {
+            header << Rectangle {
+                height: 4px;
+            }
+        }
+    }
+
+    in-if-kept := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        if true: HeaderOverride { }
+    }
+
+    cleared-header := Host {
+        header << { }
+    }
+
+    cleared-counting := Counting {
+        content << { }
+    }
+
+    derived-cleared := HeaderCleared { }
+
+    derived-cleared-replaced := HeaderCleared {
+        header << Rectangle {
+            height: 4px;
+        }
+    }
+
+    derived-assignment-cleared := HeaderOverride {
+        header << { }
+    }
+
+    adjacent-first-cleared := AdjacentHost {
+        first << { }
+    }
+
+    adjacent-first-cleared-third-filled := AdjacentHost {
+        first << { }
+        third << Rectangle {
+            height: 8px;
+        }
+    }
+
+    adjacent-third-cleared := AdjacentHost {
+        third << { }
+    }
+
+    in-for-cleared := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        for i in 2: Host {
+            header << { }
+        }
+    }
 }
 
 /*
@@ -160,6 +401,7 @@ slint_testing::mock_elapsed_time(10);
 assert_eq!(instance.get_replaced_ticks(), 0);
 assert!(instance.get_kept_ticks() > 0);
 assert_eq!(instance.get_forwarded_ticks(), 0);
+assert_eq!(instance.get_cleared_ticks(), 0);
 ```
 
 ```cpp
@@ -170,5 +412,6 @@ slint_testing::mock_elapsed_time(10);
 assert_eq(instance.get_replaced_ticks(), 0);
 assert(instance.get_kept_ticks() > 0);
 assert_eq(instance.get_forwarded_ticks(), 0);
+assert_eq(instance.get_cleared_ticks(), 0);
 ```
 */

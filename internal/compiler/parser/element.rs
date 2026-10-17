@@ -262,6 +262,7 @@ fn parse_slot_declaration(p: &mut impl Parser) {
             parse_qualified_name(&mut *p);
             p.expect(SyntaxKind::RAngle);
         }
+        let name = p.peek().as_str().to_owned();
         {
             let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
             p.expect(SyntaxKind::Identifier);
@@ -271,6 +272,12 @@ fn parse_slot_declaration(p: &mut impl Parser) {
             return;
         }
         match p.peek().as_str() {
+            _ if p.peek().kind() == SyntaxKind::LBrace => {
+                if p.nth(1).kind() == SyntaxKind::RBrace {
+                    p.error(format!("Use 'slot {name};' for a slot without default content"));
+                }
+                parse_sub_element_or_empty(&mut *p, "slot");
+            }
             keyword @ ("if" | "for")
                 if !matches!(p.nth(1).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual) =>
             {
@@ -291,6 +298,7 @@ fn parse_slot_declaration(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,SlotAssignment
 /// header << HeaderComponent {}
+/// header << { }
 /// ```
 fn parse_slot_assignment(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SlotAssignment);
@@ -299,7 +307,7 @@ fn parse_slot_assignment(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::Identifier);
     }
     p.expect(SyntaxKind::DoubleLess);
-    if !parse_sub_element(&mut *p) {
+    if !parse_sub_element_or_empty(&mut *p, "slot") {
         p.error("Expected element after '<<'");
         return false;
     }
@@ -329,8 +337,9 @@ fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
     let rhs_first = p.nth(2).kind();
     let rhs_second = p.nth(3).kind();
 
-    let is_slot_assignment = rhs_first == SyntaxKind::Identifier
-        && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+    let is_slot_assignment = rhs_first == SyntaxKind::LBrace
+        || (rhs_first == SyntaxKind::Identifier
+            && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual));
 
     if !is_slot_assignment {
         return parse_slot_forwarding(p);
@@ -466,17 +475,20 @@ fn parse_case_inner(p: &mut impl Parser, after: &str) {
             p.consume();
         }
     }
-    if p.peek().kind() == SyntaxKind::LBrace {
-        // pass case
-        p.expect(SyntaxKind::LBrace);
-        if p.peek().kind() == SyntaxKind::Identifier {
-            p.error("Remove '{ }' around case element");
-            parse_sub_element(&mut *p);
-        }
-        p.expect(SyntaxKind::RBrace);
-        return;
+    parse_sub_element_or_empty(p, "case");
+}
+
+fn parse_sub_element_or_empty(p: &mut impl Parser, what: &str) -> bool {
+    if p.peek().kind() != SyntaxKind::LBrace {
+        return parse_sub_element(p);
     }
-    parse_sub_element(&mut *p);
+    p.expect(SyntaxKind::LBrace);
+    if p.peek().kind() == SyntaxKind::Identifier {
+        p.error(format!("Remove '{{ }}' around {what} element"));
+        parse_sub_element(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+    true
 }
 
 fn report_stray_semicolon(p: &mut impl Parser) {
