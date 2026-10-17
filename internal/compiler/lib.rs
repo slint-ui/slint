@@ -114,6 +114,11 @@ pub enum ComponentSelection {
 
     /// The component with the given name is generated
     Named(String),
+
+    /// All exported components, regardless if they inherit Window or not
+    ///
+    /// A document that exports no component, such as a library of globals, is valid.
+    AllExported,
 }
 
 /// Type alias for the callback to open files mentioned in `import` statements

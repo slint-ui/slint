@@ -253,6 +253,32 @@ fn check_syntax_error_exits_one() {
 }
 
 #[test]
+fn check_library_file_without_component_exits_zero() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_reports_errors_in_every_exported_component() {
+    let f = write_slint(
+        "export component First { width: self.height; height: self.width; }\n\
+         export component Last { }\n",
+    );
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("binding loop"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_missing_named_component_exits_one() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) =
+        run(&["--check", "--component", "Missing", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+}
+
+#[test]
 fn check_conflicts_with_auto_reload() {
     let f = write_slint("export component Ok { }\n");
     let (code, _stdout, stderr) = run(&["--check", "--auto-reload", f.path().to_str().unwrap()]);
