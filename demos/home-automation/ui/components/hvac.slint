@@ -130,14 +130,15 @@ export component HVAC inherits Control {
 
             VerticalLayout {
                 x: dial.width / 2 - self.preferred-width / 2;
+                width: self.preferred-width;
                 alignment: center;
+                cross-axis-alignment: center;
                 spacing: -15px;
                 HaText {
                     text: "Current";
                     font-size: Style.hvac-title-font-size;
                     color: Palette.hvac-knob-foreground;
                     font-weight: FontWeight.light;
-                    x: parent.width / 2 - self.width / 2;
                 }
 
                 HaText {
@@ -145,7 +146,6 @@ export component HVAC inherits Control {
                     font-size: 45pt;
                     color: Palette.hvac-knob-foreground.transparentize(0.5);
                     font-weight: FontWeight.light;
-                    x: parent.width / 2 - self.width / 2;
                 }
 
                 HaText {
@@ -153,7 +153,6 @@ export component HVAC inherits Control {
                     font-size: Style.hvac-title-font-size;
                     color: Palette.hvac-knob-foreground;
                     font-weight: FontWeight.light;
-                    x: parent.width / 2 - self.width / 2;
                 }
             }
         }

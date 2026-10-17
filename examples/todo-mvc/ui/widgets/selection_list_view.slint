@@ -49,7 +49,7 @@ export component SelectionListViewItemDelegate {
 
         check-box := CheckBox {
             horizontal-stretch: 0;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             accessible-label: @tr("Task Done");
             toggled => {
                 root.toggle();
@@ -75,7 +75,7 @@ export component SelectionListViewItemDelegate {
         }
 
         IconButton {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             icon: Icons.remove;
             accessible-label: @tr("Delete Task");
             clicked => {
