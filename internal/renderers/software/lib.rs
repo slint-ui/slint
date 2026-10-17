@@ -496,10 +496,37 @@ impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelS
     }
 }
 
+/// Internal backend integration for drawing overlays after the window contents.
+pub trait SoftwareRendererExt {
+    /// Render an overlay within the window's redraw tracker and dirty region.
+    /// The backend must invalidate both the old and new overlay bounds before rendering.
+    fn render_with_post_callback(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+        callback: &dyn Fn(&mut dyn ItemRenderer),
+    ) -> PhysicalRegion;
+}
+
+impl SoftwareRendererExt for SoftwareRenderer {
+    fn render_with_post_callback(
+        &self,
+        buffer: &mut [impl TargetPixel],
+        pixel_stride: usize,
+        callback: &dyn Fn(&mut dyn ItemRenderer),
+    ) -> PhysicalRegion {
+        self.render_buffer_impl(
+            &mut TargetPixelSlice { data: buffer, pixel_stride },
+            Some(callback),
+        )
+    }
+}
+
 impl SoftwareRenderer {
     fn render_buffer_impl(
         &self,
         buffer: &mut impl target_pixel_buffer::TargetPixelBuffer,
+        post_render_callback: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> PhysicalRegion {
         let pixels_per_line = buffer.line_slice(0).len();
         let num_lines = buffer.num_lines();
@@ -612,8 +639,14 @@ impl SoftwareRenderer {
 
                 if partial {
                     post_render(&mut renderer);
+                    if let Some(callback) = post_render_callback {
+                        callback(&mut renderer);
+                    }
                 } else {
                     post_render(&mut renderer.actual_renderer);
+                    if let Some(callback) = post_render_callback {
+                        callback(&mut renderer.actual_renderer);
+                    }
                 }
 
                 self.measure_frame_rendered(&mut renderer);

@@ -316,7 +316,7 @@ impl SoftwareRenderer {
     /// Returns the physical dirty region for this frame, excluding the extra_draw_region,
     /// in the window frame of reference. It is affected by the screen rotation.
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride })
+        self.render_buffer_impl(&mut TargetPixelSlice { data: buffer, pixel_stride }, None)
     }
 
     /// Render the window to the given frame buffer.
@@ -333,7 +333,7 @@ impl SoftwareRenderer {
     /// in the window frame of reference. It is affected by the screen rotation.
     #[cfg(feature = "experimental")]
     pub fn render_into_buffer(&self, buffer: &mut impl TargetPixelBuffer) -> PhysicalRegion {
-        self.render_buffer_impl(buffer)
+        self.render_buffer_impl(buffer, None)
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
