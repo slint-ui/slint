@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ShadowBox } from "ShadowBox.slint";
+
+export component ButtonFace inherits Rectangle {
+    in property <float> press-progress;
+    in property <brush> fill: @linear-gradient(135deg, #ffb700, #ff7900);
+    out property <length> content-offset: press-progress * 2px;
+    border-radius: 14px;
+
+    ShadowBox {
+        y: root.content-offset;
+        height: parent.height - root.press-progress * 1px;
+        border-radius: root.border-radius;
+        fill: root.fill.brighter(-root.press-progress * 12%);
+    }
+}

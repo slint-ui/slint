@@ -1,51 +1,55 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+
 import { DemoPalette } from "../common.slint";
 import { ShadowBox } from "ShadowBox.slint";
+import { PressArea } from "PressArea.slint";
 
 export component CheckBox {
     in property <string> text;
     in-out property <bool> checked;
-
-    property <length> margin: (root.height - tick-box.height) / 2;
 
     width: 100%;
     height: 74px;
 
     ShadowBox { }
 
-    Text {
-        x: margin;
-        text <=> root.text;
-        font-size: 16px;
-        color: DemoPalette.text-foreground-color;
-    }
+    HorizontalLayout {
+        padding: 13px;
 
-    tick-box := Rectangle {
-        in property <image> img;
-        callback clicked;
-        x: parent.width - self.width - margin;
-        width: 48px;
-        height: self.width;
-        border-radius: 10px;
-        border-width: 2px;
-        border-color: #CAD5E2;
-
-        Image {
-            visible: root.checked;
-            source: @image-url("../images/mcu/switch-active.png");
-
-            Image {
-                source: @image-url("../images/mcu/tick.svg");
-            }
+        Text {
+            text: root.text;
+            font-size: 16px;
+            color: DemoPalette.text-foreground-color;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
         }
 
-        touch := TouchArea {
-            clicked => {
-                root.checked = !root.checked;
+        Rectangle {
+            width: 48px;
+            height: 48px;
+
+            Rectangle {
+                y: touch.press-progress * 2px;
+                height: parent.height - touch.press-progress * 1px;
+                border-radius: root.checked ? 8px : 10px;
+                border-width: 2px;
+                border-color: (root.checked ? #2b7fff : #CAD5E2).brighter(-touch.press-progress * 12%);
+                background: root.checked
+                    ? @linear-gradient(135deg, #287dff, #4d37f7).brighter(-touch.press-progress * 12%)
+                    : #000000.with-alpha(touch.press-progress * 0.12);
+
+                Image {
+                    visible: root.checked;
+                    source: @image-url("../images/mcu/tick.svg");
+                }
             }
-            width: 150%;
-            height: 150%;
+
+            touch := PressArea {
+                width: 150%;
+                height: 150%;
+                clicked => { root.checked = !root.checked; }
+            }
         }
     }
 }
