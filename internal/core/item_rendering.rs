@@ -471,9 +471,9 @@ pub trait RenderImage {
     fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling);
 }
 
-/// Trait for an item has font properties
-#[allow(missing_docs)]
+/// Trait for an item that has font properties.
 pub trait HasFont {
+    /// The font to shape the item's text with, falling back to the enclosing `Window`'s defaults.
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
 }
 
@@ -483,10 +483,11 @@ pub enum PlainOrStyledText {
     Styled(crate::styled_text::StyledText),
 }
 
-/// Trait for an item that represents an string towards the renderer
-#[allow(missing_docs)]
+/// Trait for an item that represents a string towards the renderer.
 pub trait RenderString: HasFont {
+    /// The text to lay out.
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    /// The `max-lines` property; see [`Self::line_limit`].
     fn max_lines(self: Pin<&Self>) -> i32 {
         0
     }
@@ -503,6 +504,50 @@ pub trait RenderString: HasFont {
     /// Color of `Style::Link` spans. Like `stroke`, it's baked into the shaped glyphs.
     fn link_color(self: Pin<&Self>) -> Color {
         Default::default()
+    }
+    /// The factor applied to the font's natural line height, or `None` for the natural height.
+    ///
+    /// Width measurement goes through `TextForWidth`, which never calls this: the line height
+    /// can't change the width, and a factor bound to the width would loop there (#13799).
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        None
+    }
+}
+
+/// Maps a `line-height-factor` property value to [`RenderString::line_height_factor`].
+/// Negative and non-finite values behave like `1`, the natural line height; `0` collapses lines.
+pub fn resolve_line_height_factor(factor: f32) -> Option<f32> {
+    (factor.is_finite() && factor >= 0.0 && factor != 1.0).then_some(factor)
+}
+
+/// Presents a text to the renderer for measuring its width: like the text itself, but with the
+/// natural line height. See [`RenderString::line_height_factor`].
+pub(crate) struct TextForWidth<'a>(pub Pin<&'a dyn RenderString>);
+
+impl HasFont for TextForWidth<'_> {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        self.0.font_request(self_rc)
+    }
+}
+
+impl RenderString for TextForWidth<'_> {
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        self.0.text()
+    }
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        self.0.max_lines()
+    }
+    fn line_limit(self: Pin<&Self>) -> Option<usize> {
+        self.0.line_limit()
+    }
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        self.0.stroke()
+    }
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.0.link_color()
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        None
     }
 }
 
@@ -545,7 +590,6 @@ impl HasFont for (SharedString, Brush) {
             0,
             LogicalLength::default(),
             LogicalLength::default(),
-            0.0,
             false,
         )
     }
