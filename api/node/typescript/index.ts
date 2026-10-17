@@ -30,7 +30,13 @@ export { Model };
  * console.log(component.background.toString());
  * ```
  */
-export interface Brush extends napi.Brush {
+export interface Brush {
+    /**
+     * The color of a solid color brush. If it isn't set, the brush is transparent.
+     * For a gradient, the color of its first stop.
+     */
+    color?: napi.RgbaColor;
+
     /**
      * `true` if the brush is fully transparent.
      */
