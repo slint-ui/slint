@@ -291,9 +291,7 @@ impl CompilerConfiguration {
     #[must_use]
     fn with_absolute_paths(mut self, manifest_dir: &std::path::Path) -> Self {
         let to_absolute_path = |path: &mut std::path::PathBuf| {
-            if path.is_relative() {
-                *path = manifest_dir.join(&path);
-            }
+            *path = project_file::resolve_relative_path(manifest_dir, std::mem::take(path));
         };
 
         for path in
@@ -557,9 +555,11 @@ pub fn compile_with_config(
     let manifest_path = std::path::PathBuf::from(
         env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?,
     );
-    let (path, project_file) =
-        project_file::resolve_input(&manifest_path.join(relative_slint_file_path.as_ref()))
-            .map_err(|error| CompileError::CompileError(vec![error]))?;
+    let (path, project_file) = project_file::resolve_input(&project_file::resolve_relative_path(
+        &manifest_path,
+        relative_slint_file_path.as_ref().to_path_buf(),
+    ))
+    .map_err(|error| CompileError::CompileError(vec![error]))?;
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
@@ -809,6 +809,7 @@ mod tests {
         let config = CompilerConfiguration::new().with_include_paths(Vec::from([
             root_path_prefix().join("some/absolute/path"),
             PathBuf::from("some/relative/path"),
+            PathBuf::from("windows\\style"),
         ]));
 
         let manifest_path = root_path_prefix().join("path/to/manifest");
@@ -818,6 +819,7 @@ mod tests {
             Vec::from([
                 root_path_prefix().join("some/absolute/path"),
                 manifest_path.join("some/relative/path"),
+                manifest_path.join("windows").join("style"),
             ])
         )
     }

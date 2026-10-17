@@ -373,17 +373,24 @@ fn normalize_project_file_path(path: &Path) -> PathBuf {
     }
 }
 
+/// Resolves `path` against `directory` the way an import is resolved.
+/// `\` separates directories on every host, and an absolute `path` is returned cleaned up.
+/// Use it for a path written by hand relative to a directory, such as in a project file
+/// or in a build script.
 #[expect(deprecated)]
-fn resolve_relative_path(project_directory: &Path, path: PathBuf) -> PathBuf {
-    SourcePath::new(project_directory)
-        .join(&path.to_string_lossy())
+pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
+    path.to_str()
+        .and_then(|relative| SourcePath::new(directory).join(relative))
         .map(|path| path.to_legacy_path())
-        .unwrap_or(path)
+        .unwrap_or_else(|| directory.join(path))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{FILE_NAME, ProjectFile, find_project_file_path, is_project_file, resolve_input};
+    use super::{
+        FILE_NAME, ProjectFile, find_project_file_path, is_project_file, resolve_input,
+        resolve_relative_path,
+    };
     use crate::generator::OutputFormat;
     use std::{
         collections::HashMap,
@@ -391,6 +398,16 @@ mod tests {
         path::{Path, PathBuf},
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    #[test]
+    fn resolve_relative_path_uses_import_separators() {
+        let directory = std::env::temp_dir().join("project");
+        let expected = directory.join("ui").join("main.slint");
+        assert_eq!(resolve_relative_path(&directory, "ui/main.slint".into()), expected);
+        // A build script written on Windows passes this, and Slint 1.18 accepted it everywhere
+        assert_eq!(resolve_relative_path(&directory, "ui\\main.slint".into()), expected);
+        assert_eq!(resolve_relative_path(&directory, expected.clone()), expected);
+    }
 
     #[test]
     fn build_overrides_apply_after_project_settings_and_existing_defaults() {
