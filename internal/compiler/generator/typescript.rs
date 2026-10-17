@@ -70,9 +70,12 @@ impl TsInterface {
                 (Some(read_ty), true) => {
                     Field { name: member(name), ty: read_ty, read_ty: None, read_only: true }
                 }
-                (read_ty, read_only) => {
-                    Field { name: member(name), ty: ts_type_name(&prop.ty), read_ty, read_only }
-                }
+                (read_ty, read_only) => Field {
+                    name: member(name),
+                    ty: ts_input_type_name(&prop.ty),
+                    read_ty,
+                    read_only,
+                },
             })
             .collect();
         Self { name: ident(name), aliases, fields }
@@ -328,9 +331,11 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
                 let fields = s
                     .fields
                     .iter()
+                    // tsc checks an object literal against a getter's type, so a get/set
+                    // pair wouldn't let `S({ rows: [1, 2] })` through.
                     .map(|(name, ty)| Field {
                         name: member(name),
-                        ty: ts_type_name(ty),
+                        ty: ts_input_type_name(ty),
                         read_ty: None,
                         read_only: false,
                     })
@@ -406,7 +411,26 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
 
 /// The type that reading a property of type `ty` returns, if it isn't the one that a write accepts.
 fn ts_read_type_name(ty: &Type) -> Option<SmolStr> {
-    matches!(ty, Type::Color | Type::Brush).then(|| SmolStr::new_static("Required<slint.Brush>"))
+    match ty {
+        Type::Color | Type::Brush => Some(SmolStr::new_static("Required<slint.Brush>")),
+        Type::Array(_) => Some(ts_type_name(ty)),
+        _ => None,
+    }
+}
+
+/// The type an assignment accepts: an array also takes a plain JavaScript array.
+fn ts_input_type_name(ty: &Type) -> SmolStr {
+    match ty {
+        Type::Array(elem_type) => {
+            let elem = ts_input_type_name(elem_type);
+            if elem.contains(['|', '=']) {
+                format_smolstr!("slint.Model<{elem}> | ({elem})[]")
+            } else {
+                format_smolstr!("slint.Model<{elem}> | {elem}[]")
+            }
+        }
+        ty => ts_type_name(ty),
+    }
 }
 
 /// The type of the properties that the constructor of `compo` takes.
