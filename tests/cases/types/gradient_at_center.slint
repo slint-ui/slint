@@ -21,6 +21,12 @@ component TestCase inherits Rectangle {
     property <length> neg_offset: 0px - 50px;
     property <brush> radial_outside: @radial-gradient(circle 200px at neg_offset neg_offset, yellow, transparent);
 
+    // Properties named like colors are used as lengths and angles, not colors.
+    property <length> tan: 100px;
+    property <length> gold: 75px;
+    property <length> peru: 80px;
+    property <angle> plum: 90deg;
+
     // Brush equality semantics.
     out property <bool> test:
         @radial-gradient(circle at 50px 50px, red, blue) != @radial-gradient(circle, red, blue)
@@ -28,7 +34,9 @@ component TestCase inherits Rectangle {
         && @radial-gradient(circle 80px at 100px 100px, red, green, blue) != @radial-gradient(circle, red, green, blue)
         && @radial-gradient(circle 80px, red, green, blue) != @radial-gradient(circle, red, green, blue)
         && @conic-gradient(at 100px 50px, red 0deg, blue 180deg, red 360deg) != @conic-gradient(red 0deg, blue 180deg, red 360deg)
-        && radial_dynamic != @radial-gradient(circle, red, blue);
+        && radial_dynamic != @radial-gradient(circle, red, blue)
+        && @radial-gradient(circle peru at tan gold, red, blue) == @radial-gradient(circle 80px at 100px 75px, red, blue)
+        && @conic-gradient(from plum at tan gold, red 0deg, blue plum) == @conic-gradient(from 90deg at 100px 75px, red 0deg, blue 90deg);
 }
 
 export { TestCase }
