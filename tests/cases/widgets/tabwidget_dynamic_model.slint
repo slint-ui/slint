@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    in-out property <[string]> tabs;
+    out property <int> current-index <=> tab-widget.current-index;
+
+    tab-widget := TabWidget {
+        for title in tabs: Tab {
+            title: title;
+            Text {
+                text: title;
+            }
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_backend_testing::{AccessibleRole, ElementQuery};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+
+// The `for` loop instantiates one tab per model entry.
+let tabs = Rc::new(slint::VecModel::from(vec![
+    "Alpha".into(),
+    "Bravo".into(),
+    "Charlie".into(),
+]));
+instance.set_tabs(tabs.clone().into());
+
+let tab_bar = ElementQuery::from_root(&instance)
+    .match_descendants()
+    .match_accessible_role(AccessibleRole::TabList)
+    .find_first()
+    .unwrap();
+assert_eq!(tab_bar.accessible_item_count(), Some(3));
+
+// Adding an entry adds a tab at runtime.
+tabs.push("Delta".into());
+assert_eq!(tab_bar.accessible_item_count(), Some(4));
+
+// Removing an entry removes the corresponding tab.
+tabs.remove(0);
+assert_eq!(tab_bar.accessible_item_count(), Some(3));
+```
+*/

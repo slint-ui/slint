@@ -34,6 +34,8 @@ a time.
 ### current-index
 <SlintProperty typeName="int" propName="current-index" defaultValue="0">
 The index of the currently visible tab.
+When `if` or `for` removes tabs so that the index no longer refers to a tab, the last tab becomes current.
+It becomes `-1` when no tab is left.
 
 ```slint "current-index: 1;"
 TabWidget {

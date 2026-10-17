@@ -10,8 +10,8 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::element_type::ElementType;
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::expression_types::{MinMaxOp, Unit};
+use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference};
+use crate::expression_types::Unit;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
@@ -102,6 +102,8 @@ pub async fn lower_tabwidget(
         .await
         .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
+    let grid_type =
+        type_loader.global_type_registry.borrow().lookup_builtin_element("GridLayout").unwrap();
 
     for elem in &tab_widgets {
         process_tabwidget(
@@ -111,6 +113,7 @@ pub async fn lower_tabwidget(
             ElementType::Component(tabbar_horizontal_impl.clone()),
             ElementType::Component(tabbar_vertical_impl.clone()),
             &empty_type,
+            &grid_type,
             diag,
         );
     }
@@ -146,6 +149,7 @@ fn process_tabwidget(
     tabbar_horizontal_impl: ElementType,
     tabbar_vertical_impl: ElementType,
     empty_type: &ElementType,
+    grid_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
@@ -154,16 +158,47 @@ fn process_tabwidget(
         .partition(|child| {
             matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
         });
-    let num_tabs = children.len();
+
+    // Every child contributes a count (1 / cond?1:0 / model length), stored in
+    // a synthetic property on the TabWidget; offsets are running sums.
+    let add = |lhs: Expression, rhs: Expression| Expression::BinaryExpression {
+        lhs: lhs.into(),
+        rhs: rhs.into(),
+        op: '+',
+        source_location: None,
+    };
+    let mut offsets = Vec::new();
+    let mut running = Expression::NumberLiteral(0.0, Unit::None);
+    for (i, child) in children.iter().enumerate() {
+        offsets.push(running.clone());
+        let count = match &child.borrow().repeated {
+            None => Expression::NumberLiteral(1.0, Unit::None),
+            Some(r) if r.is_conditional_element => Expression::Condition {
+                condition: r.model.clone().into(),
+                true_expr: Expression::NumberLiteral(1.0, Unit::None).into(),
+                false_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+                source_location: None,
+            },
+            Some(r) => match r.model.ty() {
+                Type::Int32 | Type::Float32 => r.model.clone(),
+                _ => Expression::FunctionCall {
+                    function: Callable::Builtin(
+                        crate::builtin_functions::BuiltinFunction::ArrayLength,
+                    ),
+                    arguments: vec![r.model.clone()],
+                    source_location: None,
+                },
+            },
+        };
+        let count_prop =
+            crate::layout::create_new_prop(elem, format_smolstr!("tab-count-{i}"), Type::Int32);
+        elem.borrow_mut().set_binding(count_prop.name().clone(), count.into());
+        running = add(running, Expression::PropertyReference(count_prop));
+    }
+    let num_tabs_expr = running;
+
     let mut tabs = Vec::new();
-    for child in &mut children {
-        if child.borrow().repeated.is_some() {
-            diag.push_error(
-                "dynamic tabs ('if' or 'for') are currently not supported".into(),
-                &*child.borrow(),
-            );
-            continue;
-        }
+    for (position, child) in children.iter_mut().enumerate() {
         if child.borrow().base_type.to_string() != "Tab" {
             assert!(diag.has_errors());
             continue;
@@ -174,17 +209,39 @@ fn process_tabwidget(
             .borrow_mut()
             .property_declarations
             .insert(SmolStr::new_static("title"), Type::String.into());
-        set_geometry_prop(elem, child, "x", diag);
-        set_geometry_prop(elem, child, "y", diag);
-        set_geometry_prop(elem, child, "width", diag);
-        set_geometry_prop(elem, child, "height", diag);
+        // Panels are cells (0,0) of a synthetic GridLayout instead of
+        // being bound to content-{x,y,width,height} directly.
+        for prop in ["x", "y", "width", "height", "row", "col", "rowspan", "colspan"] {
+            if let Some(old) = child.borrow().binding(prop) {
+                diag.push_error(
+                    format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
+                    &*old,
+                );
+            }
+        }
+        for prop in ["row", "col"] {
+            child.borrow_mut().set_binding(
+                SmolStr::new_static(prop),
+                Expression::NumberLiteral(0.0, Unit::None).into(),
+            );
+        }
+
+        let is_for = child.borrow().repeated.as_ref().is_some_and(|r| !r.is_conditional_element);
+        let index_expr = if is_for {
+            add(
+                offsets[position].clone(),
+                Expression::RepeaterIndexReference { element: Rc::downgrade(child) },
+            )
+        } else {
+            offsets[position].clone()
+        };
         let condition = Expression::BinaryExpression {
             lhs: Expression::PropertyReference(NamedReference::new(
                 elem,
                 SmolStr::new_static("current-index"),
             ))
             .into(),
-            rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+            rhs: index_expr.clone().into(),
             op: '=',
             source_location: None,
         };
@@ -223,18 +280,51 @@ fn process_tabwidget(
             );
         }
 
-        let mut tab = Element {
+        let tab_rc = Element::make_rc(Element {
             id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
             enclosing_component: elem.borrow().enclosing_component.clone(),
+            repeated: child.borrow().repeated.clone(),
             ..Default::default()
+        });
+        // For repeated tabs, copy the title expression into the header's own repeater
+        // and retarget model/index references child -> tab.
+        if child.borrow().repeated.is_some() {
+            let title_expr = child
+                .borrow()
+                .binding("title")
+                .map(|b| b.expression.clone())
+                .unwrap_or(Expression::StringLiteral("".into()));
+            let mut title_expr = title_expr;
+            let child_weak = Rc::downgrade(child);
+            let tab_weak = Rc::downgrade(&tab_rc);
+            title_expr.visit_recursive_mut(&mut |e| match e {
+                Expression::RepeaterModelReference { element }
+                | Expression::RepeaterIndexReference { element }
+                    if std::rc::Weak::ptr_eq(element, &child_weak) =>
+                {
+                    *element = tab_weak.clone();
+                }
+                _ => {}
+            });
+            tab_rc.borrow_mut().set_binding(SmolStr::new_static("title"), title_expr.into());
+        } else {
+            tab_rc.borrow_mut().set_binding(
+                SmolStr::new_static("title"),
+                BindingExpression::new_two_way(
+                    NamedReference::new(child, SmolStr::new_static("title")).into(),
+                ),
+            );
+        }
+        let tab_index_expr = if is_for {
+            add(
+                offsets[position].clone(),
+                Expression::RepeaterIndexReference { element: Rc::downgrade(&tab_rc) },
+            )
+        } else {
+            offsets[position].clone()
         };
-        tab.set_binding(
-            SmolStr::new_static("title"),
-            BindingExpression::new_two_way(
-                NamedReference::new(child, SmolStr::new_static("title")).into(),
-            ),
-        );
+        let mut tab = tab_rc.borrow_mut();
         tab.set_binding(
             SmolStr::new_static("current"),
             BindingExpression::new_two_way(
@@ -247,15 +337,10 @@ fn process_tabwidget(
                 NamedReference::new(elem, SmolStr::new_static("current-focused")).into(),
             ),
         );
-        tab.set_binding(
-            SmolStr::new_static("tab-index"),
-            Expression::NumberLiteral(index as _, Unit::None).into(),
-        );
-        tab.set_binding(
-            SmolStr::new_static("num-tabs"),
-            Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
-        );
-        tabs.push(Element::make_rc(tab));
+        tab.set_binding(SmolStr::new_static("tab-index"), tab_index_expr.into());
+        tab.set_binding(SmolStr::new_static("num-tabs"), num_tabs_expr.clone().into());
+        drop(tab);
+        tabs.push(tab_rc);
     }
 
     let mut tabbar_impl = tabbar_horizontal_impl;
@@ -283,10 +368,7 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
-    tabbar.borrow_mut().set_binding(
-        SmolStr::new_static("num-tabs"),
-        Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
-    );
+    tabbar.borrow_mut().set_binding(SmolStr::new_static("num-tabs"), num_tabs_expr.clone().into());
     tabbar.borrow_mut().set_binding(
         SmolStr::new_static("current"),
         BindingExpression::new_two_way(
@@ -312,48 +394,35 @@ fn process_tabwidget(
         ),
     );
 
-    if let Some(expr) = children
-        .iter()
-        .map(|x| {
-            Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static("min-width")))
-        })
-        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
-    {
-        elem.borrow_mut().set_binding("content-min-width".into(), expr.into());
-    };
-    if let Some(expr) = children
-        .iter()
-        .map(|x| {
-            Expression::PropertyReference(NamedReference::new(x, SmolStr::new_static("min-height")))
-        })
-        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
-    {
-        elem.borrow_mut().set_binding("content-min-height".into(), expr.into());
-    };
-
-    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).chain(timers).collect();
-}
-
-fn set_geometry_prop(
-    tab_widget: &ElementRc,
-    content: &ElementRc,
-    prop: &str,
-    diag: &mut BuildDiagnostics,
-) {
-    let old = content.borrow_mut().set_binding(
-        prop.into(),
-        Expression::PropertyReference(NamedReference::new(
-            tab_widget,
-            format_smolstr!("content-{}", prop),
-        ))
-        .into(),
-    );
-    if let Some(old) = old {
-        diag.push_error(
-            format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
-            &old,
+    // One GridLayout hosts all panels in cell (0,0); its layout info is
+    // the max over all panels, including every instance of a `for`/`if`.
+    let content = Element::make_rc(Element {
+        id: format_smolstr!("{}-content", elem.borrow().id),
+        base_type: grid_type.clone(),
+        enclosing_component: elem.borrow().enclosing_component.clone(),
+        children,
+        ..Default::default()
+    });
+    for prop in ["x", "y", "width", "height"] {
+        content.borrow_mut().set_binding(
+            prop.into(),
+            Expression::PropertyReference(NamedReference::new(
+                elem,
+                format_smolstr!("content-{}", prop),
+            ))
+            .into(),
         );
     }
+    elem.borrow_mut().set_binding(
+        "content-min-width".into(),
+        Expression::PropertyReference(NamedReference::new(&content, "min-width".into())).into(),
+    );
+    elem.borrow_mut().set_binding(
+        "content-min-height".into(),
+        Expression::PropertyReference(NamedReference::new(&content, "min-height".into())).into(),
+    );
+
+    elem.borrow_mut().children = [tabbar, content].into_iter().chain(timers).collect();
 }
 
 fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &str) {
