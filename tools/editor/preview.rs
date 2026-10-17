@@ -2830,6 +2830,7 @@ fn set_selected_element(
                     ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
                     ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
                     ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
+                    ui::LayoutKind::Flexbox => properties::LayoutKind::FlexboxLayout,
                 };
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(

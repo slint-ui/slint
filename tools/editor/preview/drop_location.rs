@@ -90,7 +90,7 @@ fn calculate_drop_acceptance(
             LogicalPoint::new(geometry.origin.x + horizontal, geometry.origin.y),
             LogicalSize::new(geometry.size.width - (2.0 * horizontal), geometry.size.height),
         ),
-        ui::LayoutKind::Grid => *geometry,
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => *geometry,
     };
 
     if certain_rect.contains(position) { DropAccept::Yes } else { DropAccept::Maybe }
@@ -279,7 +279,7 @@ fn calculate_drop_information_for_layout(
             }
             unreachable!("We missed the target layout")
         }
-        ui::LayoutKind::Grid => {
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => {
             // TODO: Do something here
             (None, usize::MAX)
         }

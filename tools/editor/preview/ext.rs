@@ -34,6 +34,7 @@ impl ElementRcNodeExt for i_slint_editor_preview::ElementRcNode {
     fn layout_kind(&self) -> crate::preview::ui::LayoutKind {
         self.with_element_debug(|di| match &di.layout {
             Some(layout::Layout::GridLayout(_)) => ui::LayoutKind::Grid,
+            Some(layout::Layout::FlexboxLayout(_)) => ui::LayoutKind::Flexbox,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
                 orientation: i_slint_compiler::expression_types::Orientation::Horizontal,
                 ..
