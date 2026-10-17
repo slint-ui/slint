@@ -2227,7 +2227,8 @@ fn build(l: &mut Loader) {
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
         out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
-        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// This invokes the close request handler that the application set on the window,
+        /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
         @shadowable function close() -> bool { BuiltinFunction.WindowClose }
