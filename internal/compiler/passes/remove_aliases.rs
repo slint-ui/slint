@@ -102,6 +102,23 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     // target -> [aliases]
     let mut callback_aliases: HashMap<NamedReference, Vec<NamedReference>> = HashMap::new();
 
+    // An instance can only bind a declaration two ways to a struct field or a model value
+    // while the declaration has its own property.
+    let mut keep_local = HashSet::new();
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| {
+            let e = e.borrow();
+            for (name, binding) in e.real_bindings() {
+                let partial = binding.borrow().two_way_bindings.iter().any(|twb| {
+                    !matches!(twb, TwoWayBinding::Property { field_access, .. } if field_access.is_empty())
+                });
+                if partial && let Some(component) = e.declaring_base_component(name) {
+                    keep_local.insert(NamedReference::new(&component.root_element, name.clone()));
+                }
+            }
+        })
+    });
+
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in e.borrow().real_bindings() {
             for twb in &binding.borrow().two_way_bindings {
@@ -125,7 +142,12 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                             bucket.push(source.clone());
                         }
                     }
-                    property_sets.add_link(source, property.clone());
+                    let source = global_of_base_declaration(&source, &keep_local).unwrap_or(source);
+                    let property = global_of_base_declaration(property, &keep_local)
+                        .unwrap_or_else(|| property.clone());
+                    if source != property {
+                        property_sets.add_link(source, property);
+                    }
                 }
             }
         }
@@ -222,19 +244,9 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 best.element().borrow().enclosing_component.upgrade().unwrap().is_global();
             for x in set.iter() {
                 if *x != best {
-                    // Keep a property with a `changed` handler or an animation in its own
-                    // component rather than aliasing it onto a global (a singleton it can't
-                    // reach); the replacement below leaves it two-way bound to `best`.
-                    let elem = x.element();
-                    let elem = elem.borrow();
-                    let carries_local_state = elem.change_callbacks.contains_key(x.name())
-                        || elem
-                            .binding(x.name())
-                            .is_some_and(|binding| binding.animation.is_some());
-                    if best_is_global
-                        && !elem.enclosing_component.upgrade().unwrap().is_global()
-                        && carries_local_state
-                    {
+                    // The replacement below leaves a property that `stays_local` two-way bound
+                    // to `best`.
+                    if best_is_global && !is_in_global(x) && stays_local(x, &keep_local) {
                         continue;
                     }
                     aliases_to_remove.insert(x.clone(), (best.clone(), Rc::clone(&set_rc)));
@@ -308,23 +320,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                     // the set was folded into `to` already, so the normal merge below handles it.
                     return true;
                 }
-                let target_elem = property.element();
-                let mut target_elem = target_elem.borrow_mut();
-                let mut target_binding = if let Some(b) = target_elem.binding_mut(property.name()) {
-                    // need to unwrap manually here so the borrow checker understands that
-                    // target_elem is no longer borrowed in the `else` path.
-                    b
-                } else {
-                    target_elem.set_binding(
-                        property.name().clone(),
-                        BindingExpression::new_two_way(to.clone().into()),
-                    );
-                    target_elem.binding_mut(property.name()).unwrap()
-                };
-                // let b = target_elem.binding_mut(property.name()).expect("Binding was just set");
-                if !target_binding.two_way_bindings.iter().any(|x| x.property() == Some(&to)) {
-                    target_binding.two_way_bindings.push(to.clone().into());
-                }
+                add_two_way_link(property, &to);
                 // drop from old_binding so the merge below won't carry it onto the global
                 false
             });
@@ -443,6 +439,101 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             }
         }
     }
+    let mut moved_links = Vec::new();
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| {
+            take_links_of_global_declarations(e, &mut moved_links)
+        })
+    });
+    for (property, global) in moved_links {
+        add_two_way_link(&property, &global);
+    }
+}
+
+/// Bind `property` two ways to `to`, keeping its other bindings.
+fn add_two_way_link(property: &NamedReference, to: &NamedReference) {
+    let element = property.element();
+    let mut element = element.borrow_mut();
+    if let Some(mut binding) = element.binding_mut(property.name()) {
+        if !binding.two_way_bindings.iter().any(|x| x.property() == Some(to)) {
+            binding.two_way_bindings.push(to.clone().into());
+        }
+        return;
+    }
+    element.set_binding(property.name().clone(), BindingExpression::new_two_way(to.clone().into()));
+}
+
+/// Drop the links of the properties of `e` that are a global (see [`global_of_base_declaration`]),
+/// and collect the ones to put on their other end instead.
+fn take_links_of_global_declarations(
+    e: &ElementRc,
+    moved_links: &mut Vec<(NamedReference, NamedReference)>,
+) {
+    for (name, binding) in e.borrow().real_bindings() {
+        if binding.borrow().two_way_bindings.is_empty() {
+            continue;
+        }
+        let Some(global) = global_declaration(e, name) else { continue };
+        binding.borrow_mut().two_way_bindings.retain(|twb| match twb {
+            TwoWayBinding::Property { property, field_access } if field_access.is_empty() => {
+                let other = global_declaration(&property.element(), property.name());
+                if other.as_ref().unwrap_or(property) != &global {
+                    moved_links.push((property.clone(), global.clone()));
+                }
+                false
+            }
+            _ => true,
+        });
+        global.mark_as_set();
+    }
+}
+
+/// The global that the property `x` of an instance is, because its declaration in a base
+/// component is bound two ways to it. Use [`global_declaration`] once the aliases are removed.
+fn global_of_base_declaration(
+    x: &NamedReference,
+    keep_local: &HashSet<NamedReference>,
+) -> Option<NamedReference> {
+    if matches!(x.ty(), Type::Callback(..)) {
+        return None;
+    }
+    let component = x.element().borrow().declaring_base_component(x.name())?;
+    let declaration = NamedReference::new(&component.root_element, x.name().clone());
+    if stays_local(&declaration, keep_local) {
+        return None;
+    }
+    let root = component.root_element.borrow();
+    let binding = root.binding(x.name())?;
+    binding.two_way_bindings.iter().find_map(|twb| match twb {
+        TwoWayBinding::Property { property, field_access }
+            if field_access.is_empty() && is_in_global(property) =>
+        {
+            Some(property.clone())
+        }
+        _ => None,
+    })
+}
+
+/// The global that the property `name` of `e` is, once the aliases are removed.
+fn global_declaration(e: &ElementRc, name: &str) -> Option<NamedReference> {
+    let component = e.borrow().declaring_base_component(name)?;
+    let target =
+        component.root_element.borrow().property_declarations.get(name)?.is_alias.clone()?;
+    is_in_global(&target).then_some(target)
+}
+
+/// Whether `x` keeps its own property instead of being aliased to a global:
+/// a global can't run its `changed` handler or animation, or host its partial two-way bindings.
+fn stays_local(x: &NamedReference, keep_local: &HashSet<NamedReference>) -> bool {
+    let element = x.element();
+    let element = element.borrow();
+    element.change_callbacks.contains_key(x.name())
+        || element.binding(x.name()).is_some_and(|binding| binding.animation.is_some())
+        || keep_local.contains(x)
+}
+
+fn is_in_global(x: &NamedReference) -> bool {
+    x.element().borrow().enclosing_component.upgrade().unwrap().is_global()
 }
 
 fn is_declaration(x: &NamedReference) -> bool {
