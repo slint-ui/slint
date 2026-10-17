@@ -4,7 +4,6 @@
 import { spawn } from "node:child_process";
 import {
     existsSync,
-    mkdirSync,
     mkdtempSync,
     readFileSync,
     rmSync,
@@ -32,6 +31,9 @@ function request(method, params) {
     );
     return new Promise((resolve) => pending.set(id, resolve));
 }
+
+const callTool = async (name, args) =>
+    (await request("tools/call", { name, arguments: args })).result;
 
 before(async () => {
     server = spawn(process.execPath, [serverPath.pathname], {
@@ -69,7 +71,11 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     const { result } = await request("tools/list");
     const preview = result.tools.find((t) => t.name === "preview_slint");
     assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
-    for (const name of ["read_slint_file", "publish_preview_capture"]) {
+    for (const name of [
+        "read_slint_file",
+        "read_image_file",
+        "publish_preview_capture",
+    ]) {
         const tool = result.tools.find((t) => t.name === name);
         assert.deepEqual(tool._meta.ui.visibility, ["app"], name);
     }
@@ -135,52 +141,41 @@ test("takes either an absolute path or source", async () => {
     }
 });
 
-test("reads a file with its local images inlined", async () => {
+test("reads Slint and image files for the view", async () => {
     const dir = mkdtempSync(join(tmpdir(), "slint-preview-"));
     try {
-        mkdirSync(join(dir, "ui"));
-        mkdirSync(join(dir, "images"));
-        writeFileSync(
-            join(dir, "images", "dot.png"),
-            Buffer.from([0x89, 0x50]),
-        );
-        writeFileSync(join(dir, "images", "icon.svg"), "<svg/>");
-        const file = join(dir, "ui", "main.slint");
-        writeFileSync(
-            file,
-            [
-                '@image-url("../images/dot.png")',
-                `@image-url( "${join(dir, "images", "icon.svg")}", nine-slice(1))`,
-                '@image-url("missing.png")',
-                '@image-url("https://example.com/a.png")',
-                '@image-url("data:image/png;base64,AA==")',
-            ].join("\n"),
-        );
+        const slintFile = join(dir, "main.slint");
+        const source = 'Image { source: @image-url("dot.png"); }';
+        writeFileSync(slintFile, source);
+        writeFileSync(join(dir, "dot.png"), Buffer.from([0x89, 0x50]));
+        writeFileSync(join(dir, "icon.svg"), "<svg/>");
 
-        const { result } = await request("tools/call", {
-            name: "read_slint_file",
-            arguments: { path: file },
+        const slint = await callTool("read_slint_file", { path: slintFile });
+        assert.deepEqual(slint.content, [{ type: "text", text: source }]);
+
+        const png = await callTool("read_image_file", {
+            path: join(dir, "dot.png"),
         });
-        assert.equal(result.isError, undefined);
-        assert.deepEqual(result.content[0].text.split("\n"), [
-            '@image-url("data:image/png;base64,iVA=")',
-            `@image-url("data:image/svg+xml;base64,${Buffer.from("<svg/>").toString("base64")}", nine-slice(1))`,
-            '@image-url("missing.png")',
-            '@image-url("https://example.com/a.png")',
-            '@image-url("data:image/png;base64,AA==")',
+        assert.deepEqual(png.content, [
+            { type: "image", data: "iVA=", mimeType: "image/png" },
         ]);
+        const svg = await callTool("read_image_file", {
+            path: join(dir, "icon.svg"),
+        });
+        assert.equal(svg.content[0].mimeType, "image/svg+xml");
     } finally {
         rmSync(dir, { recursive: true });
     }
 });
 
 test("reports a file it can't read as a tool error", async () => {
-    const { result } = await request("tools/call", {
-        name: "read_slint_file",
-        arguments: { path: "/nonexistent/main.slint" },
-    });
-    assert.equal(result.isError, true);
-    assert.match(result.content[0].text, /ENOENT/);
+    for (const name of ["read_slint_file", "read_image_file"]) {
+        const result = await callTool(name, {
+            path: "/nonexistent/main.slint",
+        });
+        assert.equal(result.isError, true, name);
+        assert.match(result.content[0].text, /ENOENT/, name);
+    }
 });
 
 test("rejects unknown tools, resources, and methods", async () => {
@@ -211,9 +206,6 @@ test("the Claude and Codex manifests start this server", () => {
     assert.equal(codex.cwd, ".");
     assert.ok(existsSync(new URL(codex.args[0], pluginRoot)));
 });
-
-const callTool = async (name, args) =>
-    (await request("tools/call", { name, arguments: args })).result;
 
 // Starts a preview and returns its ID, which the view reads from the result.
 async function startPreview(args) {

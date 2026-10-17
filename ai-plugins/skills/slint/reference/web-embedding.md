@@ -41,6 +41,9 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
   Page fonts don't reach the canvas: call `register_font_from_memory(bytes)` before compiling.
 - `compile_from_string_with_style(source, url, "fluent", null)` picks a style.
   The last argument of both compile functions loads imports: `(url) => Promise<string>`.
+- Images don't go through that callback.
+  With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
+  With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
 
 ## Pitfalls
 
