@@ -66,7 +66,7 @@ i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-18", "system-tray"] }
 spin_on = { workspace = true }
-css-color-parser2 = { workspace = true }
+i-slint-common = { workspace = true, features = ["color-parsing"] }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }
 # Removed by node_package xtask

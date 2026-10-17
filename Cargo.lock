@@ -7452,7 +7452,6 @@ name = "slint-node"
 version = "1.19.0"
 dependencies = [
  "async-io",
- "css-color-parser2",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-testing",

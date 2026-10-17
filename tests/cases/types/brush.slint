@@ -99,9 +99,10 @@ assert.equal(t.color_brush.transparentize(0.3).toString(), t.seethru.toString())
 t.lighter = t.conditional;
 assert.equal(t.lighter.toString(), t.conditional.toString());
 
-let green = "#00ff00";
-t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
-assert.equal(t.color_brush.toString(), green);
+t.color_brush = "#00ff00";
+assert.equal(t.color_brush.toString(), "#00ff00");
+t.color_brush = "#00ff0080";
+assert.equal(t.color_brush.toString(), "#00ff0080");
 
 ```
 */

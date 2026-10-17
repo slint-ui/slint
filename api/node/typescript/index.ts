@@ -17,8 +17,8 @@ export { Model };
 /**
  * A brush describes how a shape, such as a rectangle, path or even text, is filled.
  *
- * Assign an object with a `color`, a CSS color string, or a brush read from another property
- * to a `brush` or `color` property.
+ * A `brush` or `color` property takes an object with a `color`, or a brush read from another property.
+ * It also takes a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
  *
  * Reading a `brush` or `color` property returns a brush that also has the optional members of this interface.
  * Its `toString()` returns a color as `#rrggbb`, or `#rrggbbaa` if it isn't opaque.
