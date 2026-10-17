@@ -100,8 +100,14 @@ impl BuiltinPropertyInfo {
         }
     }
 
+    /// A property the native item owns: its value can be set or changed by native code, so it
+    /// must not be treated as a compile-time constant and it counts as set for analysis.
+    /// `Private` is native-managed too, it just isn't reachable from `.slint`.
     pub fn is_native_output(&self) -> bool {
-        matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
+        matches!(
+            self.property_visibility,
+            PropertyVisibility::InOut | PropertyVisibility::Output | PropertyVisibility::Private
+        )
     }
 
     /// The `pure` declaration of a function or callback, `None` for a property.

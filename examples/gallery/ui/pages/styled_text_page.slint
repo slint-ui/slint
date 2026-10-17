@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { GroupBox, VerticalBox } from "std-widgets.slint";
+import { Button, GroupBox, HorizontalBox, SpinBox, VerticalBox } from "std-widgets.slint";
 import { Page } from "page.slint";
 
 export component StyledTextPage inherits Page {
@@ -86,6 +86,80 @@ export component StyledTextPage inherits Page {
 
                 StyledText {
                     text: @markdown("Inline `code` mixes with **bold**, *italic* and [links](https://slint.dev) on the same line.");
+                }
+            }
+        }
+
+        GroupBox {
+            title: @tr("Text Selection");
+
+            VerticalBox {
+                sample := StyledText {
+                    text: @markdown("Drag to select this text, double click for a word and triple click for a paragraph.");
+                    text-selectable: true;
+                }
+
+                HorizontalBox {
+                    alignment: start;
+                    padding: 0px;
+
+                    Button {
+                        text: @tr("Select all");
+                        clicked => {
+                            sample.select-all();
+                        }
+                    }
+
+                    Button {
+                        text: @tr("Copy");
+                        enabled: sample.has-selection;
+                        clicked => {
+                            sample.copy();
+                        }
+                    }
+
+                    Button {
+                        text: @tr("Clear");
+                        enabled: sample.has-selection;
+                        clicked => {
+                            sample.clear-selection();
+                        }
+                    }
+                }
+
+                HorizontalBox {
+                    alignment: start;
+                    padding: 0px;
+
+                    Text {
+                        text: @tr("Select byte offsets");
+                        vertical-alignment: center;
+                    }
+
+                    // The sample text is 83 bytes long.
+                    anchor := SpinBox {
+                        horizontal-stretch: 0;
+                        minimum: 0;
+                        maximum: 83;
+                    }
+
+                    Text {
+                        text: @tr("to");
+                        vertical-alignment: center;
+                    }
+
+                    focus := SpinBox {
+                        horizontal-stretch: 0;
+                        minimum: 0;
+                        maximum: 83;
+                    }
+
+                    Button {
+                        text: @tr("Select range");
+                        clicked => {
+                            sample.set-selection-offsets(anchor.value, focus.value);
+                        }
+                    }
                 }
             }
         }

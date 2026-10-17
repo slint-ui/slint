@@ -535,6 +535,22 @@ pub trait RenderText: RenderString {
     fn wrap(self: Pin<&Self>) -> TextWrap;
     fn overflow(self: Pin<&Self>) -> TextOverflow;
     fn is_markdown(self: Pin<&Self>) -> bool;
+    /// The part of the text drawn as selected, if any.
+    fn selection(self: Pin<&Self>) -> Option<TextSelection> {
+        None
+    }
+}
+
+/// A stretch of a text item's text drawn as selected.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextSelection {
+    /// Byte offsets into the raw text.
+    /// For styled text, that is its paragraphs joined by `'\n'`.
+    pub range: core::ops::Range<usize>,
+    /// The highlight behind the selected glyphs.
+    pub background: Color,
+    /// The color of the selected glyphs, whatever their own.
+    pub foreground: Color,
 }
 
 impl HasFont for (SharedString, Brush) {

@@ -646,6 +646,7 @@ structval
 strvalue
 styledprop
 styledtext
+styledtextitem
 styledtextprop
 styledval
 stylemetrics
