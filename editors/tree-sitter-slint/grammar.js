@@ -307,7 +307,7 @@ module.exports = grammar({
           ">",
         )),
         field("name", $.simple_identifier),
-        ";",
+        choice(";", seq("<<", field("default", $.component))),
       ),
 
     // `slot` is a contextual keyword: it only introduces a slot declaration when a

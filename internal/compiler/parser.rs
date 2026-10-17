@@ -419,8 +419,8 @@ declare_syntax! {
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
-        /// `slot header;`
-        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier ],
+        /// `slot header;` or `slot header << Default {}`
+        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier, ?SubElement ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
