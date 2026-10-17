@@ -17,9 +17,9 @@ set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
 # define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
 #     INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
 
-# Reads the "entry" of a slint-project.json into `out_var`.
+# Reads the "main" file of a slint-project.json into `out_var`.
 # string(JSON) rejects comments, so they're dropped first, skipping over string literals.
-function(_slint_project_file_entry project_file out_var)
+function(_slint_project_file_main project_file out_var)
     file(READ "${project_file}" content)
     string(LENGTH "${content}" length)
     set(json "")
@@ -62,11 +62,11 @@ function(_slint_project_file_entry project_file out_var)
         math(EXPR index "${index} + 1")
     endwhile()
 
-    string(JSON entry ERROR_VARIABLE error GET "${json}" entry)
+    string(JSON main ERROR_VARIABLE error GET "${json}" main)
     if(error)
-        message(FATAL_ERROR "${project_file} has no 'entry' to compile: ${error}")
+        message(FATAL_ERROR "${project_file} has no 'main' to compile: ${error}")
     endif()
-    set(${out_var} "${entry}" PARENT_SCOPE)
+    set(${out_var} "${main}" PARENT_SCOPE)
 endfunction()
 
 function(SLINT_TARGET_SOURCES target)
@@ -113,15 +113,15 @@ function(SLINT_TARGET_SOURCES target)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
         get_filename_component(_SLINT_FILE_NAME ${it} NAME)
         if(_SLINT_FILE_NAME STREQUAL "slint-project.json")
-            # Name the header after the entry, as if the entry had been passed.
-            _slint_project_file_entry(${_SLINT_ABSOLUTE} _SLINT_ENTRY)
-            get_filename_component(_SLINT_BASE_NAME ${_SLINT_ENTRY} NAME_WE)
+            # Name the header after the main file, as if that file had been passed.
+            _slint_project_file_main(${_SLINT_ABSOLUTE} _SLINT_MAIN)
+            get_filename_component(_SLINT_BASE_NAME ${_SLINT_MAIN} NAME_WE)
             set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_SLINT_ABSOLUTE})
         else()
             get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
         endif()
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
-        # Without a style, slint-project.json or the compiler's default decides.
+        # Without a style, the compiler's default decides.
         if(_SLINT_STYLE)
             set(_SLINT_STYLE_ARG --style ${_SLINT_STYLE})
         else()

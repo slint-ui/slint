@@ -1006,7 +1006,6 @@ public:
     }
 
     /// Sets the style to be used for widgets.
-    /// This wins over the style of the project file.
     void set_style(std::string_view style)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_style(
@@ -1108,7 +1107,7 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
-    /// If `path` is a `slint-project.json`, its `entry` is compiled with its settings.
+    /// If `path` is a `slint-project.json`, its `main` file is compiled with its settings.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///

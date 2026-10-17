@@ -19,8 +19,8 @@ Use the `LIBRARY_PATHS` argument to specify the name and paths to <SlintRef type
 separated by an equals sign (`=`).
 
 Instead of a `.slint` file, you can pass a `slint-project.json`.
-Its `entry` is compiled with the settings of that project file,
-and the header is named after the entry: `"entry": "ui/the_window.slint"` generates `the_window.h`.
+Its `main` file is compiled with the settings of that project file,
+and the header is named after the main file: `"main": "ui/the_window.slint"` generates `the_window.h`.
 Changing the project file re-runs the CMake configure step.
 
 Given a file called `the_window.slint`, the following example will create a file called `the_window.h` that can
