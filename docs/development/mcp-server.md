@@ -47,6 +47,22 @@ The lazy start via `OnceCell` ensures the server only binds the port once the ap
 
 ## Shared Introspection Layer (`introspection/`)
 
+### Testable Properties
+
+`element_properties()` fills `testableProperties` from `ElementHandle::testable_properties()`
+and `testable_property_value()`, which read the compiler-emitted per-element property table
+through `ItemTreeVTable::element_testable_properties` / `element_testable_property_value`
+(see `SubComponent::testable_properties` in the compiler's LLR).
+Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
+`mcp_server.rs::convert_testable_property_values` retypes them into JSON booleans and
+numbers for both `get_element_properties` and `get_element_tree`.
+The table exists only when the application was compiled with debug info, and an item tree
+whose generator does not implement the entries reports "unsupported",
+which surfaces as a `note` instead of an empty list.
+Only properties declared with the experimental `@testable` attribute
+(`docs/astro/.../guide/experimental/testable.mdx`) are in the table, whatever their visibility.
+The compiler keeps them and their bindings alive, so the listing never depends on the optimizer.
+
 ### IntrospectionState
 
 The central data structure, stored as a thread-local `Rc<IntrospectionState>`. `windows` and
