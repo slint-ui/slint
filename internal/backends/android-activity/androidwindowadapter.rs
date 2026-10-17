@@ -251,6 +251,7 @@ impl AndroidWindowAdapter {
                         false,
                     )?;
                     self.resize()?;
+                    self.request_redraw();
 
                     // Fixes a problem for old Android versions: the soft input always prompt out on startup.
                     #[cfg(feature = "native-activity")]
@@ -258,6 +259,11 @@ impl AndroidWindowAdapter {
                         .show_or_hide_soft_input(false)
                         .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
+            }
+            PollEvent::Main(MainEvent::TerminateWindow { .. }) => {
+                // The window, and with it the context that a rendering notifier's resources belong
+                // to, is only valid until this callback returns.
+                self.renderer.suspend()?;
             }
             PollEvent::Main(
                 MainEvent::WindowResized { .. } | MainEvent::ContentRectChanged { .. },
