@@ -70,7 +70,8 @@ impl Tilt {
             vial.height.saturating_sub(vial.surface),
             vial.width,
         );
-        let ripple = [self.slosh.ripple_q8(), 0];
+        let idle = super::slosh::idle_ripples(tick, vial.index);
+        let ripple = [self.slosh.ripple_q8() + idle[0], idle[1]];
         let changed =
             up != self.surface.up || vial.level != self.level || ripple != self.surface.ripple;
         if changed {

@@ -1,6 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+pub(super) fn idle_ripples(tick: u64, index: usize) -> [i16; 2] {
+    core::array::from_fn(|mode| {
+        let period = [73, 107][mode] + index as u32 * [11, 13][mode];
+        let phase = (tick as u32).wrapping_add(super::seed(mode + 17, index));
+        let segment = phase / period;
+        let t = phase % period * 256 / period;
+        let weight = t * t * (768 - 2 * t) >> 16;
+        let sample = |segment| (super::seed(segment as usize, index + mode * 4) >> 24) as i32 - 128;
+        ((sample(segment) * (256 - weight) as i32 + sample(segment + 1) * weight as i32)
+            * [140, 39][mode]
+            / 32768) as i16
+    })
+}
+
 #[derive(Default)]
 pub(super) struct Slosh {
     angle: f32,
@@ -153,6 +167,30 @@ mod tests {
             }
             assert_eq!(vial.ripple_q8(), 0);
         }
+    }
+
+    #[test]
+    fn idle_ripples_are_subtle_smooth_and_independent() {
+        let mut previous = core::array::from_fn::<_, 4, _>(|i| idle_ripples(0, i));
+        let mut changed = [0; 4];
+        let mut different = [0; 3];
+        for tick in 1..3600 {
+            let current = core::array::from_fn::<_, 4, _>(|i| idle_ripples(tick, i));
+            for index in 0..4 {
+                let ripple = current[index];
+                assert!(ripple[0].abs() <= 140 && ripple[1].abs() <= 39);
+                let delta =
+                    (ripple[0] - previous[index][0]).abs() + (ripple[1] - previous[index][1]).abs();
+                assert!(delta <= 12, "vial {index}, tick {tick}: delta {delta}");
+                changed[index] += usize::from(delta != 0);
+            }
+            for index in 0..3 {
+                different[index] += usize::from(current[index] != current[index + 1]);
+            }
+            previous = current;
+        }
+        assert!(changed.into_iter().all(|count| count > 1800));
+        assert!(different.into_iter().all(|count| count > 3500));
     }
 
     #[test]
