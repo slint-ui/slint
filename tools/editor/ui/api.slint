@@ -533,6 +533,9 @@ export global Api {
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
     }
+    public pure function shadow-prefix(inner: bool) -> string {
+        return inner ? "inner-shadow-" : "drop-shadow-";
+    }
     public pure function has-shadow(prefix: string) -> bool {
         return Api.source-property-value-data(prefix + "color", {}).code != ""
             || Api.source-property-value-data(prefix + "blur", {}).code != ""
@@ -540,27 +543,16 @@ export global Api {
             || Api.source-property-value-data(prefix + "offset-x", {}).code != ""
             || Api.source-property-value-data(prefix + "offset-y", {}).code != "";
     }
-    function shadow-code(name: string, fallback: string) -> string {
-        let code = Api.source-property-value-data(name, {}).code;
-        return code != "" ? code : fallback;
-    }
-    function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
-        return [
-            { name: prefix + "color", value: enabled ? Api.shadow-code(prefix + "color", prefix == "inner-shadow-" ? "#00000030" : "#00000040") : "" },
-            { name: prefix + "blur", value: enabled ? Api.shadow-code(prefix + "blur", "16px") : "" },
-            { name: prefix + "spread", value: enabled ? Api.shadow-code(prefix + "spread", "0px") : "" },
-            { name: prefix + "offset-x", value: enabled ? Api.shadow-code(prefix + "offset-x", "0px") : "" },
-            { name: prefix + "offset-y", value: enabled ? Api.shadow-code(prefix + "offset-y", "8px") : "" },
-        ];
-    }
-    public function set-shadow-effect(element: ElementInformation, value: string) -> bool {
-        if value != "none" && value != "drop" && value != "inner" { return false; }
+    public function toggle-shadow(element: ElementInformation, inner: bool) {
         Api.inspector-cancel();
-        let drop = Api.shadow-bindings("drop-shadow-", value == "drop");
-        let inner = Api.shadow-bindings("inner-shadow-", value == "inner");
-        return Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
-            drop[0], drop[1], drop[2], drop[3], drop[4],
-            inner[0], inner[1], inner[2], inner[3], inner[4],
+        let prefix = Api.shadow-prefix(inner);
+        let enabled = !Api.has-shadow(prefix);
+        Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
+            { name: prefix + "color", value: enabled ? (inner ? "#00000030" : "#00000040") : "" },
+            { name: prefix + "blur", value: enabled ? "16px" : "" },
+            { name: prefix + "spread", value: enabled ? "0px" : "" },
+            { name: prefix + "offset-x", value: enabled ? "0px" : "" },
+            { name: prefix + "offset-y", value: enabled ? "8px" : "" },
         ]);
     }
     pure callback image-source-file-name(source: string) -> string;

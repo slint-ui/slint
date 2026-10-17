@@ -70,12 +70,6 @@ export component InspectorPane inherits Rectangle {
         { value: "800", label: @tr("Extra Bold") },
         { value: "900", label: @tr("Black") },
     ];
-    property <[InspectorComboOption]> rectangle-effect-options: [
-        { value: "none", label: @tr("None") },
-        { value: "drop", label: @tr("Drop Shadow") },
-        { value: "inner", label: @tr("Inner Shadow") },
-    ];
-
     property <[InspectorComboOption]> text-horizontal-alignment-options: [
         { value: "start", label: @tr("Start") },
         { value: "end", label: @tr("End") },
@@ -279,16 +273,6 @@ export component InspectorPane inherits Rectangle {
             root.element-information.offset,
             bindings,
         );
-    }
-
-    function rectangle-effect-index() -> int {
-        if Api.has-shadow("drop-shadow-") {
-            return 1;
-        }
-        if Api.has-shadow("inner-shadow-") {
-            return 2;
-        }
-        return 0;
     }
 
     function quote(value: string) -> string {
@@ -739,21 +723,11 @@ export component InspectorPane inherits Rectangle {
                         padding-right: root.style.padding;
                         spacing: Metrics.space-compact;
 
-                        if root.rectangle-effect-index() == 0: InspectorComboBox {
-                            accessible-name: @tr("Rectangle effect");
-                            value: root.rectangle-effect-options[0].label;
-                            selected-index: 0;
-                            options: root.rectangle-effect-options;
-                            wide: true;
+                        InspectorShadowControl {
                             width: root.field-width;
-                            popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
-                            accepted(text) => {
-                                return Api.set-shadow-effect(root.element-information, text);
-                            }
                         }
-
-                        if root.rectangle-effect-index() != 0: InspectorShadowControl {
-                            inner: root.rectangle-effect-index() == 2;
+                        InspectorShadowControl {
+                            inner: true;
                             width: root.field-width;
                         }
                     }

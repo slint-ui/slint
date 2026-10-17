@@ -11,6 +11,7 @@ import { Project } from "../project.slint";
 component RunButton inherits Rectangle {
     in property <ButtonStyle> style: Style.primary-button;
     in property <bool> enabled;
+    in property <bool> busy;
     in property <bool> running;
     callback clicked;
     private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
@@ -34,9 +35,10 @@ component RunButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        enabled: root.enabled;
+        enabled: root.enabled && !root.busy;
         mouse-cursor: pointer;
         accessible-role: button;
+        accessible-enabled: self.enabled;
         accessible-label: bt.text;
         clicked => { root.clicked(); }
     }
@@ -68,7 +70,8 @@ export component EditorTopBar inherits Rectangle {
     RunButton {
         x: parent.width - self.width - Metrics.space-large;
         y: (parent.height - self.height) / 2;
-        enabled: Preview.can-run && Diagnostics.preview-editable && Api.editor-surface-mode == EditorSurfaceMode.component;
+        enabled: Preview.can-run && !Diagnostics.preview-status-visible && Api.editor-surface-mode == EditorSurfaceMode.component;
+        busy: !Diagnostics.preview-editable;
         running: Preview.is-running;
         clicked => { Preview.run(); }
     }
