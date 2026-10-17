@@ -10,7 +10,7 @@
         "typescript": "catalog:"
     },
     "scripts": {
-        "generate": "cargo run --manifest-path ../../../Cargo.toml -p slint-compiler -- -f typescript ../ui/todo.slint -o ../ui/todo.slint.d.ts",
+        "generate": "slint-typegen ../ui/todo.slint",
         "start": "npm run generate && node --import slint-ui/register main.ts",
         "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "check": "npm run generate && tsc --noEmit"

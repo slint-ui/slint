@@ -3,6 +3,9 @@
   "version": "1.19.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "slint-typegen": "bin/slint-typegen.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -5,10 +5,11 @@ generated type definitions for full IDE autocomplete and type checking.
 
 ## Prerequisites
 
-Before running, generate the type definitions from the `.slint` file:
+Before running, generate the type definitions from the `.slint` file,
+with the `slint-typegen` command of `slint-ui`:
 
 ```sh
-slint-compiler -f typescript ../ui/todo.slint -o ../ui/todo.slint.d.ts
+pnpm exec slint-typegen ../ui/todo.slint
 ```
 
 Or use the npm script:

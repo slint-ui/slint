@@ -530,25 +530,29 @@ The TypeScript compiler and editors don't know `.slint` files, though:
 
 #### Generating Type Declarations
 
-Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file:
+`slint-ui` comes with a `slint-typegen` command that generates a `.d.ts` file next to the `.slint` file:
 
 ```sh
-slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
+npx slint-typegen ui/main.slint
 ```
 
 This gives you full IDE autocomplete and type checking for all properties,
 callbacks, structs, and enums exported from the `.slint` file.
+It takes the `-I` and `-L` options of `slint-compiler`, and `-o` to name the output file.
 
-Wire it into `package.json` so types stay in sync:
+Wire it into `package.json` so types stay in sync.
+A script runs `slint-typegen` without `npx`:
 
 ```json
 {
   "scripts": {
-    "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
+    "generate": "slint-typegen ui/main.slint",
     "start": "npm run generate && node --import slint-ui/register app.mjs"
   }
 }
 ```
+
+Then `npm run generate` regenerates the declarations, and `npm start` regenerates them before it starts the app.
 
 Add `*.slint.d.ts` to `.gitignore` — the generated file is a build artifact.
 The app runs without it; you just lose type checking.
@@ -573,7 +577,8 @@ also map `slint-ui` with `paths`, or TypeScript silently types every component a
 ```
 
 With `moduleResolution: "nodenext"`, TypeScript doesn't find `main.slint.d.ts`.
-Name the generated file `main.d.slint.ts` instead, and enable `allowArbitraryExtensions` in `tsconfig.json`.
+Name the generated file `main.d.slint.ts` instead, with `slint-typegen ui/main.slint -o ui/main.d.slint.ts`,
+and enable `allowArbitraryExtensions` in `tsconfig.json`.
 
 For a complete example,
 see [/examples/todo/node-typescript](https://github.com/slint-ui/slint/tree/master/examples/todo/node-typescript).
