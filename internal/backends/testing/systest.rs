@@ -414,7 +414,7 @@ mod tests {
                 }
             }
         }
-        let app = PendingChange::new_with_context(context.clone()).unwrap();
+        let app = PendingChange::new().unwrap();
         let state = Rc::new(IntrospectionState::new());
         state.add_window(
             &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
