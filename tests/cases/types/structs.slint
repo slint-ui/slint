@@ -113,7 +113,7 @@ export interface TestCase {
     underscore: With_Dash_And_underscore;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function Player(properties?: Partial<Player>): Player;
 export declare function Unused(properties?: Partial<Unused>): Unused;
 export declare function With_Dash_And_underscore(properties?: Partial<With_Dash_And_underscore>): With_Dash_And_underscore;
