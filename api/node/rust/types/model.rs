@@ -19,13 +19,18 @@ use crate::{JsAnchorOwner, to_js_unknown, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
-pub struct SharedModelNotify(Rc<ModelNotify>);
+pub struct SharedModelNotify {
+    notify: Rc<ModelNotify>,
+    /// The `TerminalTypedModel`s wrapping the JS model, so that assigning it again
+    /// gives the same `ModelRc`, which a property compares by identity.
+    terminals: Rc<RefCell<Vec<std::rc::Weak<TerminalTypedModel>>>>,
+}
 
 impl core::ops::Deref for SharedModelNotify {
     type Target = Rc<ModelNotify>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.notify
     }
 }
 
@@ -844,6 +849,34 @@ pub(crate) fn js_into_rust_model(
     row_data_type: &Type,
     anchor_owner: &JsAnchorOwner,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
+    if ReadOnlyRustModel::instance_of(env, maybe_js_impl)? {
+        let read_only =
+            ClassInstance::<ReadOnlyRustModel>::from_unknown(maybe_js_impl.to_unknown())?;
+        return Ok(read_only.0.clone());
+    }
+
+    let terminals = maybe_js_impl
+        .get::<ExternalRef<SharedModelNotify>>("modelNotify")
+        .ok()
+        .flatten()
+        .map(|notify| notify.terminals.clone());
+    let reusable = terminals.as_ref().and_then(|terminals| {
+        let mut terminals = terminals.borrow_mut();
+        terminals.retain(|weak| weak.strong_count() > 0);
+        terminals.iter().filter_map(std::rc::Weak::upgrade).find(|terminal| {
+            // Models can share a `modelNotify` passed to their constructor.
+            let same_js_impl = terminal.js_impl.get_unknown().is_some_and(|js_impl| {
+                env.strict_equals(js_impl, maybe_js_impl.to_unknown()).unwrap_or(false)
+            });
+            terminal.owner.is_same(anchor_owner)
+                && terminal.row_data_type == *row_data_type
+                && same_js_impl
+        })
+    });
+    if let Some(terminal) = reusable {
+        return Ok(terminal.into());
+    }
+
     // `resolve_source` recognizes a TS Reverse/Filter/Sort/MapModel backed by a
     // native adapter and reuses its native backing directly, instead of
     // wrapping it as an opaque RawJsModel: same behavior, without per-row JS
@@ -851,7 +884,7 @@ pub(crate) fn js_into_rust_model(
     let (inner, errors) = resolve_source(env, maybe_js_impl)?;
     let prop_key = register_hidden_model_prop(env, anchor_owner, maybe_js_impl)?;
 
-    Ok(Rc::new(TerminalTypedModel {
+    let terminal = Rc::new(TerminalTypedModel {
         inner,
         errors,
         js_impl: WeakValueRef::new(env, maybe_js_impl)?,
@@ -859,8 +892,11 @@ pub(crate) fn js_into_rust_model(
         row_data_type: row_data_type.clone(),
         prop_key,
         owner: anchor_owner.clone(),
-    })
-    .into())
+    });
+    if let Some(terminals) = terminals {
+        terminals.borrow_mut().push(Rc::downgrade(&terminal));
+    }
+    Ok(terminal.into())
 }
 
 /// Registers `maybe_js_impl` as a hidden JS property on the owning component

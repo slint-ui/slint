@@ -161,6 +161,11 @@ pub struct JsAnchorOwner {
 }
 
 impl JsAnchorOwner {
+    /// Whether both anchor on the same component instance.
+    pub fn is_same(&self, other: &Self) -> bool {
+        std::rc::Weak::ptr_eq(&self.seq, &other.seq)
+    }
+
     /// Allocate the next anchor ID from the owning instance.
     pub fn next_anchor_id(&self) -> u32 {
         let Some(cell) = self.seq.upgrade() else { return 0 };

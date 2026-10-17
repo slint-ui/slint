@@ -815,3 +815,94 @@ test("DataTransfer userData survives clone after original is collected", async (
     expect(echoedWeak.deref()).toBeUndefined();
     expect(payloadWeak.deref()).toBeUndefined();
 });
+
+test("model assigned again and to a second instance: collected with both", async () => {
+    let modelRef: WeakRef<object>;
+
+    function phase1() {
+        const source = `export struct Data { items: [int] }
+        export component Test {
+            in-out property <[int]> items;
+            in-out property <Data> data;
+        }`;
+        const Test = (loadSource(source, "gc-reassign-model.slint") as any)
+            .Test;
+        const first = new Test();
+        const second = new Test();
+
+        const model = new ArrayModel([1, 2]);
+        modelRef = new WeakRef(model);
+        first.items = model;
+        first.items = model;
+        first.data = { items: model };
+        second.items = model;
+
+        return { first: new WeakRef(first), second };
+    }
+
+    let { first, second } = phase1();
+    await gcAndYield();
+    expect(first.deref()).toBeUndefined();
+    expect(modelRef!.deref()).toBeDefined();
+    expect(second.items.rowData(1)).toBe(2);
+
+    const secondRef = new WeakRef(second);
+    second = null;
+    await gcAndYield();
+    expect(secondRef.deref()).toBeUndefined();
+    expect(modelRef!.deref()).toBeUndefined();
+});
+
+test("replaced model is collected while the instance is alive", async () => {
+    const source = `export component Test {
+        in-out property <[int]> items;
+    }`;
+    const instance = new (
+        loadSource(source, "gc-replace-reassigned-model.slint") as any
+    ).Test();
+
+    function assignTwice() {
+        const model = new ArrayModel([1]);
+        instance.items = model;
+        instance.items = model;
+        return new WeakRef(model);
+    }
+    const modelRef = assignTwice();
+    instance.items = new ArrayModel([2]);
+
+    await gcAndYield();
+    expect(modelRef.deref()).toBeUndefined();
+    expect(instance.items.rowData(0)).toBe(2);
+});
+
+test("model read from a property survives in another instance, then collected", async () => {
+    let readBackRef: WeakRef<object>;
+
+    function phase1() {
+        const source = `export component Test {
+            in-out property <[int]> items: [1, 2, 3];
+        }`;
+        const Test = (loadSource(source, "gc-read-back-model.slint") as any)
+            .Test;
+        const first = new Test();
+        const second = new Test();
+
+        const readBack = first.items;
+        readBackRef = new WeakRef(readBack);
+        second.items = readBack;
+        second.items = second.items;
+
+        return { first: new WeakRef(first), second };
+    }
+
+    let { first, second } = phase1();
+    await gcAndYield();
+    expect(first.deref()).toBeUndefined();
+    expect(readBackRef!.deref()).toBeUndefined();
+    expect(Array.from(second.items)).toStrictEqual([1, 2, 3]);
+
+    const secondRef = new WeakRef(second);
+    second = null;
+    await gcAndYield();
+    expect(secondRef.deref()).toBeUndefined();
+});
