@@ -609,6 +609,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
     println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
+    println!("cargo:rerun-if-env-changed=SLINT_ENABLE_EXPERIMENTAL_FEATURES");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",

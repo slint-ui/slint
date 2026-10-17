@@ -335,11 +335,16 @@ Where the width comes from differs per layout kind:
 
 A non-layout parent gets its `layoutinfo-*` from `default_geometry::gen_layout_info_prop`,
 which merges what each child reports.
+Merging a repeated child needs `enable_experimental`:
+a child that sizes itself from that parent is a binding loop error once merged (#13972).
+It becomes the default with the first edition.
 A repeated child has no single `LayoutInfo` to read, so `repeated_element_layout_info`
 synthesizes a one-cell `BoxLayout` over it and folds every instance through
 `box_layout_info_ortho`, close to the merge two static siblings get: the box
 layout also forces `max >= min`, clamps `preferred` and resets the percentages.
-`flickable.rs` uses the same helper for a Flickable's scroll extent.
+`flickable.rs` uses the same helper for a Flickable's scroll extent, without that
+condition: `fixup_geometry`'s `is_mergeable` takes only layout children, repeated or not,
+and no crater project failed on that path.
 
 One thing differs from a static child: a `width`/`height` binding on the body's own root
 is left out of its `root_constraints` (`MergedFixedSize::Ignored`), because a merged child
