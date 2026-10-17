@@ -508,7 +508,7 @@ impl ImageCacheKey {
                 Self::from_embedded_image_data(textures.data.as_slice())
             }
             #[cfg(feature = "svg")]
-            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
+            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key().clone(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
@@ -661,6 +661,8 @@ impl ImageInner {
             ImageInner::EmbeddedImage { cache_key, .. } => cache_key.path(),
             ImageInner::AnimatedImage(animated) => animated.source_cache_key().path(),
             ImageInner::NineSlice(nine) => nine.0.path(),
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => svg.cache_key().path(),
             _ => None,
         }
     }
@@ -1598,6 +1600,16 @@ fn test_image_size_from_svg() {
     let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
     assert_eq!(image.size(), [320, 200].into());
     assert_eq!(image.to_rgba8().unwrap().size(), image.size());
+}
+
+#[cfg(all(feature = "svg", feature = "image-decoders"))]
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_image_path_of_svg() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../demos/printerdemo/ui/images/back.svg");
+    let image = Image::load_from_path(&path).unwrap();
+    assert_eq!(image.path(), Some(path.as_path()));
 }
 
 #[cfg(feature = "svg")]
