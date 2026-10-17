@@ -16,7 +16,7 @@ use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum InlineSelection {
@@ -73,7 +73,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
         inline_components_recursively(&component, &roots, inline_selection, diag);
         let mut init_code = component.init_code.borrow_mut();
         let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
-        init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
+        init_code.constructor_code.splice(0..0, inlined_init_code.into_values().flatten());
     }
 }
 
@@ -260,7 +260,6 @@ fn inline_element(
         slot_name: SmolStr,
         insertion_index: usize,
         node: ChildInsertionPointNode,
-        insertion_element: ElementRc,
         children: Vec<ElementRc>,
     }
 
@@ -279,7 +278,6 @@ fn inline_element(
                     slot_name: slot_name.as_str().into(),
                     insertion_index: inlined_cip.insertion_index,
                     node: inlined_cip.node.clone(),
-                    insertion_element: insertion_element.clone(),
                     children,
                 });
         } else if !children.is_empty() {
@@ -305,113 +303,55 @@ fn inline_element(
         }
     }
 
-    // Insert slot children and keep root insertion points in sync.
-    let mut insertions_for_parent =
-        |insertion_element: &ElementRc, insertions: &mut Vec<SlotInsertion>| {
-            insertions.sort_by(|a, b| {
-                a.insertion_index
-                    .cmp(&b.insertion_index)
-                    .then_with(|| a.node.span().offset.cmp(&b.node.span().offset))
-                    .then_with(|| a.slot_name.cmp(&b.slot_name))
-            });
-
-            let mut offset = 0usize;
-            if Rc::ptr_eq(elem, insertion_element) {
-                // Insert into the new inlined root children vector.
-                for insertion in insertions.drain(..) {
-                    let adjusted_index = insertion.insertion_index + offset;
-                    let inserted_len = insertion.children.len();
-                    if inserted_len > 0 {
-                        new_children.splice(adjusted_index..adjusted_index, insertion.children);
-                    }
-
-                    let mut root_insertion_points =
-                        root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
-                        let forwarded_match = forwarded_sources_by_target
+    for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
+        insertions.sort_by(|a, b| {
+            a.insertion_index
+                .cmp(&b.insertion_index)
+                .then_with(|| a.node.span().offset.cmp(&b.node.span().offset))
+                .then_with(|| a.slot_name.cmp(&b.slot_name))
+        });
+        let mut borrowed_parent =
+            (!Rc::ptr_eq(elem, &insertion_element)).then(|| insertion_element.borrow_mut());
+        let destination = if let Some(parent) = borrowed_parent.as_mut() {
+            &mut parent.children
+        } else {
+            &mut new_children
+        };
+        let mut offset = 0usize;
+        for insertion in insertions {
+            let adjusted_index = insertion.insertion_index + offset;
+            let inserted_len = insertion.children.len();
+            destination.splice(adjusted_index..adjusted_index, insertion.children);
+            let mut root_points = root_component.child_insertion_points.borrow_mut();
+            for (name, cip) in root_points.iter_mut() {
+                if Rc::ptr_eq(&cip.parent, elem)
+                    && (name.as_str() == insertion.slot_name.as_str()
+                        || forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
-                            .is_some_and(|sources| {
-                                sources.iter().any(|source| source == root_slot_name)
-                            });
-                        if Rc::ptr_eq(&cip.parent, elem)
-                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
-                                || forwarded_match)
-                        {
-                            *cip = ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + cip.insertion_index,
-                                node: insertion.node.clone(),
-                            };
-                        }
-                    }
-                    if root_insertion_points.is_empty()
-                        && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == DEFAULT_SLOT_NAME
-                    {
-                        root_insertion_points.insert(
-                            DEFAULT_SLOT_NAME.into(),
-                            ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + inserted_len,
-                                node: insertion.node.clone(),
-                            },
-                        );
-                    }
-
-                    offset += inserted_len;
-                }
-            } else {
-                // Insert into a mapped child element (not the inlined root).
-                let mut insertion_element_mut = insertion_element.borrow_mut();
-                for insertion in insertions.drain(..) {
-                    let adjusted_index = insertion.insertion_index + offset;
-                    let inserted_len = insertion.children.len();
-                    if inserted_len > 0 {
-                        insertion_element_mut
-                            .children
-                            .splice(adjusted_index..adjusted_index, insertion.children);
-                    }
-
-                    let mut root_insertion_points =
-                        root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
-                        let forwarded_match = forwarded_sources_by_target
-                            .get(insertion.slot_name.as_str())
-                            .is_some_and(|sources| {
-                                sources.iter().any(|source| source == root_slot_name)
-                            });
-                        if Rc::ptr_eq(&cip.parent, elem)
-                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
-                                || forwarded_match)
-                        {
-                            *cip = ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + cip.insertion_index,
-                                node: insertion.node.clone(),
-                            };
-                        }
-                    }
-                    if root_insertion_points.is_empty()
-                        && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == DEFAULT_SLOT_NAME
-                    {
-                        root_insertion_points.insert(
-                            DEFAULT_SLOT_NAME.into(),
-                            ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + inserted_len,
-                                node: insertion.node.clone(),
-                            },
-                        );
-                    }
-
-                    offset += inserted_len;
+                            .is_some_and(|sources| sources.iter().any(|source| source == name)))
+                {
+                    *cip = ChildrenInsertionPoint {
+                        parent: insertion_element.clone(),
+                        insertion_index: adjusted_index + cip.insertion_index,
+                        node: insertion.node.clone(),
+                    };
                 }
             }
-        };
-
-    for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
-        insertions_for_parent(&insertion_element, &mut insertions);
+            if root_points.is_empty()
+                && Rc::ptr_eq(elem, &root_component.root_element)
+                && insertion.slot_name == DEFAULT_SLOT_NAME
+            {
+                root_points.insert(
+                    DEFAULT_SLOT_NAME.into(),
+                    ChildrenInsertionPoint {
+                        parent: insertion_element.clone(),
+                        insertion_index: adjusted_index + inserted_len,
+                        node: insertion.node.clone(),
+                    },
+                );
+            }
+            offset += inserted_len;
+        }
     }
 
     elem_mut.children = new_children;
@@ -424,11 +364,12 @@ fn inline_element(
         *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
     };
 
-    root_component.optimized_elements.borrow_mut().extend(
-        inlined_component.optimized_elements.borrow().iter().map(|x| {
-            duplicate_element_with_mapping(x, &mut mapping, root_component, priority_delta)
-        }),
-    );
+    root_component.optimized_elements.borrow_mut().extend(duplicate_optimized_elements(
+        &inlined_component.optimized_elements.borrow(),
+        &mut mapping,
+        root_component,
+        priority_delta,
+    ));
     root_component.popup_windows.borrow_mut().extend(
         inlined_component
             .popup_windows
@@ -550,29 +491,33 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
-    let fixup_init_expression = |mut init_code: Expression| {
+    let fixup_init_entry = |entry: &InitCodeEntry| {
+        let mut code = entry.code.clone();
         // Fix up any property references from within already collected init code.
-        visit_named_references_in_expression(&mut init_code, &mut |nr| {
-            fixup_reference(nr, &mapping)
-        });
-        fixup_element_references(&mut init_code, &mapping);
-        init_code
+        visit_named_references_in_expression(&mut code, &mut |nr| fixup_reference(nr, &mapping));
+        fixup_element_references(&mut code, &mapping);
+        let owner = entry
+            .owner
+            .upgrade()
+            .and_then(|owner| mapping.get(&element_key(owner)))
+            .unwrap_or(elem);
+        InitCodeEntry { owner: Rc::downgrade(owner), code }
     };
     let inlined_init_code = inlined_component
         .init_code
         .borrow()
         .inlined_init_code
         .values()
-        .cloned()
-        .chain(inlined_component.init_code.borrow().constructor_code.iter().cloned())
-        .map(fixup_init_expression)
+        .flatten()
+        .chain(inlined_component.init_code.borrow().constructor_code.iter())
+        .map(fixup_init_entry)
         .collect();
 
     root_component
         .init_code
         .borrow_mut()
         .inlined_init_code
-        .insert(elem.borrow().span().offset, Expression::CodeBlock(inlined_init_code));
+        .insert(elem.borrow().span().offset, inlined_init_code);
 
     // Now fixup all bindings and references
     for e in mapping.values() {
@@ -692,6 +637,32 @@ fn duplicate_element_with_mapping(
     new
 }
 
+fn duplicate_optimized_elements(
+    optimized: &[OptimizedElement],
+    mapping: &mut Mapping,
+    root_component: &Rc<Component>,
+    priority_delta: i32,
+) -> Vec<OptimizedElement> {
+    let elements = optimized
+        .iter()
+        .map(|o| {
+            duplicate_element_with_mapping(&o.element, mapping, root_component, priority_delta)
+        })
+        .collect::<Vec<_>>();
+    optimized
+        .iter()
+        .zip(elements)
+        .map(|(o, element)| OptimizedElement {
+            element,
+            former_parent: o
+                .former_parent
+                .upgrade()
+                .and_then(|parent| mapping.get(&element_key(parent)))
+                .map_or_else(Weak::new, Rc::downgrade),
+        })
+        .collect()
+}
+
 /// Duplicate Component for repeated element or popup window that have a parent_element
 fn duplicate_sub_component(
     component_to_duplicate: &Rc<Component>,
@@ -710,21 +681,12 @@ fn duplicate_sub_component(
             priority_delta,
         ),
         parent_element: RefCell::new(Rc::downgrade(new_parent)),
-        optimized_elements: RefCell::new(
-            component_to_duplicate
-                .optimized_elements
-                .borrow()
-                .iter()
-                .map(|e| {
-                    duplicate_element_with_mapping(
-                        e,
-                        mapping,
-                        component_to_duplicate,
-                        priority_delta,
-                    )
-                })
-                .collect(),
-        ),
+        optimized_elements: RefCell::new(duplicate_optimized_elements(
+            &component_to_duplicate.optimized_elements.borrow(),
+            mapping,
+            component_to_duplicate,
+            priority_delta,
+        )),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_points: component_to_duplicate.child_insertion_points.clone(),
         declared_slots: component_to_duplicate.declared_slots.clone(),
@@ -745,7 +707,7 @@ fn duplicate_sub_component(
         e.borrow_mut().enclosing_component = weak.clone()
     });
     for o in new_component.optimized_elements.borrow().iter() {
-        o.borrow_mut().enclosing_component = weak.clone()
+        o.element.borrow_mut().enclosing_component = weak.clone()
     }
     *new_component.popup_windows.borrow_mut() = component_to_duplicate
         .popup_windows

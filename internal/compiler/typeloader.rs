@@ -360,12 +360,23 @@ impl Snapshotter {
 
             let root_element = self.create_element(&component.root_element);
 
+            let optimized = component.optimized_elements.borrow();
+            let elements =
+                optimized.iter().map(|o| self.create_element(&o.element)).collect::<Vec<_>>();
             let optimized_elements = RefCell::new(
-                component
-                    .optimized_elements
-                    .borrow()
+                optimized
                     .iter()
-                    .map(|e| self.create_element(e))
+                    .zip(elements)
+                    .map(|(o, element)| object_tree::OptimizedElement {
+                        element,
+                        former_parent: o
+                            .former_parent
+                            .upgrade()
+                            .and_then(|parent| {
+                                self.element_map.get(&by_address::ByAddress(parent)).cloned()
+                            })
+                            .unwrap_or_default(),
+                    })
                     .collect(),
             );
 

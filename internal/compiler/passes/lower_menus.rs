@@ -395,7 +395,11 @@ fn process_system_tray_icon(
     };
 
     let component = system_tray_elem.borrow().enclosing_component.upgrade().unwrap();
-    component.init_code.borrow_mut().constructor_code.push(setup);
+    component
+        .init_code
+        .borrow_mut()
+        .constructor_code
+        .push(InitCodeEntry { owner: Rc::downgrade(system_tray_elem), code: setup });
 }
 
 fn process_window(
@@ -589,7 +593,11 @@ fn process_window(
         arguments,
         source_location,
     };
-    component.init_code.borrow_mut().constructor_code.push(setup_menubar);
+    component
+        .init_code
+        .borrow_mut()
+        .constructor_code
+        .push(InitCodeEntry { owner: Rc::downgrade(&menu_bar), code: setup_menubar });
 
     true
 }
