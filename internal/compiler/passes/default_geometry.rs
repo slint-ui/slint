@@ -493,7 +493,7 @@ fn fix_percent_size(
                 *expression = Expression::BinaryExpression {
                     lhs: Box::new(std::mem::take(expression).maybe_convert_to(
                         Type::Float32,
-                        span,
+                        None,
                         diag,
                         symbol_counters,
                     )),
