@@ -87,7 +87,7 @@ fn lower_popup_window(
         return;
     }
 
-    remove_child_element(popup_window_element, parent_element);
+    remove_lowered_element(popup_window_element, parent_element);
     parent_element.borrow_mut().has_popup_child = true;
 
     let map_close_on_click_value = |b: &BindingExpression| {
