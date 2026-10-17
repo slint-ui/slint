@@ -150,6 +150,18 @@ Each test is run in a different node process.
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs
 ```
 
+### TypeScript driver
+
+This tests the TypeScript declarations that the compiler generates for the NodeJS API.
+It compares them with the ```` ```d.ts ```` block in comment, if there's one,
+and type checks the declarations of every test with `tsc`.
+A ```` ```ts ```` block is type checked against the declarations of its file, without running it:
+`slint` is the `.slint` file and `slintlib` is `slint-ui`, like in the ```` ```js ```` blocks.
+
+```
+cargo test --manifest-path tests/Cargo.toml -p test-driver-typescript
+```
+
 ### Python driver
 
 This is used to test the Python API. It compiles each `.slint` file with `OutputFormat::Python`,
