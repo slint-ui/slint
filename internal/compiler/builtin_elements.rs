@@ -1594,7 +1594,7 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
