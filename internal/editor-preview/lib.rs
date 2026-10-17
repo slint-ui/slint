@@ -12,6 +12,11 @@ pub mod editing;
 pub mod editor_session;
 pub mod element;
 mod lsp_to_previews;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
+mod preview_files;
 #[cfg(all(feature = "remote-client", not(target_arch = "wasm32")))]
 pub mod remote_authentication;
 #[cfg(all(feature = "remote-client", not(target_arch = "wasm32")))]

@@ -503,7 +503,7 @@ async fn handle_preview_message(
                 }
                 session.send_state_to_preview(preview_index);
             } else {
-                session.send_files_to_preview(preview_index, files, |_| true);
+                session.send_files_to_preview(preview_index, files, &[project_root.to_path_buf()]);
             }
             for name in settings {
                 if let Some(contents) =
@@ -1235,5 +1235,41 @@ mod tests {
         ));
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+    }
+
+    /// Remote viewers reach the editor through the Springboard of the run preview (#14132).
+    #[test]
+    fn the_run_preview_can_only_request_files_of_the_project() {
+        let (mut session, messages) = session_with_recording_previews();
+        let project = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let inside = project.path().join("logo.png");
+        let outside = elsewhere.path().join("logo.png");
+        std::fs::write(&inside, []).unwrap();
+        std::fs::write(&outside, []).unwrap();
+        let [inside, outside] = [inside, outside].map(|path| Url::from_file_path(path).unwrap());
+
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState {
+                files: vec![inside.clone(), outside.clone()],
+                settings: Vec::new(),
+            },
+            RUN_PREVIEW_INDEX,
+            &mut session,
+            project.path(),
+        ));
+
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+        let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+        assert!(
+            matches!(
+                run_messages.as_slice(),
+                [
+                    LspToPreviewMessage::SetContents { url: served, .. },
+                    LspToPreviewMessage::ForgetFile { url: refused },
+                ] if served.url() == &inside && refused == &outside
+            ),
+            "{run_messages:?}"
+        );
     }
 }
