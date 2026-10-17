@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    VerticalLayout {
+        Text { x: 16px; text: "stretched"; }
+//                >   <warning{The layout stretches the 'width' of this element, so 'x' moves it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
+        Text { x: 16px; width: 50px; text: "fixed size"; }
+        Text { y: 16px; text: "main axis"; }
+//                >   <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+        Text { animate x { duration: 100ms; } text: "animating the layout's value"; }
+        Rectangle {
+            Rectangle { x: 4px; }
+        }
+        for i in 2: Text { x: i * 1px; }
+//                            >      <warning{The layout stretches the 'width' of this element, so 'x' moves it past the edge, consider setting its 'width' too, or using the layout's 'padding' or 'cross-axis-alignment'}
+    }
+    HorizontalLayout {
+        padding: 4px;
+        Rectangle { y: (parent.height - self.height) / 2; height: 6px; }
+        Rectangle { y <=> root.y; }
+//                  >           <warning{The layout stretches the 'height' of this element, so 'y' moves it past the edge, consider setting its 'height' too, or using the layout's 'padding' or 'cross-axis-alignment'}
+    }
+    HorizontalLayout {
+        Rectangle { cross-axis-self-alignment: center; height: 6px; }
+        Rectangle { y: 1px; }
+//                     >  <error{The property 'y' cannot be set for elements placed in this layout, because the layout is already setting it}
+    }
+    VerticalLayout {
+        cross-axis-alignment: start;
+        Rectangle { x: 1px; }
+//                     >  <error{The property 'x' cannot be set for elements placed in this layout, because the layout is already setting it}
+    }
+}

@@ -33,7 +33,7 @@ component TableViewColumn inherits Rectangle {
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
             height: 12px;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             source: root.sort-order == SortOrder.ascending ?
                 Icons.arrow-upward :
                 Icons.arrow-downward;

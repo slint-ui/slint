@@ -37,7 +37,7 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         outer := Rectangle {
             width: 20px;
             height: self.width;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             background: root.checked ? transparent : MaterialPalette.surface-container;
             border-radius: self.width / 2;
             border-width: 2px;

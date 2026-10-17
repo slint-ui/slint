@@ -58,7 +58,7 @@ component BrushTypeSelector {
         alignment: start;
 
         TabIcon {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
 
             Rectangle {
                 Rectangle {
@@ -72,7 +72,7 @@ component BrushTypeSelector {
         }
 
         if supports-gradient: TabIcon {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             picker-tab: PickerTab.gradient;
 
             Rectangle {
@@ -85,7 +85,7 @@ component BrushTypeSelector {
         }
 
         TabIcon {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             picker-tab: PickerTab.css-color;
 
             Rectangle {
@@ -100,7 +100,7 @@ component BrushTypeSelector {
         }
 
         TabIcon {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             picker-tab: PickerTab.globals;
 
             Rectangle {
