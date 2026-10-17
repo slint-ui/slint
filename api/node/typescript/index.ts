@@ -179,6 +179,15 @@ export interface Window {
  * An image data type that can be displayed by the Image element.
  *
  * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
+ *
+ * Use {@link ImageData.loadFromPath} or {@link ImageData.loadFromData} to load an image file,
+ * or pass an object with the `width`, `height`, and RGBA `data` of the pixels.
+ * Pass `undefined` for an empty image.
+ *
+ * ```js
+ * app.icon = slint.ImageData.loadFromPath("icons/app.svg");
+ * app.preview = { width: 1, height: 1, data: new Uint8Array([255, 0, 0, 255]) };
+ * ```
  */
 export interface ImageData {
     /**
@@ -202,6 +211,34 @@ export interface ImageData {
      */
     get height(): number;
 }
+
+/**
+ * Use these functions to load an {@link ImageData} from an image file.
+ * The supported formats are SVG, PNG, and JPEG.
+ */
+export const ImageData = {
+    /**
+     * Loads the image from the file at `path`.
+     *
+     * @throws {Error} if the file can't be read or decoded.
+     */
+    loadFromPath(path: string): ImageData {
+        return napi.SlintImageData.loadFromPath(path);
+    },
+
+    /**
+     * Decodes the image from `data`, the content of an image file.
+     *
+     * `format` is the lowercase file extension of the data, such as `"png"` or `"svg"`.
+     * Without it, the format is guessed from the data.
+     * Only SVG data that starts with `<?xml` or `<svg` is recognized.
+     *
+     * @throws {Error} if the data can't be decoded.
+     */
+    loadFromData(data: Uint8Array, format?: string): ImageData {
+        return napi.SlintImageData.loadFromData(data, format);
+    },
+};
 
 /**
  * The key of the {@link Window} of a component.

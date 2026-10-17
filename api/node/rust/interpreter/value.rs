@@ -201,6 +201,9 @@ pub fn to_value(
         Type::Color => Ok(Value::Brush(js_to_brush(unknown)?.color().into())),
         Type::Brush => Ok(Value::Brush(js_to_brush(unknown)?)),
         Type::Image => {
+            if matches!(unknown.get_type()?, napi::ValueType::Undefined | napi::ValueType::Null) {
+                return Ok(Value::Image(Image::default()));
+            }
             let object = unknown.coerce_to_object()?;
             if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
                 Ok(Value::Image((*direct_image).clone()))

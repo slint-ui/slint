@@ -62,7 +62,7 @@ mcp = ["dep:i-slint-backend-testing", "i-slint-backend-selector/mcp"]
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
-i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
+i-slint-core = { workspace = true, features = ["default", "gettext-rs", "image-decoders", "svg"] }
 i-slint-backend-selector = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-18", "system-tray"] }
 spin_on = { workspace = true }

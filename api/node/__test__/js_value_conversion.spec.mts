@@ -3,6 +3,7 @@
 
 // cSpell: ignore macrotask sourcemodel
 import { test, expect } from "vitest";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { read, ImageColorModel } from "image-js";
@@ -10,7 +11,7 @@ import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
     StyledText,
-    type ImageData,
+    ImageData,
     ArrayModel,
     MapModel,
     type Model,
@@ -312,6 +313,59 @@ test("get/set image properties", async () => {
         expect(
             (instance.getProperty("external-image") as ImageData).path,
         ).toStrictEqual(undefined);
+    }
+});
+
+test("load images from a file or from data", async () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+  export component App {
+    in-out property <image> image: @image-url("resources/rgb.png");
+    out property <int> image-width: self.image.width;
+  }`,
+        filename,
+    );
+    const instance = createNonNullInstance(definition);
+    const pngPath = path.join(dirname, "resources/rgb.png");
+    const svgPath = path.join(dirname, "resources/square.svg");
+
+    const png = ImageData.loadFromPath(pngPath);
+    expect(png.path).toBe(pngPath);
+    expect(png.data).toStrictEqual(
+        (instance.getProperty("image") as ImageData).data,
+    );
+
+    const svg = ImageData.loadFromPath(svgPath);
+    expect(svg.path).toBe(svgPath);
+    expect([svg.width, svg.height]).toStrictEqual([20, 10]);
+    instance.setProperty("image", svg);
+    expect(instance.getProperty("image-width")).toBe(20);
+
+    const pngFromData = ImageData.loadFromData(await fs.readFile(pngPath));
+    expect(pngFromData.path).toBe(undefined);
+    expect(pngFromData.data).toStrictEqual(png.data);
+    expect(ImageData.loadFromData(await fs.readFile(svgPath)).width).toBe(20);
+    expect(
+        ImageData.loadFromData(
+            new TextEncoder().encode(
+                '<!-- icon --><svg width="3" height="4" xmlns="http://www.w3.org/2000/svg"/>',
+            ),
+            "svg",
+        ).width,
+    ).toBe(3);
+
+    expect(() =>
+        ImageData.loadFromPath(path.join(dirname, "resources/missing.png")),
+    ).toThrow("missing.png: The image cannot be loaded");
+    expect(() => ImageData.loadFromData(new Uint8Array([1, 2, 3]))).toThrow(
+        "The image cannot be loaded",
+    );
+
+    for (const empty of [undefined, null]) {
+        instance.setProperty("image", svg);
+        instance.setProperty("image", empty);
+        expect(instance.getProperty("image-width")).toBe(0);
     }
 });
 
