@@ -150,6 +150,7 @@ jobs:
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
+                  RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
                   SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
               run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
 
