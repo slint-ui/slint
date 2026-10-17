@@ -67,9 +67,8 @@ remembering the timestamp, count, position and button of the last press.
   only that one gets the `Drop`, matching how OS drag-and-drop pipelines behave
 - A press held back by `DelayForwarding` (`Flickable`/`SwipeGestureHandler`): the timer, the event
   already translated into the delaying item's own local frame (for the timer-triggered replay,
-  which only visits that item's own children), the event in the frame dispatch started in (for the
-  release-triggered replay, which restarts dispatch from the captured root instead), and that root
-  item
+  which only visits that item's own children), and the event in the root's frame (for the
+  release-triggered replay, which restarts dispatch from the first item of the item stack instead)
 - The items still owed an exit event, and the current mouse cursor
 
 ## Event Processing Flow
@@ -353,8 +352,7 @@ InputEventFilterResult::DelayForwarding(duration_ms)
 
 **Flow:**
 1. Flickable returns `DelayForwarding(150)` on touch press. The timer starts, and both the event already
-   translated into the delaying item's own local frame, and the event in the dispatch root's frame (plus
-   that root itself) are stored
+   translated into the delaying item's own local frame, and the event in the root's frame are stored
 2. If the timer fires before release, the stored local-frame press replays against the delaying item's own
    children only (e.g. a nested `TouchArea`/`Button` shows press feedback) -- never escalates past the
    delaying item itself, since the interaction might still become a drag. Every `DelayForwarding` item hit
@@ -370,12 +368,15 @@ InputEventFilterResult::DelayForwarding(duration_ms)
    nothing accepts anywhere, that a nested child *inside* the delaying item accepts (e.g. press feedback),
    or that the delaying item accepts without grabbing (a move below its drag threshold) does not clear it. A press released after the delay was cleared this way is not forwarded (tracked in
    issue #13120); only a release while the delay is still intact takes the path below
-4. If release comes while the delay is still intact, the stored root-frame press replays through the *full*
-   dispatch from the captured root, with *every* `DelayForwarding` item the replay reaches -- not just the
-   originally delaying one -- forced to forward-and-ignore instead of falling back: the interaction is now
-   known to be over, so a nested delaying item must also let an unclaimed press bubble past it rather than
-   belatedly grab it. An unclaimed press bubbles onward from there like any other ignored event, reaching
-   whatever is behind or around the delaying item(s)
+4. If release comes while the delay is still intact, the stored root-frame press replays from the root
+   along the item stack, which still ends at the delaying item.
+   The replay skips every item that is neither on that path nor inside the delaying item.
+   *Every* `DelayForwarding` item it reaches -- not just the originally delaying one -- is forced to
+   forward-and-ignore instead of falling back.
+   The interaction is now known to be over, so a nested delaying item must also let an unclaimed press
+   bubble past it rather than belatedly grab it.
+   An unclaimed press bubbles up to the delaying item's ancestors,
+   but never reaches the siblings behind it or behind its ancestors
 5. This release-triggered replay only fires for the release of the same pointer and button that's being
    delayed: a synthetic `Released` used elsewhere to cancel a single-touch grab when a second finger starts
    a gesture carries a different `touch_finger_id` and is ignored here, leaving the original delay untouched

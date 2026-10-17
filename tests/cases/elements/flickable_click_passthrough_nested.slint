@@ -64,18 +64,19 @@ export component TestCaseNestedEmptyChild inherits Window {
 
     TouchArea {
         clicked => { root.counter += 1; }
-    }
-    Flickable {
-        width: 100px;
-        height: 100px;
-        content-width: 200px;
-        content-height: 100px;
 
         Flickable {
             width: 100px;
             height: 100px;
-            content-width: 100px;
-            content-height: 200px;
+            content-width: 200px;
+            content-height: 100px;
+
+            Flickable {
+                width: 100px;
+                height: 100px;
+                content-width: 100px;
+                content-height: 200px;
+            }
         }
     }
 
