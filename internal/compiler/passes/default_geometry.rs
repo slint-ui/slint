@@ -55,9 +55,6 @@ pub fn default_geometry(
             };
 
             let is_image = builtin_type.name == "Image";
-            if is_image {
-                adjust_image_clip_rect(elem, &builtin_type);
-            }
 
             if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
@@ -721,6 +718,29 @@ fn maybe_center_in_parent(
     });
 }
 
+/// Give the `Image` elements that become a `ClippedImage` their `source-clip-width`
+/// and `source-clip-height` defaults.
+///
+/// Run this after inlining, so that only the components that stay sub-components,
+/// whose instances share one native class, get the defaults of any of their instances.
+pub fn adjust_image_clip_rects(component: &Rc<Component>) {
+    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        component,
+        &(),
+        &mut |elem, _| {
+            if elem.borrow().repeated.is_some() {
+                return;
+            }
+            let builtin = elem.borrow().builtin_type();
+            if let Some(builtin) = builtin
+                && builtin.name == "Image"
+            {
+                adjust_image_clip_rect(elem, &builtin);
+            }
+        },
+    );
+}
+
 fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Arc<BuiltinElement>) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
@@ -730,11 +750,16 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Arc<BuiltinElement>) {
         // and a ClippedImage without the synthesized clip defaults renders/measures as a
         // zero-size clip. This condition must match the class-selection semantics.
         elem.borrow().binding_cell_including_synthetic(p).is_some()
+            || elem.borrow().named_references.is_referenced(p)
             || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
-        let source = NamedReference::new(elem, SmolStr::new_static("source"));
-        let x = NamedReference::new(elem, SmolStr::new_static("source-clip-x"));
-        let y = NamedReference::new(elem, SmolStr::new_static("source-clip-y"));
+        let mut image = elem.clone();
+        while let ElementType::Component(base) = &image.clone().borrow().base_type {
+            image = base.root_element.clone();
+        }
+        let source = NamedReference::new(&image, SmolStr::new_static("source"));
+        let x = NamedReference::new(&image, SmolStr::new_static("source-clip-x"));
+        let y = NamedReference::new(&image, SmolStr::new_static("source-clip-y"));
         let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
             source_location: None,
             lhs: Box::new(Expression::StructFieldAccess {
@@ -749,9 +774,11 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Arc<BuiltinElement>) {
             op: '-',
         };
 
-        elem.borrow_mut()
+        image
+            .borrow_mut()
             .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
-        elem.borrow_mut()
+        image
+            .borrow_mut()
             .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
     }
 }
