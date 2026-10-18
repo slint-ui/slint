@@ -256,7 +256,7 @@ fn spawn_tray(
     let tray = KsniTray { icon, tooltip, title, menu, event_tx: event_tx.clone() };
     // Blocks briefly on D-Bus name claim / service setup, then spawns the
     // service loop on its own background thread.
-    tray.disable_dbus_name(in_sandbox()).spawn().map_err(|e| {
+    tray.disable_dbus_name(*IN_SANDBOX).spawn().map_err(|e| {
         Error::PlatformError(crate::platform::PlatformError::Other(std::format!(
             "Failed to spawn ksni tray: {e}"
         )))
@@ -266,11 +266,11 @@ fn spawn_tray(
 /// Whether the application runs in a Flatpak or Snap sandbox, where owning the D-Bus name
 /// the StatusNotifierItem specification asks for needs an extra permission.
 /// Matches `ashpd::is_sandboxed()` as of ashpd 0.13.13, without depending on a full portal client.
-fn in_sandbox() -> bool {
-    // A snap runs in a cgroup unit named `snap.*`: the last segment of the cgroup v2 path,
-    // or of the v1 `freezer` or `name=systemd` path.
-    let in_snap = || {
-        std::fs::read_to_string("/proc/self/cgroup").is_ok_and(|cgroups| {
+static IN_SANDBOX: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+    std::path::Path::new("/.flatpak-info").exists()
+        // A snap runs in a cgroup unit named `snap.*`: the last segment of the cgroup v2 path,
+        // or of the v1 `freezer` or `name=systemd` path.
+        || std::fs::read_to_string("/proc/self/cgroup").is_ok_and(|cgroups| {
             cgroups.lines().any(|line| {
                 let Some((id, rest)) = line.split_once(':') else { return false };
                 let Some((controllers, path)) = rest.split_once(':') else { return false };
@@ -280,9 +280,7 @@ fn in_sandbox() -> bool {
                 id.parse::<u32>().is_ok() && snap_hierarchy && snap_unit
             })
         })
-    };
-    std::path::Path::new("/.flatpak-info").exists() || in_snap()
-}
+});
 
 async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
     while let Ok(event) = rx.recv().await {
