@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::task::Poll;
+use embassy_sync::waitqueue::AtomicWaker;
 use slint::platform::software_renderer::{PhysicalRegion, Rgb565BigEndianPixel};
 
 embassy_rp::bind_interrupts!(struct DmaInterrupts {
@@ -24,6 +26,8 @@ pub fn flips() -> u32 {
 
 pub static DISPLAY_READY: AtomicBool = AtomicBool::new(false);
 static NEXT_SLOT: AtomicU32 = AtomicU32::new(0);
+static PACKET_READY: AtomicWaker = AtomicWaker::new();
+static PACKET_FREE: AtomicWaker = AtomicWaker::new();
 #[cfg(feature = "pico2-queue-profile")]
 static COUNTER_VERSION: AtomicU32 = AtomicU32::new(0);
 #[cfg(feature = "pico2-queue-profile")]
@@ -108,12 +112,11 @@ async fn reserve(_stats: &mut PublishStats) -> Write<'static, Packet> {
     let slot = &PACKETS[index as usize];
     #[cfg(feature = "pico2-queue-profile")]
     let started = embassy_time::Instant::now();
-    let mut packet = loop {
-        if let Some(packet) = slot.try_write() {
-            break packet;
-        }
-        embassy_time::Timer::after_micros(100).await;
-    };
+    let mut packet = core::future::poll_fn(|context| {
+        PACKET_FREE.register(context.waker());
+        slot.try_write().map_or(Poll::Pending, Poll::Ready)
+    })
+    .await;
     #[cfg(feature = "pico2-queue-profile")]
     {
         _stats.wait_us += started.elapsed().as_micros();
@@ -177,7 +180,7 @@ pub async fn publish(
         let width = super::uniform_tiles::TILE;
         let length = width * height * 2;
         if packet.count == packet.rectangles.len() || CAPACITY - packet.used < length {
-            packet.publish();
+            publish_packet(packet);
             packet = reserve(&mut stats).await;
             packet.flipped = flipped;
             #[cfg(feature = "pico2-queue-profile")]
@@ -218,8 +221,13 @@ pub async fn publish(
         stats.pixels += (width * height) as u32;
         stats.lines += height as u32;
     }
-    packet.publish();
+    publish_packet(packet);
     stats
+}
+
+fn publish_packet(packet: Write<'static, Packet>) {
+    packet.publish();
+    PACKET_READY.wake();
 }
 
 fn byte(byte: u8) {
@@ -331,14 +339,23 @@ async fn display_loop(
             scan.sample();
             last_sample = embassy_time::Instant::now();
         }
-        let packet = if DISPLAY_READY.load(Ordering::Acquire) {
-            PACKETS[next_slot].try_read()
-        } else {
-            None
-        };
-        let Some(packet) = packet else {
-            embassy_time::Timer::after_micros(100).await;
-            continue;
+        let ready = core::future::poll_fn(|context| {
+            PACKET_READY.register(context.waker());
+            if DISPLAY_READY.load(Ordering::Acquire) {
+                if let Some(packet) = PACKETS[next_slot].try_read() {
+                    return Poll::Ready(packet);
+                }
+            }
+            Poll::Pending
+        });
+        let packet = match embassy_futures::select::select(
+            ready,
+            embassy_time::Timer::after_micros(500),
+        )
+        .await
+        {
+            embassy_futures::select::Either::First(packet) => packet,
+            embassy_futures::select::Either::Second(()) => continue,
         };
         #[cfg(feature = "pico2-queue-profile")]
         let started = embassy_time::Instant::now();
@@ -451,6 +468,7 @@ async fn display_loop(
             super::usb::FRAME_READY.store(true, Ordering::Release);
         }
         drop(packet);
+        PACKET_FREE.wake();
         next_slot = (next_slot + 1) % SLOT_COUNT;
     }
 }
