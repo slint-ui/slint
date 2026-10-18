@@ -7,7 +7,9 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
-use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
+use i_slint_renderer_software::{
+    PremultipliedRgbaColor, RepaintBufferType, SoftwareRendererExt, TargetPixel,
+};
 use std::sync::Arc;
 
 use crate::display::RenderingRotation;
@@ -181,7 +183,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
+        draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         self.display.map_back_buffer(&mut |pixels, age, format| {
             self.renderer.set_repaint_buffer_type(match age {
@@ -215,20 +217,32 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
                     let stride = stride(std::mem::size_of::<DumbBufferPixelXrgb888>());
                     let buffer: &mut [DumbBufferPixelXrgb888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, stride);
+                    self.renderer.render_with_post_callback(
+                        buffer,
+                        stride,
+                        draw_mouse_cursor_callback,
+                    );
                 }
 
                 drm::buffer::DrmFourcc::Bgra8888 => {
                     let stride = stride(std::mem::size_of::<DumbBufferPixelBgra8888>());
                     let buffer: &mut [DumbBufferPixelBgra8888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, stride);
+                    self.renderer.render_with_post_callback(
+                        buffer,
+                        stride,
+                        draw_mouse_cursor_callback,
+                    );
                 }
                 drm::buffer::DrmFourcc::Rgb565 => {
                     let stride =
                         stride(std::mem::size_of::<i_slint_renderer_software::Rgb565Pixel>());
                     let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
                         bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, stride);
+                    self.renderer.render_with_post_callback(
+                        buffer,
+                        stride,
+                        draw_mouse_cursor_callback,
+                    );
                 }
                 _ => {
                     return Err(format!(
@@ -248,3 +262,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         self.size
     }
 }
+
+#[cfg(test)]
+mod tests;
