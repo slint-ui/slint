@@ -1,0 +1,126 @@
+{
+  "elf_sha256": "3b5c020a9a1ae551a954207b441abcc861ef97e6392d116f45d69c7eefe87960",
+  "checks": [
+    {
+      "repeat": 0,
+      "section": ".vector_table",
+      "offset": 0,
+      "bytes": 276,
+      "expected_fnv32": 1657653447,
+      "actual_fnv32": 1657653447
+    },
+    {
+      "repeat": 0,
+      "section": ".start_block",
+      "offset": 276,
+      "bytes": 40,
+      "expected_fnv32": 1202904965,
+      "actual_fnv32": 1202904965
+    },
+    {
+      "repeat": 0,
+      "section": ".text",
+      "offset": 320,
+      "bytes": 952700,
+      "expected_fnv32": 4155983557,
+      "actual_fnv32": 4155983557
+    },
+    {
+      "repeat": 0,
+      "section": ".assets",
+      "offset": 2097152,
+      "bytes": 615128,
+      "expected_fnv32": 2534940590,
+      "actual_fnv32": 2534940590
+    },
+    {
+      "repeat": 0,
+      "section": ".data",
+      "offset": 953024,
+      "bytes": 71528,
+      "expected_fnv32": 638927787,
+      "actual_fnv32": 638927787
+    },
+    {
+      "repeat": 1,
+      "section": ".vector_table",
+      "offset": 0,
+      "bytes": 276,
+      "expected_fnv32": 1657653447,
+      "actual_fnv32": 1657653447
+    },
+    {
+      "repeat": 1,
+      "section": ".start_block",
+      "offset": 276,
+      "bytes": 40,
+      "expected_fnv32": 1202904965,
+      "actual_fnv32": 1202904965
+    },
+    {
+      "repeat": 1,
+      "section": ".text",
+      "offset": 320,
+      "bytes": 952700,
+      "expected_fnv32": 4155983557,
+      "actual_fnv32": 4155983557
+    },
+    {
+      "repeat": 1,
+      "section": ".assets",
+      "offset": 2097152,
+      "bytes": 615128,
+      "expected_fnv32": 2534940590,
+      "actual_fnv32": 2534940590
+    },
+    {
+      "repeat": 1,
+      "section": ".data",
+      "offset": 953024,
+      "bytes": 71528,
+      "expected_fnv32": 638927787,
+      "actual_fnv32": 638927787
+    },
+    {
+      "repeat": 2,
+      "section": ".vector_table",
+      "offset": 0,
+      "bytes": 276,
+      "expected_fnv32": 1657653447,
+      "actual_fnv32": 1657653447
+    },
+    {
+      "repeat": 2,
+      "section": ".start_block",
+      "offset": 276,
+      "bytes": 40,
+      "expected_fnv32": 1202904965,
+      "actual_fnv32": 1202904965
+    },
+    {
+      "repeat": 2,
+      "section": ".text",
+      "offset": 320,
+      "bytes": 952700,
+      "expected_fnv32": 4155983557,
+      "actual_fnv32": 4155983557
+    },
+    {
+      "repeat": 2,
+      "section": ".assets",
+      "offset": 2097152,
+      "bytes": 615128,
+      "expected_fnv32": 2534940590,
+      "actual_fnv32": 2534940590
+    },
+    {
+      "repeat": 2,
+      "section": ".data",
+      "offset": 953024,
+      "bytes": 71528,
+      "expected_fnv32": 638927787,
+      "actual_fnv32": 638927787
+    }
+  ],
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235"
+}

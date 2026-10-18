@@ -1,0 +1,12 @@
+[
+  {
+    "rotation": 0,
+    "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0",
+    "display_flipped": 0
+  },
+  {
+    "rotation": 1,
+    "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0",
+    "display_flipped": 1
+  }
+]

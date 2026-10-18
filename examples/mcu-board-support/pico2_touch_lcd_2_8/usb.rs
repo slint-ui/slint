@@ -58,6 +58,15 @@ pub fn start(
     });
 }
 
+#[cfg(feature = "pico2-queue-profile")]
+async fn release_capture() {
+    CAPTURE_STATE.store(3, Ordering::Release);
+    // Finish the cross-core release before accepting another capture or page change.
+    while CAPTURE_STATE.load(Ordering::Acquire) != 0 {
+        embassy_time::Timer::after_millis(1).await;
+    }
+}
+
 struct ResetInterface(u16);
 
 impl Handler for ResetInterface {
@@ -205,7 +214,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     if panel {
                         let pixels = unsafe { core::slice::from_raw_parts(CAPTURE_PIXELS.load(Ordering::Acquire), 153600) };
                         let result = super::frame_queue::panel_check(pixels);
-                        CAPTURE_STATE.store(3, Ordering::Release);
+                        release_capture().await;
                         let mut line = ReportLine { bytes: [0; 2048], length: 0 };
                         let _ = writeln!(&mut line, "PICO_PANEL_CHECK,76800,{},{},{},{}", result[0], result[1], result[2], result[3]);
                         if serial.write_packet(&line.bytes[..line.length]).await.is_err() { break; }
@@ -225,7 +234,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     if !disconnected {
                         disconnected = serial.write_packet(&[]).await.is_err();
                     }
-                    CAPTURE_STATE.store(3, Ordering::Release);
+                    release_capture().await;
                     if disconnected { break; }
                     continue;
                 }
