@@ -9,7 +9,8 @@ MEMORY {
      *
      * Waveshare RP2350-Touch-LCD-2.8 has 16 MiB flash.
      */
-    FLASH : ORIGIN = 0x10000000, LENGTH = 16384K
+    FLASH : ORIGIN = 0x10000000, LENGTH = 2048K
+    ASSETS : ORIGIN = 0x10200000, LENGTH = 14336K
     /*
      * RAM consists of 8 banks, SRAM0-SRAM7, with a striped mapping.
      * This is usually good for performance, as it distributes load on
@@ -89,3 +90,18 @@ SECTIONS {
 
 PROVIDE(start_to_end = __end_block_addr - __start_block_addr);
 PROVIDE(end_to_start = __start_block_addr - __end_block_addr);
+
+/* Stable artwork precedes other read-only data, independently of executable growth. */
+SECTIONS {
+    .assets : ALIGN(4096)
+    {
+        __assets_start = .;
+        *(SORT_BY_NAME(.pico_assets.*));
+        *(SORT_BY_NAME(.rodata.*SLINT_EMBEDDED_RESOURCE_*_DATA*));
+        *(SORT_BY_NAME(.rodata .rodata.*));
+        . = ALIGN(4);
+        __assets_end = .;
+    } > ASSETS
+} INSERT BEFORE .rodata;
+
+__flash_binary_end = MAX(__assets_end, LOADADDR(.data) + SIZEOF(.data));

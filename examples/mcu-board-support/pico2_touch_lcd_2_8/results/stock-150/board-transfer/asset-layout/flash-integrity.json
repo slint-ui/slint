@@ -1,0 +1,46 @@
+{
+  "elf_sha256": "5e57c7c47b42b16ef7c4c8424c77dda5d22d7d7b6b9febb836f0a1c7357d2270",
+  "checks": [
+    {
+      "repeat": 0,
+      "section": ".vector_table",
+      "offset": 0,
+      "bytes": 276,
+      "expected_fnv32": 1021656214,
+      "actual_fnv32": 1021656214
+    },
+    {
+      "repeat": 0,
+      "section": ".start_block",
+      "offset": 276,
+      "bytes": 40,
+      "expected_fnv32": 4165683809,
+      "actual_fnv32": 4165683809
+    },
+    {
+      "repeat": 0,
+      "section": ".text",
+      "offset": 320,
+      "bytes": 950836,
+      "expected_fnv32": 1494409936,
+      "actual_fnv32": 1494409936
+    },
+    {
+      "repeat": 0,
+      "section": ".assets",
+      "offset": 2097152,
+      "bytes": 614724,
+      "expected_fnv32": 2797701887,
+      "actual_fnv32": 2797701887
+    },
+    {
+      "repeat": 0,
+      "section": ".data",
+      "offset": 951168,
+      "bytes": 71084,
+      "expected_fnv32": 1097556379,
+      "actual_fnv32": 1097556379
+    }
+  ],
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235"
+}

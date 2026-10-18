@@ -36,6 +36,7 @@ pub(super) const fn meniscus(width: usize, x: usize, y: usize) -> [u8; 2] {
 
 #[cfg(all(feature = "ink-native-assets", target_endian = "little"))]
 mod data {
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_meniscus"))]
     pub(super) static MENISCUS: [[u8; 2]; 48 * 7] = {
         let mut pixels = [[0; 2]; 48 * 7];
         let mut i = 0;
@@ -45,6 +46,7 @@ mod data {
         }
         pixels
     };
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_opaque_rows"))]
     pub(super) static OPAQUE_ROWS: [[u16; 2]; 140] = {
         let mask = include_bytes!("assets/vial-0-mask.alpha");
         let mut rows = [[0; 2]; 140];
@@ -65,25 +67,37 @@ mod data {
     };
     #[repr(align(4))]
     pub(super) struct Aligned<const N: usize>(pub [u8; N]);
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_empty0"))]
     pub(super) static EMPTY0: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-0-empty.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_liquid0"))]
     pub(super) static LIQUID0: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-0-liquid.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_mask0"))]
     pub(super) static MASK0: Aligned<6720> = Aligned(*include_bytes!("assets/vial-0-mask.alpha"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_empty1"))]
     pub(super) static EMPTY1: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-1-empty.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_liquid1"))]
     pub(super) static LIQUID1: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-1-liquid.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_mask1"))]
     pub(super) static MASK1: Aligned<6720> = Aligned(*include_bytes!("assets/vial-1-mask.alpha"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_empty2"))]
     pub(super) static EMPTY2: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-2-empty.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_liquid2"))]
     pub(super) static LIQUID2: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-2-liquid.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_mask2"))]
     pub(super) static MASK2: Aligned<6720> = Aligned(*include_bytes!("assets/vial-2-mask.alpha"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_empty3"))]
     pub(super) static EMPTY3: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-3-empty.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_liquid3"))]
     pub(super) static LIQUID3: Aligned<13440> =
         Aligned(*include_bytes!("assets/vial-3-liquid.rgb565"));
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".pico_assets.ink_mask3"))]
     pub(super) static MASK3: Aligned<6720> = Aligned(*include_bytes!("assets/vial-3-mask.alpha"));
 }
 

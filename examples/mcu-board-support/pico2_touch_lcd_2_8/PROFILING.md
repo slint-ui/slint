@@ -146,3 +146,14 @@ It aborts on a mismatch, retains complete affected sectors and preserves picotoo
 The loader verifies the changed payload before rebooting.
 Use the ordinary full-image path when the running image lacks profiling commands or its identity is unknown.
 Results include image hashes, changed sectors, payload size and elapsed update time.
+
+## Stable Assets and Binary Checks
+
+The Pico linker places immutable artwork after the first 2 MiB of executable flash.
+Named Ink and generated Slint resources precede other read-only data, keeping their addresses stable when executable code grows.
+The [asset-layout qualification](results/stock-150/board-transfer/asset-layout/report.md) includes timing, artwork hashes and pixel comparisons.
+
+Run `check-printer-codegen.py IMAGE.elf --llvm-bin LLVM_DIRECTORY --compare-assets PREVIOUS.elf --output report.json` after a release build.
+It checks time-critical SRAM functions, hardware floating-point instructions, the 24 KiB main-stack reservation and unchanged artwork bytes.
+Add `--stable-asset-addresses` when comparing two images using the fixed layout.
+A passing binary check does not replace runtime cadence and panel-memory checks.
