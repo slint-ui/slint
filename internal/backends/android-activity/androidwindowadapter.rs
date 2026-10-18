@@ -260,6 +260,7 @@ impl AndroidWindowAdapter {
                         .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
             }
+            PollEvent::Main(MainEvent::LowMemory) => self.renderer.free_gpu_resources(),
             PollEvent::Main(MainEvent::TerminateWindow { .. }) => {
                 // The window, and with it the context that a rendering notifier's resources belong
                 // to, is only valid until this callback returns.
