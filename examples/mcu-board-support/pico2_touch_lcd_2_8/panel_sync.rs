@@ -87,10 +87,7 @@ impl ScanClock {
         flipped: bool,
     ) -> u32 {
         self.sample();
-        let spi = embassy_rp::pac::SPI1;
-        let divisor =
-            u32::from(spi.cpsr().read().cpsdvsr()) * (u32::from(spi.cr0().read().scr()) + 1);
-        let spi_hz = embassy_rp::clocks::clk_peri_freq() / divisor;
+        let spi_hz = super::pio_transport::hz();
         let period = PERIOD_US.load(Ordering::Relaxed);
         let period = if period == 0 { 17000 } else { period };
         let remaining = u32::from(super::scan_budget::TOTAL_GATES.saturating_sub(self.scan))

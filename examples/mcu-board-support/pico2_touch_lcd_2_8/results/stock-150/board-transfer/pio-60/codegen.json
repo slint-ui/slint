@@ -1,0 +1,148 @@
+{
+  "elf_sha256": "506efed42ccc02cd0c160c1a6eb6e9b55c1204bf49bc3b6493cb620ffb1453b9",
+  "ram_functions": {
+    "mcu_board_support::pico2_touch_lcd_2_8::wire_format::pack": "0x2000d6bc",
+    "mcu_board_support::pico2_touch_lcd_2_8::frame_queue::command": "0x2000d408",
+    "<mcu_board_support::pico2_touch_lcd_2_8::panel_sync::ScanClock>::sample": "0x2000a3b8",
+    "mcu_board_support::pico2_touch_lcd_2_8::stock_clock::configure_flash": "0x2000d62c"
+  },
+  "main_stack_bytes": 30524,
+  "hardware_f32": [
+    "10009c34: ee21 0a00    \tvmul.f32\ts0, s2, s0",
+    "10009d20: ee21 0a00    \tvmul.f32\ts0, s2, s0",
+    "10009db2: ee80 0a01    \tvdiv.f32\ts0, s0, s2",
+    "1000d624: ee30 3a02    \tvadd.f32\ts6, s0, s4",
+    "1000d63e: ee32 5a05    \tvadd.f32\ts10, s4, s10",
+    "1000d664: ee34 3a03    \tvadd.f32\ts6, s8, s6",
+    "1000d676: ee31 1a02    \tvadd.f32\ts2, s2, s4",
+    "10013dc6: ee38 2a4c    \tvsub.f32\ts4, s16, s24",
+    "10013dd6: ee39 0a40    \tvsub.f32\ts0, s18, s0",
+    "10014fa6: ee80 8a28    \tvdiv.f32\ts16, s0, s17",
+    "10014fd8: ee80 9a08    \tvdiv.f32\ts18, s0, s16",
+    "10014ffe: ee7f 9a40    \tvsub.f32\ts19, s30, s0"
+  ],
+  "artwork": {
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_0_DATA": {
+      "address": 270668240,
+      "bytes": 344,
+      "sha256": "6eae999a289ee1a16796e08ca10d5f8011d80357acb9f03063f4df120178f49a"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_1_DATA": {
+      "address": 270668584,
+      "bytes": 1064,
+      "sha256": "669ebd9c98c8720990f1bd840a17844c6215699a0377db86280029a13b02bde6"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_2_DATA": {
+      "address": 270669648,
+      "bytes": 1440,
+      "sha256": "bb1bb580f83053a31f37ab6087bc11ca5e6af9e099c7ca440b2dc1e84e91f469"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_3_DATA": {
+      "address": 270671088,
+      "bytes": 464,
+      "sha256": "e09907019ff7a8fdb025ca8fefb39aad22e8a378e36e6a0378f6d66794d1c4ca"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_4_DATA": {
+      "address": 270671552,
+      "bytes": 420,
+      "sha256": "0676e926b5c642cd176d06109359006d802a2158bb4c2b248599035095e07cbf"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_5_DATA": {
+      "address": 270671972,
+      "bytes": 504,
+      "sha256": "b05f659a9e2ab29b725a2fb8ec0ae8d7635b5b24d2d310d4c9263ba486721216"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_6_DATA": {
+      "address": 270672476,
+      "bytes": 82668,
+      "sha256": "807af2f1fd2ff8cefc14a497a00a570df849d3d86ea170d7c9d9576f008f07af"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_7_DATA": {
+      "address": 270755144,
+      "bytes": 192,
+      "sha256": "5a9edb7a7d51f3eaab3da8896876a9f1c81485dedbde451343047f35ec0c1812"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_8_DATA": {
+      "address": 270755336,
+      "bytes": 252,
+      "sha256": "d47fe06bd380549dac19d06ed24e6e3e428d6c8aa7da8ad7aa8a547884c63f96"
+    },
+    "printerdemo_mcu::slint_generatedMainWindow::SLINT_EMBEDDED_RESOURCE_9_DATA": {
+      "address": 270755588,
+      "bytes": 60480,
+      "sha256": "5c604de6a918264ee249ff972aa85ff4d905e022dfca5102983de6639f286583"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::OPAQUE_ROWS": {
+      "address": 270667680,
+      "bytes": 560,
+      "sha256": "926522fa3d3c7be60f12d32823135cd4f85b027a6e84f6bf5638a569f0362e4a"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::MASK0": {
+      "address": 270640128,
+      "bytes": 6720,
+      "sha256": "c293c7be448071df3899697c582a70391513bda8b35d8948040bdf478c75e93f"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::MASK1": {
+      "address": 270646848,
+      "bytes": 6720,
+      "sha256": "c293c7be448071df3899697c582a70391513bda8b35d8948040bdf478c75e93f"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::MASK2": {
+      "address": 270653568,
+      "bytes": 6720,
+      "sha256": "c293c7be448071df3899697c582a70391513bda8b35d8948040bdf478c75e93f"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::MASK3": {
+      "address": 270660288,
+      "bytes": 6720,
+      "sha256": "c293c7be448071df3899697c582a70391513bda8b35d8948040bdf478c75e93f"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::EMPTY0": {
+      "address": 270532608,
+      "bytes": 13440,
+      "sha256": "42168e7fb62cc988de8571f25db1b28adea673da0e80654ee7c3d85dd168fb98"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::EMPTY1": {
+      "address": 270546048,
+      "bytes": 13440,
+      "sha256": "b14d29e90dcd4feb1457b003845807c306b6b6d9075fdd443eaf9cfcbbafeced"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::EMPTY2": {
+      "address": 270559488,
+      "bytes": 13440,
+      "sha256": "e525abf09036d1ce3cfa42cd8f30c7de0cbaea589dc28d801d9c732d14613f0c"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::EMPTY3": {
+      "address": 270572928,
+      "bytes": 13440,
+      "sha256": "d95cd17d407a1a3610db47f53e4ce3c22ad8fe3183b77af8e7a3be5fcad16523"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::LIQUID0": {
+      "address": 270586368,
+      "bytes": 13440,
+      "sha256": "d52fba6fc0e0ba9e645681f0cd8ee80cca809cd9bf72356bfeaabebe6d04a21f"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::LIQUID1": {
+      "address": 270599808,
+      "bytes": 13440,
+      "sha256": "4876e48281a88f9fd2d391d4030eef3b0ef79701f82a41e0b63bd3962da1b7fb"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::LIQUID2": {
+      "address": 270613248,
+      "bytes": 13440,
+      "sha256": "7d9af96aa99f47f2c26d95d8d378f4cf3f6ff2ef90b3441df48cc29d1eb01104"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::LIQUID3": {
+      "address": 270626688,
+      "bytes": 13440,
+      "sha256": "e8a6d96b3c84c4c0ab46319511da587191882cb29a209bd7f658a4afbeb59c7d"
+    },
+    "printerdemo_mcu::ink_particles::native_assets::data::MENISCUS": {
+      "address": 270667008,
+      "bytes": 672,
+      "sha256": "61f33afa0caff47093b29db02f9d21151fdd8af57036ba3ae13d1ab8d806f39b"
+    }
+  },
+  "compared_artwork": "/private/tmp/printer-packet-budget.elf",
+  "stable_asset_addresses": true
+}

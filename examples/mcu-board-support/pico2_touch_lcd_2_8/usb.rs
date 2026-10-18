@@ -274,15 +274,13 @@ async fn usb_task(usb: Peri<'static, USB>) {
                 if buffer[..count].starts_with(b"stats") {
                     let format_started = super::profile::now_us();
                     let (sequence, v) = super::profile::snapshot();
-                    let spi = embassy_rp::pac::SPI1;
-                    let divisor = u32::from(spi.cpsr().read().cpsdvsr()) * (u32::from(spi.cr0().read().scr()) + 1);
                     let mut line = ReportLine { bytes: [0; 2048], length: 0 };
 
                     let extra = super::frame_queue::counters();
                     let _ = write!(&mut line,
                         "PICO_QUEUE,pipeline={},presented_total={},changing_total={},transfer_us={},transfer_frames={},renderer=framebuffer,window={},cpu_hz={},spi_hz={},elapsed_us={},frames={},draw_us={},raster_us={},wait_us={},window_us={},pixels={},lines={},draw_max_us={},interval_max_us={},skipped_phases={},presented_frames={},changing_frames={},touch_us={},dispatch_us={},touch_calls={},dispatch_calls={},heap_free={}",
                         "parallel", extra[0],extra[1],extra[2],extra[3],
-                        sequence, embassy_rp::clocks::clk_sys_freq(), embassy_rp::clocks::clk_peri_freq() / divisor,
+                        sequence, embassy_rp::clocks::clk_sys_freq(), super::pio_transport::hz(),
                         v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[9],v[10],v[11],v[12],v[25],v[26],v[27],v[28],super::ALLOCATOR.free());
                     let _ = write!(&mut line, ",display_flipped={},display_flips={}", u32::from(super::frame_queue::flipped()), super::frame_queue::flips());
                     let _ = write!(&mut line, ",peri_hz={},usb_hz={},adc_hz={}", embassy_rp::clocks::clk_peri_freq(), embassy_rp::clocks::clk_usb_freq(), embassy_rp::clocks::clk_adc_freq());

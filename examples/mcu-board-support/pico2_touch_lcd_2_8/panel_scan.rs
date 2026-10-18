@@ -63,7 +63,13 @@ fn read(command: u8) -> u32 {
 
 #[inline(always)]
 fn with_read_pins<R>(read: impl FnOnce() -> R) -> R {
-    super::flush_spi1();
+    if super::pio_transport::active() {
+        super::pio_transport::flush();
+    } else {
+        super::flush_spi1();
+    }
+    let sck_control = pac::IO_BANK0.gpio(10).ctrl().read();
+    let mosi_control = pac::IO_BANK0.gpio(11).ctrl().read();
     let pad = pac::PADS_BANK0.gpio(11).read();
     pac::PADS_BANK0.gpio(11).modify(|w| w.set_ie(true));
     pac::IO_BANK0.gpio(10).ctrl().modify(|w| w.set_funcsel(5.into()));
@@ -71,8 +77,8 @@ fn with_read_pins<R>(read: impl FnOnce() -> R) -> R {
     pac::SIO.gpio_oe(0).value_set().write_value(SCK | MOSI);
     pac::SIO.gpio_out(0).value_clr().write_value(SCK);
     let value = read();
-    pac::IO_BANK0.gpio(10).ctrl().modify(|w| w.set_funcsel(1.into()));
-    pac::IO_BANK0.gpio(11).ctrl().modify(|w| w.set_funcsel(1.into()));
+    pac::IO_BANK0.gpio(10).ctrl().write_value(sck_control);
+    pac::IO_BANK0.gpio(11).ctrl().write_value(mosi_control);
     pac::PADS_BANK0.gpio(11).write_value(pad);
     value
 }

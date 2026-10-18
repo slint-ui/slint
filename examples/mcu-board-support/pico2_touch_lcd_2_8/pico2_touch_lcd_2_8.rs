@@ -21,6 +21,7 @@ mod overclock;
 mod packet_slot;
 mod panel_scan;
 mod panel_sync;
+mod pio_transport;
 mod scan_budget;
 mod scan_phase;
 #[cfg(not(feature = "pico2-clock-240"))]
@@ -243,6 +244,8 @@ pub fn init() {
         display.clear(Rgb565::BLACK).unwrap();
     }
     frame_queue::configure_scan();
+    #[cfg(not(feature = "pico2-clock-240"))]
+    pio_transport::init(p.PIO0);
 
     // --- I2C1 for touch controller (GPIO6 = SDA, GPIO7 = SCL) ---
     let mut i2c_config = embassy_rp::i2c::Config::default();

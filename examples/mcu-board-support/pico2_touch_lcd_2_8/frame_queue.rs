@@ -232,21 +232,34 @@ fn publish_packet(packet: Write<'static, Packet>) {
 }
 
 fn byte(byte: u8) {
+    if super::pio_transport::active() {
+        super::pio_transport::write(u32::from(byte) << 24);
+        return;
+    }
     while !embassy_rp::pac::SPI1.sr().read().tnf() {}
     embassy_rp::pac::SPI1.dr().write(|w| w.set_data(u16::from(byte)));
 }
+#[inline(always)]
+fn flush() {
+    if super::pio_transport::active() {
+        super::pio_transport::flush();
+    } else {
+        super::flush_spi1();
+    }
+}
+
 #[unsafe(link_section = ".data.ram_func")]
 #[inline(never)]
 fn command(command: u8, data: &[u8]) {
     super::cs_low();
     embassy_rp::pac::SIO.gpio_out(0).value_clr().write_value(super::DC_PIN_MASK);
     byte(command);
-    super::flush_spi1();
+    flush();
     super::dc_high();
     for &value in data {
         byte(value);
     }
-    super::flush_spi1();
+    flush();
     super::cs_high();
     super::drain_spi1_rx();
 }
@@ -325,12 +338,6 @@ async fn display_loop(
     let mut visible = false;
     let mut dma = embassy_rp::dma::Channel::new(channel, DmaInterrupts);
     #[cfg(feature = "pico2-queue-profile")]
-    let spi_hz = {
-        let spi = embassy_rp::pac::SPI1;
-        embassy_rp::clocks::clk_peri_freq()
-            / (u32::from(spi.cpsr().read().cpsdvsr()) * (u32::from(spi.cr0().read().scr()) + 1))
-    };
-    #[cfg(feature = "pico2-queue-profile")]
     let mut previous_hash = 0;
     #[cfg(feature = "pico2-queue-profile")]
     let mut frame_us = 0u64;
@@ -400,13 +407,17 @@ async fn display_loop(
             );
             command(0x2c, &[]);
             let spi = embassy_rp::pac::SPI1;
-            spi.cr1().modify(|w| w.set_sse(false));
-            spi.cr0().modify(|w| {
-                w.set_dss(15);
-                w.set_spo(true);
-                w.set_sph(true);
-            });
-            spi.cr1().modify(|w| w.set_sse(true));
+            if super::pio_transport::active() {
+                super::pio_transport::bits(16);
+            } else {
+                spi.cr1().modify(|w| w.set_sse(false));
+                spi.cr0().modify(|w| {
+                    w.set_dss(15);
+                    w.set_spo(true);
+                    w.set_sph(true);
+                });
+                spi.cr1().modify(|w| w.set_sse(true));
+            }
             super::cs_low();
             super::dc_high();
             let length = rect.width as usize * rect.height as usize * 2;
@@ -414,27 +425,31 @@ async fn display_loop(
                 let words = packet.bytes.words(rect.offset, length);
                 dma.write(
                     words as *const [u16],
-                    0x4008_8008 as *mut u16,
-                    embassy_rp::pac::dma::vals::TreqSel::SPI1_TX,
+                    super::pio_transport::target() as *mut u16,
+                    super::pio_transport::dreq(),
                     cfg!(target_endian = "little"),
                 )
             };
             transfer.await;
-            super::flush_spi1();
+            flush();
             super::drain_spi1_rx();
             super::cs_high();
-            spi.cr1().modify(|w| w.set_sse(false));
-            spi.cr0().modify(|w| {
-                w.set_dss(7);
-                w.set_spo(false);
-                w.set_sph(false);
-            });
-            spi.cr1().modify(|w| w.set_sse(true));
+            if super::pio_transport::active() {
+                super::pio_transport::bits(8);
+            } else {
+                spi.cr1().modify(|w| w.set_sse(false));
+                spi.cr0().modify(|w| {
+                    w.set_dss(7);
+                    w.set_spo(false);
+                    w.set_sph(false);
+                });
+                spi.cr1().modify(|w| w.set_sse(true));
+            }
 
             #[cfg(feature = "pico2-queue-profile")]
             {
                 let busy_us = busy_started.elapsed().as_micros() as u32;
-                let wire_us = (length as u64 * 8_000_000).div_ceil(u64::from(spi_hz)) as u32;
+                let wire_us = (length as u64 * 8_000_000).div_ceil(u64::from(super::pio_transport::hz())) as u32;
                 TRANSPORT[0].fetch_add(1, Ordering::Relaxed);
                 TRANSPORT[1].fetch_add(busy_us, Ordering::Relaxed);
                 TRANSPORT[2].fetch_max(busy_us.saturating_sub(wire_us), Ordering::Relaxed);
