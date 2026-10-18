@@ -1,0 +1,183 @@
+{
+  "flash_hz": 75000000,
+  "before": [
+    {
+      "workload": "auto",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 587,
+      "elapsed_us": 10015681,
+      "fps": 58.50825320814431,
+      "raster_ms": 11.268308347529812,
+      "render_publish_ms": 13.809793867120954,
+      "animation_ms": 0.0,
+      "packing_ms": 0.3243867120954004,
+      "waiting_ms": 1.3250170357751279,
+      "heap_free": 113996,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "settings-auto",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 586,
+      "elapsed_us": 10004168,
+      "fps": 58.575585695881955,
+      "raster_ms": 10.785020477815701,
+      "render_publish_ms": 15.990890784982936,
+      "animation_ms": 0.0,
+      "packing_ms": 0.4396843003412969,
+      "waiting_ms": 3.6633686006825936,
+      "heap_free": 123340,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "ink-tilt-boost",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 587,
+      "elapsed_us": 10000231,
+      "fps": 58.498648681215464,
+      "raster_ms": 5.395538330494038,
+      "render_publish_ms": 6.6289471890971035,
+      "animation_ms": 7.167841567291312,
+      "packing_ms": 0.3478330494037479,
+      "waiting_ms": 0.17517376490630324,
+      "heap_free": 12432,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "ink-tilt-boost",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 587,
+      "elapsed_us": 10003326,
+      "fps": 58.58051612033837,
+      "raster_ms": 5.395490630323679,
+      "render_publish_ms": 6.608064735945485,
+      "animation_ms": 7.2164616695059625,
+      "packing_ms": 0.34791822827938673,
+      "waiting_ms": 0.15433730834752982,
+      "heap_free": 12432,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    }
+  ],
+  "trial": [
+    {
+      "workload": "auto",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 472,
+      "elapsed_us": 10012880,
+      "fps": 47.13928460143335,
+      "raster_ms": 10.305944915254237,
+      "render_publish_ms": 20.499275423728815,
+      "animation_ms": 0.0,
+      "packing_ms": 0.0,
+      "waiting_ms": 9.348826271186441,
+      "heap_free": 206764,
+      "missed_phases": 115,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "settings-auto",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 405,
+      "elapsed_us": 10012987,
+      "fps": 40.44747086958167,
+      "raster_ms": 10.071651851851852,
+      "render_publish_ms": 24.008454320987653,
+      "animation_ms": 0.0,
+      "packing_ms": 0.0,
+      "waiting_ms": 12.882886419753085,
+      "heap_free": 215204,
+      "missed_phases": 181,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "ink-tilt-boost",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 587,
+      "elapsed_us": 10000290,
+      "fps": 58.69829774936527,
+      "raster_ms": 4.9991090289608175,
+      "render_publish_ms": 8.811149914821124,
+      "animation_ms": 7.154425894378194,
+      "packing_ms": 0.0,
+      "waiting_ms": 3.170143100511073,
+      "heap_free": 104792,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    },
+    {
+      "workload": "ink-tilt-boost",
+      "cpu_hz": 150000000,
+      "display_hz": 60000000,
+      "frames": 587,
+      "elapsed_us": 10004739,
+      "fps": 58.6721952466726,
+      "raster_ms": 4.998836456558774,
+      "render_publish_ms": 8.775359454855195,
+      "animation_ms": 7.197010221465077,
+      "packing_ms": 0.0,
+      "waiting_ms": 3.1350017035775126,
+      "heap_free": 104888,
+      "missed_phases": 0,
+      "late_strips": 0,
+      "scan_errors": 0
+    }
+  ],
+  "ram": {
+    "packet_storage_before": 94440,
+    "packet_storage_trial": 184,
+    "display_task_before": 192,
+    "display_task_trial": 1192,
+    "heap_before": 317440,
+    "heap_trial": 409600,
+    "main_stack_before": 27652,
+    "main_stack_trial": 28452
+  },
+  "before_elf_sha256": "b05b6c94dcf4833aba0417b18518a0beefc714781813d9ed349e97fce1cb7d2e",
+  "trial_elf_sha256": "48942a213a4641243f91e052fea5f4c022b25768be8be888d7b62530cb42f215",
+  "trial_patch_sha256": "30d0ffb94c4b124a7ed12c1579b5f455fb138acde0b65a481a767aaa51ec555d",
+  "four_fixed_queue_settings_frames_identical": true,
+  "queue_settings_panel_checks": [
+    {
+      "name": "auto-12.rgb565",
+      "sha256": "b2e30d1d362688523439f2e4088015082be1d827f9e893364937f019306c58ae"
+    },
+    {
+      "name": "auto-13.rgb565",
+      "sha256": "2b9816e348eaad5f0c2ce73d6662a3b277341dde7389e645770195f82c949e35"
+    },
+    {
+      "mode": "auto",
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "name": "settings-auto-12.rgb565",
+      "sha256": "4abec2c7e1c1dec8e49c652373ab9f24f507cc76fe37735c1ecbcb36b2ce986f"
+    },
+    {
+      "name": "settings-auto-13.rgb565",
+      "sha256": "3f914c487b0d66e29f5bc3c13ca58995dc3adc669d89c7f16b9beaeb15b08c66"
+    },
+    {
+      "mode": "settings-auto",
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    }
+  ]
+}

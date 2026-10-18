@@ -37,3 +37,8 @@ Its 27,652-byte main-stack reservation exceeds the unchanged 24 KiB guard.
 The clean release repeats another 24 page entries, including eight boosted tilted Ink entries, without stalls, late strips or scan errors.
 This second run contains no diagnostic allocator or panic-handler changes.
 See `release-reentry.json` for every entry's frame progress and free heap.
+
+Four release measurement windows match the panel at 58.5–58.6 FPS with zero missed phases, late strips and scan errors.
+Queue and Settings raster average 11.268 ms and 10.785 ms; repeated boosted tilted Ink windows average 5.396 ms.
+Both Ink orientations and Queue/Settings panel checks report zero mismatches across all 76,800 pixels.
+See `measurements.json` and `verification.json` for the release evidence.

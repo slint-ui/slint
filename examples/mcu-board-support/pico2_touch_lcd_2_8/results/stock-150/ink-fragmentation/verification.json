@@ -1,0 +1,60 @@
+{
+  "elf_sha256": "b05b6c94dcf4833aba0417b18518a0beefc714781813d9ed349e97fce1cb7d2e",
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2",
+  "host_tests_passed": 42,
+  "prepared_text_cache_test": "passed",
+  "host_matching_frames": 2054,
+  "host_trace_sha256": "5269dc2577633de19807d829e95913c480ef537391bf8e7bb8f62f6dff52023f",
+  "main_stack_bytes": 27652,
+  "unchanged_artwork_symbols": 24,
+  "queue_settings_checks": [
+    {
+      "name": "auto-12.rgb565",
+      "sha256": "b2e30d1d362688523439f2e4088015082be1d827f9e893364937f019306c58ae"
+    },
+    {
+      "name": "auto-13.rgb565",
+      "sha256": "2b9816e348eaad5f0c2ce73d6662a3b277341dde7389e645770195f82c949e35"
+    },
+    {
+      "mode": "auto",
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    },
+    {
+      "name": "settings-auto-12.rgb565",
+      "sha256": "4abec2c7e1c1dec8e49c652373ab9f24f507cc76fe37735c1ecbcb36b2ce986f"
+    },
+    {
+      "name": "settings-auto-13.rgb565",
+      "sha256": "3f914c487b0d66e29f5bc3c13ca58995dc3adc669d89c7f16b9beaeb15b08c66"
+    },
+    {
+      "mode": "settings-auto",
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0"
+    }
+  ],
+  "ink_checks": [
+    {
+      "rotation": 0,
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0",
+      "counts": [
+        26,
+        42,
+        32,
+        52
+      ],
+      "display_flipped": 0
+    },
+    {
+      "rotation": 1,
+      "panelcheck": "PICO_PANEL_CHECK,76800,0,0,0,0",
+      "counts": [
+        26,
+        42,
+        32,
+        52
+      ],
+      "display_flipped": 1
+    }
+  ]
+}
