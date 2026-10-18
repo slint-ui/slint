@@ -97,7 +97,8 @@ finish-args:
 
 Those permissions are the minimum every Slint application needs.
 For anything beyond them, see [Flatpak's documentation](https://docs.flatpak.org/en/latest/sandbox-permissions.html).
-The common additions are `--share=network` for network access, `--socket=pulseaudio` for audio, and `--allow=bluetooth` for Bluetooth.
+The common additions are `--share=network` for network access, `--socket=pulseaudio` for audio, `--allow=bluetooth` for Bluetooth,
+and `--talk-name=org.kde.StatusNotifierWatcher` for a `SystemTrayIcon`.
 
 ## Specifying the Build Process
 
