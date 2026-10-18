@@ -13,7 +13,7 @@ use slint_interpreter::{
 /// The value that the callback of {@link Window.onCloseRequested} returns.
 #[napi(js_name = "CloseRequestResponse")]
 pub enum JsCloseRequestResponse {
-    /// The window is hidden. Returning nothing does the same.
+    /// The window is hidden.
     HideWindow,
     /// The window stays shown.
     KeepWindowShown,
@@ -181,7 +181,7 @@ impl JsWindow {
     pub fn on_close_requested(
         &self,
         env: &Env,
-        #[napi(ts_arg_type = "() => CloseRequestResponse | void")] callback: CloseRequestedCallback,
+        #[napi(ts_arg_type = "() => CloseRequestResponse")] callback: CloseRequestedCallback,
     ) -> napi::Result<()> {
         let Some(mut owner_obj) = self.owner.object(*env) else {
             return Err(napi::Error::from_reason("The component of the window was deleted"));

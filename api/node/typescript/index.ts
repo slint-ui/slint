@@ -168,18 +168,18 @@ export interface Window {
 
     /**
      * Sets the callback that's invoked when the user tries to close the window.
-     * Return `CloseRequestResponse.KeepWindowShown` to keep the window open.
-     * Otherwise, the window is hidden.
+     * The callback returns whether to hide the window or to keep it open.
      *
      * ```js
      * app.window.onCloseRequested(() => {
      *     if (hasUnsavedChanges()) {
      *         return slint.CloseRequestResponse.KeepWindowShown;
      *     }
+     *     return slint.CloseRequestResponse.HideWindow;
      * });
      * ```
      */
-    onCloseRequested(callback: () => napi.CloseRequestResponse | void): void;
+    onCloseRequested(callback: () => napi.CloseRequestResponse): void;
 
     /**
      * Dispatches a window event to the scene.

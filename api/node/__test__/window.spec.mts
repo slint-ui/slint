@@ -299,6 +299,7 @@ test("Window close request", () => {
     const close = () => app.window.dispatchEvent({ type: "close-requested" });
 
     let keepShown = true;
+    // Returning nothing, which TypeScript rejects, hides the window too.
     app.window.onCloseRequested(() => {
         if (keepShown) {
             return CloseRequestResponse.KeepWindowShown;
