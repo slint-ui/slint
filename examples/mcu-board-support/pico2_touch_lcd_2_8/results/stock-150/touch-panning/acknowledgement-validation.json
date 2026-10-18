@@ -1,0 +1,16 @@
+{
+  "before_held_report_hz": [
+    37.873640739344644,
+    37.9127188666663
+  ],
+  "after_captured_contact_hz_lower_bound": [
+    62.99,
+    61.87
+  ],
+  "after_capture_trace_overwrites": true,
+  "note": "Full gap statistics require the subsequent capture; overwritten raw trace entries make this run unsuitable for maximum gap claims. The handshake alone increased valid acquisition above panel cadence on average.",
+  "source_elf_sha256": "09f95d217b7b74ae82d887cf3682a8f4461cd1c86f7decd951bd88d778e14be3",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "source": "CST328 end-of-read rearm, also implemented by ESPHome at https://github.com/esphome/esphome/blob/dev/esphome/components/cst328/touchscreen/cst328_touchscreen.cpp"
+}

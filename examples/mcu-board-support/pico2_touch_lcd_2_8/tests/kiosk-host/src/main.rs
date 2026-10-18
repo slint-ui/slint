@@ -3,6 +3,9 @@
 
 extern crate alloc;
 #[cfg(test)]
+#[path = "../../../touch_packet.rs"]
+mod touch_packet;
+#[cfg(test)]
 #[path = "../../../background_job.rs"]
 mod background_job;
 #[cfg(test)]

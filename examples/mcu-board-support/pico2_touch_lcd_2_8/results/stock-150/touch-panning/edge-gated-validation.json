@@ -1,0 +1,49 @@
+{
+  "source_elf_sha256": "5aa156f3a2cb7b58c908a4c3552fec26858905aaf72e51353d4762e728ce34b8",
+  "baseline": {
+    "seconds": 2.334010787308216e-06,
+    "reads": 0,
+    "contacts": 0,
+    "changed": 0,
+    "zero_count": 0,
+    "bad_status": 0,
+    "range_error": 0,
+    "presses": 0,
+    "moves": 0,
+    "releases": 0,
+    "errors": 0,
+    "max_gap_us": 0
+  },
+  "final": {
+    "seconds": 166.23807237501023,
+    "reads": 684,
+    "contacts": 674,
+    "changed": 567,
+    "zero_count": 6,
+    "bad_status": 4,
+    "range_error": 0,
+    "presses": 4,
+    "moves": 670,
+    "releases": 4,
+    "errors": 0,
+    "max_gap_us": 21874
+  },
+  "sequence_gaps": [],
+  "sustained_pan_hz": [
+    68.97,
+    67.31
+  ],
+  "sustained_pan_median_gap_ms": [
+    16.54,
+    16.57
+  ],
+  "sustained_pan_max_gap_ms": [
+    21.874,
+    18.09
+  ],
+  "short_navigation_contact_hz": [
+    120.27,
+    126.25
+  ],
+  "user_response": "Done\u2014both lists respond"
+}

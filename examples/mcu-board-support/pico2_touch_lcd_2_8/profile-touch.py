@@ -49,18 +49,20 @@ def main():
             if not line.startswith("PICO_TOUCH_TRACE"):
                 raise RuntimeError(line)
             for item in line.split(",")[1:]:
-                sequence, timestamp, first, last = item.split(":")
+                parts = item.split(":")
+                sequence, timestamp = parts[:2]
                 sequence = int(sequence)
                 if sequence == 0 or sequence in seen:
                     continue
                 seen.add(sequence)
-                data = int(first, 16).to_bytes(4, "little") + int(last, 16).to_bytes(2, "little")
+                data = (bytes.fromhex(parts[2]) if len(parts) == 3 else
+                        int(parts[2], 16).to_bytes(4, "little") + int(parts[3], 16).to_bytes(2, "little"))
                 reports.append({"sequence": sequence, "time_us": int(timestamp),
                                 "raw": data.hex(), "status": data[0] & 15,
                                 "fingers": data[5] & 15})
             for name, data in [("rates", rates), ("reports", reports)]:
                 (args.output / (name + ".json")).write_text(json.dumps(data, indent=2) + "\n")
-            time.sleep(.1)
+            time.sleep(.025)
 
 
 if __name__ == "__main__":

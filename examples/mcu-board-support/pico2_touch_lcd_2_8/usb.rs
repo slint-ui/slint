@@ -204,9 +204,14 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     let mut line = ReportLine { bytes: [0; 768], length: 0 };
                     let _ = write!(&mut line, "PICO_TOUCH_TRACE");
                     let newest = super::touch_profile::sequence();
-                    for sequence in newest.saturating_sub(15)..=newest {
-                        if let Some([time, a, b]) = super::touch_profile::entry(sequence) {
-                            let _ = write!(&mut line, ",{sequence}:{time}:{a:08x}:{b:04x}");
+                    for sequence in newest.saturating_sub(7)..=newest {
+                        if let Some(words) = super::touch_profile::entry(sequence) {
+                            let _ = write!(&mut line, ",{sequence}:{}:", words[0]);
+                            for (index, word) in words[1..].iter().enumerate() {
+                                for byte in &word.to_le_bytes()[..if index == 6 { 3 } else { 4 }] {
+                                    let _ = write!(&mut line, "{byte:02x}");
+                                }
+                            }
                         }
                     }
                     let _ = writeln!(&mut line);

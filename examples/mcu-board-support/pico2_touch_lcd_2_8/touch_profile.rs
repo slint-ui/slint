@@ -8,13 +8,12 @@ static POSITION: AtomicU32 = AtomicU32::new(u32::MAX);
 static LAST_CONTACT: AtomicU32 = AtomicU32::new(0);
 static MAX_GAP: AtomicU32 = AtomicU32::new(0);
 static SEQUENCE: AtomicU32 = AtomicU32::new(0);
-static TRACE: [[AtomicU32; 4]; 64] = [const { [const { AtomicU32::new(0) }; 4] }; 64];
+static TRACE: [[AtomicU32; 9]; 16] = [const { [const { AtomicU32::new(0) }; 9] }; 16];
 
-pub fn report(data: &[u8; 6]) {
+pub fn report(data: &[u8; 27], report: super::touch_packet::Report) {
     let now = super::now_us() as u32;
     COUNTS[0].fetch_add(1, Ordering::Relaxed);
-    let point = super::touch_packet::point(data);
-    if let Some((x, y)) = point {
+    if let super::touch_packet::Report::Contact(x, y) = report {
         COUNTS[1].fetch_add(1, Ordering::Relaxed);
         let packed = u32::from(x) | (u32::from(y) << 16);
         if POSITION.swap(packed, Ordering::Relaxed) != packed {
@@ -25,7 +24,9 @@ pub fn report(data: &[u8; 6]) {
             MAX_GAP.fetch_max(now.wrapping_sub(previous), Ordering::Relaxed);
         }
     } else {
-        LAST_CONTACT.store(0, Ordering::Relaxed);
+        if report == super::touch_packet::Report::Released {
+            LAST_CONTACT.store(0, Ordering::Relaxed);
+        }
         let counter = if data[5] & 15 == 0 {
             3
         } else if data[0] & 15 != 6 {
@@ -39,8 +40,11 @@ pub fn report(data: &[u8; 6]) {
     let entry = &TRACE[sequence as usize % TRACE.len()];
     entry[0].store(0, Ordering::Release);
     entry[1].store(now, Ordering::Relaxed);
-    entry[2].store(u32::from_le_bytes(data[..4].try_into().unwrap()), Ordering::Relaxed);
-    entry[3].store(u32::from(u16::from_le_bytes(data[4..].try_into().unwrap())), Ordering::Relaxed);
+    let mut padded = [0; 28];
+    padded[..27].copy_from_slice(data);
+    for (slot, bytes) in entry[2..].iter().zip(padded.chunks_exact(4)) {
+        slot.store(u32::from_le_bytes(bytes.try_into().unwrap()), Ordering::Relaxed);
+    }
     entry[0].store(sequence, Ordering::Release);
     SEQUENCE.store(sequence, Ordering::Release);
 }
@@ -57,7 +61,7 @@ pub fn snapshot() -> ([u32; 10], u32) {
 pub fn sequence() -> u32 {
     SEQUENCE.load(Ordering::Acquire)
 }
-pub fn entry(sequence: u32) -> Option<[u32; 3]> {
+pub fn entry(sequence: u32) -> Option<[u32; 8]> {
     let entry = &TRACE[sequence as usize % TRACE.len()];
     if entry[0].load(Ordering::Acquire) != sequence {
         return None;

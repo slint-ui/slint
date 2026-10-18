@@ -289,7 +289,7 @@ pub fn init() {
         touch_pending: false,
         frame_buffer: vec![Rgb565BigEndianPixel::default(); 320 * 240].into_boxed_slice(),
         uniform_tiles: vec![0; uniform_tiles::CACHE_LEN].into_boxed_slice(),
-        tp_int,
+        _tp_int: tp_int,
         #[cfg(feature = "pico2-queue-profile")]
         profiler: profile::Profiler::default(),
     };
@@ -328,7 +328,7 @@ struct PicoEmbassyBackend {
     touch_pending: bool,
     frame_buffer: Box<[Rgb565BigEndianPixel]>,
     uniform_tiles: Box<[u32]>,
-    tp_int: Input<'static>,
+    _tp_int: Input<'static>,
     #[cfg(feature = "pico2-queue-profile")]
     profiler: profile::Profiler,
 }
@@ -366,7 +366,6 @@ impl PlatformBackend for PicoEmbassyBackend {
         let report = {
             let edge = 1 << 10;
             if self.touch_pending
-                || self.tp_int.is_low()
                 || pac::IO_BANK0.intr(2).read().0 & edge != 0
             {
                 self.touch_pending = false;
@@ -374,7 +373,11 @@ impl PlatformBackend for PicoEmbassyBackend {
                 let result = self.touch.read();
                 #[cfg(feature = "pico2-queue-profile")]
                 if result.is_err() { touch_profile::error(); }
-                result.ok()
+                match result {
+                    Ok(touch_packet::Report::Contact(x, y)) => Some(Some(euclid::default::Point2D::new(x as f32, y as f32))),
+                    Ok(touch_packet::Report::Released) => Some(None),
+                    Ok(touch_packet::Report::Invalid) | Err(_) => None,
+                }
             } else {
                 None
             }
@@ -537,7 +540,7 @@ impl PlatformBackend for PicoEmbassyBackend {
     async fn wait_for_event(&mut self) {
         {
             // Embassy GPIO waits clear raw edges when armed; CST328 pulses must survive until acknowledged.
-            while !self.tp_int.is_low() && pac::IO_BANK0.intr(2).read().0 & (1 << 10) == 0 {
+            while pac::IO_BANK0.intr(2).read().0 & (1 << 10) == 0 {
                 boot_guard::heartbeat();
                 embassy_time::Timer::after_micros(500).await;
             }
@@ -573,7 +576,6 @@ fn dc_high() {
 }
 mod cst328 {
     use embedded_hal::i2c::I2c;
-    use euclid::default::Point2D;
 
     const TP_ADDR: u8 = 0x1A;
 
@@ -585,6 +587,7 @@ mod cst328 {
 
     pub struct CST328<I2C: I2c> {
         pub(super) i2c: I2C,
+        tracker: super::touch_packet::Tracker,
     }
 
     impl<I2C: I2c> CST328<I2C> {
@@ -604,17 +607,20 @@ mod cst328 {
             // Enter normal mode
             i2c.write(TP_ADDR, &CMD_NORMAL_MODE)?;
             delay.delay_ms(10);
+            i2c.write(TP_ADDR, &[0xd0, 0x00, 0xab])?;
 
-            Ok(Self { i2c })
+            Ok(Self { i2c, tracker: Default::default() })
         }
 
-        pub fn read(&mut self) -> Result<Option<Point2D<f32>>, I2C::Error> {
-            let mut data = [0u8; 6];
+        pub fn read(&mut self) -> Result<super::touch_packet::Report, I2C::Error> {
+            let mut data = [0u8; super::touch_packet::REPORT_BYTES];
             self.i2c.write_read(TP_ADDR, &CMD_READ_TOUCH_DATA, &mut data)?;
+            let report = self.tracker.read(&data);
             #[cfg(feature = "pico2-queue-profile")]
-            super::touch_profile::report(&data);
+            super::touch_profile::report(&data, report);
             self.i2c.write(TP_ADDR, &[0xd0, 0x05, 0])?;
-            Ok(super::touch_packet::point(&data).map(|(x, y)| euclid::point2(x as f32, y as f32)))
+            self.i2c.write(TP_ADDR, &[0xd0, 0x00, 0xab])?;
+            Ok(report)
         }
     }
 }

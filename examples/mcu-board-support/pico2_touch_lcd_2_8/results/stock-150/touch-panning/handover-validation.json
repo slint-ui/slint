@@ -1,0 +1,39 @@
+{
+  "stage": "contact handover and complete report reads; acknowledgement unchanged",
+  "host_tests_passed": 47,
+  "baseline": {
+    "seconds": 1.8329592421650887e-06,
+    "reads": 0,
+    "contacts": 0,
+    "changed": 0,
+    "zero_count": 0,
+    "bad_status": 0,
+    "range_error": 0,
+    "presses": 0,
+    "moves": 0,
+    "releases": 0,
+    "errors": 0,
+    "max_gap_us": 0
+  },
+  "final": {
+    "seconds": 44.97861449996708,
+    "reads": 462,
+    "contacts": 421,
+    "changed": 394,
+    "zero_count": 37,
+    "bad_status": 4,
+    "range_error": 0,
+    "presses": 4,
+    "moves": 417,
+    "releases": 4,
+    "errors": 0,
+    "max_gap_us": 33649
+  },
+  "trace_sequence_gaps": [],
+  "queue_held_report_hz": 37.873640739344644,
+  "settings_held_report_hz": 37.9127188666663,
+  "queue_held_seconds": 3.907734,
+  "settings_held_seconds": 6.936992,
+  "held_mid_drag_releases": 0,
+  "qualified_image": "0b69e0ad574c16aba6f10b7bed5995634f57243d6826b9fdd2666cc72bc59ac1"
+}
