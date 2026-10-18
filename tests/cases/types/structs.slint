@@ -107,13 +107,15 @@ export interface TestCase {
     player_2: Player;
     player_2_alias: Player;
     player_2_score: number;
-    player_list: slint.Model<Player>;
-    players: slint.Model<Player>;
+    get player_list(): slint.Model<Player>;
+    set player_list(value: slint.Model<Player> | Player[]);
+    get players(): slint.Model<Player>;
+    set players(value: slint.Model<Player> | Player[]);
     test: boolean;
     underscore: With_Dash_And_underscore;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
+export declare const TestCase: { new(properties?: Partial<Omit<TestCase, "player_list" | "players"> & { player_list: slint.Model<Player> | Player[]; players: slint.Model<Player> | Player[]; }>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function Player(properties?: Partial<Player>): Player;
 export declare function Unused(properties?: Partial<Unused>): Unused;
 export declare function With_Dash_And_underscore(properties?: Partial<With_Dash_And_underscore>): With_Dash_And_underscore;
