@@ -28,6 +28,8 @@ mod ink_particles;
 mod kiosk;
 #[path = "../../../../../../demos/printerdemo_mcu/kiosk_motion.rs"]
 mod kiosk_motion;
+#[path = "../../../native_buffer.rs"]
+mod native_buffer;
 
 #[test]
 fn two_core_vials_match_serial_buffers_through_hold_and_release() {
@@ -142,14 +144,26 @@ struct Test {
     window: Rc<MinimalSoftwareWindow>,
     clock: Rc<Cell<u64>>,
     pixels: Vec<Rgb565BigEndianPixel>,
+    trace: Option<std::fs::File>,
 }
 impl Test {
     fn step(&mut self, micros: u64) {
         self.clock.set(self.clock.get() + micros);
         slint::platform::update_timers_and_animations();
         self.window.draw_if_needed(|r| {
-            r.render(&mut self.pixels, 320);
+            if std::env::var_os("PICO_NATIVE_BUFFER").is_some() {
+                r.render_into_buffer(&mut native_buffer::FrameBuffer::new(&mut self.pixels, 320));
+            } else {
+                r.render(&mut self.pixels, 320);
+            }
         });
+        if let Some(trace) = &mut self.trace {
+            let hash = bytemuck::cast_slice::<_, u8>(&self.pixels).iter().fold(
+                0xcbf29ce484222325u64,
+                |hash, byte| (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3),
+            );
+            writeln!(trace, "{},{}", self.clock.get(), hash).unwrap();
+        }
     }
     fn advance(&mut self, micros: u64) {
         let end = self.clock.get() + micros;
@@ -203,7 +217,12 @@ fn main() {
     let _controller = kiosk::start(&ui);
     let _ink = ink_animation::start(&ui);
     ui.show().unwrap();
-    let mut t = Test { window, clock, pixels: vec![Rgb565BigEndianPixel::default(); 320 * 240] };
+    let mut t = Test {
+        window,
+        clock,
+        pixels: vec![Rgb565BigEndianPixel::default(); 320 * 240],
+        trace: std::env::var_os("KIOSK_FRAME_TRACE").map(|p| std::fs::File::create(p).unwrap()),
+    };
     t.advance(100_000);
     ui.global::<PrinterState>().set_active_page(Pages::Settings);
     t.advance(100_000);

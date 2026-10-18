@@ -16,6 +16,7 @@ pub use background::with_core1;
 #[cfg(feature = "pico2-queue-profile")]
 mod frame_crc;
 mod frame_queue;
+mod native_buffer;
 #[cfg(feature = "pico2-clock-240")]
 mod overclock;
 mod packet_slot;
@@ -457,7 +458,10 @@ impl PlatformBackend for PicoEmbassyBackend {
         }
         #[cfg(feature = "pico2-queue-profile")]
         profile::begin_raster();
-        let region = renderer.render(&mut self.frame_buffer, 320);
+        let region = renderer.render_into_buffer(&mut native_buffer::FrameBuffer::new(
+            &mut self.frame_buffer,
+            320,
+        ));
         #[cfg(feature = "pico2-queue-profile")]
         let raster_done = profile::now_us();
         #[cfg(feature = "pico2-queue-profile")]

@@ -1,0 +1,28 @@
+[
+  {
+    "workload": "ink-tilt-boost",
+    "cpu_hz": 150000000,
+    "raster_us_per_frame": 5904.348639455782,
+    "dirty_cpu_us_per_frame": 1030.9812925170068,
+    "texture_cpu_us_per_frame": 1732.9268707482993,
+    "rectangle_cpu_us_per_frame": 456.8112244897959,
+    "text_cpu_us_per_frame": 0.0,
+    "rounded_cpu_us_per_frame": 0.0,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "ink-tilt-boost",
+    "cpu_hz": 150000000,
+    "raster_us_per_frame": 5906.592844974446,
+    "dirty_cpu_us_per_frame": 1030.5894378194207,
+    "texture_cpu_us_per_frame": 1729.9369676320273,
+    "rectangle_cpu_us_per_frame": 456.664395229983,
+    "text_cpu_us_per_frame": 0.0,
+    "rounded_cpu_us_per_frame": 0.0,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  }
+]

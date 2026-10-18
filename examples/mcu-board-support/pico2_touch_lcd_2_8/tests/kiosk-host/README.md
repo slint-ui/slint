@@ -13,3 +13,7 @@ It does not qualify MCU throughput, physical touch latency, or optical scan cohe
 
 Set `KIOSK_CAPTURE_DIR` to write optional PPM snapshots outside the repository.
 The local Cargo lockfile and build outputs are ignored.
+
+Set `PICO_NATIVE_BUFFER=1` to exercise the Pico framebuffer's RGB565 texture hook.
+Set `KIOSK_FRAME_TRACE` to write deterministic timestamps and complete-frame hashes to a CSV file.
+Compare traces from the default renderer and the texture hook to check all rendered pixels throughout the sequence.

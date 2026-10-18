@@ -1,0 +1,33 @@
+[
+  {
+    "workload": "ink-tilt-boost",
+    "cpu_hz": 150000000,
+    "spi_hz": 60000000,
+    "display_flipped": 1,
+    "frames": 588,
+    "elapsed_us": 10006263,
+    "draw_us": 3827333,
+    "raster_us_per_frame": 5446.017006802721,
+    "animation_us_per_frame": 6935.617346938776,
+    "ink_core0_us_per_frame": 4927.076530612245,
+    "ink_core1_us_per_frame": 3947.872448979592,
+    "ink_join_us_per_frame": 32.0187074829932,
+    "ink_restore_us_per_frame": 2699.6343537414964,
+    "ink_stamp_us_per_frame": 6175.31462585034,
+    "changing_frames": 588,
+    "window_panel_ticks": 587,
+    "changing_fps": 58.76319660996318,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0,
+    "transport_max_overhead_us": 67,
+    "stack_free": 11612,
+    "ink_held_mask": 15,
+    "ink_yellow_particles": 26,
+    "ink_red_particles": 42,
+    "ink_cyan_particles": 32,
+    "ink_black_particles": 52,
+    "render_publish_ms": 6.5090697278911565,
+    "remaining_interval_ms": 3.572767006802721
+  }
+]
