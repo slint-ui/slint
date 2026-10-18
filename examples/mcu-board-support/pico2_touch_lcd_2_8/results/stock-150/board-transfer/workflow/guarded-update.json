@@ -1,0 +1,12 @@
+{
+  "application_pages": 32,
+  "changed_sectors": 2,
+  "payload_bytes": 8448,
+  "full_payload_bytes": 1637376,
+  "previous_sha256": "81bf85a53ba6ebabcb44a916981e6498878f6bb13b5d395ef53b4184175ea6e5",
+  "elf_sha256": "8accf52a10a85cfb3adee189440e05b7423d451f12d8472998498139dd82d427",
+  "applied": true,
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235",
+  "precheck_seconds": 0.24820454203290865,
+  "load_verify_reboot_seconds": 1.6602063339669257
+}

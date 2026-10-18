@@ -23,7 +23,7 @@ MODES = {
     "ink-tilt": 12,
     "ink-tilt-boost": 13,
 }
-FAST_SET = ["auto", "settings-auto", "ink-boost"]
+FAST_SET = ["auto", "settings-auto", "ink-tilt-boost"]
 TIMES = [
     "raster", "wait", "window", "crc", "animation", "render_cpu", "dirty_cpu",
     "text_cpu", "texture_cpu", "rectangle_cpu", "rounded_cpu",

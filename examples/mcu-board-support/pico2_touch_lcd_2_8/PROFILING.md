@@ -127,3 +127,22 @@ The current firmware's USB connection provides flashing and application telemetr
 It does not provide an SWD connection to GDB or probe-rs.
 Installing those tools alone does not supply the required debug wiring.
 No additional profiling software was installed during this audit.
+
+## Guarded Development Updates
+
+Set `PICO_PROFILE=1` and keep an immutable copy of each flashed ELF outside the source tree.
+The short profiler set covers Queue, Settings and boosted tilted Ink.
+Use fixed rotation for controlled comparisons, then check automatic flipping separately.
+
+```sh
+PICO_PROFILE=1 PICO_SERIAL=DEVICE_SERIAL PYTHON=/path/to/python \
+    examples/mcu-board-support/pico2_touch_lcd_2_8/flash-printer.sh --previous /tmp/previous.elf
+```
+
+The selected Python must have pyserial installed.
+Both images must target this 16 MiB RP2350 board.
+Before writing, the updater compares uncached hashes of every preceding ELF flash section with the running device.
+It aborts on a mismatch, retains complete affected sectors and preserves picotool's RP2350-E10 block.
+The loader verifies the changed payload before rebooting.
+Use the ordinary full-image path when the running image lacks profiling commands or its identity is unknown.
+Results include image hashes, changed sectors, payload size and elapsed update time.

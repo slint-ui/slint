@@ -22,13 +22,15 @@ def sections(elf, objdump, objcopy):
         for line in headers.splitlines():
             fields = line.split()
             if len(fields) < 6 or fields[1] not in (
-                ".vector_table", ".start_block", ".text", ".rodata", ".data"
+                ".vector_table", ".start_block", ".text", ".bi_entries", ".assets", ".rodata", ".data", ".end_block"
             ):
                 continue
             name = fields[1]
             length = int(fields[2], 16)
             offset = int(fields[4], 16) - 0x10000000
-            if length == 0 or length % 4 or offset < 0 or offset + length > 16 * 1024 * 1024:
+            if length == 0:
+                continue
+            if length % 4 or offset < 0 or offset + length > 16 * 1024 * 1024:
                 raise RuntimeError(f"Unsupported flash section: {line}")
             raw = Path(temporary) / "section.bin"
             subprocess.run(
@@ -42,8 +44,9 @@ def sections(elf, objdump, objcopy):
             for byte in data:
                 value = ((value ^ byte) * 0x01000193) & 0xffffffff
             result.append(dict(section=name, offset=offset, bytes=length, expected_fnv32=value))
-    if len(result) != 5:
-        raise RuntimeError("ELF does not contain the five expected flash sections")
+    names = {section["section"] for section in result}
+    if not {".vector_table", ".start_block", ".text", ".data"} <= names or not names & {".rodata", ".assets"}:
+        raise RuntimeError("ELF is missing its executable, data load or read-only flash sections")
     return result
 
 
