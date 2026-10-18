@@ -68,6 +68,8 @@ struct Packet {
     frame_hash: u32,
     #[cfg(feature = "pico2-queue-profile")]
     frame_id: u32,
+    #[cfg(feature = "pico2-queue-profile")]
+    input_us: u32,
     first: bool,
     flipped: bool,
     frame_columns: [u32; super::uniform_tiles::COLUMNS],
@@ -84,6 +86,8 @@ impl Packet {
             frame_hash: 0,
             #[cfg(feature = "pico2-queue-profile")]
             frame_id: 0,
+            #[cfg(feature = "pico2-queue-profile")]
+            input_us: 0,
             first: false,
             flipped: false,
             frame_columns: [0; super::uniform_tiles::COLUMNS],
@@ -172,6 +176,7 @@ pub async fn publish(
     {
         packet.frame_id = stats.frame_id;
         packet.frame_hash = _frame_hash;
+        packet.input_us = super::profile::frame_input_us();
     }
     packet.first = true;
     packet.flipped = flipped;
@@ -188,6 +193,7 @@ pub async fn publish(
             {
                 packet.frame_id = stats.frame_id;
                 packet.frame_hash = _frame_hash;
+                packet.input_us = super::profile::frame_input_us();
             }
         }
         #[cfg(feature = "pico2-queue-profile")]
@@ -475,6 +481,7 @@ async fn display_loop(
                 }
                 COUNTER_VERSION.fetch_add(1, Ordering::Release);
                 DELIVERED_FRAME.store(packet.frame_id, Ordering::Release);
+                super::profile::delivered_input(packet.input_us);
                 previous_hash = current_hash;
                 frame_us = 0;
             }

@@ -306,3 +306,96 @@ fn main() {
         "Kiosk checkbox, ten-second sequence, immediate exit, no click-through, and stopped timers pass"
     );
 }
+
+#[test]
+fn queue_and_settings_follow_pointer_moves_without_drag_easing() {
+    use slint::platform::WindowEvent;
+    let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
+    let clock = Rc::new(Cell::new(0));
+    slint::platform::set_platform(Box::new(Backend {
+        window: window.clone(),
+        clock: clock.clone(),
+    }))
+    .unwrap();
+    let ui = MainWindow::new().unwrap();
+    ui.window().set_size(slint::PhysicalSize::new(320, 240));
+    ui.global::<QueueMotion>().set_pixel_snap(true);
+    ui.show().unwrap();
+    let mut t = Test {
+        window,
+        clock,
+        pixels: vec![Rgb565BigEndianPixel::default(); 320 * 240],
+        trace: None,
+    };
+    for (page, x) in [(Pages::Home, 210.), (Pages::Settings, 300.)] {
+        ui.global::<PrinterState>().set_active_page(page);
+        t.advance(100_000);
+        let position = || {
+            if page == Pages::Home {
+                ui.global::<QueueMotion>().get_raw_y()
+            } else {
+                ui.global::<SettingsMotion>().get_raw_y()
+            }
+        };
+        if page == Pages::Home {
+            ui.global::<QueueMotion>().set_raw_y(-40.);
+        } else {
+            ui.global::<SettingsMotion>().set_raw_y(-40.);
+        }
+        t.step(16_667);
+        t.pointer(x, 170., true);
+        for y in [160., 150.] {
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: slint::LogicalPosition::new(x, y),
+            });
+            t.step(16_667);
+        }
+        let mut previous_y = 150.;
+        for y in [140., 130., 135., 145., 150.] {
+            let previous = position();
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: slint::LogicalPosition::new(x, y),
+            });
+            let expected = previous + y - previous_y;
+            assert!(
+                (position() - expected).abs() < 0.001,
+                "{page:?}: pointer delta must apply immediately"
+            );
+            t.step(16_667);
+            assert!(
+                (position() - expected).abs() < 0.001,
+                "{page:?}: holding must not ease after dispatch"
+            );
+            previous_y = y;
+        }
+        t.pointer(x, previous_y, false);
+        t.advance(1_000_000);
+        if page == Pages::Home {
+            ui.global::<QueueMotion>().set_raw_y(0.);
+        } else {
+            ui.global::<SettingsMotion>().set_raw_y(0.);
+        }
+        t.advance(100_000);
+        t.pointer(x, 225., true);
+        for y in (45..=215).rev().step_by(10) {
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: slint::LogicalPosition::new(x, y as f32),
+            });
+            let before = position();
+            t.step(16_667);
+            let after = position();
+            assert!(
+                (before - (y as f32 - 225.)).abs() < 0.001,
+                "{page:?}: a full held drag must track the finger"
+            );
+            assert!((before - after).abs() < 0.001, "{page:?}: no settling while finger held");
+        }
+        let stopped = position();
+        t.advance(500_000);
+        assert!(
+            (position() - stopped).abs() < 0.001,
+            "{page:?}: held finger must stop the list immediately"
+        );
+        t.pointer(x, 45., false);
+    }
+}

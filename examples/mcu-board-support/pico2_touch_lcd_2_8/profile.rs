@@ -269,6 +269,37 @@ static REPLAY_Y: AtomicU32 = AtomicU32::new(0);
 static SAMPLE_US: AtomicU32 = AtomicU32::new(0);
 static SAMPLE_PENDING: AtomicBool = AtomicBool::new(false);
 static LATENCY: [AtomicU32; 3] = [const { AtomicU32::new(0) }; 3];
+static FRAME_INPUT_US: AtomicU32 = AtomicU32::new(0);
+static DELIVERY: [AtomicU32; 3] = [const { AtomicU32::new(0) }; 3];
+static DELIVERY_VERSION: AtomicU32 = AtomicU32::new(0);
+
+pub fn frame_input_us() -> u32 {
+    FRAME_INPUT_US.load(Ordering::Relaxed)
+}
+
+pub fn delivered_input(sample: u32) {
+    if sample != 0 {
+        let age = (now_us() as u32).wrapping_sub(sample);
+        DELIVERY_VERSION.fetch_add(1, Ordering::AcqRel);
+        DELIVERY[0].fetch_add(age, Ordering::Relaxed);
+        DELIVERY[1].fetch_max(age, Ordering::Relaxed);
+        DELIVERY[2].fetch_add(1, Ordering::Relaxed);
+        DELIVERY_VERSION.fetch_add(1, Ordering::Release);
+    }
+}
+
+pub fn delivery_snapshot() -> [u32; 3] {
+    loop {
+        let version = DELIVERY_VERSION.load(Ordering::Acquire);
+        if version & 1 != 0 {
+            continue;
+        }
+        let values = DELIVERY.each_ref().map(|value| value.load(Ordering::Relaxed));
+        if DELIVERY_VERSION.load(Ordering::Acquire) == version {
+            return values;
+        }
+    }
+}
 
 pub fn schedule_pointer(x: f32, y: f32, pressed: bool) {
     schedule_pointer_kind(x, y, if pressed { 1 } else { 2 });
@@ -299,8 +330,11 @@ pub fn sampled_input(time: u32) {
 }
 
 pub fn begin_raster() {
+    FRAME_INPUT_US.store(0, Ordering::Relaxed);
     if SAMPLE_PENDING.swap(false, Ordering::Acquire) {
-        let age = (now_us() as u32).wrapping_sub(SAMPLE_US.load(Ordering::Relaxed));
+        let sample = SAMPLE_US.load(Ordering::Relaxed);
+        FRAME_INPUT_US.store(sample, Ordering::Relaxed);
+        let age = (now_us() as u32).wrapping_sub(sample);
         LATENCY[0].fetch_add(age, Ordering::Relaxed);
         LATENCY[1].fetch_max(age, Ordering::Relaxed);
         LATENCY[2].fetch_add(1, Ordering::Relaxed);

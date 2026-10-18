@@ -1,0 +1,99 @@
+[
+  {
+    "page": "Queue",
+    "sequence_first": 11,
+    "sequence_last": 123,
+    "reports": 113,
+    "valid_contacts": 112,
+    "duration_seconds": 2.951105,
+    "reports_per_second": 37.95188581904066,
+    "report_gaps": {
+      "n": 112,
+      "min_ms": 25.878,
+      "median_ms": 26.2755,
+      "mean_ms": 26.349151785714287,
+      "p95_ms": 26.64845,
+      "p99_ms": 26.72978,
+      "max_ms": 33.68,
+      "stddev_ms": 0.7195023231599225,
+      "over_30_ms": 1,
+      "over_40_ms": 0
+    },
+    "coordinate_report_gaps": {
+      "n": 111,
+      "min_ms": 25.878,
+      "median_ms": 26.276,
+      "mean_ms": 26.3520990990991,
+      "p95_ms": 26.6485,
+      "p99_ms": 26.7298,
+      "max_ms": 33.68,
+      "stddev_ms": 0.7220626729674385,
+      "over_30_ms": 1,
+      "over_40_ms": 0
+    },
+    "changed_coordinates": 92,
+    "changed_coordinates_per_second": 31.17476335135483,
+    "release_packets": [
+      {
+        "sequence": 123,
+        "time_us": 275752019,
+        "raw": "00010efd3d01",
+        "status": 0,
+        "fingers": 1
+      }
+    ],
+    "sequence_gaps": []
+  },
+  {
+    "page": "Settings",
+    "sequence_first": 132,
+    "sequence_last": 311,
+    "reports": 180,
+    "valid_contacts": 178,
+    "duration_seconds": 4.727458,
+    "reports_per_second": 37.86390064174023,
+    "report_gaps": {
+      "n": 179,
+      "min_ms": 25.517,
+      "median_ms": 26.318,
+      "mean_ms": 26.410379888268157,
+      "p95_ms": 26.7595,
+      "p99_ms": 33.48414,
+      "max_ms": 33.916,
+      "stddev_ms": 0.9910473613529677,
+      "over_30_ms": 3,
+      "over_40_ms": 0
+    },
+    "coordinate_report_gaps": {
+      "n": 177,
+      "min_ms": 25.517,
+      "median_ms": 26.318,
+      "mean_ms": 26.562909604519774,
+      "p95_ms": 26.802400000000002,
+      "p99_ms": 33.78756,
+      "max_ms": 52.715,
+      "stddev_ms": 2.208449168973932,
+      "over_30_ms": 4,
+      "over_40_ms": 1
+    },
+    "changed_coordinates": 162,
+    "changed_coordinates_per_second": 34.26788773163082,
+    "release_packets": [
+      {
+        "sequence": 157,
+        "time_us": 278102409,
+        "raw": "000b0bad4702",
+        "status": 0,
+        "fingers": 2
+      },
+      {
+        "sequence": 311,
+        "time_us": 282165002,
+        "raw": "00010add3601",
+        "status": 0,
+        "fingers": 1
+      }
+    ],
+    "sequence_gaps": []
+  }
+]

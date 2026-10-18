@@ -39,6 +39,8 @@ mod profile;
 #[cfg(feature = "pico2-queue-profile")]
 mod profile_run;
 mod touch_packet;
+#[cfg(feature = "pico2-queue-profile")]
+mod touch_profile;
 mod usb;
 
 #[cfg(feature = "pico2-queue-profile")]
@@ -369,7 +371,10 @@ impl PlatformBackend for PicoEmbassyBackend {
             {
                 self.touch_pending = false;
                 pac::IO_BANK0.intr(2).write_value(pac::io::regs::Int(edge));
-                self.touch.read().ok()
+                let result = self.touch.read();
+                #[cfg(feature = "pico2-queue-profile")]
+                if result.is_err() { touch_profile::error(); }
+                result.ok()
             } else {
                 None
             }
@@ -400,6 +405,9 @@ impl PlatformBackend for PicoEmbassyBackend {
         #[cfg(feature = "pico2-queue-profile")]
         let replay_event = profile::take_pointer().map(|(x, y, kind, sampled)| {
             profile::sampled_input(sampled);
+            if profile_mode() == 2 {
+                profile_phase(profile_run(), panel_tick());
+            }
             let position = slint::LogicalPosition::new(x, y);
             match kind {
                 1 => WindowEvent::PointerPressed { position, button },
@@ -425,6 +433,11 @@ impl PlatformBackend for PicoEmbassyBackend {
             }
             #[cfg(feature = "pico2-queue-profile")]
             if hardware_input {
+                touch_profile::event(match event {
+                    WindowEvent::PointerPressed { .. } => 0,
+                    WindowEvent::PointerMoved { .. } => 1,
+                    _ => 2,
+                });
                 profile::sampled_input(profile::now_us() as u32);
                 profile_phase(profile_run(), panel_tick());
             }
@@ -598,6 +611,8 @@ mod cst328 {
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, I2C::Error> {
             let mut data = [0u8; 6];
             self.i2c.write_read(TP_ADDR, &CMD_READ_TOUCH_DATA, &mut data)?;
+            #[cfg(feature = "pico2-queue-profile")]
+            super::touch_profile::report(&data);
             self.i2c.write(TP_ADDR, &[0xd0, 0x05, 0])?;
             Ok(super::touch_packet::point(&data).map(|(x, y)| euclid::point2(x as f32, y as f32)))
         }

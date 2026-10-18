@@ -1,0 +1,50 @@
+{
+  "device_serial": "BFC13272EF67B96D",
+  "source_commit": "eae4346267",
+  "capture_seconds": 119.98744091700064,
+  "baseline": {
+    "reads": 10,
+    "contacts": 8,
+    "changed": 1,
+    "zero_count": 1,
+    "bad_status": 1,
+    "range_error": 0,
+    "presses": 1,
+    "moves": 7,
+    "releases": 1,
+    "errors": 0,
+    "max_gap_us": 33857
+  },
+  "final": {
+    "reads": 311,
+    "contacts": 305,
+    "changed": 258,
+    "zero_count": 1,
+    "bad_status": 5,
+    "range_error": 0,
+    "presses": 5,
+    "moves": 300,
+    "releases": 5,
+    "errors": 0,
+    "max_gap_us": 33916
+  },
+  "user_confirmation": "One continuous contact on each page",
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235",
+  "classification": {
+    "queue": [
+      11,
+      123
+    ],
+    "navigation_tap": [
+      124,
+      131
+    ],
+    "settings": [
+      132,
+      311
+    ],
+    "settings_false_release": 157,
+    "settings_repress": 158
+  },
+  "capture_sequence_gaps": []
+}
