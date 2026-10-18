@@ -936,16 +936,7 @@ pub(crate) fn rust_into_js_model<'a>(
 /// `register_hidden_model_prop`, guarding against use-after-free of the
 /// owning component instance.
 fn remove_hidden_model_prop(owner: &JsAnchorOwner, env: Env, prop_key: &str) {
-    // Pure Rust check (no NAPI calls).
-    // Returns None once the owning JsComponentInstance's anchor_seq
-    // Rc has been dropped,
-    // which happens before the model that's dropping (field declaration order).
-    if owner.seq.upgrade().is_none() {
-        return;
-    }
-    if let Some(mut obj) =
-        crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(&owner.owner_weak, env)
-    {
+    if let Some(mut obj) = owner.object(env) {
         let _ = obj.delete_named_property(prop_key);
     }
 }
