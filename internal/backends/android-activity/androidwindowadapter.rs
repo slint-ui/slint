@@ -682,13 +682,10 @@ fn long_press_timeout() {
             if !geometry.contains(i_slint_core::lengths::logical_point_from_api(current.position)) {
                 return;
             };
-            // The anchor is where the press started; moves may have shifted the cursor.
-            let text = text_input.text();
-            let anchor = text_input.anchor_position(&text);
-            if text.len() > anchor && text.as_bytes()[anchor] != b'\n' {
-                let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
-                text_input.select_word_on_long_press(&adaptor, &focus_item);
-            }
+            text_input.select_word_on_long_press(
+                &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                &focus_item,
+            );
             adaptor
                 .java_helper
                 .show_action_menu()
