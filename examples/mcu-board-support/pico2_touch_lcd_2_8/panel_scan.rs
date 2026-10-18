@@ -6,17 +6,25 @@ use embassy_rp::pac;
 const SCK: u32 = 1 << 10;
 const MOSI: u32 = 1 << 11;
 
-// ST7789 scanline reads require this delay at the 240 MHz clock.
+// Preserve the qualified delay in time when the CPU changes frequency.
+#[inline(always)]
+fn read_delay() {
+    #[cfg(feature = "pico2-clock-240")]
+    unsafe {
+        core::arch::asm!(".rept 48", "nop", ".endr", options(nomem, nostack, preserves_flags))
+    };
+    #[cfg(not(feature = "pico2-clock-240"))]
+    unsafe {
+        core::arch::asm!(".rept 30", "nop", ".endr", options(nomem, nostack, preserves_flags))
+    };
+}
+
 #[unsafe(link_section = ".data.ram_func")]
 #[inline(never)]
 fn clock(input: bool, release_data: bool) -> bool {
-    unsafe {
-        core::arch::asm!(".rept 48", "nop", ".endr", options(nomem, nostack, preserves_flags))
-    };
+    read_delay();
     pac::SIO.gpio_out(0).value_set().write_value(SCK);
-    unsafe {
-        core::arch::asm!(".rept 48", "nop", ".endr", options(nomem, nostack, preserves_flags))
-    };
+    read_delay();
     if release_data {
         pac::SIO.gpio_oe(0).value_clr().write_value(MOSI);
     }
