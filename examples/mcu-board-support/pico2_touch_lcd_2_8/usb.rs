@@ -54,6 +54,7 @@ pub fn start(
             spawner.spawn(super::boot_guard::watchdog_task().unwrap());
 
             spawner.spawn(super::background::task().unwrap());
+            spawner.spawn(super::touch_input::task().unwrap());
         });
     });
 }
@@ -189,8 +190,8 @@ async fn usb_task(usb: Peri<'static, USB>) {
                 #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"touchstats") {
                     let (v, gap) = super::touch_profile::snapshot();
-                    let mut line = ReportLine { bytes: [0; 384], length: 0 };
-                    let _ = writeln!(&mut line, "PICO_TOUCH,reads={},contacts={},changed={},zero_count={},bad_status={},range_error={},presses={},moves={},releases={},errors={},max_gap_us={gap}", v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[9]);
+                    let mut line = ReportLine { bytes: [0; 288], length: 0 };
+                    let _ = writeln!(&mut line, "PICO_TOUCH,reads={},contacts={},changed={},zero_count={},bad_status={},range_error={},presses={},moves={},releases={},errors={},max_gap_us={gap},sample_overflows={}", v[0],v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],v[9],super::touch_input::overflows());
                     for packet in line.bytes[..line.length].chunks(64) {
                         if serial.write_packet(packet).await.is_err() { break; }
                     }
@@ -201,7 +202,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                 }
                 #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"touchtrace") {
-                    let mut line = ReportLine { bytes: [0; 768], length: 0 };
+                    let mut line = ReportLine { bytes: [0; 640], length: 0 };
                     let _ = write!(&mut line, "PICO_TOUCH_TRACE");
                     let newest = super::touch_profile::sequence();
                     for sequence in newest.saturating_sub(7)..=newest {
@@ -221,6 +222,23 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     if line.length.is_multiple_of(64) {
                         let _ = serial.write_packet(&[]).await;
                     }
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"touchdispatch") {
+                    let mut line = ReportLine { bytes: [0; 352], length: 0 };
+                    let _ = write!(&mut line, "PICO_TOUCH_DISPATCH");
+                    let newest = super::touch_profile::event_sequence();
+                    for sequence in newest.saturating_sub(7)..=newest {
+                        if let Some([time, sampled, meta]) = super::touch_profile::event_entry(sequence) {
+                            let _ = write!(&mut line, ",{sequence}:{time}:{sampled}:{meta}");
+                        }
+                    }
+                    let _ = writeln!(&mut line);
+                    for packet in line.bytes[..line.length].chunks(64) {
+                        if serial.write_packet(packet).await.is_err() { break; }
+                    }
+                    if line.length.is_multiple_of(64) { let _ = serial.write_packet(&[]).await; }
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]

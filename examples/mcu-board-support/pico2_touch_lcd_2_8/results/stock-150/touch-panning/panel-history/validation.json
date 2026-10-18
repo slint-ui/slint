@@ -1,0 +1,42 @@
+{
+  "elf_sha256": "08a9e7a4b15d401a5e5a8370fd9d9b2d4d2bf29475c6133abb86af3086714930",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "display_spi_hz": 60000000,
+  "host_tests_passed": 52,
+  "main_stack_bytes": 24716,
+  "minimum_measured_unused_stack_bytes": 5972,
+  "heap_capacity_bytes": 317440,
+  "artwork_and_fixed_capture_hashes_unchanged": true,
+  "panel_readback_mismatched_pixels": 0,
+  "capture_final_counters": {
+    "seconds": 162.04220024996903,
+    "reads": 4188,
+    "contacts": 4117,
+    "changed": 3046,
+    "zero_count": 59,
+    "bad_status": 12,
+    "range_error": 0,
+    "presses": 11,
+    "moves": 1828,
+    "releases": 11,
+    "errors": 0,
+    "max_gap_us": 15740,
+    "sample_overflows": 0,
+    "rates": {
+      "reads": 0.0,
+      "contacts": 0.0,
+      "changed": 0.0,
+      "zero_count": 0.0,
+      "bad_status": 0.0,
+      "range_error": 0.0,
+      "presses": 0.0,
+      "moves": 0.0,
+      "releases": 0.0,
+      "errors": 0.0,
+      "sample_overflows": 0.0
+    }
+  },
+  "user_response": "Done\u2014both lists follow my finger",
+  "user_follow_up": "I would say there is still room for improvement. But this is a huge upgrade"
+}

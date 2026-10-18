@@ -18,11 +18,13 @@ def main():
     parser.add_argument("--serial", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seconds", type=float, default=60)
+    parser.add_argument("--with-dispatch", action="store_true")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     args.output.mkdir(parents=True, exist_ok=True)
     rates, reports, seen = [], [], set()
+    events, event_seen = [], set()
     with serial.Serial(find_port(args.serial), 115200, timeout=2, write_timeout=2) as port:
         started = time.monotonic()
         previous = None
@@ -60,7 +62,19 @@ def main():
                 reports.append({"sequence": sequence, "time_us": int(timestamp),
                                 "raw": data.hex(), "status": data[0] & 15,
                                 "fingers": data[5] & 15})
-            for name, data in [("rates", rates), ("reports", reports)]:
+            if args.with_dispatch:
+                line = command(port, "touchdispatch")
+                if not line.startswith("PICO_TOUCH_DISPATCH"):
+                    raise RuntimeError(line)
+                for item in line.split(",")[1:]:
+                    sequence, timestamp, sampled, meta = map(int, item.split(":"))
+                    if sequence == 0 or sequence in event_seen:
+                        continue
+                    event_seen.add(sequence)
+                    events.append({"sequence": sequence, "time_us": timestamp,
+                                   "sample_us": sampled, "kind": meta >> 16,
+                                   "history_count": meta & 65535})
+            for name, data in [("rates", rates), ("reports", reports), ("events", events)]:
                 (args.output / (name + ".json")).write_text(json.dumps(data, indent=2) + "\n")
             time.sleep(.025)
 

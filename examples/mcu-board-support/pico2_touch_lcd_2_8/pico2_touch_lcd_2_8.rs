@@ -39,6 +39,8 @@ mod profile;
 #[cfg(feature = "pico2-queue-profile")]
 mod profile_run;
 mod touch_packet;
+mod touch_samples;
+mod touch_input;
 #[cfg(feature = "pico2-queue-profile")]
 mod touch_profile;
 mod usb;
@@ -276,20 +278,18 @@ pub fn init() {
     let mut touch = cst328::CST328::new(i2c, &mut Delay).unwrap();
     let imu = imu::Imu::new(&mut touch.i2c, now_us());
 
+    touch_input::configure(touch_input::Devices { touch, imu, _pin: tp_int });
+
     let pico_backend = PicoEmbassyBackend {
         _display: display,
         #[cfg(feature = "pico2-queue-profile")]
         _crc_dma: p.DMA_CH1,
-        touch,
-        imu,
         flipped: false,
         upload_full: false,
         last_touch: None,
 
-        touch_pending: false,
         frame_buffer: vec![Rgb565BigEndianPixel::default(); 320 * 240].into_boxed_slice(),
         uniform_tiles: vec![0; uniform_tiles::CACHE_LEN].into_boxed_slice(),
-        _tp_int: tp_int,
         #[cfg(feature = "pico2-queue-profile")]
         profiler: profile::Profiler::default(),
     };
@@ -317,23 +317,18 @@ struct PicoEmbassyBackend {
     _display: Display,
     #[cfg(feature = "pico2-queue-profile")]
     _crc_dma: embassy_rp::Peri<'static, embassy_rp::peripherals::DMA_CH1>,
-    touch: cst328::CST328<
-        embassy_rp::i2c::I2c<'static, embassy_rp::peripherals::I2C1, embassy_rp::i2c::Blocking>,
-    >,
-    imu: imu::Imu,
     flipped: bool,
     upload_full: bool,
     last_touch: Option<slint::LogicalPosition>,
 
-    touch_pending: bool,
     frame_buffer: Box<[Rgb565BigEndianPixel]>,
     uniform_tiles: Box<[u32]>,
-    _tp_int: Input<'static>,
     #[cfg(feature = "pico2-queue-profile")]
     profiler: profile::Profiler,
 }
 
 impl PlatformBackend for PicoEmbassyBackend {
+    const INPUT_BEFORE_RENDER: bool = true;
     async fn dispatch_events(&mut self, window: &slint::Window) {
         boot_guard::heartbeat();
         #[cfg(feature = "pico2-queue-profile")]
@@ -346,112 +341,39 @@ impl PlatformBackend for PicoEmbassyBackend {
             }
             _ => {}
         }
-        self.imu.poll(&mut self.touch.i2c, now_us());
         let wanted = imu::desired_flip();
         if wanted != self.flipped {
-            if let Some(position) = self.last_touch.take() {
-                window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
-                window.dispatch_event(WindowEvent::PointerExited);
-            }
+            touch_input::cancel(window, &mut self.last_touch);
             self.flipped = wanted;
-            self.imu.apply_flip(wanted);
+            touch_input::flip(wanted);
             self.uniform_tiles.reverse();
             self.upload_full = true;
             window.request_redraw();
         }
-        let button = PointerEventButton::Left;
-        #[cfg(feature = "pico2-queue-profile")]
-        let touch_started = profile::now_us();
-
-        let report = {
-            let edge = 1 << 10;
-            if self.touch_pending
-                || pac::IO_BANK0.intr(2).read().0 & edge != 0
-            {
-                self.touch_pending = false;
-                pac::IO_BANK0.intr(2).write_value(pac::io::regs::Int(edge));
-                let result = self.touch.read();
-                #[cfg(feature = "pico2-queue-profile")]
-                if result.is_err() { touch_profile::error(); }
-                match result {
-                    Ok(touch_packet::Report::Contact(x, y)) => Some(Some(euclid::default::Point2D::new(x as f32, y as f32))),
-                    Ok(touch_packet::Report::Released) => Some(None),
-                    Ok(touch_packet::Report::Invalid) | Err(_) => None,
-                }
-            } else {
-                None
-            }
-        };
-        #[cfg(feature = "pico2-queue-profile")]
-        let touch_us = profile::now_us() - touch_started;
         #[cfg(feature = "pico2-queue-profile")]
         let dispatch_started = profile::now_us();
+        let dispatched = touch_input::dispatch(window, &mut self.last_touch);
         #[cfg(feature = "pico2-queue-profile")]
-        let mut dispatched = false;
-        let hardware_event = report.and_then(|point| {
-            point
-                .map(|point| {
-                    let (x, y) = orientation::touch(point.x, point.y, frame_queue::flipped());
-                    let position = slint::PhysicalPosition::new(x as _, y as _)
-                        .to_logical(window.scale_factor());
-                    match self.last_touch.replace(position) {
-                        Some(_) => WindowEvent::PointerMoved { position },
-                        None => WindowEvent::PointerPressed { position, button },
-                    }
-                })
-                .or_else(|| {
-                    self.last_touch
-                        .take()
-                        .map(|position| WindowEvent::PointerReleased { position, button })
-                })
-        });
-        #[cfg(feature = "pico2-queue-profile")]
-        let replay_event = profile::take_pointer().map(|(x, y, kind, sampled)| {
-            profile::sampled_input(sampled);
-            if profile_mode() == 2 {
-                profile_phase(profile_run(), panel_tick());
-            }
-            let position = slint::LogicalPosition::new(x, y);
-            match kind {
-                1 => WindowEvent::PointerPressed { position, button },
-                3 => WindowEvent::PointerReleased { position, button },
-                _ => WindowEvent::PointerMoved { position },
-            }
-        });
-        #[cfg(not(feature = "pico2-queue-profile"))]
-        let replay_event = None;
-        #[cfg(feature = "pico2-queue-profile")]
-        let hardware_input = hardware_event.is_some();
-        if let Some(event) = hardware_event.or(replay_event) {
-            let is_pointer_release_event = matches!(event, WindowEvent::PointerReleased { .. });
-
-            #[cfg(feature = "pico2-queue-profile")]
-            {
+        {
+            let mut dispatched = dispatched;
+            if !dispatched && let Some((x, y, kind, sampled)) = profile::take_pointer() {
+                profile::sampled_input(sampled);
+                if profile_mode() == 2 { profile_phase(profile_run(), panel_tick()); }
+                let position = slint::LogicalPosition::new(x, y);
+                let button = PointerEventButton::Left;
+                let event = match kind {
+                    1 => WindowEvent::PointerPressed { position, button },
+                    3 => WindowEvent::PointerReleased { position, button },
+                    _ => WindowEvent::PointerMoved { position },
+                };
+                window.dispatch_event(event);
+                if kind == 3 { window.dispatch_event(WindowEvent::PointerExited); }
                 dispatched = true;
             }
-            #[cfg(feature = "pico2-queue-profile")]
-            if hardware_input && matches!(event, WindowEvent::PointerPressed { .. }) {
-                profile::TOUCH_PRESSES.fetch_add(1, Ordering::Release);
-                profile::RUN.select(2);
-            }
-            #[cfg(feature = "pico2-queue-profile")]
-            if hardware_input {
-                touch_profile::event(match event {
-                    WindowEvent::PointerPressed { .. } => 0,
-                    WindowEvent::PointerMoved { .. } => 1,
-                    _ => 2,
-                });
-                profile::sampled_input(profile::now_us() as u32);
-                profile_phase(profile_run(), panel_tick());
-            }
-            window.dispatch_event(event);
-
-            if is_pointer_release_event {
-                window.dispatch_event(WindowEvent::PointerExited);
-            }
+            profile::input(0, profile::now_us() - dispatch_started, dispatched);
         }
-        #[cfg(feature = "pico2-queue-profile")]
-        profile::input(touch_us, profile::now_us() - dispatch_started, dispatched);
+        #[cfg(not(feature = "pico2-queue-profile"))]
+        let _ = dispatched;
     }
 
     async fn render(&mut self, renderer: &SoftwareRenderer) {
@@ -538,13 +460,9 @@ impl PlatformBackend for PicoEmbassyBackend {
     }
 
     async fn wait_for_event(&mut self) {
-        {
-            // Embassy GPIO waits clear raw edges when armed; CST328 pulses must survive until acknowledged.
-            while pac::IO_BANK0.intr(2).read().0 & (1 << 10) == 0 {
-                boot_guard::heartbeat();
-                embassy_time::Timer::after_micros(500).await;
-            }
-            self.touch_pending = true;
+        while !touch_input::ready() {
+            boot_guard::heartbeat();
+            embassy_time::Timer::after_micros(500).await;
         }
     }
 }

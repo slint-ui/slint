@@ -7,6 +7,7 @@ use alloc::rc::Rc;
 use core::cell::{Cell, RefCell};
 
 pub(crate) trait PlatformBackend {
+    const INPUT_BEFORE_RENDER: bool = false;
     async fn dispatch_events(&mut self, window: &slint::Window);
     async fn render(&mut self, renderer: &slint::platform::software_renderer::SoftwareRenderer);
 
@@ -104,13 +105,18 @@ impl<PlatformImpl: PlatformBackend> EmbassyBackend<PlatformImpl> {
             let maybe_window = (*self.window.borrow()).clone();
 
             if let Some(window) = maybe_window {
+                if PlatformImpl::INPUT_BEFORE_RENDER {
+                    platform_backend.dispatch_events(&window).await;
+                }
                 window
                     .draw_async_if_needed(async |renderer| {
                         platform_backend.render(renderer).await;
                     })
                     .await;
 
-                platform_backend.dispatch_events(&window).await;
+                if !PlatformImpl::INPUT_BEFORE_RENDER {
+                    platform_backend.dispatch_events(&window).await;
+                }
 
                 if !window.has_active_animations() {
                     match slint::platform::duration_until_next_timer_update()

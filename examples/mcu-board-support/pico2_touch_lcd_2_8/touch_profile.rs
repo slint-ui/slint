@@ -49,8 +49,25 @@ pub fn report(data: &[u8; 27], report: super::touch_packet::Report) {
     SEQUENCE.store(sequence, Ordering::Release);
 }
 
-pub fn event(kind: usize) {
+static EVENT_SEQUENCE: AtomicU32 = AtomicU32::new(0);
+static EVENTS: [[AtomicU32; 4]; 16] = [const { [const { AtomicU32::new(0) }; 4] }; 16];
+pub fn event(kind: usize, sampled: u32, history: usize) {
     COUNTS[6 + kind].fetch_add(1, Ordering::Relaxed);
+    let sequence = EVENT_SEQUENCE.load(Ordering::Relaxed).wrapping_add(1);
+    let entry = &EVENTS[sequence as usize % EVENTS.len()];
+    entry[0].store(0, Ordering::Release);
+    entry[1].store(super::now_us() as u32, Ordering::Relaxed);
+    entry[2].store(sampled, Ordering::Relaxed);
+    entry[3].store((kind as u32) << 16 | history as u32, Ordering::Relaxed);
+    entry[0].store(sequence, Ordering::Release);
+    EVENT_SEQUENCE.store(sequence, Ordering::Release);
+}
+pub fn event_sequence() -> u32 { EVENT_SEQUENCE.load(Ordering::Acquire) }
+pub fn event_entry(sequence: u32) -> Option<[u32; 3]> {
+    let entry = &EVENTS[sequence as usize % EVENTS.len()];
+    if entry[0].load(Ordering::Acquire) != sequence { return None; }
+    let values = core::array::from_fn(|i| entry[i + 1].load(Ordering::Relaxed));
+    (entry[0].load(Ordering::Acquire) == sequence).then_some(values)
 }
 pub fn error() {
     COUNTS[9].fetch_add(1, Ordering::Relaxed);

@@ -1,0 +1,106 @@
+[
+  {
+    "page": "Queue",
+    "report_sequence": [
+      11,
+      668
+    ],
+    "event_sequence": [
+      1,
+      293
+    ],
+    "contact_coordinates": 657,
+    "contact_span_seconds": 4.935865,
+    "acquisition_hz": 132.90476947809555,
+    "acquisition_gaps": {
+      "count": 656,
+      "min_ms": 3.647,
+      "median_ms": 7.499499999999999,
+      "mean_ms": 7.524184451219512,
+      "p95_ms": 8.186,
+      "p99_ms": 9.26055000000002,
+      "max_ms": 14.711
+    },
+    "moves": 291,
+    "move_span_seconds": 4.935686,
+    "move_hz": 58.75576363650362,
+    "move_gaps": {
+      "count": 290,
+      "min_ms": 7.773,
+      "median_ms": 17.0835,
+      "mean_ms": 17.019606896551725,
+      "p95_ms": 18.1998,
+      "p99_ms": 19.179900000000004,
+      "max_ms": 19.41
+    },
+    "sample_to_dispatch": {
+      "count": 291,
+      "min_ms": 0.103,
+      "median_ms": 4.177,
+      "mean_ms": 4.026254295532646,
+      "p95_ms": 7.401999999999999,
+      "p99_ms": 7.621400000000002,
+      "max_ms": 7.828
+    },
+    "historical_coordinates": 365,
+    "coordinates_accounted_for": 657,
+    "maximum_history_per_move": 2,
+    "presses": 1,
+    "releases": 1,
+    "false_releases": 0,
+    "raw_trace_holes": [],
+    "event_trace_holes": []
+  },
+  {
+    "page": "Settings",
+    "report_sequence": [
+      684,
+      1484
+    ],
+    "event_sequence": [
+      304,
+      658
+    ],
+    "contact_coordinates": 800,
+    "contact_span_seconds": 6.006939,
+    "acquisition_hz": 133.01283732030572,
+    "acquisition_gaps": {
+      "count": 799,
+      "min_ms": 3.47,
+      "median_ms": 7.51,
+      "mean_ms": 7.518071339173967,
+      "p95_ms": 8.1641,
+      "p99_ms": 9.416979999999999,
+      "max_ms": 14.183
+    },
+    "moves": 353,
+    "move_span_seconds": 5.999549,
+    "move_hz": 58.67107677593766,
+    "move_gaps": {
+      "count": 352,
+      "min_ms": 12.704,
+      "median_ms": 17.0565,
+      "mean_ms": 17.044173295454545,
+      "p95_ms": 17.9034,
+      "p99_ms": 18.869510000000002,
+      "max_ms": 26.524
+    },
+    "sample_to_dispatch": {
+      "count": 353,
+      "min_ms": 0.135,
+      "median_ms": 3.975,
+      "mean_ms": 4.07999716713881,
+      "p95_ms": 7.4086,
+      "p99_ms": 7.66492,
+      "max_ms": 7.939
+    },
+    "historical_coordinates": 446,
+    "coordinates_accounted_for": 800,
+    "maximum_history_per_move": 2,
+    "presses": 1,
+    "releases": 1,
+    "false_releases": 0,
+    "raw_trace_holes": [],
+    "event_trace_holes": []
+  }
+]
