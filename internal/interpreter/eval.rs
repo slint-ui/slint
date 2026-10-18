@@ -2024,12 +2024,7 @@ macro_rules! runtime_function_argument {
         $item?.clone()
     };
     ($item:ident, $args:ident, (ItemArg<$native:ident>) ElementReference) => {
-        i_slint_core::builtin_functions::ItemArg {
-            item: i_slint_core::items::ItemRef::downcast_pin::<i_slint_core::items::$native>(
-                $item?.borrow(),
-            )?,
-            rc: $item?.clone(),
-        }
+        i_slint_core::builtin_functions::ItemArg::new($item?)?
     };
     ($item:ident, $args:ident, ($($ty:tt)*) $($as:tt)?) => {
         $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default()
@@ -2045,7 +2040,7 @@ macro_rules! declare_call_runtime_builtin_function {
         /// Calls the function that implements `f`, if it has one, with the arguments converted
         /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
         /// `item` is the first argument if it's an `ElementReference`, and isn't in `args` then.
-        /// Without it, the ones that need it return `None`.
+        /// Without it, or if it isn't of the right type, the ones that need it return `None`.
         pub fn call_runtime_builtin_function(
             f: &BuiltinFunction,
             context: Option<&SlintContext>,
