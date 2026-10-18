@@ -1,0 +1,26 @@
+{
+  "elf_sha256": "7412c476d3f7b13a82aa14f72f8f888718b42e23ca95b07e12cb33da445a1e3c",
+  "baseline_elf_sha256": "459b9ff4094943518d3c94ff9e540a2bdb45c10bcde726cb620679b7e8b9bc5e",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "display_spi_hz": 60000000,
+  "host_tests_passed": 53,
+  "main_stack_bytes": 24732,
+  "heap_bytes": 317440,
+  "pixel_packet_bytes_before": 92160,
+  "pixel_packet_bytes_after": 92160,
+  "packet_pool_bytes_before": 94452,
+  "packet_pool_bytes_after": 94448,
+  "unchanged_fixed_capture_hashes": true,
+  "panel_readback_mismatched_pixels": 0,
+  "unchanged_artwork_symbols": 24,
+  "hardware_f32_and_sram_checks_passed": true,
+  "source": "Device-timed replay of previously captured physical drags; not fresh physical contact",
+  "baseline_diagnostic": {
+    "event_gap_us": 26468,
+    "completed_frames": 1,
+    "frame_total_us": 25379,
+    "raster_us": 11504,
+    "publication_slot_wait_us": 11859
+  }
+}

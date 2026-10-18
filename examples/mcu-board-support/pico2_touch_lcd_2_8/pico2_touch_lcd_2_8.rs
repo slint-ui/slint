@@ -424,15 +424,20 @@ impl PlatformBackend for PicoEmbassyBackend {
         };
 
         {
-            let _transfer = frame_queue::publish(
+            let publishing = frame_queue::publish(
                 &self.frame_buffer,
                 &region,
                 frame_hash,
                 &mut self.uniform_tiles,
                 self.flipped,
                 self.upload_full,
-            )
-            .await;
+            );
+            let adapter = i_slint_core::renderer::RendererSealed::window_adapter(renderer);
+            let _transfer = if let Some(adapter) = adapter {
+                touch_input::while_publishing(publishing, adapter.window(), &mut self.last_touch).await
+            } else {
+                publishing.await
+            };
             #[cfg(feature = "pico2-queue-profile")]
             if capturing {
                 frame_queue::wait_delivered(_transfer.frame_id).await;

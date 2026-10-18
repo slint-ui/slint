@@ -1,0 +1,176 @@
+[
+  {
+    "page": "Queue",
+    "repeat": 0,
+    "sequence_first": 1,
+    "sequence_last": 294,
+    "movement_events": 292,
+    "acquisition_coordinates": 657,
+    "coordinates_accounted_for": 657,
+    "gaps_ms": {
+      "count": 291,
+      "min": 7.994,
+      "median": 17.007,
+      "mean": 16.962412371134022,
+      "p95": 17.738,
+      "maximum": 20.251
+    },
+    "gaps_over_20_ms": 4,
+    "sample_age_ms": {
+      "count": 292,
+      "min": 0.208,
+      "median": 3.8705,
+      "mean": 4.029404109589041,
+      "p95": 7.572,
+      "maximum": 9.907
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=658,contacts=657,changed=461,zero_count=0,bad_status=1,range_error=0,presses=1,moves=292,releases=1,errors=0,max_gap_us=14626,sample_overflows=0"
+  },
+  {
+    "page": "Settings",
+    "repeat": 0,
+    "sequence_first": 295,
+    "sequence_last": 650,
+    "movement_events": 354,
+    "acquisition_coordinates": 800,
+    "coordinates_accounted_for": 800,
+    "gaps_ms": {
+      "count": 353,
+      "min": 3.98,
+      "median": 17.045,
+      "mean": 17.004951841359773,
+      "p95": 17.699,
+      "maximum": 19.975
+    },
+    "gaps_over_20_ms": 0,
+    "sample_age_ms": {
+      "count": 354,
+      "min": 0.238,
+      "median": 4.007,
+      "mean": 4.077406779661017,
+      "p95": 7.452,
+      "maximum": 8.291
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=1459,contacts=1457,changed=1078,zero_count=0,bad_status=2,range_error=0,presses=2,moves=646,releases=2,errors=0,max_gap_us=14626,sample_overflows=0"
+  },
+  {
+    "page": "Queue",
+    "repeat": 1,
+    "sequence_first": 651,
+    "sequence_last": 943,
+    "movement_events": 291,
+    "acquisition_coordinates": 657,
+    "coordinates_accounted_for": 657,
+    "gaps_ms": {
+      "count": 290,
+      "min": 11.726,
+      "median": 17.0625,
+      "mean": 17.02004827586207,
+      "p95": 17.758,
+      "maximum": 20.188
+    },
+    "gaps_over_20_ms": 3,
+    "sample_age_ms": {
+      "count": 291,
+      "min": 0.207,
+      "median": 4.338,
+      "mean": 4.282876288659794,
+      "p95": 7.733,
+      "maximum": 10.729
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=2117,contacts=2114,changed=1539,zero_count=0,bad_status=3,range_error=0,presses=3,moves=937,releases=3,errors=0,max_gap_us=14782,sample_overflows=0"
+  },
+  {
+    "page": "Settings",
+    "repeat": 1,
+    "sequence_first": 944,
+    "sequence_last": 1299,
+    "movement_events": 354,
+    "acquisition_coordinates": 800,
+    "coordinates_accounted_for": 800,
+    "gaps_ms": {
+      "count": 353,
+      "min": 4.11,
+      "median": 17.043,
+      "mean": 17.00471388101983,
+      "p95": 17.623,
+      "maximum": 20.444
+    },
+    "gaps_over_20_ms": 2,
+    "sample_age_ms": {
+      "count": 354,
+      "min": 0.18,
+      "median": 4.3145,
+      "mean": 4.264923728813559,
+      "p95": 7.573,
+      "maximum": 8.019
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=2918,contacts=2914,changed=2156,zero_count=0,bad_status=4,range_error=0,presses=4,moves=1291,releases=4,errors=0,max_gap_us=14782,sample_overflows=0"
+  },
+  {
+    "page": "Queue",
+    "repeat": 2,
+    "sequence_first": 1300,
+    "sequence_last": 1593,
+    "movement_events": 292,
+    "acquisition_coordinates": 657,
+    "coordinates_accounted_for": 657,
+    "gaps_ms": {
+      "count": 291,
+      "min": 8.028,
+      "median": 17.05,
+      "mean": 16.961546391752577,
+      "p95": 17.867,
+      "maximum": 20.237
+    },
+    "gaps_over_20_ms": 2,
+    "sample_age_ms": {
+      "count": 292,
+      "min": 0.267,
+      "median": 4.0285,
+      "mean": 3.9887260273972602,
+      "p95": 7.46,
+      "maximum": 13.682
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=3576,contacts=3571,changed=2617,zero_count=0,bad_status=5,range_error=0,presses=5,moves=1583,releases=5,errors=0,max_gap_us=14782,sample_overflows=0"
+  },
+  {
+    "page": "Settings",
+    "repeat": 2,
+    "sequence_first": 1594,
+    "sequence_last": 1949,
+    "movement_events": 354,
+    "acquisition_coordinates": 800,
+    "coordinates_accounted_for": 800,
+    "gaps_ms": {
+      "count": 353,
+      "min": 3.601,
+      "median": 17.047,
+      "mean": 17.006770538243625,
+      "p95": 17.574,
+      "maximum": 19.986
+    },
+    "gaps_over_20_ms": 0,
+    "sample_age_ms": {
+      "count": 354,
+      "min": 0.239,
+      "median": 3.8979999999999997,
+      "mean": 4.057522598870056,
+      "p95": 7.318,
+      "maximum": 8.497
+    },
+    "late_strips": 0,
+    "scan_errors": 0,
+    "touch_counters": "PICO_TOUCH,reads=4377,contacts=4371,changed=3234,zero_count=0,bad_status=6,range_error=0,presses=6,moves=1937,releases=6,errors=0,max_gap_us=14782,sample_overflows=0"
+  }
+]

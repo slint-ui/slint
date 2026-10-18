@@ -198,3 +198,24 @@ pub fn dispatch(window: &slint::Window, previous: &mut Option<slint::LogicalPosi
     }
     true
 }
+
+pub async fn while_publishing<F: core::future::Future>(
+    publishing: F,
+    window: &slint::Window,
+    previous: &mut Option<slint::LogicalPosition>,
+) -> F::Output {
+    let mut publishing = core::pin::pin!(publishing);
+    loop {
+        match embassy_futures::select::select(
+            publishing.as_mut(),
+            embassy_time::Timer::after_micros(250),
+        )
+        .await
+        {
+            embassy_futures::select::Either::First(result) => return result,
+            embassy_futures::select::Either::Second(()) => {
+                dispatch(window, previous);
+            }
+        }
+    }
+}

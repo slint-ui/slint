@@ -10,9 +10,8 @@ embassy_rp::bind_interrupts!(struct DmaInterrupts {
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<embassy_rp::peripherals::DMA_CH0>;
 });
 
-// Eight full-height, eight-pixel-wide strips fit in either 30 or 32 KiB.
-const CAPACITY: usize = 8 * 8 * 240 * 2;
-const SLOT_COUNT: usize = 3;
+const CAPACITY: usize = 6 * 8 * 240 * 2;
+const SLOT_COUNT: usize = 4;
 use super::packet_slot::{Slot, Write};
 static DISPLAY_FLIPPED: AtomicBool = AtomicBool::new(false);
 #[cfg(feature = "pico2-queue-profile")]
@@ -61,7 +60,7 @@ struct Rectangle {
 }
 const EMPTY_RECTANGLE: Rectangle = Rectangle { x: 0, y: 0, width: 0, height: 0, offset: 0 };
 struct Packet {
-    rectangles: [Rectangle; 48],
+    rectangles: [Rectangle; 32],
     count: usize,
     used: usize,
     #[cfg(feature = "pico2-queue-profile")]
@@ -79,7 +78,7 @@ struct Packet {
 impl Packet {
     const fn empty() -> Self {
         Self {
-            rectangles: [EMPTY_RECTANGLE; 48],
+            rectangles: [EMPTY_RECTANGLE; 32],
             count: 0,
             used: 0,
             #[cfg(feature = "pico2-queue-profile")]

@@ -1,0 +1,50 @@
+{
+  "before": {
+    "Queue": {
+      "gaps": 870,
+      "movement_hz": 58.804643539093256,
+      "median_gap_ms": 17.048000000000002,
+      "p95_gap_ms": 18.342,
+      "p99_gap_ms": 18.73,
+      "maximum_gap_ms": 19.177,
+      "gaps_over_20_ms": 0,
+      "mean_latest_sample_age_ms": 3.900602520045819,
+      "max_latest_sample_age_ms": 9.35
+    },
+    "Settings": {
+      "gaps": 1057,
+      "movement_hz": 58.70837030840557,
+      "median_gap_ms": 17.038,
+      "p95_gap_ms": 17.847,
+      "p99_gap_ms": 20.892,
+      "maximum_gap_ms": 26.667,
+      "gaps_over_20_ms": 16,
+      "mean_latest_sample_age_ms": 4.236605660377358,
+      "max_latest_sample_age_ms": 11.459
+    }
+  },
+  "after": {
+    "Queue": {
+      "gaps": 872,
+      "movement_hz": 58.88833677321359,
+      "median_gap_ms": 17.0335,
+      "p95_gap_ms": 17.805,
+      "p99_gap_ms": 19.961,
+      "maximum_gap_ms": 20.251,
+      "gaps_over_20_ms": 9,
+      "mean_latest_sample_age_ms": 4.1001268571428575,
+      "max_latest_sample_age_ms": 13.682
+    },
+    "Settings": {
+      "gaps": 1059,
+      "movement_hz": 58.804577894742806,
+      "median_gap_ms": 17.046,
+      "p95_gap_ms": 17.636,
+      "p99_gap_ms": 19.093,
+      "maximum_gap_ms": 20.444,
+      "gaps_over_20_ms": 2,
+      "mean_latest_sample_age_ms": 4.133284369114878,
+      "max_latest_sample_age_ms": 8.497
+    }
+  }
+}

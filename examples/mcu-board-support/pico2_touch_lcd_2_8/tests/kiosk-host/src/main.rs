@@ -488,15 +488,36 @@ fn sampled_pointer_history_preserves_direct_drag_position() {
             "{page:?}: history must not add another movement delta"
         );
         t.step(16_667);
-        send(
-            BackendMouseEvent::Moved {
-                position: point(150.),
-                touch_finger_id: 0,
-            },
-            vec![(
-                point(155.),
-                Instant::from_nanos((clock.get() - 8_000) * 1000),
-            )],
+        ui.window().request_redraw();
+        {
+            use std::future::Future;
+            use std::task::{Context, Poll, Waker};
+            let mut drawing = std::pin::pin!(t.window.draw_async_if_needed(async |renderer| {
+                renderer.render(&mut t.pixels, 320);
+                send(
+                    BackendMouseEvent::Moved {
+                        position: point(150.),
+                        touch_finger_id: 0,
+                    },
+                    vec![(
+                        point(155.),
+                        Instant::from_nanos((clock.get() - 8_000) * 1000),
+                    )],
+                );
+            }));
+            assert_eq!(
+                drawing
+                    .as_mut()
+                    .poll(&mut Context::from_waker(Waker::noop())),
+                Poll::Ready(true)
+            );
+        }
+        assert!(
+            t.window.draw_if_needed(|renderer| {
+                let region = renderer.render(&mut t.pixels, 320);
+                assert!(region.bounding_box_size().height > 0);
+            }),
+            "{page:?}: input during publishing must preserve the next redraw"
         );
         assert_eq!(
             position(),
