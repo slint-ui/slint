@@ -2058,6 +2058,28 @@ impl TextInput {
         );
     }
 
+    /// Selects the word for a long press. If the press that started it is still held, it selects
+    /// the word where the press started, and dragging then extends the selection by words, as
+    /// after a double click. A held double or triple press keeps its selection. Without a held
+    /// press, it behaves like [`Self::select_word`].
+    pub fn select_word_on_long_press(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        match self.pressed.get() {
+            0 => self.select_word(window_adapter, self_rc),
+            1 => {
+                // A resting finger still moves a little, and each move sets the cursor.
+                self.cursor_position_byte_offset.set(self.anchor_position_byte_offset());
+                self.pressed.set(2);
+                self.select_word(window_adapter, self_rc);
+            }
+            // A double or triple press has already selected its word or paragraph.
+            _ => {}
+        }
+    }
+
     fn select_paragraph(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
