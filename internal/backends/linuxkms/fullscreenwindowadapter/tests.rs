@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::*;
+use i_slint_core::api::LogicalPosition;
+use i_slint_core::graphics::euclid;
+use i_slint_core::lengths::LogicalRect;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_renderer_skia::software_surface::{RenderBuffer, SoftwareSurface};
 use i_slint_renderer_skia::{SkiaRenderer, SkiaRendererExt, SkiaSharedContext, skia_safe};
@@ -51,13 +54,11 @@ impl FullscreenRenderer for MemoryRenderer {
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        cursor: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
-        self.0.render_transformed_with_post_callback(
+        self.0.render_transformed(
             rotation.degrees(),
             rotation.translation_after_rotation(SIZE),
             SIZE,
-            Some(cursor),
         )
     }
 }
@@ -107,7 +108,6 @@ fn cursor_frames_match_full_repaints(extra_row_bytes: usize) {
     slint::platform::set_platform(Box::new(MemoryPlatform { adapter: adapter.clone() })).unwrap();
     let scene = CursorScene::new().unwrap();
     scene.show().unwrap();
-    let position = Box::pin(Property::new(None));
 
     for scale in [1.0, 1.5, 2.0] {
         scene.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: scale });
@@ -117,17 +117,19 @@ fn cursor_frames_match_full_repaints(extra_row_bytes: usize) {
             .as_core_renderer()
             .mark_dirty_region(LogicalRect::from_size(euclid::size2(320., 240.)).into());
         adapter.request_redraw();
-        adapter.clone().render_if_needed(position.as_ref()).unwrap();
+        adapter.clone().render_if_needed().unwrap();
         for (x, y) in
             [(10., 10.), (13., 12.), (100., 80.), (150.5, 90.5), (319. / scale, 239. / scale)]
         {
-            position.as_ref().set(Some(LogicalPosition::new(x, y)));
+            scene
+                .window()
+                .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
             // Pointer changes must request a frame even over an unchanged background.
             assert!(
                 adapter.redraw_requested.get(),
                 "pointer movement did not invalidate the frame"
             );
-            adapter.clone().render_if_needed(position.as_ref()).unwrap();
+            adapter.clone().render_if_needed().unwrap();
             let incremental = pixels.borrow().clone();
             adapter.renderer.as_core_renderer().mark_dirty_region(
                 LogicalRect::from_size(euclid::size2(
@@ -137,20 +139,19 @@ fn cursor_frames_match_full_repaints(extra_row_bytes: usize) {
                 .into(),
             );
             adapter.request_redraw();
-            adapter.clone().render_if_needed(position.as_ref()).unwrap();
+            adapter.clone().render_if_needed().unwrap();
             assert!(incremental == *pixels.borrow(), "cursor damage at ({x}, {y}), scale {scale}");
         }
-        adapter.set_mouse_cursor(MouseCursorInner::BuiltIn(BuiltInMouseCursor::None));
-        adapter.clone().render_if_needed(position.as_ref()).unwrap();
+        scene.window().dispatch_event(WindowEvent::PointerExited);
+        adapter.clone().render_if_needed().unwrap();
         let hidden = pixels.borrow().clone();
         adapter
             .renderer
             .as_core_renderer()
             .mark_dirty_region(LogicalRect::from_size(euclid::size2(320., 240.)).into());
         adapter.request_redraw();
-        adapter.clone().render_if_needed(position.as_ref()).unwrap();
+        adapter.clone().render_if_needed().unwrap();
         assert!(hidden == *pixels.borrow(), "hiding the cursor left pixels behind");
-        adapter.set_mouse_cursor(MouseCursorInner::default());
     }
 
     // Nothing may write into the padding, which is what tells apart honouring the stride from
@@ -205,7 +206,6 @@ impl FullscreenRenderer for FlushRecorder {
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        cursor: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         if self.log.skip.get() {
             return Ok(DrawOutcome::Skipped);
@@ -213,7 +213,7 @@ impl FullscreenRenderer for FlushRecorder {
         if self.log.fail_after.get().is_some_and(|frames| self.log.frames.get() >= frames) {
             return Err("drawing failed".into());
         }
-        let outcome = self.renderer.render_and_present(rotation, cursor)?;
+        let outcome = self.renderer.render_and_present(rotation)?;
         self.log.frames.set(self.log.frames.get() + 1);
         self.log.pending.set(true);
         Ok(outcome)
@@ -273,12 +273,11 @@ fn pending_frames_are_flushed_once_no_frame_follows() {
     .unwrap();
     let scene = AnimatedScene::new().unwrap();
     scene.show().unwrap();
-    let position = Box::pin(Property::new(None));
     // One iteration of the event loop.
     let render = || {
         slint::platform::update_timers_and_animations();
         adapter.request_redraw();
-        adapter.clone().render_if_needed(position.as_ref()).unwrap();
+        adapter.clone().render_if_needed().unwrap();
         adapter.flush_unless_frame_follows().unwrap();
     };
 

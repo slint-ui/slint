@@ -7,7 +7,6 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::RequestedGraphicsAPI;
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_skia::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
@@ -63,7 +62,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         let (index, texture) = self.display.back_buffer();
         let drawn = self
@@ -74,7 +72,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
                     texture,
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
-                    Some(draw_mouse_cursor_callback),
                 )
             })
             .and_then(|()| {

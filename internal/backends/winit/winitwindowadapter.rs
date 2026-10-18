@@ -16,7 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
+use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
@@ -2118,7 +2118,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         let winit_cursor = match &cursor {
             MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
                 BuiltInMouseCursor::Default => winit::window::CursorIcon::Default,
@@ -2188,6 +2188,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 winit_window.set_cursor(cursor);
             }
         }
+        MouseCursorHandling::Platform
     }
 
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {

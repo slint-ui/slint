@@ -595,11 +595,10 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            let _ = self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },
-                None,
             )?;
         }
         Ok(())

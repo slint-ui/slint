@@ -7,9 +7,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
-use i_slint_renderer_software::{
-    PremultipliedRgbaColor, RepaintBufferType, SoftwareRendererExt, TargetPixel,
-};
+use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::sync::Arc;
 
 use crate::display::RenderingRotation;
@@ -183,7 +181,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         self.display.map_back_buffer(&mut |pixels, age, format| {
             self.renderer.set_repaint_buffer_type(match age {
@@ -207,42 +204,13 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                 }
             });
 
-            // The buffer's rows may be padded to the driver's pitch; the
-            // stride in pixels comes from the mapping, not from the width.
-            let stride = |bytes_per_pixel: usize| {
-                let height = (self.size.height as usize).max(1);
-                (pixels.len() / height / bytes_per_pixel).max(self.size.width as usize)
-            };
-            match format {
+            let render = match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
-                    let stride = stride(std::mem::size_of::<DumbBufferPixelXrgb888>());
-                    let buffer: &mut [DumbBufferPixelXrgb888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render_with_post_callback(
-                        buffer,
-                        stride,
-                        draw_mouse_cursor_callback,
-                    );
+                    render_to_pixels::<DumbBufferPixelXrgb888>
                 }
-
-                drm::buffer::DrmFourcc::Bgra8888 => {
-                    let stride = stride(std::mem::size_of::<DumbBufferPixelBgra8888>());
-                    let buffer: &mut [DumbBufferPixelBgra8888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render_with_post_callback(
-                        buffer,
-                        stride,
-                        draw_mouse_cursor_callback,
-                    );
-                }
+                drm::buffer::DrmFourcc::Bgra8888 => render_to_pixels::<DumbBufferPixelBgra8888>,
                 drm::buffer::DrmFourcc::Rgb565 => {
-                    let stride =
-                        stride(std::mem::size_of::<i_slint_renderer_software::Rgb565Pixel>());
-                    let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
-                        bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render_with_post_callback(
-                        buffer,
-                        stride,
-                        draw_mouse_cursor_callback,
-                    );
+                    render_to_pixels::<i_slint_renderer_software::Rgb565Pixel>
                 }
                 _ => {
                     return Err(format!(
@@ -250,7 +218,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     )
                     .into());
                 }
-            }
+            };
+            render(&self.renderer, pixels, self.size);
 
             Ok(())
         })?;
@@ -261,6 +230,20 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
     fn size(&self) -> i_slint_core::api::PhysicalSize {
         self.size
     }
+}
+
+/// Renders into the mapped frame buffer, reinterpreted as pixels of type `P`.
+fn render_to_pixels<P: TargetPixel + bytemuck::Pod>(
+    renderer: &SoftwareRenderer,
+    pixels: &mut [u8],
+    size: PhysicalWindowSize,
+) {
+    // The buffer's rows may be padded to the driver's pitch; the
+    // stride in pixels comes from the mapping, not from the width.
+    let height = (size.height as usize).max(1);
+    let stride = (pixels.len() / height / std::mem::size_of::<P>()).max(size.width as usize);
+    let buffer: &mut [P] = bytemuck::cast_slice_mut(pixels);
+    renderer.render(buffer, stride);
 }
 
 #[cfg(test)]
