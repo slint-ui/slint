@@ -30,11 +30,28 @@ pub fn pack(
         let (head, source, tail) = unsafe { frame.align_to::<u32>() };
         let (out_head, dest, out_tail) = unsafe { out.align_to_mut::<u32>() };
         if head.is_empty() && tail.is_empty() && out_head.is_empty() && out_tail.is_empty() {
-            for (row, dest) in dest.chunks_exact_mut(4).enumerate() {
-                let start = (y + row) * (stride / 2) + x / 2;
-                dest.copy_from_slice(&source[start..start + 4]);
+            if height == 0 {
+                return;
             }
-            return;
+            let pitch = stride / 2;
+            let bounds = y.checked_mul(pitch).and_then(|row| row.checked_add(x / 2)).and_then(|first| {
+                (height - 1).checked_mul(pitch).and_then(|tail| first.checked_add(tail))
+                    .and_then(|last| last.checked_add(4)).map(|end| (first, end))
+            });
+            if let Some((first, end)) = bounds.filter(|&(first, end)| source.get(first..end).is_some()) {
+                let source = &source[first..end];
+                for (row, dest) in dest.chunks_exact_mut(4).enumerate() {
+                    // The checked final row bounds every strided, word-aligned load.
+                    unsafe {
+                        let source = source.as_ptr().add(row * pitch);
+                        let dest = dest.as_mut_ptr();
+                        for word in 0..4 {
+                            dest.add(word).write_volatile(source.add(word).read_volatile());
+                        }
+                    }
+                }
+                return;
+            }
         }
     }
     for row in 0..height {
