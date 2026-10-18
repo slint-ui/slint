@@ -402,3 +402,119 @@ fn queue_and_settings_follow_pointer_moves_without_drag_easing() {
         t.pointer(x, 45., false);
     }
 }
+#[test]
+fn sampled_pointer_history_preserves_direct_drag_position() {
+    use i_slint_core::{
+        animations::Instant,
+        input::{BackendMouseEvent, TouchHistory},
+        lengths::LogicalPoint,
+        platform::InternalEvent,
+    };
+    use slint::platform::{PointerEventButton, WindowEvent};
+    let window = MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
+    let clock = Rc::new(Cell::new(0));
+    slint::platform::set_platform(Box::new(Backend {
+        window: window.clone(),
+        clock: clock.clone(),
+    }))
+    .unwrap();
+    let ui = MainWindow::new().unwrap();
+    ui.window().set_size(slint::PhysicalSize::new(320, 240));
+    ui.global::<QueueMotion>().set_pixel_snap(true);
+    ui.show().unwrap();
+    let mut t = Test {
+        window,
+        clock: clock.clone(),
+        pixels: vec![Rgb565BigEndianPixel::default(); 320 * 240],
+        trace: None,
+    };
+    for (page, x) in [(Pages::Home, 210.), (Pages::Settings, 300.)] {
+        ui.global::<PrinterState>().set_active_page(page);
+        t.advance(100_000);
+        if page == Pages::Home {
+            ui.global::<QueueMotion>().set_raw_y(-40.);
+        } else {
+            ui.global::<SettingsMotion>().set_raw_y(-40.);
+        }
+        t.step(16_667);
+        let point = |y| LogicalPoint::new(x, y);
+        let send = |event, history| {
+            ui.window()
+                .dispatch_event(WindowEvent::internal(InternalEvent::SampledMouse {
+                    event,
+                    event_time: Instant::from_nanos(clock.get() * 1000),
+                    history: TouchHistory { history },
+                }))
+        };
+        let position = || {
+            if page == Pages::Home {
+                ui.global::<QueueMotion>().get_raw_y()
+            } else {
+                ui.global::<SettingsMotion>().get_raw_y()
+            }
+        };
+        send(
+            BackendMouseEvent::Pressed {
+                position: point(180.),
+                button: PointerEventButton::Left,
+                click_count: 0,
+                touch_finger_id: 0,
+            },
+            vec![],
+        );
+        t.step(16_667);
+        send(
+            BackendMouseEvent::Moved {
+                position: point(160.),
+                touch_finger_id: 0,
+            },
+            vec![(
+                point(170.),
+                Instant::from_nanos((clock.get() - 8_000) * 1000),
+            )],
+        );
+        assert_eq!(
+            position(),
+            -60.,
+            "{page:?}: history must not add another movement delta"
+        );
+        t.step(16_667);
+        send(
+            BackendMouseEvent::Moved {
+                position: point(150.),
+                touch_finger_id: 0,
+            },
+            vec![(
+                point(155.),
+                Instant::from_nanos((clock.get() - 8_000) * 1000),
+            )],
+        );
+        assert_eq!(
+            position(),
+            -70.,
+            "{page:?}: the latest coordinate applies immediately"
+        );
+        t.advance(400_000);
+        assert_eq!(
+            position(),
+            -70.,
+            "{page:?}: a held pointer must not ease toward its target"
+        );
+        send(
+            BackendMouseEvent::Released {
+                position: point(150.),
+                button: PointerEventButton::Left,
+                click_count: 0,
+                touch_finger_id: 0,
+            },
+            vec![],
+        );
+        ui.window().dispatch_event(WindowEvent::PointerExited);
+        t.advance(400_000);
+        assert_eq!(
+            position(),
+            -70.,
+            "{page:?}: an old movement sample must not launch a late flick"
+        );
+    }
+}

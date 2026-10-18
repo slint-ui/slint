@@ -767,13 +767,27 @@ impl Window {
                 WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::Internal(event) => match event.into_inner() {
-                crate::platform::InternalEvent::Mouse(BackendMouseEvent::Exit) => {
+                crate::platform::InternalEvent::Mouse(BackendMouseEvent::Exit)
+                | crate::platform::InternalEvent::SampledMouse { event: BackendMouseEvent::Exit, .. } => {
                     // Teardown event, always accepted like `WindowEvent::PointerExited`.
                     self.0.process_mouse_input(MouseEvent::Exit);
                     WindowEventDispatchResult::Accepted
                 }
                 crate::platform::InternalEvent::Mouse(event) => {
                     self.0.process_mouse_input(event.into()).into()
+                }
+                crate::platform::InternalEvent::SampledMouse { event, event_time, history } => {
+                    let mut event: MouseEvent = event.into();
+                    match &mut event {
+                        MouseEvent::Pressed { event_time: time, .. }
+                        | MouseEvent::Released { event_time: time, .. } => *time = Some(event_time),
+                        MouseEvent::Moved { event_time: time, history: samples, .. } => {
+                            *time = Some(event_time);
+                            *samples = history;
+                        }
+                        _ => {}
+                    }
+                    self.0.process_mouse_input(event).into()
                 }
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()

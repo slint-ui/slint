@@ -82,6 +82,10 @@ a doc-hidden variant that carries the runtime's own `BackendMouseEvent`, `Intern
 The dispatch reports them to the window event hook as the public event they correspond to,
 or not at all when there is none (gestures, touch, input method composition).
 
+A backend exposing a single pointer can use `InternalEvent::SampledMouse` to include an acquisition timestamp and coalesced movement history.
+This follows normal pointer dispatch without invoking multi-touch gesture recognition.
+History positions use the current event's coordinate system, and timestamps use the platform's animation clock.
+
 `WindowInner::process_mouse_input()`, `process_key_input()` and `process_touch_input()` are crate-private,
 so backends can't bypass that funnel and each event is observed exactly once.
 Drag and drop is the exception: it uses `WindowInner::process_drag_event()`,

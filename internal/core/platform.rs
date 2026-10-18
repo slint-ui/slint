@@ -575,6 +575,15 @@ impl core::fmt::Debug for InternalEventBox {
 pub enum InternalEvent {
     /// A pointer event, including the ones that have no public representation, such as gestures.
     Mouse(crate::input::BackendMouseEvent),
+    /// A single pointer event with its acquisition time and coalesced movement samples.
+    SampledMouse {
+        /// The pointer event, without multi-touch gesture recognition.
+        event: crate::input::BackendMouseEvent,
+        /// Original sample time on the animation clock.
+        event_time: crate::animations::Instant,
+        /// Chronological movement samples preceding this event.
+        history: crate::input::TouchHistory,
+    },
     /// A key event, including input method composition updates.
     Key(crate::input::InternalKeyEvent),
     /// A touch point update, which the runtime turns into pointer or gesture events.
@@ -618,7 +627,7 @@ impl InternalEvent {
         use crate::lengths::logical_position_to_api;
 
         match self {
-            Self::Mouse(event) => match event {
+            Self::Mouse(event) | Self::SampledMouse { event, .. } => match event {
                 BackendMouseEvent::Pressed { position, button, .. } => {
                     Some(WindowEvent::PointerPressed {
                         position: logical_position_to_api(*position),
@@ -665,7 +674,7 @@ impl InternalEvent {
     /// The position of the pointer or finger for this event, if any.
     fn position(&self) -> Option<LogicalPosition> {
         match self {
-            Self::Mouse(event) => crate::input::MouseEvent::from(*event)
+            Self::Mouse(event) | Self::SampledMouse { event, .. } => crate::input::MouseEvent::from(*event)
                 .position()
                 .map(crate::lengths::logical_position_to_api),
             Self::Key(_) => None,
