@@ -5,6 +5,12 @@ extern crate alloc;
 #[cfg(test)]
 #[path = "../../../touch_samples.rs"]
 mod touch_samples;
+#[path = "../../../touch_replay.rs"]
+mod touch_replay;
+mod touch_profile {
+    pub fn report(_: &[u8; 27], _: super::touch_packet::Report) {}
+}
+
 #[cfg(test)]
 #[path = "../../../touch_packet.rs"]
 mod touch_packet;

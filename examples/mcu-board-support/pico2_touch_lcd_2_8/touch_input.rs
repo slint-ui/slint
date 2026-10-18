@@ -47,9 +47,25 @@ pub fn overflows() -> u32 {
 #[embassy_executor::task]
 pub async fn task() {
     let mut devices = DEVICES.receive().await;
+    #[cfg(feature = "pico2-queue-profile")]
+    let mut replay: Option<Box<super::touch_replay::Replay>> = None;
     let mut applied = false;
     let mut previous: Option<Sample> = None;
     loop {
+        #[cfg(feature = "pico2-queue-profile")]
+        {
+            let requested = super::touch_replay::requested();
+            if requested != 0 {
+                replay = Some(Box::new(super::touch_replay::Replay::new(requested, super::now_us())));
+            }
+            if let Some(active) = &mut replay {
+                if let Some(sample) = active.poll(super::now_us()) {
+                    SAMPLES.lock(|samples| samples.borrow_mut().push(sample));
+                    cortex_m::asm::sev();
+                }
+                if active.finished() { replay = None; }
+            }
+        }
         let flipped = FLIPPED.load(Ordering::Acquire);
         if applied != flipped {
             devices.imu.apply_flip(flipped);

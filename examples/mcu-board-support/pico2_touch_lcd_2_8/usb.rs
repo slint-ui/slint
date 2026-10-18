@@ -255,6 +255,15 @@ async fn usb_task(usb: Peri<'static, USB>) {
                     continue;
                 }
                 #[cfg(feature = "pico2-queue-profile")]
+                if buffer[..count].starts_with(b"touchreplay ") {
+                    let page = match core::str::from_utf8(&buffer[12..count]).unwrap_or("").trim() {
+                        "queue" => 1, "settings" => 2, _ => continue,
+                    };
+                    super::touch_replay::request(page);
+                    let _ = serial.write_packet(b"PICO_TOUCH_REPLAY_OK\n").await;
+                    continue;
+                }
+                #[cfg(feature = "pico2-queue-profile")]
                 if buffer[..count].starts_with(b"pointer ") {
                     let mut parts = core::str::from_utf8(&buffer[8..count]).unwrap_or("").split_whitespace();
                     let kind = match parts.next() {

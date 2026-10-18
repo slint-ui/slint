@@ -43,6 +43,8 @@ mod touch_samples;
 mod touch_input;
 #[cfg(feature = "pico2-queue-profile")]
 mod touch_profile;
+#[cfg(feature = "pico2-queue-profile")]
+mod touch_replay;
 mod usb;
 
 #[cfg(feature = "pico2-queue-profile")]
