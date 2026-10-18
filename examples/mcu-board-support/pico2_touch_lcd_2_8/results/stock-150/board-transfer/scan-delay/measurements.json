@@ -23,7 +23,12 @@
     "window_late_strips": 0,
     "window_panel_ticks": 586,
     "window_scan_errors": 0,
-    "workload": "auto"
+    "workload": "auto",
+    "draw_us": 8145545,
+    "window_us_per_frame": 529.5809199318569,
+    "crc_us_per_frame": 326.5161839863714,
+    "draw_max_us": 17379,
+    "draw_max_plan_us": 452
   },
   {
     "animation_us_per_frame": 0.0,
@@ -49,7 +54,12 @@
     "window_late_strips": 0,
     "window_panel_ticks": 586,
     "window_scan_errors": 0,
-    "workload": "settings-auto"
+    "workload": "settings-auto",
+    "draw_us": 9517256,
+    "window_us_per_frame": 731.6166950596252,
+    "crc_us_per_frame": 319.10732538330495,
+    "draw_max_us": 17035,
+    "draw_max_plan_us": 676
   },
   {
     "animation_us_per_frame": 7620.698466780238,
@@ -75,7 +85,12 @@
     "window_late_strips": 0,
     "window_panel_ticks": 587,
     "window_scan_errors": 0,
-    "workload": "ink-tilt-boost"
+    "workload": "ink-tilt-boost",
+    "draw_us": 4263893,
+    "window_us_per_frame": 597.0340715502556,
+    "crc_us_per_frame": 317.61328790459964,
+    "draw_max_us": 8593,
+    "draw_max_plan_us": 286
   },
   {
     "animation_us_per_frame": 7662.679727427598,
@@ -101,6 +116,11 @@
     "window_late_strips": 0,
     "window_panel_ticks": 586,
     "window_scan_errors": 0,
-    "workload": "ink-tilt-boost"
+    "workload": "ink-tilt-boost",
+    "draw_us": 4264593,
+    "window_us_per_frame": 596.6848381601363,
+    "crc_us_per_frame": 317.7052810902896,
+    "draw_max_us": 8927,
+    "draw_max_plan_us": 300
   }
 ]

@@ -1,0 +1,42 @@
+[
+  {
+    "workload": "auto",
+    "changing_fps": 58.8181839061865,
+    "raster_us_per_frame": 10509.203735144312,
+    "animation_us_per_frame": 0.0,
+    "plan_us_per_frame": 426.46519524618,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "settings-auto",
+    "changing_fps": 58.746135668205824,
+    "raster_us_per_frame": 10530.501700680272,
+    "animation_us_per_frame": 0.0,
+    "plan_us_per_frame": 618.4710884353741,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "ink-tilt-boost",
+    "changing_fps": 58.8081710409196,
+    "raster_us_per_frame": 5944.471986417657,
+    "animation_us_per_frame": 7842.865874363328,
+    "plan_us_per_frame": 246.6502546689304,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "ink-tilt-boost",
+    "changing_fps": 58.68194943235461,
+    "raster_us_per_frame": 5947.450680272109,
+    "animation_us_per_frame": 7872.806122448979,
+    "plan_us_per_frame": 247.0595238095238,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  }
+]

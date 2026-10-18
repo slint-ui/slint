@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 """Update changed flash sectors after checking the exact preceding firmware."""
 import argparse
 import sys

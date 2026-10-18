@@ -1,0 +1,58 @@
+{
+  "elf_sha256": "3b5c020a9a1ae551a954207b441abcc861ef97e6392d116f45d69c7eefe87960",
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235",
+  "verified_flash_bytes": 1639672,
+  "captures_match": "qualification/captures.json",
+  "measurements": [
+    {
+      "workload": "auto",
+      "cpu_hz": 150000000,
+      "spi_hz": 60000000,
+      "display_flipped": 1,
+      "elapsed_us": 10005467,
+      "frames": 586,
+      "changing_frames": 585,
+      "window_panel_ticks": 585,
+      "changing_fps": 58.4680355249785,
+      "raster_us_per_frame": 11301.372013651877,
+      "skipped_phases": 0,
+      "window_late_strips": 0,
+      "window_scan_errors": 0
+    },
+    {
+      "workload": "settings-auto",
+      "cpu_hz": 150000000,
+      "spi_hz": 60000000,
+      "display_flipped": 1,
+      "elapsed_us": 10014659,
+      "frames": 586,
+      "changing_frames": 586,
+      "window_panel_ticks": 585,
+      "changing_fps": 58.51422399903981,
+      "raster_us_per_frame": 11041.692832764506,
+      "skipped_phases": 0,
+      "window_late_strips": 0,
+      "window_scan_errors": 0
+    },
+    {
+      "workload": "ink-tilt-boost",
+      "cpu_hz": 150000000,
+      "spi_hz": 60000000,
+      "display_flipped": 0,
+      "elapsed_us": 10014993,
+      "frames": 587,
+      "changing_frames": 587,
+      "window_panel_ticks": 587,
+      "changing_fps": 58.61212284421966,
+      "raster_us_per_frame": 6054.240204429301,
+      "skipped_phases": 0,
+      "window_late_strips": 0,
+      "window_scan_errors": 0,
+      "ink_held_mask": 15,
+      "ink_yellow_particles": 26,
+      "ink_red_particles": 42,
+      "ink_cyan_particles": 32,
+      "ink_black_particles": 52
+    }
+  ]
+}

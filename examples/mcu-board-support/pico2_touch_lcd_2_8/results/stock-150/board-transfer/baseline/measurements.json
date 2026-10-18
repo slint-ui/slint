@@ -17,7 +17,18 @@
     "window_late_strips": 0,
     "window_scan_errors": 0,
     "stack_free": 12636,
-    "heap_free": 114084
+    "heap_free": 114084,
+    "draw_us": 8457348,
+    "window_us_per_frame": 530.5068259385665,
+    "crc_us_per_frame": 345.36860068259386,
+    "draw_max_us": 15690,
+    "draw_max_raster_us": 10615,
+    "draw_max_wait_us": 3625,
+    "draw_max_pack_us": 514,
+    "draw_max_plan_us": 506,
+    "transport_rectangles": 19043,
+    "transport_busy_us": 5291109,
+    "transport_max_overhead_us": 73
   },
   {
     "workload": "settings-auto",
@@ -37,7 +48,18 @@
     "window_late_strips": 0,
     "window_scan_errors": 0,
     "stack_free": 8820,
-    "heap_free": 119000
+    "heap_free": 119000,
+    "draw_us": 9529336,
+    "window_us_per_frame": 719.5989761092151,
+    "crc_us_per_frame": 340.14334470989763,
+    "draw_max_us": 18089,
+    "draw_max_raster_us": 10881,
+    "draw_max_wait_us": 5278,
+    "draw_max_pack_us": 817,
+    "draw_max_plan_us": 672,
+    "transport_rectangles": 24268,
+    "transport_busy_us": 7260740,
+    "transport_max_overhead_us": 1507
   },
   {
     "workload": "ink-tilt-boost",
@@ -57,7 +79,18 @@
     "window_late_strips": 0,
     "window_scan_errors": 0,
     "stack_free": 8820,
-    "heap_free": 7824
+    "heap_free": 7824,
+    "draw_us": 4040876,
+    "window_us_per_frame": 580.5945485519591,
+    "crc_us_per_frame": 338.8381601362862,
+    "draw_max_us": 7241,
+    "draw_max_raster_us": 5949,
+    "draw_max_wait_us": 2,
+    "draw_max_pack_us": 573,
+    "draw_max_plan_us": 304,
+    "transport_rectangles": 17641,
+    "transport_busy_us": 6298266,
+    "transport_max_overhead_us": 1754
   },
   {
     "workload": "ink-tilt-boost",
@@ -77,6 +110,17 @@
     "window_late_strips": 0,
     "window_scan_errors": 0,
     "stack_free": 8820,
-    "heap_free": 7760
+    "heap_free": 7760,
+    "draw_us": 4039749,
+    "window_us_per_frame": 580.7649063032368,
+    "crc_us_per_frame": 338.8586030664395,
+    "draw_max_us": 7257,
+    "draw_max_raster_us": 5946,
+    "draw_max_wait_us": 3,
+    "draw_max_pack_us": 568,
+    "draw_max_plan_us": 308,
+    "transport_rectangles": 17583,
+    "transport_busy_us": 6298141,
+    "transport_max_overhead_us": 1754
   }
 ]

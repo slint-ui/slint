@@ -9,6 +9,8 @@ The [native-controls regression report](results/stock-150/native-controls-14175/
 
 The [Ink surface-motion report](results/stock-150/ink-motion/report.md) covers independent slosh, settling ripples, and subtle idle variation.
 
+The [board-improvement report](results/stock-150/board-transfer/report.md) covers guarded flashing, stable assets, PIO output, packet handoff and final stock-clock qualification.
+
 ## Detailed Serial-Baseline Measurements
 
 The optional `pico2-renderer-profile` image adds nested clock reads around renderer stages.

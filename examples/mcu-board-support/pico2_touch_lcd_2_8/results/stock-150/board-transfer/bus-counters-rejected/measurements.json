@@ -1,0 +1,35 @@
+[
+  {
+    "workload": "auto",
+    "cpu_hz": 150000000,
+    "spi_hz": 60000000,
+    "changing_fps": 58.642817388764215,
+    "raster_us_per_frame": 11245.591141396933,
+    "animation_us_per_frame": 0.0,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "settings-auto",
+    "cpu_hz": 150000000,
+    "spi_hz": 60000000,
+    "changing_fps": 58.59104142976539,
+    "raster_us_per_frame": 10732.131399317406,
+    "animation_us_per_frame": 0.0,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  },
+  {
+    "workload": "ink-tilt-boost",
+    "cpu_hz": 150000000,
+    "spi_hz": 60000000,
+    "changing_fps": 58.666331392413895,
+    "raster_us_per_frame": 6113.872231686541,
+    "animation_us_per_frame": 7598.284497444633,
+    "skipped_phases": 0,
+    "window_late_strips": 0,
+    "window_scan_errors": 0
+  }
+]

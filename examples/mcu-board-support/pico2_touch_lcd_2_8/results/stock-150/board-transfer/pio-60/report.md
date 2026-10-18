@@ -8,9 +8,9 @@ The 240 MHz feature keeps its previous SPI path.
 
 | Workload | Previous Transfer Busy per Frame | PIO Transfer Busy per Frame | Changing FPS | Missed Phases / Late Strips |
 | --- | ---: | ---: | ---: | ---: |
-| Queue | 9.064 ms | 7.246 ms | 58.59 | 0 / 0 |
+| Queue | 9.064 ms | 7.258 ms | 58.59 | 0 / 0 |
 | Settings | 12.440 ms | 9.982 ms | 58.61 | 0 / 0 |
-| Boosted tilted Ink | 10.391 ms | 8.326 ms | 58.69–58.71 | 0 / 0 |
+| Boosted tilted Ink | 10.391 ms | 8.340 ms | 58.69–58.71 | 0 / 0 |
 
 Wire-transfer busy time falls approximately 20 percent.
 This excludes beam-following waits and does not imply the same reduction in raster time.

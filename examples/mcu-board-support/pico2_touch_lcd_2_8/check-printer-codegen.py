@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
 """Check printer release placement, arithmetic and immutable artwork identity."""
 import argparse
 import hashlib
