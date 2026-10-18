@@ -300,6 +300,12 @@ fn update_visible_instances(
         props.content_width_set(listview_width);
         return false;
     }
+    // A height of zero or less, like before the window has a size, leaves no viewport to fill.
+    // Unlike with an empty model, the content geometry stays, so that the scroll position does too.
+    if listview_height <= 0 as Coord {
+        ops.splice(0, ops.len(), 0);
+        return false;
+    }
     if scroll_to_row
         .as_ref()
         .is_some_and(|request| request.row >= row_count || request.is_stopped())

@@ -517,13 +517,6 @@ impl Instance {
         if let Some(lv) = listview_info.as_ref() {
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let listview_height = read_logical_length(&sub, &lv.listview_height);
-            // If layout hasn't propagated a real visible height yet (eager
-            // hit-test before show()), bail out instead of running the
-            // virtualization with `0`, which would create no rows or — with
-            // the loop_count == 3 retry — instantiate the whole model.
-            if listview_height.get() <= 0.0 {
-                return false;
-            }
             let props = ValueListViewProps {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
