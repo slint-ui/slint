@@ -715,17 +715,12 @@ fn callback_update_selection<'local>(
                 let text = text_input.text();
                 let to_byte_offset =
                     |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
-                text_input.anchor_position_byte_offset.set(to_byte_offset(anchor_position));
-                text_input.set_cursor_position(
-                    to_byte_offset(cursor_position),
-                    true,
-                    i_slint_core::items::TextChangeNotify::TriggerCallbacks,
+                text_input.set_selection_offsets(
                     &(adaptor.clone() as Rc<dyn WindowAdapter>),
                     &focus_item,
+                    to_byte_offset(anchor_position),
+                    to_byte_offset(cursor_position),
                 );
-                // Keep the cursor visible while it moves, as TextInput does for the arrow keys.
-                i_slint_core::window::WindowInner::from_pub(&adaptor.window)
-                    .set_cursor_blink_binding(&text_input.cursor_visible);
             }
         }
     })

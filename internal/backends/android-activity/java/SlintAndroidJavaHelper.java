@@ -179,12 +179,16 @@ class SlintInputView extends View {
         public void updateSelection() {
             int cursorPosition = Selection.getSelectionStart(this);
             int anchorPosition = Selection.getSelectionEnd(this);
-            if (cursorPosition == mCursorPosition && anchorPosition == mAnchorPosition) {
+            int composingStart = BaseInputConnection.getComposingSpanStart(this);
+            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
+            boolean hasPreedit = composingStart != composingEnd;
+            if (cursorPosition == mCursorPosition && anchorPosition == mAnchorPosition
+                    && hasPreedit == mHasPreedit) {
                 return;
             }
             // finishComposingText() drops the composing span without a replace(), so the preedit
             // that Slint still shows is only cleared by a full update.
-            if (mHasPreedit || BaseInputConnection.getComposingSpanStart(this) != -1) {
+            if (mHasPreedit || hasPreedit) {
                 update();
             } else {
                 mCursorPosition = cursorPosition;
@@ -192,8 +196,7 @@ class SlintInputView extends View {
                 SlintAndroidJavaHelper.updateSelection(cursorPosition, anchorPosition);
             }
             getContext().getSystemService(InputMethodManager.class).updateSelection(SlintInputView.this,
-                    cursorPosition, anchorPosition, BaseInputConnection.getComposingSpanStart(this),
-                    BaseInputConnection.getComposingSpanEnd(this));
+                    cursorPosition, anchorPosition, composingStart, composingEnd);
         }
     }
 
