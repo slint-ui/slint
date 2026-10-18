@@ -213,6 +213,12 @@ impl super::Surface for OpenGLSurface {
             )
         }
     }
+
+    fn free_gpu_resources(&self) {
+        if self.ensure_context_current().is_ok() {
+            self.gr_context.borrow_mut().free_gpu_resources();
+        }
+    }
 }
 
 impl OpenGLSurface {
