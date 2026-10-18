@@ -1106,6 +1106,8 @@ impl RendererSealed for SoftwareRenderer {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         #[cfg(feature = "systemfonts")]
         self.text_layout_cache.component_destroyed(component);
+        #[cfg(all(feature = "embedded-text-cache", not(feature = "systemfonts")))]
+        fonts::prepared_text::clear();
         self.partial_rendering_state.free_graphics_resources(component, items);
         Ok(())
     }

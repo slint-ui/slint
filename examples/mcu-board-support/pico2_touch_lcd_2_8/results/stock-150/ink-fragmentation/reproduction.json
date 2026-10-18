@@ -1,0 +1,24 @@
+{
+  "firmware": "/private/tmp/printer-ink-crash-counted.elf",
+  "request_bytes_including_header": 13452,
+  "free_heap_bytes_at_failure": 26276,
+  "live_13452_byte_allocations": 7,
+  "peak_13452_byte_allocations": 8,
+  "constructor_marker": 131,
+  "constructor": "black vial second buffer",
+  "old_size": [
+    0,
+    0
+  ],
+  "new_size": [
+    48,
+    140
+  ],
+  "conclusion": "Allocator failed a contiguous 13452-byte request with 26276 total free bytes; heap fragmentation at allocation failure. This is a new buffer construction, not pixel-buffer copy-on-write.",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "old_cache_policy": "Prepared embedded text survives component destruction",
+  "failure_stage": "First Ink entry after Queue and Settings in the counted reproduction",
+  "failed_capacity_pixels": 6720,
+  "actual_allocation_bytes": 13452
+}

@@ -135,6 +135,10 @@ i_slint_core::thread_local! {
     static CACHE: RefCell<Cache> = Default::default();
 }
 
+pub(crate) fn clear() {
+    CACHE.with(|cache| *cache.borrow_mut() = Cache::default());
+}
+
 pub(crate) fn get(p: &TextParagraphLayout<'_, PixelFont>) -> Option<Rc<[PreparedGlyph]>> {
     CACHE.with(|cache| cache.borrow_mut().get(p))
 }
@@ -241,5 +245,19 @@ mod tests {
         let long = "A".repeat(257);
         p.string = &long;
         assert!(cache.get(&p).is_none());
+
+        p.string = "Aé";
+        let prepared = get(&p).unwrap();
+        let retained = Rc::downgrade(&prepared);
+        drop(prepared);
+        assert!(retained.upgrade().is_some());
+        clear();
+        assert!(retained.upgrade().is_none());
+        CACHE.with(|cache| {
+            assert!(cache.borrow().entries.is_empty());
+            assert_eq!(cache.borrow().glyph_count, 0);
+        });
+        compare(&get(&p).unwrap(), &prepare(&p));
+        clear();
     }
 }

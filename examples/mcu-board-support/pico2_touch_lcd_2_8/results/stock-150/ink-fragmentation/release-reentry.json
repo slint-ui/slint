@@ -1,0 +1,218 @@
+[
+  {
+    "step": 0,
+    "requested": "auto",
+    "seconds": 3.2969007499632426,
+    "presented": 193,
+    "heap_free": 114260,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 1,
+    "requested": "settings-auto",
+    "seconds": 3.3197019590297714,
+    "presented": 193,
+    "heap_free": 122460,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 2,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.3344676670385525,
+    "presented": 196,
+    "heap_free": 12384,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 3,
+    "requested": "auto",
+    "seconds": 3.3209270830266178,
+    "presented": 193,
+    "heap_free": 115404,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 4,
+    "requested": "settings-auto",
+    "seconds": 3.312640250020195,
+    "presented": 194,
+    "heap_free": 123212,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 5,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.3227494999882765,
+    "presented": 196,
+    "heap_free": 12736,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 6,
+    "requested": "auto",
+    "seconds": 3.318755374988541,
+    "presented": 193,
+    "heap_free": 115212,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 7,
+    "requested": "settings-auto",
+    "seconds": 3.3186202079523355,
+    "presented": 194,
+    "heap_free": 122540,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 8,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.3318049170193262,
+    "presented": 195,
+    "heap_free": 12432,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 9,
+    "requested": "auto",
+    "seconds": 3.3147879170137458,
+    "presented": 192,
+    "heap_free": 114332,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 10,
+    "requested": "settings-auto",
+    "seconds": 3.31493887497345,
+    "presented": 193,
+    "heap_free": 122780,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 11,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.316369208972901,
+    "presented": 195,
+    "heap_free": 12480,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 12,
+    "requested": "auto",
+    "seconds": 3.321585458004847,
+    "presented": 193,
+    "heap_free": 115452,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 13,
+    "requested": "settings-auto",
+    "seconds": 3.321152582997456,
+    "presented": 194,
+    "heap_free": 122572,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 14,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.349480333039537,
+    "presented": 196,
+    "heap_free": 12432,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 15,
+    "requested": "auto",
+    "seconds": 3.322468292026315,
+    "presented": 193,
+    "heap_free": 115420,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 16,
+    "requested": "settings-auto",
+    "seconds": 3.296892999962438,
+    "presented": 192,
+    "heap_free": 123420,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 17,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.3220513749984093,
+    "presented": 195,
+    "heap_free": 13488,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 18,
+    "requested": "auto",
+    "seconds": 3.3122535420116037,
+    "presented": 192,
+    "heap_free": 114332,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 19,
+    "requested": "settings-auto",
+    "seconds": 3.3058093339786865,
+    "presented": 193,
+    "heap_free": 122972,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 20,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.3192729169968516,
+    "presented": 195,
+    "heap_free": 12496,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 21,
+    "requested": "auto",
+    "seconds": 3.3182535829837434,
+    "presented": 192,
+    "heap_free": 114124,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 22,
+    "requested": "settings-auto",
+    "seconds": 3.2922313339659013,
+    "presented": 192,
+    "heap_free": 122780,
+    "late_strips": 0,
+    "scan_errors": 0
+  },
+  {
+    "step": 23,
+    "requested": "ink-tilt-boost",
+    "seconds": 3.322627040965017,
+    "presented": 194,
+    "heap_free": 12496,
+    "late_strips": 0,
+    "scan_errors": 0
+  }
+]

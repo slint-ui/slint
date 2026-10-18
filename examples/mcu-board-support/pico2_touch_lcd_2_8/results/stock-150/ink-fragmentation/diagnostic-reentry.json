@@ -1,0 +1,11 @@
+{
+  "page_entries": 24,
+  "ink_entries": 8,
+  "duration_seconds": 96,
+  "panic_count": 0,
+  "ink_free_heap_min": 12336,
+  "ink_free_heap_max": 13616,
+  "late_strips": 0,
+  "scan_errors": 0,
+  "firmware_sha256": "3973354d17083f7527f9bd69a931317c6c602c3124640f9d2426d77bb6004bb5"
+}
