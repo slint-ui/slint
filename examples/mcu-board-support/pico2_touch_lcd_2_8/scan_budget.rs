@@ -110,3 +110,40 @@ fn blanking_offset_and_prefetch_margin_bound_both_sides_of_a_write() {
         assert!(deadline_gate(x) < BACK_PORCH + x);
     }
 }
+
+/// Sample less often far from the next refresh, retaining the near-wrap polling bound.
+pub fn idle_delay(period: u32, scan: u16, age_us: u64) -> u64 {
+    if period == 0 {
+        return 500;
+    }
+    let remaining = u64::from(TOTAL_GATES.saturating_sub(scan)) * u64::from(period)
+        / u64::from(TOTAL_GATES);
+    remaining.saturating_sub(age_us).saturating_sub(500).clamp(500, 2000)
+}
+
+#[cfg(test)]
+#[test]
+fn adaptive_idle_sampling_detects_wraps_within_the_existing_polling_bound() {
+    for actual in [14000u64, 17000, 20000] {
+        for estimate in [14000, 17000, 20000] {
+            for gate in 0..TOTAL_GATES {
+                let mut time = u64::from(gate) * actual / u64::from(TOTAL_GATES);
+                for _ in 0..50 {
+                    let scan = (time * u64::from(TOTAL_GATES) / actual) as u16;
+                    time += 32 + idle_delay(estimate, scan, 32);
+                    if time >= actual {
+                        assert!(
+                            time - actual <= 532,
+                            "actual={actual}, estimate={estimate}, gate={gate}, delay={}",
+                            time - actual
+                        );
+                        break;
+                    }
+                }
+                assert!(time >= actual);
+            }
+        }
+    }
+    assert_eq!(idle_delay(0, 0, 0), 500);
+    assert_eq!(idle_delay(17000, 349, 0), 500);
+}

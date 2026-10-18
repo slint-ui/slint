@@ -81,6 +81,14 @@ impl ScanClock {
         }
     }
 
+    pub fn idle_delay_us(&self) -> u64 {
+        let period = PERIOD_US.load(Ordering::Relaxed);
+        if self.last_observed == 0 {
+            return 500;
+        }
+        super::scan_budget::idle_delay(period, self.scan, super::now_us() - self.last_observed)
+    }
+
     pub async fn start_frame(
         &mut self,
         columns: &[u32; super::uniform_tiles::COLUMNS],

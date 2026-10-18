@@ -361,7 +361,7 @@ async fn display_loop(
         });
         let packet = match embassy_futures::select::select(
             ready,
-            embassy_time::Timer::after_micros(500),
+            embassy_time::Timer::after_micros(scan.idle_delay_us()),
         )
         .await
         {
