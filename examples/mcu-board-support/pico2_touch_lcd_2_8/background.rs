@@ -24,9 +24,12 @@ pub fn with_core1<F: FnMut() -> bool + Send, R>(job: &mut F, local: impl FnOnce(
 pub async fn task() {
     core::future::poll_fn(|context| {
         WAKER.register(context.waker());
-        if JOB.step() {
-            context.waker().wake_by_ref();
+        for _ in 0..8 {
+            if !JOB.step() {
+                return Poll::<()>::Pending;
+            }
         }
+        context.waker().wake_by_ref();
         Poll::<()>::Pending
     })
     .await;
