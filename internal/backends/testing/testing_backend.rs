@@ -456,8 +456,12 @@ impl WindowAdapterInternal for TestingWindow {
         self.window_move_requests.set(self.window_move_requests.get() + 1);
     }
 
-    fn set_mouse_cursor(&self, cursor: i_slint_core::cursor::MouseCursorInner) {
+    fn set_mouse_cursor(
+        &self,
+        cursor: i_slint_core::cursor::MouseCursorInner,
+    ) -> i_slint_core::cursor::MouseCursorHandling {
         self.mouse_cursor.replace(cursor);
+        i_slint_core::cursor::MouseCursorHandling::Platform
     }
 
     fn register_item_tree(&self, item_tree: i_slint_core::item_tree::ItemTreeRefPin) {

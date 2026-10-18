@@ -5,14 +5,11 @@ use super::*;
 use crate::display::Presenter;
 use crate::display::swdisplay::SoftwareBufferDisplay;
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
-use i_slint_core::Property;
 use i_slint_core::api::{LogicalPosition, LogicalSize};
-use i_slint_core::cursor::MouseCursorInner;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer, euclid};
-use i_slint_core::items::BuiltInMouseCursor;
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::{Platform, WindowEvent};
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
+use i_slint_core::window::WindowAdapter;
 use slint::ComponentHandle;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -100,9 +97,47 @@ impl Platform for MemoryPlatform {
 
 slint::slint! {
     export component CursorScene inherits Window {
+        // One of the `Shape`s below.
+        in property <int> shape;
+        in property <image> custom-image;
         background: #304050;
         Rectangle { x: 25px; y: 20px; width: 60px; height: 45px; background: #c06030; }
+        TouchArea {
+            mouse-cursor: root.shape == 1 ? MouseCursor.custom(root.custom-image, 3, 4)
+                : root.shape == 2 ? MouseCursor.none : MouseCursor.default;
+        }
     }
+}
+
+/// The mouse cursor the scene asks for, as `CursorScene.shape`.
+#[derive(Clone, Copy, Debug)]
+enum Shape {
+    Default = 0,
+    /// `CursorScene.custom-image` with the hotspot at (3, 4).
+    Custom = 1,
+    Hidden = 2,
+}
+
+/// Returns the byte offset in the frame buffer of the window pixel `(x, y)`.
+///
+/// This follows the documented direction of each rotation rather than the renderer's own
+/// transform, so that the test catches a cursor drawn at a mirrored or transposed position.
+fn buffer_offset(
+    rotation: RenderingRotation,
+    (x, y): (usize, usize),
+    row_bytes: usize,
+    bytes_per_pixel: usize,
+) -> usize {
+    let (width, height) = (SIZE.width as usize, SIZE.height as usize);
+    let (screen_x, screen_y) = match rotation {
+        RenderingRotation::NoRotation => (x, y),
+        // 90° to the right: the window's left edge ends up at the top of the screen.
+        RenderingRotation::Rotate90 => (width - 1 - y, x),
+        RenderingRotation::Rotate180 => (width - 1 - x, height - 1 - y),
+        // 90° to the left: the window's left edge ends up at the bottom of the screen.
+        RenderingRotation::Rotate270 => (y, height - 1 - x),
+    };
+    screen_y * row_bytes + screen_x * bytes_per_pixel
 }
 
 fn cursor_frames(rotation: RenderingRotation, format: drm::buffer::DrmFourcc, swapped: bool) {
@@ -131,23 +166,21 @@ fn cursor_frames(rotation: RenderingRotation, format: drm::buffer::DrmFourcc, sw
         .unwrap();
     let scene = CursorScene::new().unwrap();
     scene.show().unwrap();
-    let position = Box::pin(Property::new(None));
     let mut texture = SharedPixelBuffer::<Rgba8Pixel>::new(7, 9);
     texture.make_mut_slice().fill(Rgba8Pixel::new(255, 255, 255, 180));
-    let custom = MouseCursorInner::CustomMouseCursor {
-        image: Image::from_rgba8(texture),
-        hotspot_x: 3,
-        hotspot_y: 4,
-    };
+    scene.set_custom_image(Image::from_rgba8(texture));
+    // `None` is a pointer that left the window. The shapes come from hovering the `TouchArea`,
+    // so every position is inside the window, which is 60x80 or 80x60 at scale 2.
+    // Every state must change what's drawn, or it doesn't schedule the frame it compares.
     let states = [
-        (Some(LogicalPosition::new(10., 10.)), MouseCursorInner::default()),
-        (Some(LogicalPosition::new(13., 12.)), MouseCursorInner::default()),
-        (Some(LogicalPosition::new(40., 30.)), custom.clone()),
-        (Some(LogicalPosition::new(0., 0.)), custom),
-        (Some(LogicalPosition::new(79., 59.)), MouseCursorInner::default()),
-        (Some(LogicalPosition::new(79., 59.)), MouseCursorInner::BuiltIn(BuiltInMouseCursor::None)),
-        (Some(LogicalPosition::new(25., 25.)), MouseCursorInner::default()),
-        (None, MouseCursorInner::default()),
+        (Some(LogicalPosition::new(10., 10.)), Shape::Default),
+        (Some(LogicalPosition::new(13., 12.)), Shape::Default),
+        (Some(LogicalPosition::new(40., 30.)), Shape::Custom),
+        (Some(LogicalPosition::new(0., 0.)), Shape::Custom),
+        (Some(LogicalPosition::new(59., 59.)), Shape::Default),
+        (Some(LogicalPosition::new(59., 59.)), Shape::Hidden),
+        (Some(LogicalPosition::new(25., 25.)), Shape::Default),
+        (None, Shape::Default),
     ];
 
     for scale in [1., 1.5, 2.] {
@@ -156,41 +189,41 @@ fn cursor_frames(rotation: RenderingRotation, format: drm::buffer::DrmFourcc, sw
         scene.window().dispatch_event(WindowEvent::Resized {
             size: LogicalSize::new(size.width as f32 / scale, size.height as f32 / scale),
         });
-        let render_state = |(point, cursor): &(Option<LogicalPosition>, MouseCursorInner)| {
-            position.as_ref().set(*point);
-            adapter.set_mouse_cursor(cursor.clone());
-            adapter.clone().render_if_needed(position.as_ref()).unwrap();
+        let render_state = |(position, shape): &(Option<LogicalPosition>, Shape)| {
+            // The cursor shape follows the next pointer event.
+            scene.set_shape(*shape as i32);
+            scene.window().dispatch_event(match position {
+                Some(position) => WindowEvent::PointerMoved { position: *position },
+                None => WindowEvent::PointerExited,
+            });
+            adapter.clone().render_if_needed().unwrap();
             display.pixels()
         };
         display.full_repaint.set(true);
         let expected: Vec<_> = states.iter().map(render_state).collect();
-        if rotation == RenderingRotation::NoRotation
-            && format == drm::buffer::DrmFourcc::Xrgb8888
-            && !swapped
-            && scale == 1.
-            && let Some(directory) = std::env::var_os("SLINT_CURSOR_TEST_OUTPUT")
-        {
-            let directory = std::path::PathBuf::from(directory);
-            std::fs::create_dir_all(&directory).unwrap();
-            for (name, frame) in
-                [("visible", &expected[0]), ("moved", &expected[6]), ("hidden", &expected[7])]
-            {
-                let mut ppm = format!("P6\n{} {}\n255\n", SIZE.width, SIZE.height).into_bytes();
-                for row in frame.chunks_exact(row_bytes) {
-                    for pixel in row[..SIZE.width as usize * 4].as_chunks::<4>().0 {
-                        let value = u32::from_ne_bytes(*pixel);
-                        ppm.extend_from_slice(&[
-                            (value >> 16) as u8,
-                            (value >> 8) as u8,
-                            value as u8,
-                        ]);
-                    }
-                }
-                std::fs::write(directory.join(format!("{name}.ppm")), ppm).unwrap();
-            }
-        }
         // A missing overlay must fail even when incremental and full frames agree.
         assert_ne!(expected[0], expected[7], "cursor was not drawn");
+        // States 0 and 1 only differ by the pointer position, so this frame exists only if
+        // the pointer movement scheduled it.
+        assert_ne!(expected[0], expected[1], "pointer movement did not schedule a frame");
+        // The incremental frames below are compared against frames drawn by the same code,
+        // so check independently that the custom cursor of state 2 lands where it should.
+        // It covers the logical rect (37, 26) 7x9: sample its center and a point to its right.
+        let pixel = |frame: &[u8], logical_x: f32, logical_y: f32| {
+            let window_pixel = ((logical_x * scale) as usize, (logical_y * scale) as usize);
+            let offset = buffer_offset(rotation, window_pixel, row_bytes, bpp);
+            frame[offset..offset + bpp].to_vec()
+        };
+        assert_ne!(
+            pixel(&expected[2], 40.5, 30.5),
+            pixel(&expected[7], 40.5, 30.5),
+            "cursor missing at its position, scale {scale}"
+        );
+        assert_eq!(
+            pixel(&expected[2], 47.5, 30.5),
+            pixel(&expected[7], 47.5, 30.5),
+            "cursor drawn outside its bounds, scale {scale}"
+        );
         display.full_repaint.set(false);
         display.initialized.set([false; 2]);
         adapter
@@ -199,6 +232,7 @@ fn cursor_frames(rotation: RenderingRotation, format: drm::buffer::DrmFourcc, sw
         for (state, expected) in states.iter().zip(expected) {
             display.advance();
             let incremental = render_state(state);
+            // Not assert_eq!, which would print both frame buffers in full.
             assert!(incremental == expected, "cursor damage at {state:?}, scale {scale}");
             for row in incremental.chunks_exact(row_bytes) {
                 assert!(

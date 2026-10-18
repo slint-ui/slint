@@ -4,7 +4,6 @@
 // cSpell: ignore readback Texel unpadded
 use std::{cell::RefCell, pin::Pin, rc::Rc};
 
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
@@ -653,7 +652,6 @@ pub trait FemtoVGWGPURendererExt {
     ///
     /// Use this for a screen mounted in a different orientation than the window's,
     /// where the translation brings the rotated scene back into the texture.
-    /// `post_render_cb` draws on top of the finished scene, for a cursor the platform renders.
     ///
     /// Leaves the texture untouched where [`Self::can_draw`] is false.
     fn render_to_texture_transformed(
@@ -661,7 +659,6 @@ pub trait FemtoVGWGPURendererExt {
         texture: &wgpu::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError>;
 
     /// Whether rendering draws anything, which it doesn't for a zero-sized window or without
@@ -676,7 +673,6 @@ impl FemtoVGWGPURendererExt for FemtoVGWGPURenderer {
         texture: &wgpu::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError> {
         let size = texture.size();
         self.render_to_texture_view_impl(
@@ -686,11 +682,10 @@ impl FemtoVGWGPURendererExt for FemtoVGWGPURenderer {
             texture.format(),
             || {
                 // The texture is the screen, whose size the rotation needs, not the window's.
-                self.0.render_transformed_with_post_callback(
+                self.0.render_transformed(
                     rotation_angle_degrees,
                     translation,
                     PhysicalWindowSize::new(size.width, size.height),
-                    post_render_cb,
                 )
             },
         )

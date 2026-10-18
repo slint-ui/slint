@@ -20,7 +20,7 @@ use std::vec::Vec;
 use std::{eprintln, format, thread_local};
 
 use i_slint_core::api::{LogicalPosition, LogicalSize, PhysicalSize};
-use i_slint_core::cursor::MouseCursorInner;
+use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner};
 use i_slint_core::platform::{
     EventLoopProxy, Platform, PlatformError, PointerEventButton, WindowAdapter, WindowEvent,
 };
@@ -427,11 +427,12 @@ impl WindowAdapter for EmscriptenWindowAdapter {
 }
 
 impl WindowAdapterInternal for EmscriptenWindowAdapter {
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         match cursor {
             MouseCursorInner::BuiltIn(cursor) => set_cursor(&cursor.to_string()),
             _ => set_cursor("default"),
         }
+        MouseCursorHandling::Platform
     }
 }
 

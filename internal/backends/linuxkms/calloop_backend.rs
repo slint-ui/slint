@@ -269,20 +269,13 @@ impl i_slint_core::platform::Platform for Backend {
         let quit_loop = self.proxy.quit_loop.clone();
 
         #[cfg(feature = "libinput")]
-        let mouse_position_property = input::LibInputHandler::init(
+        input::LibInputHandler::init(
             &self.window,
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
             &self.libinput_event_hook,
         )?;
-
-        // Without libinput there is no pointer to track, so the cursor property
-        // stays empty for the lifetime of the loop.
-        #[cfg(not(feature = "libinput"))]
-        let mouse_position_property = Rc::pin(i_slint_core::Property::<
-            Option<i_slint_core::api::LogicalPosition>,
-        >::new(None));
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err("Re-entering the linuxkms event loop is currently not supported"
@@ -329,7 +322,7 @@ impl i_slint_core::platform::Platform for Backend {
                 }
 
                 if let Some(adapter) = self.window.borrow().as_ref() {
-                    adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
+                    adapter.clone().render_if_needed()?;
                     adapter.flush_unless_frame_follows()?;
                 };
 

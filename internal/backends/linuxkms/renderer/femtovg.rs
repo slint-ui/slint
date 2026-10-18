@@ -3,7 +3,6 @@
 
 use std::{num::NonZeroU32, rc::Rc};
 
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
@@ -189,15 +188,11 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGRendererAdapt
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
-        let outcome = self.renderer.render_transformed_with_post_callback(
+        let outcome = self.renderer.render_transformed(
             rotation.degrees(),
             rotation.translation_after_rotation(self.size),
             self.size,
-            Some(&|item_renderer| {
-                draw_mouse_cursor_callback(item_renderer);
-            }),
         )?;
         if matches!(outcome, DrawOutcome::Success) {
             self.gbm_display.present()?;

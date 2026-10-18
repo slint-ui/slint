@@ -692,15 +692,17 @@ impl Window {
                     event_time: None,
                 })
                 .into(),
-            crate::platform::WindowEvent::PointerMoved { position } => self
-                .0
-                .process_mouse_input(MouseEvent::Moved {
-                    position: position.to_euclid().cast(),
-                    touch_finger_id: 0,
-                    event_time: None,
-                    history: Default::default(),
-                })
-                .into(),
+            crate::platform::WindowEvent::PointerMoved { position } => {
+                self.0.software_cursor_position.set(Some(position.to_euclid().cast()));
+                self.0
+                    .process_mouse_input(MouseEvent::Moved {
+                        position: position.to_euclid().cast(),
+                        touch_finger_id: 0,
+                        event_time: None,
+                        history: Default::default(),
+                    })
+                    .into()
+            }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => self
                 .0
                 .process_mouse_input(MouseEvent::Wheel {
@@ -714,6 +716,7 @@ impl Window {
                 // Teardown event — the runtime always acts on it (clears hover/grab state
                 // and dispatches Exit to the item stack), so report Accepted unconditionally
                 // rather than asking the hit-test whether anything consumed it.
+                self.0.software_cursor_position.set(None);
                 self.0.process_mouse_input(MouseEvent::Exit);
                 WindowEventDispatchResult::Accepted
             }
