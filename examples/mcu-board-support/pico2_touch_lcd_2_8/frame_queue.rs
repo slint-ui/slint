@@ -10,7 +10,8 @@ embassy_rp::bind_interrupts!(struct DmaInterrupts {
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<embassy_rp::peripherals::DMA_CH0>;
 });
 
-const CAPACITY: usize = 32 * 1024;
+// Eight full-height, eight-pixel-wide strips fit in either 30 or 32 KiB.
+const CAPACITY: usize = 8 * 8 * 240 * 2;
 const SLOT_COUNT: usize = 3;
 use super::packet_slot::{Slot, Write};
 static DISPLAY_FLIPPED: AtomicBool = AtomicBool::new(false);
@@ -266,6 +267,8 @@ pub fn configure_scan() {
 #[cfg(feature = "pico2-queue-profile")]
 pub fn panel_check(expected: &[u8]) -> [u32; 4] {
     assert_eq!(expected.len(), 320 * 240 * 2);
+    // The capture handshake has drained packets; suspend idle IRQ scan reads during RAMRD.
+    let ready = DISPLAY_READY.swap(false, Ordering::AcqRel);
     command(0x3a, &[0x66]);
     let mut pixels = [0u16; 320];
     let mut result = [0u32; 4];
@@ -287,6 +290,7 @@ pub fn panel_check(expected: &[u8]) -> [u32; 4] {
         }
     }
     command(0x3a, &[0x55]);
+    DISPLAY_READY.store(ready, Ordering::Release);
     result
 }
 

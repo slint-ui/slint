@@ -45,13 +45,14 @@ pub fn start(
         stack.write_bytes(0, 1);
         &mut *stack
     };
+    super::display_executor::route_core0_wakes();
     embassy_rp::multicore::spawn_core1(core1, stack, move || {
+        super::display_executor::start(dma, backlight);
         static EXECUTOR: StaticCell<embassy_executor::Executor> = StaticCell::new();
         EXECUTOR.init(embassy_executor::Executor::new()).run(|spawner| {
             spawner.spawn(usb_task(usb).unwrap());
             spawner.spawn(super::boot_guard::watchdog_task().unwrap());
 
-            spawner.spawn(super::frame_queue::display_task(dma, backlight).unwrap());
             spawner.spawn(super::background::task().unwrap());
         });
     });

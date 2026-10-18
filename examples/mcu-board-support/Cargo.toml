@@ -89,6 +89,7 @@ pico2-touch-lcd-2-8 = [
   "dep:embassy-executor",
   "embassy-executor/platform-cortex-m",
   "embassy-executor/executor-thread",
+  "embassy-executor/executor-interrupt",
   "dep:embassy-sync",
   "dep:embassy-time",
   "embassy-time/tick-hz-1_000_000",

@@ -5,6 +5,7 @@
 extern crate alloc;
 
 mod background;
+mod display_executor;
 mod imu;
 mod orientation;
 mod tilt_fusion;
