@@ -164,7 +164,7 @@ pub fn start(window: &MainWindow) -> slint::Timer {
             #[cfg(feature = "pico2-queue-profile")]
             let mut counts = [0; 4];
             #[cfg(feature = "pico2-queue-profile")]
-            let mut times = [0; 4];
+            let mut times = [0; 7];
             #[cfg(feature = "pico2")]
             let up = mcu_board_support::ink_up();
             for index in 0..4 {
@@ -234,14 +234,22 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                     next += usize::from(done);
                     next == paints.len()
                 };
+                #[cfg(feature = "pico2-queue-profile")]
+                let work_started = mcu_board_support::profile_now_us();
                 let local_times = mcu_board_support::with_core1(&mut work, || {
                     let red = render_serial(red.as_mut().unwrap(), tick);
                     let black = render_serial(black.as_mut().unwrap(), tick);
                     core::array::from_fn::<_, 4, _>(|i| red[i] + black[i])
                 });
                 #[cfg(feature = "pico2-queue-profile")]
-                for i in 0..4 {
-                    times[i] += local_times[i] + remote_times[i];
+                {
+                    times[4] += local_times[1] + local_times[2];
+                    times[5] += remote_times[1] + remote_times[2];
+                    times[6] += (mcu_board_support::profile_now_us() - work_started)
+                        .saturating_sub(local_times.iter().sum());
+                    for i in 0..4 {
+                        times[i] += local_times[i] + remote_times[i];
+                    }
                 }
                 #[cfg(not(feature = "pico2-queue-profile"))]
                 let _ = local_times;

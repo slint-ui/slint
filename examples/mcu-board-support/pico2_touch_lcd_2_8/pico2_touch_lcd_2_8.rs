@@ -80,7 +80,7 @@ pub fn profile_animation_time(us: u64) {
 }
 
 #[cfg(feature = "pico2-queue-profile")]
-pub fn profile_ink_times(times: [u64; 4]) {
+pub fn profile_ink_times(times: [u64; 7]) {
     profile::ink_times(times);
 }
 

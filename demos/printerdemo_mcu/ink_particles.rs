@@ -211,6 +211,8 @@ impl<'a, P: Pixel> Paint<'a, P> {
         self.row < self.vial.height
     }
 
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), unsafe(link_section = ".data.ram_func"))]
+    #[cfg_attr(all(feature = "pico2", target_arch = "arm"), inline(never))]
     pub fn step(&mut self) -> bool {
         if self.row < self.vial.height {
             let rows = if self.vial.tilt.as_ref().is_some_and(|t| t.surface.up != [0, -1024]) {

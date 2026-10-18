@@ -28,7 +28,7 @@ TIMES = [
     "raster", "wait", "window", "crc", "animation", "render_cpu", "dirty_cpu",
     "text_cpu", "texture_cpu", "rectangle_cpu", "rounded_cpu",
     "text_request", "text_font", "text_prepare", "text_submit",
-    "ink_buffer", "ink_restore", "ink_stamp", "ink_publish", "plan",
+    "ink_buffer", "ink_restore", "ink_stamp", "ink_publish", "ink_core0", "ink_core1", "ink_join", "plan",
 ]
 
 

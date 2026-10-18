@@ -34,17 +34,17 @@ pub static TOUCH_PRESSES: AtomicU32 = AtomicU32::new(0);
 pub static PHASE: AtomicU32 = AtomicU32::new(0);
 pub static INK_STATE: AtomicU32 = AtomicU32::new(0);
 static SEQUENCE: AtomicU32 = AtomicU32::new(0);
-static REPORT: [AtomicU32; 61] = [const { AtomicU32::new(0) }; 61];
+static REPORT: [AtomicU32; 64] = [const { AtomicU32::new(0) }; 64];
 
 static ANIMATION_US: AtomicU32 = AtomicU32::new(0);
-static INK_TIMES: [AtomicU32; 4] = [const { AtomicU32::new(0) }; 4];
-pub fn ink_times(times: [u64; 4]) {
+static INK_TIMES: [AtomicU32; 7] = [const { AtomicU32::new(0) }; 7];
+pub fn ink_times(times: [u64; 7]) {
     for (slot, us) in INK_TIMES.iter().zip(times) {
         slot.fetch_add(us as u32, Ordering::Relaxed);
     }
 }
 
-fn take_ink_times() -> [u32; 4] {
+fn take_ink_times() -> [u32; 7] {
     core::array::from_fn(|i| INK_TIMES[i].swap(0, Ordering::Relaxed))
 }
 pub fn animation(us: u64) {
@@ -84,7 +84,7 @@ pub struct Profiler {
     last_frame: u64,
     last_phase: u32,
     run: u32,
-    values: [u32; 61],
+    values: [u32; 64],
     transport_start: [u32; 3],
     presented_start: u32,
     changing_start: u32,
@@ -98,7 +98,7 @@ impl Default for Profiler {
             last_frame: 0,
             last_phase: 0,
             run: u32::MAX,
-            values: [0; 61],
+            values: [0; 64],
             transport_start: [0; 3],
             presented_start: 0,
             changing_start: 0,
@@ -190,7 +190,9 @@ impl Profiler {
             }
             self.values[25..29].copy_from_slice(&take_input());
             self.values[34] = ANIMATION_US.swap(0, Ordering::Relaxed);
-            self.values[38..42].copy_from_slice(&take_ink_times());
+            let ink = take_ink_times();
+            self.values[38..42].copy_from_slice(&ink[..4]);
+            self.values[61..64].copy_from_slice(&ink[4..]);
             self.values[35..38].copy_from_slice(&take_latency());
             let panel = super::panel_sync::counters();
             self.values[29] = panel[0].wrapping_sub(self.panel_start[0]);
@@ -210,7 +212,7 @@ impl Profiler {
     }
 }
 
-pub fn snapshot() -> (u32, [u32; 61]) {
+pub fn snapshot() -> (u32, [u32; 64]) {
     loop {
         let before = SEQUENCE.load(Ordering::Acquire);
         if before & 1 != 0 {

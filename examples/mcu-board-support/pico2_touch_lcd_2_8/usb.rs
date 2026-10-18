@@ -326,6 +326,7 @@ async fn usb_task(usb: Peri<'static, USB>) {
                         let mask = (0..4).fold(0, |mask, i| mask | (((state >> (i * 8 + 7)) & 1) << i));
                         let _ = write!(&mut line, ",ink_held_mask={},ink_yellow_particles={},ink_red_particles={},ink_cyan_particles={},ink_black_particles={}", mask, counts[0], counts[1], counts[2], counts[3]);
                         let _ = write!(&mut line, ",ink_buffer_us={},ink_restore_us={},ink_stamp_us={},ink_publish_us={}", v[38], v[39], v[40], v[41]);
+                        let _ = write!(&mut line, ",ink_core0_us={},ink_core1_us={},ink_join_us={}", v[61], v[62], v[63]);
                     }
                     let format_us = (super::profile::now_us() - format_started) as u32;
                     super::profile::STATS_MAX_US.fetch_max(format_us, Ordering::Relaxed);
