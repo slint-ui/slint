@@ -324,7 +324,7 @@ fn fill_value(
         || !fill.center_x.is_finite()
         || !fill.center_y.is_finite()
         || !fill.radius.is_finite()
-        || (fill.custom_radius && fill.radius <= 0.)
+        || (fill.custom_radius && fill.radius < 0.)
         || fill.stops.iter().any(|s| !s.position.is_finite())
     {
         return None;
