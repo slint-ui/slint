@@ -514,6 +514,7 @@ impl BuildDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     fn call_diagnostics(
         &self,
+        styled: bool,
         mut handle_no_source: Option<&mut dyn FnMut(&Diagnostic)>,
     ) -> String {
         if self.inner.is_empty() {
@@ -561,23 +562,35 @@ impl BuildDiagnostics {
             })
             .collect();
 
-        annotate_snippets::Renderer::styled().render(&report)
+        let renderer = if styled {
+            annotate_snippets::Renderer::styled()
+        } else {
+            annotate_snippets::Renderer::plain()
+        };
+        renderer.render(&report)
+    }
+
+    /// Follows https://no-color.org
+    #[cfg(feature = "display-diagnostics")]
+    fn stderr_is_styled() -> bool {
+        use std::io::IsTerminal;
+        std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty())
     }
 
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
         use std::io::Write;
-        let to_print = self.call_diagnostics(None);
+        let to_print = self.call_diagnostics(Self::stderr_is_styled(), None);
         if !to_print.is_empty() {
             let _ = writeln!(std::io::stderr(), "{to_print}");
         }
     }
 
     #[cfg(feature = "display-diagnostics")]
-    /// Print into a string
+    /// Print into a string, without ANSI colors
     pub fn diagnostics_as_string(self) -> String {
-        self.call_diagnostics(None)
+        self.call_diagnostics(false, None)
     }
 
     #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
@@ -591,6 +604,7 @@ impl BuildDiagnostics {
         let mut result = proc_macro::TokenStream::default();
         let mut needs_error = self.has_errors();
         let output = self.call_diagnostics(
+            Self::stderr_is_styled(),
             Some(&mut |diag| {
                 // A diagnostic only carries an offset into the document, which is the
                 // concatenation of the token texts: find the token that offset lands in.
@@ -733,5 +747,22 @@ component MainWindow inherits Window {
                 column += 1;
             }
         }
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    #[test]
+    fn test_diagnostics_as_string_is_plain() {
+        let sf = Arc::new(SourceFileInner::new(
+            SourcePath::new("foo.slint"),
+            "component Foo {}\n".into(),
+        ));
+        let mut diag = BuildDiagnostics::default();
+        diag.push_warning_with_span(
+            "unused".into(),
+            SourceLocation { source_file: Some(sf), span: Span::new(10, 3) },
+        );
+        let output = diag.diagnostics_as_string();
+        assert!(output.starts_with("warning: unused"), "{output:?}");
+        assert!(!output.contains('\x1b'), "{output:?}");
     }
 }
