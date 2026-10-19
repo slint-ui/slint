@@ -27,7 +27,7 @@ mod remote_connection;
 mod settings;
 use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
 use remote_connection::{ConnectionEvent, RemoteConnection};
-use settings::{SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
+use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
@@ -51,30 +51,6 @@ pub struct Springboard {
 enum EndpointIdentity {
     Local,
     Remote(String),
-}
-
-/// The endpoint a session last connected to, mirroring [`EndpointIdentity`] but
-/// additionally remembering the display name it had at the time.
-///
-/// The name cannot be recovered from the identity alone: it comes from the
-/// discovery report (the mDNS fullname without the service type, or the host as
-/// a fallback, see `remote::normalize`). At startup there is no discovery report
-/// yet, so without the stored name the springboard could not say which endpoint
-/// it is waiting for.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum NamedEndpointIdentity {
-    Local,
-    Remote { fullname: String, name: String },
-}
-
-impl From<NamedEndpointIdentity> for EndpointIdentity {
-    fn from(named: NamedEndpointIdentity) -> Self {
-        match named {
-            NamedEndpointIdentity::Local => Self::Local,
-            NamedEndpointIdentity::Remote { fullname, .. } => Self::Remote(fullname),
-        }
-    }
 }
 
 enum Endpoint {
@@ -104,10 +80,11 @@ struct SpringboardTask {
     advertised: HashSet<String>,
     selected: Option<EndpointIdentity>,
     last_selected: Option<NamedEndpointIdentity>,
-    /// Whether this session's selection is already decided. It is a one-shot
-    /// decision, not a reaction to every discovery report, so a viewer which
-    /// failed or was passed over by the user is not selected again.
-    selection_decided: bool,
+    /// Whether the preselect has already had its say in this session. Any
+    /// selection consumes it, so it is a one-shot decision rather than a
+    /// reaction to every discovery report, which would otherwise select a
+    /// viewer that failed or was passed over by the user.
+    preselect_consumed: bool,
     credentials: HashMap<String, PairingCredentials>,
     #[cfg(test)]
     discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
@@ -157,7 +134,7 @@ impl Springboard {
             advertised: HashSet::new(),
             selected: None,
             last_selected: None,
-            selection_decided: false,
+            preselect_consumed: false,
             credentials: HashMap::new(),
             #[cfg(test)]
             discovery_receiver: None,
@@ -248,12 +225,15 @@ impl SpringboardTask {
         self.state = ui::SpringboardState::Idle;
         // The stored selection gets applied once per run, whatever the previous
         // run ended up doing with it.
-        self.selection_decided = false;
+        self.preselect_consumed = false;
         // The springboard has no filesystem access of its own, so it asks the
-        // editor for the blob holding the last selection. Sent here rather than
-        // at construction so the reply arrives while the springboard is running,
-        // when `select_endpoint` will act on it.
-        self.request_last_selected();
+        // editor for the blob holding the last selection. Asked only when the
+        // selection is not already known from an earlier run, since the reply
+        // could not change the outcome: the known selection is applied below,
+        // before it can arrive. The reply is handled in [`Self::send`].
+        if self.last_selected.is_none() {
+            self.request_last_selected();
+        }
         // A selection already known from an earlier run still has to be applied,
         // because `select_endpoint` refused to act while stopped.
         self.apply_last_selected();
@@ -363,9 +343,9 @@ impl SpringboardTask {
         };
         self.preview = None;
         self.selected = Some(identity.clone());
-        // Selecting an endpoint decides this session's selection, so the stored
-        // one must not supersede it when its endpoint shows up again.
-        self.selection_decided = true;
+        // Selecting an endpoint consumes the preselect, so the stored one must
+        // not supersede it when its endpoint shows up again.
+        self.preselect_consumed = true;
         self.store_last_selected(named);
         self.error.clear();
         self.viewers.retain(|viewer| {
@@ -572,7 +552,7 @@ impl SpringboardTask {
     /// every report would dial a viewer that just failed, or take the selection
     /// back from the user.
     fn apply_last_selected(&mut self) {
-        if self.selection_decided {
+        if self.preselect_consumed {
             return;
         }
         let Some(last_selected) = self.last_selected.clone() else { return };
@@ -823,7 +803,8 @@ mod tests {
                     }))
                     .unwrap();
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
+                // The selection is already known, so no request goes out.
+                assert!(receiver.try_recv().is_err());
                 select(&controller, 0);
                 let second_process = started(&mut receiver).await;
                 assert_ne!(first_process, second_process);
@@ -835,9 +816,9 @@ mod tests {
                 controller.shutdown().await;
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                // The stored selection is the Local preview, so starting again
-                // preselects it, without storing it a second time.
+                // The stored selection is known already, so starting again asks
+                // the editor for nothing and only preselects the known endpoint.
+                assert!(receiver.try_recv().is_err());
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 select(&controller, 0);
                 started(&mut receiver).await;
@@ -995,7 +976,8 @@ mod tests {
                 assert!(inspect(&controller, |task| task.error.is_empty()).await);
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
+                // The stored selection is known already, so starting again asks
+                // the editor for nothing.
                 assert!(receiver.try_recv().is_err());
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 controller.shutdown().await;
@@ -1589,7 +1571,6 @@ mod tests {
                                 && task.credentials.is_empty()
                         })
                         .await;
-                        assert_user_setting_request(&mut upstream).await;
                         assert!(upstream.try_recv().is_err());
                         replacement
                             .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
