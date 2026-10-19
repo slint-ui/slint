@@ -461,11 +461,12 @@ impl RadialGradientBrush {
         let (cx, cy) = self.center_or_default_scaled(width, height, scale_factor);
         let farthest_x = cx.max(width - cx);
         let farthest_y = cy.max(height - cy);
+        let farthest_corner = farthest_x.hypot(farthest_y);
         let resolve = |r: f32, farthest: f32| {
             let r = if r >= 0.0 {
                 r * scale_factor
             } else if self.is_circle() {
-                farthest_x.hypot(farthest_y)
+                farthest_corner
             } else {
                 core::f32::consts::SQRT_2 * farthest
             };
