@@ -4805,10 +4805,13 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "itertools 0.15.0",
+ "js-sys",
  "lyon_path",
  "smol_str 0.3.6",
  "typed-index-collections",
  "vtable",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

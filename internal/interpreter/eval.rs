@@ -2272,6 +2272,17 @@ fn call_builtin_function(
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)
             {
+                if let Some(data) = root.globals.font_files.get(s.as_str()) {
+                    let blob =
+                        i_slint_core::textlayout::sharedparley::fontique::Blob::new(data.clone());
+                    root.globals.context.font_context().borrow_mut().register_fonts(blob);
+                    return Value::Void;
+                }
+                // The browser has no file system to read the font from,
+                // and a font that failed to load got a warning when compiling.
+                if cfg!(all(target_arch = "wasm32", target_os = "unknown")) {
+                    return Value::Void;
+                }
                 // Log and skip if the window adapter can't be created; the
                 // same error resurfaces when the window is actually used.
                 let result =

@@ -7374,6 +7374,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-core-macros",
  "itertools 0.15.0",
+ "js-sys",
  "lyon_path",
  "raw-window-handle",
  "serde_json",
@@ -7382,6 +7383,8 @@ dependencies = [
  "tempfile",
  "typed-index-collections",
  "vtable",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -7574,6 +7577,7 @@ version = "1.19.0"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-winit",
+ "i-slint-compiler",
  "i-slint-core",
  "js-sys",
  "send_wrapper",
