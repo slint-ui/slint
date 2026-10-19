@@ -15,6 +15,7 @@
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
+use core::sync::atomic::{AtomicBool, Ordering};
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_alloc as _;
 use esp_backtrace as _;
@@ -93,24 +94,18 @@ impl<BUS: embedded_hal::i2c::I2c> M5Ioe1<BUS> {
     /// itself NACKed, so every address is tried a few times. M5Stack's driver
     /// does the same thing: it retries twice with a 50ms gap, and sends its
     /// first two configuration writes back to back.
-    fn new(mut i2c: BUS, delay: &mut Delay) -> Result<Self, BUS::Error> {
+    fn new(i2c: BUS, delay: Delay) -> Result<Self, BUS::Error> {
+        let mut expander = Self { i2c, address: 0x4f, delay };
         let mut last_error = None;
         for address in [0x4f, 0x6f] {
-            for _ in 0..4 {
-                let mut uid = [0u8; 1];
-                let probe = i2c.write(address, &[IOE_REG_UID_L]).and_then(|()| {
-                    // The expander needs a moment to latch the register
-                    // pointer; reading too soon is NACKed.
-                    delay.delay_micros(REGISTER_SETTLE_US);
-                    i2c.read(address, &mut uid)
-                });
-                match probe {
-                    Ok(()) => {
+            expander.address = address;
+            for _ in 0..IOE_RETRIES {
+                match expander.read_register(IOE_REG_UID_L) {
+                    Ok(_) => {
                         info!("M5IOE1 found at address {:#04x}", address);
-                        let mut expander = Self { i2c, address, delay: *delay };
                         // Keep it awake from here on, so that later register
                         // writes do not have to fight the same wake-up NACK.
-                        expander.disable_sleep(delay);
+                        expander.disable_sleep();
                         return Ok(expander);
                     }
                     Err(e) => last_error = Some(e),
@@ -124,15 +119,15 @@ impl<BUS: embedded_hal::i2c::I2c> M5Ioe1<BUS> {
     /// Clear the sleep time in the I2C configuration register, the same way
     /// M5Stack's setI2cSleepTime(0) does. Best effort: it is retried, and a
     /// failure here is not fatal.
-    fn disable_sleep(&mut self, delay: &mut Delay) {
-        for _ in 0..4 {
+    fn disable_sleep(&mut self) {
+        for _ in 0..IOE_RETRIES {
             if let Ok(config) = self.read_register(IOE_REG_I2C_CFG) {
                 let awake = config & 0xf0;
                 if self.write_register(IOE_REG_I2C_CFG, awake).is_ok() {
                     return;
                 }
             }
-            delay.delay_millis(50);
+            self.delay.delay_millis(50);
         }
         error!("Could not stop the M5IOE1 from sleeping");
     }
@@ -140,63 +135,69 @@ impl<BUS: embedded_hal::i2c::I2c> M5Ioe1<BUS> {
     /// Set the register pointer and read it back as two separate transfers.
     /// The expander NACKs the repeated start that `write_read` would use.
     fn read_register(&mut self, register: u8) -> Result<u8, BUS::Error> {
-        let mut last_error = None;
-        for _ in 0..IOE_RETRIES {
+        retry(self.delay, || {
             let mut value = [0u8; 1];
-            let result = self.i2c.write(self.address, &[register]).and_then(|()| {
-                self.delay.delay_micros(REGISTER_SETTLE_US);
-                self.i2c.read(self.address, &mut value)
-            });
-            match result {
-                Ok(()) => return Ok(value[0]),
-                Err(e) => last_error = Some(e),
-            }
-            self.delay.delay_millis(5);
-        }
-        Err(last_error.unwrap())
+            self.i2c.write(self.address, &[register])?;
+            self.delay.delay_micros(REGISTER_SETTLE_US);
+            self.i2c.read(self.address, &mut value)?;
+            Ok(value[0])
+        })
     }
 
     fn write_register(&mut self, register: u8, value: u8) -> Result<(), BUS::Error> {
-        let mut last_error = None;
-        for _ in 0..IOE_RETRIES {
-            match self.i2c.write(self.address, &[register, value]) {
-                Ok(()) => {
-                    self.delay.delay_micros(REGISTER_SETTLE_US);
-                    return Ok(());
-                }
-                Err(e) => last_error = Some(e),
-            }
-            self.delay.delay_millis(5);
-        }
-        Err(last_error.unwrap())
+        retry(self.delay, || {
+            self.i2c.write(self.address, &[register, value])?;
+            self.delay.delay_micros(REGISTER_SETTLE_US);
+            Ok(())
+        })
     }
 
-    fn update_bit(&mut self, register: u8, bit: u8, set: bool) -> Result<(), BUS::Error> {
-        let mut value = self.read_register(register)?;
-        if set {
-            value |= 1 << bit;
-        } else {
-            value &= !(1 << bit);
-        }
+    fn update_bits(&mut self, register: u8, mask: u8, set: bool) -> Result<(), BUS::Error> {
+        let value = self.read_register(register)?;
+        let value = if set { value | mask } else { value & !mask };
         self.write_register(register, value)
     }
 
-    /// Same effect as M5IOE1::pinMode(pin, OUTPUT): drive mode on, pulls off,
-    /// push-pull rather than open drain.
-    fn set_output(&mut self, pin: u8) -> Result<(), BUS::Error> {
-        self.update_bit(IOE_REG_GPIO_MODE_L, pin, true)?;
-        self.update_bit(IOE_REG_GPIO_PU_L, pin, false)?;
-        self.update_bit(IOE_REG_GPIO_PD_L, pin, false)?;
-        self.update_bit(IOE_REG_GPIO_DRV_L, pin, false)
+    /// Same effect as M5IOE1::pinMode(pin, OUTPUT) for every pin in `mask`:
+    /// drive mode on, pulls off, push-pull rather than open drain.
+    fn set_outputs(&mut self, mask: u8) -> Result<(), BUS::Error> {
+        self.update_bits(IOE_REG_GPIO_MODE_L, mask, true)?;
+        self.update_bits(IOE_REG_GPIO_PU_L, mask, false)?;
+        self.update_bits(IOE_REG_GPIO_PD_L, mask, false)?;
+        self.update_bits(IOE_REG_GPIO_DRV_L, mask, false)
     }
 
     fn write_pin(&mut self, pin: u8, level: bool) -> Result<(), BUS::Error> {
-        self.update_bit(IOE_REG_GPIO_OUT_L, pin, level)
+        self.update_bits(IOE_REG_GPIO_OUT_L, 1 << pin, level)
+    }
+
+    /// Hold `pin` low for `low_ms`, release it, and give the part `settle_ms`
+    /// to come back.
+    fn pulse_low(&mut self, pin: u8, low_ms: u32, settle_ms: u32) -> Result<(), BUS::Error> {
+        self.write_pin(pin, false)?;
+        self.delay.delay_millis(low_ms);
+        self.write_pin(pin, true)?;
+        self.delay.delay_millis(settle_ms);
+        Ok(())
     }
 
     fn read_pin(&mut self, pin: u8) -> Result<bool, BUS::Error> {
         Ok(self.read_register(IOE_REG_GPIO_IN_L)? & (1 << pin) != 0)
     }
+}
+
+/// Run `op` up to `IOE_RETRIES` times: the expander sleeps between transfers
+/// and NACKs the transfer that wakes it.
+fn retry<T, E>(delay: Delay, mut op: impl FnMut() -> Result<T, E>) -> Result<T, E> {
+    let mut last_error = None;
+    for _ in 0..IOE_RETRIES {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(e) => last_error = Some(e),
+        }
+        delay.delay_millis(5);
+    }
+    Err(last_error.unwrap())
 }
 
 /// List every device that acknowledges its address, so a missing expander can
@@ -221,19 +222,14 @@ fn scan_i2c_bus<BUS: embedded_hal::i2c::I2c>(i2c: &mut BUS) {
 /// The AMOLED rail is the one that matters: M5Stack's firmware writes it and
 /// then reads it back until it reads high. Without that retry the panel
 /// sometimes never powers up.
-fn power_up<BUS: embedded_hal::i2c::I2c>(
-    ioe: &mut M5Ioe1<BUS>,
-    delay: &mut Delay,
-) -> Result<(), BUS::Error> {
-    for pin in [
-        IOE_PIN_MUX_CTRL,
-        IOE_PIN_AUDIO_EN,
-        IOE_PIN_TOUCH_RST,
-        IOE_PIN_PANEL_RST,
-        IOE_PIN_PANEL_POWER,
-    ] {
-        ioe.set_output(pin)?;
-    }
+fn power_up<BUS: embedded_hal::i2c::I2c>(ioe: &mut M5Ioe1<BUS>) -> Result<(), BUS::Error> {
+    ioe.set_outputs(
+        1 << IOE_PIN_MUX_CTRL
+            | 1 << IOE_PIN_AUDIO_EN
+            | 1 << IOE_PIN_TOUCH_RST
+            | 1 << IOE_PIN_PANEL_RST
+            | 1 << IOE_PIN_PANEL_POWER,
+    )?;
 
     ioe.write_pin(IOE_PIN_MUX_CTRL, false)?;
     ioe.write_pin(IOE_PIN_AUDIO_EN, true)?;
@@ -242,7 +238,7 @@ fn power_up<BUS: embedded_hal::i2c::I2c>(
     ioe.write_pin(IOE_PIN_PANEL_POWER, true)?;
 
     for attempt in 0..10 {
-        delay.delay_millis(80);
+        ioe.delay.delay_millis(80);
         if ioe.read_pin(IOE_PIN_PANEL_POWER)? {
             return Ok(());
         }
@@ -251,28 +247,6 @@ fn power_up<BUS: embedded_hal::i2c::I2c>(
     }
 
     error!("AMOLED rail never read back high");
-    Ok(())
-}
-
-fn reset_panel<BUS: embedded_hal::i2c::I2c>(
-    ioe: &mut M5Ioe1<BUS>,
-    delay: &mut Delay,
-) -> Result<(), BUS::Error> {
-    ioe.write_pin(IOE_PIN_PANEL_RST, false)?;
-    delay.delay_millis(20);
-    ioe.write_pin(IOE_PIN_PANEL_RST, true)?;
-    delay.delay_millis(150);
-    Ok(())
-}
-
-fn reset_touch<BUS: embedded_hal::i2c::I2c>(
-    ioe: &mut M5Ioe1<BUS>,
-    delay: &mut Delay,
-) -> Result<(), BUS::Error> {
-    ioe.write_pin(IOE_PIN_TOUCH_RST, false)?;
-    delay.delay_millis(10);
-    ioe.write_pin(IOE_PIN_TOUCH_RST, true)?;
-    delay.delay_millis(50);
     Ok(())
 }
 
@@ -365,8 +339,8 @@ impl Co5300 {
         // the whole frame, so the extra pixels are always valid.
         let x_aligned = x & !1;
         let y_aligned = y & !1;
-        let width = ((width + (x - x_aligned) + 1) & !1).min(DISPLAY_WIDTH as u16 - x_aligned);
-        let height = ((height + (y - y_aligned) + 1) & !1).min(DISPLAY_HEIGHT as u16 - y_aligned);
+        let width = ((width + (x - x_aligned) + 1) & !1).min(DISPLAY_WIDTH - x_aligned);
+        let height = ((height + (y - y_aligned) + 1) & !1).min(DISPLAY_HEIGHT - y_aligned);
         let (x, y) = (x_aligned, y_aligned);
 
         self.set_window(x, y, width, height)?;
@@ -450,12 +424,12 @@ static mut SHARED_I2C: Option<&'static RefCell<I2c<'static, Blocking>>> = None;
 /// Whether the panel should be lit. The application flips this (for
 /// example, to dark the screen while audio is idle); the event loop sends
 /// the display on/off command when the value changes.
-static DISPLAY_ON: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(true);
+static DISPLAY_ON: AtomicBool = AtomicBool::new(true);
 
 /// Ask for the display to be on or off. Takes effect within one event-loop
 /// iteration; rendering is skipped while the panel is off.
 pub fn set_display_on(on: bool) {
-    DISPLAY_ON.store(on, core::sync::atomic::Ordering::Relaxed);
+    DISPLAY_ON.store(on, Ordering::Relaxed);
 }
 
 /// Run `f` with the board's I2C bus, once the event loop has set it up.
@@ -535,7 +509,7 @@ impl EspBackend {
         // Publish the bus so an application can reach the other devices on it.
         unsafe { SHARED_I2C = Some(i2c_bus) };
 
-        let mut ioe = match M5Ioe1::new(RefCellDevice::new(i2c_bus), &mut delay) {
+        let mut ioe = match M5Ioe1::new(RefCellDevice::new(i2c_bus), delay) {
             Ok(ioe) => ioe,
             Err(e) => {
                 scan_i2c_bus(&mut RefCellDevice::new(i2c_bus));
@@ -545,13 +519,13 @@ impl EspBackend {
             }
         };
 
-        power_up(&mut ioe, &mut delay).map_err(|e| {
+        power_up(&mut ioe).map_err(|e| {
             slint::PlatformError::Other(alloc::format!("Failed to power up the board: {e:?}"))
         })?;
-        reset_panel(&mut ioe, &mut delay).map_err(|e| {
+        ioe.pulse_low(IOE_PIN_PANEL_RST, 20, 150).map_err(|e| {
             slint::PlatformError::Other(alloc::format!("Failed to reset the panel: {e:?}"))
         })?;
-        reset_touch(&mut ioe, &mut delay).map_err(|e| {
+        ioe.pulse_low(IOE_PIN_TOUCH_RST, 10, 50).map_err(|e| {
             slint::PlatformError::Other(alloc::format!("Failed to reset the touch panel: {e:?}"))
         })?;
 
@@ -628,7 +602,7 @@ impl EspBackend {
                 Err(e) => error!("Touch read failed: {e:?}"),
             }
 
-            let want_on = DISPLAY_ON.load(core::sync::atomic::Ordering::Relaxed);
+            let want_on = DISPLAY_ON.load(Ordering::Relaxed);
             if want_on != display_lit {
                 display_lit = want_on;
                 if let Err(e) = display.command(if want_on { 0x29 } else { 0x28 }, &[]) {
@@ -638,9 +612,7 @@ impl EspBackend {
             if !display_lit {
                 // The panel shows nothing; skip rendering entirely and
                 // repaint everything when it comes back.
-                if !window.has_active_animations() {
-                    delay.delay_millis(10);
-                }
+                delay.delay_millis(10);
                 continue;
             }
             window.draw_if_needed(|renderer| {
