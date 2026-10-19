@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore hdisplay vdisplay htotal vtotal vrefresh
-use super::select_requested_mode;
+use super::{select_default_mode, select_requested_mode};
 use drm::control::{Mode, ModeTypeFlags};
 
 fn mode(width: u16, height: u16, refresh: u32, preferred: bool) -> Mode {
@@ -93,4 +93,42 @@ fn malformed_requests_return_an_error() {
     ] {
         assert!(select_requested_mode(&modes, request).is_err(), "accepted {request:?}");
     }
+}
+
+#[test]
+fn preferred_mode_wins_over_the_current_mode() {
+    let modes = [mode(1280, 720, 60, false), mode(1920, 1080, 60, true)];
+    assert_eq!(select_default_mode(&modes, Some(modes[0])), Some(modes[1]));
+}
+
+#[test]
+fn largest_preferred_mode_wins() {
+    let modes = [mode(1280, 720, 60, true), mode(1920, 1080, 50, true), mode(1920, 1080, 60, true)];
+    assert_eq!(select_default_mode(&modes, None), Some(modes[2]));
+}
+
+#[test]
+fn current_mode_wins_without_a_preferred_mode() {
+    let modes = [mode(1280, 720, 60, false), mode(1280, 720, 50, false)];
+    assert_eq!(select_default_mode(&modes, Some(modes[1])), Some(modes[1]));
+}
+
+#[test]
+fn current_mode_is_kept_when_the_output_does_not_list_it() {
+    let modes = [mode(1920, 1080, 60, false)];
+    let current = mode(1280, 800, 60, false);
+    assert_eq!(select_default_mode(&modes, Some(current)), Some(current));
+    assert_eq!(select_default_mode(&[], Some(current)), Some(current));
+}
+
+#[test]
+fn largest_then_fastest_mode_wins_without_preferred_or_current_mode() {
+    let modes = [
+        mode(1920, 1080, 24, false),
+        mode(1920, 1080, 60, false),
+        mode(3840, 2160, 30, false),
+        mode(3840, 2160, 24, false),
+    ];
+    assert_eq!(select_default_mode(&modes, None), Some(modes[2]));
+    assert_eq!(select_default_mode(&[], None), None);
 }
