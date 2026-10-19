@@ -41,10 +41,6 @@ if(IOS)
 
     # Apps on iOS can't ship their own dynamic libraries outside of a framework
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-    if(NOT SLINT_STYLE)
-        set(SLINT_STYLE "cupertino" CACHE STRING "" FORCE)
-    endif()
 endif()
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
