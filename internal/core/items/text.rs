@@ -663,8 +663,9 @@ fn text_layout_info(
     // The text layout cache holds one wrap mode per item, and an unconstrained measurement
     // doesn't need `NoWrap`: with no width to break at, the mode can't change the width.
     let wrap = text.wrap();
-    let implicit_size =
-        |max_width| window_adapter.renderer().text_size(text, self_rc, max_width, wrap);
+    let implicit_size = |text: Pin<&dyn RenderString>, max_width| {
+        window_adapter.renderer().text_size(text, self_rc, max_width, wrap)
+    };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
     // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
@@ -678,14 +679,13 @@ fn text_layout_info(
             // preferred width, so this replaces the plain measurement below.
             let word_wrap_widths =
                 matches!((text.overflow(), wrap), (TextOverflow::Clip, TextWrap::WordWrap))
-                    .then(|| window_adapter.renderer().text_content_widths(width_text, self_rc))
+                    .then(|| window_adapter.renderer().text_content_widths(text, self_rc))
                     .flatten();
 
             let (min, preferred) = match word_wrap_widths {
                 Some(widths) => (widths.min.get(), widths.max.get()),
                 None => {
-                    let unwrapped_width =
-                        window_adapter.renderer().text_size(width_text, self_rc, None, wrap).width;
+                    let unwrapped_width = implicit_size(width_text, None).width;
                     let min = match text.overflow() {
                         TextOverflow::Elide => unwrapped_width.min(
                             window_adapter.renderer().char_size(width_text, self_rc, '…').width,
@@ -704,14 +704,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match wrap {
                 TextWrap::NoWrap => single_line_height(window_adapter, text, self_rc)
-                    .unwrap_or_else(|| implicit_size(None).height),
+                    .unwrap_or_else(|| implicit_size(text, None).height),
                 TextWrap::WordWrap | TextWrap::CharWrap => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
                         width.get()
                     };
-                    implicit_size(Some(w)).height
+                    implicit_size(text, Some(w)).height
                 }
             }
             .ceil();
@@ -863,17 +863,13 @@ impl Item for TextInput {
             Orientation::Horizontal => {
                 let width_text = TextForWidth(self);
                 let width_text = Pin::new(&width_text);
-                let implicit_size =
-                    window_adapter.renderer().text_size(width_text, self_rc, None, wrap);
+                let width =
+                    window_adapter.renderer().text_size(width_text, self_rc, None, wrap).width;
                 let min = match wrap {
-                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::NoWrap => width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
-                LayoutInfo {
-                    min: min.ceil(),
-                    preferred: implicit_size.width.ceil(),
-                    ..LayoutInfo::default()
-                }
+                LayoutInfo { min: min.ceil(), preferred: width.ceil(), ..LayoutInfo::default() }
             }
             Orientation::Vertical => {
                 let h = match wrap {
