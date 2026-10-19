@@ -41,6 +41,8 @@ pub(crate) struct PlatformContext {
     #[pin]
     accent_color: Property<Color>,
     #[pin]
+    system_color_schemes: Property<crate::items::SystemColorSchemes>,
+    #[pin]
     platform_default_font_size: Property<Option<LogicalLength>>,
     modifiers: Cell<InternalKeyboardModifierState>,
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -62,6 +64,10 @@ impl PlatformContext {
                 "PlatformContext::color_scheme",
             ),
             accent_color: Property::new_named(Color::default(), "PlatformContext::accent_color"),
+            system_color_schemes: Property::new_named(
+                Default::default(),
+                "PlatformContext::system_color_schemes",
+            ),
             platform_default_font_size: Property::new_named(
                 None,
                 "PlatformContext::platform_default_font_size",
@@ -410,6 +416,17 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
         self.platform_context().project_ref().accent_color.set(color);
+    }
+
+    /// Returns the process-wide system Material 3 color schemes, transparent if the platform doesn't report any.
+    /// Reads register a property dependency, like [`Self::accent_color`].
+    pub fn system_color_schemes(&self) -> crate::items::SystemColorSchemes {
+        self.platform_context().project_ref().system_color_schemes.get()
+    }
+
+    /// Backend-side write path for the process-wide system color schemes.
+    pub fn set_system_color_schemes(&self, schemes: crate::items::SystemColorSchemes) {
+        self.platform_context().project_ref().system_color_schemes.set(schemes);
     }
 
     /// Returns the platform-reported default font size, or `None` if the backend doesn't

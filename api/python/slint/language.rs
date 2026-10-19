@@ -167,7 +167,7 @@ macro_rules! declare_python_public_structs {
                     let class_doc = [ $($struct_doc),* ].join("\n");
                     let fields = vec![
                         $(
-                            (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n"),
+                            (stringify!($field), stringify!($field_type), <[&str]>::join(&[$($field_doc),*], "\n"),
                                 i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)),
                         )*
                     ];

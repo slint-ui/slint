@@ -149,6 +149,67 @@ macro_rules! for_each_builtin_structs {
                 width: Coord,
             }
 
+            /// The color roles of a Material 3 color scheme, as reported by the platform.
+            /// The fields are the [Material 3 color roles](https://m3.material.io/styles/color/roles).
+            /// All colors are transparent when the platform doesn't report a scheme.
+            struct SystemColorScheme {
+                primary: Color,
+                surface_tint: Color,
+                on_primary: Color,
+                primary_container: Color,
+                on_primary_container: Color,
+                secondary: Color,
+                on_secondary: Color,
+                secondary_container: Color,
+                on_secondary_container: Color,
+                tertiary: Color,
+                on_tertiary: Color,
+                tertiary_container: Color,
+                on_tertiary_container: Color,
+                error: Color,
+                on_error: Color,
+                error_container: Color,
+                on_error_container: Color,
+                background: Color,
+                on_background: Color,
+                surface: Color,
+                on_surface: Color,
+                surface_variant: Color,
+                on_surface_variant: Color,
+                outline: Color,
+                outline_variant: Color,
+                inverse_surface: Color,
+                inverse_on_surface: Color,
+                inverse_primary: Color,
+                primary_fixed: Color,
+                on_primary_fixed: Color,
+                primary_fixed_dim: Color,
+                on_primary_fixed_variant: Color,
+                secondary_fixed: Color,
+                on_secondary_fixed: Color,
+                secondary_fixed_dim: Color,
+                on_secondary_fixed_variant: Color,
+                tertiary_fixed: Color,
+                on_tertiary_fixed: Color,
+                tertiary_fixed_dim: Color,
+                on_tertiary_fixed_variant: Color,
+                surface_dim: Color,
+                surface_bright: Color,
+                surface_container_lowest: Color,
+                surface_container_low: Color,
+                surface_container: Color,
+                surface_container_high: Color,
+                surface_container_highest: Color,
+            }
+
+            /// The light and dark Material 3 color schemes reported by the platform.
+            struct SystemColorSchemes {
+                /// The scheme used with the light color scheme.
+                light: SystemColorScheme,
+                /// The scheme used with the dark color scheme.
+                dark: SystemColorScheme,
+            }
+
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
                 /// The distance between the baseline and the top of the tallest glyph in the font.

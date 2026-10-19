@@ -3792,6 +3792,10 @@ fn build(l: &mut Loader) {
             /// It defaults to the dot (`.`) and is determined by the locale.
             /// See the <Link type="translations" label="translations guide"/> for details.
             out property <string> decimal-separator;
+            /// The light and dark Material 3 color schemes of the system,
+            /// such as the colors that Android 14 and later derive from the wallpaper.
+            /// All colors are transparent when the platform doesn't provide a scheme.
+            out property <SystemColorSchemes> system-color-schemes;
             /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
             /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
             ///

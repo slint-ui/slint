@@ -5,6 +5,7 @@
 
 package dev.slint.android;
 
+import android.R;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -645,6 +646,70 @@ public class SlintAndroidJavaHelper {
         int color = a.getColor(0, 0);
         a.recycle();
         return color;
+    }
+
+    // The light and dark resource of each Material 3 color role, in the field order of Slint's
+    // `SystemColorScheme`. The roles without a resource come from the tonal palettes.
+    private static final int[][] SYSTEM_COLOR_ROLES = {
+        { R.color.system_primary_light, R.color.system_primary_dark },
+        { R.color.system_primary_light, R.color.system_primary_dark },
+        { R.color.system_on_primary_light, R.color.system_on_primary_dark },
+        { R.color.system_primary_container_light, R.color.system_primary_container_dark },
+        { R.color.system_on_primary_container_light, R.color.system_on_primary_container_dark },
+        { R.color.system_secondary_light, R.color.system_secondary_dark },
+        { R.color.system_on_secondary_light, R.color.system_on_secondary_dark },
+        { R.color.system_secondary_container_light, R.color.system_secondary_container_dark },
+        { R.color.system_on_secondary_container_light, R.color.system_on_secondary_container_dark },
+        { R.color.system_tertiary_light, R.color.system_tertiary_dark },
+        { R.color.system_on_tertiary_light, R.color.system_on_tertiary_dark },
+        { R.color.system_tertiary_container_light, R.color.system_tertiary_container_dark },
+        { R.color.system_on_tertiary_container_light, R.color.system_on_tertiary_container_dark },
+        { R.color.system_error_light, R.color.system_error_dark },
+        { R.color.system_on_error_light, R.color.system_on_error_dark },
+        { R.color.system_error_container_light, R.color.system_error_container_dark },
+        { R.color.system_on_error_container_light, R.color.system_on_error_container_dark },
+        { R.color.system_background_light, R.color.system_background_dark },
+        { R.color.system_on_background_light, R.color.system_on_background_dark },
+        { R.color.system_surface_light, R.color.system_surface_dark },
+        { R.color.system_on_surface_light, R.color.system_on_surface_dark },
+        { R.color.system_surface_variant_light, R.color.system_surface_variant_dark },
+        { R.color.system_on_surface_variant_light, R.color.system_on_surface_variant_dark },
+        { R.color.system_outline_light, R.color.system_outline_dark },
+        { R.color.system_outline_variant_light, R.color.system_outline_variant_dark },
+        { R.color.system_neutral1_800, R.color.system_neutral1_100 },
+        { R.color.system_neutral1_50, R.color.system_neutral1_800 },
+        { R.color.system_accent1_200, R.color.system_accent1_600 },
+        { R.color.system_primary_fixed, R.color.system_primary_fixed },
+        { R.color.system_on_primary_fixed, R.color.system_on_primary_fixed },
+        { R.color.system_primary_fixed_dim, R.color.system_primary_fixed_dim },
+        { R.color.system_on_primary_fixed_variant, R.color.system_on_primary_fixed_variant },
+        { R.color.system_secondary_fixed, R.color.system_secondary_fixed },
+        { R.color.system_on_secondary_fixed, R.color.system_on_secondary_fixed },
+        { R.color.system_secondary_fixed_dim, R.color.system_secondary_fixed_dim },
+        { R.color.system_on_secondary_fixed_variant, R.color.system_on_secondary_fixed_variant },
+        { R.color.system_tertiary_fixed, R.color.system_tertiary_fixed },
+        { R.color.system_on_tertiary_fixed, R.color.system_on_tertiary_fixed },
+        { R.color.system_tertiary_fixed_dim, R.color.system_tertiary_fixed_dim },
+        { R.color.system_on_tertiary_fixed_variant, R.color.system_on_tertiary_fixed_variant },
+        { R.color.system_surface_dim_light, R.color.system_surface_dim_dark },
+        { R.color.system_surface_bright_light, R.color.system_surface_bright_dark },
+        { R.color.system_surface_container_lowest_light, R.color.system_surface_container_lowest_dark },
+        { R.color.system_surface_container_low_light, R.color.system_surface_container_low_dark },
+        { R.color.system_surface_container_light, R.color.system_surface_container_dark },
+        { R.color.system_surface_container_high_light, R.color.system_surface_container_high_dark },
+        { R.color.system_surface_container_highest_light, R.color.system_surface_container_highest_dark },
+    };
+
+    public int[] system_color_schemes() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return new int[0];
+        }
+        int[] colors = new int[SYSTEM_COLOR_ROLES.length * 2];
+        for (int i = 0; i < SYSTEM_COLOR_ROLES.length; i++) {
+            colors[i] = mActivity.getColor(SYSTEM_COLOR_ROLES[i][0]);
+            colors[SYSTEM_COLOR_ROLES.length + i] = mActivity.getColor(SYSTEM_COLOR_ROLES[i][1]);
+        }
+        return colors;
     }
 
     // Get the size of the window

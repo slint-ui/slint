@@ -168,6 +168,7 @@ macro_rules! for_each_builtin_function {
             }
             ColorScheme: pure fn() -> ColorScheme
             AccentColor: pure fn accent_color(&context) -> Color { context.accent_color() }
+            SystemColorSchemes: pure fn system_color_schemes(&context) -> SystemColorSchemes { context.system_color_schemes() }
             SupportsNativeMenuBar: pure fn() -> bool
             /// Setup the menu bar
             ///
