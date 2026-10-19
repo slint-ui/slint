@@ -244,7 +244,9 @@
     showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
     reportToModel(
       "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
-        `The next preview_slint call starts a fresh interpreter.\n${message}`,
+        "The next preview_slint call starts a fresh interpreter. " +
+        "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
+        `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
     );
   }
 

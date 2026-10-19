@@ -52,3 +52,5 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
 - A Rust panic leaves the module unusable, and its pending promises never settle.
   The panic hook logs it with `console.error`, starting with "panicked at".
   To recover without a reload, import the module again under a new URL fragment, such as `#2`, and give it a new canvas.
+- A panic is a bug in Slint.
+  Suggest reporting it at https://github.com/slint-ui/slint/issues with the panic message, the Slint version, and the smallest `.slint` source that reproduces it.
