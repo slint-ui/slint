@@ -7311,6 +7311,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-dotnet"
+version = "1.19.0"
+dependencies = [
+ "i-slint-backend-linuxkms",
+ "i-slint-backend-selector",
+ "i-slint-core",
+ "slint-interpreter",
+ "spin_on",
+]
+
+[[package]]
 name = "slint-editor"
 version = "1.19.0"
 dependencies = [

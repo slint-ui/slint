@@ -1,0 +1,27 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Slint</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.</Description>
+    <PackageId>Slint</PackageId>
+  </PropertyGroup>
+  <!-- Copies the native library from `cargo build -p slint-dotnet` to the output of this and every referencing project. -->
+  <PropertyGroup>
+    <SlintNativeLibraryName Condition="$([MSBuild]::IsOSPlatform('Windows'))">slint_dotnet.dll</SlintNativeLibraryName>
+    <SlintNativeLibraryName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libslint_dotnet.dylib</SlintNativeLibraryName>
+    <SlintNativeLibraryName Condition="'$(SlintNativeLibraryName)' == ''">libslint_dotnet.so</SlintNativeLibraryName>
+    <SlintCargoProfile Condition="'$(SlintCargoProfile)' == ''">debug</SlintCargoProfile>
+    <SlintNativeLibraryPath Condition="'$(SlintNativeLibraryPath)' == ''">$(MSBuildThisFileDirectory)../../../target/$(SlintCargoProfile)/$(SlintNativeLibraryName)</SlintNativeLibraryPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)')" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <InternalsVisibleTo Include="Slint.Tests" />
+  </ItemGroup>
+  <Target Name="SlintWarnMissingNativeLibrary" BeforeTargets="Build" Condition="!Exists('$(SlintNativeLibraryPath)')">
+    <Warning Code="SLINT001" Text="Native library $(SlintNativeLibraryPath) not found; run `cargo build -p slint-dotnet` and rebuild." />
+  </Target>
+</Project>
