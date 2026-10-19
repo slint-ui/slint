@@ -92,7 +92,8 @@ export component InspectorPane inherits Rectangle {
         return Api.selection.highlight-index >= 0
             && (root.element-information.type-name == "GridLayout"
                 || root.element-information.type-name == "HorizontalLayout"
-                || root.element-information.type-name == "VerticalLayout");
+                || root.element-information.type-name == "VerticalLayout"
+                || root.element-information.type-name == "FlexboxLayout");
     }
 
     function selected-x() -> length {
