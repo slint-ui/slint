@@ -64,7 +64,9 @@ No input handling changes were made in this measurement commit.
 
 ## Reproduction
 
-Run `profile-touch.py --serial BFC13272EF67B96D --seconds 120 --output /tmp/pico-touch` against firmware commit `eae4346267`.
+This capture used the instrumented driver before the contact fixes.
+`capture.json` retains its original source revision.
+Use `profile-touch.py --serial BFC13272EF67B96D --seconds 120 --output /tmp/pico-touch` to capture current behavior.
 Pan each page with one held contact and record intentional lifts.
 `reports.csv` contains every newly acquired raw report, including the sidebar navigation tap.
 `analysis.json` contains full interval statistics and the selected sequence ranges.

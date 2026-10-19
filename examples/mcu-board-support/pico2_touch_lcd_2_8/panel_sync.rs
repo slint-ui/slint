@@ -3,6 +3,41 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
+static INPUT_SEQUENCE: AtomicU32 = AtomicU32::new(0);
+static INPUT_CLOCK: [AtomicU32; 3] = [const { AtomicU32::new(0) }; 3];
+static INPUT_TICK: AtomicU32 = AtomicU32::new(0);
+
+pub fn input_tick() -> u32 {
+    let values = loop {
+        let sequence = INPUT_SEQUENCE.load(Ordering::Acquire);
+        if sequence == 0 {
+            return tick();
+        }
+        if sequence & 1 != 0 {
+            continue;
+        }
+        let values = INPUT_CLOCK.each_ref().map(|v| v.load(Ordering::Relaxed));
+        core::sync::atomic::fence(Ordering::Acquire);
+        if sequence == INPUT_SEQUENCE.load(Ordering::Relaxed) {
+            break values;
+        }
+    };
+    let candidate =
+        super::input_phase::candidate(values[0], values[1], values[2], super::now_us() as u32);
+    let mut previous = INPUT_TICK.load(Ordering::Relaxed);
+    loop {
+        let next = super::input_phase::advance(previous, candidate);
+        if next == previous {
+            return next;
+        }
+        match INPUT_TICK.compare_exchange_weak(previous, next, Ordering::Relaxed, Ordering::Relaxed)
+        {
+            Ok(_) => return next,
+            Err(value) => previous = value,
+        }
+    }
+}
+
 static TICK: AtomicU32 = AtomicU32::new(0);
 static PERIOD_US: AtomicU32 = AtomicU32::new(0);
 static LATE_STRIPS: AtomicU32 = AtomicU32::new(0);
@@ -72,6 +107,15 @@ impl ScanClock {
                     }
                 }
                 self.last_wrap = origin;
+                INPUT_SEQUENCE.fetch_add(1, Ordering::AcqRel);
+                for (slot, value) in INPUT_CLOCK.iter().zip([
+                    self.tick,
+                    origin as u32,
+                    PERIOD_US.load(Ordering::Relaxed),
+                ]) {
+                    slot.store(value, Ordering::Relaxed);
+                }
+                INPUT_SEQUENCE.fetch_add(1, Ordering::Release);
             }
             self.scan = scan;
             self.last_read = began;

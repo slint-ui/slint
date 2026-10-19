@@ -21,6 +21,7 @@ mod native_buffer;
 mod overclock;
 mod packet_slot;
 mod panel_scan;
+mod input_phase;
 mod panel_sync;
 mod pio_transport;
 mod scan_budget;

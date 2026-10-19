@@ -3,6 +3,8 @@
 
 extern crate alloc;
 #[cfg(test)]
+#[path = "../../../input_phase.rs"]
+mod input_phase;
 #[path = "../../../touch_samples.rs"]
 mod touch_samples;
 #[path = "../../../touch_replay.rs"]

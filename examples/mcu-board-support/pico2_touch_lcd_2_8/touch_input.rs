@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use super::touch_samples::{Batch, Buffer, Kind, Sample};
+use super::touch_samples::{Buffer, Kind, Sample};
 use alloc::boxed::Box;
 use core::cell::RefCell;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -33,11 +33,9 @@ pub fn configure(devices: Devices) {
 pub fn flip(flipped: bool) {
     FLIPPED.store(flipped, Ordering::Release);
 }
-pub fn take() -> Option<Batch> {
-    SAMPLES.lock(|samples| samples.borrow_mut().take(super::panel_tick()))
-}
 pub fn ready() -> bool {
-    SAMPLES.lock(|samples| samples.borrow().ready(super::panel_tick()))
+    let tick = super::panel_sync::input_tick();
+    SAMPLES.lock(|samples| samples.borrow().ready(tick))
 }
 #[cfg(feature = "pico2-queue-profile")]
 pub fn overflows() -> u32 {
@@ -130,7 +128,8 @@ pub fn dispatch(window: &slint::Window, previous: &mut Option<slint::LogicalPosi
         input::{BackendMouseEvent, TouchHistory},
         lengths::LogicalPoint,
     };
-    let Some(batch) = take() else {
+    let tick = super::panel_sync::input_tick();
+    let Some(batch) = SAMPLES.lock(|samples| samples.borrow_mut().take(tick)) else {
         return false;
     };
     let sample = batch.samples[batch.len - 1];
@@ -138,7 +137,8 @@ pub fn dispatch(window: &slint::Window, previous: &mut Option<slint::LogicalPosi
         cancel(window, previous);
         return true;
     }
-    let position = position(sample, window.scale_factor());
+    let scale = window.scale_factor();
+    let position = position(sample, scale);
     let point = LogicalPoint::new(position.x, position.y);
     let button = slint::platform::PointerEventButton::Left;
     let (kind, event) = if sample.kind == Kind::Release {
@@ -171,7 +171,7 @@ pub fn dispatch(window: &slint::Window, previous: &mut Option<slint::LogicalPosi
         history: batch.samples[..batch.len - 1]
             .iter()
             .map(|sample| {
-                let p = self::position(*sample, window.scale_factor());
+                let p = self::position(*sample, scale);
                 (LogicalPoint::new(p.x, p.y), Instant::from_nanos(sample.time_us * 1000))
             })
             .collect(),
@@ -184,7 +184,7 @@ pub fn dispatch(window: &slint::Window, previous: &mut Option<slint::LogicalPosi
         }
         super::touch_profile::event(kind, sample.time_us as u32, history.history.len());
         super::profile::sampled_input(sample.time_us as u32);
-        super::profile_phase(super::profile_run(), super::panel_tick());
+        super::profile_phase(super::profile_run(), super::panel_sync::input_tick());
     }
     window.dispatch_event(slint::platform::WindowEvent::internal(
         i_slint_core::platform::InternalEvent::SampledMouse {

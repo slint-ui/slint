@@ -1,9 +1,11 @@
 # Stock-Speed Qualification
 
-The final firmware uses the rated 150 MHz CPU, 48 MHz SPI, and native 320 × 240 output.
+The initial stock-speed qualification used the rated 150 MHz CPU, 48 MHz SPI, and native 320 × 240 output.
 The target is the measured panel cadence, approximately 58.6 Hz.
 The [75 MHz flash qualification](flash-75/report.md) records its isolated raster savings and repeated corruption checks.
 The [QMI timing trials](qmi-timing/report.md) document the retained shorter chip-select gap, uninterrupted bursts, and clock comparisons.
+The [latest touch timing qualification](touch-panning/input-phase/report.md) uses 150 MHz CPU, 75 MHz flash and 60 MHz display SPI.
+Its panel-derived input clock removes the Queue tail-latency regression while retaining panel cadence and unchanged pixels.
 The Settings list includes the final Kiosk mode checkbox and a 207-pixel scroll range.
 Normal Ink retains 16/26/20/32 particles; both clock configurations now enable held-vial boost to 26/42/32/52.
 

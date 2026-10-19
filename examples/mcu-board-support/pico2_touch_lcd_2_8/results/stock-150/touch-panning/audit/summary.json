@@ -1,0 +1,22 @@
+{
+  "Queue": {
+    "intervals": 868,
+    "median_gap_ms": 17.038,
+    "p95_gap_ms": 17.661,
+    "p99_gap_ms": 17.876,
+    "maximum_gap_ms": 18.12,
+    "gaps_over_19_ms": 0,
+    "mean_sample_age_ms": 3.923337543053961,
+    "maximum_sample_age_ms": 9.466
+  },
+  "Settings": {
+    "intervals": 1056,
+    "median_gap_ms": 17.061,
+    "p95_gap_ms": 17.577,
+    "p99_gap_ms": 17.877,
+    "maximum_gap_ms": 18.238,
+    "gaps_over_19_ms": 0,
+    "mean_sample_age_ms": 4.084156751652502,
+    "maximum_sample_age_ms": 9.143
+  }
+}

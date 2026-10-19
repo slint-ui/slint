@@ -1,0 +1,17 @@
+{
+  "elf_sha256": "b49909dd4e049d2160c4d814fda582e554b6d9a87ccc45d607513290e5083f73",
+  "baseline_elf_sha256": "6387487ece92bb82edb39083ba5f9fbdfcb8fdf8ac1c6951a6190af958043b33",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "display_spi_hz": 60000000,
+  "host_tests_passed": 57,
+  "main_stack_bytes": 24604,
+  "minimum_unused_stack_bytes": 5804,
+  "heap_bytes": 317440,
+  "unchanged_fixed_capture_hashes": true,
+  "panel_readback_mismatched_pixels": 0,
+  "unchanged_artwork_symbols": 24,
+  "hardware_f32_and_sram_checks_passed": true,
+  "flashinfo": "PICO_FLASH,sys_hz=150000000,flash_hz=75000000,clkdiv=2,timing=1073746434,rfmt=299688,rcmd=235",
+  "left_in": "manual Queue"
+}

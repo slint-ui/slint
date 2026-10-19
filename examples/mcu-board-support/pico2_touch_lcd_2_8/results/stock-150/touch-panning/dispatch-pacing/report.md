@@ -48,7 +48,7 @@ Do not touch the device during replay.
 Settings' maximum dispatch gap decreases by 23.3%, and its count above 20 ms falls from 16 to two.
 Queue improves at the 95th percentile but regresses slightly in its rarest intervals.
 This is not perfectly uniform dispatch, and sample age is not touch-to-photon latency.
-The next investigation should target the remaining synchronous rendering intervals without sacrificing display stability.
+The subsequent [measured-phase input change](../input-phase/report.md) removes this Queue regression and shortens both lists' longest gaps.
 
 All 4,371 contact coordinates are accounted for on each firmware, including coalesced history.
 Each drag retains one press and one release, with zero sample-buffer overflows.

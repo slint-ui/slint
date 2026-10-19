@@ -1,0 +1,17 @@
+{
+  "elf_sha256": "6387487ece92bb82edb39083ba5f9fbdfcb8fdf8ac1c6951a6190af958043b33",
+  "baseline_elf_sha256": "7412c476d3f7b13a82aa14f72f8f888718b42e23ca95b07e12cb33da445a1e3c",
+  "same_binary_control_elf_sha256": "86869a9df2ba2e7d915d9ed032d76c8715465f159f17654daa67699bbce31f13",
+  "cpu_hz": 150000000,
+  "flash_hz": 75000000,
+  "display_spi_hz": 60000000,
+  "host_tests_passed": 57,
+  "main_stack_bytes": 24604,
+  "minimum_unused_stack_bytes": 6484,
+  "heap_bytes": 317440,
+  "unchanged_fixed_capture_hashes": true,
+  "panel_readback_mismatched_pixels": 0,
+  "unchanged_artwork_symbols": 24,
+  "hardware_f32_and_sram_checks_passed": true,
+  "source": "Device-timed replay of previously recorded physical drags; not a new manual touch capture"
+}
