@@ -62,11 +62,6 @@ if(ANDROID)
 
     # Android requires a shared library
     set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
-
-    # Default to Material style on Android
-    if(NOT SLINT_STYLE)
-        set(SLINT_STYLE "material" CACHE STRING "" FORCE)
-    endif()
 endif()
 
 # When building with the Emscripten toolchain, build for its Rust target and pick platform-level defaults.
