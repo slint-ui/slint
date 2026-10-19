@@ -42,7 +42,6 @@ pub fn is_project_file(path: &Path) -> bool {
 ///
 /// A project file resolves to its main file and applies itself, without a search.
 /// Any other path resolves to itself, with the project file found for its directory.
-#[expect(deprecated)]
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
     if !is_project_file(input) {
         return Ok((
@@ -57,7 +56,10 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Str
     let entry = project_file
         .main()
         .ok_or_else(|| format!("{} has no 'main' to compile", project_file.source_path()))?;
-    Ok((entry.to_legacy_path(), Some(project_file)))
+    let entry = entry.into_native_path().ok_or_else(|| {
+        format!("{} must specify a local file for 'main'", project_file.source_path())
+    })?;
+    Ok((entry, Some(project_file)))
 }
 
 #[derive(Clone, Debug)]
@@ -895,6 +897,16 @@ mod tests {
         with_project_file_contents("{}", |path| {
             let error = resolve_input(path).unwrap_err();
             assert!(error.contains("'main'"), "{error}");
+        });
+    }
+
+    #[test]
+    fn a_project_file_input_with_a_non_local_main_file_is_an_error() {
+        with_project_file_contents(r#"{ "main": "https://example.com/main.slint" }"#, |path| {
+            assert_eq!(
+                resolve_input(path).unwrap_err(),
+                format!("{} must specify a local file for 'main'", SourcePath::new(path))
+            );
         });
     }
 
