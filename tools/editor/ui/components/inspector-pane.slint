@@ -127,6 +127,10 @@ export component InspectorPane inherits Rectangle {
         return root.has-backend-rect() && root.element-information.type-name == "Image";
     }
 
+    function is-timer() -> bool {
+        return Api.selection.highlight-index >= 0 && root.element-information.type-name == "Timer";
+    }
+
     function is-root-selection() -> bool {
         return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
@@ -268,6 +272,17 @@ export component InspectorPane inherits Rectangle {
         }
         if property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float {
             return property.value-float.to-fixed(0);
+        }
+        return property.code;
+    }
+
+    function timer-interval-label() -> string {
+        let property = Api.source-property-value-data("interval", {});
+        if property.code == "" {
+            return "0";
+        }
+        if property.value-kind == PropertyValueKind.float {
+            return (property.value-int == 0 ? property.value-float * 1000 : property.value-float).to-fixed(0);
         }
         return property.code;
     }
@@ -676,6 +691,22 @@ export component InspectorPane inherits Rectangle {
                             suffix-width: Metrics.icon-small;
                             commit-key: root.field-key("spacing");
                             accepted(text) => { return root.commit-px-code("spacing", text); }
+                        }
+                    }
+                }
+
+                if root.is-timer(): InspectorSection {
+                    title: @tr("Timer");
+
+                    InspectorPropertyRow {
+                        label: @tr("Interval");
+                        InspectorValueField {
+                            accessible-name: @tr("Timer interval");
+                            value: root.timer-interval-label();
+                            suffix: "ms";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.field-key("interval");
+                            accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.commit-code("interval", text + "ms"); }
                         }
                     }
                 }
