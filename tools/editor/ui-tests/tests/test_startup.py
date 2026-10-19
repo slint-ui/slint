@@ -64,7 +64,7 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     target = fixture_project / "Main.slint"
     if project_input != "source":
         target = fixture_project / "slint-project.json"
-        target.write_text(json.dumps({"entry": "Main.slint"}))
+        target.write_text(json.dumps({"main": "Main.slint"}))
 
     with launch_editor(editor_binary, editor_environment, target) as editor:
         window = first_window(editor)
@@ -146,7 +146,7 @@ def test_manifest_without_entry_reports_compilation_error_and_allows_navigation(
         wait_until(
             lambda: (
                 any(
-                    "has no 'entry' to compile" in message.accessible_label
+                    "has no 'main' to compile" in message.accessible_label
                     for message in elements(
                         diagnostics, role=slint_testing.AccessibleRole.Text
                     )
@@ -193,7 +193,7 @@ def test_broken_project_recovers_when_repaired_on_disk(
         if broken_input == "malformed-surrounding-manifest":
             target = fixture_project / "Main.slint"
     elif broken_input == "missing-entry":
-        target.write_text(json.dumps({"entry": repaired_source.name}))
+        target.write_text(json.dumps({"main": repaired_source.name}))
     elif broken_input == "no-entry":
         target.write_text("{}")
     elif broken_input == "missing-source":
@@ -212,7 +212,7 @@ def test_broken_project_recovers_when_repaired_on_disk(
                         error in message.accessible_label
                         for error in [
                             "EOF while parsing",
-                            "has no 'entry'",
+                            "has no 'main'",
                             "No component found",
                             "File not registered",
                         ]
@@ -235,7 +235,7 @@ def test_broken_project_recovers_when_repaired_on_disk(
         else:
             repaired_source.write_text(source)
             if broken_input != "missing-entry":
-                target.write_text(json.dumps({"entry": repaired_source.name}))
+                target.write_text(json.dumps({"main": repaired_source.name}))
         element(window, "Repaired project", role=slint_testing.AccessibleRole.Text)
         assert editor.process.poll() is None
 
@@ -302,5 +302,5 @@ def test_switching_to_a_broken_project_removes_the_previous_preview(
         assert not elements(
             window, "Fixture text", role=slint_testing.AccessibleRole.Text
         )
-        manifest.write_text(json.dumps({"entry": sibling.name}))
+        manifest.write_text(json.dumps({"main": sibling.name}))
         element(window, "Recovered project", role=slint_testing.AccessibleRole.Text)

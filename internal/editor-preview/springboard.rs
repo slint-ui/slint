@@ -952,10 +952,7 @@ mod tests {
         controller.send(&LspToPreviewMessage::SetConfiguration {
             config: i_slint_live_preview::protocol::PreviewConfig {
                 overrides: i_slint_compiler::project_file::Overrides {
-                    project: i_slint_compiler::project_file::ProjectFileData {
-                        style: Some("fluent".into()),
-                        ..Default::default()
-                    },
+                    style: Some("fluent".into()),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -1008,16 +1005,17 @@ mod tests {
             let source = lsp_types::Url::from_file_path(directory.path().join("main.slint")).unwrap();
             let manifest = lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window {}".into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"enable-experimental-features":true}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"style":"no-such-style"}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"enable-experimental-features":false}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
-            for (style, succeeds) in [(Some("fluent"), true), (None, false)] {
+            for (enable_experimental, succeeds) in [(Some(true), true), (None, false)] {
                 let mut config = i_slint_live_preview::protocol::PreviewConfig::default();
-                config.overrides.project.style = style.map(String::from);
+                config.overrides.project.enable_experimental_features = enable_experimental;
                 config.overrides.debug_info = Some(true);
                 controller.send(&LspToPreviewMessage::SetConfiguration { config });
                 viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;

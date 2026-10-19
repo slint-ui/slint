@@ -156,7 +156,8 @@ mod configuration_tests {
 
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
-            "project": { "style": "fluent", "include-paths": [] },
+            "style": "fluent",
+            "project": { "include-paths": [] },
             "embed_resources": "FutureEmbedding",
             "default_translation_context": "FutureContext",
             "debug_info": false,
@@ -173,7 +174,7 @@ mod configuration_tests {
             "hide_ui": null, "format_utf8": true, "overrides": future_overrides()
         }))
         .unwrap();
-        assert_eq!(config.overrides.project.style.as_deref(), Some("fluent"));
+        assert_eq!(config.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
         assert_eq!(config.overrides.debug_info, Some(false));
         assert_eq!(config.overrides.const_scale_factor, Some(2.));
@@ -217,7 +218,7 @@ mod configuration_tests {
         })
         .unwrap();
         let decoded: PreviewConfig = postcard::from_bytes(&encoded).unwrap();
-        assert_eq!(decoded.overrides.project.style.as_deref(), Some("fluent"));
+        assert_eq!(decoded.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(decoded.overrides.embed_resources, None);
         assert_eq!(decoded.overrides.default_translation_context, None);
         let encoded = postcard::to_allocvec(&decoded).unwrap();

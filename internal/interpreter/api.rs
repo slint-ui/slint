@@ -986,8 +986,8 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a `slint-project.json`, its `entry` is compiled with its settings.
-    /// A project file without an `entry` produces an error.
+    /// If the path is a `slint-project.json`, its `main` is compiled with its settings.
+    /// A project file without an `main` produces an error.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
     /// A `slint-project.json` in the directory of `path`, or in a directory above it,
@@ -1108,7 +1108,7 @@ impl Compiler {
         let mut result = match resolved {
             Err(message) => project_file_error(message, &input),
             Ok(None) => {
-                project_file_error(std::format!("{input} has no 'entry' to compile"), &input)
+                project_file_error(std::format!("{input} has no 'main' to compile"), &input)
             }
             Ok(Some(resolved)) => {
                 let source = if resolved.source == input { source_code } else { None };
@@ -3014,8 +3014,9 @@ mod project_file_tests {
         compiler: &Compiler,
         path: super::SourcePath,
         static_compilation: bool,
+        source: &str,
     ) -> super::CompilationResult {
-        let source = "export component Main inherits Window {}".into();
+        let source = source.into();
         if static_compilation {
             spin_on::spin_on(compiler.build_static_from_source(
                 source,
@@ -3083,7 +3084,7 @@ mod project_file_tests {
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
                 let contents = if path.as_native_path() == Some(loader_manifest.as_path()) {
-                    Ok(r#"{"entry":"main.slint"}"#.into())
+                    Ok(r#"{"main":"main.slint"}"#.into())
                 } else if path.as_native_path() == Some(loader_entry.as_path()) {
                     Ok("export component Main inherits Window {}".into())
                 } else {
@@ -3106,6 +3107,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn source_compilers_read_current_loader_settings_and_replace_overrides() {
+        let source = "export component Main inherits Window { ComponentContainer {} }";
         use i_slint_compiler::{project_file::Overrides, source_path::SourcePath};
         for path in [
             SourcePath::new("/virtual/main.slint"),
@@ -3113,33 +3115,55 @@ mod project_file_tests {
         ] {
             for static_compilation in [false, true] {
                 let manifest = path.parent().join(FILE_NAME).unwrap();
-                let current_style = std::rc::Rc::new(std::cell::RefCell::new("no-such-style"));
+                let current_experimental = std::rc::Rc::new(std::cell::RefCell::new(false));
                 let mut compiler = Compiler::default();
-                let loader_style = current_style.clone();
+                let loader_experimental = current_experimental.clone();
                 let loader_manifest = manifest.clone();
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
-                        Ok(format!(r#"{{"style":"{}"}}"#, loader_style.borrow()))
+                        Ok(format!(
+                            r#"{{"enable-experimental-features":{}}}"#,
+                            loader_experimental.borrow()
+                        ))
                     } else {
                         Err(std::io::ErrorKind::NotFound.into())
                     };
                     Box::pin(async move { Some(contents) })
                 }));
-                assert!(compile_source(&compiler, path.clone(), static_compilation).has_errors());
-                compiler.set_style("fluent".into());
+                assert!(
+                    compile_source(&compiler, path.clone(), static_compilation, source)
+                        .has_errors()
+                );
+                compiler.set_overrides(
+                    Overrides {
+                        style: Some("fluent".into()),
+                        project: i_slint_compiler::project_file::ProjectFileData {
+                            enable_experimental_features: Some(true),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    i_slint_core::InternalToken,
+                );
                 compiler.set_include_paths(vec!["previous-include".into()]);
                 compiler.set_library_paths(std::collections::HashMap::from([(
                     "previous".into(),
                     "previous-library".into(),
                 )]));
-                assert!(!compile_source(&compiler, path.clone(), static_compilation).has_errors());
+                assert!(
+                    !compile_source(&compiler, path.clone(), static_compilation, source)
+                        .has_errors()
+                );
                 compiler.set_overrides(Overrides::default(), i_slint_core::InternalToken);
                 assert!(compiler.style().is_none());
                 assert!(compiler.include_paths().is_empty());
                 assert!(compiler.library_paths().is_empty());
-                assert!(compile_source(&compiler, path.clone(), static_compilation).has_errors());
-                *current_style.borrow_mut() = "fluent";
-                let result = compile_source(&compiler, path.clone(), static_compilation);
+                assert!(
+                    compile_source(&compiler, path.clone(), static_compilation, source)
+                        .has_errors()
+                );
+                *current_experimental.borrow_mut() = true;
+                let result = compile_source(&compiler, path.clone(), static_compilation, source);
                 assert!(!result.has_errors(), "{result:?}");
                 assert!(result.watch_paths.contains(&manifest));
             }
@@ -3149,6 +3173,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn attempted_manifests_are_dependencies_even_when_missing_or_invalid() {
+        let source = "export component Main inherits Window {}";
         use super::SourcePath;
         let path = SourcePath::new("https://example.invalid/ui/main.slint");
         let manifest = path.parent().join(FILE_NAME).unwrap();
@@ -3164,7 +3189,7 @@ mod project_file_tests {
                         })
                     })
                 }));
-                let result = compile_source(&compiler, path.clone(), static_compilation);
+                let result = compile_source(&compiler, path.clone(), static_compilation, source);
                 assert_eq!(result.has_errors(), invalid, "{result:?}");
                 assert!(result.watch_paths.contains(&manifest));
             }
@@ -3226,7 +3251,7 @@ mod project_file_tests {
                 i_slint_core::InternalToken,
             );
             let result = spin_on::spin_on(compiler.build_from_source_path(
-                r#"{"entry":"main.rs"}"#.into(),
+                r#"{"main":"main.rs"}"#.into(),
                 manifest.clone(),
                 i_slint_core::InternalToken,
             ));
@@ -3249,15 +3274,14 @@ mod project_file_tests {
         let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
         let entry = manifest.parent().join("main.slint").unwrap();
         let result = spin_on::spin_on(Compiler::default().build_from_source_path(
-            r#"{"entry":"main.slint"}"#.into(),
+            r#"{"main":"main.slint"}"#.into(),
             manifest,
             i_slint_core::InternalToken,
         ));
         assert!(result.has_errors());
-        assert!(
-            result.diagnostics().any(|diagnostic| diagnostic.source_path().as_deref()
-                == Some(entry.to_string().as_str()))
-        );
+        assert!(result.diagnostics().any(
+            |diagnostic| diagnostic.source_url().as_deref() == Some(entry.to_string().as_str())
+        ));
     }
 
     #[cfg(windows)]
@@ -3271,7 +3295,7 @@ mod project_file_tests {
         assert!(
             result
                 .diagnostics()
-                .any(|diagnostic| diagnostic.message().contains("has no 'entry' to compile"))
+                .any(|diagnostic| diagnostic.message().contains("has no 'main' to compile"))
         );
         assert_eq!(result.components().count(), 0);
     }
@@ -3289,7 +3313,7 @@ mod project_file_tests {
         assert!(
             result
                 .diagnostics()
-                .any(|diagnostic| diagnostic.message().contains("has no 'entry' to compile"))
+                .any(|diagnostic| diagnostic.message().contains("has no 'main' to compile"))
         );
         assert_eq!(result.components().count(), 0);
     }
@@ -3313,7 +3337,7 @@ mod project_file_tests {
                     let loader_entry = entry.clone();
                     compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                         let contents = if path == loader_manifest {
-                            Ok(r#"{"entry":"wrong.slint","style":"no-such-style"}"#.into())
+                            Ok(r#"{"main":"wrong.slint","style":"no-such-style"}"#.into())
                         } else if path == loader_entry {
                             Ok("export component Entry inherits Window {}".into())
                         } else {
@@ -3322,7 +3346,7 @@ mod project_file_tests {
                         Box::pin(async move { Some(contents) })
                     }));
                     let source =
-                        if has_entry { r#"{"entry":"main.slint"}"# } else { "{}" }.to_string();
+                        if has_entry { r#"{"main":"main.slint"}"# } else { "{}" }.to_string();
                     let result = if static_compilation {
                         spin_on::spin_on(compiler.build_static_from_source(
                             source,
@@ -3344,9 +3368,12 @@ mod project_file_tests {
                         assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
                         assert_eq!(
                             diagnostics[0].message(),
-                            format!("{manifest} has no 'entry' to compile")
+                            format!("{manifest} has no 'main' to compile")
                         );
-                        assert_eq!(diagnostics[0].source_path(), Some(manifest.to_string()));
+                        assert_eq!(
+                            diagnostics[0].source_url(),
+                            manifest.to_url().map(String::from)
+                        );
                         assert_eq!(diagnostics[0].line_column(), (1, 1));
                     }
                     assert_eq!(result.component("Entry").is_some(), has_entry);
@@ -3511,7 +3538,7 @@ mod project_file_tests {
             assert!(
                 result
                     .diagnostics()
-                    .any(|diagnostic| diagnostic.message().contains("has no 'entry' to compile"))
+                    .any(|diagnostic| diagnostic.message().contains("has no 'main' to compile"))
             );
             assert_eq!(result.components().count(), 0);
         });

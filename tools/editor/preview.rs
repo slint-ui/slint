@@ -2014,7 +2014,7 @@ fn change_style() {
     // style so the next build uses it.
     let style = get_current_style();
     let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.config.overrides.project.style = Some(style);
+        preview_state.config.overrides.style = Some(style);
         preview_state.current_component()
     }) else {
         return;
@@ -2266,7 +2266,7 @@ async fn reload_timer_function(project_generation: u64) {
         };
         // An empty style lets the compiler apply its own default (and SLINT_STYLE);
         // the ComboBox is updated to the resolved style once the build finishes.
-        let style = config.overrides.project.style.clone().unwrap_or_default();
+        let style = config.overrides.style.clone().unwrap_or_default();
 
         match reload_preview_impl(preview_component, behavior, style, config, project_generation)
             .await
@@ -2468,7 +2468,7 @@ async fn parse_source(
     tracing::debug!(%path, "Preview: compiling source");
     let mut overrides = config.overrides;
     if !style.is_empty() {
-        overrides.project.style = Some(style);
+        overrides.style = Some(style);
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
     let project_loader = open_file_fallback.clone();
@@ -3228,8 +3228,7 @@ mod tests {
         )
         .unwrap();
         for has_entry in [true, false] {
-            let source =
-                if has_entry { r#"{"entry":"main.slint","style":"fluent"}"# } else { "{}" };
+            let source = if has_entry { r#"{"main":"main.slint"}"# } else { "{}" };
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.source_code.insert(
                     manifest.to_url().unwrap(),
@@ -3265,8 +3264,8 @@ mod tests {
                 assert_eq!(root.node.as_ref().unwrap().source_file.path(), &definition);
             } else {
                 assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-                assert!(diagnostics[0].message().contains("has no 'entry' to compile"));
-                assert_eq!(diagnostics[0].source_path(), Some(manifest.to_string()));
+                assert!(diagnostics[0].message().contains("has no 'main' to compile"));
+                assert_eq!(diagnostics[0].source_url(), manifest.to_url().map(String::from));
             }
             assert_eq!(
                 compiled.as_ref().map(|component| component.name()),
@@ -3874,7 +3873,7 @@ mod tests {
             );
             state.dependencies.insert(old_url.clone());
             state.resources.insert(old_url.clone());
-            state.config.overrides.project.style = Some("material".into());
+            state.config.overrides.style = Some("material".into());
             state.resolved_source_url = Some(old_url.clone());
             state.current_previewed_component =
                 Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });

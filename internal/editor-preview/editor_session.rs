@@ -171,20 +171,6 @@ enum DiscoveredProjectFile {
     Invalid { path: PathBuf, state: Option<ProjectFileState>, error: Box<dyn std::error::Error> },
 }
 
-fn preview_configuration(
-    configuration: &crate::document_cache::CompilerConfiguration,
-    hide_ui: Option<bool>,
-) -> PreviewConfig {
-    PreviewConfig {
-        hide_ui,
-        style: configuration.compiler_config.style.clone().unwrap_or_default(),
-        include_paths: configuration.compiler_config.include_paths.clone(),
-        library_paths: configuration.compiler_config.library_paths.clone(),
-        format_utf8: configuration.format == crate::ByteFormat::Utf8,
-        enable_experimental: configuration.compiler_config.enable_experimental,
-    }
-}
-
 /// The documents currently being edited, together with the state the preview
 /// needs to follow along.
 pub struct EditorSession {
@@ -263,7 +249,10 @@ impl EditorSession {
         previews: Vec<PreviewConnection>,
     ) -> Self {
         let compiler_config_defaults = document_cache.configuration_with_import_callback();
-        let preview_config = preview_configuration(&compiler_config_defaults, None);
+        let preview_config = PreviewConfig {
+            format_utf8: compiler_config_defaults.format == crate::ByteFormat::Utf8,
+            ..Default::default()
+        };
         Self {
             document_cache,
             preview_config,
@@ -569,7 +558,7 @@ impl EditorSession {
                 if path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
                     self.active_projects
                         .get(&path.into_native_path()?)
-                        .and_then(|state| state.parsed.as_ref()?.entry()?.to_url())
+                        .and_then(|state| state.parsed.as_ref()?.main()?.to_url())
                 } else {
                     Some(component.url.clone())
                 }
@@ -1020,7 +1009,7 @@ impl EditorSession {
             let Some(entry) = SourcePath::from_url(&url)
                 .into_native_path()
                 .and_then(|path| self.active_projects.get(&path))
-                .and_then(|state| state.parsed.as_ref()?.entry()?.to_url())
+                .and_then(|state| state.parsed.as_ref()?.main()?.to_url())
             else {
                 return Ok(configuration_diagnostics);
             };
@@ -1197,7 +1186,7 @@ mod preview_tests {
     use super::*;
 
     #[test]
-    fn initial_preview_configuration_preserves_compiler_defaults() {
+    fn initial_preview_configuration_sends_no_implicit_overrides() {
         for enable_experimental in [true, false] {
             let mut compiler_config = crate::document_cache::CompilerConfiguration::default();
             compiler_config.compiler_config.style = Some("fluent".into());
@@ -1221,11 +1210,8 @@ mod preview_tests {
                 configuration,
                 Some(&PreviewConfig {
                     hide_ui: None,
-                    style: "fluent".into(),
-                    include_paths: vec![PathBuf::from("/include")],
-                    library_paths: HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]),
+                    overrides: Overrides::default(),
                     format_utf8: false,
-                    enable_experimental,
                 })
             );
         }
@@ -1306,9 +1292,11 @@ mod preview_tests {
         let manifest_path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let manifest_url = Url::from_file_path(&manifest_path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        for (version, manifest, expected) in
-            [(1, "{}", true), (2, "{}", false), (3, r#"{"style":"fluent"}"#, true)]
-        {
+        for (version, manifest, expected) in [
+            (1, "{}", true),
+            (2, "{}", false),
+            (3, r#"{"enable-experimental-features":false}"#, true),
+        ] {
             std::fs::write(&manifest_path, manifest).unwrap();
             for messages in &messages {
                 messages.borrow_mut().clear();
@@ -1334,7 +1322,7 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{"style":"material"}"#,
+            r#"{"enable-experimental-features":true}"#,
         )
         .unwrap();
         session.set_startup_config_overrides(SessionConfigOverrides {
@@ -1360,10 +1348,10 @@ mod preview_tests {
         let expected = session.effective_config_overrides();
         assert_eq!(session.preview_config.overrides, expected.compiler);
         assert_eq!(session.preview_config.hide_ui, Some(true));
-        assert_eq!(session.preview_config.overrides.project.style, None);
+        assert_eq!(session.preview_config.overrides.style, None);
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-            Some("material")
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
         );
         for messages in messages {
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { config } if config.overrides == expected.compiler)));
@@ -1389,7 +1377,9 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, "{}").unwrap();
         for (index, source) in
-            [r#"{"style":"material"}"#, "{invalid", "// buffer comment\n{}"].into_iter().enumerate()
+            [r#"{"enable-experimental-features":true}"#, "{invalid", "// buffer comment\n{}"]
+                .into_iter()
+                .enumerate()
         {
             for messages in &messages {
                 messages.borrow_mut().clear();
@@ -1413,7 +1403,7 @@ mod preview_tests {
             for messages in &messages {
                 assert_project_contents(messages, &url, source, version);
             }
-            std::fs::write(&path, r#"{"style":"cupertino"}"#).unwrap();
+            std::fs::write(&path, r#"{"enable-experimental-features":false}"#).unwrap();
             for (preview_index, messages) in messages.iter().enumerate() {
                 messages.borrow_mut().clear();
                 session.send_state_to_preview(preview_index);
@@ -1433,7 +1423,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         assert!(!path.exists());
         assert!(SourcePath::from_url(&url).as_native_path().is_some());
-        let contents = r#"{"style":"material"}"#;
+        let contents = r#"{"enable-experimental-features":true}"#;
         spin_on::spin_on(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
@@ -1441,8 +1431,8 @@ mod preview_tests {
         assert!(!path.exists());
         assert_eq!(session.active_projects[&path].version, Some(9));
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-            Some("material")
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
         );
         assert!(session.document_cache.get_document(&url).is_none());
         for (preview_index, messages) in messages.iter().enumerate() {
@@ -1485,12 +1475,13 @@ mod preview_tests {
     #[test]
     fn source_discovery_transfers_known_invalid_project_contents_and_clears_settings() {
         let (mut session, messages) = session_with_recording_previews();
-        let default_style = session.document_cache.compiler_configuration().compiler_config.style;
+        let default_experimental =
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental;
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        std::fs::write(&path, r#"{"style":"material"}"#).unwrap();
+        std::fs::write(&path, r#"{"enable-experimental-features":true}"#).unwrap();
         spin_on::spin_on(session.load_document(
             "export component Main {}".into(),
             document_url.clone(),
@@ -1498,8 +1489,8 @@ mod preview_tests {
         ))
         .unwrap();
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-            Some("material")
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
         );
         let invalid = "// changed on disk\n{invalid";
         std::fs::write(&path, invalid).unwrap();
@@ -1514,8 +1505,8 @@ mod preview_tests {
         .unwrap();
         assert!(session.active_projects[&path].parsed.is_none());
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style,
-            default_style
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            default_experimental
         );
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
         for messages in &messages {
@@ -1531,11 +1522,11 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         std::fs::write(&path, "{}").unwrap();
-        let buffer = r#"{"style":"material"}"#;
+        let buffer = r#"{"enable-experimental-features":true}"#;
         spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
         for change in [FileChangeKind::Changed, FileChangeKind::Deleted] {
             if matches!(change, FileChangeKind::Changed) {
-                std::fs::write(&path, r#"{"style":"cupertino"}"#).unwrap();
+                std::fs::write(&path, r#"{"enable-experimental-features":false}"#).unwrap();
             } else {
                 std::fs::remove_file(&path).unwrap();
             }
@@ -1553,11 +1544,11 @@ mod preview_tests {
             assert_eq!(session.active_projects[&path].contents, buffer.as_bytes());
             assert_eq!(session.active_projects[&path].version, Some(4));
             assert_eq!(
-                session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-                Some("material")
+                session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+                true
             );
         }
-        let disk = r#"{"style":"cupertino"}"#;
+        let disk = r#"{"enable-experimental-features":false}"#;
         std::fs::write(&path, disk).unwrap();
         for messages in &messages {
             messages.borrow_mut().clear();
@@ -1566,8 +1557,8 @@ mod preview_tests {
         assert!(!session.document_is_open(&url));
         assert_eq!(session.active_projects[&path].version, None);
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-            Some("cupertino")
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            false
         );
         for messages in &messages {
             assert_project_contents(messages, &url, disk, None);
@@ -1582,7 +1573,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, "{}").unwrap();
         spin_on::spin_on(session.open_document(
-            r#"{"style":"material"}"#.into(),
+            r#"{"enable-experimental-features":true}"#.into(),
             url.clone(),
             Some(3),
         ))
@@ -1632,7 +1623,7 @@ mod preview_tests {
             let project = directory.path().join(name);
             std::fs::create_dir(&project).unwrap();
             let path = project.join(i_slint_compiler::project_file::FILE_NAME);
-            std::fs::write(&path, r#"{"style":"fluent"}"#).unwrap();
+            std::fs::write(&path, r#"{"enable-experimental-features":false}"#).unwrap();
             let document_url = Url::from_file_path(project.join("main.slint")).unwrap();
             spin_on::spin_on(session.load_document(
                 "export component Main {}".into(),
@@ -1643,13 +1634,17 @@ mod preview_tests {
             manifests.push(Url::from_file_path(path).unwrap());
         }
         let changed = spin_on::spin_on(session.open_document(
-            r#"{"style":"material"}"#.into(),
+            r#"{"enable-experimental-features":true}"#.into(),
             manifests[0].clone(),
             Some(7),
         ))
         .unwrap();
-        assert!(changed.iter().any(|(url, _, diagnostics)| url == &manifests[1]
-            && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("style"))));
+        assert!(changed.iter().any(|(url, _, diagnostics)| {
+            url == &manifests[1]
+                && diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains("experimental features"))
+        }));
         let closed = spin_on::spin_on(session.close_document(manifests[0].clone())).unwrap();
         for manifest in &manifests {
             assert!(closed.iter().any(|(url, version, diagnostics)| url == manifest
@@ -1657,8 +1652,8 @@ mod preview_tests {
                 && diagnostics.is_empty()));
         }
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.style.as_deref(),
-            Some("fluent")
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            false
         );
     }
 
@@ -1681,7 +1676,7 @@ mod preview_tests {
             .unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
-        std::fs::write(&path, r#"{"style":"material"}"#).unwrap();
+        std::fs::write(&path, r#"{"enable-experimental-features":true}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
             session.send_state_to_preview(preview_index);
@@ -2147,7 +2142,10 @@ mod tests {
             session.active_project_file_paths().collect::<Vec<_>>(),
             [nested_project_path.as_path()]
         );
-        assert_eq!(session.preview_config.include_paths, vec![nested_directory.join("nested")]);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![nested_directory.join("nested")]
+        );
     }
 
     #[test]
@@ -2486,7 +2484,16 @@ mod tests {
             session.document_cache.compiler_configuration().compiler_config.library_paths,
             HashMap::from([("project".into(), temp.path().join("project-lib"))])
         );
-        assert_eq!(session.preview_config.style, "fluent");
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .clone()
+                .unwrap_or_default(),
+            "fluent"
+        );
     }
 
     #[test]
@@ -2586,7 +2593,7 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(
-            session.preview_config.include_paths,
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
             vec![
                 project_paths[0].parent().unwrap().join("first-include"),
                 project_paths[1].parent().unwrap().join("second-include")
@@ -2649,7 +2656,14 @@ mod tests {
         )
         .unwrap();
 
-        assert!(session.preview_config.include_paths.is_empty());
+        assert!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .is_empty()
+        );
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
             [project_path.as_path()]
@@ -2660,7 +2674,10 @@ mod tests {
         spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
             .unwrap();
 
-        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("second")]);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("second")]
+        );
         assert!(session.pending_recompile.contains(&document_url));
     }
 
@@ -2687,7 +2704,14 @@ mod tests {
         );
 
         assert_eq!(session.active_project_file_paths().next(), None);
-        assert!(session.preview_config.include_paths.is_empty());
+        assert!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .is_empty()
+        );
         assert!(session.pending_recompile.contains(&document_url));
 
         // A project file created again is found the next time the document loads.
@@ -2698,6 +2722,9 @@ mod tests {
             session.active_project_file_paths().collect::<Vec<_>>(),
             [project_path.as_path()]
         );
-        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("second")]);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("second")]
+        );
     }
 }

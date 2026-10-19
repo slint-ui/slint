@@ -474,7 +474,7 @@ fn sync_file_watcher_if_needed(
             .into_iter()
             .chain(
                 session
-                    .project_entry_urls()
+                    .project_main_urls()
                     .filter_map(|url| SourcePath::from_url(&url).into_native_path()),
             )
             .chain(session.previews.iter().filter_map(|preview| {
@@ -766,7 +766,7 @@ mod tests {
         let source = directory.path().join("main.slint");
         std::fs::write(&source, "export component Main {}").unwrap();
         let manifest = directory.path().join("slint-project.json");
-        std::fs::write(&manifest, r#"{"entry":"main.slint","style":"material"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"main":"main.slint"}"#).unwrap();
         let project = Project::from_file(&manifest, None).unwrap();
         let component = project.preview.clone();
         let (mut session, messages) = session_with_recording_previews();
