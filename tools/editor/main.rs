@@ -652,6 +652,14 @@ async fn switch_project(
     stop_run_preview(session).await;
     *session = new_editor_session(to_previews);
     activate_project(session, file_watcher, watcher_events, project_root, project).await;
+    // TODO: The EditorSession already sends a lot of the state to the preview when show_preview
+    // is called in activate_project, which reloads the document and causes the contents to be sent
+    // to all open previews via the open_import_callback.
+    //
+    // We should rework this so that the EditorSession is aware of the Project Root.
+    // Then we can install the to_preview channels after loading the project and call
+    // send_state_to_preview afterwards to send all state over.
+    session.send_state_to_preview(PRIMARY_PREVIEW_INDEX);
 }
 
 async fn stop_run_preview(session: &mut editor_preview::EditorSession) {
@@ -978,6 +986,12 @@ mod tests {
             matches!(message, LspToPreviewMessage::ShowPreview(component)
                 if component == &expected_component)
         }));
+        assert!(
+            messages[PRIMARY_PREVIEW_INDEX]
+                .borrow()
+                .iter()
+                .any(|message| { matches!(message, LspToPreviewMessage::SetConfiguration { .. }) })
+        );
         assert!(
             messages[PRIMARY_PREVIEW_INDEX]
                 .borrow()
