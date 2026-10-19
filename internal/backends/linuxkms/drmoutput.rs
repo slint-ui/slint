@@ -163,21 +163,20 @@ impl DrmOutput {
                 .ok_or_else(|| "No connected display connector found".to_string())?
         };
 
+        let encoder = connector
+            .current_encoder()
+            .filter(|current| connector.encoders().contains(current))
+            .and_then(|current| drm_device.get_encoder(current).ok());
+
+        let current_crtc = match encoder {
+            Some(encoder) => Some(encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?),
+            None => None,
+        };
+        let current_mode = current_crtc.and_then(|crtc| drm_device.get_crtc(crtc).ok()?.mode());
+
         let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
             |_| {
-                connector
-                    .modes()
-                    .iter()
-                    // Displays often list their native size several times, down to the
-                    // 24 Hz of film, and don't always mark one of them as preferred.
-                    .max_by_key(|mode| {
-                        (
-                            mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                            mode.size().0 as u32 * mode.size().1 as u32,
-                            refresh_rate_millihertz(mode),
-                        )
-                    })
-                    .cloned()
+                select_default_mode(connector.modes(), current_mode)
                     .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
@@ -202,13 +201,8 @@ impl DrmOutput {
             },
         )?;
 
-        let encoder = connector
-            .current_encoder()
-            .filter(|current| connector.encoders().contains(current))
-            .and_then(|current| drm_device.get_encoder(current).ok());
-
-        let crtc = if let Some(encoder) = encoder {
-            encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?
+        let crtc = if let Some(crtc) = current_crtc {
+            crtc
         } else {
             // No crtc found for current encoder? Pick the first possible crtc
             // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
@@ -573,6 +567,25 @@ fn refresh_rate_millihertz(mode: &drm::control::Mode) -> u32 {
     }
     // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
     ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+}
+
+/// Weston chooses in the same order.
+fn select_default_mode(
+    modes: &[drm::control::Mode],
+    current_mode: Option<drm::control::Mode>,
+) -> Option<drm::control::Mode> {
+    let largest_and_fastest = |mode: &&drm::control::Mode| {
+        (mode.size().0 as u32 * mode.size().1 as u32, refresh_rate_millihertz(mode))
+    };
+    modes
+        .iter()
+        .filter(|mode| mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED))
+        .max_by_key(largest_and_fastest)
+        .or(current_mode.as_ref())
+        // Displays often list their native size several times, down to the
+        // 24 Hz of film, and don't always mark one of them as preferred.
+        .or_else(|| modes.iter().max_by_key(largest_and_fastest))
+        .copied()
 }
 
 fn select_requested_mode(

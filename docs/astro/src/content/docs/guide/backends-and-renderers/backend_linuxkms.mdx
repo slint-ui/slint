@@ -154,7 +154,10 @@ to compile Skia's CPU rendering path without a GPU renderer.
 ## Display Selection
 
 All renderers use Linux's direct rendering manager (DRM) subsystem to configure display outputs. Slint defaults to selecting the first connected
-display and configures it at either its preferred resolution (if available) or its highest. Set the `SLINT_DRM_OUTPUT`
+display and configures it at its preferred mode.
+Without a preferred mode, Slint keeps the mode the display already shows, for example from the console or a boot splash.
+Otherwise it picks the highest resolution at its highest refresh rate.
+Set the `SLINT_DRM_OUTPUT`
 environment variable to select a specific display. To get a list of available outputs, set `SLINT_DRM_OUTPUT`
 to `list`, run your program, and observe the output.
 
