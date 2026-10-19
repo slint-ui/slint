@@ -763,9 +763,10 @@ mod tests {
     #[test]
     fn initial_project_loads_through_the_session_after_opening_the_root() {
         let directory = tempfile::tempdir().unwrap();
-        let source = directory.path().join("main.slint");
+        let project_directory = std::fs::canonicalize(directory.path()).unwrap();
+        let source = project_directory.join("main.slint");
         std::fs::write(&source, "export component Main {}").unwrap();
-        let manifest = directory.path().join("slint-project.json");
+        let manifest = project_directory.join("slint-project.json");
         std::fs::write(&manifest, r#"{"main":"main.slint"}"#).unwrap();
         let project = Project::from_file(&manifest, None).unwrap();
         let component = project.preview.clone();
@@ -783,7 +784,7 @@ mod tests {
         assert!(
             session.document_cache.get_document(&Url::from_file_path(source).unwrap()).is_some()
         );
-        assert_eq!(root, directory.path());
+        assert_eq!(root, project_directory);
         let messages = messages[PRIMARY_PREVIEW_INDEX].borrow();
         assert!(matches!(messages.first(), Some(LspToPreviewMessage::OpenProject { .. })));
         assert!(
