@@ -38,6 +38,21 @@ def test_startup_page_shows_project_actions_without_editor_panes(
         assert open_existing.accessible_enabled
 
 
+def test_editor_loads_its_own_project(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+) -> None:
+    manifest = Path(__file__).resolve().parents[2] / "slint-project.json"
+    with launch_editor(editor_binary, editor_environment, manifest) as editor:
+        window = first_window(editor)
+        canvas = element(
+            window, "Editor canvas", role=slint_testing.AccessibleRole.Main
+        )
+        element(
+            canvas, "Project and elements", role=slint_testing.AccessibleRole.Navigation
+        )
+
+
 @pytest.mark.parametrize("project_input", ["source", "manifest"])
 def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     editor_binary: Path,
