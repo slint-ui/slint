@@ -414,53 +414,52 @@ impl<'a> SkiaItemRenderer<'a> {
         let image_fit =
             || if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() };
         let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
+        let scale_factor = self.scale_factor;
 
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
-        let cached_skia_image = |this: &mut Self| {
-            this.image_cache.get_or_update_cache_entry(item_rc, || {
+        let skia_image = self.image_cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || {
                 let image = item.source();
                 super::cached_image::as_skia_image(
                     image,
                     &|| item.target_size(),
                     image_fit(),
-                    this.scale_factor,
+                    scale_factor,
                     transform_scale,
-                    this.canvas,
-                    this.surface,
+                    self.canvas,
+                    self.surface,
                 )
                 .and_then(|skia_image| {
                     let brush = item.colorize();
                     if !brush.is_transparent() {
-                        this.colorize_image(skia_image, brush)
+                        self.colorize_image(skia_image, brush)
                     } else {
                         Some(skia_image)
                     }
                 })
-            })
-        };
-        let mut skia_image = cached_skia_image(self);
-
-        // Rasterize an SVG again when it's magnified more than when it was cached (#10903),
-        // see `transformed_scalable_render_size`.
-        if let Some(cached) = &skia_image
-            && let i_slint_core::ImageInner::Svg(svg) =
-                <&i_slint_core::ImageInner>::from(&item.source())
-            && let Some(render_size) = super::cached_image::svg_render_size(
-                svg.size(),
-                item.target_size(),
-                image_fit(),
-                self.scale_factor,
-                transform_scale,
-            )
-            && (cached.width() as u32) < render_size.width
-            && (cached.height() as u32) < render_size.height
-        {
-            self.image_cache.release(item_rc);
-            skia_image = cached_skia_image(self);
-        }
+            },
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            |cached| {
+                cached.as_ref().is_some_and(|cached| {
+                    i_slint_core::graphics::svg_needs_rasterizing_again(
+                        i_slint_core::graphics::IntSize::new(
+                            cached.width() as _,
+                            cached.height() as _,
+                        ),
+                        &item.source(),
+                        image_fit(),
+                        item.target_size(),
+                        scale_factor,
+                        Default::default(),
+                        transform_scale,
+                    )
+                })
+            },
+        );
+        let source = item.source();
 
         let Some(skia_image) = skia_image else { return };
-        let source = item.source();
         let source_size = source.size();
         if source_size.is_empty() {
             // Not sure how this can happen, but we've seen with #6280
