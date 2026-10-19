@@ -2016,6 +2016,8 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
+        // Keep the cursor visible while it moves, as for the arrow keys.
+        self.show_cursor(window_adapter);
     }
 
     pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
