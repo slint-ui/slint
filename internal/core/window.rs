@@ -2402,7 +2402,7 @@ impl WindowInner {
         }
     }
 
-    /// If this window shows a popup, closes that popup through its parent window and returns true.
+    /// If this window is a popup of another window, closes it through that parent and returns true.
     ///
     /// The platform may close a popup window on its own, for example a Wayland compositor
     /// when the user starts moving the parent window.
