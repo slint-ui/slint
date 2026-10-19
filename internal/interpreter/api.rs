@@ -746,6 +746,7 @@ impl ComponentCompiler {
                             project_file.as_ref(),
                             &self.config,
                             &self.overrides,
+                            None,
                         )
                         .await
                     }
@@ -782,7 +783,8 @@ impl ComponentCompiler {
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
         let r =
-            build_with_found_project_file(source_code, path, &self.config, &self.overrides).await;
+            build_with_found_project_file(source_code, path, &self.config, &self.overrides, None)
+                .await;
         self.diagnostics = r.diagnostics.into_iter().collect();
         r.components.into_values().next()
     }
@@ -809,6 +811,7 @@ pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,
     reads_project_file: bool,
+    resource_loader: Option<crate::component::ResourceLoader>,
 }
 
 impl Default for Compiler {
@@ -816,7 +819,12 @@ impl Default for Compiler {
         let config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
-        Self { config, overrides: Default::default(), reads_project_file: true }
+        Self {
+            config,
+            overrides: Default::default(),
+            reads_project_file: true,
+            resource_loader: None,
+        }
     }
 }
 
@@ -948,6 +956,26 @@ impl Compiler {
         self.config.open_import_callback = Some(open_import_callback);
     }
 
+    /// Sets the callback that loads the contents of imported font files while compiling.
+    /// The compiled components register these fonts when they're created.
+    /// Without it, the browser build fetches the fonts by URL,
+    /// and other builds read them from the file system when a component is created.
+    ///
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_resource_loader(
+        &mut self,
+        resource_loader: impl Fn(
+            SourcePath,
+        )
+            -> core::pin::Pin<Box<dyn Future<Output = std::io::Result<Vec<u8>>>>>
+        + 'static,
+        _: i_slint_core::InternalToken,
+    ) {
+        self.resource_loader = Some(Rc::new(resource_loader));
+    }
+
     /// Compile a .slint file
     ///
     /// Returns a structure that holds the diagnostics and the compiled components.
@@ -996,8 +1024,15 @@ impl Compiler {
             }
         };
 
-        build_with_project_file(source, path, project_file.as_ref(), &self.config, &self.overrides)
-            .await
+        build_with_project_file(
+            source,
+            path,
+            project_file.as_ref(),
+            &self.config,
+            &self.overrides,
+            self.resource_loader.clone(),
+        )
+        .await
     }
 
     /// Compile some .slint code
@@ -1013,10 +1048,26 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
+        let resource_loader = self.resource_loader.clone();
         if self.reads_project_file {
-            build_with_found_project_file(source_code, path, &self.config, &self.overrides).await
+            build_with_found_project_file(
+                source_code,
+                path,
+                &self.config,
+                &self.overrides,
+                resource_loader,
+            )
+            .await
         } else {
-            build_with_project_file(source_code, path, None, &self.config, &self.overrides).await
+            build_with_project_file(
+                source_code,
+                path,
+                None,
+                &self.config,
+                &self.overrides,
+                resource_loader,
+            )
+            .await
         }
     }
 
@@ -1036,7 +1087,14 @@ impl Compiler {
         }
         let mut config = self.config.clone();
         self.overrides.apply(None, &mut config);
-        build_compilation_result(source_code, path, config, AnimationMode::Running).await
+        build_compilation_result(
+            source_code,
+            path,
+            config,
+            AnimationMode::Running,
+            self.resource_loader.clone(),
+        )
+        .await
     }
 
     /// Compile Slint code without timers or animations.
@@ -1050,7 +1108,14 @@ impl Compiler {
     ) -> CompilationResult {
         let mut config = self.config.clone();
         self.overrides.apply(None, &mut config);
-        build_compilation_result(source_code, path, config, AnimationMode::Static).await
+        build_compilation_result(
+            source_code,
+            path,
+            config,
+            AnimationMode::Static,
+            self.resource_loader.clone(),
+        )
+        .await
     }
 }
 
@@ -1069,11 +1134,18 @@ async fn build_with_project_file(
     project_file: Option<&i_slint_compiler::project_file::ProjectFile>,
     config: &i_slint_compiler::CompilerConfiguration,
     overrides: &i_slint_compiler::project_file::Overrides,
+    resource_loader: Option<crate::component::ResourceLoader>,
 ) -> CompilationResult {
     let mut config = config.clone();
     overrides.apply(project_file, &mut config);
-    build_compilation_result(source_code, SourcePath::new(path), config, AnimationMode::Running)
-        .await
+    build_compilation_result(
+        source_code,
+        SourcePath::new(path),
+        config,
+        AnimationMode::Running,
+        resource_loader,
+    )
+    .await
 }
 
 /// Like [`build_with_project_file`], with the project file found for the directory of `path`.
@@ -1082,12 +1154,20 @@ async fn build_with_found_project_file(
     path: PathBuf,
     config: &i_slint_compiler::CompilerConfiguration,
     overrides: &i_slint_compiler::project_file::Overrides,
+    resource_loader: Option<crate::component::ResourceLoader>,
 ) -> CompilationResult {
     let directory = SourcePath::new(&path).parent().into_native_path().unwrap_or_default();
     match i_slint_compiler::project_file::ProjectFile::find(&directory) {
         Ok(project_file) => {
-            build_with_project_file(source_code, path, project_file.as_ref(), config, overrides)
-                .await
+            build_with_project_file(
+                source_code,
+                path,
+                project_file.as_ref(),
+                config,
+                overrides,
+                resource_loader,
+            )
+            .await
         }
         Err(message) => project_file_error(message, &path),
     }
@@ -1113,9 +1193,16 @@ async fn build_compilation_result(
     path: SourcePath,
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
+    resource_loader: Option<crate::component::ResourceLoader>,
 ) -> CompilationResult {
-    let result =
-        crate::component::build_from_source(source_code, path, config, animation_mode).await;
+    let result = crate::component::build_from_source(
+        source_code,
+        path,
+        config,
+        animation_mode,
+        resource_loader,
+    )
+    .await;
     let components = result
         .components
         .into_iter()
@@ -1158,6 +1245,7 @@ pub struct SendableCompilationResult {
     compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
+    font_files: HashMap<String, std::sync::Arc<Vec<u8>>>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<SourcePath>,
@@ -1175,6 +1263,7 @@ impl From<SendableCompilationResult> for CompilationResult {
         let SendableCompilationResult {
             compilation_unit,
             components,
+            font_files,
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1182,6 +1271,7 @@ impl From<SendableCompilationResult> for CompilationResult {
             structs_and_enums,
         } = sent;
         let compilation_unit = compilation_unit.map(std::rc::Rc::new);
+        let font_files = std::rc::Rc::new(font_files);
         let components = components
             .into_iter()
             .filter_map(|(name, public_index)| {
@@ -1189,6 +1279,7 @@ impl From<SendableCompilationResult> for CompilationResult {
                     compilation_unit: compilation_unit.clone()?,
                     public_index,
                     type_loaders: Default::default(),
+                    font_files: font_files.clone(),
                 });
                 Some((name, ComponentDefinition { inner }))
             })
@@ -1269,8 +1360,9 @@ impl CompilationResult {
             structs_and_enums,
         } = self;
 
-        // Every definition of one result was built from the same unit.
+        // Every definition of one result was built from the same unit and font files.
         let mut unit = None::<std::rc::Rc<i_slint_compiler::llr::CompilationUnit>>;
+        let mut font_files = HashMap::new();
         let components = components
             .into_iter()
             .map(|(name, definition)| {
@@ -1279,7 +1371,10 @@ impl CompilationResult {
                     Some(u) => {
                         debug_assert!(std::rc::Rc::ptr_eq(u, &definition.inner.compilation_unit))
                     }
-                    None => unit = Some(definition.inner.compilation_unit.clone()),
+                    None => {
+                        unit = Some(definition.inner.compilation_unit.clone());
+                        font_files = (*definition.inner.font_files).clone();
+                    }
                 }
                 (name, public_index)
             })
@@ -1291,6 +1386,7 @@ impl CompilationResult {
         SendableCompilationResult {
             compilation_unit,
             components,
+            font_files,
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -2848,6 +2944,7 @@ export component App inherits Window {
     let definition = crate::component::build_from_document(
         &document,
         &compiler_configuration,
+        Default::default(),
         Default::default(),
         AnimationMode::Running,
     )

@@ -633,6 +633,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -641,6 +642,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            font_files,
             None,
             context,
             false,
@@ -653,6 +655,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         context: i_slint_core::SlintContext,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_options(
@@ -660,6 +663,7 @@ impl Instance {
             public_component_index,
             None,
             type_loaders,
+            font_files,
             None,
             context,
             false,
@@ -672,6 +676,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -680,6 +685,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            font_files,
             None,
             context,
             true,
@@ -694,6 +700,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -706,6 +713,7 @@ impl Instance {
             public_component_index,
             None,
             type_loaders,
+            font_files,
             Some((parent, parent_item_tree_index)),
             context,
             false,
@@ -719,12 +727,13 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
         context: i_slint_core::SlintContext,
         disable_window_attachment: bool,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
-        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context));
+        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context, font_files));
         let item_tree = &public.item_tree;
         let vrc = build_instance(
             &compilation_unit,

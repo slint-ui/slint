@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore descendents dontcrash
+// cSpell: ignore descendents dontcrash Digitall
 
 #[cfg(feature = "internal")]
 use i_slint_compiler::source_path::SourcePath;
@@ -137,6 +137,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         Default::default(),
         config,
         crate::AnimationMode::Running,
+        None,
     ));
     assert!(
         result
@@ -513,6 +514,7 @@ fn interpreter_path_elements() {
         Default::default(),
         config,
         crate::AnimationMode::Running,
+        None,
     ));
     assert!(
         result
@@ -1222,4 +1224,93 @@ fn diagnostic_source_file_and_url() {
     let diag = result.diagnostics().next().expect("an error");
     assert_eq!(diag.source_file(), None);
     assert_eq!(diag.source_url().as_deref(), Some("https://example.com/app.slint"));
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn imported_fonts_load_through_the_resource_loader() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    i_slint_backend_testing::init_no_event_loop();
+    let font = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../examples/speedometer/01 Digitall.ttf"
+    ))
+    .unwrap();
+    let requested = Rc::new(RefCell::new(Vec::new()));
+
+    let mut compiler = crate::Compiler::default();
+    compiler.set_file_loader(|path| {
+        let source = (path == std::path::Path::new("slint-file:///project/widgets/label.slint"))
+            .then(|| {
+                Ok(r#"
+import "../fonts/Label.ttf";
+import "../fonts/Main.ttf";
+export component Label inherits Text { }
+"#
+                .to_owned())
+            });
+        Box::pin(std::future::ready(source))
+    });
+    compiler.set_resource_loader(
+        {
+            let requested = requested.clone();
+            move |path| {
+                let path = path.to_string();
+                let result = if path.ends_with("/Main.ttf") {
+                    Ok(font.clone())
+                } else {
+                    Err(std::io::Error::other("not found"))
+                };
+                requested.borrow_mut().push(path);
+                Box::pin(std::future::ready(result))
+            }
+        },
+        i_slint_core::InternalToken,
+    );
+
+    let result = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+import "fonts/Main.ttf";
+import { Label } from "widgets/label.slint";
+export component App inherits Window { Label { font-family: "01 Digitall"; } }
+"#
+            .into(),
+            "slint-file:///project/main.slint".into(),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    // Each font loads once, with paths relative to an imported file resolved.
+    let mut requested = requested.take();
+    requested.sort();
+    assert_eq!(
+        requested,
+        ["slint-file:///project/fonts/Label.ttf", "slint-file:///project/fonts/Main.ttf"]
+    );
+    let warnings = result
+        .diagnostics()
+        .filter(|d| d.level() == crate::DiagnosticLevel::Warning)
+        .map(|d| (d.source_url(), d.message().to_string()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        warnings,
+        [(
+            Some("slint-file:///project/widgets/label.slint".to_string()),
+            "Cannot load the font: not found".to_string()
+        )]
+    );
+
+    let instance = result.component("App").unwrap().create().unwrap();
+    let context = i_slint_core::window::WindowInner::from_pub(instance.window()).context();
+    assert!(
+        context
+            .font_context()
+            .borrow_mut()
+            .inner
+            .collection
+            .family_by_name("01 Digitall")
+            .is_some()
+    );
 }

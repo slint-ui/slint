@@ -122,6 +122,7 @@ pub struct GlobalStorage {
         vtable::VWeak<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
     >,
     pub context: i_slint_core::SlintContext,
+    pub font_files: crate::component::FontFiles,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
     pub debug_hook_callback: std::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
@@ -132,6 +133,7 @@ impl GlobalStorage {
     pub fn new(
         compilation_unit: &Rc<CompilationUnit>,
         context: i_slint_core::SlintContext,
+        font_files: crate::component::FontFiles,
     ) -> Self {
         let globals = compilation_unit
             .globals
@@ -183,6 +185,7 @@ impl GlobalStorage {
             globals,
             root: std::cell::OnceCell::new(),
             context,
+            font_files,
             debug_hook_callback: std::cell::RefCell::new(None),
         }
     }

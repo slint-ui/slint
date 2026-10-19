@@ -192,7 +192,10 @@ typed-index-collections = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }
-web-sys = { workspace = true, features = ["Navigator"] }
+js-sys = { version = "0.3.57", default-features = false, features = ["std"] }
+wasm-bindgen = "0.2.80"
+wasm-bindgen-futures = "0.4.30"
+web-sys = { workspace = true, features = ["Navigator", "Response", "Window"] }
 
 # The interpreter loads images from the filesystem at runtime, so native builds
 # always need the decoders. The browser decodes images on the web.
