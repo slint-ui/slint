@@ -10,31 +10,56 @@ namespace Slint;
 /// The Slint event loop.
 /// On macOS, run it on the main thread, which is the thread that runs <c>Main</c>.
 /// </summary>
+/// <remarks>
+/// While the loop runs, <see cref="SynchronizationContext.Current"/> is a <see cref="SlintSynchronizationContext"/>,
+/// so <c>await</c> in a callback continues on the Slint thread.
+/// </remarks>
 public static unsafe class EventLoop
 {
     [ThreadStatic]
     private static bool t_isRunning;
 
-    internal static bool IsRunning
-    {
-        get => t_isRunning;
-        set => t_isRunning = value;
-    }
+    internal static bool IsRunning => t_isRunning;
 
     /// <summary>
     /// Runs the event loop until <see cref="Quit"/> or until the last window closes.
     /// Rethrows the first exception that a callback threw, after stopping the loop.
     /// </summary>
-    public static void Run()
+    public static void Run() => RunNative(NativeMethods.slint_dotnet_run_event_loop);
+
+    /// <summary>
+    /// Runs the event loop and <paramref name="main"/> on it, until <paramref name="main"/> completes,
+    /// <see cref="Quit"/> is called, or the last window closes.
+    /// Rethrows the exception of <paramref name="main"/>.
+    /// </summary>
+    public static void Run(Func<Task> main)
     {
-        IsRunning = true;
+        Task? task = null;
+        InvokeFromEventLoop(() =>
+        {
+            task = main();
+            task.ContinueWith(_ => Quit(), TaskContinuationOptions.ExecuteSynchronously);
+        });
+        Run();
+        if (task is { IsCompleted: true })
+        {
+            task.GetAwaiter().GetResult();
+        }
+    }
+
+    internal static void RunNative(Func<bool> run)
+    {
+        var previous = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(new SlintSynchronizationContext(Environment.CurrentManagedThreadId));
+        t_isRunning = true;
         try
         {
-            NativeError.Check(NativeMethods.slint_dotnet_run_event_loop());
+            NativeError.Check(run());
         }
         finally
         {
-            IsRunning = false;
+            t_isRunning = false;
+            SynchronizationContext.SetSynchronizationContext(previous);
         }
     }
 
@@ -74,4 +99,50 @@ public static unsafe class EventLoop
             handle.Free();
         }
     }
+}
+
+/// <summary>Runs posted work on the Slint thread through <see cref="EventLoop.InvokeFromEventLoop"/>.</summary>
+public sealed class SlintSynchronizationContext : SynchronizationContext
+{
+    private readonly int _slintThreadId;
+
+    internal SlintSynchronizationContext(int slintThreadId)
+    {
+        _slintThreadId = slintThreadId;
+    }
+
+    /// <inheritdoc/>
+    public override void Post(SendOrPostCallback d, object? state) => EventLoop.InvokeFromEventLoop(() => d(state));
+
+    /// <inheritdoc/>
+    public override void Send(SendOrPostCallback d, object? state)
+    {
+        if (Environment.CurrentManagedThreadId == _slintThreadId)
+        {
+            d(state);
+            return;
+        }
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo? error = null;
+        using var done = new ManualResetEventSlim();
+        EventLoop.InvokeFromEventLoop(() =>
+        {
+            try
+            {
+                d(state);
+            }
+            catch (Exception e)
+            {
+                error = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e);
+            }
+            finally
+            {
+                done.Set();
+            }
+        });
+        done.Wait();
+        error?.Throw();
+    }
+
+    /// <inheritdoc/>
+    public override SynchronizationContext CreateCopy() => this;
 }

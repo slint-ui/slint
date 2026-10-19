@@ -290,4 +290,83 @@ internal static unsafe partial class NativeMethods
         delegate* unmanaged<nint, nint*, nuint, nint*, void> callback,
         nint userData,
         delegate* unmanaged<nint, void> dropUserData);
+
+    // models.rs
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_model_new(ModelVTable vtable, nint userData, nint* weak);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_model_weak_upgrade(ModelWeakHandle weak);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_model_weak_free(nint weak);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_model_notify_row_changed(ModelWeakHandle weak, nuint row);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_model_notify_row_added(ModelWeakHandle weak, nuint index, nuint count);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_model_notify_row_removed(ModelWeakHandle weak, nuint index, nuint count);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_model_notify_reset(ModelWeakHandle weak);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_managed_model(nint value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_value_model_set_row_data(ValueHandle value, nuint row, nint data);
+
+    // timer.rs
+
+    [LibraryImport(Library)]
+    public static partial TimerHandle slint_dotnet_timer_new();
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_timer_free(nint timer);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_start(
+        TimerHandle timer,
+        [MarshalAs(UnmanagedType.U1)] bool repeated,
+        ulong intervalMs,
+        delegate* unmanaged<nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_single_shot(
+        ulong intervalMs,
+        delegate* unmanaged<nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_stop(TimerHandle timer);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_restart(TimerHandle timer);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_running(TimerHandle timer);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_timer_set_interval(TimerHandle timer, ulong intervalMs);
+
+    [LibraryImport(Library)]
+    public static partial ulong slint_dotnet_timer_interval_ms(TimerHandle timer);
 }

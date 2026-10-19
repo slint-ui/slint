@@ -60,5 +60,10 @@ public sealed class EventLoopTests
         using var app = definition.Create();
         app.Show();
         app.Hide();
+
+        // Hiding the last window queues a quit, which ends this run right away.
+        using var safety = new Timer();
+        safety.Start(TimerMode.SingleShot, TimeSpan.FromSeconds(5), () => Assert.Fail("hiding the last window didn't quit"));
+        EventLoop.Run();
     });
 }

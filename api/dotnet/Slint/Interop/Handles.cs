@@ -64,6 +64,39 @@ internal sealed class ValueHandle : NativeHandle
     }
 }
 
+internal sealed class ModelWeakHandle : NativeHandle
+{
+    public ModelWeakHandle(nint weak)
+    {
+        SetHandle(weak);
+    }
+
+    protected override bool ReleaseHandle()
+    {
+        NativeMethods.slint_dotnet_model_weak_free(handle);
+        return true;
+    }
+}
+
+internal sealed class TimerHandle : NativeHandle
+{
+    protected override bool ReleaseHandle()
+    {
+        NativeMethods.slint_dotnet_timer_free(handle);
+        return true;
+    }
+}
+
+/// <summary>See <c>ModelVTable</c> in <c>api/dotnet/native/models.rs</c>.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct ModelVTable
+{
+    public delegate* unmanaged<nint, nuint> RowCount;
+    public delegate* unmanaged<nint, nuint, nint*, void> RowData;
+    public delegate* unmanaged<nint, nuint, nint, void> SetRowData;
+    public delegate* unmanaged<nint, void> DropUserData;
+}
+
 /// <summary>Reads and frees a native <c>NameList</c>.</summary>
 internal static unsafe class NameList
 {

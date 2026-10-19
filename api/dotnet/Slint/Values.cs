@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+using System.Runtime.InteropServices;
 using Slint.Interop;
 
 namespace Slint;
@@ -18,7 +19,7 @@ public enum ValueType
     String = 2,
     /// <summary><c>bool</c>, as <see cref="bool"/>.</summary>
     Bool = 3,
-    /// <summary>An array or model, as <see cref="T:object?[]"/>.</summary>
+    /// <summary>An array or model, as <see cref="Model{T}"/>.</summary>
     Model = 4,
     /// <summary>A struct, as <see cref="Slint.Struct"/>.</summary>
     Struct = 5,
@@ -98,6 +99,8 @@ internal static unsafe class ValueConverter
                 }
             case OpaqueValue o:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(o.Handle.DangerousGetHandle()));
+            case INativeModel model:
+                return model.ToNativeValue();
             case IEnumerable<KeyValuePair<string, object?>> fields:
                 return StructToNative(fields);
             case System.Collections.IEnumerable rows:
@@ -182,7 +185,10 @@ internal static unsafe class ValueConverter
                     return b;
                 }
             case (int)ValueType.Model:
-                return ModelFromNative(value);
+                var managed = NativeMethods.slint_dotnet_value_managed_model(value);
+                return managed != 0
+                    ? GCHandle.FromIntPtr(managed).Target
+                    : new NativeModel(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
             case (int)ValueType.Struct:
                 return StructFromNative(value);
             case (int)ValueType.Brush:
@@ -215,18 +221,6 @@ internal static unsafe class ValueConverter
     private static OpaqueValue Opaque(nint value) =>
         new(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
 
-    private static object?[] ModelFromNative(nint value)
-    {
-        var count = (int)NativeMethods.slint_dotnet_value_model_row_count(value);
-        var rows = new object?[Math.Max(count, 0)];
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var row = NativeMethods.slint_dotnet_value_model_row_data(value, (nuint)i);
-            rows[i] = row == 0 ? null : TakeFromNative(row);
-        }
-        return rows;
-    }
-
     private static Struct StructFromNative(nint value)
     {
         var result = new Struct();
@@ -237,6 +231,25 @@ internal static unsafe class ValueConverter
             result[name] = field == 0 ? null : TakeFromNative(field);
         }
         return result;
+    }
+
+    /// <summary>Converts the result of <see cref="FromNative"/> to <typeparamref name="T"/>, such as a number to <see cref="int"/>.</summary>
+    public static T ConvertTo<T>(object? value)
+    {
+        if (value is T t)
+        {
+            return t;
+        }
+        var target = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        if (value is double number && target.IsPrimitive)
+        {
+            return (T)Convert.ChangeType(number, target, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        if (value is null && default(T) is null)
+        {
+            return default!;
+        }
+        throw new InvalidCastException($"Can't convert {value?.GetType().Name ?? "null"} to {typeof(T).Name}");
     }
 
     /// <summary>Converts <paramref name="args"/> to native values for the duration of <paramref name="body"/>.</summary>

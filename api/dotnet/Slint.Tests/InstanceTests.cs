@@ -53,7 +53,7 @@ public sealed class InstanceTests
         Assert.IsTrue((bool)app.GetProperty("ready")!);
         Assert.AreEqual(new Color(0x10, 0x20, 0x30), app.GetProperty("tint"));
         Assert.AreEqual(new EnumValue("Mode", "busy"), app.GetProperty("mode"));
-        CollectionAssert.AreEqual(new object[] { 1.0, 2.0, 3.0 }, (object?[])app.GetProperty("numbers")!);
+        CollectionAssert.AreEqual(new object[] { 1.0, 2.0, 3.0 }, ((Model<object?>)app.GetProperty("numbers")!).ToArray());
 
         var person = (Struct)app.GetProperty("person")!;
         Assert.AreEqual("Ada", person["name"]);
@@ -82,7 +82,7 @@ public sealed class InstanceTests
         Assert.IsFalse((bool)app.GetProperty("ready")!);
         Assert.AreEqual(new Color(0xFF, 0, 0, 0x80), app.GetProperty("tint"));
         Assert.AreEqual(new EnumValue("Mode", "idle"), app.GetProperty("mode"));
-        CollectionAssert.AreEqual(new object[] { 4.0, 5.0 }, (object?[])app.GetProperty("numbers")!);
+        CollectionAssert.AreEqual(new object[] { 4.0, 5.0 }, ((Model<object?>)app.GetProperty("numbers")!).ToArray());
         Assert.AreEqual("Grace", ((Struct)app.GetProperty("person")!)["name"]);
     });
 

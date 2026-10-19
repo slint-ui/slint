@@ -156,18 +156,7 @@ public sealed unsafe class ComponentInstance : IDisposable
     public void Hide() => NativeError.Check(NativeMethods.slint_dotnet_component_instance_hide(_handle));
 
     /// <summary>Shows the window, runs the event loop until the last window closes, then hides the window.</summary>
-    public void Run()
-    {
-        EventLoop.IsRunning = true;
-        try
-        {
-            NativeError.Check(NativeMethods.slint_dotnet_component_instance_run(_handle));
-        }
-        finally
-        {
-            EventLoop.IsRunning = false;
-        }
-    }
+    public void Run() => EventLoop.RunNative(() => NativeMethods.slint_dotnet_component_instance_run(_handle));
 
     /// <summary>Releases the instance.</summary>
     public void Dispose() => _handle.Dispose();

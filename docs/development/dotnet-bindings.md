@@ -68,17 +68,35 @@ C# declares the exports with `[LibraryImport]` in `Slint/Interop/NativeMethods.c
 | `bool` | `bool` |
 | `color`, solid `brush` | `Slint.Color` |
 | struct | `Slint.Struct` |
-| array, model | `object?[]` |
+| array, model | `Slint.Model<T>`; any `IEnumerable` converts to a copy |
 | enum | `Slint.EnumValue` |
 | anything else, such as an image or a gradient | `Slint.OpaqueValue`, passed back unchanged |
 
-The models milestone replaces `object?[]` with `Slint.Model<T>`.
 Generated code narrows the numeric types and maps structs and enums to C# records and enums.
+
+## Models
+
+A `Slint.Model<T>` that Slint uses is wrapped in a `ManagedModel` in `api/dotnet/native/models.rs`.
+The `ManagedModel` holds a strong `GCHandle`, so Slint keeps the .NET model alive.
+The .NET model holds only a `Weak` to the `ManagedModel`, to notify Slint of changes.
+There's no strong reference back, so nothing forms a cycle across the two heaps.
+Once Slint drops the model, a later conversion creates a new `ManagedModel`.
+
+Reading a model property returns the original .NET object.
+A model that Slint created, such as an array literal, comes back as a `Model<object?>` over the native value.
 
 ## Threading and macOS
 
 winit and AppKit need the event loop on the process main thread.
 A console app's `Main` runs there, so call `EventLoop.Run()` from `Main`.
+
+While the loop runs, `SynchronizationContext.Current` is a `SlintSynchronizationContext`,
+which posts through `invoke_from_event_loop`.
+So `await` in a callback continues on the Slint thread,
+and `EventLoop.Run(Func<Task>)` runs an `async` main function until it completes.
+
+Hiding the last window queues a quit, even while the loop isn't running.
+The next `EventLoop.Run` then returns right away.
 
 Test runners call tests from thread pool threads.
 `Slint.Tests` runs every test on one dedicated thread and uses the testing backend
@@ -105,6 +123,6 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 ## Roadmap
 
 1. Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop (done).
-2. Models, timers, `async` through a `SynchronizationContext`, lifetime tests.
+2. Models, timers, `async` through a `SynchronizationContext`, lifetime tests (done).
 3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet`.
 4. CI workflow, user documentation, an example, NuGet packages per runtime identifier.

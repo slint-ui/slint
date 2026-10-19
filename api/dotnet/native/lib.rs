@@ -13,6 +13,8 @@ use std::sync::OnceLock;
 use std::thread::ThreadId;
 
 mod interpreter;
+mod models;
+mod timer;
 mod value;
 
 /// A borrowed UTF-8 string.
@@ -139,6 +141,14 @@ fn check_thread() -> Result<(), String> {
     Ok(())
 }
 
+/// Claims the current thread if no thread is the Slint thread yet,
+/// for the exports that are callable from any thread.
+fn claim_if_unclaimed() {
+    if SLINT_THREAD.get().is_none() {
+        let _ = check_thread();
+    }
+}
+
 /// Runs `f` on the Slint thread, turning an error or a panic into the thread's last error and `on_error`.
 fn guard<T>(on_error: T, f: impl FnOnce() -> Result<T, String>) -> T {
     let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -205,6 +215,7 @@ pub extern "C" fn slint_dotnet_run_event_loop() -> bool {
 /// Callable from any thread.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_dotnet_quit_event_loop() -> bool {
+    claim_if_unclaimed();
     match slint_interpreter::quit_event_loop() {
         Ok(()) => true,
         Err(e) => {
@@ -220,6 +231,7 @@ pub extern "C" fn slint_dotnet_invoke_from_event_loop(
     callback: unsafe extern "C" fn(*mut c_void),
     user_data: *mut c_void,
 ) -> bool {
+    claim_if_unclaimed();
     let user_data = SendPtr(user_data);
     match slint_interpreter::invoke_from_event_loop(move || {
         let user_data = user_data;
