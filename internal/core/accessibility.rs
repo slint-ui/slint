@@ -136,28 +136,21 @@ pub fn accessible_focus_delegate_position(root_item: &ItemRc) -> Option<usize> {
         .parse::<usize>()
         .ok()?;
 
-    let mut positional_match = None;
     let mut has_indexed_descendants = false;
-
+    let mut count = 0;
     for (position, descendent) in accessible_descendents(root_item).enumerate() {
-        if position == delegate_index {
-            positional_match = Some(position);
-        }
-
-        let Some(item_index) = descendent
+        count += 1;
+        if let Some(item_index) = descendent
             .accessible_string_property(AccessibleStringProperty::ItemIndex)
             .and_then(|index| index.parse::<usize>().ok())
-        else {
-            continue;
-        };
-
-        has_indexed_descendants = true;
-        if item_index == delegate_index {
-            return Some(position);
+        {
+            has_indexed_descendants = true;
+            if item_index == delegate_index {
+                return Some(position);
+            }
         }
     }
-
-    if has_indexed_descendants { None } else { positional_match }
+    (!has_indexed_descendants && delegate_index < count).then_some(delegate_index)
 }
 
 /// The item that stands for `item` in the accessibility tree: `item` itself when it is accessible,
