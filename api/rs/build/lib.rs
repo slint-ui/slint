@@ -1095,7 +1095,7 @@ fn project_file_errors_are_compilation_errors() {
         let CompileError::CompileError(messages) = error else {
             panic!("Expected a compilation error, got {error:?}");
         };
-        assert_eq!(messages, vec![format!("{} has no 'entry' to compile", project_file.display())]);
+        assert_eq!(messages, vec![format!("{} has no 'main' to compile", project_file.display())]);
     });
 }
 
