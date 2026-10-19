@@ -5,12 +5,16 @@ description: Marking a property, callback, or function as deprecated with @depre
 
 The `@deprecated` annotation marks a property, callback, or function as deprecated.
 The compiler warns wherever the member is used from outside the component that declares it,
-and the warning carries the message the annotation gives it:
+and the warning carries the message the annotation gives it.
+Use it to evolve a component's public API while giving users a migration path instead of a hard break:
 
 ```slint
 component Inner {
     in-out property <int> new-prop;
     @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+
+    // No warning: uses within the declaring component are fine.
+    in-out property <int> internal: old-prop;
 }
 
 export component Example {
@@ -40,6 +44,10 @@ and takes the message in parentheses:
 - The message must be a plain string literal.
   A `\{}` template expression in it is a compile error.
 - A declaration may carry `@deprecated` only once.
+
+Write the message you want the user to read.
+The compiler doesn't infer it from the declaration,
+so say what replaces the member, even when it aliases its replacement with `<=>`.
 
 An empty message, `@deprecated("")`, deprecates the member without advising on a replacement.
 The warning then names the member and stops, as in `The property 'old-prop' has been deprecated`.
