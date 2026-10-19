@@ -496,8 +496,7 @@ impl<'a> SkiaItemRenderer<'a> {
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
                 // On the GPU, a repeating shader of a subset of a texture-backed image (a
                 // colorized one) draws nothing, so the whole image is used as it is.
-                let whole = skia_safe::IRect::from_wh(skia_image.width(), skia_image.height());
-                let tile = if src == whole {
+                let tile = if src == skia_image.bounds() {
                     Some(skia_image.clone())
                 } else {
                     skia_image.make_subset(
