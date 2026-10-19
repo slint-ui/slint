@@ -70,10 +70,12 @@ export component TestCaseSecondFinger inherits Window {
 }
 
 export component TestCaseSwipeGestureHandler inherits Window {
-    width: 100px;
+    width: 200px;
     height: 100px;
 
     TouchArea {
+        x: 0;
+        width: 100px;
         clicked => { root.counter += 1; }
 
         SwipeGestureHandler {
@@ -83,7 +85,20 @@ export component TestCaseSwipeGestureHandler inherits Window {
         }
     }
 
+    TouchArea {
+        x: 100px;
+        width: 100px;
+        clicked => { root.sibling-counter += 1; }
+    }
+    SwipeGestureHandler {
+        x: 100px;
+        width: 100px;
+        height: 100px;
+        handle-swipe-down: true;
+    }
+
     out property <int> counter: 0;
+    out property <int> sibling-counter: 0;
 }
 
 /*
@@ -134,6 +149,10 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 53.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 53.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 2);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(150.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_sibling_counter(), 0);
 ```
 
 ```rust

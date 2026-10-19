@@ -10,7 +10,7 @@ export component TestCaseRepeated inherits Window {
         clicked => { root.counter += 1; }
 
         VerticalLayout {
-            for i in 3: Flickable {
+            for i in root.rows: Flickable {
                 height: 100px;
                 content-width: self.width;
                 content-height: 150px;
@@ -22,6 +22,7 @@ export component TestCaseRepeated inherits Window {
         }
     }
 
+    in property <[int]> rows: [0, 1, 2];
     out property <int> counter: 0;
 }
 
@@ -69,6 +70,12 @@ let instance = TestCaseRepeated::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_counter(), 1);
+
+// The Flickable that delayed the press is gone by the release: the click still reaches the parent.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+instance.set_rows(slint::ModelRc::new(slint::VecModel::from(vec![0, 1, 2])));
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 2);
 ```
 
 ```rust

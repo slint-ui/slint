@@ -368,15 +368,12 @@ InputEventFilterResult::DelayForwarding(duration_ms)
    nothing accepts anywhere, that a nested child *inside* the delaying item accepts (e.g. press feedback),
    or that the delaying item accepts without grabbing (a move below its drag threshold) does not clear it. A press released after the delay was cleared this way is not forwarded (tracked in
    issue #13120); only a release while the delay is still intact takes the path below
-4. If release comes while the delay is still intact, the stored root-frame press replays from the root
-   along the item stack, which still ends at the delaying item.
-   The replay skips every item that is neither on that path nor inside the delaying item.
+4. If release comes while the delay is still intact, the stored root-frame press replays along the item
+   stack down to the delaying item and into its children, skipping every other item.
    *Every* `DelayForwarding` item it reaches -- not just the originally delaying one -- is forced to
-   forward-and-ignore instead of falling back.
-   The interaction is now known to be over, so a nested delaying item must also let an unclaimed press
+   forward-and-ignore: the interaction is over, so a nested delaying item must let an unclaimed press
    bubble past it rather than belatedly grab it.
-   An unclaimed press bubbles up to the delaying item's ancestors,
-   but never reaches the siblings behind it or behind its ancestors
+   An unclaimed press therefore bubbles only to the delaying item's ancestors
 5. This release-triggered replay only fires for the release of the same pointer and button that's being
    delayed: a synthetic `Released` used elsewhere to cancel a single-touch grab when a second finger starts
    a gesture carries a different `touch_finger_id` and is ignored here, leaving the original delay untouched
