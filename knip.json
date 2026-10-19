@@ -73,6 +73,9 @@
       "ignoreUnresolved": ["^/src/content/"],
       "ignoreBinaries": ["biome"]
     },
+    "ai-plugins/hooks": {
+      "entry": ["*.mjs", "test/*.test.mjs"]
+    },
     "ai-plugins/mcp/slint-preview": {
       "entry": ["server.mjs", "test/*.test.mjs"]
     },
