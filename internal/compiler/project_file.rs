@@ -703,12 +703,12 @@ mod tests {
         for (source, message, line, column) in [
             (
                 r#"{
-  "style": 42,
-  "entry": "main.slint"
+  "$schema": 42,
+  "main": "main.slint"
 }"#,
                 "invalid type",
                 2,
-                13,
+                15,
             ),
             (
                 r#"{
@@ -763,12 +763,12 @@ mod tests {
         ));
         let path = directory.join(FILE_NAME);
         fs::create_dir(&directory).unwrap();
-        fs::write(&path, r#"{"style":"native"}"#).unwrap();
+        fs::write(&path, r#"{"main":"native"}"#).unwrap();
         let loaded = ProjectFile::load(&path);
         fs::remove_file(&path).unwrap();
         fs::remove_dir(&directory).unwrap();
         let project = loaded.unwrap();
-        assert_eq!(project.style(), Some("native"));
+        assert_eq!(project.main(), Some(SourcePath::File(directory.join("native"))));
         assert_eq!(project.source_path(), &SourcePath::File(path));
     }
 
@@ -949,9 +949,9 @@ mod tests {
     fn callback_loading_shares_parsing_and_relative_paths() {
         for source in [
             "// empty\n/* manifest */",
-            r#"{"entry":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"},"style":"fluent"}"#,
+            r#"{"main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#,
             r#"{"unknown":true}"#,
-            "{\n// preserved line\n\"style\": invalid}",
+            "{\n// preserved line\n\"main\": invalid}",
         ] {
             with_project_file_contents(source, |path| {
                 let source_path = SourcePath::new(path);
@@ -983,7 +983,7 @@ mod tests {
     fn callback_paths_resolve_against_the_manifest_url() {
         let manifest = SourcePath::new("https://example.com/project/slint-project.json");
         let loader = callback_loader(
-            HashMap::from([(manifest.clone(), r#"{"entry":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#.into())]),
+            HashMap::from([(manifest.clone(), r#"{"main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#.into())]),
             Default::default(),
         );
         let project =
@@ -1009,15 +1009,15 @@ mod tests {
                 PathBuf::from("https://example.com/project/lib/main.slint")
             )]))
         );
-        assert_eq!(resolved.entry, project.main().map(|entry| entry.to_legacy_path()));
+        assert_eq!(resolved.main, project.main().map(|entry| entry.to_legacy_path()));
     }
 
     #[test]
     fn callback_result_is_authoritative_and_none_falls_back_to_disk() {
-        with_project_file_contents(r#"{"style":"disk"}"#, |path| {
+        with_project_file_contents(r#"{"main":"disk"}"#, |path| {
             let path = SourcePath::new(path);
             for (response, expected) in [
-                (Some(Ok("{\"style\":\"callback\"}")), Some("callback")),
+                (Some(Ok("{\"main\":\"callback\"}")), Some("callback")),
                 (None, Some("disk")),
                 (Some(Err(std::io::ErrorKind::NotFound)), None),
                 (Some(Err(std::io::ErrorKind::PermissionDenied)), None),
@@ -1032,7 +1032,7 @@ mod tests {
                     Some(&loader),
                 ));
                 if let Some(expected) = expected {
-                    assert_eq!(result.unwrap().style(), Some(expected));
+                    assert_eq!(result.unwrap().main(), path.parent().join(expected));
                 } else {
                     assert_eq!(
                         result.unwrap_err().downcast_ref::<std::io::Error>().unwrap().kind(),
@@ -1060,7 +1060,7 @@ mod tests {
                     (manifest.clone(), "{}".into()),
                     (
                         directory.join("../slint-project.json").unwrap(),
-                        "{\"style\":\"outer\"}".into(),
+                        "{\"main\":\"outer\"}".into(),
                     ),
                 ]),
                 requested.clone(),
@@ -1139,12 +1139,12 @@ mod tests {
         let manifest = root.join(FILE_NAME).unwrap();
         let source = root.join("ui/main.slint").unwrap();
         for entry in [None, Some("ui/main.slint")] {
-            let contents = entry
-                .map_or_else(|| "{}".to_string(), |entry| format!("{{\"entry\":\"{entry}\"}}"));
+            let contents =
+                entry.map_or_else(|| "{}".to_string(), |entry| format!("{{\"main\":\"{entry}\"}}"));
             let loader = callback_loader(
                 HashMap::from([
                     (manifest.clone(), contents),
-                    (root.join("ui/slint-project.json").unwrap(), "{\"style\":\"nested\"}".into()),
+                    (root.join("ui/slint-project.json").unwrap(), "{\"main\":\"nested\"}".into()),
                 ]),
                 Default::default(),
             );
@@ -1165,7 +1165,7 @@ mod tests {
             .unwrap()
             .unwrap();
             assert_eq!(resolved.source, source);
-            assert_eq!(resolved.project_file.unwrap().style(), Some("nested"));
+            assert_eq!(resolved.project_file.unwrap().main(), root.join("ui/nested"));
         }
         let loader = callback_loader(
             HashMap::from([(manifest.clone(), "broken".into())]),

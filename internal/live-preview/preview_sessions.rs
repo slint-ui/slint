@@ -715,7 +715,7 @@ mod tests {
                     Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
                 let entry = Url::from_file_path(directory.path().join("main.slint")).unwrap();
                 for (url, source) in [
-                    (manifest.clone(), r#"{"entry":"main.slint"}"#),
+                    (manifest.clone(), r#"{"main":"main.slint"}"#),
                     (
                         entry.clone(),
                         "export component Main inherits Window { out property <int> marker: 91; }",
@@ -782,7 +782,7 @@ mod tests {
                 assert!(instance.is_some());
 
                 assert!(inspector.is_some());
-                assert!(capture.0.borrow().iter().any(|message| matches!(message, PreviewToLspMessage::Diagnostics { uri, diagnostics, .. } if uri == &target.url && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("has no 'entry' to compile")))));
+                assert!(capture.0.borrow().iter().any(|message| matches!(message, PreviewToLspMessage::Diagnostics { uri, diagnostics, .. } if uri == &target.url && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("has no 'main' to compile")))));
                 assert!(
                     !capture
                         .0
@@ -874,7 +874,6 @@ mod tests {
     async fn preview_configuration_accepts_default_and_explicit_styles() {
         i_slint_backend_testing::init_no_event_loop();
         let mut compiler = slint_interpreter::Compiler::new();
-        compiler.set_reads_project_file(false);
         let source = r#"
             import { Button } from "std-widgets.slint";
             export component App inherits Window {
@@ -887,7 +886,13 @@ mod tests {
         {
             apply_configuration(
                 &mut compiler,
-                &PreviewConfig { style: style.into(), ..Default::default() },
+                &PreviewConfig {
+                    overrides: i_slint_compiler::project_file::Overrides {
+                        style: (!style.is_empty()).then(|| style.into()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
             );
             let result = compiler.build_from_source(source.into(), "/preview.slint".into()).await;
             assert_eq!(

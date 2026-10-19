@@ -2039,8 +2039,8 @@ enum {}
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
             overrides: i_slint_compiler::project_file::Overrides {
+                style: Some("custom-style".into()),
                 project: i_slint_compiler::project_file::ProjectFileData {
-                    style: Some("custom-style".into()),
                     include_paths: Some(vec![PathBuf::from("/includes")]),
                     library_paths: Some(HashMap::from([(
                         "widgets".into(),
