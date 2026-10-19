@@ -2,14 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
-import { mountPreview, readFixture, canvasPixels } from "./browser-harness";
+import {
+    mountCanvasPreview,
+    readFixture,
+    type CanvasPixels,
+    expectCanvasPixels,
+} from "./browser-harness";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import type { SourceCapture } from "../src/plugin/source";
 import { requireValue } from "../src/preview/slint-ir";
 
 test("nested HUG containers use resolved preview geometry", async () => {
-    let referencePixels: Awaited<ReturnType<typeof canvasPixels>> | undefined;
+    let referencePixels: CanvasPixels | undefined;
     for (const specialize of [false, true]) {
         const capture: SourceCapture = JSON.parse(
             await readFixture("fixtures/source/conditional-root.json"),
@@ -71,7 +76,7 @@ test("nested HUG containers use resolved preview geometry", async () => {
         const result = convertSnapshot(normalized.snapshot, { specialize });
         if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
         expect(result.source).toContain("height: 84px;");
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -79,9 +84,23 @@ test("nested HUG containers use resolved preview geometry", async () => {
             exportPackage: { source: result.source, files: [] },
         });
         await p.ready(1);
-        const pixels = await canvasPixels(p);
-        if (referencePixels) expect(pixels.data).toEqual(referencePixels.data);
-        else referencePixels = pixels;
+        const pixels = await expectCanvasPixels(p, (pixels) => {
+            expect(pixels.width).toBe(300);
+            expect(pixels.height).toBe(100);
+            let green = 0;
+            for (let index = 0; index < pixels.data.length; index += 4)
+                if (
+                    pixels.data[index] === 0 &&
+                    pixels.data[index + 1] === 255 &&
+                    pixels.data[index + 2] === 0 &&
+                    pixels.data[index + 3] === 255
+                )
+                    green++;
+            expect(green).toBe(95 * 84);
+            if (referencePixels)
+                expect(pixels.data).toEqual(referencePixels.data);
+        });
+        referencePixels ??= pixels;
     }
 });
 
@@ -165,7 +184,7 @@ for (const specialize of [false, true]) {
         expect(
             result.source.match(/FlexboxLayout/g)?.length,
         ).toBeGreaterThanOrEqual(4);
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -174,16 +193,17 @@ for (const specialize of [false, true]) {
         });
         await p.ready(1);
         expect(result.source).toContain("width: 42px;");
-        const pixels = await canvasPixels(p);
-        let red = 0;
-        for (let i = 0; i < pixels.data.length; i += 4)
-            if (
-                pixels.data[i] === 255 &&
-                pixels.data[i + 1] === 0 &&
-                pixels.data[i + 2] === 0
-            )
-                red++;
-        expect(red).toBe(42 * 20);
+        await expectCanvasPixels(p, (pixels) => {
+            let red = 0;
+            for (let i = 0; i < pixels.data.length; i += 4)
+                if (
+                    pixels.data[i] === 255 &&
+                    pixels.data[i + 1] === 0 &&
+                    pixels.data[i + 2] === 0
+                )
+                    red++;
+            expect(red).toBe(42 * 20);
+        });
     });
 }
 
@@ -213,7 +233,7 @@ test("nested fixed layouts render without geometry recovery", async () => {
     const result = convertSnapshot(normalized.snapshot);
     if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
     expect(result.source.match(/FlexboxLayout/g)).toHaveLength(19);
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     p.send({
         type: "preview-source",
         revision: 1,
@@ -221,7 +241,8 @@ test("nested fixed layouts render without geometry recovery", async () => {
         exportPackage: { source: result.source, files: [] },
     });
     await p.ready(1);
-    const pixels = await canvasPixels(p);
-    expect(pixels.width).toBe(100);
-    expect(pixels.height).toBe(60);
+    await expectCanvasPixels(p, (pixels) => {
+        expect(pixels.width).toBe(100);
+        expect(pixels.height).toBe(60);
+    });
 });
