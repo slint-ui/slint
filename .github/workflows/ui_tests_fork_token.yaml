@@ -3,12 +3,12 @@
 
 # GitHub gives a pull request from a fork neither secrets nor an OIDC token, so its
 # visual editor UI tests can't get the token that installs slint-testing.
-# This mints one for it, once a maintainer approves the `ui-tests-fork-token` environment.
-# The CI run of the pull request picks it up from the artifact, see ci.yaml.
+# This mints one for it, once a maintainer approves the `ui-tests-fork-token` environment,
+# and re-runs the UI test job that failed without it, see ci.yaml.
 #
-# `pull_request_target` runs as this repository, so this workflow never checks out
-# or runs code from the pull request.
-# The artifact is readable by anyone, which the token's short lifetime makes acceptable.
+# `pull_request_target` and `workflow_run` run as this repository, so this workflow
+# never checks out or runs code from the pull request.
+# The token artifact is readable by anyone, which the token's short lifetime makes acceptable.
 
 name: UI Tests Fork Token
 
@@ -16,21 +16,34 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
     branches: [master, "feature/*", "pre-release/*"]
+  workflow_run:
+    workflows: [autofix.ci]
+    types: [completed]
 
 permissions: {}
 
-concurrency:
-  group: ui-tests-fork-token-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+env:
+  GH_TOKEN: ${{ github.token }}
+  REPO: ${{ github.repository }}
+  # The job of ci.yaml that runs the UI tests, and its step that takes the token.
+  UI_TEST_JOB: ci / Visual Editor (Rust and UI on macOS)
+  TOKEN_STEP: Get the UI testing token minted for this pull request
+  MINTED_BY: pull_request_target .github/workflows/ui_tests_fork_token.yaml
 
 jobs:
   mint:
-    if: github.event.pull_request.head.repo.fork
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.fork
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: ui-tests-fork-token
+    concurrency:
+      group: ui-tests-fork-token-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
+      actions: write
       id-token: write
+    env:
+      SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Get a testing.slint.dev token
         id: auth
@@ -43,6 +56,51 @@ jobs:
         run: printf '%s' "$TOKEN" > token
       - uses: actions/upload-artifact@v7
         with:
-          name: ui-testing-token-${{ github.event.pull_request.head.sha }}
+          name: ui-testing-token-${{ env.SHA }}
           path: token
           retention-days: 1
+      # A CI run still in progress is handled by the `rerun` job once it completes,
+      # since GitHub only re-runs a job of a completed run.
+      - name: Re-run the UI tests that failed without a token
+        run: |
+          run=$(gh api "repos/$REPO/actions/workflows/autofix.yaml/runs?head_sha=$SHA&event=pull_request&per_page=1" \
+              --jq '.workflow_runs[0] | select(.status == "completed") | .id')
+          [ -n "$run" ] || exit 0
+          job=$(gh api "repos/$REPO/actions/runs/$run/jobs?filter=latest&per_page=100" \
+              --jq '.jobs[] | select(.name == env.UI_TEST_JOB)
+                  | select(any(.steps[]; .name == env.TOKEN_STEP and .conclusion == "failure")) | .id')
+          [ -z "$job" ] || gh api -X POST "repos/$REPO/actions/jobs/$job/rerun"
+
+  rerun:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.fork &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN: ${{ github.event.workflow_run.id }}
+    steps:
+      # Only when the token step failed before the token existed, so a job that fails
+      # for another reason isn't re-run again and again.
+      - name: Re-run the UI tests that failed without a token, if one was minted since
+        run: |
+          read -r job failed_at < <(gh api "repos/$REPO/actions/runs/$RUN/jobs?filter=latest&per_page=100" \
+              --jq '.jobs[] | select(.name == env.UI_TEST_JOB) | . as $job
+                  | .steps[] | select(.name == env.TOKEN_STEP and .conclusion == "failure")
+                  | "\($job.id) \(.completed_at)"') || true
+          [ -n "$job" ] || exit 0
+          # Any workflow run can upload an artifact by that name, so only count one from the mint job.
+          artifacts=$(gh api "repos/$REPO/actions/artifacts?name=ui-testing-token-$SHA" \
+              --jq '.artifacts[] | select(.expired | not) | "\(.workflow_run.id) \(.created_at)"')
+          while read -r run created_at; do
+              [ -n "$run" ] && [[ "$created_at" > "$failed_at" ]] || continue
+              if [ "$(gh api "repos/$REPO/actions/runs/$run" --jq '.event + " " + .path')" = "$MINTED_BY" ]; then
+                  gh api -X POST "repos/$REPO/actions/jobs/$job/rerun"
+                  exit 0
+              fi
+          done <<< "$artifacts"

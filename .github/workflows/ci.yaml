@@ -108,6 +108,32 @@ jobs:
             SLINT_EMIT_DEBUG_INFO: '1'
         steps:
             - uses: actions/checkout@v7
+            # A pull request from a fork gets no secrets. ui_tests_fork_token.yaml mints its token
+            # once a maintainer approves, and re-runs this job if it failed here for lack of one.
+            # The name of this step is matched there.
+            - name: Get the UI testing token minted for this pull request
+              if: matrix.run_ui_tests && github.event.pull_request.head.repo.fork
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  NAME: ui-testing-token-${{ github.event.pull_request.head.sha }}
+                  MINTED_BY: pull_request_target .github/workflows/ui_tests_fork_token.yaml
+              run: |
+                  # Any workflow run can upload an artifact by that name, so only take one from the minting workflow.
+                  runs=$(gh api "repos/$REPO/actions/artifacts?name=$NAME" \
+                      --jq '.artifacts[] | select(.expired | not) | .workflow_run.id')
+                  for run in $runs; do
+                      if [ "$(gh api "repos/$REPO/actions/runs/$run" --jq '.event + " " + .path')" = "$MINTED_BY" ]; then
+                          gh run download "$run" --repo "$REPO" --name "$NAME" --dir "$RUNNER_TEMP/ui-testing-token"
+                          token=$(cat "$RUNNER_TEMP/ui-testing-token/token")
+                          echo "::add-mask::$token"
+                          echo "UV_INDEX_SLINT_PRIVATE_PASSWORD=$token" >> "$GITHUB_ENV"
+                          exit 0
+                      fi
+                  done
+                  echo "::error::No UI testing token yet." \
+                      "Once a maintainer approves the 'UI Tests Fork Token' run of this pull request, this job runs again."
+                  exit 1
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
@@ -122,42 +148,6 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
-            # A pull request from a fork gets no secrets.
-            # Its token comes from ui_tests_fork_token.yaml, once a maintainer approves that run.
-            - name: Get the testing.slint.dev token minted for this pull request
-              if: matrix.run_ui_tests && github.event.pull_request.head.repo.fork
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  REPO: ${{ github.repository }}
-                  NAME: ui-testing-token-${{ github.event.pull_request.head.sha }}
-                  MINTED_BY: pull_request_target .github/workflows/ui_tests_fork_token.yaml
-              run: |
-                  # Any workflow run can upload an artifact by that name, so only take one from the minting workflow.
-                  find_run() {
-                      local runs
-                      runs=$(gh api "repos/$REPO/actions/artifacts?name=$NAME" \
-                          --jq '.artifacts[] | select(.expired | not) | .workflow_run.id')
-                      for run in $runs; do
-                          if [ "$(gh api "repos/$REPO/actions/runs/$run" --jq '.event + " " + .path')" = "$MINTED_BY" ]; then
-                              echo "$run"
-                              return
-                          fi
-                      done
-                  }
-                  for _ in $(seq 60); do
-                      run=$(find_run)
-                      [ -n "$run" ] && break
-                      sleep 30
-                  done
-                  if [ -z "$run" ]; then
-                      echo "::error::No token for this commit." \
-                          "Ask a maintainer to approve the 'UI Tests Fork Token' run of this pull request, then re-run this job."
-                      exit 1
-                  fi
-                  gh run download "$run" --repo "$REPO" --name "$NAME" --dir "$RUNNER_TEMP/ui-testing-token"
-                  token=$(cat "$RUNNER_TEMP/ui-testing-token/token")
-                  echo "::add-mask::$token"
-                  echo "UV_INDEX_SLINT_PRIVATE_PASSWORD=$token" >> "$GITHUB_ENV"
             - name: Install UI test dependencies
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
