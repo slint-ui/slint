@@ -136,7 +136,10 @@ assert_eq!(instance.get_field_height(), 52.);
 let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
 assert!(viewport.absolute_position().x > field.absolute_position().x + 20.);
 assert!(viewport.absolute_position().x + viewport.size().width < field.absolute_position().x + field.size().width - 20.);
-instance.global::<BasicTheme<'_>>().set_background(brush(0x12, 0x34, 0x56));
+let theme = instance.global::<BasicTheme<'_>>();
+let mut palette = theme.get_palette();
+palette.background = brush(0x12, 0x34, 0x56);
+theme.set_palette(palette);
 assert_eq!(instance.get_default_background(), brush(0x12, 0x34, 0x56));
 assert!(instance.get_test());
 ```

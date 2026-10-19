@@ -5,7 +5,10 @@ import { ScrollView } from "std-widgets.slint";
 import {
     Button,
     ButtonStyles,
+    Switch,
+    BasicPalettes,
     BasicTheme,
+    BasicThemeProvider,
 } from "../src/basic.slint";
 import { ButtonExamples } from "buttons.slint";
 import { CheckBoxExamples } from "check_boxes.slint";
@@ -16,6 +19,7 @@ import { LineEditExamples } from "line_edits.slint";
 
 export component ControlsDemo inherits Window {
     in-out property <int> current-page;
+    in-out property <bool> dark-mode;
     private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox", "Switch", "LineEdit"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
@@ -25,11 +29,15 @@ export component ControlsDemo inherits Window {
     background: BasicTheme.background;
     default-font-size: 14px;
 
+    BasicThemeProvider {
+        palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light;
+    }
+
     HorizontalLayout {
         spacing: 0px;
         Rectangle {
             width: 220px;
-            background: white;
+            background: BasicTheme.background;
             Rectangle {
                 x: parent.width - self.width;
                 width: 1px;
@@ -82,6 +90,11 @@ export component ControlsDemo inherits Window {
                     text: "Headless behavior\nBase style · Custom visuals";
                     color: BasicTheme.disabled-foreground;
                     font-size: 12px;
+                }
+
+                Switch {
+                    text: "Dark mode";
+                    checked <=> root.dark-mode;
                 }
             }
         }

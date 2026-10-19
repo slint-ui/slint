@@ -5,6 +5,7 @@ import {
     Button,
     ButtonStyles,
     CheckBox,
+    CheckBoxStyle,
     CheckBoxStyles,
     Switch,
     SwitchStyles,
@@ -30,6 +31,7 @@ export component TestCase inherits Window {
     in-out property <brush> foreground: #ffffff;
     in-out property <bool> enabled: true;
     in-out property <bool> checked: true;
+    in-out property <CheckBoxStyle> checkbox-style: CheckBoxStyles.standard;
     out property <int> activations;
     out property <brush> switch-foreground: switch.foreground;
     out property <bool> test: first.checked-color == second.checked-color
@@ -41,7 +43,7 @@ export component TestCase inherits Window {
         && slider.handle-color == root.custom-color
         && combo.background-color == root.custom-color
         && combo.foreground == root.foreground
-        && first.style == CheckBoxStyles.standard
+        && first.style == root.checkbox-style
         && button.style == ButtonStyles.primary
         && switch.style == SwitchStyles.standard
         && slider.style == SliderStyles.standard
@@ -58,6 +60,7 @@ export component TestCase inherits Window {
     VerticalLayout {
         HorizontalLayout {
             first := AppCheckBox {
+                style: root.checkbox-style;
                 text: "Shared one";
                 checked <=> root.checked;
                 enabled: root.enabled;
@@ -65,6 +68,7 @@ export component TestCase inherits Window {
             }
 
             second := AppCheckBox {
+                style: root.checkbox-style;
                 text: "Shared two";
                 checked <=> root.checked;
                 enabled: root.enabled;
@@ -137,13 +141,16 @@ assert!(instance.get_test());
 let presets = instance.global::<CheckBoxStyles<'_>>();
 let mut style = presets.get_standard();
 style.checked.disabled.indicator_color = brush(0x12, 0x34, 0x56);
-presets.set_standard(style);
+instance.set_checkbox_style(style);
 assert!(instance.get_test());
 instance.set_enabled(true);
 assert!(instance.get_test());
 
 let label = brush(0x65, 0x43, 0x21);
-instance.global::<BasicTheme<'_>>().set_foreground(label.clone());
+let theme = instance.global::<BasicTheme<'_>>();
+let mut palette = theme.get_palette();
+palette.foreground = label.clone();
+theme.set_palette(palette);
 assert_eq!(instance.get_switch_foreground(), label);
 assert!(instance.get_test());
 ```

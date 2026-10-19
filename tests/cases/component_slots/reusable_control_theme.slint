@@ -1,0 +1,194 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    BasicPalette, BasicPalettes, BasicTheme, BasicThemeProvider,
+    Button, CheckBox, Switch, Slider, ComboBox, LineEdit,
+} from "../../../tools/editor/controls/src/basic.slint";
+export { BasicPalettes, BasicTheme }
+
+global AppTheme {
+    in property <bool> dark;
+    in property <bool> use-presets;
+    out property <BasicPalette> light: BasicPalettes.light;
+    out property <BasicPalette> dark-palette: {
+        background: #18212b,
+        foreground: #eeeeee,
+        hover-background: BasicPalettes.light.hover-background,
+        pressed-background: BasicPalettes.light.pressed-background,
+        accent: #aabbcc,
+        accent-hover: #bbccdd,
+        accent-pressed: #8899aa,
+        accent-foreground: #112233,
+        border: #445566,
+        danger: BasicPalettes.light.danger,
+        danger-hover: BasicPalettes.light.danger-hover,
+        danger-pressed: BasicPalettes.light.danger-pressed,
+        danger-foreground: BasicPalettes.light.danger-foreground,
+        danger-disabled-foreground: BasicPalettes.light.danger-disabled-foreground,
+        invisible-hover-background: BasicPalettes.light.invisible-hover-background,
+        invisible-pressed-background: BasicPalettes.light.invisible-pressed-background,
+        disabled-background: #223344,
+        disabled-foreground: #778899,
+        focus: #abcdef,
+    };
+    out property <BasicPalette> preset: root.dark ? BasicPalettes.dark : BasicPalettes.light;
+    out property <BasicPalette> custom: root.dark ? root.dark-palette : root.light;
+    out property <BasicPalette> palette: root.use-presets ? root.preset : root.custom;
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    in property <bool> dark <=> AppTheme.dark;
+    in property <bool> use-presets <=> AppTheme.use-presets;
+    in-out property <bool> enabled: true;
+    out property <brush> background-color: BasicTheme.background;
+    out property <brush> accent: BasicTheme.accent;
+    out property <bool> test: BasicTheme.palette == AppTheme.palette
+        && BasicTheme.default-palette == AppTheme.light
+        && BasicTheme.danger == AppTheme.palette.danger
+        && ((root.enabled && primary.background-color == AppTheme.palette.accent)
+            || (!root.enabled && primary.background-color == AppTheme.palette.disabled-background))
+        && checkbox.style.checked.rest.indicator-color == AppTheme.palette.accent
+        && switch.style.checked.rest.track-color == AppTheme.palette.accent
+        && slider.style.rest.handle-color == AppTheme.palette.accent
+        && combo.style.popup.highlighted.background-color == AppTheme.palette.accent
+        && ((root.enabled && field.background-color == AppTheme.palette.background)
+            || (!root.enabled && field.background-color == AppTheme.palette.disabled-background))
+        && primary.style.focus-color == AppTheme.palette.focus
+        && custom.background-color == #654321;
+
+    BasicThemeProvider { palette: AppTheme.palette; }
+
+    VerticalLayout {
+        primary := Button { text: "Primary"; primary: true; enabled: root.enabled; }
+        checkbox := CheckBox { text: "Checkbox"; checked: true; }
+        switch := Switch { text: "Switch"; checked: true; }
+        slider := Slider { value: 50; }
+        combo := ComboBox { accessible-label: "Notebook"; model: ["One", "Two"]; }
+        field := LineEdit { text: "Field"; enabled: root.enabled; }
+        custom := Button {
+            text: "Custom";
+            style: {
+                rest: { background-color: #654321, foreground: #ffffff },
+                hover: { background-color: #654321, foreground: #ffffff },
+                pressed: { background-color: #654321, foreground: #ffffff },
+                disabled: { background-color: #654321, foreground: #ffffff },
+            };
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_core::item_tree::ItemRc;
+use i_slint_core::items::{BasicBorderRectangle, BorderRectangle, ComplexText, SimpleText};
+use i_slint_core::window::WindowInner;
+use std::ops::ControlFlow;
+let instance = TestCase::new().unwrap();
+let other = TestCase::new().unwrap();
+let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
+assert!(instance.get_test());
+assert!(other.get_test());
+assert_eq!(instance.get_background_color(), brush(0xf6, 0xf8, 0xfa));
+assert_eq!(instance.get_accent(), brush(0x1c, 0x87, 0x3c));
+for dark in [true, false, true] {
+    instance.set_dark(dark);
+    assert!(instance.get_test());
+    assert!(other.get_test());
+    assert_eq!(instance.get_background_color(), if dark { brush(0x18, 0x21, 0x2b) } else { brush(0xf6, 0xf8, 0xfa) });
+    assert_eq!(instance.get_accent(), if dark { brush(0xaa, 0xbb, 0xcc) } else { brush(0x1c, 0x87, 0x3c) });
+    assert_eq!(other.get_accent(), brush(0x1c, 0x87, 0x3c));
+    instance.set_enabled(false);
+    assert!(instance.get_test());
+    instance.set_enabled(true);
+    assert!(instance.get_test());
+}
+let theme = instance.global::<BasicTheme<'_>>();
+assert_eq!(theme.get_default_palette().danger, brush(0xb9, 0x1c, 0x1c));
+assert_eq!(theme.get_danger(), brush(0xb9, 0x1c, 0x1c));
+
+let presets = instance.global::<BasicPalettes<'_>>();
+instance.set_use_presets(true);
+for dark in [true, false] {
+    instance.set_dark(dark);
+    assert!(instance.get_test());
+    let expected = if dark { presets.get_dark() } else { presets.get_light() };
+    assert_eq!(theme.get_palette(), expected);
+    assert_eq!(instance.get_background_color(), if dark { brush(0x16, 0x1b, 0x22) } else { brush(0xf6, 0xf8, 0xfa) });
+    assert_eq!(instance.get_accent(), if dark { brush(0x3f, 0xb9, 0x50) } else { brush(0x1c, 0x87, 0x3c) });
+    assert_eq!(theme.get_default_palette(), presets.get_light());
+    assert!(other.get_test());
+    instance.set_enabled(false);
+    assert!(instance.get_test());
+    instance.set_enabled(true);
+}
+
+instance.show().unwrap();
+instance.set_dark(false);
+let combo = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Notebook").next().unwrap();
+combo.invoke_accessible_expand_action();
+let popup = {
+    let window = WindowInner::from_pub(instance.window());
+    assert_eq!(window.active_popups().len(), 1);
+    let popup = window.active_popups()[0].component.clone();
+    popup
+};
+let popup_root = ItemRc::new_root(popup);
+for (use_presets, dark) in [(false, false), (false, true), (true, true), (true, false)] {
+    instance.set_use_presets(use_presets);
+    instance.set_dark(dark);
+    slint::platform::update_timers_and_animations();
+    assert_eq!(combo.accessible_expanded(), Some(true));
+    let palette = theme.get_palette();
+    let background = palette.background;
+    let foreground = palette.foreground;
+    let accent = palette.accent;
+    let accent_foreground = palette.accent_foreground;
+    let mut surface_found = false;
+    let mut highlight_found = false;
+    let mut text_count = 0;
+    popup_root.visit_descendants(|item| {
+        let rectangle = item.downcast::<BorderRectangle>().map(|rectangle| {
+            let rectangle = rectangle.as_pin_ref();
+            (rectangle.border_width().get(), rectangle.background())
+        }).or_else(|| item.downcast::<BasicBorderRectangle>().map(|rectangle| {
+            let rectangle = rectangle.as_pin_ref();
+            (rectangle.border_width().get(), rectangle.background())
+        }));
+        if let Some((border_width, color)) = rectangle {
+            if border_width > 0. {
+                assert_eq!(color, background);
+                surface_found = true;
+            } else if color == accent {
+                highlight_found = true;
+            }
+        }
+        let text = item.downcast::<SimpleText>().map(|text| {
+            let text = text.as_pin_ref();
+            (text.text(), text.color())
+        }).or_else(|| item.downcast::<ComplexText>().map(|text| {
+            let text = text.as_pin_ref();
+            (text.text(), text.color())
+        }));
+        if let Some((text, color)) = text {
+            if text == "One" {
+                assert_eq!(color, accent_foreground);
+                text_count += 1;
+            } else if text == "Two" {
+                assert_eq!(color, foreground);
+                text_count += 1;
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    assert!(surface_found);
+    assert!(highlight_found);
+    assert_eq!(text_count, 2);
+}
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Escape.into(), true);
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Escape.into(), false);
+assert_eq!(combo.accessible_expanded(), Some(false));
+```
+*/

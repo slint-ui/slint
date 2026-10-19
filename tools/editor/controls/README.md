@@ -8,7 +8,7 @@
 | A simple color change | Set a common color property, such as `CheckBox.checked-color`. |
 | Different colors for interaction states | Pass the control's style struct through `style`. |
 | Different dimensions, shapes, or typography | Pass size metrics through `size`, or override an individual font or layout property. |
-| Shared application defaults | Reuse an application style through a small component, or update a control's global style preset. |
+| Shared application defaults | Supply a palette through `BasicThemeProvider`, or reuse styles and metrics through small application components. |
 | Different content, layout, or visuals | Import the corresponding `*Base` from `src/headless.slint` and fill its slots. |
 
 The basic controls already fill their visual slots.
@@ -26,6 +26,48 @@ For each control with style and size structs, `<control>_style.slint` defines th
 `<control>_styles.slint` defines both the color and size presets, such as `ButtonStyles` and `ButtonSizes`.
 Import controls, types, and presets through `src/basic.slint`.
 The gallery owns the preview selector and selected index.
+
+## Application Theme
+
+`BasicPalettes.light` and `BasicPalettes.dark` provide read-only library palettes.
+Controls use the light palette by default; `BasicTheme.default-palette` refers to that same preset.
+Select the application's palette through one `BasicThemeProvider` inside the root window:
+
+```slint
+import { BasicPalettes, BasicThemeProvider, Button } from "../src/basic.slint";
+
+export component App inherits Window {
+    in-out property <bool> dark-mode;
+    BasicThemeProvider {
+        palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light;
+    }
+    Button { text: "Save"; primary: true; }
+}
+```
+
+The provider links its `palette` input to `BasicTheme.palette`.
+Changes to the application binding update the basic controls without initialization functions or change callbacks.
+`BasicTheme` exposes the selected colors as read-only properties for application visuals and control style presets.
+The library defaults remain unchanged.
+
+For custom colors, supply an application-owned `BasicPalette` through the same input.
+`BasicPalette` defines the fields without color defaults; each library preset supplies all colors explicitly.
+Supply every field in a custom palette, referencing fields from a preset for colors you want to keep.
+The application chooses the mode; the basic library doesn't automatically follow the system color scheme.
+
+The provider configures the whole window's component tree, including combo-box popups.
+It doesn't scope the theme to its children; use one provider per root window.
+Separate root windows have independent globals.
+Applications configuring globals from host code can export `BasicTheme` and set its single `palette` input instead.
+
+Style and size presets are read-only.
+For a different design, pass application-owned structs through a control's `style` and `size` inputs.
+Explicit styles keep their values unless their bindings reference the shared theme.
+Omitted `BasicPalette` fields become transparent; they don't inherit from a library preset or the currently selected palette.
+
+Standard widgets from `std-widgets.slint` use their own `Palette`.
+Configure its color scheme separately when combining them with basic controls.
+The gallery demonstrates basic palette selection with a runtime dark-mode switch.
 
 ## Button
 
@@ -297,11 +339,13 @@ The CheckBox gallery page demonstrates two instances sharing component defaults 
 
 For full state palettes, define an application style and bind `style` in the same wrapper.
 One appearance needs one shared style, regardless of the number of instances.
-Changing `BasicTheme` affects all controls that use its tokens.
-Changing `CheckBoxStyles.standard` affects basic checkboxes that use that preset.
+Changing the application's palette updates all controls that use the shared theme.
+Bind an application-owned checkbox style in the wrapper to update its instances without changing library presets.
 
 ## Migrate Individual Overrides
 
+Replace individual `BasicTheme` assignments with one application-owned `BasicPalette` supplied through `BasicThemeProvider`.
+Replace assignments to global style or size presets with application properties bound to the control's `style` or `size`.
 Keep the common color properties listed above.
 Replace `CheckBox.indicator-color` and `Switch.track-color` with `checked-color` for checked fills, or use style fields for other states.
 Move `Switch.track-width` and `track-height`, `CheckBox.indicator-size`, and Slider handle dimensions into size metrics.

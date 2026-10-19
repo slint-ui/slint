@@ -5,7 +5,7 @@ import { LineEditStyle, LineEditMetrics } from "line_edit_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global LineEditStyles {
-    in-out property <LineEditStyle> standard: {
+    out property <LineEditStyle> standard: {
         rest: {
             background-color: BasicTheme.background,
             foreground: BasicTheme.foreground,
@@ -31,7 +31,7 @@ export global LineEditStyles {
 }
 
 export global LineEditSizes {
-    in-out property <LineEditMetrics> small: {
+    out property <LineEditMetrics> small: {
         min-height: 26px,
         min-width: 120px,
         padding-horizontal: 8px,
@@ -39,7 +39,7 @@ export global LineEditSizes {
         font-size: 12px,
         spacing: 4px,
     };
-    in-out property <LineEditMetrics> medium: {
+    out property <LineEditMetrics> medium: {
         min-height: 34px,
         min-width: 160px,
         padding-horizontal: 12px,
@@ -47,7 +47,7 @@ export global LineEditSizes {
         font-size: 14px,
         spacing: 8px,
     };
-    in-out property <LineEditMetrics> large: {
+    out property <LineEditMetrics> large: {
         min-height: 42px,
         min-width: 200px,
         padding-horizontal: 16px,

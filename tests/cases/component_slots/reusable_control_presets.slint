@@ -293,7 +293,10 @@ for (index, label, id, width, height) in [
     instance.set_enabled(true);
 }
 let accent = brush(0x7c, 0x3a, 0xed);
-instance.global::<BasicTheme<'_>>().set_accent(accent.clone());
+let theme = instance.global::<BasicTheme<'_>>();
+let mut palette = theme.get_palette();
+palette.accent = accent.clone();
+theme.set_palette(palette);
 assert_eq!(instance.global::<SwitchStyles<'_>>().get_standard().checked.rest.track_color, accent);
 assert_eq!(instance.global::<CheckBoxStyles<'_>>().get_standard().checked.rest.indicator_color, accent);
 assert_eq!(instance.global::<SliderStyles<'_>>().get_standard().rest.handle_color, accent);

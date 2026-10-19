@@ -5,7 +5,7 @@ import { ButtonStyle, ButtonMetrics } from "button_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global ButtonStyles {
-    in-out property <ButtonStyle> secondary: {
+    out property <ButtonStyle> secondary: {
         rest: {
             background-color: BasicTheme.background,
             foreground: BasicTheme.foreground,
@@ -29,7 +29,7 @@ export global ButtonStyles {
         focus-color: BasicTheme.focus,
     };
 
-    in-out property <ButtonStyle> primary: {
+    out property <ButtonStyle> primary: {
         rest: {
             background-color: BasicTheme.accent,
             foreground: BasicTheme.accent-foreground,
@@ -49,7 +49,7 @@ export global ButtonStyles {
         focus-color: BasicTheme.focus,
     };
 
-    in-out property <ButtonStyle> danger: {
+    out property <ButtonStyle> danger: {
         rest: {
             background-color: BasicTheme.background,
             foreground: BasicTheme.danger,
@@ -73,7 +73,7 @@ export global ButtonStyles {
         focus-color: BasicTheme.focus,
     };
 
-    in-out property <ButtonStyle> invisible: {
+    out property <ButtonStyle> invisible: {
         rest: {
             background-color: transparent,
             foreground: BasicTheme.foreground,
@@ -99,7 +99,7 @@ export global ButtonStyles {
 }
 
 export global ButtonSizes {
-    in-out property <ButtonMetrics> small: {
+    out property <ButtonMetrics> small: {
         min-height: 24px,
         min-width: 48px,
         padding-horizontal: 8px,
@@ -108,7 +108,7 @@ export global ButtonSizes {
         icon-size: 16px,
         spacing: 4px,
     };
-    in-out property <ButtonMetrics> medium: {
+    out property <ButtonMetrics> medium: {
         min-height: 32px,
         min-width: 64px,
         padding-horizontal: 12px,
@@ -117,7 +117,7 @@ export global ButtonSizes {
         icon-size: 20px,
         spacing: 6px,
     };
-    in-out property <ButtonMetrics> large: {
+    out property <ButtonMetrics> large: {
         min-height: 40px,
         min-width: 80px,
         padding-horizontal: 16px,

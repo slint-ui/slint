@@ -5,7 +5,7 @@ import { CheckBoxStyle, CheckBoxMetrics } from "check_box_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global CheckBoxStyles {
-    in-out property <CheckBoxStyle> standard: {
+    out property <CheckBoxStyle> standard: {
         unchecked: {
             rest: {
                 indicator-color: BasicTheme.background,
@@ -63,7 +63,7 @@ export global CheckBoxStyles {
 }
 
 export global CheckBoxSizes {
-    in-out property <CheckBoxMetrics> small: {
+    out property <CheckBoxMetrics> small: {
         min-height: 24px,
         indicator-size: 16px,
         checkmark-padding: 2px,
@@ -73,7 +73,7 @@ export global CheckBoxSizes {
         font-size: 12px,
         spacing: 4px,
     };
-    in-out property <CheckBoxMetrics> medium: {
+    out property <CheckBoxMetrics> medium: {
         min-height: 32px,
         indicator-size: 20px,
         checkmark-padding: 3px,
@@ -83,7 +83,7 @@ export global CheckBoxSizes {
         font-size: 14px,
         spacing: 6px,
     };
-    in-out property <CheckBoxMetrics> large: {
+    out property <CheckBoxMetrics> large: {
         min-height: 40px,
         indicator-size: 24px,
         checkmark-padding: 4px,

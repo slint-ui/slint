@@ -5,7 +5,7 @@ import { SwitchStyle, SwitchMetrics } from "switch_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global SwitchStyles {
-    in-out property <SwitchStyle> standard: {
+    out property <SwitchStyle> standard: {
         unchecked: {
             rest: {
                 track-color: BasicTheme.background,
@@ -63,7 +63,7 @@ export global SwitchStyles {
 }
 
 export global SwitchSizes {
-    in-out property <SwitchMetrics> small: {
+    out property <SwitchMetrics> small: {
         min-height: 24px,
         track-width: 32px,
         track-height: 18px,
@@ -74,7 +74,7 @@ export global SwitchSizes {
         font-size: 12px,
         spacing: 4px,
     };
-    in-out property <SwitchMetrics> medium: {
+    out property <SwitchMetrics> medium: {
         min-height: 32px,
         track-width: 40px,
         track-height: 22px,
@@ -85,7 +85,7 @@ export global SwitchSizes {
         font-size: 14px,
         spacing: 6px,
     };
-    in-out property <SwitchMetrics> large: {
+    out property <SwitchMetrics> large: {
         min-height: 40px,
         track-width: 48px,
         track-height: 26px,

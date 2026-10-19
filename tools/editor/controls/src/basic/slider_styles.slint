@@ -5,7 +5,7 @@ import { SliderStyle, SliderMetrics } from "slider_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global SliderStyles {
-    in-out property <SliderStyle> standard: {
+    out property <SliderStyle> standard: {
         rest: {
             track-color: BasicTheme.hover-background,
             fill-color: BasicTheme.accent,
@@ -35,21 +35,21 @@ export global SliderStyles {
 }
 
 export global SliderSizes {
-    in-out property <SliderMetrics> small: {
+    out property <SliderMetrics> small: {
         preferred-length: 160px,
         min-thickness: 24px,
         handle-width: 16px,
         handle-height: 16px,
         track-thickness: 3px,
     };
-    in-out property <SliderMetrics> medium: {
+    out property <SliderMetrics> medium: {
         preferred-length: 200px,
         min-thickness: 32px,
         handle-width: 20px,
         handle-height: 20px,
         track-thickness: 4px,
     };
-    in-out property <SliderMetrics> large: {
+    out property <SliderMetrics> large: {
         preferred-length: 240px,
         min-thickness: 40px,
         handle-width: 24px,
