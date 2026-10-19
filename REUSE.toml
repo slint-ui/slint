@@ -553,7 +553,10 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["demos/printerdemo_mcu/ink_particles/assets/**"]
+path = [
+  "demos/printerdemo_mcu/ink_particles/assets/**",
+  "examples/mcu-board-support/esp32_s3_box_3/results/kiosk-tilt/**",
+]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "Copyright © Slint developers <info@slint.dev>"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"

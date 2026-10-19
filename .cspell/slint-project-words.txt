@@ -530,6 +530,7 @@ pyobject
 pypi
 pypiserver
 pyproject
+pyserial
 pystruct
 pytest
 qskinny

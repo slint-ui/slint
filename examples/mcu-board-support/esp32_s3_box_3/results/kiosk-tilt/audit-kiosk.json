@@ -1,0 +1,104 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": 1,
+      "elapsed_us": 9992903,
+      "frames": 599,
+      "draw_total_us": 7969661,
+      "draw_max_us": 14075,
+      "raster_total_us": 7289610,
+      "queue_total_us": 659092,
+      "presented": 599,
+      "changed_hash": 599,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.942541221504904,
+      "draw_mean_us": 13304.943238731219,
+      "producer_mean_us": 13889.035058430718,
+      "ready_margin_min_us": 1943,
+      "wire_mean_us": 13395.979966611018
+    },
+    {
+      "mode": 2,
+      "elapsed_us": 9997265,
+      "frames": 599,
+      "draw_total_us": 8156483,
+      "draw_max_us": 14853,
+      "raster_total_us": 7814197,
+      "queue_total_us": 321657,
+      "presented": 599,
+      "changed_hash": 599,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.91638713188057,
+      "draw_mean_us": 13616.83305509182,
+      "producer_mean_us": 14173.525876460768,
+      "ready_margin_min_us": 1166,
+      "wire_mean_us": 13710.03839732888
+    },
+    {
+      "mode": 3,
+      "elapsed_us": 9998538,
+      "frames": 599,
+      "draw_total_us": 5515804,
+      "draw_max_us": 10520,
+      "raster_total_us": 4193998,
+      "queue_total_us": 1302589,
+      "presented": 599,
+      "changed_hash": 599,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.90875866051617,
+      "draw_mean_us": 9208.353923205343,
+      "producer_mean_us": 13109.111853088481,
+      "ready_margin_min_us": 3314,
+      "wire_mean_us": 12676.20367278798
+    }
+  ],
+  "parity": [
+    {
+      "pixels": 76800,
+      "differences": 0
+    }
+  ],
+  "sensors": [
+    "BOX_IMU,samples=0,errors=0,max_read_us=22",
+    "BOX_IMU,samples=0,errors=0,max_read_us=23",
+    "BOX_IMU,samples=654,errors=0,max_read_us=1779"
+  ],
+  "ink_times": [
+    {
+      "frames": 0,
+      "prepare_wall_us": 0,
+      "paint_wall_us": 0,
+      "image_us": 0
+    },
+    {
+      "frames": 0,
+      "prepare_wall_us": 0,
+      "paint_wall_us": 0,
+      "image_us": 0
+    },
+    {
+      "frames": 599,
+      "prepare_wall_us": 806210,
+      "paint_wall_us": 1291960,
+      "image_us": 55655
+    }
+  ],
+  "firmware_elf_sha256": "f1e15e831a388ef2ce11dd02e506069a45a4a90bab4b3fe1680f7cad65a83fcb",
+  "application_sha256": "57492349fe566441fe993e94baa86910f40f910ec928f01a09dfc502ed65bb3c"
+}

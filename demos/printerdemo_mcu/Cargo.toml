@@ -25,6 +25,7 @@ ink-particles = ["slint/image-pixel-format-rgb565", "dep:bytemuck", "dep:libm"]
 box-ink-particles = ["ink-particles", "mcu-board-support/box-parallel"]
 box-ink-tilt = ["box-ink-particles", "mcu-board-support/box-imu", "ink-native-assets"]
 ink-native-assets = ["ink-particles"]
+kiosk-autostart = []
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }

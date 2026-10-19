@@ -57,6 +57,10 @@ impl DmaPanelBus {
             };
         if data.len() > 64 {
             while !transfer.is_done() {
+                #[cfg(feature = "box-imu")]
+                if super::work_ink() {
+                    continue;
+                }
                 esp_hal::rom::ets_delay_us(50);
             }
         }

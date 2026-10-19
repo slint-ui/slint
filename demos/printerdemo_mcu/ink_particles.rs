@@ -188,7 +188,7 @@ impl StampPlan {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "box-ink-tilt"))]
 pub struct Paint<'a, P> {
     vial: &'a Vial,
     pixels: &'a mut [P],
@@ -198,7 +198,7 @@ pub struct Paint<'a, P> {
     ordinal: usize,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "box-ink-tilt"))]
 impl<'a, P: Pixel> Paint<'a, P> {
     pub fn new(vial: &'a Vial, tick: u64, pixels: &'a mut [P], state: &'a mut FrameState) -> Self {
         assert_eq!(pixels.len(), vial.width * vial.height);

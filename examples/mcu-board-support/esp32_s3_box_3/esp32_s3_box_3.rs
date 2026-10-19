@@ -26,8 +26,26 @@ use esp_hal::{
 use esp_println::logger::init_logger_from_env;
 use gt911::Gt911Blocking;
 #[cfg(feature = "box-imu")]
+#[path = "background_job.rs"]
+mod background_job;
+#[cfg(feature = "box-imu")]
 #[path = "imu.rs"]
 mod imu;
+#[cfg(feature = "box-imu")]
+static INK_WORK: background_job::Queue = background_job::Queue::new();
+
+#[cfg(feature = "box-imu")]
+/// Run bounded particle steps on the display core alongside local computation.
+/// Each step must return promptly so the display worker can meet its deadlines.
+/// Both closures finish before this function returns.
+pub fn with_ink_worker<F: FnMut() -> bool + Send, R>(work: &mut F, local: impl FnOnce() -> R) -> R {
+    INK_WORK.scope(work, local, || esp_hal::rom::ets_delay_us(25))
+}
+
+#[cfg(feature = "box-imu")]
+pub(super) fn work_ink() -> bool {
+    INK_WORK.step()
+}
 #[cfg(feature = "box-imu")]
 #[path = "tilt_fusion.rs"]
 mod tilt_fusion;
@@ -811,14 +829,6 @@ pub fn set_line_damage_enabled(enabled: bool) {
     LINE_DAMAGE_ENABLED.store(enabled, core::sync::atomic::Ordering::Relaxed);
     #[cfg(not(feature = "box-line-damage"))]
     let _ = enabled;
-}
-
-/// Prepare animation state once per acquired physical panel tick.
-/// The frame number identifies the upcoming refresh and remains monotonic
-/// across the display worker's 32-bit counter wrap. Call this on the Slint thread.
-#[cfg(feature = "box-parallel")]
-pub fn set_animation_frame_handler(callback: impl FnMut(u64) + 'static) {
-    animation_frame::set_handler(callback);
 }
 
 /// Register another animation on the Slint thread, preserving callback order.

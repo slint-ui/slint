@@ -9,6 +9,10 @@ Extra bubbles rise from the bottom and retire at the surface after release.
 The display worker samples the IMU after touch processing and publishes an atomic gravity vector.
 The Slint thread prepares particles once per acquired physical panel tick.
 No sensor transaction runs on that thread.
+Two vials prepare and paint in bounded tasks on the display core while SPI DMA runs.
+The other two compose on the Slint thread.
+The worker borrows plain physics state and pixel slices; all Slint image operations remain on the UI thread.
+The producer joins the worker before publishing the four images.
 
 Each vial retains two RGB565 buffers and restores previous particle footprints and moving surface rows.
 The renderer caches surface shading and opaque spans.

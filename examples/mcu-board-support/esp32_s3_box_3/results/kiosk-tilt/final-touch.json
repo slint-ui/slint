@@ -1,0 +1,107 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": 1,
+      "elapsed_us": 10007082,
+      "frames": 600,
+      "draw_total_us": 4976554,
+      "draw_max_us": 9910,
+      "raster_total_us": 4147937,
+      "queue_total_us": 807772,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.95753807153773,
+      "draw_mean_us": 8294.256666666666,
+      "producer_mean_us": 13251.018333333333,
+      "ready_margin_min_us": 938,
+      "wire_mean_us": 12658.556666666667
+    },
+    {
+      "mode": 2,
+      "elapsed_us": 9993491,
+      "frames": 599,
+      "draw_total_us": 4989406,
+      "draw_max_us": 9646,
+      "raster_total_us": 4121122,
+      "queue_total_us": 847919,
+      "presented": 599,
+      "changed_hash": 599,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.93901430441074,
+      "draw_mean_us": 8329.559265442404,
+      "producer_mean_us": 13180.83305509182,
+      "ready_margin_min_us": 997,
+      "wire_mean_us": 12644.141903171952
+    },
+    {
+      "mode": 3,
+      "elapsed_us": 10012310,
+      "frames": 600,
+      "draw_total_us": 4965325,
+      "draw_max_us": 9364,
+      "raster_total_us": 4151903,
+      "queue_total_us": 792052,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.92623080987305,
+      "draw_mean_us": 8275.541666666666,
+      "producer_mean_us": 13282.025,
+      "ready_margin_min_us": 1200,
+      "wire_mean_us": 12646.19
+    }
+  ],
+  "parity": [
+    {
+      "pixels": 76800,
+      "differences": 0
+    },
+    {
+      "pixels": 76800,
+      "differences": 0
+    }
+  ],
+  "sensors": [
+    "BOX_IMU,samples=833,errors=0,max_read_us=1964",
+    "BOX_IMU,samples=1491,errors=0,max_read_us=1964",
+    "BOX_IMU,samples=2150,errors=0,max_read_us=1964"
+  ],
+  "ink_times": [
+    {
+      "frames": 600,
+      "prepare_wall_us": 998746,
+      "paint_wall_us": 1674670,
+      "image_us": 54712
+    },
+    {
+      "frames": 599,
+      "prepare_wall_us": 1004292,
+      "paint_wall_us": 1602015,
+      "image_us": 54355
+    },
+    {
+      "frames": 600,
+      "prepare_wall_us": 1002447,
+      "paint_wall_us": 1700348,
+      "image_us": 54924
+    }
+  ],
+  "firmware_sha256": "447c75d97344dfd1e134777c8554abef90640d6e7cb3e03f157e8b4e230aa3d7"
+}

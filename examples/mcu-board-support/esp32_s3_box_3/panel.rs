@@ -133,6 +133,17 @@ impl Panel {
             }
             if line < 269 {
                 let until_blank = (269 - line as u32) * 16700 / 297;
+                #[cfg(feature = "box-imu")]
+                if until_blank > 1500 {
+                    let deadline = super::now_us() + (until_blank - 1500) as u64;
+                    let mut worked = false;
+                    while super::now_us() < deadline && super::work_ink() {
+                        worked = true;
+                    }
+                    if worked {
+                        continue;
+                    }
+                }
                 if until_blank > 500 {
                     esp_hal::rom::ets_delay_us(until_blank - 200);
                 }

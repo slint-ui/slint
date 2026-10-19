@@ -1,0 +1,36 @@
+{
+  "source_commit": "4d8a4d849414f0068e7270941981101b7ccfd630",
+  "board": "ESP32-S3-BOX-3",
+  "chip_mac": "84:fc:e6:64:14:cc",
+  "imu_address": "0x68",
+  "imu_whoami": "0x60",
+  "resolution": [
+    320,
+    240
+  ],
+  "cpu_mhz": 240,
+  "panel_spi_mhz": 40,
+  "rustc": "1.97.0-nightly (8ea53bcd7 2026-07-08) (1.97.0.0)",
+  "linker": "xtensa-esp-elf 15.2.0_20251204",
+  "rustflags": "-C link-arg=-nostartfiles -C link-arg=-Wl,-Tlinkall.x -C target-feature=+fp",
+  "features": [
+    "mcu-board-support/esp32-s3-box-3",
+    "box-pie-fill",
+    "box-pixel-snap",
+    "box-ink-tilt",
+    "kiosk-autostart"
+  ],
+  "benchmark_injection": false,
+  "application_offset": "0x10000",
+  "app_bytes": 1866048,
+  "app_sha256": "10b1ea4d66ff2ec607297607a7a2747b98cacb6c62a24ba7a8d835514e592bb9",
+  "elf_sha256": "7eec79324a10cc324784c74dee544cd83fe4dab5321e7d3e799891f8f3311cac",
+  "lock_sha256": "1b8840db6ae3291709eb2732e5a64147406d66268ad01597ad12030e486161bd",
+  "release_observation": {
+    "seconds": 55,
+    "flash_verified": true,
+    "imu_detected": true,
+    "live_samples": true,
+    "panic": false
+  }
+}

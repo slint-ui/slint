@@ -14,9 +14,9 @@ use slint::platform::software_renderer::{
 static MODE: AtomicU32 = AtomicU32::new(0);
 static RAW_Y: AtomicU32 = AtomicU32::new(0);
 static CAPTURE: AtomicBool = AtomicBool::new(false);
-static INK_TIMES: [AtomicU32; 5] = [const { AtomicU32::new(0) }; 5];
+static INK_TIMES: [AtomicU32; 4] = [const { AtomicU32::new(0) }; 4];
 
-pub fn profile_ink_frame(times: [u32; 4]) {
+pub fn profile_ink_frame(times: [u32; 3]) {
     INK_TIMES[0].fetch_add(1, Ordering::Relaxed);
     for (total, time) in INK_TIMES[1..].iter().zip(times) {
         total.fetch_add(time, Ordering::Relaxed);
@@ -121,12 +121,11 @@ impl Profile {
         if self.mode != 0 {
             let times = INK_TIMES.each_ref().map(|v| v.load(Ordering::Relaxed));
             esp_println::println!(
-                "BOX_INK_TIMES,frames={},tilt_us={},restore_us={},stamp_us={},image_us={}",
+                "BOX_INK_TIMES,frames={},prepare_wall_us={},paint_wall_us={},image_us={}",
                 times[0],
                 times[1],
                 times[2],
-                times[3],
-                times[4]
+                times[3]
             );
             #[cfg(feature = "box-imu")]
             {

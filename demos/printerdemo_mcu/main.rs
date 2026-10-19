@@ -178,6 +178,9 @@ fn main() -> ! {
     #[cfg(feature = "box-bench")]
     let _benchmark = benchmark::start(&main_window, &printer_queue, &_kiosk);
 
+    #[cfg(feature = "kiosk-autostart")]
+    main_window.global::<Kiosk>().set_enabled(true);
+
     main_window.run().unwrap();
 
     panic!("The MCU demo should not quit")

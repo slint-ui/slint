@@ -18,17 +18,53 @@ RUSTFLAGS="-C link-arg=-nostartfiles -C link-arg=-Wl,-Tlinkall.x -C target-featu
   cargo +esp build --release --no-default-features \
   --manifest-path demos/printerdemo_mcu/Cargo.toml \
   --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml \
-  --features mcu-board-support/esp32-s3-box-3,box-pie-fill,box-pixel-snap,box-ink-particles,mcu-board-support/box-dma-backoff,mcu-board-support/box-touch-worker
+  --features mcu-board-support/esp32-s3-box-3,box-pie-fill,box-pixel-snap,box-ink-tilt
 ```
 
+`box-ink-tilt` includes the touch worker, DMA backoff, native vial artwork, and the BOX-3 IMU driver.
+Tilt changes the liquid surfaces and bubble trajectories.
+The IMU shares I²C with touch and runs after touch processing on the display core.
+The UI reads an atomic gravity vector without waiting for the bus.
+Two vials compose in bounded tasks during display DMA waits, and two compose on the Slint thread.
+Both finish before their Slint images are published.
+
+Enable **Kiosk mode** at the bottom of Settings to cycle Queue, Settings, and Ink every ten seconds.
+The lists move one whole pixel per acquired physical panel tick.
+Touch anywhere to exit.
+Add `kiosk-autostart` to the feature list to enter the loop on boot.
+
+Buttons, switches, and combo-box backgrounds use Slint rectangles and gradients.
+Opaque native RGB565 vial images use the target-buffer texture hook with exact dirty-region clipping.
+Scaled, translucent, rotated, and colorized textures retain the default renderer.
+See the [port qualification report](../../examples/mcu-board-support/esp32_s3_box_3/results/kiosk-tilt/README.md).
+
 Add `box-bench` to the feature list for the optional hardware benchmark.
-Set `BOX_BENCH_SCENE` to `queue`, `settings`, or `ink` when building.
+Set `BOX_BENCH_SCENE` to `queue`, `settings`, `ink`, or `kiosk` when building.
 Each run measures three ten-second windows after warming up.
 For lists, `BOX_BENCH_WORKLOAD` selects `held`, `flick`, or the recorded Queue `replay`.
 Set `BOX_BENCH_WINDOWS=1` for a shorter run.
 The benchmark reports packet deadlines and bounded traces, then captures the framebuffer against a canonical full redraw.
 It stops injecting gestures after the capture, leaving the UI interactive.
 Keep benchmark flags disabled in firmware distributed to users.
+
+The Kiosk fixture runs the actual controller with twelve-second scenes, measuring ten seconds after each page settles.
+It verifies touch-to-exit after all three scenes.
+Normal Kiosk scenes remain ten seconds.
+Set `BOX_BENCH_TILT=replay` to feed repeatable acceleration and angular velocity through the production fusion filter.
+Real IMU transactions and touch polling continue during the replay.
+Combine this with sustained or pulsed holds to exercise the maximum bubble population.
+
+Collect each flashed run with Python and `pyserial`:
+
+```sh
+python examples/mcu-board-support/esp32_s3_box_3/collect-profile.py \
+  --port PORT --output /tmp/box-profile
+```
+
+Hold fixtures emit two captures; pass `--captures 2` for those runs.
+The collector checks panel deadlines, sensor errors, complete traces, and full-redraw pixel parity.
+It saves native PNG captures, raw serial output, timing margins, and a JSON summary.
+Use `--log /path/to/serial.log` instead of `--port` to analyze an existing recording.
 
 For Ink, set `BOX_BENCH_INK_HOLD` to `yellow`, `red`, `cyan`, or `black` to exercise a sustained touch hold.
 Use `all` to stress all four vials simultaneously through their shared hold state.

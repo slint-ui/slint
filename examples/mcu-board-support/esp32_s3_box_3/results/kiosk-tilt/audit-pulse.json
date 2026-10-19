@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": 1,
+      "elapsed_us": 10011602,
+      "frames": 600,
+      "draw_total_us": 4833957,
+      "draw_max_us": 8878,
+      "raster_total_us": 4133030,
+      "queue_total_us": 679914,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.93046867024878,
+      "draw_mean_us": 8056.595,
+      "producer_mean_us": 13376.428333333333,
+      "ready_margin_min_us": 2381,
+      "wire_mean_us": 12734.34
+    }
+  ],
+  "parity": [
+    {
+      "pixels": 76800,
+      "differences": 0
+    },
+    {
+      "pixels": 76800,
+      "differences": 0
+    }
+  ],
+  "sensors": [
+    "BOX_IMU,samples=834,errors=0,max_read_us=2675"
+  ],
+  "ink_times": [
+    {
+      "frames": 600,
+      "prepare_wall_us": 998365,
+      "paint_wall_us": 1896842,
+      "image_us": 58089
+    }
+  ],
+  "firmware_elf_sha256": "cfedb4e27bfd8439010fa0d546c0600398a67392517e1fb5439fec9af45fa407",
+  "application_sha256": "6346a70ac450dd912b9501c1bc92f0cfcbab92dac21661d4f9a44ac708081d47"
+}
