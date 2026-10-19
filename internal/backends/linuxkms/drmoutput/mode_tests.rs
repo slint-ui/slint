@@ -66,6 +66,32 @@ fn refresh_rate_uses_timing_precision() {
 }
 
 #[test]
+fn refresh_rate_selects_among_equal_resolutions() {
+    let modes = [mode(1280, 720, 60, false), mode(1280, 720, 50, false)];
+    assert_eq!(select_requested_mode(&modes, "1280x720@50").unwrap(), modes[1]);
+    assert_eq!(select_requested_mode(&modes, "1280x720@60").unwrap(), modes[0]);
+}
+
+#[test]
+fn refresh_rate_matches_whole_hertz() {
+    let sixty_hz = mode(1920, 1080, 60, false);
+    let mut fractional: drm_ffi::drm_mode_modeinfo = sixty_hz.into();
+    fractional.clock = 148352;
+    let modes = [fractional.into(), sixty_hz, mode(1920, 1080, 50, false)];
+    assert_eq!(select_requested_mode(&modes, "1920x1080@60").unwrap(), modes[1]);
+    assert_eq!(select_requested_mode(&modes[..1], "1920x1080@60").unwrap(), modes[0]);
+}
+
+#[test]
+fn unavailable_refresh_rate_returns_an_error() {
+    let modes = [mode(1920, 1080, 60, true), mode(1280, 720, 50, false)];
+    assert_eq!(
+        select_requested_mode(&modes, "1920x1080@50").unwrap_err(),
+        "Requested DRM mode 1920x1080@50 is not available"
+    );
+}
+
+#[test]
 fn unavailable_resolution_returns_an_error() {
     let modes = [mode(1920, 1080, 60, true)];
     for available in [&modes[..], &[]] {
@@ -89,7 +115,12 @@ fn malformed_requests_return_an_error() {
         "1920x1080x60",
         "65536x1080",
         "1920x65536",
-        "1920x1080@60",
+        "1920x1080@",
+        "1920x1080@60Hz",
+        "1920x1080@59.94",
+        "1920x1080@-1",
+        "1920x1080@60@60",
+        "@60",
     ] {
         assert!(select_requested_mode(&modes, request).is_err(), "accepted {request:?}");
     }
