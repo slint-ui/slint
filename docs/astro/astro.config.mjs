@@ -194,10 +194,6 @@ export default defineSlintDocsConfig({
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
                                             },
-                                            {
-                                                label: "Deprecating Members",
-                                                slug: "guide/language/coding/deprecation",
-                                            },
                                         ],
                                     },
                                 ],

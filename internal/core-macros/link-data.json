@@ -33,9 +33,6 @@
         "href": "reference/property-types/colors-and-brushes/#color"
     },
     "Deprecation": {
-        "href": "guide/language/coding/deprecation/"
-    },
-    "DeprecationSpec": {
         "href": "reference/language/deprecation/"
     },
     "DragAndDrop": {
