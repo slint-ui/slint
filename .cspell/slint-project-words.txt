@@ -18,6 +18,7 @@ Amoled
 analogclock
 androideabi
 anyrender
+apng
 Appbar
 appicon
 appiconset
@@ -671,6 +672,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+testdata
 texels
 texteditor
 textinput

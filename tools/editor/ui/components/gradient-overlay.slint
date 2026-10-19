@@ -424,7 +424,7 @@ export component GradientOverlay inherits FocusScope {
         private property <angle> angle: atan2((root.axis.end.x - root.axis.start.x) / 1px, (root.axis.start.y - root.axis.end.y) / 1px);
         label: self.stop ? @tr("Position") : @tr("Angle");
         value: (self.stop ? FillSession.working-fill.stops[FillSession.selected-stop].position * (root.conic ? 360 : 100)
-            : EditorAngles.normalize((self.angle / 1deg).round() * 1deg) / 1deg).to-fixed(0);
+            : EditorAngles.rounded(self.angle)).to-fixed(0);
         suffix: self.stop && !root.conic ? "%" : "°";
         value-label: self.stop ? @tr("Gradient stop position") : @tr("Gradient angle");
         pointer-position: { x: root.pointer.x - root.absolute-position.x, y: root.pointer.y - root.absolute-position.y };

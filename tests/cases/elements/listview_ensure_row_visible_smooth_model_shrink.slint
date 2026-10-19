@@ -1,0 +1,357 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A smooth `ensure-row-visible` whose target row gets removed must leave rows in the viewport.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> count: 1000;
+    in-out property <int> clicked-index: -1;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in count: Rectangle {
+            height: 50px;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+
+const ROW_HEIGHT: f32 = 50.;
+const FRAME_MS: u64 = 16;
+const MAX_SCROLL_DURATION_MS: u64 = 3000;
+const PROBE_INSET: f32 = 2.;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let viewport = instance.get_visible_height();
+
+let advance_frame_and_layout = || {
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+    instance.get_content_y()
+};
+
+let run_until_settled = || {
+    let mut previous = instance.get_content_y();
+    let mut unchanged_frames = 0;
+    let mut elapsed = 0;
+    while unchanged_frames < 3 {
+        assert!(elapsed <= MAX_SCROLL_DURATION_MS, "scrolling didn't settle within {MAX_SCROLL_DURATION_MS} ms");
+        let y = advance_frame_and_layout();
+        unchanged_frames = if y == previous { unchanged_frames + 1 } else { 0 };
+        previous = y;
+        elapsed += FRAME_MS;
+    }
+};
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let reset = || {
+    instance.set_count(1000);
+    instance.invoke_ensure_row_visible(0, ScrollBehavior::Instant);
+    advance_frame_and_layout();
+    assert_eq!(instance.get_content_y(), 0.);
+};
+
+let assert_filled_after_settling = |count: i32| {
+    run_until_settled();
+    let content_y = instance.get_content_y();
+    let min_content_y = -(count as f32 * ROW_HEIGHT - viewport);
+    assert!(
+        content_y >= min_content_y && content_y <= 0.,
+        "content-y {content_y} must stay within [{min_content_y}, 0] for {count} rows"
+    );
+    let top = row_at(PROBE_INSET);
+    let bottom = row_at(viewport - PROBE_INSET);
+    assert!(top >= 0 && bottom >= 0, "the viewport must show rows, found {top} at the top and {bottom} at the bottom");
+    assert!(bottom < count, "row {bottom} doesn't exist in a model of {count} rows");
+};
+
+// Shrinks while the scroll accelerates.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..5 {
+    advance_frame_and_layout();
+}
+instance.set_count(100);
+assert_filled_after_settling(100);
+
+// Shrinks right after the jump.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..20 {
+    advance_frame_and_layout();
+}
+instance.set_count(20);
+assert_filled_after_settling(20);
+
+// Shrinks while the scroll decelerates.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+let mut frames = 0;
+while instance.get_content_y() > -30000. {
+    assert!(frames * FRAME_MS <= MAX_SCROLL_DURATION_MS, "the scroll to row 900 didn't jump");
+    advance_frame_and_layout();
+    frames += 1;
+}
+for _ in 0..3 {
+    advance_frame_and_layout();
+}
+instance.set_count(800);
+assert_filled_after_settling(800);
+
+// Empties and refills the model during the scroll.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..20 {
+    advance_frame_and_layout();
+}
+instance.set_count(0);
+for _ in 0..5 {
+    advance_frame_and_layout();
+}
+instance.set_count(1000);
+assert_filled_after_settling(1000);
+```
+
+```cpp
+using slint::PointerEventButton;
+using slint::language::ScrollBehavior;
+
+constexpr float row_height = 50.;
+constexpr uint64_t frame_ms = 16;
+constexpr uint64_t max_scroll_duration_ms = 3000;
+constexpr float probe_inset = 2.;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+const float viewport = instance.get_visible_height();
+
+auto advance_frame_and_layout = [&] {
+    slint_testing::mock_elapsed_time(frame_ms);
+    instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 300., 620. }));
+    return instance.get_content_y();
+};
+
+auto run_until_settled = [&] {
+    float previous = instance.get_content_y();
+    int unchanged_frames = 0;
+    uint64_t elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= max_scroll_duration_ms);
+        const float y = advance_frame_and_layout();
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += frame_ms;
+    }
+};
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto reset = [&] {
+    instance.set_count(1000);
+    instance.invoke_ensure_row_visible(0, ScrollBehavior::Instant);
+    advance_frame_and_layout();
+    assert_eq(instance.get_content_y(), 0.);
+};
+
+auto assert_filled_after_settling = [&](int count) {
+    run_until_settled();
+    const float content_y = instance.get_content_y();
+    assert(content_y >= -(count * row_height - viewport));
+    assert(content_y <= 0.);
+    const int top = row_at(probe_inset);
+    const int bottom = row_at(viewport - probe_inset);
+    assert(top >= 0);
+    assert(bottom >= 0);
+    assert(bottom < count);
+};
+
+// Shrinks while the scroll accelerates.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+instance.set_count(100);
+assert_filled_after_settling(100);
+
+// Shrinks right after the jump.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 20; ++i) {
+    advance_frame_and_layout();
+}
+instance.set_count(20);
+assert_filled_after_settling(20);
+
+// Shrinks while the scroll decelerates.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+uint64_t frames = 0;
+while (instance.get_content_y() > -30000.) {
+    assert(frames * frame_ms <= max_scroll_duration_ms);
+    advance_frame_and_layout();
+    ++frames;
+}
+for (int i = 0; i < 3; ++i) {
+    advance_frame_and_layout();
+}
+instance.set_count(800);
+assert_filled_after_settling(800);
+
+// Empties and refills the model during the scroll.
+reset();
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 20; ++i) {
+    advance_frame_and_layout();
+}
+instance.set_count(0);
+for (int i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+instance.set_count(1000);
+assert_filled_after_settling(1000);
+```
+
+```js
+const ROW_HEIGHT = 50;
+const FRAME_MS = 16;
+const MAX_SCROLL_DURATION_MS = 3000;
+const PROBE_INSET = 2;
+
+var instance = new slint.TestCase({});
+const viewport = instance.visible_height;
+
+function advance_frame_and_layout() {
+    slintlib.private_api.mock_elapsed_time(FRAME_MS);
+    instance.window.dispatchEvent({ type: "pointer-moved", position: { x: 300, y: 620 } });
+    return instance.content_y;
+}
+
+function run_until_settled() {
+    let previous = instance.content_y;
+    let unchanged_frames = 0;
+    let elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= MAX_SCROLL_DURATION_MS, `scrolling didn't settle within ${MAX_SCROLL_DURATION_MS} ms`);
+        const y = advance_frame_and_layout();
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += FRAME_MS;
+    }
+}
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function reset() {
+    instance.count = 1000;
+    instance.ensure_row_visible(0, "instant");
+    advance_frame_and_layout();
+    assert.equal(instance.content_y, 0);
+}
+
+function assert_filled_after_settling(count) {
+    run_until_settled();
+    const content_y = instance.content_y;
+    const min_content_y = -(count * ROW_HEIGHT - viewport);
+    assert(
+        content_y >= min_content_y && content_y <= 0,
+        `content-y ${content_y} must stay within [${min_content_y}, 0] for ${count} rows`,
+    );
+    const top = row_at(PROBE_INSET);
+    const bottom = row_at(viewport - PROBE_INSET);
+    assert(top >= 0 && bottom >= 0, `the viewport must show rows, found ${top} at the top and ${bottom} at the bottom`);
+    assert(bottom < count, `row ${bottom} doesn't exist in a model of ${count} rows`);
+}
+
+// Shrinks while the scroll accelerates.
+reset();
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+instance.count = 100;
+assert_filled_after_settling(100);
+
+// Shrinks right after the jump.
+reset();
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 20; ++i) {
+    advance_frame_and_layout();
+}
+instance.count = 20;
+assert_filled_after_settling(20);
+
+// Shrinks while the scroll decelerates.
+reset();
+instance.ensure_row_visible(900, "smooth");
+let frames = 0;
+while (instance.content_y > -30000) {
+    assert(frames * FRAME_MS <= MAX_SCROLL_DURATION_MS, "the scroll to row 900 didn't jump");
+    advance_frame_and_layout();
+    ++frames;
+}
+for (let i = 0; i < 3; ++i) {
+    advance_frame_and_layout();
+}
+instance.count = 800;
+assert_filled_after_settling(800);
+
+// Empties and refills the model during the scroll.
+reset();
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 20; ++i) {
+    advance_frame_and_layout();
+}
+instance.count = 0;
+for (let i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+instance.count = 1000;
+assert_filled_after_settling(1000);
+```
+*/
