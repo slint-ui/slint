@@ -48,6 +48,7 @@ const check = (file) =>
     new Promise((settle) => {
         const child = spawn("slint-viewer", ["--check", file], {
             cwd,
+            env: { ...process.env, NO_COLOR: "1" },
             timeout: 30_000,
         });
         let output = "";
@@ -78,7 +79,7 @@ for (const { file, error, output, signal } of results) {
         );
         continue;
     }
-    // slint-viewer colors its diagnostics even when stderr isn't a terminal.
+    // slint-viewer up to 1.18 ignores NO_COLOR and always colors its diagnostics.
     const report = output.replace(/\x1b\[[0-9;]*m/g, "").trim();
     if (report) {
         reports.push(report);
