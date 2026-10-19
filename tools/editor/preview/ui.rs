@@ -2645,6 +2645,61 @@ mod tests {
     }
 
     #[test]
+    fn inline_text_preserves_input_before_the_first_timer_tick() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let inline = editor.global::<super::InlineTextEdit>();
+        inline.on_begin(|| super::InlineTextEditStart {
+            success: true,
+            text: "Text".into(),
+            ..Default::default()
+        });
+        let committed = std::rc::Rc::new(std::cell::RefCell::new(SharedString::default()));
+        let result = committed.clone();
+        inline.on_commit(move |text| {
+            *result.borrow_mut() = text;
+            true
+        });
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        editor.invoke_focus_editor();
+        inline.set_active(true);
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        let input = find_element(&editor, "Inline text editor");
+        assert_eq!(input.accessible_value().unwrap(), "Text");
+        for character in "Undo me".chars() {
+            let text: SharedString = character.to_string().into();
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+            slint::platform::update_timers_and_animations();
+        }
+        editor
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Return.into() });
+        assert_eq!(*committed.borrow(), "Undo me");
+    }
+
+    #[test]
     fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
         use slint::platform::{Key, WindowEvent};
 
