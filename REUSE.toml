@@ -134,6 +134,7 @@ path = [
   "internal/core-macros/link-data.json",
   "internal/**.md",
   "package.json",
+  "ai-plugins/mcp/slint-preview/package.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
