@@ -60,7 +60,8 @@ public sealed class InstanceTests
         Assert.AreEqual(36.0, person["age"]);
 
         using var fill = (OpaqueValue)app.GetProperty("fill")!;
-        using var picture = (OpaqueValue)app.GetProperty("picture")!;
+        using var picture = (Image)app.GetProperty("picture")!;
+        Assert.IsNull(picture.Path);
     });
 
     [TestMethod]
@@ -93,6 +94,20 @@ public sealed class InstanceTests
         using var fill = (OpaqueValue)app.GetProperty("fill")!;
         app.SetProperty("fill", fill);
         using var again = (OpaqueValue)app.GetProperty("fill")!;
+    });
+
+    [TestMethod]
+    public void LoadsImages() => SlintThread.Run(() =>
+    {
+        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../examples/memory/icons/at.png"));
+        using var app = CreateApp();
+        using var image = Image.Load(path);
+        Assert.AreEqual(path, image.Path);
+        Assert.IsGreaterThan(0, image.Width);
+        app.SetProperty("picture", image);
+        using var again = (Image)app.GetProperty("picture")!;
+        Assert.AreEqual(path, again.Path);
+        Assert.ThrowsExactly<SlintException>(() => Image.Load(path + ".missing"));
     });
 
     [TestMethod]

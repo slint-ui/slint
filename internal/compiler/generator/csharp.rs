@@ -108,6 +108,7 @@ fn csharp_type(ty: &Type) -> String {
         | Type::UnitProduct(_) => "float".into(),
         Type::Duration => "global::System.TimeSpan".into(),
         Type::Color => "global::Slint.Color".into(),
+        Type::Image => "global::Slint.Image".into(),
         Type::Array(element) => format!("global::Slint.Model<{}>", csharp_type(element)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
@@ -123,6 +124,7 @@ fn csharp_type(ty: &Type) -> String {
 fn default_value(ty: &Type) -> Option<String> {
     match ty {
         Type::String => Some("\"\"".into()),
+        Type::Image => Some("new global::Slint.Image()".into()),
         Type::Array(element) => {
             Some(format!("new global::Slint.ListModel<{}>()", csharp_type(element)))
         }

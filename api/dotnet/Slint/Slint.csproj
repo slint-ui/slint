@@ -8,6 +8,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Description>Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.</Description>
     <PackageId>Slint</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <!-- Copies the native library from `cargo build -p slint-dotnet` to the output of this and every referencing project. -->
   <PropertyGroup>
@@ -18,9 +19,14 @@
     <SlintNativeLibraryPath Condition="'$(SlintNativeLibraryPath)' == ''">$(MSBuildThisFileDirectory)../../../target/$(SlintCargoProfile)/$(SlintNativeLibraryName)</SlintNativeLibraryPath>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)')" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)')" CopyToOutputDirectory="PreserveNewest" Visible="false" Pack="false" />
     <InternalsVisibleTo Include="Slint.Tests" />
     <None Include="build/Slint.targets" Pack="true" PackagePath="build/" />
+    <None Include="../README.md" Pack="true" PackagePath="/" />
+    <!-- Pass SlintNativeRuntimesDir to pack, a directory with one sub-directory per runtime identifier. -->
+    <None Include="$(SlintNativeRuntimesDir)/**/*" Pack="true" PackagePath="runtimes/%(RecursiveDir)native/%(Filename)%(Extension)" Condition="'$(SlintNativeRuntimesDir)' != ''" />
+    <!-- Becomes the dependency on the Slint.Compiler package. -->
+    <ProjectReference Include="../Slint.Compiler/Slint.Compiler.csproj" PrivateAssets="none" />
   </ItemGroup>
   <Target Name="SlintWarnMissingNativeLibrary" BeforeTargets="Build" Condition="!Exists('$(SlintNativeLibraryPath)')">
     <Warning Code="SLINT001" Text="Native library $(SlintNativeLibraryPath) not found; run `cargo build -p slint-dotnet` and rebuild." />

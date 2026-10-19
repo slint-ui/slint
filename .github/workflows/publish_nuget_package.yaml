@@ -1,0 +1,151 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform,
+# checks that a project can build and run with them, and optionally publishes them to nuget.org.
+
+name: Build and publish the NuGet packages
+
+on:
+    workflow_dispatch:
+      inputs:
+        version:
+            type: string
+            required: false
+            description: "Package version, such as 1.19.0-preview.1. Defaults to the workspace version with a -nightly suffix"
+        publish:
+            type: boolean
+            default: false
+            required: false
+            description: "Publish the packages to nuget.org"
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    DOTNET_NOLOGO: 1
+
+jobs:
+    build_binaries:
+        name: Build the binaries for ${{ matrix.rid }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - { runner: macos-14, rid: osx-arm64, target: aarch64-apple-darwin }
+                    - { runner: macos-14, rid: osx-x64, target: x86_64-apple-darwin }
+                    - { runner: ubuntu-22.04, rid: linux-x64, target: x86_64-unknown-linux-gnu }
+                    - { runner: ubuntu-22.04-arm, rid: linux-arm64, target: aarch64-unknown-linux-gnu }
+                    - { runner: windows-2022, rid: win-x64, target: x86_64-pc-windows-msvc }
+                    - { runner: windows-11-arm, rid: win-arm64, target: aarch64-pc-windows-msvc }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+                  key: dotnet-${{ matrix.target }}
+            - name: Build
+              run: cargo build --release --target ${{ matrix.target }} -p slint-dotnet -p slint-compiler
+            - name: Collect the binaries
+              shell: bash
+              run: |
+                  out=target/${{ matrix.target }}/release
+                  mkdir -p artifacts/native/${{ matrix.rid }} artifacts/compiler/${{ matrix.rid }}
+                  case "${{ matrix.rid }}" in
+                      win-*) cp $out/slint_dotnet.dll artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler.exe artifacts/compiler/${{ matrix.rid }}/ ;;
+                      osx-*) cp $out/libslint_dotnet.dylib artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler artifacts/compiler/${{ matrix.rid }}/ ;;
+                      *)     cp $out/libslint_dotnet.so artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler artifacts/compiler/${{ matrix.rid }}/ ;;
+                  esac
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dotnet-binaries-${{ matrix.rid }}
+                  path: artifacts
+
+    pack:
+        needs: build_binaries
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  global-json-file: api/dotnet/global.json
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: dotnet-binaries-*
+                  path: artifacts
+                  merge-multiple: true
+            - name: Determine the version
+              id: version
+              shell: bash
+              run: |
+                  version="${{ inputs.version }}"
+                  if [ -z "$version" ]; then
+                      version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)-nightly.$(date +%Y%m%d)"
+                  fi
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+            - name: Pack
+              working-directory: api/dotnet
+              run: |
+                  dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" -p:Version=${{ steps.version.outputs.version }} -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
+                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" -p:Version=${{ steps.version.outputs.version }} -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native"
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: nuget-packages
+                  path: packages/*.nupkg
+
+    test_packages:
+        needs: pack
+        strategy:
+            fail-fast: false
+            matrix:
+                runner: [macos-14, ubuntu-22.04, windows-2022]
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  global-json-file: api/dotnet/global.json
+            - name: Setup headless display
+              if: runner.os == 'Linux'
+              uses: pyvista/setup-headless-display-action@v5
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Build and run a project with the packages
+              shell: bash
+              run: |
+                  version=$(ls packages/Slint.Compiler.*.nupkg | sed 's/.*Slint\.Compiler\.\(.*\)\.nupkg/\1/')
+                  mkdir app && cd app
+                  dotnet new console
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package Slint --version "$version"
+                  mkdir ui
+                  printf 'export component App inherits Window { in-out property <int> counter: 41; }\n' > ui/app.slint
+                  sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' app.csproj
+                  printf 'using var a = app.App.Create();\na.Counter++;\nif (a.Counter != 42) return 1;\nSystem.Console.WriteLine("ok");\nreturn 0;\n' > Program.cs
+                  dotnet run
+
+    publish:
+        needs: test_packages
+        if: ${{ inputs.publish }}
+        runs-on: ubuntu-22.04
+        environment:
+            name: nuget
+        steps:
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Publish to nuget.org
+              run: dotnet nuget push "packages/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

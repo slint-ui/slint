@@ -77,6 +77,19 @@ internal static unsafe partial class NativeMethods
     public static partial nint slint_dotnet_value_new_struct();
 
     [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_image();
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_image_from_path(Utf8Str path);
+
+    [LibraryImport(Library)]
+    public static partial OwnedString slint_dotnet_value_image_path(ValueHandle value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_value_image_size(ValueHandle value, uint* width, uint* height);
+
+    [LibraryImport(Library)]
     public static partial nint slint_dotnet_value_new_model(nint* values, nuint count);
 
     [LibraryImport(Library)]

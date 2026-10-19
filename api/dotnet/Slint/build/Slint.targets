@@ -7,15 +7,23 @@
     <SlintFile Include="ui/app.slint" />                   generates ui/app.slint.g.cs
     <SlintFile Include="ui/widgets.slint" Generate="false" />   only copies an imported file
 
+  A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
+
   Properties:
-    SlintCompilerPath   the slint-compiler binary; defaults to the repository build, then to PATH
+    SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
+                        then to the repository build, then to slint-compiler on PATH
     SlintNamespace      the namespace of the generated code; defaults to RootNamespace
     SlintStyle          the widget style, such as fluent
+    SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
+                        a file that refers to images outside the project
 -->
 <Project>
   <PropertyGroup>
     <_SlintExe Condition="'$(OS)' == 'Windows_NT'">.exe</_SlintExe>
     <_SlintRepositoryCompiler>$(MSBuildThisFileDirectory)../../../../target/debug/slint-compiler$(_SlintExe)</_SlintRepositoryCompiler>
+    <_SlintPackagedCompiler Condition="'$(SlintCompilerPackageDir)' != ''">$(SlintCompilerPackageDir)$(NETCoreSdkRuntimeIdentifier)/slint-compiler$(_SlintExe)</_SlintPackagedCompiler>
+    <_SlintCompilerIsPackaged Condition="'$(SlintCompilerPath)' == '' and '$(_SlintPackagedCompiler)' != '' and Exists('$(_SlintPackagedCompiler)')">true</_SlintCompilerIsPackaged>
+    <SlintCompilerPath Condition="'$(_SlintCompilerIsPackaged)' == 'true'">$([System.IO.Path]::GetFullPath('$(_SlintPackagedCompiler)'))</SlintCompilerPath>
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == '' and Exists('$(_SlintRepositoryCompiler)')">$([System.IO.Path]::GetFullPath('$(_SlintRepositoryCompiler)'))</SlintCompilerPath>
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == ''">slint-compiler</SlintCompilerPath>
     <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
@@ -23,7 +31,7 @@
 
   <ItemGroup>
     <None Remove="@(SlintFile)" />
-    <None Include="@(SlintFile)" Link="%(RelativeDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="@(SlintFile)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
   </ItemGroup>
 
   <Target Name="_SlintPrepare">
@@ -31,10 +39,15 @@
       <!-- Set here, since IntermediateOutputPath isn't known yet where a project imports this file. -->
       <_SlintGeneratedDir>$(IntermediateOutputPath)slint/</_SlintGeneratedDir>
     </PropertyGroup>
+    <!-- The same path in the output directory that the copy of the None item gets. -->
+    <AssignTargetPath Files="@(SlintFile)" RootFolder="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="AssignedFiles" ItemName="_SlintAssigned" />
+    </AssignTargetPath>
     <ItemGroup>
-      <_SlintGenerate Include="@(SlintFile)" Condition="'%(SlintFile.Generate)' != 'false'">
-        <GeneratedFile>$(_SlintGeneratedDir)%(RelativeDir)%(Filename)%(Extension).g.cs</GeneratedFile>
-        <RuntimePath>%(RelativeDir)%(Filename)%(Extension)</RuntimePath>
+      <_SlintGenerate Include="@(_SlintAssigned)" Condition="'%(_SlintAssigned.Generate)' != 'false'">
+        <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
+        <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
+        <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintAssigned.FullPath)</RuntimePath>
       </_SlintGenerate>
       <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
     </ItemGroup>
@@ -45,6 +58,8 @@
           Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildProjectFullPath)"
           Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
+    <!-- NuGet doesn't keep the executable bit of files in packages. -->
+    <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
     <PropertyGroup>
       <_SlintOptions />
       <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>

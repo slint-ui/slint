@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::model::{Model, ModelRc, VecModel};
-use slint_interpreter::{Brush, Color, Value, ValueType};
+use slint_interpreter::{Brush, Color, Image, Value, ValueType};
 
 use crate::{NameList, OwnedString, Utf8Str, guard, guard_bool, into_raw, release};
 
@@ -101,6 +101,48 @@ pub unsafe extern "C" fn slint_dotnet_value_new_model(
             .collect()
     };
     guard(std::ptr::null_mut(), || Ok(into_raw(Value::Model(ModelRc::new(VecModel::from(rows))))))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_dotnet_value_new_image() -> *mut Value {
+    guard(std::ptr::null_mut(), || Ok(into_raw(Value::Image(Image::default()))))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_new_image_from_path(path: Utf8Str) -> *mut Value {
+    guard(std::ptr::null_mut(), || {
+        let path = unsafe { path.as_str() }?;
+        Image::load_from_path(std::path::Path::new(path))
+            .map(|image| into_raw(Value::Image(image)))
+            .map_err(|_| format!("Failed to load the image {path}"))
+    })
+}
+
+/// Returns no string if `value` isn't an image loaded from a file.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_image_path(value: &Value) -> OwnedString {
+    match value {
+        Value::Image(image) => {
+            image.path().map_or_else(OwnedString::none, |p| p.to_string_lossy().into_owned().into())
+        }
+        _ => OwnedString::none(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_image_size(
+    value: &Value,
+    width: &mut u32,
+    height: &mut u32,
+) -> bool {
+    match value {
+        Value::Image(image) => {
+            let size = image.size();
+            (*width, *height) = (size.width, size.height);
+            true
+        }
+        _ => false,
+    }
 }
 
 #[unsafe(no_mangle)]

@@ -10,6 +10,15 @@
     <Version>1.19.0</Version>
     <Authors>Slint Developers</Authors>
     <Company>SixtyFPS GmbH</Company>
-    <PackageLicenseExpression>GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0</PackageLicenseExpression>
+    <!-- NuGet license expressions only know SPDX licenses, so the packages carry LICENSE.md, which lists all three. -->
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageProjectUrl>https://slint.dev</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/slint-ui/slint</RepositoryUrl>
+    <PackageTags>gui;ui;toolkit;slint;desktop;embedded</PackageTags>
+    <PackageIcon>slint-logo.png</PackageIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../../LICENSE.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../logo/slint-logo-square-light-128x128.png" Pack="true" PackagePath="slint-logo.png" Visible="false" />
+  </ItemGroup>
 </Project>

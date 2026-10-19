@@ -28,8 +28,10 @@ which C# would have to mirror byte for byte.
 ```
 api/dotnet/
 ├── native/          # Rust crate `slint-dotnet`, builds libslint_dotnet.{dylib,so,dll}
-├── Slint/           # C# library `Slint.csproj`
+├── Slint/           # C# library `Slint.csproj`, and build/Slint.targets
+├── Slint.Compiler/  # packs slint-compiler for the Slint.Compiler package
 ├── Slint.Tests/     # MSTest tests on Microsoft.Testing.Platform
+├── README.md        # the user documentation, also the README of the packages
 └── Slint.slnx
 ```
 
@@ -128,6 +130,27 @@ which uses the test fonts and reports Windows as the operating system, like the 
 It skips cases that need include paths, library paths, or bundled translations,
 because the generated code doesn't pass those to the interpreter yet.
 
+## Packages
+
+There are two packages.
+`Slint` has the library, `build/Slint.targets`, and the native library of each platform in `runtimes/<rid>/native/`.
+It depends on `Slint.Compiler`, which has `slint-compiler` in `tools/<rid>/`,
+and a `buildTransitive` props file that tells `Slint.targets` where to look.
+`Slint.targets` picks the binary for the runtime identifier of the SDK, and restores its executable bit,
+since NuGet doesn't keep it.
+
+Pack them with directories that have one sub-directory per runtime identifier:
+
+```sh
+dotnet pack api/dotnet/Slint.Compiler -c Release -p:Version=<version> -p:SlintCompilerBinariesDir=<dir>
+dotnet pack api/dotnet/Slint -c Release -p:Version=<version> -p:SlintNativeRuntimesDir=<dir>
+```
+
+`.github/workflows/publish_nuget_package.yaml` builds the binaries on each platform,
+packs them, builds and runs a project with the packages on macOS, Linux, and Windows,
+and publishes them to nuget.org when asked to.
+NuGet license expressions only know SPDX licenses, so the packages carry `LICENSE.md` instead.
+
 ## Threading and macOS
 
 winit and AppKit need the event loop on the process main thread.
@@ -170,4 +193,5 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 1. Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop (done).
 2. Models, timers, `async` through a `SynchronizationContext`, lifetime tests (done).
 3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet` (done).
-4. CI workflow, user documentation, an example, NuGet packages per runtime identifier.
+4. CI workflow, user documentation, an example, NuGet packages per runtime identifier (done).
+   `.github/workflows/dotnet_test_reusable.yaml` runs the tests, and `examples/memory/dotnet` is the example.

@@ -195,6 +195,26 @@ jobs:
           name: "Node.js Windows"
           os: "windows-2022"
 
+    # For changes to the test cases, also run them through the generated C# code on Linux.
+    dotnet_test_linux:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') || contains(fromJSON(inputs.changes), 'tests') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET Linux"
+          os: "ubuntu-22.04"
+    dotnet_test_macos:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET macOS"
+          os: "macos-14"
+    dotnet_test_windows:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET Windows"
+          os: "windows-2022"
+
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}

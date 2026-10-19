@@ -1,0 +1,51 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: .NET Test (Reusable)
+
+on:
+    workflow_call:
+      inputs:
+        name:
+            description: 'Name of the job'
+            required: true
+            type: string
+        os:
+            description: 'Operating system to run on'
+            required: true
+            type: string
+
+env:
+    RUSTFLAGS: -D warnings
+    CARGO_PROFILE_DEV_DEBUG: 0
+    CARGO_INCREMENTAL: false
+    RUST_BACKTRACE: full
+    SLINT_BACKEND: testing
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    DOTNET_NOLOGO: 1
+
+jobs:
+    dotnet_test:
+        name: ${{ inputs.name }}
+        runs-on: ${{ inputs.os }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: x-dotnet-v0
+            - uses: actions/setup-dotnet@v5
+              with:
+                  global-json-file: api/dotnet/global.json
+            - name: Build the native library and slint-compiler
+              run: cargo build -p slint-dotnet --features testing -p slint-compiler
+            - name: Check the formatting
+              working-directory: api/dotnet
+              run: dotnet format Slint.slnx --verify-no-changes
+            - name: Run the .NET tests
+              working-directory: api/dotnet
+              run: dotnet test --project Slint.Tests
+            - name: Build the example
+              run: dotnet build examples/memory/dotnet
+            - name: Run the .NET test driver
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet

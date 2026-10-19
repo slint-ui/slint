@@ -25,7 +25,7 @@ public enum ValueType
     Struct = 5,
     /// <summary><c>brush</c> or <c>color</c>, as <see cref="Color"/> for a solid color.</summary>
     Brush = 6,
-    /// <summary><c>image</c>, as <see cref="OpaqueValue"/>.</summary>
+    /// <summary><c>image</c>, as <see cref="Slint.Image"/>.</summary>
     Image = 7,
 }
 
@@ -51,6 +51,49 @@ public sealed class Struct : Dictionary<string, object?>
         : base(StringComparer.Ordinal)
     {
     }
+}
+
+/// <summary>An image, such as one loaded from a file with <see cref="Load"/>.</summary>
+public sealed unsafe class Image : IDisposable
+{
+    /// <summary>Creates an empty image.</summary>
+    public Image()
+        : this(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image())))
+    {
+    }
+
+    internal Image(ValueHandle handle)
+    {
+        Handle = handle;
+    }
+
+    internal ValueHandle Handle { get; }
+
+    /// <summary>Loads the image file at <paramref name="path"/>.</summary>
+    public static Image Load(string path)
+    {
+        using var pathStr = new PinnedUtf8(System.IO.Path.GetFullPath(path));
+        return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image_from_path(pathStr.Str))));
+    }
+
+    /// <summary>The file the image was loaded from, or <c>null</c>.</summary>
+    public string? Path => NativeMethods.slint_dotnet_value_image_path(Handle).Take();
+
+    /// <summary>The width in pixels.</summary>
+    public int Width => (int)Size().Width;
+
+    /// <summary>The height in pixels.</summary>
+    public int Height => (int)Size().Height;
+
+    private (uint Width, uint Height) Size()
+    {
+        uint width, height;
+        NativeMethods.slint_dotnet_value_image_size(Handle, &width, &height);
+        return (width, height);
+    }
+
+    /// <summary>Releases the native image.</summary>
+    public void Dispose() => Handle.Dispose();
 }
 
 /// <summary>
@@ -99,6 +142,8 @@ internal static unsafe class ValueConverter
                 }
             case TimeSpan duration:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_number(duration.TotalMilliseconds));
+            case Image image:
+                return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(image.Handle.DangerousGetHandle()));
             case OpaqueValue o:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(o.Handle.DangerousGetHandle()));
             case INativeModel model:
@@ -200,6 +245,8 @@ internal static unsafe class ValueConverter
                     uint argb;
                     return NativeMethods.slint_dotnet_value_to_color(value, &argb) ? Color.FromArgb(argb) : Opaque(value);
                 }
+            case (int)ValueType.Image:
+                return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
             case KindEnum:
                 return new EnumValue(
                     NativeMethods.slint_dotnet_value_enum_name(value).Take()!,

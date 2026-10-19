@@ -129,7 +129,7 @@ jobs:
                   path: artifact
             - name: "Check for docs warnings in internal crates"
               # The excluded crates need a dedicated toolchain (node/python/cpp).
-              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude slint-cpp --exclude slint-python
+              run: cargo doc --workspace --no-deps --all-features --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-dotnet
 
     # Job 2: Build Astro docs and run tests
     astro-docs-tests:
