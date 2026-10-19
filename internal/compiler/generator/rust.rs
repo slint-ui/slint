@@ -123,7 +123,7 @@ fn rust_module_paths() {
     }
 }
 
-fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> TokenStream {
+pub(super) fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> TokenStream {
     let package = ident(&library_info.package);
     let module = library_info.module.as_ref().map(|module| quote!(#module::));
     quote!(#package::#module #symbol)

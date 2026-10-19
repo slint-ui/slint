@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+{
+    "library-paths": {
+        "BLogicA": "../blogica/ui/blogica.slint",
+        "BLogicB": "../blogicb/ui/blogicb.slint"
+    }
+}
