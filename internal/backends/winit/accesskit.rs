@@ -7,7 +7,8 @@ use std::ptr::NonNull;
 use std::rc::Weak;
 
 use accesskit::{
-    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
+    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, TreeId, TreeInfo,
+    TreeUpdate,
 };
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
@@ -605,8 +606,8 @@ impl NodeCollection {
         }
     }
 
-    fn tree_info(&self, root: NodeId) -> Tree {
-        let mut tree = Tree::new(root);
+    fn tree_info(&self, root: NodeId) -> TreeInfo {
+        let mut tree = TreeInfo::new(root);
         tree.toolkit_name = Some("Slint".into());
         tree.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
         tree
