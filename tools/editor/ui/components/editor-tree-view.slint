@@ -62,6 +62,7 @@ component EditorTreeRow {
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.row-label;
+    accessible-item-index: root.row-index;
     accessible-description: @tr("Hierarchy level {}", root.level-safe);
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
