@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn project_inputs_keep_the_target_and_discover_the_nearest_root() {
         let directory = tempfile::tempdir().unwrap();
-        let root = directory.path();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
         let nested = root.join("ui");
         std::fs::create_dir(&nested).unwrap();
         let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);

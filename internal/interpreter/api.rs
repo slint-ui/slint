@@ -1106,10 +1106,14 @@ impl Compiler {
         };
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
         let mut result = match resolved {
-            Err(message) => project_file_error(message, &input),
-            Ok(None) => {
-                project_file_error(std::format!("{input} has no 'main' to compile"), &input)
+            Err(message) => {
+                compilation_error(message, &input, i_slint_compiler::diagnostics::Span::new(0, 0))
             }
+            Ok(None) => compilation_error(
+                std::format!("{input} has no 'main' to compile"),
+                &input,
+                i_slint_compiler::diagnostics::Span::new(0, 0),
+            ),
             Ok(Some(resolved)) => {
                 let source = if resolved.source == input { source_code } else { None };
                 let source = match source {
@@ -1133,7 +1137,9 @@ impl Compiler {
                     }
                 };
                 match source {
-                    Err(message) => project_file_error(message, &resolved.source),
+                    Err(message) => {
+                        compilation_error(message, &resolved.source, Default::default())
+                    }
                     Ok(source) => {
                         let mut config = self.config.clone();
                         self.overrides.apply(resolved.project_file.as_ref(), &mut config);
@@ -1179,7 +1185,11 @@ fn empty_compilation_result() -> CompilationResult {
     }
 }
 
-fn project_file_error(message: String, path: &SourcePath) -> CompilationResult {
+fn compilation_error(
+    message: String,
+    path: &SourcePath,
+    span: i_slint_compiler::diagnostics::Span,
+) -> CompilationResult {
     let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     diagnostics.push_error_with_span(
         message,
@@ -1187,7 +1197,7 @@ fn project_file_error(message: String, path: &SourcePath) -> CompilationResult {
             source_file: Some(i_slint_compiler::diagnostics::SourceFileInner::from_path_only(
                 path.clone(),
             )),
-            span: i_slint_compiler::diagnostics::Span::new(0, 0),
+            span,
         },
     );
     let mut result = empty_compilation_result();
@@ -3007,6 +3017,26 @@ mod project_file_tests {
         let main = root.join("main.slint");
         std::fs::write(&main, source).unwrap();
         spin_on::spin_on(Compiler::default().build_from_path(&main))
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn missing_source_files_have_no_line_or_column() {
+        with_project("{}", |root| {
+            let source = root.join("missing.slint");
+            let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
+            assert!(result.has_errors());
+            let mut compiler = super::ComponentCompiler::new();
+            assert!(spin_on::spin_on(compiler.build_from_path(&source)).is_none());
+            for diagnostics in
+                [result.diagnostics().collect::<Vec<_>>(), compiler.diagnostics().clone()]
+            {
+                assert_eq!(diagnostics.len(), 1);
+                assert!(diagnostics[0].message().starts_with("Could not load"));
+                assert_eq!(diagnostics[0].source_file(), Some(source.as_path()));
+                assert_eq!(diagnostics[0].line_column(), (0, 0));
+            }
+        });
     }
 
     #[cfg(feature = "internal")]

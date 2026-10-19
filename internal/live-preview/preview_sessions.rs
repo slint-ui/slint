@@ -81,7 +81,7 @@ impl CompiledPreview {
 }
 
 enum PreviewSessionCommand {
-    Message(LspToPreviewMessage),
+    Message(Box<LspToPreviewMessage>),
     Reset(oneshot::Sender<()>),
 }
 
@@ -175,7 +175,7 @@ impl PreviewSession {
                         }
                         PreviewSessionCommand::Message(message) => {
                             if !self.process_message(
-                                message,
+                                *message,
                                 &event_handler,
                                 &mut debounce_deadline,
                             ) {
@@ -516,7 +516,7 @@ impl PreviewSessionHandle {
     }
 
     pub fn handle_message(&self, message: LspToPreviewMessage) -> crate::protocol::Result<()> {
-        self.command_sender.send(PreviewSessionCommand::Message(message))?;
+        self.command_sender.send(PreviewSessionCommand::Message(Box::new(message)))?;
         Ok(())
     }
 
