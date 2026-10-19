@@ -17,6 +17,10 @@ mod benchmark;
 mod ink_animation;
 #[cfg(feature = "ink-particles")]
 mod ink_particles;
+mod kiosk;
+mod kiosk_motion;
+#[cfg(feature = "box-bench")]
+mod kiosk_profile;
 mod scroll_pause;
 use scroll_pause::ScrollGate;
 
@@ -80,6 +84,7 @@ impl PrinterQueueData {
 fn main() -> ! {
     mcu_board_support::init();
     let main_window = MainWindow::new().unwrap();
+    let _kiosk = kiosk::start(&main_window);
     main_window.global::<PrinterState>().set_ink_levels(
         [
             InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
@@ -142,10 +147,12 @@ fn main() -> ! {
         slint::TimerMode::Repeated,
         core::time::Duration::from_secs(1),
         move || {
+            let Some(window) = progress_window.upgrade() else { return };
+            if window.global::<Kiosk>().get_enabled() {
+                return;
+            }
             if let Some(printer_queue) = printer_queue_weak.upgrade() {
-                if let Some(window) = progress_window.upgrade() {
-                    printer_queue.scroll_pause.observe(window.global::<QueueMotion>().get_raw_y());
-                }
+                printer_queue.scroll_pause.observe(window.global::<QueueMotion>().get_raw_y());
                 if !printer_queue.scroll_pause.allow_progress() {
                     return;
                 }
@@ -169,7 +176,7 @@ fn main() -> ! {
     );
 
     #[cfg(feature = "box-bench")]
-    let _benchmark = benchmark::start(&main_window, &printer_queue);
+    let _benchmark = benchmark::start(&main_window, &printer_queue, &_kiosk);
 
     main_window.run().unwrap();
 

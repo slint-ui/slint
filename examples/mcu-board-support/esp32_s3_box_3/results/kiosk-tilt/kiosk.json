@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": 1,
+      "elapsed_us": 10000712,
+      "frames": 600,
+      "draw_total_us": 8062400,
+      "draw_max_us": 14249,
+      "raster_total_us": 7414062,
+      "queue_total_us": 630331,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.99572830414475,
+      "draw_mean_us": 13437.333333333334
+    },
+    {
+      "mode": 2,
+      "elapsed_us": 10004132,
+      "frames": 600,
+      "draw_total_us": 8179298,
+      "draw_max_us": 14780,
+      "raster_total_us": 7837872,
+      "queue_total_us": 322818,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.975218239823306,
+      "draw_mean_us": 13632.163333333334
+    },
+    {
+      "mode": 3,
+      "elapsed_us": 10006350,
+      "frames": 600,
+      "draw_total_us": 6004442,
+      "draw_max_us": 10079,
+      "raster_total_us": 5257405,
+      "queue_total_us": 729258,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.96192417814688,
+      "draw_mean_us": 10007.403333333334
+    }
+  ],
+  "parity": [
+    {
+      "pixels": 76800,
+      "differences": 0
+    }
+  ],
+  "sensors": []
+}

@@ -10,9 +10,16 @@ use slint::{ComponentHandle, Model};
 #[path = "pointer_replay.rs"]
 mod pointer_replay;
 
-pub fn start(window: &MainWindow, queue: &PrinterQueueData) -> slint::Timer {
+pub fn start(
+    window: &MainWindow,
+    queue: &PrinterQueueData,
+    kiosk: &alloc::rc::Rc<crate::kiosk::Controller>,
+) -> slint::Timer {
     let timer = slint::Timer::default();
     let Some(scene) = option_env!("BOX_BENCH_SCENE") else { return timer };
+    if scene == "kiosk" {
+        return crate::kiosk_profile::start(window, kiosk);
+    }
     assert!(matches!(scene, "queue" | "settings" | "ink"), "unknown BOX benchmark scene");
     let workload = option_env!("BOX_BENCH_WORKLOAD").unwrap_or("held");
     let ink_hold = option_env!("BOX_BENCH_INK_HOLD");

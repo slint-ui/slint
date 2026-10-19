@@ -126,7 +126,7 @@ pub fn start(window: &MainWindow) -> slint::Timer {
     };
     let timer = slint::Timer::default();
     #[cfg(all(feature = "box-ink-particles", target_arch = "xtensa"))]
-    mcu_board_support::set_animation_frame_handler(render);
+    mcu_board_support::add_animation_frame_handler(render);
     #[cfg(not(all(feature = "box-ink-particles", target_arch = "xtensa")))]
     {
         let tick = core::cell::Cell::new(0u64);

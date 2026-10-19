@@ -5,6 +5,7 @@ import { DemoPalette } from "../common.slint";
 import { ShadowBox } from "../components/components.slint";
 
 export global QueueMotion {
+    in-out property <length> maximum;
     in-out property <length> raw-y: 0px;
     in-out property <bool> pixel-snap: false;
     callback moved(length);
@@ -115,6 +116,9 @@ component NarrowPrintQueueElement {
 }
 
 export component NarrowPrinterQueueList inherits Flickable {
+    init => { QueueMotion.maximum = max(0px, self.content-height - self.height); }
+    changed height => { QueueMotion.maximum = max(0px, self.content-height - self.height); }
+    changed content-height => { QueueMotion.maximum = max(0px, self.content-height - self.height); }
     content-width: self.width;
     content-y <=> QueueMotion.raw-y;
     changed content-y => { QueueMotion.moved(self.content-y); }

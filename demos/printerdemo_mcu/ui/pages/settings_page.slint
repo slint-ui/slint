@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 import { ComboBox, CheckBox, Page } from "../components/components.slint";
+import { Kiosk } from "../common.slint";
 
 export global SettingsMotion {
+    in-out property <length> maximum;
     in-out property <length> raw-y;
     in-out property <bool> pixel-snap: false;
     callback moved(length);
@@ -13,6 +15,9 @@ export component SettingsPage inherits Page {
     header: "Settings";
 
     scroll := Flickable {
+        init => { SettingsMotion.maximum = max(0px, self.content-height - self.height); }
+        changed height => { SettingsMotion.maximum = max(0px, self.content-height - self.height); }
+        changed content-height => { SettingsMotion.maximum = max(0px, self.content-height - self.height); }
         content-width: self.width;
         content-height: settings-layout.preferred-height;
         content-y <=> SettingsMotion.raw-y;
@@ -38,6 +43,10 @@ export component SettingsPage inherits Page {
 
                 CheckBox {
                     text: @tr("Eco mode");
+                }
+                CheckBox {
+                    text: @tr("Kiosk mode");
+                    checked <=> Kiosk.enabled;
                 }
             }
         }

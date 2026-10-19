@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { DemoPalette, Pages, SubPage, PrinterState, InkParticles } from "common.slint";
+import { DemoPalette, Pages, SubPage, PrinterState, InkParticles, Kiosk } from "common.slint";
 import { SideBar } from "./components/components.slint";
 import { HomePage, InkPage, ScanPage, ScanPagePosition, CopyPage, CopyPagePosition, SettingsPage, PrinterQueue } from "./pages/pages.slint";
 
@@ -11,7 +11,7 @@ import { SettingsMotion } from "./pages/settings_page.slint";
 export { SettingsMotion }
 
 // re-export for the native code
-export { PrinterQueue, PrinterState, InkParticles }
+export { PrinterQueue, PrinterState, InkParticles, Kiosk }
 
 import "./fonts/Inter-24pt-Regular.ttf";
 import "./fonts/Inter-24pt-Medium.ttf";
@@ -67,6 +67,13 @@ export component MainWindow inherits Window {
                     PrinterState.active-subpage = SubPage.none;
                 }
             }
+        }
+    }
+    if Kiosk.enabled: TouchArea {
+        width: root.width;
+        height: root.height;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down { Kiosk.enabled = false; }
         }
     }
 }

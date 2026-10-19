@@ -811,6 +811,12 @@ pub fn set_animation_frame_handler(callback: impl FnMut(u64) + 'static) {
     animation_frame::set_handler(callback);
 }
 
+/// Register another animation on the Slint thread, preserving callback order.
+#[cfg(feature = "box-parallel")]
+pub fn add_animation_frame_handler(callback: impl FnMut(u64) + 'static) {
+    animation_frame::add_handler(callback);
+}
+
 #[cfg(feature = "box-profile")]
 pub use profile::{profile_mode, profile_scroll_y};
 #[cfg(feature = "box-profile")]

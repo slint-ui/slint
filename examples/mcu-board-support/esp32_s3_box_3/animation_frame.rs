@@ -15,6 +15,18 @@ pub(super) fn set_handler(callback: impl FnMut(u64) + 'static) {
     HANDLER.with(|slot| *slot.borrow_mut() = Some(Box::new(callback)));
 }
 
+pub(super) fn add_handler(mut callback: impl FnMut(u64) + 'static) {
+    let previous = HANDLER.with(|slot| slot.borrow_mut().take());
+    if let Some(mut previous) = previous {
+        set_handler(move |frame| {
+            previous(frame);
+            callback(frame);
+        });
+    } else {
+        set_handler(callback);
+    }
+}
+
 pub(super) fn invoke(frame: u64) {
     let Some(mut callback) = HANDLER.with(|slot| slot.borrow_mut().take()) else { return };
     callback(frame);
@@ -55,6 +67,18 @@ impl FrameClock {
 #[cfg(test)]
 mod tests {
     use super::{FrameClock, invoke, set_handler};
+    #[test]
+    fn added_callbacks_share_the_same_tick_in_registration_order() {
+        use alloc::rc::Rc;
+        use core::cell::RefCell;
+        let calls = Rc::new(RefCell::new(alloc::vec::Vec::new()));
+        let first = calls.clone();
+        set_handler(move |frame| first.borrow_mut().push((0, frame)));
+        let second = calls.clone();
+        super::add_handler(move |frame| second.borrow_mut().push((1, frame)));
+        invoke(41);
+        assert_eq!(&*calls.borrow(), &[(0, 41), (1, 41)]);
+    }
     #[test]
     fn callback_can_install_its_successor() {
         use alloc::rc::Rc;
