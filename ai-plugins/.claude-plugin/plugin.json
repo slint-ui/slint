@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-slint-lsp.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-slint-tool.mjs\" slint-lsp"
           }
         ]
       }

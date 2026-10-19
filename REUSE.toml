@@ -248,6 +248,7 @@ path = [
   "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
   "ai-plugins/.codex-plugin/*.json",
+  "ai-plugins/hooks/codex.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
 ]
