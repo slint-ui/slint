@@ -473,17 +473,12 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
-use crate::expression_types::{EasingCurve, MinMaxOp};
+use crate::expression_types::{EasingCurve, MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
-use crate::layout::Orientation;
-use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{
-    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
-    MEASURE_KNOWN_W_LOCAL,
-};
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
-    TypeResolutionContext as _,
+    self, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext, EvaluationScope,
+    GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL, MEASURE_KNOWN_W_LOCAL,
+    ParentScope, TypeResolutionContext as _,
 };
 use crate::native_class::NativeClass;
 use crate::object_tree::Document;
@@ -1356,7 +1351,7 @@ fn generate_struct(
             // so that default construction is fully deterministic, like in the other language backends.
             let init = match the_struct.field_defaults.get(name) {
                 Some(default_value) => {
-                    Some(compile_expression(&lower_constant_expression(default_value), &ctx))
+                    Some(compile_expression(&llr::Expression::from_constant(default_value), &ctx))
                 }
                 None if !the_struct.field_defaults.is_empty() => Some("{}".into()),
                 None => None,
@@ -3003,9 +2998,9 @@ fn repeated_layout_item_fields(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
 ) -> (String, String) {
-    let orientation_name = |o: &crate::layout::Orientation| match o {
-        crate::layout::Orientation::Horizontal => "Horizontal",
-        crate::layout::Orientation::Vertical => "Vertical",
+    let orientation_name = |o: &crate::expression_types::Orientation| match o {
+        crate::expression_types::Orientation::Horizontal => "Horizontal",
+        crate::expression_types::Orientation::Vertical => "Vertical",
     };
     let align_self = match &root_sc.cross_axis_self_alignment_for_repeated {
         Some((cross_o, expr)) => {
@@ -5077,10 +5072,8 @@ fn compile_builtin_function_call(
                 None => call(None),
                 Some(pr) => {
                     let call_with_item = |owner: &str| {
-                        let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
-                        call(Some(format!(
-                            "slint::cbindgen_private::BuiltinItemArg{{ &{item}, &{item_rc} }}"
-                        )))
+                        let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                        call(Some(format!("slint::cbindgen_private::ItemRc{{ {item_rc} }}")))
                     };
                     if function.ty().return_type == Type::Void {
                         item_owner(pr).then(call_with_item)

@@ -274,7 +274,7 @@ export interface TestCase {
     readonly w9: number;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function TestStruct(properties?: Partial<TestStruct>): TestStruct;
 ```
 */

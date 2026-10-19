@@ -20,13 +20,18 @@ export struct ShadowValues {
 }
 
 export global ShadowSession {
+    out property <bool> inner;
+    out property <string> prefix: inner ? "inner-shadow-" : "drop-shadow-";
+    out property <string> title: ShadowSession.label(inner);
+    out property <float> direction: inner ? -1 : 1;
     out property <bool> open;
     out property <bool> dragging;
     in-out property <bool> canvas-focus;
     out property <float> maximum-blur: 128;
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
-    private property <bool> shadow-exists: Api.has-shadow("drop-shadow-");
+    private property <bool> shadow-exists: Api.has-shadow(prefix);
+    private property <bool> selected-inner: !Api.has-shadow("drop-shadow-") && Api.has-shadow("inner-shadow-");
     out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
@@ -41,10 +46,10 @@ export global ShadowSession {
     out property <bool> pending;
     private property <int> pending-source-version;
     private property <ShadowValues> source-values: {
-        offset-x: Api.number-property("drop-shadow-offset-x", 0),
-        offset-y: Api.number-property("drop-shadow-offset-y", 8),
-        blur: Api.number-property("drop-shadow-blur", 16),
-        spread: Api.number-property("drop-shadow-spread", 0),
+        offset-x: Api.number-property(prefix + "offset-x", 0),
+        offset-y: Api.number-property(prefix + "offset-y", 8),
+        blur: Api.number-property(prefix + "blur", 16),
+        spread: Api.number-property(prefix + "spread", 0),
     };
     out property <ShadowValues> values: dragging || pending ? draft : source-values;
     out property <Point> anchor-position;
@@ -53,6 +58,7 @@ export global ShadowSession {
 
     changed selection-key => { ShadowSession.check-selection(); }
     changed shadow-exists => { ShadowSession.check-selection(); }
+    changed selected-inner => { ShadowSession.check-selection(); }
     changed key => {
         if ShadowSession.dragging { ShadowSession.cancel(); }
     }
@@ -64,7 +70,8 @@ export global ShadowSession {
     function check-selection() {
         if ShadowSession.open && !ShadowSession.compiling && Api.current-element.source-uri != ""
             && Diagnostics.preview-editable && Api.selection.highlight-index >= 0
-            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists) {
+            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists
+                || ShadowSession.inner != ShadowSession.selected-inner) {
             ShadowSession.close();
         }
     }
@@ -78,9 +85,21 @@ export global ShadowSession {
         };
     }
 
-    public function begin(position: Point, size: Size) {
+    public pure function label(inner: bool) -> string {
+        return inner ? @tr("Inner shadow") : @tr("Drop shadow");
+    }
+
+    public pure function moved(values: ShadowValues, gesture: ShadowGesture, dx: float, dy: float, blur-scale: float) -> ShadowValues {
+        return ShadowSession.updated(values, gesture,
+            gesture == ShadowGesture.offset ? values.offset-x + dx
+                : gesture == ShadowGesture.blur ? values.blur - ShadowSession.direction * dy * blur-scale : values.spread + ShadowSession.direction * dx,
+            values.offset-y + dy);
+    }
+
+    public function begin(position: Point, size: Size, inner: bool) {
         FillSession.close-picker(true, false);
         ShadowSession.cancel();
+        ShadowSession.inner = inner;
         ShadowSession.anchor-position = position;
         ShadowSession.anchor-size = size;
         ShadowSession.target-selection-key = ShadowSession.selection-key;
@@ -94,7 +113,7 @@ export global ShadowSession {
             ShadowSession.cancel();
             ShadowSession.open = false;
             ShadowSession.canvas-focus = false;
-            if FillSession.open && FillSession.request.target.property-name == "drop-shadow-color" {
+            if FillSession.open && FillSession.request.target.property-name == ShadowSession.prefix + "color" {
                 FillSession.close-picker(true, false);
             }
         }
@@ -121,12 +140,12 @@ export global ShadowSession {
     pure function changes(gesture: ShadowGesture, values: ShadowValues) -> [InspectorNumberChange] {
         if gesture == ShadowGesture.offset {
             return [
-                { name: "drop-shadow-offset-x", value: values.offset-x.round() },
-                { name: "drop-shadow-offset-y", value: values.offset-y.round() },
+                { name: ShadowSession.prefix + "offset-x", value: values.offset-x.round() },
+                { name: ShadowSession.prefix + "offset-y", value: values.offset-y.round() },
             ];
         }
         return [{
-            name: gesture == ShadowGesture.blur ? "drop-shadow-blur" : "drop-shadow-spread",
+            name: ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"),
             value: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
         }];
     }

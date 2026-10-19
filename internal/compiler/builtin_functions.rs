@@ -3,8 +3,8 @@
 
 //! The declaration of the functions built into the run-time
 
+use crate::expression_types::Orientation;
 use crate::langtype::Function;
-use crate::layout::Orientation;
 use smol_str::{SmolStr, StrExt};
 use std::sync::Arc;
 

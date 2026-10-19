@@ -14,7 +14,8 @@ use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::native_class::{NativeClass, PropertyVisibility};
-use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
+use crate::object_tree::{self, Component, ElementRc};
+use crate::property_analysis::PropertyAnalysis;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
@@ -406,8 +407,8 @@ fn lower_fixed_size_root_layout_info(
     let mut ctx = ExpressionLoweringCtx { inner, state };
     let constraints = component.root_constraints.borrow();
     for (orientation, layout_info) in [
-        (crate::layout::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
-        (crate::layout::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
+        (crate::expression_types::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
+        (crate::expression_types::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
     ] {
         if let Some(e) = super::lower_layout_expression::get_fixed_size_root_layout_info(
             &component.root_element,
@@ -870,7 +871,7 @@ fn lower_sub_component_tail(
         &component.root_element,
         ctx,
         &component.root_constraints.borrow(),
-        crate::layout::Orientation::Horizontal,
+        crate::expression_types::Orientation::Horizontal,
         None,
     )
     .into();
@@ -891,7 +892,7 @@ fn lower_sub_component_tail(
             root_elem,
             ctx,
             &component.root_constraints.borrow(),
-            crate::layout::Orientation::Vertical,
+            crate::expression_types::Orientation::Vertical,
             None,
         )
     }
@@ -993,14 +994,14 @@ fn lower_sub_component_tail(
                             &layout_item.element,
                             ctx,
                             &layout_item.constraints,
-                            crate::layout::Orientation::Horizontal,
+                            crate::expression_types::Orientation::Horizontal,
                             None,
                         );
                         let layout_info_v = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
                             ctx,
                             &layout_item.constraints,
-                            crate::layout::Orientation::Vertical,
+                            crate::expression_types::Orientation::Vertical,
                             None,
                         );
                         let child_index = sub_component.grid_layout_children.push_and_get_key(
@@ -1200,7 +1201,7 @@ fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> 
     }
 }
 
-fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
+fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::property_analysis::PropertyAnalysis {
     let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
     let mut elem = elem.clone();
     loop {
@@ -1904,7 +1905,7 @@ export component TestCase inherits Window {
 
     #[test]
     fn fixed_size_root_does_not_fold_children() {
-        let children = "Rectangle { for i in 5: Rectangle { min-width: 1px; height: 2px; } }";
+        let children = "Rectangle { Rectangle { min-width: 1px; height: 2px; } }";
         let names = |size: &str| {
             let names = root_property_names(&format!(
                 "export component Main inherits Window {{ {size} {children} }}"

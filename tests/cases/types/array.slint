@@ -23,6 +23,7 @@ export component TestCase  {
     in-out property <StructWithArrayOfStruct> p5 : { prop: [{hello: "hello"}, {world: 42.0 }]};
 
     in-out property <NewGameParameters> p6 : { teams: [{ players: [ { skill-profile: 9 } ] }] } ;
+    in-out property <[color]> p7;
 }
 
 
@@ -59,28 +60,34 @@ export interface Player {
 }
 
 export interface NewGameTeam {
-    players: slint.Model<Player>;
+    players: slint.Model<Player> | Player[];
 }
 
 export interface NewGameParameters {
-    teams: slint.Model<NewGameTeam>;
+    teams: slint.Model<NewGameTeam> | NewGameTeam[];
 }
 
 export interface StructWithArrayOfStruct {
-    prop: slint.Model<{ hello: string; world: number }>;
+    prop: slint.Model<{ hello: string; world: number }> | { hello: string; world: number }[];
     xxx: number;
 }
 
 export interface TestCase {
-    p1: slint.Model<number>;
-    p2: slint.Model<number>;
-    p3: slint.Model<string>;
-    p4: slint.Model<{ a: number; b: number }>;
+    get p1(): slint.Model<number>;
+    set p1(value: slint.Model<number> | number[]);
+    get p2(): slint.Model<number>;
+    set p2(value: slint.Model<number> | number[]);
+    get p3(): slint.Model<string>;
+    set p3(value: slint.Model<string> | string[]);
+    get p4(): slint.Model<{ a: number; b: number }>;
+    set p4(value: slint.Model<{ a: number; b: number }> | { a: number; b: number }[]);
     p5: StructWithArrayOfStruct;
     p6: NewGameParameters;
+    get p7(): slint.Model<slint.Brush | slint.RgbaColor | string>;
+    set p7(value: slint.Model<slint.Brush | slint.RgbaColor | string> | (slint.Brush | slint.RgbaColor | string)[]);
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<Omit<TestCase, "p1" | "p2" | "p3" | "p4" | "p7"> & { p1: slint.Model<number> | number[]; p2: slint.Model<number> | number[]; p3: slint.Model<string> | string[]; p4: slint.Model<{ a: number; b: number }> | { a: number; b: number }[]; p7: slint.Model<slint.Brush | slint.RgbaColor | string> | (slint.Brush | slint.RgbaColor | string)[]; }>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function Player(properties?: Partial<Player>): Player;
 export declare function NewGameTeam(properties?: Partial<NewGameTeam>): NewGameTeam;
 export declare function NewGameParameters(properties?: Partial<NewGameParameters>): NewGameParameters;
@@ -99,5 +106,15 @@ assert.deepEqual(p5val, { prop: [{hello: "hello", world: 0}, { hello: "", world:
 
 instance.p3 = ["Hello", "World"];
 assert.deepEqual(Array.from(instance.p3), ["Hello", "World"]);
+
+instance.p6 = { teams: [{ players: [{ skill_profile: 3 }, { skill_profile: 4 }] }] };
+assert.equal(instance.p6.teams.rowData(0).players.rowData(1).skill_profile, 4);
+
+instance.p7 = ["#ff0000", { red: 0, green: 0, blue: 255 }];
+assert.equal(instance.p7.rowCount(), 2);
+
+var constructed = new slint.TestCase({ p1: [7], p6: { teams: [] } });
+assert.deepEqual(Array.from(constructed.p1), [7]);
+assert.equal(constructed.p6.teams.rowCount(), 0);
 ```
 */

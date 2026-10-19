@@ -9,6 +9,7 @@
 use crate::instance::Instance;
 use crate::public_api;
 use crate::{AnimationMode, Value};
+use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
@@ -502,7 +503,9 @@ pub async fn build_from_source(
     for def in build_from_document(doc, &config, type_loaders, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
-    if components.is_empty() {
+    if components.is_empty()
+        && !matches!(config.components_to_generate, ComponentSelection::AllExported)
+    {
         diag.push_error_with_span("No component found".into(), Default::default());
     }
     #[cfg(feature = "internal")]

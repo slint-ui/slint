@@ -1422,8 +1422,6 @@ fn build(l: &mut Loader) {
         ///     width: 200px;
         ///     height: 100px;
         ///     area := TouchArea {
-        ///         width: parent.width;
-        ///         height: parent.height;
         ///         clicked => {
         ///             rect2.background = #ff0;
         ///         }
@@ -1594,7 +1592,7 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
@@ -2229,7 +2227,8 @@ fn build(l: &mut Loader) {
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
         out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
-        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// This invokes the close request handler that the application set on the window,
+        /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
         @shadowable function close() -> bool { BuiltinFunction.WindowClose }
@@ -3242,8 +3241,11 @@ fn build(l: &mut Loader) {
         //!
         //! ### Commands
         //! <SlintProperty propName="commands" typeName="string">
-        //! A string providing the commands according to the SVG path specification.
-        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! A string with the commands in the SVG path syntax.
+        //!
+        //! :::note[Note]
+        //! This property is special: you can set it with any expression, but other expressions can't read it.
+        //! :::
         //! </SlintProperty>
         //!
         //! ## Path Using SVG Path Elements
@@ -3365,12 +3367,11 @@ fn build(l: &mut Loader) {
         ///     height: 100px;
         ///
         ///     popup := PopupWindow {
-        ///         Rectangle { height:100%; width: 100%; background: yellow; }
+        ///         Rectangle { background: yellow; }
         ///         x: 20px; y: 20px; height: 50px; width: 50px;
         ///     }
         ///
         ///     TouchArea {
-        ///         height:100%; width: 100%;
         ///         clicked => { popup.show(); }
         ///     }
         /// }
@@ -3589,7 +3590,7 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
         Timer {
             /// The interval between timer ticks. This property is mandatory.
             /// ```slint "interval: 250ms;"
@@ -4151,9 +4152,9 @@ fn build(l: &mut Loader) {
         /// :::
         ///
         /// :::note{Note}
-        /// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
-        /// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
-        /// use `if` / `for` to build its entries dynamically.
+        /// A `SystemTrayIcon` can contain one <Link type="Menu" /> child, and that `Menu` must not
+        /// be inside a `for`. The menu itself may use `if` / `for` to build its entries dynamically.
+        /// <Link type="Timer" /> children are also allowed.
         /// :::
         ///
         /// \skip_children

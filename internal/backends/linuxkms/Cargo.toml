@@ -101,6 +101,9 @@ libloading = { version = "0.9", optional = true }
 libudev-sys = { version = "0.1.4", optional = true }
 gbm-sys = { version = "0.4", optional = true }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+drm-ffi = "0.9.1"
+
 [build-dependencies]
 cfg_aliases = { workspace = true }
 

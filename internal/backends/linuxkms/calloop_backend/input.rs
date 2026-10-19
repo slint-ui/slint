@@ -15,15 +15,14 @@ use std::os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(not(feature = "libseat"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
-use std::pin::Pin;
 use std::rc::Rc;
 
+use i_slint_core::SharedString;
 use i_slint_core::animations::Instant;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::logical_point_from_api;
 use i_slint_core::platform::{InternalEvent, PlatformError, PointerEventButton, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 use input::event::keyboard::{KeyState, KeyboardEventTrait};
 use input::event::touch::{TouchEventPosition, TouchEventSlot, TouchEventTrait};
@@ -121,7 +120,7 @@ impl LibinputInterface for DirectDeviceAccess {
 pub struct LibInputHandler<'a> {
     libinput: input::Libinput,
     token: Option<calloop::Token>,
-    mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
+    mouse_pos: Option<LogicalPosition>,
     /// Last known position per touch slot. We must track positions because
     /// touch-up events from libinput do not include coordinates — only the slot
     /// identifier is available, so we replay the last known position.
@@ -140,18 +139,16 @@ impl<'a> LibInputHandler<'a> {
         event_loop_handle: &calloop::LoopHandle<'a, T>,
         #[cfg(feature = "libseat")] seat: &'a Rc<RefCell<libseat::Seat>>,
         libinput_event_hook: &'a Option<Box<dyn Fn(&::input::Event) -> bool>>,
-    ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
+    ) -> Result<(), PlatformError> {
         #[cfg(feature = "libseat")]
         let libinput = SeatWrap::new(seat);
         #[cfg(not(feature = "libseat"))]
         let libinput = DirectDeviceAccess::new();
 
-        let mouse_pos_property = Rc::pin(Property::new(None));
-
         let handler = Self {
             libinput,
             token: Default::default(),
-            mouse_pos: mouse_pos_property.clone(),
+            mouse_pos: None,
             last_touch_positions: Default::default(),
             window,
             keystate: Default::default(),
@@ -163,7 +160,7 @@ impl<'a> LibInputHandler<'a> {
             .insert_source(handler, move |_, _, _| {})
             .map_err(|e| format!("Error registering libinput event source: {e}"))?;
 
-        Ok(mouse_pos_property)
+        Ok(())
     }
 }
 
@@ -280,16 +277,15 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 input::Event::Pointer(pointer_event) => {
                     match pointer_event {
                         input::event::PointerEvent::Motion(motion_event) => {
-                            let mut mouse_pos =
-                                self.mouse_pos.as_ref().get().unwrap_or(LogicalPosition {
-                                    x: screen_size.width / 2.,
-                                    y: screen_size.height / 2.,
-                                });
+                            let mut mouse_pos = self.mouse_pos.unwrap_or(LogicalPosition {
+                                x: screen_size.width / 2.,
+                                y: screen_size.height / 2.,
+                            });
                             mouse_pos.x = (mouse_pos.x + motion_event.dx() as f32)
                                 .clamp(0., screen_size.width);
                             mouse_pos.y = (mouse_pos.y + motion_event.dy() as f32)
                                 .clamp(0., screen_size.height);
-                            self.mouse_pos.set(Some(mouse_pos));
+                            self.mouse_pos = Some(mouse_pos);
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
                             window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                         }
@@ -301,7 +297,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                     .absolute_y_transformed(screen_size.height as u32)
                                     as _,
                             };
-                            self.mouse_pos.set(Some(mouse_pos));
+                            self.mouse_pos = Some(mouse_pos);
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
                             window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
                         }
@@ -315,7 +311,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 0x115 => PointerEventButton::Forward,
                                 _ => PointerEventButton::Other,
                             };
-                            let mouse_pos = self.mouse_pos.as_ref().get().unwrap_or_default();
+                            let mouse_pos = self.mouse_pos.unwrap_or_default();
                             let event = match button_event.button_state() {
                                 input::event::tablet_pad::ButtonState::Pressed => {
                                     WindowEvent::PointerPressed { position: mouse_pos, button }
@@ -331,9 +327,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 scroll_event_source.scroll_value_v120(axis) / WHEEL_UNITS_PER_DETENT
                                     * WHEEL_SCROLL_PIXELS
                             });
-                            if let Some(event) =
-                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
-                            {
+                            if let Some(event) = scroll_event(self.mouse_pos, screen_size, delta) {
                                 window
                                     .dispatch_event_with_result(event)
                                     .map_err(Self::Error::other)?;
@@ -343,9 +337,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             let delta = scroll_pixels(&scroll_event_source, |axis| {
                                 scroll_event_source.scroll_value(axis)
                             });
-                            if let Some(event) =
-                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
-                            {
+                            if let Some(event) = scroll_event(self.mouse_pos, screen_size, delta) {
                                 window
                                     .dispatch_event_with_result(event)
                                     .map_err(Self::Error::other)?;
@@ -355,9 +347,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                             let delta = scroll_pixels(&scroll_event_source, |axis| {
                                 scroll_event_source.scroll_value(axis)
                             });
-                            if let Some(event) =
-                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
-                            {
+                            if let Some(event) = scroll_event(self.mouse_pos, screen_size, delta) {
                                 window
                                     .dispatch_event_with_result(event)
                                     .map_err(Self::Error::other)?;

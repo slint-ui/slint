@@ -134,6 +134,46 @@ console.log(app.tint.red);
     }
 }, 120_000);
 
+test("a property named like a built-in keeps the window and the global reachable", () => {
+    const dir =
+        setupTypeCheckDir(`export global Settings { in-out property <int> val; }
+export component App inherits Window {
+    in-out property <int> window;
+    in-out property <int> Settings;
+}`);
+    try {
+        const prelude = `import * as slint from "slint-ui";
+import { App } from "./app.slint";
+const app = new App();
+`;
+        const valid = tscCheck(
+            dir,
+            `${prelude}const counter: number = app.window + app.Settings;
+const window: slint.Window = app[slint.windowSymbol];
+window.maximized = true;
+app.show();
+const val: number = app[slint.globalsSymbol].Settings.val;
+console.log(counter, val);
+`,
+        );
+        expect(valid.output).toBe("");
+        expect(valid.success).toBe(true);
+
+        for (const invalid of [
+            "app.window.maximized = true;",
+            "app.Settings.val = 1;",
+            "app[slint.globalsSymbol].Settings.nope = 1;",
+            "app[slint.globalsSymbol].Typo;",
+        ]) {
+            expect(tscCheck(dir, prelude + invalid).success, invalid).toBe(
+                false,
+            );
+        }
+    } finally {
+        rmSync(dir, { recursive: true });
+    }
+}, 120_000);
+
 test("typo in property name fails type checking", () => {
     const dir = setupTypeCheckDir();
     try {

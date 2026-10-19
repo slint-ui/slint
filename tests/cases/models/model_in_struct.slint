@@ -20,4 +20,29 @@ export component TestCase inherits Rectangle {
     in-out property <Foo> foo: {ok: true};
     in-out property <Bar> bar: {foos: [foo, foo]};
     in-out property <[Bar]> bars2: [bar, bar];
+
+    in-out property <int> bar-changes;
+    changed bar => { bar-changes += 1; }
 }
+
+/*
+```js
+var instance = new slint.TestCase({});
+function changes() {
+    slintlib.private_api.mock_elapsed_time(1);
+    return instance.bar_changes;
+}
+
+// A struct holding the model a property already holds isn't a change.
+var before = changes();
+instance.bar = instance.bar;
+assert.equal(changes(), before);
+
+var model = new slintlib.ArrayModel([{ ok: false }]);
+instance.bar = { foos: model };
+assert.equal(changes(), before + 1);
+instance.bar = { foos: model };
+assert.equal(changes(), before + 1);
+assert.equal(instance.bar.foos, model);
+```
+*/

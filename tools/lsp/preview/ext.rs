@@ -37,11 +37,11 @@ impl ElementRcNodeExt for editor_preview::ElementRcNode {
             Some(layout::Layout::GridLayout(_)) => ui::LayoutKind::Grid,
             Some(layout::Layout::FlexboxLayout(_)) => ui::LayoutKind::Flexbox,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Horizontal,
+                orientation: i_slint_compiler::expression_types::Orientation::Horizontal,
                 ..
             })) => ui::LayoutKind::Horizontal,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Vertical,
+                orientation: i_slint_compiler::expression_types::Orientation::Vertical,
                 ..
             })) => ui::LayoutKind::Vertical,
             _ => ui::LayoutKind::None,

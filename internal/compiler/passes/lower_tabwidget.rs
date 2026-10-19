@@ -149,7 +149,11 @@ fn process_tabwidget(
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
-    let mut children = std::mem::take(&mut elem.borrow_mut().children);
+    let (timers, mut children): (Vec<_>, Vec<_>) = std::mem::take(&mut elem.borrow_mut().children)
+        .into_iter()
+        .partition(|child| {
+            matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+        });
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {
@@ -327,7 +331,7 @@ fn process_tabwidget(
         elem.borrow_mut().set_binding("content-min-height".into(), expr.into());
     };
 
-    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).collect();
+    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).chain(timers).collect();
 }
 
 fn set_geometry_prop(

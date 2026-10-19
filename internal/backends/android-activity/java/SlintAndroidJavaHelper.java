@@ -389,13 +389,12 @@ class SlintInputView extends View {
             // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+                // The selection rect is in window coordinates, Android expects it relative to the
+                // view, which sits below the status bar unless the window is edge-to-edge.
+                int[] location = new int[2];
+                view.getLocationInWindow(location);
                 outRect.set(mSelectionRect);
-                if (outRect.top < 0) {
-                    // FIXME: I don't know why this is the case, but without that, the menu doesn't
-                    // show at the right position when there is no room on top.
-                    // Looks like the menu is always shown at outRect.top.
-                    outRect.top = outRect.bottom;
-                }
+                outRect.offset(-location[0], -location[1]);
             }
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);

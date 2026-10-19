@@ -15,17 +15,22 @@ use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 
 use crate::weak_ref::WeakValueRef;
-use crate::{JsAnchorOwner, to_js_unknown, to_value};
+use crate::{JsAnchorOwner, to_js_unknown, to_js_unknown_of_type, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
-pub struct SharedModelNotify(Rc<ModelNotify>);
+pub struct SharedModelNotify {
+    notify: Rc<ModelNotify>,
+    /// The `TerminalTypedModel`s wrapping the JS model, so that assigning it again
+    /// gives the same `ModelRc`, which a property compares by identity.
+    terminals: Rc<RefCell<Vec<std::rc::Weak<TerminalTypedModel>>>>,
+}
 
 impl core::ops::Deref for SharedModelNotify {
     type Target = Rc<ModelNotify>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.notify
     }
 }
 
@@ -844,6 +849,33 @@ pub(crate) fn js_into_rust_model(
     row_data_type: &Type,
     anchor_owner: &JsAnchorOwner,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
+    if RustModel::instance_of(env, maybe_js_impl)? {
+        let rust_model = ClassInstance::<RustModel>::from_unknown(maybe_js_impl.to_unknown())?;
+        return Ok(rust_model.model.clone());
+    }
+
+    let terminals = maybe_js_impl
+        .get::<ExternalRef<SharedModelNotify>>("modelNotify")
+        .ok()
+        .flatten()
+        .map(|notify| notify.terminals.clone());
+    let reusable = terminals.as_ref().and_then(|terminals| {
+        let mut terminals = terminals.borrow_mut();
+        terminals.retain(|weak| weak.strong_count() > 0);
+        terminals.iter().filter_map(std::rc::Weak::upgrade).find(|terminal| {
+            // Models can share a `modelNotify` passed to their constructor.
+            let same_js_impl = terminal.js_impl.get_unknown().is_some_and(|js_impl| {
+                env.strict_equals(js_impl, maybe_js_impl.to_unknown()).unwrap_or(false)
+            });
+            terminal.owner.is_same(anchor_owner)
+                && terminal.row_data_type == *row_data_type
+                && same_js_impl
+        })
+    });
+    if let Some(terminal) = reusable {
+        return Ok(terminal.into());
+    }
+
     // `resolve_source` recognizes a TS Reverse/Filter/Sort/MapModel backed by a
     // native adapter and reuses its native backing directly, instead of
     // wrapping it as an opaque RawJsModel: same behavior, without per-row JS
@@ -851,7 +883,7 @@ pub(crate) fn js_into_rust_model(
     let (inner, errors) = resolve_source(env, maybe_js_impl)?;
     let prop_key = register_hidden_model_prop(env, anchor_owner, maybe_js_impl)?;
 
-    Ok(Rc::new(TerminalTypedModel {
+    let terminal = Rc::new(TerminalTypedModel {
         inner,
         errors,
         js_impl: WeakValueRef::new(env, maybe_js_impl)?,
@@ -859,8 +891,11 @@ pub(crate) fn js_into_rust_model(
         row_data_type: row_data_type.clone(),
         prop_key,
         owner: anchor_owner.clone(),
-    })
-    .into())
+    });
+    if let Some(terminals) = terminals {
+        terminals.borrow_mut().push(Rc::downgrade(&terminal));
+    }
+    Ok(terminal.into())
 }
 
 /// Registers `maybe_js_impl` as a hidden JS property on the owning component
@@ -901,16 +936,7 @@ pub(crate) fn rust_into_js_model<'a>(
 /// `register_hidden_model_prop`, guarding against use-after-free of the
 /// owning component instance.
 fn remove_hidden_model_prop(owner: &JsAnchorOwner, env: Env, prop_key: &str) {
-    // Pure Rust check (no NAPI calls).
-    // Returns None once the owning JsComponentInstance's anchor_seq
-    // Rc has been dropped,
-    // which happens before the model that's dropping (field declaration order).
-    if owner.seq.upgrade().is_none() {
-        return;
-    }
-    if let Some(mut obj) =
-        crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(&owner.owner_weak, env)
-    {
+    if let Some(mut obj) = owner.object(env) {
         let _ = obj.delete_named_property(prop_key);
     }
 }
@@ -940,41 +966,54 @@ pub fn js_model_notify_reset(notify: ExternalRef<SharedModelNotify>) {
     notify.reset();
 }
 
+/// A model from Slint, such as an array declared in a `.slint` file.
 #[napi]
-pub struct ReadOnlyRustModel(ModelRc<slint_interpreter::Value>);
-
-impl From<ModelRc<slint_interpreter::Value>> for ReadOnlyRustModel {
-    fn from(model: ModelRc<slint_interpreter::Value>) -> Self {
-        Self(model)
-    }
+#[derive(Clone)]
+pub struct RustModel {
+    pub(crate) model: ModelRc<slint_interpreter::Value>,
+    pub(crate) row_type: Option<(Type, JsAnchorOwner)>,
 }
 
 // Implement minimal Model<T> interface
 #[napi]
-impl ReadOnlyRustModel {
+impl RustModel {
     #[napi]
     pub fn row_count(&self) -> u32 {
-        self.0.row_count() as u32
+        self.model.row_count() as u32
     }
 
     #[napi]
     pub fn row_data<'a>(&self, env: &'a Env, row: u32) -> Result<Unknown<'a>> {
-        let Some(data) = self.0.row_data(row as usize) else {
+        let Some(data) = self.model.row_data(row as usize) else {
             return ().into_unknown(env);
         };
-        crate::to_js_unknown(env, &data)
+        match &self.row_type {
+            Some((ty, owner)) => to_js_unknown_of_type(env, &data, ty, owner),
+            None => to_js_unknown(env, &data),
+        }
     }
 
     #[napi]
-    pub fn set_row_data(&self, env: &Env, _row: u32, _data: Unknown<'_>) {
-        crate::console_err!(
-            *env,
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
-        )
+    pub fn set_row_data(&self, env: &Env, row: u32, data: Unknown<'_>) -> Result<()> {
+        let Some((ty, owner)) = &self.row_type else {
+            crate::console_err!(
+                *env,
+                "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model"
+            );
+            return Ok(());
+        };
+        if row as usize >= self.model.row_count() {
+            return Err(napi::Error::from_reason(format!(
+                "setRowData: row {row} is out of range for a model of {} rows",
+                self.model.row_count()
+            )));
+        }
+        self.model.set_row_data(row as usize, to_value(env, data, ty, owner)?);
+        Ok(())
     }
 
     pub fn into_js<'a>(self, env: &'a Env) -> Result<Unknown<'a>> {
-        let model = self.0.clone();
+        let model = self.clone();
 
         let mut obj = self.into_instance(env)?.as_object(env);
 
@@ -998,7 +1037,7 @@ impl ReadOnlyRustModel {
 
 #[napi]
 pub struct ModelIterator {
-    model: ModelRc<slint_interpreter::Value>,
+    model: RustModel,
     row: usize,
     env: Env,
 }
@@ -1010,15 +1049,12 @@ impl ModelIterator {
     #[napi]
     pub fn next(&mut self) -> Result<Unknown<'_>> {
         let mut result = Object::new(&self.env)?;
-        if self.row >= self.model.row_count() {
+        if self.row >= self.model.model.row_count() {
             result.set_named_property("done", true)?;
         } else {
             let row = self.row;
             self.row += 1;
-            result.set_named_property(
-                "value",
-                self.model.row_data(row).and_then(|value| to_js_unknown(&self.env, &value).ok()),
-            )?
+            result.set_named_property("value", self.model.row_data(&self.env, row as u32)?)?
         }
         result.into_unknown(&self.env)
     }

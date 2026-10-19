@@ -6,7 +6,7 @@
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::DataTransfer;
-use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
+use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -2716,7 +2716,7 @@ impl WindowAdapterInternal for QtWindow {
         Some(child_window as _)
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         let widget_ptr = self.widget_ptr();
         match cursor {
             MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
@@ -2778,6 +2778,7 @@ impl WindowAdapterInternal for QtWindow {
             }
             _ => {}
         }
+        MouseCursorHandling::Platform
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {

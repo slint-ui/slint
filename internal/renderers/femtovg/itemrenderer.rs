@@ -984,11 +984,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     }
 
     fn snap_selection_x(&self, x: f32) -> f32 {
-        let [a, b, c, d, origin, _y] = self.canvas.borrow().transform().0;
-        if !(a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.)) {
-            return x;
-        }
+        let Some((origin, _)) = self.translation_origin() else { return x };
         (origin + x).round() - origin
+    }
+
+    fn snap_y(&self, y: f32) -> f32 {
+        let Some((_, origin)) = self.translation_origin() else { return y };
+        (origin + y).round() - origin
     }
 
     fn draw_glyph_run(
@@ -1148,6 +1150,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRen
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
+    /// The device position of the item's origin, when the canvas only translates the item.
+    fn translation_origin(&self) -> Option<(f32, f32)> {
+        let [a, b, c, d, x, y] = self.canvas.borrow().transform().0;
+        let translation_only =
+            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
+        translation_only.then_some((x, y))
+    }
+
     pub(super) fn new(
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,

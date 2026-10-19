@@ -15,13 +15,10 @@ FIELDS = {
 }
 
 FLOATING_FIELDS = {
-    label: "Drop shadow"
-    for label in (
-        "Shadow color",
-        "Shadow color opacity",
-        "Shadow blur",
-        "Shadow blur value",
-    )
+    "Shadow color",
+    "Shadow color opacity",
+    "Shadow blur",
+    "Shadow blur value",
 }
 
 
@@ -50,8 +47,8 @@ def inspector_field(
     pane = element(
         window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
     )
-    opener = FLOATING_FIELDS.get(label)
-    if opener:
+    floating = label in FLOATING_FIELDS
+    if floating:
         fields = elements(window, label, role=role)
         if len(fields) == 1:
             return element(window, label, role=role)
@@ -75,8 +72,14 @@ def inspector_field(
             <= divider.absolute_position.y
         ):
             return element(pane, label, role=role)
-        if opener:
-            controls = elements(pane, opener, role=slint_testing.AccessibleRole.Button)
+        if floating:
+            controls = [
+                control
+                for name in ("Drop shadow", "Inner shadow")
+                for control in elements(
+                    pane, name, role=slint_testing.AccessibleRole.Button
+                )
+            ]
             if len(controls) == 1 and (
                 pane.absolute_position.y <= controls[0].absolute_position.y
                 and controls[0].absolute_position.y + controls[0].size.height

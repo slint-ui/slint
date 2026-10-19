@@ -176,7 +176,7 @@ image = { workspace = true, default-features = false, features = ["png"] }
 windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
-ksni = { version = "0.3.3", optional = true, default-features = false }
+ksni = { version = "0.3.4", optional = true, default-features = false }
 async-channel = { version = "2", optional = true }
 
 # The complex-scripts line-breaking dictionaries cost several MB, so leave them out of
@@ -206,7 +206,6 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "ne
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }
 fontique = { workspace = true }
-criterion = "0.8"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
@@ -218,7 +217,3 @@ unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
-
-[[bench]]
-name = "string"
-harness = false

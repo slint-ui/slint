@@ -26,4 +26,8 @@ export component X {
 //                       >                    <error{Expected angle expression after 'from'}
     property<brush> g14: @conic-gradient(from 90deg blue 0deg, red 180deg);
 //                       >                                               <error{gradient header must be followed by a comma}
+    property<brush> g15: @conic-gradient(from red, blue 0deg, red 180deg);
+//                                            > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+    property<brush> g16: @conic-gradient(blue 0deg, red red);
+//                                                      > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
 }

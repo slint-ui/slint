@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum Foo { bar, two-words }
+
+export component TestCase {
+    in-out property <string> text;
+    in property <string> red;
+    in property <string> ease;
+    in property <int> bar;
+    in property <int> two_words;
+    in property <string> label;
+    in property <color> blue;
+    in property <TextHorizontalAlignment> left;
+    in-out property <int> reject;
+    in property <angle> tan;
+    in property <length> gold;
+    in property <float> peru;
+
+    function takes-cursor(c: MouseCursor) {}
+    // A function argument also shadows enum values.
+    function shadowing-argument(move: string) -> MouseCursor { move }
+//                                                           >      <error{Cannot convert string to MouseCursor. Did you mean 'MouseCursor.move'?}
+    // Only a value that is just the name gets the suggestion.
+    function local-variable() -> MouseCursor { let pointer = 42; pointer }
+//                                           >                           <error{Cannot convert float to MouseCursor}
+    function parenthesized() -> MouseCursor { (text) }
+//                                          >        <error{Cannot convert string to MouseCursor}
+    function returned() -> MouseCursor { return text; }
+//                                       >          <error{Cannot convert string to MouseCursor}
+    function early-return(c: bool) -> MouseCursor { if c { return 42; } text }
+//                                                         >        <error{Cannot convert float to MouseCursor}
+//                                                >                          <^error{Cannot convert string to MouseCursor}
+    // A discarded value isn't converted, so it gets no error.
+    function discarded() -> MouseCursor { text; MouseCursor.default }
+    function discarded-in-branch() -> MouseCursor { if text.is-empty { text; } MouseCursor.default }
+    // An assignment target isn't converted to the expected type.
+    function assigned() -> MouseCursor { text = "x"; MouseCursor.default }
+
+    TouchArea {
+        mouse-cursor: text;
+//                    >   <error{Cannot convert string to MouseCursor. Did you mean 'MouseCursor.text'?}
+        clicked => {
+            // So does a function call argument.
+            takes-cursor(text);
+//                       >  <error{Cannot convert string to MouseCursor. Did you mean 'MouseCursor.text'?}
+            self.mouse-cursor = text;
+//                              >  <error{Cannot convert string to MouseCursor. Did you mean 'MouseCursor.text'?}
+            // A name that isn't a value of the expected type: no suggestion.
+            self.mouse-cursor = label;
+//                              >   <error{Cannot convert string to MouseCursor}
+        }
+    }
+    Text {
+        accessible-role: text;
+//                       >   <error{Cannot convert string to AccessibleRole. Did you mean 'AccessibleRole.text'?}
+//                       >   <^error{The `accessible-role` property must be a constant expression}
+        color: red;
+//             >  <error{Cannot convert string to brush. Did you mean 'Colors.red'?}
+        // A property of the expected type takes precedence over the enum value.
+        horizontal-alignment: left;
+        animate color { easing: ease; }
+//                              >   <error{Cannot convert string to easing. Did you mean 'Easing.ease'?}
+    }
+    TouchArea {
+        // A condition reports the branch that doesn't convert to the branches' common type.
+        mouse-cursor: true ? text : MouseCursor.default;
+//                                  >                 <error{Cannot convert MouseCursor to string}
+    }
+    wait := TouchArea {
+        // An element id shadows enum values too.
+        mouse-cursor: wait;
+//                    >  <error{Cannot take reference of an element. Did you mean 'MouseCursor.wait'?}
+    }
+    Rectangle {
+        // A property that converts to the expected type takes precedence too.
+        background: blue;
+    }
+    FocusScope {
+        key-pressed(event) => { reject += 1; EventResult.accept }
+    }
+    // Gradient angles, centers, radii, and stop positions aren't colors.
+    Rectangle { background: @linear-gradient(tan, #f00, #00f peru); }
+    Rectangle { background: @radial-gradient(circle gold at gold gold, #f00, #00f); }
+    Rectangle { background: @conic-gradient(from tan, #f00 0deg, #00f tan); }
+    property <Foo> foo: bar;
+//                      >  <error{Cannot convert int to Foo. Did you mean 'Foo.bar'?}
+    // Identifiers match once normalized, and the suggestion uses the enum's spelling.
+    property <Foo> normalized: two-words;
+//                             >        <error{Cannot convert int to Foo. Did you mean 'Foo.two-words'?}
+    // A qualified name can't mean the enum value: no suggestion.
+    property <Foo> qualified: self.bar;
+//                            >       <error{Cannot convert int to Foo}
+}

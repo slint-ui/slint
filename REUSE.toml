@@ -258,6 +258,7 @@ path = [
   "api/**.hbs",
   "api/**/**.json",
   "api/node/__test__/resources/**.png",
+  "api/node/__test__/resources/**.svg",
   "CMakePresets.json",
 
   "editors/**.md",

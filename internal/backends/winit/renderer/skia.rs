@@ -190,6 +190,14 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         self.renderer.suspend()
     }
 
+    // GPU work that iOS rejected while the app was in the background leaves stale atlas entries.
+    #[cfg(target_os = "ios")]
+    fn occluded(&self, occluded: bool) {
+        if !occluded {
+            self.renderer.free_gpu_resources();
+        }
+    }
+
     #[cfg(target_os = "macos")]
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
         self.renderer.set_transparent(transparent)

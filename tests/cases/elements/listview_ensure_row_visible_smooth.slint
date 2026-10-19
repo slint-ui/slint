@@ -1,0 +1,648 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> clicked-index: -1;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000000: Rectangle {
+            height: 50px;
+            background: i.mod(2) == 0 ? blue : red;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+const ROW_HEIGHT: f32 = 50.;
+const FRAME_MS: u64 = 16;
+const MAX_SCROLL_DURATION_MS: u64 = 3000;
+const MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS: f32 = 10.;
+const EPSILON: f32 = 0.01;
+const PROBE_INSET: f32 = 2.;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let viewport = instance.get_visible_height();
+let jump_min_step = 2. * viewport;
+
+let top_aligned = |row: i32| -(row as f32 * ROW_HEIGHT);
+let bottom_aligned = |row: i32| -((row + 1) as f32 * ROW_HEIGHT - viewport);
+let expected_content_y = |row: i32, content_y: f32| {
+    let row_top = row as f32 * ROW_HEIGHT;
+    if row_top < -content_y {
+        top_aligned(row)
+    } else if row_top + ROW_HEIGHT > -content_y + viewport {
+        bottom_aligned(row)
+    } else {
+        content_y
+    }
+};
+
+let advance_frame_and_layout = || {
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+    instance.get_content_y()
+};
+
+let run_until_settled = || {
+    let mut positions = vec![instance.get_content_y()];
+    let mut unchanged_frames = 0;
+    while unchanged_frames < 3 {
+        assert!(
+            positions.len() as u64 * FRAME_MS <= MAX_SCROLL_DURATION_MS,
+            "scrolling didn't settle within {MAX_SCROLL_DURATION_MS} ms: {positions:?}"
+        );
+        let y = advance_frame_and_layout();
+        // Far down the list, an f32 `content-y` only has a resolution of a few pixels,
+        // so a scroll from rest takes a few frames until it moves.
+        let started = y != positions[0];
+        unchanged_frames = if started && y == *positions.last().unwrap() { unchanged_frames + 1 } else { 0 };
+        positions.push(y);
+    }
+    positions
+};
+
+let steps = |positions: &[f32]| positions.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
+
+let assert_settled_at = |positions: &[f32], expected: f32| {
+    let last = *positions.last().unwrap();
+    assert!((last - expected).abs() < 0.5, "expected content-y {expected}, got {last}: {positions:?}");
+};
+
+let assert_monotonic = |steps: &[f32], direction: f32| {
+    assert!(
+        steps.iter().all(|s| s * direction >= -EPSILON),
+        "content-y must only move toward the target: {steps:?}"
+    );
+};
+
+let assert_stays_at = |content_y: f32| {
+    for _ in 0..(MAX_SCROLL_DURATION_MS / FRAME_MS) {
+        assert_eq!(advance_frame_and_layout(), content_y);
+    }
+};
+
+let scroll_instantly_to = |row: i32| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    advance_frame_and_layout();
+};
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let assert_shows_rows = |first: i32, last: i32| {
+    assert_eq!(row_at(PROBE_INSET), first, "row {first} must be at the viewport's top edge");
+    assert_eq!(row_at(viewport - PROBE_INSET), last, "row {last} must be at the viewport's bottom edge");
+};
+
+// Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
+let assert_far_scroll = |row: i32| {
+    let start = instance.get_content_y();
+    let expected = expected_content_y(row, start);
+    let direction = (expected - start).signum();
+
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    let positions = run_until_settled();
+    assert_settled_at(&positions, expected);
+
+    let steps = steps(&positions);
+    assert_monotonic(&steps, direction);
+
+    let jumps = steps.iter().enumerate().filter(|(_, s)| s.abs() > jump_min_step).map(|(i, _)| i).collect::<Vec<_>>();
+    assert_eq!(jumps.len(), 1, "expected exactly one jump to row {row}: {steps:?}");
+    let jump = jumps[0];
+
+    let accelerating = steps[..jump].iter().copied().filter(|s| *s != 0.).collect::<Vec<_>>();
+    assert!(accelerating.len() >= 2, "expected the scroll to build up speed before jumping: {steps:?}");
+    assert!(
+        accelerating.windows(2).all(|w| w[1].abs() >= w[0].abs() - EPSILON),
+        "speed must not drop before the jump: {accelerating:?}"
+    );
+    assert!(
+        accelerating.last().unwrap().abs() > accelerating[0].abs(),
+        "expected the speed to increase before the jump: {accelerating:?}"
+    );
+
+    let landing_distance = (positions[jump + 1] - expected).abs();
+    assert!(
+        landing_distance >= viewport && landing_distance <= MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS * viewport,
+        "the jump must land a few viewports before the target, landed {landing_distance} away: {positions:?}"
+    );
+
+    let decelerating = steps[jump + 1..].iter().copied().filter(|s| *s != 0.).collect::<Vec<_>>();
+    assert!(!decelerating.is_empty(), "expected an animation after the jump: {steps:?}");
+    assert!(
+        decelerating.windows(2).all(|w| w[1].abs() <= w[0].abs() + EPSILON),
+        "speed must only decrease after the jump: {decelerating:?}"
+    );
+};
+
+assert_eq!(instance.get_content_y(), 0.);
+
+// Far below the viewport.
+assert_far_scroll(900);
+
+// Far above the viewport.
+scroll_instantly_to(999999);
+assert_eq!(instance.get_content_y(), bottom_aligned(999999));
+assert_far_scroll(5);
+
+// Close to the viewport: no jump.
+scroll_instantly_to(0);
+assert_eq!(instance.get_content_y(), 0.);
+instance.invoke_ensure_row_visible(20, ScrollBehavior::Smooth);
+let positions = run_until_settled();
+assert_settled_at(&positions, bottom_aligned(20));
+let near_steps = steps(&positions);
+assert_monotonic(&near_steps, -1.);
+assert!(near_steps.iter().all(|s| s.abs() <= jump_min_step), "a close row must not jump: {near_steps:?}");
+
+// Already fully visible.
+scroll_instantly_to(0);
+instance.invoke_ensure_row_visible(3, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+
+// Out of range.
+instance.invoke_ensure_row_visible(1000000, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+
+// An instant request stops a running smooth scroll.
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..5 {
+    advance_frame_and_layout();
+}
+scroll_instantly_to(0);
+assert_eq!(instance.get_content_y(), 0.);
+assert_stays_at(0.);
+
+// A new smooth request replaces the running one.
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..5 {
+    advance_frame_and_layout();
+}
+let expected = expected_content_y(100, instance.get_content_y());
+instance.invoke_ensure_row_visible(100, ScrollBehavior::Smooth);
+assert_settled_at(&run_until_settled(), expected);
+
+// Wheel scrolling stops a running smooth scroll.
+scroll_instantly_to(0);
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for _ in 0..5 {
+    advance_frame_and_layout();
+}
+window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(300., 300.),
+    delta_x: 0.,
+    delta_y: 100.,
+    phase: TouchPhase::Moved,
+}));
+let positions = run_until_settled();
+let wheel_steps = steps(&positions);
+assert!(
+    wheel_steps.iter().all(|s| s.abs() <= jump_min_step),
+    "the interrupted scroll must not jump: {wheel_steps:?}"
+);
+let last = *positions.last().unwrap();
+assert!(
+    last > bottom_aligned(900) + MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS * viewport,
+    "the interrupted scroll must not reach row 900, stopped at {last}"
+);
+assert_stays_at(last);
+```
+
+```cpp
+using slint::language::ScrollBehavior;
+using slint::PointerEventButton;
+
+constexpr float row_height = 50.;
+constexpr uint64_t frame_ms = 16;
+constexpr uint64_t max_scroll_duration_ms = 3000;
+constexpr float max_jump_landing_distance_in_viewports = 10.;
+constexpr float epsilon = 0.01;
+constexpr float probe_inset = 2.;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+const float viewport = instance.get_visible_height();
+const float jump_min_step = 2 * viewport;
+
+auto top_aligned = [&](int row) { return -(row * row_height); };
+auto bottom_aligned = [&](int row) { return -((row + 1) * row_height - viewport); };
+auto expected_content_y = [&](int row, float content_y) {
+    const float row_top = row * row_height;
+    if (row_top < -content_y) {
+        return top_aligned(row);
+    }
+    if (row_top + row_height > -content_y + viewport) {
+        return bottom_aligned(row);
+    }
+    return content_y;
+};
+
+auto advance_frame_and_layout = [&] {
+    slint_testing::mock_elapsed_time(frame_ms);
+    instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 300., 620. }));
+    return instance.get_content_y();
+};
+
+auto run_until_settled = [&] {
+    std::vector<float> positions { instance.get_content_y() };
+    int unchanged_frames = 0;
+    while (unchanged_frames < 3) {
+        assert(positions.size() * frame_ms <= max_scroll_duration_ms);
+        const float y = advance_frame_and_layout();
+        const bool started = y != positions.front();
+        unchanged_frames = started && y == positions.back() ? unchanged_frames + 1 : 0;
+        positions.push_back(y);
+    }
+    return positions;
+};
+
+auto steps = [](const std::vector<float> &positions) {
+    std::vector<float> result;
+    for (std::size_t i = 1; i < positions.size(); ++i) {
+        result.push_back(positions[i] - positions[i - 1]);
+    }
+    return result;
+};
+
+auto assert_settled_at = [](const std::vector<float> &positions, float expected) {
+    assert(std::abs(positions.back() - expected) < 0.5);
+};
+
+auto assert_monotonic = [](const std::vector<float> &steps, float direction) {
+    for (float step : steps) {
+        assert(step * direction >= -epsilon);
+    }
+};
+
+auto assert_stays_at = [&](float content_y) {
+    for (uint64_t i = 0; i < max_scroll_duration_ms / frame_ms; ++i) {
+        assert_eq(advance_frame_and_layout(), content_y);
+    }
+};
+
+auto scroll_instantly_to = [&](int row) {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Instant);
+    advance_frame_and_layout();
+};
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto assert_shows_rows = [&](int first, int last) {
+    assert_eq(row_at(probe_inset), first);
+    assert_eq(row_at(viewport - probe_inset), last);
+};
+
+// Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
+auto assert_far_scroll = [&](int row) {
+    const float start = instance.get_content_y();
+    const float expected = expected_content_y(row, start);
+    const float direction = expected > start ? 1. : -1.;
+
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    const auto positions = run_until_settled();
+    assert_settled_at(positions, expected);
+
+    const auto all_steps = steps(positions);
+    assert_monotonic(all_steps, direction);
+
+    std::vector<std::size_t> jumps;
+    for (std::size_t i = 0; i < all_steps.size(); ++i) {
+        if (std::abs(all_steps[i]) > jump_min_step) {
+            jumps.push_back(i);
+        }
+    }
+    assert_eq(jumps.size(), 1);
+    const std::size_t jump = jumps[0];
+
+    std::vector<float> accelerating;
+    for (std::size_t i = 0; i < jump; ++i) {
+        if (all_steps[i] != 0.) {
+            accelerating.push_back(all_steps[i]);
+        }
+    }
+    assert(accelerating.size() >= 2);
+    for (std::size_t i = 1; i < accelerating.size(); ++i) {
+        assert(std::abs(accelerating[i]) >= std::abs(accelerating[i - 1]) - epsilon);
+    }
+    assert(std::abs(accelerating.back()) > std::abs(accelerating.front()));
+
+    const float landing_distance = std::abs(positions[jump + 1] - expected);
+    assert(landing_distance >= viewport);
+    assert(landing_distance <= max_jump_landing_distance_in_viewports * viewport);
+
+    std::vector<float> decelerating;
+    for (std::size_t i = jump + 1; i < all_steps.size(); ++i) {
+        if (all_steps[i] != 0.) {
+            decelerating.push_back(all_steps[i]);
+        }
+    }
+    assert(!decelerating.empty());
+    for (std::size_t i = 1; i < decelerating.size(); ++i) {
+        assert(std::abs(decelerating[i]) <= std::abs(decelerating[i - 1]) + epsilon);
+    }
+};
+
+assert_eq(instance.get_content_y(), 0.);
+
+// Far below the viewport.
+assert_far_scroll(900);
+
+// Far above the viewport.
+scroll_instantly_to(999999);
+assert_eq(instance.get_content_y(), bottom_aligned(999999));
+assert_far_scroll(5);
+
+// Close to the viewport: no jump.
+scroll_instantly_to(0);
+assert_eq(instance.get_content_y(), 0.);
+instance.invoke_ensure_row_visible(20, ScrollBehavior::Smooth);
+const auto near_positions = run_until_settled();
+assert_settled_at(near_positions, bottom_aligned(20));
+const auto near_steps = steps(near_positions);
+assert_monotonic(near_steps, -1.);
+for (float step : near_steps) {
+    assert(std::abs(step) <= jump_min_step);
+}
+
+// Already fully visible.
+scroll_instantly_to(0);
+instance.invoke_ensure_row_visible(3, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+
+// Out of range.
+instance.invoke_ensure_row_visible(1000000, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+instance.invoke_ensure_row_visible(-1, ScrollBehavior::Smooth);
+assert_stays_at(0.);
+assert_shows_rows(0, 11);
+
+// An instant request stops a running smooth scroll.
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+scroll_instantly_to(0);
+assert_eq(instance.get_content_y(), 0.);
+assert_stays_at(0.);
+
+// A new smooth request replaces the running one.
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+const float expected_100 = expected_content_y(100, instance.get_content_y());
+instance.invoke_ensure_row_visible(100, ScrollBehavior::Smooth);
+assert_settled_at(run_until_settled(), expected_100);
+
+// Wheel scrolling stops a running smooth scroll.
+scroll_instantly_to(0);
+instance.invoke_ensure_row_visible(900, ScrollBehavior::Smooth);
+for (int i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+instance.window().dispatch_pointer_scroll_event(slint::LogicalPosition({ 300., 300. }), 0., 100.);
+const auto wheel_positions = run_until_settled();
+for (float step : steps(wheel_positions)) {
+    assert(std::abs(step) <= jump_min_step);
+}
+const float last = wheel_positions.back();
+assert(last > bottom_aligned(900) + max_jump_landing_distance_in_viewports * viewport);
+assert_stays_at(last);
+```
+
+```js
+const ROW_HEIGHT = 50;
+const FRAME_MS = 16;
+const MAX_SCROLL_DURATION_MS = 3000;
+const MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS = 10;
+const EPSILON = 0.01;
+const PROBE_INSET = 2;
+
+var instance = new slint.TestCase({});
+const viewport = instance.visible_height;
+const jump_min_step = 2 * viewport;
+
+const top_aligned = (row) => -(row * ROW_HEIGHT);
+const bottom_aligned = (row) => -((row + 1) * ROW_HEIGHT - viewport);
+function expected_content_y(row, content_y) {
+    const row_top = row * ROW_HEIGHT;
+    if (row_top < -content_y) {
+        return top_aligned(row);
+    }
+    if (row_top + ROW_HEIGHT > -content_y + viewport) {
+        return bottom_aligned(row);
+    }
+    return content_y;
+}
+
+function advance_frame_and_layout() {
+    slintlib.private_api.mock_elapsed_time(FRAME_MS);
+    instance.window.dispatchEvent({ type: "pointer-moved", position: { x: 300, y: 620 } });
+    return instance.content_y;
+}
+
+function run_until_settled() {
+    const positions = [instance.content_y];
+    let unchanged_frames = 0;
+    while (unchanged_frames < 3) {
+        assert(positions.length * FRAME_MS <= MAX_SCROLL_DURATION_MS, `scrolling didn't settle within ${MAX_SCROLL_DURATION_MS} ms: ${positions}`);
+        const y = advance_frame_and_layout();
+        const started = y != positions[0];
+        unchanged_frames = started && y == positions[positions.length - 1] ? unchanged_frames + 1 : 0;
+        positions.push(y);
+    }
+    return positions;
+}
+
+const steps = (positions) => positions.slice(1).map((y, i) => y - positions[i]);
+
+function assert_settled_at(positions, expected) {
+    const last = positions[positions.length - 1];
+    assert(Math.abs(last - expected) < 0.5, `expected content-y ${expected}, got ${last}: ${positions}`);
+}
+
+function assert_monotonic(steps, direction) {
+    assert(steps.every((s) => s * direction >= -EPSILON), `content-y must only move toward the target: ${steps}`);
+}
+
+function assert_stays_at(content_y) {
+    for (let i = 0; i < MAX_SCROLL_DURATION_MS / FRAME_MS; ++i) {
+        assert.equal(advance_frame_and_layout(), content_y);
+    }
+}
+
+function scroll_instantly_to(row) {
+    instance.ensure_row_visible(row, "instant");
+    advance_frame_and_layout();
+}
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function assert_shows_rows(first, last) {
+    assert.equal(row_at(PROBE_INSET), first, `row ${first} must be at the viewport's top edge`);
+    assert.equal(row_at(viewport - PROBE_INSET), last, `row ${last} must be at the viewport's bottom edge`);
+}
+
+// Accelerates, jumps once to a few viewports before the target, then decelerates onto it.
+function assert_far_scroll(row) {
+    const start = instance.content_y;
+    const expected = expected_content_y(row, start);
+    const direction = Math.sign(expected - start);
+
+    instance.ensure_row_visible(row, "smooth");
+    const positions = run_until_settled();
+    assert_settled_at(positions, expected);
+
+    const all_steps = steps(positions);
+    assert_monotonic(all_steps, direction);
+
+    const jumps = all_steps.flatMap((s, i) => (Math.abs(s) > jump_min_step ? [i] : []));
+    assert.equal(jumps.length, 1, `expected exactly one jump to row ${row}: ${all_steps}`);
+    const jump = jumps[0];
+
+    const accelerating = all_steps.slice(0, jump).filter((s) => s != 0);
+    assert(accelerating.length >= 2, `expected the scroll to build up speed before jumping: ${all_steps}`);
+    assert(
+        accelerating.slice(1).every((s, i) => Math.abs(s) >= Math.abs(accelerating[i]) - EPSILON),
+        `speed must not drop before the jump: ${accelerating}`,
+    );
+    assert(
+        Math.abs(accelerating[accelerating.length - 1]) > Math.abs(accelerating[0]),
+        `expected the speed to increase before the jump: ${accelerating}`,
+    );
+
+    const landing_distance = Math.abs(positions[jump + 1] - expected);
+    assert(
+        landing_distance >= viewport && landing_distance <= MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS * viewport,
+        `the jump must land a few viewports before the target, landed ${landing_distance} away: ${positions}`,
+    );
+
+    const decelerating = all_steps.slice(jump + 1).filter((s) => s != 0);
+    assert(decelerating.length > 0, `expected an animation after the jump: ${all_steps}`);
+    assert(
+        decelerating.slice(1).every((s, i) => Math.abs(s) <= Math.abs(decelerating[i]) + EPSILON),
+        `speed must only decrease after the jump: ${decelerating}`,
+    );
+}
+
+assert.equal(instance.content_y, 0);
+
+// Far below the viewport.
+assert_far_scroll(900);
+
+// Far above the viewport.
+scroll_instantly_to(999999);
+assert.equal(instance.content_y, bottom_aligned(999999));
+assert_far_scroll(5);
+
+// Close to the viewport: no jump.
+scroll_instantly_to(0);
+assert.equal(instance.content_y, 0);
+instance.ensure_row_visible(20, "smooth");
+const near_positions = run_until_settled();
+assert_settled_at(near_positions, bottom_aligned(20));
+const near_steps = steps(near_positions);
+assert_monotonic(near_steps, -1);
+assert(near_steps.every((s) => Math.abs(s) <= jump_min_step), `a close row must not jump: ${near_steps}`);
+
+// Already fully visible.
+scroll_instantly_to(0);
+instance.ensure_row_visible(3, "smooth");
+assert_stays_at(0);
+assert_shows_rows(0, 11);
+
+// Out of range.
+instance.ensure_row_visible(1000000, "smooth");
+assert_stays_at(0);
+assert_shows_rows(0, 11);
+instance.ensure_row_visible(-1, "smooth");
+assert_stays_at(0);
+assert_shows_rows(0, 11);
+
+// An instant request stops a running smooth scroll.
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+scroll_instantly_to(0);
+assert.equal(instance.content_y, 0);
+assert_stays_at(0);
+
+// A new smooth request replaces the running one.
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+const expected_100 = expected_content_y(100, instance.content_y);
+instance.ensure_row_visible(100, "smooth");
+assert_settled_at(run_until_settled(), expected_100);
+
+// Wheel scrolling stops a running smooth scroll.
+scroll_instantly_to(0);
+instance.ensure_row_visible(900, "smooth");
+for (let i = 0; i < 5; ++i) {
+    advance_frame_and_layout();
+}
+// `pointer-scrolled` scrolls instantly, without the animation of a mouse wheel.
+instance.window.dispatchEvent({ type: "pointer-scrolled", position: { x: 300, y: 300 }, deltaX: 0, deltaY: 100 });
+const last = instance.content_y;
+assert(
+    last > bottom_aligned(900) + MAX_JUMP_LANDING_DISTANCE_IN_VIEWPORTS * viewport,
+    `the interrupted scroll must not reach row 900, stopped at ${last}`,
+);
+assert_stays_at(last);
+```
+*/

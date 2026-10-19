@@ -755,6 +755,22 @@ impl LookupObject for TypeSpecificLookup {
     }
 }
 
+impl TypeSpecificLookup {
+    /// The qualified form of `name`, such as `MouseCursor.text`, if `name` is a value of the
+    /// expected type, or `None` otherwise.
+    pub fn qualified_name(ctx: &LookupCtx, name: &SmolStr) -> Option<SmolStr> {
+        let namespace: &dyn std::fmt::Display = match &ctx.expected_type {
+            Type::Color | Type::Brush => &BuiltinNamespace::Colors,
+            Type::Easing => &BuiltinNamespace::Easing,
+            Type::MouseCursor => &BuiltinNamespace::MouseCursor,
+            Type::Enumeration(enumeration) => &enumeration.name,
+            _ => return None,
+        };
+        Self.lookup(ctx, name)?;
+        Some(format_smolstr!("{namespace}.{name}"))
+    }
+}
+
 struct ColorSpecific;
 impl LookupObject for ColorSpecific {
     fn for_each_entry<R>(

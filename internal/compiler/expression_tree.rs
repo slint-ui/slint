@@ -8,10 +8,10 @@ use crate::expression_types::{
     EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, Unit, operator_class,
 };
 use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
-use crate::lookup::LookupCtx;
+use crate::lookup::{LookupCtx, TypeSpecificLookup};
 use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxNode};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister;
 use core::cell::RefCell;
@@ -441,30 +441,30 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout.
     ComputeBoxLayoutInfo {
         layout: crate::layout::BoxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
-    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::expression_types::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
     /// Compute the LayoutInfo for the given FlexboxLayout.
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
         /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,
@@ -1054,7 +1054,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &dyn Spanned,
+        node: Option<&NodeOrToken>,
         diag: &mut BuildDiagnostics,
         symbol_counters: &SymbolCounters,
     ) -> Expression {
@@ -1083,7 +1083,7 @@ impl Expression {
                             Type::Brush,
                             Type::Color
                         );
-                        diag.push_warning(message, node);
+                        diag.push_warning(message, &node);
                         self
                     }
                     _ => self,
@@ -1106,7 +1106,7 @@ impl Expression {
                             if !right.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Providing the extra struct member '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1114,7 +1114,7 @@ impl Expression {
                             if !left.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Omitting the struct field '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1135,7 +1135,7 @@ impl Expression {
                                 format!(
                                     "Conversion to {target_type} ignores the extra {noun} {list}"
                                 ),
-                                node,
+                                &node,
                             );
                         }
                     }
@@ -1273,7 +1273,7 @@ impl Expression {
                     };
                     diag.push_error(
                         format!("Cannot convert {ty} to {target_type}: Field '{f}' not found{available_fields_message}"),
-                        node,
+                        &node,
                     );
                     return self;
                 }
@@ -1337,7 +1337,10 @@ impl Expression {
                     "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
                 );
             }
-            diag.push_error(message, node);
+            if let Some(qualified) = shadowed_value(&target_type, node, diag) {
+                message = format!("{message}. Did you mean '{qualified}'?");
+            }
+            diag.push_error(message, &node);
             self
         }
     }
@@ -2136,4 +2139,35 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
     }
+}
+
+/// The qualified value of `target_type` that `node` names when it's just an identifier,
+/// such as `MouseCursor.text` for `text;` or `{ text }`.
+fn shadowed_value(
+    target_type: &Type,
+    node: Option<&NodeOrToken>,
+    diag: &mut BuildDiagnostics,
+) -> Option<SmolStr> {
+    let mut tokens =
+        node?.as_node()?.descendants_with_tokens().filter_map(|n| n.into_token()).filter(|t| {
+            !matches!(
+                t.kind(),
+                SyntaxKind::Whitespace
+                    | SyntaxKind::Comment
+                    | SyntaxKind::Semicolon
+                    | SyntaxKind::LBrace
+                    | SyntaxKind::RBrace
+            )
+        });
+    let (Some(identifier), None) = (tokens.next(), tokens.next()) else { return None };
+    if identifier.kind() != SyntaxKind::Identifier {
+        return None;
+    }
+    let register = typeregister::TypeRegister::default();
+    let mut ctx = LookupCtx::empty_context(&register, diag, Default::default());
+    ctx.expected_type = target_type.clone();
+    TypeSpecificLookup::qualified_name(
+        &ctx,
+        &crate::parser::normalize_identifier(identifier.text()),
+    )
 }

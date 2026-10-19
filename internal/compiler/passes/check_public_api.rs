@@ -20,7 +20,12 @@ pub fn check_public_api(
 ) {
     let last = doc.last_exported_component();
 
-    if last.is_none() && !matches!(&config.components_to_generate, ComponentSelection::Named(_)) {
+    if last.is_none()
+        && !matches!(
+            &config.components_to_generate,
+            ComponentSelection::Named(_) | ComponentSelection::AllExported
+        )
+    {
         let last_imported = doc
             .node
             .as_ref()
@@ -66,6 +71,7 @@ pub fn check_public_api(
                 }
             true
         }),
+        ComponentSelection::AllExported => {}
         // Only keep the last component if there is one
         ComponentSelection::LastExported => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {

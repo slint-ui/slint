@@ -31,7 +31,17 @@ export function moduleSource(url) {
     compiled.set(url, module);
     return [
         `import { takeCompiled } from ${JSON.stringify(import.meta.url)};`,
-        `const _module = takeCompiled(${JSON.stringify(url)});`,
+        reexports(module, `takeCompiled(${JSON.stringify(url)})`),
+    ].join("\n");
+}
+
+/**
+ * The source that re-exports, from the module that `expression` evaluates to,
+ * what the compiled `module` declares.
+ */
+export function reexports(module, expression) {
+    return [
+        `const _module = ${expression};`,
         ...Object.getOwnPropertyNames(module).map(
             (name) => `export const ${name} = _module.${name};`,
         ),

@@ -99,18 +99,49 @@ impl JsComponentInstance {
         ))
     }
 
+    /// The type of the property `name` of the component, or of its global `global`.
+    fn property_type(&self, global: Option<&str>, name: &str) -> Option<Type> {
+        let definition = self.inner.definition();
+        let find = |(prop_name, (ty, _)): (String, (Type, _))| (prop_name == name).then_some(ty);
+        match global {
+            None => definition.properties_and_callbacks().find_map(find),
+            Some(global) => definition.global_properties_and_callbacks(global)?.find_map(find),
+        }
+    }
+
+    fn property_to_js<'a>(
+        &self,
+        env: &'a Env,
+        this: &This<Object<'_>>,
+        value: &Value,
+        global: Option<&str>,
+        name: &str,
+    ) -> Result<Unknown<'a>> {
+        // Only a model, also in a struct, depends on the type.
+        if !matches!(value, Value::Model(_) | Value::Struct(_)) {
+            return super::value::to_js_unknown(env, value);
+        }
+        let ty = self.property_type(global, name).unwrap_or_default();
+        super::value::to_js_unknown_of_type(env, value, &ty, &self.anchor_owner(env, this)?)
+    }
+
     #[napi]
     pub fn definition(&self) -> JsComponentDefinition {
         self.inner.definition().into()
     }
 
     #[napi]
-    pub fn get_property<'a>(&self, env: &'a Env, name: String) -> Result<Unknown<'a>> {
+    pub fn get_property<'a>(
+        &self,
+        env: &'a Env,
+        this: This<Object<'_>>,
+        name: String,
+    ) -> Result<Unknown<'a>> {
         let value = self
             .inner
             .get_property(name.as_ref())
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-        super::value::to_js_unknown(env, &value)
+        self.property_to_js(env, &this, &value, None, &name)
     }
 
     #[napi]
@@ -121,15 +152,9 @@ impl JsComponentInstance {
         prop_name: String,
         js_value: Unknown<'_>,
     ) -> Result<()> {
-        let (ty, _) = self
-            .inner
-            .definition()
-            .properties_and_callbacks()
-            .find_map(|(name, proptype)| if name == prop_name { Some(proptype) } else { None })
-            .ok_or(())
-            .map_err(|_| {
-                napi::Error::from_reason(format!("Property {prop_name} not found in the component"))
-            })?;
+        let ty = self.property_type(None, &prop_name).ok_or_else(|| {
+            napi::Error::from_reason(format!("Property {prop_name} not found in the component"))
+        })?;
 
         let owner = self.anchor_owner(env, &this)?;
         self.inner
@@ -143,6 +168,7 @@ impl JsComponentInstance {
     pub fn get_global_property<'a>(
         &self,
         env: &'a Env,
+        this: This<Object<'_>>,
         global_name: String,
         name: String,
     ) -> Result<Unknown<'a>> {
@@ -153,7 +179,7 @@ impl JsComponentInstance {
             .inner
             .get_global_property(global_name.as_ref(), name.as_ref())
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-        super::value::to_js_unknown(env, &value)
+        self.property_to_js(env, &this, &value, Some(&global_name), &name)
     }
 
     #[napi]
@@ -427,13 +453,16 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn window(&self) -> Result<JsWindow> {
+    pub fn window(&self, env: &Env, this: This<Object<'_>>) -> Result<JsWindow> {
         if !self.inner.definition().is_window() {
             return Err(napi::Error::from_reason(
                 "this component is not windowed (for example because it inherits from SystemTrayIcon) and has no window",
             ));
         }
-        Ok(JsWindow { inner: WindowInner::from_pub(self.inner.window()).window_adapter() })
+        Ok(JsWindow {
+            inner: WindowInner::from_pub(self.inner.window()).window_adapter(),
+            owner: self.anchor_owner(env, &this)?,
+        })
     }
 }
 

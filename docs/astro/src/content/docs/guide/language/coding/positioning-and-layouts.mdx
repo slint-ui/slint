@@ -99,6 +99,8 @@ You can specify the preferred size of elements with the `preferred-width` and `p
 When not explicitly set, the preferred size depends on the children, and is the preferred size of the
 child that has the bigger preferred size, whose `x` and `y` property are not set.
 The preferred size is therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
+A child created with `if` or `for` is left out, unless experimental features are enabled.
+A `Flickable` or `ScrollView` is the exception: it takes its content size from a layout child, static or repeated, and from nothing else.
 
 A special case is to set the preferred size to be the size of the parent using `100%` as value.
 For example, this component uses the size of the parent by default:
@@ -318,7 +320,7 @@ The stretch factor is a floating point number. The elements that have a default 
 while elements that default to the size of their parents defaults to 1.
 An element of a stretch factor of 0 keep its minimum size, unless all the other elements also have a stretch
 factor of 0 or reached their maximum size.
-An element's own stretch factor is the smallest among its own and its children's.
+An element's own stretch factor is the smallest among its own and the children it takes its size from.
 Set `horizontal-stretch` or `vertical-stretch` on the element to override.
 
 Examples:
@@ -415,7 +417,6 @@ export component Foo inherits Window {
     width: 200px;
     height: 150px;
     GridLayout {
-        spacing: 0px;
         Rectangle { background: red; }
         Rectangle { background: blue; }
         Rectangle { background: yellow; row: 1; }
