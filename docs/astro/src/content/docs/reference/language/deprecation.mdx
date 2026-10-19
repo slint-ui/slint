@@ -4,14 +4,14 @@ description: Marking a property, callback, or function as deprecated with @depre
 ---
 
 The `@deprecated` annotation marks a property, callback, or function as deprecated.
+Use it to evolve a component's public API and give users time to migrate to the replacement.
 The compiler warns wherever the member is used from outside the component that declares it,
-and the warning carries the message the annotation gives it.
-Use it to evolve a component's public API while giving users a migration path instead of a hard break:
+and the warning carries the annotation's message:
 
 ```slint
 component Inner {
     in-out property <int> new-prop;
-    @deprecated("Please use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+    @deprecated("Use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
 
     // No warning: uses within the declaring component are fine.
     in-out property <int> internal: old-prop;
@@ -19,19 +19,15 @@ component Inner {
 
 export component Example {
     inner := Inner { }
-    // Warning: The property 'old-prop' has been deprecated: Please use 'new-prop' instead
+    // Warning: The property 'old-prop' has been deprecated: Use 'new-prop' instead
     out property <int> value: inner.old-prop;
 }
 ```
 
-The annotation affects diagnostics only.
-A deprecated member keeps the type, visibility and behavior its declaration gives it,
-and the compiled result is the same as without the annotation.
+## Syntax
 
-## Form
-
-`@deprecated` precedes the declaration, ahead of any visibility or purity modifier,
-and takes the message in parentheses:
+Place `@deprecated` before the declaration, ahead of any visibility or purity modifier,
+and write the message in parentheses:
 
 ```slint
 @deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
@@ -43,20 +39,15 @@ and takes the message in parentheses:
   `@deprecated` without parentheses is a compile error.
 - The message must be a plain string literal.
   A `\{}` template expression in it is a compile error.
-- A declaration may carry `@deprecated` only once.
-
-Write the message you want the user to read.
-The compiler doesn't infer it from the declaration,
-so say what replaces the member, even when it aliases its replacement with `<=>`.
-
-An empty message, `@deprecated("")`, deprecates the member without advising on a replacement.
-The warning then names the member and stops, as in `The property 'old-prop' has been deprecated`.
+- An empty message, `@deprecated("")`, deprecates without naming a replacement.
+- A declaration can carry `@deprecated` only once.
 
 ## Warnings
 
-Using a deprecated member is a warning, never an error, so code written against it keeps compiling.
-Reading it, assigning to it, binding it on an element, aliasing it with `<=>`, animating it,
-calling it, and setting a handler for it each warn.
+Using a deprecated member produces a warning, not an error, so existing code keeps compiling.
+Any use warns: reading, assigning, binding, aliasing with `<=>`, animating, calling, or setting a handler.
 
-Uses within the component that declares the member don't warn,
-since that component still has to implement it.
+The component that declares the member can keep using it without warnings,
+since it still has to implement it.
+
+Apart from the warning, a deprecated member works exactly as before.
