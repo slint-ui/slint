@@ -24,6 +24,7 @@ pub struct PreviewConfig {
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum LspToPreviewMessage {
     InvalidateContents {
         url: lsp_types::Url,

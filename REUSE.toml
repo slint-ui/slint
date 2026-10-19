@@ -285,6 +285,8 @@ path = [
 
   "scripts/commit-template.txt",
 
+  "internal/live-preview/protocol/snapshots.txt",
+
   "tools/**.md",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
