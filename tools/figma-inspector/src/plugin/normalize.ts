@@ -1066,7 +1066,7 @@ async function captureNodeStrict(
         }
     }
     let node = sourceNode;
-    if (runtimeNodeType === "TABLE_CELL" && !sourceNode.sourceRasterized) {
+    if (runtimeNodeType === "TABLE_CELL") {
         const cell = node;
         const cellId =
             "id" in cell && typeof cell.id === "string"
@@ -1222,11 +1222,10 @@ async function captureNodeStrict(
     let autoLayout: SnapshotAutoLayout | null = null;
     let layoutFallback: "flex" | "freeform" = "freeform";
     if (
-        !node.sourceRasterized &&
-        (node.type === "FRAME" ||
-            node.type === "COMPONENT" ||
-            node.type === "INSTANCE" ||
-            node.type === "COMPONENT_SET")
+        node.type === "FRAME" ||
+        node.type === "COMPONENT" ||
+        node.type === "INSTANCE" ||
+        node.type === "COMPONENT_SET"
     ) {
         const capturedLayout = captureAutoLayout(node, mixedValue);
         if ("error" in capturedLayout) return { error: capturedLayout.error };
@@ -1247,14 +1246,6 @@ async function captureNodeStrict(
         id: node.id,
         name: node.name,
     };
-    if (node.sourceRasterized)
-        return normalizeVisual(
-            { ...node, type: "VECTOR" },
-            base,
-            context,
-            captureWarnings,
-            "vector",
-        );
     if (node.sourceMaskRaster) {
         const exported = await exportVisual(
             node,
@@ -1300,7 +1291,7 @@ async function captureNodeStrict(
     if (node.type === "TEXT") {
         const textNode = node;
         const rasterText =
-            context.target === "export" || context.nativeTextOnly
+            context.target === "export"
                 ? false
                 : textRequiresRasterPreview(textNode, mixedValue);
         if (typeof rasterText !== "boolean") return rasterText;
@@ -1740,8 +1731,6 @@ async function normalizeValidatedSource(
             id: node.id,
             name: node.name,
             type: node.type,
-            sourceRasterized:
-                parent === undefined && source.rasterized === true,
             sourceSvgOmitted: node.exports?.svgOmitted === "png",
             sourcePngOmitted: node.exports?.pngOmitted === "svg",
             sourceSvgBounds: node.exports?.svgBounds,
@@ -1816,7 +1805,6 @@ async function normalizeValidatedSource(
     const result = await normalizeRoot(root, {
         assets,
         target,
-        nativeTextOnly: source.flattened,
         metrics: zeroCaptureMetrics(),
         mixedValue: SOURCE_MIXED,
         exportSvgNode: svg,

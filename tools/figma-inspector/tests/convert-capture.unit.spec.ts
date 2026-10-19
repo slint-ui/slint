@@ -202,3 +202,36 @@ test("hidden canvas occurrences are still omitted", async () => {
     expect(hidden.source).toEqual(baseline.source);
     expect(hidden.exportPackage).toEqual(baseline.exportPackage);
 });
+
+test("publishes the usable preview before preparing its native export", async () => {
+    const captureJson = await readFile(
+        "fixtures/source/component-variants.json",
+        "utf8",
+    );
+    let complete = false;
+    let publish!: (
+        message: import("../src/preview/convert-capture").ConvertedMessage,
+    ) => void;
+    const published = new Promise<
+        import("../src/preview/convert-capture").ConvertedMessage
+    >((resolve) => {
+        publish = resolve;
+    });
+    const conversion = convertCapture(
+        { type: "preview-capture", revision: 9, captureJson },
+        {},
+        publish,
+    ).then((result) => {
+        complete = true;
+        return result;
+    });
+    const preview = await published;
+    expect(complete).toBe(false);
+    expect(preview.type).toBe("preview-source");
+    expect(preview).not.toHaveProperty("exportPackage");
+    const result = await conversion;
+    expect(result).toHaveProperty("exportPackage");
+    expect(result.revision).toBe(preview.revision);
+    if (result.type === "preview-source" && preview.type === "preview-source")
+        expect(result.source).toEqual(preview.source);
+});
