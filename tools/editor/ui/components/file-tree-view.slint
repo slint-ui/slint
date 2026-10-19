@@ -275,6 +275,12 @@ component FileTreeRow inherits Rectangle {
                 title: @tr("Copy Path");
                 activated => { Api.copy-file-path(root.node.path); }
             }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Open Slint File");
+                enabled: root.node.is-slint-file;
+                activated => { Api.open-file(root.node.path); }
+            }
         }
 
         touch := TouchArea {
