@@ -156,6 +156,12 @@ The viewer reads the [project file](../project-file/) `slint-project.json`, like
 any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
 Pass `-I ""` or `-L ""` to use no include or library paths at all.
 
+In Termux, install a viewer that only connects and takes screenshots, which doesn't need the Android NDK:
+
+```sh
+cargo install slint-viewer --no-default-features --features connect,renderer-software
+```
+
 ## Command-Line Options
 
 Run `slint-viewer --help` for the authoritative, always-current list. The common options:
