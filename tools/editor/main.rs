@@ -422,7 +422,7 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
         ..Default::default()
     };
 
-    let session = editor_preview::EditorSession::with_previews(
+    editor_preview::EditorSession::with_previews(
         editor_preview::DocumentCache::new(compiler_config),
         to_previews
             .into_iter()
@@ -431,8 +431,7 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
                 to_show: Default::default(),
             })
             .collect(),
-    );
-    session
+    )
 }
 
 async fn trigger_editor_file_watcher(
