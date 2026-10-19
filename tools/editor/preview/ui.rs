@@ -1691,6 +1691,91 @@ mod tests {
     }
 
     #[test]
+    fn shadow_switch_stays_with_source_when_workspace_edit_does_not_land() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for queued in [false, true] {
+                let editor = shadow_test_editor(!inner);
+                editor.global::<super::Api>().on_highlight_positions(|_, _| {
+                    std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()]))
+                        .into()
+                });
+                let api = editor.global::<super::Api>();
+                let weak = editor.as_weak();
+                api.on_source_property_value_data(move |name, _| {
+                    let element = weak.unwrap().global::<super::Api>().get_current_element();
+                    if name
+                        == format!("{}color", if inner { "inner-shadow-" } else { "drop-shadow-" })
+                        && element.offset == 1
+                    {
+                        PropertyValue { code: "#12345678".into(), ..Default::default() }
+                    } else {
+                        PropertyValue::default()
+                    }
+                });
+                let requests = std::rc::Rc::new(std::cell::Cell::new(0));
+                let count = requests.clone();
+                api.on_set_code_bindings(move |_, _, _, _| {
+                    count.set(count.get() + 1);
+                    queued
+                });
+                editor.show().unwrap();
+                editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+                slint::platform::update_timers_and_animations();
+                let label = if inner { "Enable inner shadow" } else { "Enable drop shadow" };
+                find_element(&editor, label).invoke_accessible_default_action();
+                assert_eq!(requests.get(), 1);
+                assert_eq!(find_element(&editor, label).accessible_checked(), Some(false));
+                for offset in [1, 2, 1] {
+                    api.set_current_element(super::ElementInformation {
+                        offset,
+                        ..api.get_current_element()
+                    });
+                    slint::platform::update_timers_and_animations();
+                    assert_eq!(
+                        find_element(&editor, label).accessible_checked(),
+                        Some(offset == 1)
+                    );
+                }
+                find_element(&editor, label).invoke_accessible_default_action();
+                assert_eq!(requests.get(), 2);
+                assert_eq!(find_element(&editor, label).accessible_checked(), Some(true));
+            }
+        }
+    }
+
+    #[test]
+    fn shadow_switch_closes_the_other_session_before_submitting_an_edit() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(!inner);
+            editor.global::<super::Api>().on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
+            });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+            slint::platform::update_timers_and_animations();
+            let session = editor.global::<super::ShadowSession>();
+            session.invoke_start(super::ShadowGesture::Offset, true);
+            assert!(session.get_dragging());
+            assert!(session.get_canvas_focus());
+            assert!(editor.global::<super::CanvasView>().get_manipulating());
+            let weak = editor.as_weak();
+            editor.global::<super::Api>().on_set_code_bindings(move |_, _, _, _| {
+                let editor = weak.unwrap();
+                let session = editor.global::<super::ShadowSession>();
+                assert!(!session.get_open());
+                assert!(!session.get_dragging());
+                assert!(!session.get_canvas_focus());
+                assert!(!editor.global::<super::CanvasView>().get_manipulating());
+                true
+            });
+            find_element(&editor, if inner { "Enable inner shadow" } else { "Enable drop shadow" })
+                .invoke_accessible_default_action();
+        }
+    }
+
+    #[test]
     fn shadow_canvas_deltas_do_not_change_numeric_value_mapping() {
         i_slint_backend_testing::init_no_event_loop();
         for inner in [false, true] {

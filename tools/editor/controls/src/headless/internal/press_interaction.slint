@@ -4,6 +4,7 @@
 export component PressInteraction {
     in property <bool> enabled: true;
     out property <bool> has-focus: keys.has-focus;
+    out property <bool> focus-visible;
     out property <bool> hovered: root.enabled && pointer.has-hover && root.pointer-inside;
     out property <bool> pressed: root.enabled && (
         (pointer.pressed && root.pointer-inside && !root.pointer-canceled)
@@ -30,6 +31,7 @@ export component PressInteraction {
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.pointer-canceled = false;
+                root.focus-visible = false;
             } else if event.kind == PointerEventKind.cancel {
                 root.pointer-canceled = true;
             }
@@ -43,7 +45,8 @@ export component PressInteraction {
         width: 0px;
         height: 0px;
         enabled: root.enabled;
-        focus-changed-event => {
+        focus-changed-event(reason) => {
+            root.focus-visible = self.has-focus && reason == FocusReason.tab-navigation;
             if !self.has-focus { root.pressed-key = ""; }
         }
         key-pressed(event) => {

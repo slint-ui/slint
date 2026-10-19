@@ -1,64 +1,159 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { SwitchBase } from "../../../controls/src/headless.slint";
+
 import { Api } from "../../api.slint";
-import { Style, Colors, Metrics, Typography } from "../../style.slint";
+import { Style, Colors, Metrics, Typography, Motion } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 import { ShadowSession, ShadowGesture } from "shadow-session.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorColorField } from "color-field.slint";
-import { InspectorSegment } from "segment.slint";
+import { Diagnostics } from "../../diagnostics.slint";
 import { InspectorEffectSlider } from "effect-slider.slint";
 
-export component InspectorShadowControl inherits FocusScope {
+export component InspectorShadowControl inherits Rectangle {
     in property <bool> inner;
     private property <string> title: ShadowSession.label(root.inner);
+    private property <string> prefix: Api.shadow-prefix(root.inner);
+    private property <bool> effect-enabled: Api.has-shadow(root.prefix);
     height: Style.inspector-field.height;
-    key-pressed(event) => {
-        if event.text == Key.Return || event.text == " " { root.activate(); return accept; }
-        return reject;
+    changed effect-enabled => { toggle.checked = root.effect-enabled; }
+
+    HorizontalLayout {
+        spacing: Metrics.space-small;
+        cross-axis-alignment: center;
+        control := FocusScope {
+            enabled: root.effect-enabled && Diagnostics.preview-editable;
+            opacity: root.effect-enabled ? 1 : Metrics.disabled-opacity;
+            horizontal-stretch: 1;
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space { root.activate(); return accept; }
+                return reject;
+            }
+            Rectangle {
+                border-radius: Style.inspector-field.radius;
+                background: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner)
+                    ? Style.inspector-field.appearance.hover.background : Style.inspector-field.appearance.normal.background;
+                border-width: control.has-focus ? Metrics.focus-width : 0px;
+                border-color: Colors.focus;
+                HorizontalLayout {
+                    padding-left: Style.inspector-field.padding-inline;
+                    padding-right: Style.inspector-field.padding-inline;
+                    spacing: Style.inspector-field.gap;
+                    cross-axis-alignment: center;
+                    ColorIndicator {
+                        width: Style.color-field.swatch-size;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        border-width: Metrics.border-width;
+                        outline-color: Style.color-field.swatch-border;
+                        color: Api.source-color-field-data(root.prefix + "color").fill.color;
+                        checker-light: Style.color-field.checker.light;
+                        checker-dark: Style.color-field.checker.dark;
+                    }
+                    Text {
+                        text: root.title;
+                        color: Colors.foreground;
+                        font-size: Typography.control.size;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                }
+                touch := TouchArea {
+                    enabled: control.enabled;
+                    mouse-cursor: pointer;
+                    accessible-role: button;
+                    accessible-label: root.title;
+                    accessible-enabled: control.enabled;
+                    accessible-action-default => { root.activate(); }
+                    clicked => { root.activate(); }
+                }
+            }
+        }
+        toggle := SwitchBase {
+            accessible-label: root.inner ? @tr("Enable inner shadow") : @tr("Enable drop shadow");
+            enabled: Diagnostics.preview-editable;
+            checked: root.effect-enabled;
+            indicator-width: Metrics.control-medium;
+            indicator-height: Metrics.icon-medium;
+            spacing: 0px;
+            indicator << Rectangle {
+                opacity: Diagnostics.preview-status-visible ? Metrics.disabled-opacity : 1;
+                background: Style.inspector-slider.track;
+                border-color: toggle.hovered || toggle.pressed
+                    ? Style.inspector-slider.hover-border : Style.inspector-slider.track-border;
+                border-width: Metrics.hairline-width;
+                border-radius: self.height / 2;
+                inner-shadow-color: Style.rotation-dial.shadow.color;
+                inner-shadow-blur: Style.rotation-dial.shadow.blur;
+                inner-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+                for on in [false, true]: Rectangle {
+                    x: parent.width * (on ? 0.75 : 0.25) - self.width / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: on ? 1.5px : 6px;
+                    height: on ? 7px : 6px;
+                    border-radius: on ? 0.75px : self.height / 2;
+                    background: on ? Colors.muted.with-alpha(0.3) : transparent;
+                    border-width: on ? 0px : Metrics.border-width;
+                    border-color: Colors.muted.with-alpha(0.3);
+                }
+                Rectangle {
+                    x: toggle.checked ? parent.width - self.width : 0px;
+                    width: parent.width / 2 + Metrics.space-tight;
+                    height: parent.height;
+                    border-radius: self.height / 2;
+                    background: Style.rotation-dial.ring;
+                    border-width: Metrics.hairline-width;
+                    border-color: Style.rotation-dial.ring-border;
+                    drop-shadow-color: Style.rotation-dial.shadow.color;
+                    drop-shadow-blur: Style.rotation-dial.shadow.blur;
+                    drop-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+                    animate x { duration: Motion.fast; easing: ease-out; }
+                    Rectangle {
+                        x: 1px;
+                        y: 1px;
+                        width: parent.width - 2px;
+                        height: parent.height - 2px;
+                        border-radius: self.height / 2;
+                        background: Style.rotation-dial.face;
+                        border-width: Metrics.hairline-width;
+                        border-color: Style.rotation-dial.face-border;
+                    }
+                    Rectangle {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        width: toggle.checked ? 1.5px : 6px;
+                        height: toggle.checked ? 7px : 6px;
+                        border-radius: toggle.checked ? 0.75px : self.height / 2;
+                        background: toggle.checked ? Style.rotation-dial.dot : transparent;
+                        border-width: toggle.checked ? 0px : Metrics.border-width;
+                        border-color: Colors.muted;
+                    }
+                }
+                if !Diagnostics.preview-status-visible && toggle.focus-visible: switch-focus-ring := Rectangle {
+                    x: -2px;
+                    y: -2px;
+                    width: parent.width + 4px;
+                    height: parent.height + 4px;
+                    border-width: Metrics.focus-width;
+                    border-color: Colors.focus;
+                    border-radius: self.height / 2;
+                }
+            }
+            toggled => {
+                self.focus();
+                self.checked = root.effect-enabled;
+                ShadowSession.close();
+                Api.toggle-shadow(Api.current-element, root.inner);
+            }
+        }
     }
     function activate() {
-        root.focus();
+        if !control.enabled { return; }
+        control.focus();
         if ShadowSession.open && ShadowSession.inner == root.inner { ShadowSession.close(); }
         else { ShadowSession.begin(root.absolute-position, { width: root.width, height: root.height }, root.inner); }
-    }
-    Rectangle {
-        border-radius: Style.inspector-field.radius;
-        background: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner)
-            ? Style.inspector-field.appearance.hover.background : Style.inspector-field.appearance.normal.background;
-        border-width: root.has-focus ? Metrics.focus-width : 0px;
-        border-color: Colors.focus;
-        HorizontalLayout {
-            padding-left: Style.inspector-field.padding-inline;
-            padding-right: Style.inspector-field.padding-inline;
-            spacing: Style.inspector-field.gap;
-            cross-axis-alignment: center;
-            ColorIndicator {
-                width: Style.color-field.swatch-size;
-                height: self.width;
-                border-radius: self.width / 2;
-                border-width: Metrics.border-width;
-                outline-color: Style.color-field.swatch-border;
-                color: Api.source-color-field-data(root.inner ? "inner-shadow-color" : "drop-shadow-color").fill.color;
-                checker-light: Style.color-field.checker.light;
-                checker-dark: Style.color-field.checker.dark;
-            }
-            Text {
-                text: root.title;
-                color: Colors.foreground;
-                font-size: Typography.control.size;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-            }
-        }
-        touch := TouchArea {
-            mouse-cursor: pointer;
-            accessible-role: button;
-            accessible-label: root.title;
-            accessible-action-default => { root.activate(); }
-            clicked => { root.activate(); }
-        }
     }
 }
 
@@ -133,22 +228,6 @@ export component InspectorShadowPicker inherits FocusScope {
                 return ShadowSession.commit(ShadowGesture.blur, ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
             }
             canceled => { ShadowSession.cancel(); }
-        }
-        HorizontalLayout {
-            spacing: Metrics.space-small;
-            for action in [
-                { value: ShadowSession.inner ? "drop" : "inner", label: ShadowSession.label(!ShadowSession.inner) },
-                { value: "none", label: @tr("Remove shadow") },
-            ]: InspectorSegment {
-                kind: "text";
-                label: action.label;
-                clicked => {
-                    if ShadowSession.canvas-active {
-                        Api.set-shadow-effect(Api.current-element, action.value);
-                        ShadowSession.close();
-                    }
-                }
-            }
         }
     }
 }
