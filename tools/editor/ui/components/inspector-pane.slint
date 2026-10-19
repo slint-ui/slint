@@ -59,6 +59,11 @@ export component InspectorPane inherits Rectangle {
         { value: "contain", label: "contain" },
         { value: "cover", label: "cover" },
     ];
+    property <[InspectorComboOption]> image-tiling-options: [
+        { value: "none", label: "none" },
+        { value: "repeat", label: "repeat" },
+        { value: "round", label: "round" },
+    ];
     property <[InspectorComboOption]> text-font-weight-options: [
         { value: "100", label: @tr("Thin") },
         { value: "200", label: @tr("Extra Light") },
@@ -378,6 +383,25 @@ export component InspectorPane inherits Rectangle {
     function image-fit-value() -> string {
         let index = root.image-fit-index();
         return index >= 0 ? root.image-fit-options[index].value : "fill";
+    }
+
+    function image-tiling-index(name: string) -> int {
+        let value = Api.source-property-value(name, "none");
+        if value == "none" || value == "ImageTiling.none" {
+            return 0;
+        }
+        if value == "repeat" || value == "ImageTiling.repeat" {
+            return 1;
+        }
+        if value == "round" || value == "ImageTiling.round" {
+            return 2;
+        }
+        return -1;
+    }
+
+    function image-tiling-value(name: string) -> string {
+        let index = root.image-tiling-index(name);
+        return index >= 0 ? root.image-tiling-options[index].value : "none";
     }
 
     function image-horizontal-alignment-index() -> int {
@@ -845,6 +869,78 @@ export component InspectorPane inherits Rectangle {
                                 selected-column: root.image-horizontal-alignment-index();
                                 selected-row: root.image-vertical-alignment-index();
                                 chosen(column, row) => { root.set-image-alignment(column, row); }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
+
+                            HorizontalLayout {
+                                spacing: Metrics.space-compact;
+                                cross-axis-alignment: center;
+
+                                Text {
+                                    text: @tr("Horizontal tiling");
+                                    color: Colors.foreground;
+                                    font-size: Typography.caption.size;
+                                    font-weight: FontWeight.semi-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                InspectorInfoIcon {
+                                    activated => {
+                                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#horizontal-tiling");
+                                    }
+                                }
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Horizontal tiling");
+                                value: root.image-tiling-value("horizontal-tiling");
+                                selected-index: root.image-tiling-index("horizontal-tiling");
+                                options: root.image-tiling-options;
+                                wide: true;
+                                width: root.field-width;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("horizontal-tiling", text);
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
+
+                            HorizontalLayout {
+                                spacing: Metrics.space-compact;
+                                cross-axis-alignment: center;
+
+                                Text {
+                                    text: @tr("Vertical tiling");
+                                    color: Colors.foreground;
+                                    font-size: Typography.caption.size;
+                                    font-weight: FontWeight.semi-bold;
+                                    vertical-alignment: center;
+                                }
+
+                                InspectorInfoIcon {
+                                    activated => {
+                                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#vertical-tiling");
+                                    }
+                                }
+                            }
+
+                            InspectorComboBox {
+                                accessible-name: @tr("Vertical tiling");
+                                value: root.image-tiling-value("vertical-tiling");
+                                selected-index: root.image-tiling-index("vertical-tiling");
+                                options: root.image-tiling-options;
+                                wide: true;
+                                width: root.field-width;
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("vertical-tiling", text);
+                                }
                             }
                         }
                     }
