@@ -699,16 +699,18 @@ fn apply_live_preview_data() {
 fn set_contents(url: &VersionedUrl, content: String) {
     let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if !own_fill_edit
+        let changed = preview_state.source_code.get(url.url()).is_none_or(|old| old.code != content);
+        tracing::debug!(url = %url.url(), changed, edit_pending = preview_state.workspace_edit_sent, "Preview: source notification");
+        if changed && !own_fill_edit
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
+            tracing::debug!(url = %url.url(), "Preview: source change invalidated history");
             undo_redo::set_undo_redo_enabled(preview_state);
         }
         let old = preview_state.source_code.insert(
             url.url().clone(),
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
-        let changed = old.as_ref().is_none_or(|old| old.code != content);
         let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
         let selected_document =
             preview_state.selected.as_ref().and_then(|selected| selected.path.to_url()).as_ref()
@@ -1936,6 +1938,7 @@ fn submit_workspace_edit(
 
     let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
+            tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
             return false;
         }
         if let Some((fill, expected)) = fill_refresh {
