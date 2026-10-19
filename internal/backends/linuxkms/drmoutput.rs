@@ -599,9 +599,18 @@ fn select_requested_mode(
             .map_or_else(|| Err(format!("Mode index is out of bounds: {mode_index}")), Ok);
     }
 
-    let (width, height) = mode_str.split_once('x').ok_or_else(|| {
+    let (size, refresh_rate) = match mode_str.split_once('@') {
+        Some((size, refresh_rate)) => (
+            size,
+            Some(refresh_rate.parse::<u32>().map_err(|_| {
+                format!("Invalid refresh rate in SLINT_DRM_MODE value '{mode_str}'")
+            })?),
+        ),
+        None => (mode_str, None),
+    };
+    let (width, height) = size.split_once('x').ok_or_else(|| {
         format!(
-            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index, WIDTHxHEIGHT, or 'list'"
+            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index, WIDTHxHEIGHT, WIDTHxHEIGHT@HZ, or 'list'"
         )
     })?;
     let requested_size = (
@@ -615,7 +624,10 @@ fn select_requested_mode(
 
     modes
         .iter()
-        .filter(|mode| mode.size() == requested_size)
+        .filter(|mode| {
+            mode.size() == requested_size
+                && refresh_rate.is_none_or(|refresh_rate| mode.vrefresh() == refresh_rate)
+        })
         .max_by_key(|mode| {
             (
                 mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
@@ -624,7 +636,13 @@ fn select_requested_mode(
         })
         .cloned()
         .ok_or_else(|| {
-            format!("Requested DRM mode {}x{} is not available", requested_size.0, requested_size.1)
+            let (width, height) = requested_size;
+            match refresh_rate {
+                Some(refresh_rate) => {
+                    format!("Requested DRM mode {width}x{height}@{refresh_rate} is not available")
+                }
+                None => format!("Requested DRM mode {width}x{height} is not available"),
+            }
         })
 }
 
