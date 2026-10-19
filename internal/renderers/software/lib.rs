@@ -3210,18 +3210,10 @@ use i_slint_core::textlayout::sharedparley::{self, fontique};
 
 #[cfg(feature = "systemfonts")]
 #[derive(Clone, Copy)]
-enum GlyphBrush {
-    Fill(Color),
-    Stroke { color: Color, width: fonts::vectorfont::StrokeWidth },
-}
-
-#[cfg(feature = "systemfonts")]
-impl GlyphBrush {
-    fn color(self) -> Color {
-        match self {
-            Self::Fill(color) | Self::Stroke { color, .. } => color,
-        }
-    }
+struct GlyphBrush {
+    color: Color,
+    /// `None` fills the glyphs.
+    stroke: Option<fonts::vectorfont::StrokeWidth>,
 }
 
 #[cfg(feature = "systemfonts")]
@@ -3234,7 +3226,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
     }
 
     fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
-        Some(GlyphBrush::Fill(*color))
+        Some(GlyphBrush { color: *color, stroke: None })
     }
 
     fn platform_text_fill_brush(
@@ -3242,7 +3234,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         brush: Brush,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(GlyphBrush::Fill(brush.color()))
+        Some(GlyphBrush { color: brush.color(), stroke: None })
     }
 
     fn platform_text_stroke_brush(
@@ -3251,9 +3243,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         physical_stroke_width: f32,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(GlyphBrush::Stroke {
+        Some(GlyphBrush {
             color: brush.color(),
-            width: fonts::vectorfont::StrokeWidth::from_physical(physical_stroke_width),
+            stroke: Some(fonts::vectorfont::StrokeWidth::from_physical(physical_stroke_width)),
         })
     }
 
@@ -3264,9 +3256,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         radius: sharedparley::PhysicalLength,
         border: Option<sharedparley::RectangleBorder<GlyphBrush>>,
     ) {
-        let color = brush.color();
+        let color = brush.color;
         let has_visible_border =
-            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.color().alpha() > 0);
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.color.alpha() > 0);
         if color.alpha() == 0 && !has_visible_border {
             return;
         }
@@ -3306,10 +3298,10 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         if let Some(sharedparley::RectangleBorder { brush: border_brush, width: border_width }) =
             border
             && border_width.get() > 0.0
-            && border_brush.color().alpha() > 0
+            && border_brush.color.alpha() > 0
         {
             args.border_width = border_width.get();
-            args.border = Brush::SolidColor(border_brush.color());
+            args.border = Brush::SolidColor(border_brush.color);
         }
 
         self.processor.process_rectangle(&args, clip);
@@ -3343,11 +3335,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
-        let color = self.alpha_color(brush.color());
-        let stroke_width = match brush {
-            GlyphBrush::Fill(_) => None,
-            GlyphBrush::Stroke { width, .. } => Some(width),
-        };
+        let color = self.alpha_color(brush.color);
         let physical_clip: euclid::Rect<i32, PhysicalPx> =
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                 * self.scale_factor)
@@ -3375,7 +3363,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
 
             let Some(glyph) =
-                font.render_vector_glyph(id, subpixel_bin, stroke_width, slint_context)
+                font.render_vector_glyph(id, subpixel_bin, brush.stroke, slint_context)
             else {
                 continue;
             };
