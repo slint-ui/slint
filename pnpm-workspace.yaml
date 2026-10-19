@@ -27,6 +27,7 @@ packages:
   - docs/python
   - docs/cpp
   - ui-libraries/material/docs
+  - ai-plugins/mcp/slint-preview
 
 nodeLinker: hoisted
 savePrefix: ''
