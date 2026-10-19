@@ -7,8 +7,8 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
-    InspectorCornerEditor, InspectorEditableField, InspectorFieldLabel,
+    InspectorCodeField, InspectorColorField, InspectorComboBox,
+    InspectorCornerEditor, InspectorEditableField, InspectorEnumOptions, InspectorFieldLabel,
     InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
     InspectorValueField, InspectorShadowControl,
 } from "inspector/index.slint";
@@ -53,48 +53,6 @@ export component InspectorPane inherits Rectangle {
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
-    property <[InspectorComboOption]> image-fit-options: [
-        { value: "fill", label: "fill" },
-        { value: "preserve", label: "preserve" },
-        { value: "contain", label: "contain" },
-        { value: "cover", label: "cover" },
-    ];
-    property <[InspectorComboOption]> image-tiling-options: [
-        { value: "none", label: "none" },
-        { value: "repeat", label: "repeat" },
-        { value: "round", label: "round" },
-    ];
-    property <[InspectorComboOption]> text-font-weight-options: [
-        { value: "100", label: @tr("Thin") },
-        { value: "200", label: @tr("Extra Light") },
-        { value: "300", label: @tr("Light") },
-        { value: "400", label: @tr("Normal") },
-        { value: "500", label: @tr("Medium") },
-        { value: "600", label: @tr("Semi Bold") },
-        { value: "700", label: @tr("Bold") },
-        { value: "800", label: @tr("Extra Bold") },
-        { value: "900", label: @tr("Black") },
-    ];
-    property <[InspectorComboOption]> text-horizontal-alignment-options: [
-        { value: "start", label: @tr("Start") },
-        { value: "end", label: @tr("End") },
-        { value: "left", label: @tr("Left") },
-        { value: "center", label: @tr("Center") },
-        { value: "right", label: @tr("Right") },
-    ];
-
-    property <[InspectorComboOption]> text-vertical-alignment-options: [
-        { value: "top", label: @tr("Top") },
-        { value: "center", label: @tr("Center") },
-        { value: "bottom", label: @tr("Bottom") },
-    ];
-
-    property <[InspectorComboOption]> text-word-wrap-options: [
-        { value: "no-wrap", label: @tr("No wrap") },
-        { value: "word-wrap", label: @tr("Word wrap") },
-        { value: "char-wrap", label: @tr("Character wrap") },
-    ];
-
     property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
     property <string> inspector-key: root.element-information.source-uri + ":" + root.element-information.source-version + ":" + root.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
     property <[float]> control-values: Api.inspector-values(root.inspector-key);
@@ -299,186 +257,17 @@ export component InspectorPane inherits Rectangle {
         return root.property-length-label("font-size", @tr("Default size"));
     }
 
-    function text-horizontal-alignment-index() -> int {
-        let value = Api.source-property-value("horizontal-alignment", "start");
-        if value == "start" || value == "TextHorizontalAlignment.start" {
-            return 0;
-        }
-        if value == "end" || value == "TextHorizontalAlignment.end" {
-            return 1;
-        }
-        if value == "left" || value == "TextHorizontalAlignment.left" {
-            return 2;
-        }
-        if value == "center" || value == "TextHorizontalAlignment.center" {
-            return 3;
-        }
-        if value == "right" || value == "TextHorizontalAlignment.right" {
-            return 4;
-        }
-        return -1;
-    }
-
-    function text-word-wrap-index() -> int {
-        let value = Api.source-property-value("wrap", "no-wrap");
-        if value == "no-wrap" || value == "TextWrap.no-wrap" {
-            return 0;
-        }
-        if value == "word-wrap" || value == "TextWrap.word-wrap" {
-            return 1;
-        }
-        if value == "char-wrap" || value == "TextWrap.char-wrap" {
-            return 2;
-        }
-        return -1;
-    }
-
-    function text-vertical-alignment-index() -> int {
-        let value = Api.source-property-value("vertical-alignment", "top");
-        if value == "top" || value == "TextVerticalAlignment.top" {
-            return 0;
-        }
-        if value == "center" || value == "TextVerticalAlignment.center" {
-            return 1;
-        }
-        if value == "bottom" || value == "TextVerticalAlignment.bottom" {
-            return 2;
-        }
-        return -1;
-    }
-
-    function image-fit-index() -> int {
-        let value = Api.source-property-value("image-fit", "fill");
-        if value == "fill" || value == "ImageFit.fill" {
-            return 0;
-        }
-        if value == "preserve" || value == "ImageFit.preserve" {
-            return 1;
-        }
-        if value == "contain" || value == "ImageFit.contain" {
-            return 2;
-        }
-        if value == "cover" || value == "ImageFit.cover" {
-            return 3;
-        }
-        return -1;
-    }
-
-    function image-fit-value() -> string {
-        let index = root.image-fit-index();
-        return index >= 0 ? root.image-fit-options[index].value : "fill";
-    }
-
-    function image-tiling-index(name: string) -> int {
-        let value = Api.source-property-value(name, "none");
-        if value == "none" || value == "ImageTiling.none" {
-            return 0;
-        }
-        if value == "repeat" || value == "ImageTiling.repeat" {
-            return 1;
-        }
-        if value == "round" || value == "ImageTiling.round" {
-            return 2;
-        }
-        return -1;
-    }
-
-    function image-tiling-value(name: string) -> string {
-        let index = root.image-tiling-index(name);
-        return index >= 0 ? root.image-tiling-options[index].value : "none";
-    }
-
-    function image-horizontal-alignment-index() -> int {
-        let value = Api.source-property-value("horizontal-alignment", "center");
-        if value == "left" || value == "ImageHorizontalAlignment.left" {
-            return 0;
-        }
-        if value == "center" || value == "ImageHorizontalAlignment.center" {
-            return 1;
-        }
-        if value == "right" || value == "ImageHorizontalAlignment.right" {
-            return 2;
-        }
-        return -1;
-    }
-
-    function image-vertical-alignment-index() -> int {
-        let value = Api.source-property-value("vertical-alignment", "center");
-        if value == "top" || value == "ImageVerticalAlignment.top" {
-            return 0;
-        }
-        if value == "center" || value == "ImageVerticalAlignment.center" {
-            return 1;
-        }
-        if value == "bottom" || value == "ImageVerticalAlignment.bottom" {
-            return 2;
-        }
-        return -1;
-    }
-
     function set-image-alignment(column: int, row: int) -> bool {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
         }
-        if column == root.image-horizontal-alignment-index() && row == root.image-vertical-alignment-index() {
+        if column == InspectorEnumOptions.image-horizontal-alignment-index() && row == InspectorEnumOptions.image-vertical-alignment-index() {
             return true;
         }
         return root.commit-codes([
             { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
             { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
         ]);
-    }
-
-    function text-font-weight-index() -> int {
-        let value = Api.source-property-value("font-weight", "400");
-        if value == "100" || value == "FontWeight.thin" || value == "thin" {
-            return 0;
-        }
-        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
-            return 1;
-        }
-        if value == "300" || value == "FontWeight.light" || value == "light" {
-            return 2;
-        }
-        if value == "400" || value == "FontWeight.normal" || value == "normal" {
-            return 3;
-        }
-        if value == "500" || value == "FontWeight.medium" || value == "medium" {
-            return 4;
-        }
-        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
-            return 5;
-        }
-        if value == "700" || value == "FontWeight.bold" || value == "bold" {
-            return 6;
-        }
-        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
-            return 7;
-        }
-        if value == "900" || value == "FontWeight.black" || value == "black" {
-            return 8;
-        }
-        return -1;
-    }
-
-    function text-font-weight-label() -> string {
-        let index = root.text-font-weight-index();
-        return index >= 0 ? root.text-font-weight-options[index].label : @tr("Normal");
-    }
-
-    function text-horizontal-alignment-label() -> string {
-        let index = root.text-horizontal-alignment-index();
-        return index >= 0 ? root.text-horizontal-alignment-options[index].label : @tr("Start");
-    }
-
-    function text-vertical-alignment-label() -> string {
-        let index = root.text-vertical-alignment-index();
-        return index >= 0 ? root.text-vertical-alignment-options[index].label : @tr("Top");
-    }
-
-    function text-word-wrap-label() -> string {
-        let index = root.text-word-wrap-index();
-        return index >= 0 ? root.text-word-wrap-options[index].label : @tr("No wrap");
     }
 
     EdgeDivider {
@@ -799,9 +588,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: @tr("Image fit");
-                                value: root.image-fit-value();
-                                selected-index: root.image-fit-index();
-                                options: root.image-fit-options;
+                                value: InspectorEnumOptions.image-fit-value();
+                                selected-index: InspectorEnumOptions.image-fit-index();
+                                options: InspectorEnumOptions.image-fit-options;
                                 wide: true;
                                 width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
@@ -831,8 +620,8 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             alignment := InspectorImageAlignment {
-                                selected-column: root.image-horizontal-alignment-index();
-                                selected-row: root.image-vertical-alignment-index();
+                                selected-column: InspectorEnumOptions.image-horizontal-alignment-index();
+                                selected-row: InspectorEnumOptions.image-vertical-alignment-index();
                                 chosen(column, row) => { root.set-image-alignment(column, row); }
                             }
                         }
@@ -858,9 +647,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: @tr("Horizontal tiling");
-                                value: root.image-tiling-value("horizontal-tiling");
-                                selected-index: root.image-tiling-index("horizontal-tiling");
-                                options: root.image-tiling-options;
+                                value: InspectorEnumOptions.image-tiling-value("horizontal-tiling");
+                                selected-index: InspectorEnumOptions.image-tiling-index("horizontal-tiling");
+                                options: InspectorEnumOptions.image-tiling-options;
                                 wide: true;
                                 width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
@@ -891,9 +680,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: @tr("Vertical tiling");
-                                value: root.image-tiling-value("vertical-tiling");
-                                selected-index: root.image-tiling-index("vertical-tiling");
-                                options: root.image-tiling-options;
+                                value: InspectorEnumOptions.image-tiling-value("vertical-tiling");
+                                selected-index: InspectorEnumOptions.image-tiling-index("vertical-tiling");
+                                options: InspectorEnumOptions.image-tiling-options;
                                 wide: true;
                                 width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
@@ -948,9 +737,9 @@ export component InspectorPane inherits Rectangle {
                             InspectorComboBox {
                                 accessible-name: @tr("Font weight");
                                 fit-options: true;
-                                value: root.text-font-weight-label();
-                                selected-index: root.text-font-weight-index();
-                                options: root.text-font-weight-options;
+                                value: InspectorEnumOptions.text-font-weight-label();
+                                selected-index: InspectorEnumOptions.text-font-weight-index();
+                                options: InspectorEnumOptions.text-font-weight-options;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("font-weight", text);
@@ -986,9 +775,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: @tr("Horizontal Alignment");
-                                value: root.text-horizontal-alignment-label();
-                                selected-index: root.text-horizontal-alignment-index();
-                                options: root.text-horizontal-alignment-options;
+                                value: InspectorEnumOptions.text-horizontal-alignment-label();
+                                selected-index: InspectorEnumOptions.text-horizontal-alignment-index();
+                                options: InspectorEnumOptions.text-horizontal-alignment-options;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("horizontal-alignment", text);
@@ -1007,9 +796,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorComboBox {
                                 accessible-name: @tr("Vertical Alignment");
-                                value: root.text-vertical-alignment-label();
-                                selected-index: root.text-vertical-alignment-index();
-                                options: root.text-vertical-alignment-options;
+                                value: InspectorEnumOptions.text-vertical-alignment-label();
+                                selected-index: InspectorEnumOptions.text-vertical-alignment-index();
+                                options: InspectorEnumOptions.text-vertical-alignment-options;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("vertical-alignment", text);
@@ -1029,9 +818,9 @@ export component InspectorPane inherits Rectangle {
 
                         InspectorComboBox {
                             accessible-name: @tr("Text Wrap");
-                            value: root.text-word-wrap-label();
-                            selected-index: root.text-word-wrap-index();
-                            options: root.text-word-wrap-options;
+                            value: InspectorEnumOptions.text-word-wrap-label();
+                            selected-index: InspectorEnumOptions.text-word-wrap-index();
+                            options: InspectorEnumOptions.text-word-wrap-options;
                             wide: true;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
