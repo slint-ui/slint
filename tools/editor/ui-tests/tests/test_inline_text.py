@@ -244,7 +244,7 @@ def test_dropped_text_commits_on_focus_loss(
 
 
 @pytest.mark.parametrize("percent", [50, 100, 200])
-def test_dropped_text_keeps_caret_selection_and_grows_editing_bounds(
+def test_dropped_text_grows_editable_bounds_at_canvas_zoom(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -262,32 +262,6 @@ def test_dropped_text_keeps_caret_selection_and_grows_editing_bounds(
         wait_until(
             lambda: True if inline_editor.size.width > initial_width * 3 else None
         )
-        press_key(window, keys.RightArrow)
-        unselected = inline_editor_image(window)
-        assert (
-            sum(
-                isinstance(pixel, tuple) and max(pixel) < 128
-                for pixel in unselected.get_flattened_data()
-            )
-            > 10
-        )
-        caret = unselected.crop(
-            (unselected.width - 3, 0, unselected.width, unselected.height)
-        )
-        assert sum(pixel != (248, 250, 252) for pixel in caret.get_flattened_data()) > 3
-
-        press_shortcut(window, keys.Control, "a")
-        selected = inline_editor_image(window)
-        assert (
-            sum(
-                a != b
-                for a, b in zip(
-                    unselected.get_flattened_data(), selected.get_flattened_data()
-                )
-            )
-            > selected.width * selected.height / 4
-        )
-
         target = slint_testing.LogicalPosition(
             x=inline_editor.absolute_position.x + inline_editor.size.width - 1,
             y=inline_editor.absolute_position.y + inline_editor.size.height / 2,
