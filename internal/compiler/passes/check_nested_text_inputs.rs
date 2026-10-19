@@ -11,7 +11,6 @@ use crate::element_type::ElementType;
 use crate::expression_tree::Expression;
 use crate::object_tree::{Component, Document, ElementRc};
 use crate::source_path::SourcePath;
-use by_address::ByAddress;
 use smol_str::SmolStr;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -19,23 +18,15 @@ use std::rc::Rc;
 /// The item above the one being visited that exposes a text input, and the role it does it with.
 type Enclosing = (ElementRc, SmolStr);
 
-/// What identifies the element a warning is about, to warn about it once.
-/// Inlining copies an element per use site, and the copies share one source location.
-#[derive(PartialEq, Eq, Hash)]
-enum Reported {
-    Source(SourcePath, usize),
-    /// An element the compiler synthesized, which has no source of its own.
-    Element(ByAddress<ElementRc>),
-}
-
 pub fn check_nested_text_inputs(doc: &Document, diag: &mut BuildDiagnostics) {
-    let mut check = Check { diag, reported: HashSet::new() };
+    let mut check = Check { diag, reported: HashSet::new(), visited_bases: HashSet::new() };
     for component in doc.exported_roots() {
-        check.visit_component(&component, None);
+        check.visit_component(&component);
     }
 }
 
 /// An accessible role whose item describes the text of the `TextInput` below it.
+/// Keep in sync with `wraps_text_input` in the winit accesskit backend.
 fn exposes_text_input(role: &SmolStr) -> bool {
     role == "text-input" || role == "spinbox"
 }
@@ -43,23 +34,15 @@ fn exposes_text_input(role: &SmolStr) -> bool {
 /// The role the item ends up with, which is the one the most derived element sets: setting the
 /// role where a component is used writes it to the root element of that component.
 fn accessible_role(elem: &ElementRc) -> Option<SmolStr> {
-    let mut level = Some(elem.clone());
-    while let Some(e) = level {
-        let role = e.borrow().binding("accessible-role").map(|binding| {
-            match binding.value_expression() {
-                // `none` is a role of its own, and leaves nothing for the bases to say
-                Expression::EnumerationValue(value) if value.value != 0 => {
-                    Some(value.enumeration.values[value.value].clone())
-                }
-                _ => None,
+    crate::layout::find_binding(elem, "accessible-role", |binding, _, _| {
+        match binding.value_expression() {
+            Expression::EnumerationValue(value) => {
+                Some(value.enumeration.values[value.value].clone())
             }
-        });
-        if let Some(role) = role {
-            return role;
+            _ => None,
         }
-        level = base_component(&e).map(|base| base.root_element.clone());
-    }
-    None
+    })
+    .flatten()
 }
 
 fn base_component(elem: &ElementRc) -> Option<Rc<Component>> {
@@ -71,26 +54,25 @@ fn base_component(elem: &ElementRc) -> Option<Rc<Component>> {
 
 struct Check<'a> {
     diag: &'a mut BuildDiagnostics,
-    reported: HashSet<Reported>,
+    /// Source location of the elements warned about, to warn about each once:
+    /// inlining copies an element per use site, and the copies share one source location.
+    reported: HashSet<(Option<SourcePath>, usize)>,
+    /// Base components already walked, with whether a text input enclosed them.
+    /// A component used in several places is one `Rc`, and its subtree warns the same way each time.
+    visited_bases: HashSet<(*const Component, bool)>,
 }
 
 impl Check<'_> {
-    fn visit_component(&mut self, component: &Rc<Component>, enclosing: Option<&Enclosing>) {
-        self.visit_item(&component.root_element, enclosing);
+    fn visit_component(&mut self, component: &Rc<Component>) {
+        self.visit_item(&component.root_element, None);
         self.visit_popups(component);
     }
 
     /// A popup is a tree of its own:
     /// its items nest under the popup, not under the element that declares it.
     fn visit_popups(&mut self, component: &Component) {
-        let popups = component
-            .popup_windows
-            .borrow()
-            .iter()
-            .map(|p| p.component.clone())
-            .collect::<Vec<_>>();
-        for popup in &popups {
-            self.visit_component(popup, None);
+        for popup in component.popup_windows.borrow().iter() {
+            self.visit_component(&popup.component);
         }
     }
 
@@ -116,6 +98,9 @@ impl Check<'_> {
                 self.visit_item(child, enclosing);
             }
             let Some(base) = base_component(&e) else { break };
+            if !self.visited_bases.insert((Rc::as_ptr(&base), enclosing.is_some())) {
+                break;
+            }
             self.visit_popups(&base);
             level = Some(base.root_element.clone());
         }
@@ -134,16 +119,14 @@ impl Check<'_> {
 }
 
 /// Names an element the way its source declares it, such as `foo := Rectangle`.
-/// The type comes from the source rather than from `base_type`, which inlining replaces with the
-/// base of the component the source names.
+/// The type comes from the source text: `base_type` and the debug info's `type_name` hold the
+/// component's own name, not the alias an `import { A as B }` gave it.
 fn element_name(elem: &ElementRc) -> String {
     let elem = elem.borrow();
-    let type_name = elem
-        .debug
-        .first()
-        .and_then(|info| info.node.QualifiedName())
-        .map(|name| name.text().to_string())
-        .map_or_else(|| elem.base_type.to_string(), |name| name.trim().to_string());
+    let type_name = elem.debug.first().and_then(|info| info.node.QualifiedName()).map_or_else(
+        || elem.base_type.to_string(),
+        |name| name.text().to_string().trim().to_string(),
+    );
     // `root` is the id the compiler gives a component's root element, not one the source wrote.
     if elem.id.is_empty() || elem.id == "root" {
         type_name
@@ -152,10 +135,7 @@ fn element_name(elem: &ElementRc) -> String {
     }
 }
 
-fn reported(elem: &ElementRc) -> Reported {
+fn reported(elem: &ElementRc) -> (Option<SourcePath>, usize) {
     let location = elem.borrow().to_source_location();
-    match location.source_file {
-        Some(file) => Reported::Source(file.path().clone(), location.span.offset),
-        None => Reported::Element(ByAddress(elem.clone())),
-    }
+    (location.source_file.map(|file| file.path().clone()), location.span.offset)
 }

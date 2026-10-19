@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Wrapper as ImportedWrapper } from "../../typeloader/nested_text_input_wrapper.slint";
+
 component Wrapper inherits Rectangle {
     accessible-role: text-input;
     accessible-label: "wrapper";
@@ -47,6 +49,19 @@ export component Test inherits Window {
 //  >        <note{The enclosing element is declared here}
         accessible-role: text-input;
         Field { }
+    }
+
+    // The warning about the input inside a component is given once, at the component
+    Rectangle {
+        accessible-role: text-input;
+        Field { }
+    }
+
+    // The enclosing element is named the way the source wrote it
+    ImportedWrapper {
+//  >              <note{The enclosing element is declared here}
+        TextInput { }
+//      >        <warning{This element exposes the same text to a screen reader as the enclosing 'ImportedWrapper' with 'accessible-role: text-input'; set 'accessible-role: none' here}
     }
 
     // The role of a component's root, hidden where the component is used
