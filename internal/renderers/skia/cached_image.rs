@@ -3,10 +3,10 @@
 
 use i_slint_core::graphics::{
     Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
-    cache as core_cache, euclid,
+    cache as core_cache,
 };
 use i_slint_core::items::ImageFit;
-use i_slint_core::lengths::{LogicalSize, PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{LogicalSize, ScaleFactor};
 
 struct SkiaCachedImage {
     image: skia_safe::Image,
@@ -25,23 +25,6 @@ impl OpaqueImage for SkiaCachedImage {
     fn cache_key(&self) -> ImageCacheKey {
         self.cache_key.clone()
     }
-}
-
-pub(crate) fn svg_render_size(
-    source_size: IntSize,
-    target_size: LogicalSize,
-    image_fit: ImageFit,
-    scale_factor: ScaleFactor,
-    transform_scale: f32,
-) -> Option<euclid::Size2D<u32, PhysicalPx>> {
-    let render_size = i_slint_core::graphics::scalable_render_size(
-        source_size,
-        image_fit,
-        target_size * scale_factor,
-        scale_factor,
-        Default::default(),
-    )?;
-    Some(i_slint_core::graphics::transformed_scalable_render_size(render_size, transform_scale))
 }
 
 /// `transform_scale` is how much the canvas transform magnifies the image,
@@ -72,11 +55,12 @@ pub(crate) fn as_skia_image(
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let target_size = svg_render_size(
+            let target_size = i_slint_core::graphics::transformed_scalable_render_size(
                 svg.size(),
-                target_size_fn(),
                 image_fit,
+                target_size_fn(),
                 scale_factor,
+                Default::default(),
                 transform_scale,
             )?;
             let pixels = match svg.render(Some(target_size)).ok()? {

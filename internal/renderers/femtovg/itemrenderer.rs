@@ -12,7 +12,7 @@ use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, Point, Size};
+use i_slint_core::graphics::{IntRect, Point, Size};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer,
     RenderBorderRectangle, RenderImage, RenderRectangle, RenderText,
@@ -1353,10 +1353,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     /// the largest singular value of its linear part.
     fn current_transform_scale(&self) -> f32 {
         let [a, b, c, d, _, _] = self.canvas.borrow().transform().0;
-        let sum_of_squares = a * a + b * b + c * c + d * d;
-        let determinant = a * d - b * c;
-        let discriminant = sum_of_squares * sum_of_squares - 4. * determinant * determinant;
-        ((sum_of_squares + discriminant.max(0.).sqrt()) / 2.).sqrt()
+        i_slint_core::graphics::transform_max_scale(a, b, c, d)
     }
 
     fn draw_image_impl(
@@ -1371,28 +1368,25 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
         let transform_scale = self.current_transform_scale();
         let scale_factor = self.scale_factor;
-        let svg_render_size = |image: &Image| {
-            let render_size = i_slint_core::graphics::scalable_render_size(
-                image.size(),
-                item.image_fit(),
-                item.target_size() * scale_factor,
-                scale_factor,
-                item.tiling(),
-            )?;
-            Some(i_slint_core::graphics::transformed_scalable_render_size(
-                render_size,
-                transform_scale,
-            ))
-        };
 
+        let image = item.source();
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-                let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
 
-                let target_size_for_scalable_source =
-                    if image_inner.is_svg() { Some(svg_render_size(&image)?) } else { None };
+                let target_size_for_scalable_source = if image_inner.is_svg() {
+                    Some(i_slint_core::graphics::transformed_scalable_render_size(
+                        image.size(),
+                        item.image_fit(),
+                        item.target_size(),
+                        scale_factor,
+                        tiling,
+                        transform_scale,
+                    )?)
+                } else {
+                    None
+                };
 
                 let image_rendering = item.rendering();
 
@@ -1433,12 +1427,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
             // later when the callback from load_html_image has issued a repaint
-            let cached_image = match image_cache_entry {
-                Some(entry) if entry.as_texture().size().is_some() => entry,
-                _ => {
-                    return;
-                }
-            };
+            let Some(cached_image) = image_cache_entry else { return };
+            let Some(texture_size) = cached_image.as_texture().size() else { return };
 
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
@@ -1448,15 +1438,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 continue;
             }
 
-            // Rasterize an SVG again when it's magnified more than when it was cached (#10903),
-            // see `transformed_scalable_render_size`.
-            let image = item.source();
-            if <&ImageInner>::from(&image).is_svg()
-                && let Some(texture_size) = cached_image.as_texture().size()
-                && let Some(render_size) = svg_render_size(&image)
-                && texture_size.width < render_size.width
-                && texture_size.height < render_size.height
-            {
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            if i_slint_core::graphics::svg_needs_rasterizing_again(
+                texture_size,
+                &image,
+                item.image_fit(),
+                item.target_size(),
+                scale_factor,
+                item.tiling(),
+                transform_scale,
+            ) {
                 self.graphics_cache.release(item_rc);
                 continue;
             }
@@ -1464,7 +1455,6 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             break cached_image.as_texture().clone();
         };
 
-        let image = item.source();
         let image_id = cached_image.id;
         let orig_size = image.size().cast::<f32>();
         let buf_size = cached_image.size().unwrap_or_default().cast::<f32>();

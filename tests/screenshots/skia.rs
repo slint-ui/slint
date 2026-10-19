@@ -500,9 +500,10 @@ fn svg_rasterized_again_when_magnified() {
                 x: 0px;
                 y: 0px;
                 width: 16px;
-                height: 16px;
+                height: 8px;
                 source: root.svg;
-                transform-scale: root.scale;
+                transform-scale-x: root.scale;
+                transform-scale-y: 2 * root.scale;
                 transform-origin: { x: 0px, y: 0px };
             }
         }
