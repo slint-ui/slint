@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
@@ -104,9 +105,9 @@ const tools = [
         _meta: { ui: { visibility: ["app"] } },
     },
     {
-        name: "read_image_file",
-        title: "Read Image File",
-        description: "Read an image file that the preview shows.",
+        name: "read_binary_file",
+        title: "Read Binary File",
+        description: "Read an image or font file that the preview uses.",
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -165,7 +166,7 @@ function nextChange(preview, ms) {
     });
 }
 
-const IMAGE_MIME_TYPES = {
+const BINARY_MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -173,6 +174,9 @@ const IMAGE_MIME_TYPES = {
     ".webp": "image/webp",
     ".svg": "image/svg+xml",
     ".bmp": "image/bmp",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".ttc": "font/collection",
 };
 
 function textResult(text, isError = false) {
@@ -293,7 +297,7 @@ const toolCalls = {
             return textResult(e.message, true);
         }
     },
-    read_image_file: (args) => {
+    read_binary_file: (args) => {
         if (typeof args.path !== "string" || !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be an absolute path");
         }
@@ -301,12 +305,15 @@ const toolCalls = {
             return {
                 content: [
                     {
-                        type: "image",
-                        data: readFileSync(args.path).toString("base64"),
-                        mimeType:
-                            IMAGE_MIME_TYPES[
-                                extname(args.path).toLowerCase()
-                            ] ?? "application/octet-stream",
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(args.path).href,
+                            mimeType:
+                                BINARY_MIME_TYPES[
+                                    extname(args.path).toLowerCase()
+                                ] ?? "application/octet-stream",
+                            blob: readFileSync(args.path).toString("base64"),
+                        },
                     },
                 ],
             };
