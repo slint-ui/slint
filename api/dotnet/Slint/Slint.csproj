@@ -20,6 +20,7 @@
   <ItemGroup>
     <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)')" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <InternalsVisibleTo Include="Slint.Tests" />
+    <None Include="build/Slint.targets" Pack="true" PackagePath="build/" />
   </ItemGroup>
   <Target Name="SlintWarnMissingNativeLibrary" BeforeTargets="Build" Condition="!Exists('$(SlintNativeLibraryPath)')">
     <Warning Code="SLINT001" Text="Native library $(SlintNativeLibraryPath) not found; run `cargo build -p slint-dotnet` and rebuild." />

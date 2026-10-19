@@ -1,0 +1,62 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<!--
+  Generates typed C# classes from <SlintFile> items and copies the .slint files to the output directory,
+  where the generated code loads them from at run time.
+
+    <SlintFile Include="ui/app.slint" />                   generates ui/app.slint.g.cs
+    <SlintFile Include="ui/widgets.slint" Generate="false" />   only copies an imported file
+
+  Properties:
+    SlintCompilerPath   the slint-compiler binary; defaults to the repository build, then to PATH
+    SlintNamespace      the namespace of the generated code; defaults to RootNamespace
+    SlintStyle          the widget style, such as fluent
+-->
+<Project>
+  <PropertyGroup>
+    <_SlintExe Condition="'$(OS)' == 'Windows_NT'">.exe</_SlintExe>
+    <_SlintRepositoryCompiler>$(MSBuildThisFileDirectory)../../../../target/debug/slint-compiler$(_SlintExe)</_SlintRepositoryCompiler>
+    <SlintCompilerPath Condition="'$(SlintCompilerPath)' == '' and Exists('$(_SlintRepositoryCompiler)')">$([System.IO.Path]::GetFullPath('$(_SlintRepositoryCompiler)'))</SlintCompilerPath>
+    <SlintCompilerPath Condition="'$(SlintCompilerPath)' == ''">slint-compiler</SlintCompilerPath>
+    <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="@(SlintFile)" />
+    <None Include="@(SlintFile)" Link="%(RelativeDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="_SlintPrepare">
+    <PropertyGroup>
+      <!-- Set here, since IntermediateOutputPath isn't known yet where a project imports this file. -->
+      <_SlintGeneratedDir>$(IntermediateOutputPath)slint/</_SlintGeneratedDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SlintGenerate Include="@(SlintFile)" Condition="'%(SlintFile.Generate)' != 'false'">
+        <GeneratedFile>$(_SlintGeneratedDir)%(RelativeDir)%(Filename)%(Extension).g.cs</GeneratedFile>
+        <RuntimePath>%(RelativeDir)%(Filename)%(Extension)</RuntimePath>
+      </_SlintGenerate>
+      <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="SlintGenerate"
+          DependsOnTargets="_SlintPrepare"
+          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildProjectFullPath)"
+          Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
+    <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
+    <PropertyGroup>
+      <_SlintOptions />
+      <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
+    </PropertyGroup>
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)" />
+  </Target>
+
+  <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile" DependsOnTargets="SlintGenerate">
+    <ItemGroup>
+      <Compile Include="@(_SlintGenerate->'%(GeneratedFile)')" />
+      <FileWrites Include="@(_SlintGenerate->'%(GeneratedFile)')" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -137,6 +137,12 @@ fn check_thread() -> Result<(), String> {
     if claimed {
         // Compiling works without a platform, so a missing backend only fails the calls that need one.
         let _ = i_slint_backend_selector::with_platform(|_| Ok(()));
+        #[cfg(feature = "testing")]
+        if std::env::var("SLINT_BACKEND").is_ok_and(|b| b == "testing") {
+            i_slint_backend_testing::configure_test_fonts();
+            i_slint_core::OPERATING_SYSTEM_OVERRIDE
+                .set(Some(i_slint_core::items::OperatingSystemType::Windows));
+        }
     }
     Ok(())
 }

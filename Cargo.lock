@@ -7316,6 +7316,7 @@ version = "1.19.0"
 dependencies = [
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
+ "i-slint-backend-testing",
  "i-slint-core",
  "slint-interpreter",
  "spin_on",

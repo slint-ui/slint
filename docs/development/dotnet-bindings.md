@@ -13,8 +13,8 @@ The .NET bindings follow the same shape as the Python and Node.js bindings:
 |---|---|---|---|
 | Native crate wrapping `slint-interpreter` | `api/python/slint` | `api/node` | `api/dotnet/native` |
 | Idiomatic host-language layer | `api/python/slint/slint/` | `api/node/typescript/` | `api/dotnet/Slint/` |
-| Typed code generator | `generator/python.rs` | `generator/typescript.rs` | `generator/csharp.rs` (planned) |
-| `tests/cases` driver | `tests/driver/python` | `tests/driver/nodejs` | `tests/driver/dotnet` (planned) |
+| Typed code generator | `generator/python.rs` | `generator/typescript.rs` | `generator/csharp.rs` |
+| `tests/cases` driver | `tests/driver/python` | `tests/driver/nodejs` | `tests/driver/dotnet` |
 
 The managed library targets `net10.0` and is AOT-compatible.
 
@@ -85,6 +85,49 @@ Once Slint drops the model, a later conversion creates a new `ManagedModel`.
 Reading a model property returns the original .NET object.
 A model that Slint created, such as an array literal, comes back as a `Model<object?>` over the native value.
 
+## Generated Code
+
+`slint-compiler -f csharp` generates a class per exported component and global,
+a `record` per struct, and an `enum` per enum.
+Properties become C# properties, functions become methods,
+and each callback becomes an `On…` method that sets the handler and an `Invoke…` method.
+Names are PascalCase; one that collides with another member gets a `_` suffix.
+`--csharp-namespace` sets the namespace,
+and `--csharp-runtime-path` sets where the code loads the `.slint` file from, relative to the application directory.
+
+Like the Python module, the generated code loads the `.slint` file with the interpreter at run time.
+Before creating a component, it checks that the file still has every member with the type the code was generated for,
+and throws `SlintException` listing the differences otherwise.
+The check is in C#, in `GeneratedApi`, because the generated code already lists each member.
+Python instead embeds the API as JSON and compares it in Rust.
+
+Struct and enum conversions are registered with `Slint.Generated.Conversion` when the first component is created.
+
+### MSBuild
+
+`Slint/build/Slint.targets` turns `<SlintFile>` items into generated code under `obj/`,
+and copies them to the output directory, where the generated code loads them from:
+
+```xml
+<SlintFile Include="ui/app.slint" />
+<SlintFile Include="ui/widgets.slint" Generate="false" />
+```
+
+Mark the files that `app.slint` imports with `Generate="false"`, so that they're copied but generate nothing.
+`SlintNamespace` defaults to `RootNamespace`, and `SlintStyle` selects the widget style.
+`SlintCompilerPath` defaults to `target/debug/slint-compiler` in the repository, then to `slint-compiler` on `PATH`.
+A package reference imports the targets automatically; with a project reference, import `Slint/build/Slint.targets`.
+
+### Test Driver
+
+`tests/driver/dotnet` builds the generated code of all cases into one runner,
+since a `dotnet build` per case takes seconds.
+A case whose generated code doesn't compile is dropped from the runner and fails on its own.
+The driver builds `slint-dotnet` with the `testing` feature,
+which uses the test fonts and reports Windows as the operating system, like the interpreter driver.
+It skips cases that need include paths, library paths, or bundled translations,
+because the generated code doesn't pass those to the interpreter yet.
+
 ## Threading and macOS
 
 winit and AppKit need the event loop on the process main thread.
@@ -111,8 +154,10 @@ Dispose the instance explicitly, or capture a `WeakReference` in the callback.
 ## Building and Testing
 
 ```sh
-cargo build -p slint-dotnet --features backend-testing
-SLINT_BACKEND=testing dotnet test --project api/dotnet/Slint.Tests
+cargo build -p slint-dotnet --features testing
+cargo build -p slint-compiler
+dotnet test --project api/dotnet/Slint.Tests
+cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet
 ```
 
 `Slint.csproj` copies `target/debug/libslint_dotnet.*` to the output of every project that references it.
@@ -124,5 +169,5 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 
 1. Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop (done).
 2. Models, timers, `async` through a `SynchronizationContext`, lifetime tests (done).
-3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet`.
+3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet` (done).
 4. CI workflow, user documentation, an example, NuGet packages per runtime identifier.

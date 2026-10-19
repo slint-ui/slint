@@ -97,10 +97,14 @@ internal static unsafe class ValueConverter
                     using var enumValue = new PinnedUtf8(e.Value);
                     return NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_enum(enumName.Str, enumValue.Str));
                 }
+            case TimeSpan duration:
+                return NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_number(duration.TotalMilliseconds));
             case OpaqueValue o:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(o.Handle.DangerousGetHandle()));
             case INativeModel model:
                 return model.ToNativeValue();
+            case not System.Collections.IEnumerable when Generated.Conversion.TryToSlint(value, out var converted):
+                return ToNative(converted);
             case IEnumerable<KeyValuePair<string, object?>> fields:
                 return StructToNative(fields);
             case System.Collections.IEnumerable rows:
@@ -236,9 +240,17 @@ internal static unsafe class ValueConverter
     /// <summary>Converts the result of <see cref="FromNative"/> to <typeparamref name="T"/>, such as a number to <see cref="int"/>.</summary>
     public static T ConvertTo<T>(object? value)
     {
+        if (Generated.Conversion.From<T>.Convert is { } convert)
+        {
+            return convert(value);
+        }
         if (value is T t)
         {
             return t;
+        }
+        if (typeof(T) == typeof(TimeSpan) && value is double milliseconds)
+        {
+            return (T)(object)TimeSpan.FromMilliseconds(milliseconds);
         }
         var target = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         if (value is double number && target.IsPrimitive)

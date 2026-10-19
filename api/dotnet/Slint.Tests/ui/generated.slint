@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Mode, Person } from "shared.slint";
+export { Mode, Person }
+
+export global Settings {
+    in-out property <string> theme: "dark";
+    callback changed(string) -> string;
+    public pure function describe() -> string { return "theme: " + self.theme; }
+}
+
+export component Generated inherits Window {
+    in-out property <int> count: 42;
+    out property <bool> ready: true;
+    in-out property <float> ratio: 0.5;
+    in-out property <duration> delay: 250ms;
+    in-out property <length> size: 10px;
+    in-out property <color> tint: #102030;
+    in-out property <Mode> mode: Mode.busy-now;
+    in-out property <Person> person: { name: "Ada", age: 36, tags: ["math"] };
+    in-out property <[Person]> people;
+    in-out property <[int]> numbers: [1, 2, 3];
+    out property <int> people-count: people.length;
+    callback clicked(int, string) -> string;
+    callback notify();
+    public function twice(x: int) -> int { return x * 2; }
+    public function call-clicked() -> string { return root.clicked(7, "x"); }
+    public function call-notify() { root.notify(); }
+    public function call-changed() -> string { return Settings.changed("light"); }
+    public function oldest() -> string { return people.length > 0 ? people[0].name : ""; }
+}

@@ -16,4 +16,10 @@
   <ItemGroup>
     <ProjectReference Include="../Slint/Slint.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <SlintFile Include="ui/generated.slint" />
+    <SlintFile Include="ui/shared.slint" Generate="false" />
+  </ItemGroup>
+  <!-- A package reference imports this automatically; a project reference doesn't. -->
+  <Import Project="../Slint/build/Slint.targets" />
 </Project>

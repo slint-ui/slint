@@ -175,6 +175,19 @@ cargo test -p test-driver-python
 See [docs/development/python-tests.md](development/python-tests.md) for the full picture,
 including how to rebuild `slint-python` after making changes.
 
+### .NET driver
+
+This is used to test the C# code generator and the .NET bindings.
+It compiles each `.slint` file with `OutputFormat::CSharp`, builds the generated code of all cases into one runner,
+then runs each case in its own process, which creates every exported component and checks its `test` property.
+It needs the .NET 10 SDK.
+
+```
+cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet
+```
+
+See [docs/development/dotnet-bindings.md](development/dotnet-bindings.md) for the bindings themselves.
+
 ## Screenshot tests
 
 This is used to test renderer backends. It supports the `SoftwareRenderer` (with and without

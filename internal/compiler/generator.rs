@@ -37,6 +37,9 @@ pub mod python;
 #[cfg(feature = "typescript")]
 pub mod typescript;
 
+#[cfg(feature = "csharp")]
+pub mod csharp;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
     #[cfg(feature = "cpp")]
@@ -53,6 +56,8 @@ pub enum OutputFormat {
     Python,
     #[cfg(feature = "typescript")]
     TypeScript,
+    #[cfg(feature = "csharp")]
+    CSharp(csharp::Config),
 }
 
 impl OutputFormat {
@@ -68,6 +73,8 @@ impl OutputFormat {
             Some("py") => Some(Self::Python),
             #[cfg(feature = "typescript")]
             Some("ts") => Some(Self::TypeScript),
+            #[cfg(feature = "csharp")]
+            Some("cs") => Some(Self::CSharp(csharp::Config::default())),
             _ => None,
         }
     }
@@ -88,6 +95,8 @@ impl std::str::FromStr for OutputFormat {
             "python" => Ok(Self::Python),
             #[cfg(feature = "typescript")]
             "typescript" => Ok(Self::TypeScript),
+            #[cfg(feature = "csharp")]
+            "csharp" => Ok(Self::CSharp(csharp::Config::default())),
             _ => Err(format!("Unknown output format {s}")),
         }
     }
@@ -142,6 +151,11 @@ pub fn generate(
         #[cfg(feature = "typescript")]
         OutputFormat::TypeScript => {
             let output = typescript::generate(doc, compiler_config)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "csharp")]
+        OutputFormat::CSharp(config) => {
+            let output = csharp::generate(doc, &config, compiler_config)?;
             write!(destination, "{output}")?;
         }
     }
