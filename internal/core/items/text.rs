@@ -2058,6 +2058,30 @@ impl TextInput {
         );
     }
 
+    /// Selects the word where a long press started; while the press is held, dragging then
+    /// extends the selection by words. A held double or triple press keeps its selection, and
+    /// nothing is selected at a line break or at the end of the text.
+    pub fn select_word_on_long_press(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        let pressed = self.pressed.get();
+        if pressed > 1 {
+            return;
+        }
+        // The anchor is where the press started; moves may have shifted the cursor.
+        let text = self.text();
+        if matches!(text.as_bytes().get(self.anchor_position(&text)), None | Some(b'\n')) {
+            return;
+        }
+        if pressed == 1 {
+            // Drag by words, as after a double click.
+            self.pressed.set(2);
+        }
+        self.select_word(window_adapter, self_rc);
+    }
+
     fn select_paragraph(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
