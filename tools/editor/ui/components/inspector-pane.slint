@@ -8,7 +8,7 @@ import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint"
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
-    InspectorCornerEditor, InspectorEditableField,
+    InspectorCornerEditor, InspectorEditableField, InspectorFieldLabel,
     InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
     InspectorValueField, InspectorShadowControl,
 } from "inspector/index.slint";
@@ -794,11 +794,8 @@ export component InspectorPane inherits Rectangle {
                         VerticalLayout {
                             spacing: Metrics.space-compact;
 
-                            Text {
+                            InspectorFieldLabel {
                                 text: @tr("Source");
-                                color: Colors.foreground;
-                                font-size: Typography.caption.size;
-                                font-weight: FontWeight.semi-bold;
                             }
 
                             InspectorImageSourceField {
@@ -814,11 +811,8 @@ export component InspectorPane inherits Rectangle {
                                 spacing: Metrics.space-compact;
                                 cross-axis-alignment: center;
 
-                                Text {
+                                InspectorFieldLabel {
                                     text: @tr("Image fit");
-                                    color: Colors.foreground;
-                                    font-size: Typography.caption.size;
-                                    font-weight: FontWeight.semi-bold;
                                     vertical-alignment: center;
                                 }
 
@@ -849,11 +843,8 @@ export component InspectorPane inherits Rectangle {
                             HorizontalLayout {
                                 spacing: Metrics.space-compact;
 
-                                Text {
+                                InspectorFieldLabel {
                                     text: @tr("Alignment");
-                                    color: Colors.foreground;
-                                    font-size: Typography.caption.size;
-                                    font-weight: FontWeight.semi-bold;
                                     horizontal-stretch: 1;
                                 }
 
@@ -879,11 +870,8 @@ export component InspectorPane inherits Rectangle {
                                 spacing: Metrics.space-compact;
                                 cross-axis-alignment: center;
 
-                                Text {
+                                InspectorFieldLabel {
                                     text: @tr("Horizontal tiling");
-                                    color: Colors.foreground;
-                                    font-size: Typography.caption.size;
-                                    font-weight: FontWeight.semi-bold;
                                     vertical-alignment: center;
                                 }
 
@@ -915,11 +903,8 @@ export component InspectorPane inherits Rectangle {
                                 spacing: Metrics.space-compact;
                                 cross-axis-alignment: center;
 
-                                Text {
+                                InspectorFieldLabel {
                                     text: @tr("Vertical tiling");
-                                    color: Colors.foreground;
-                                    font-size: Typography.caption.size;
-                                    font-weight: FontWeight.semi-bold;
                                     vertical-alignment: center;
                                 }
 
@@ -1019,11 +1004,8 @@ export component InspectorPane inherits Rectangle {
                         spacing: Metrics.space-compact;
 
                         Row {
-                            Text {
+                            InspectorFieldLabel {
                                 text: @tr("Horizontal");
-                                color: Colors.foreground;
-                                font-size: Typography.caption.size;
-                                font-weight: FontWeight.semi-bold;
                                 vertical-alignment: center;
                                 horizontal-stretch: 0;
                             }
@@ -1043,11 +1025,8 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         Row {
-                            Text {
+                            InspectorFieldLabel {
                                 text: @tr("Vertical");
-                                color: Colors.foreground;
-                                font-size: Typography.caption.size;
-                                font-weight: FontWeight.semi-bold;
                                 vertical-alignment: center;
                                 horizontal-stretch: 0;
                             }
