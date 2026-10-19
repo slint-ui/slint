@@ -14,18 +14,16 @@ use super::layout::RetainedLineBreaking;
 use super::shaping::TextParagraph;
 use super::*;
 
-/// Shaped paragraphs together with the wrap mode they were shaped with.
+/// Shaped paragraphs together with the wrap mode and line-height factor they were shaped with.
 ///
-/// The glyph geometry only depends on (text, font, wrap, scale factor): the width is applied
-/// later by `break_all_lines`, and the fill/stroke/selection brushes only change colors, not
-/// positions. So one entry serves measuring, hit-testing and drawing alike -- but only for the
-/// wrap mode it was shaped with, because parley bakes the break opportunities into the shaped
-/// layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see `ranged_builder`). The scale factor
-/// is the other input baked into the shaping, but it applies to every entry at once and so is
-/// handled by the cache as a whole.
-///
-/// The line-height factor is baked in too, and width measurement shapes without it (see
-/// `TextForWidth`), so the entry is keyed on it like the wrap mode.
+/// The glyph geometry only depends on (text, font, wrap, line-height factor, scale factor): the
+/// width is applied later by `break_all_lines`, and the fill/stroke/selection brushes only change
+/// colors, not positions. So one entry serves measuring, hit-testing and drawing alike -- but
+/// only for the wrap mode and line-height factor it was shaped with, because parley bakes the
+/// break opportunities into the shaped layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see
+/// `ranged_builder`), and the line height into the line metrics. The scale factor is the other
+/// input baked into the shaping, but it applies to every entry at once and so is handled by the
+/// cache as a whole.
 struct CachedParagraphs {
     wrap: TextWrap,
     line_height_factor: Option<f32>,
@@ -239,8 +237,9 @@ pub(super) fn cached_paragraphs<'a>(
     cache.clear_if_scale_factor_changed(window);
 
     // Shaped geometry must never be mixed across wrap modes or line-height factors, and the
-    // entry only holds one of each at a time. Drop a mismatching one up front so the shaping below happens in the regular
-    // (vacant) path, inside a fresh dependency tracker and without the cache borrowed.
+    // entry only holds one of each at a time. Drop a mismatching one up front so the shaping
+    // below happens in the regular (vacant) path, inside a fresh dependency tracker and without
+    // the cache borrowed.
     //
     // Paragraphs that were never handed back can't be served either.
     let stale = cache
