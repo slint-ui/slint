@@ -143,7 +143,12 @@ fn preview_configuration(
         include_paths: configuration.compiler_config.include_paths.clone(),
         library_paths: configuration.compiler_config.library_paths.clone(),
         format_utf8: configuration.format == crate::ByteFormat::Utf8,
-        enable_experimental: configuration.compiler_config.enable_experimental,
+        experimental_features: configuration
+            .compiler_config
+            .experimental_features
+            .iter()
+            .map(|feature| feature.to_string())
+            .collect(),
     }
 }
 
@@ -270,7 +275,7 @@ impl EditorSession {
             mut include_paths,
             library_paths,
             style,
-            enable_experimental_features,
+            experimental_features,
             schema: _,
             entry: _,
         } = overrides;
@@ -294,8 +299,8 @@ impl EditorSession {
         });
         let mut style =
             style.map(|value| (value, override_source(workspace.style.is_some()).to_string()));
-        let mut enable_experimental = enable_experimental_features.map(|value| {
-            (value, override_source(workspace.enable_experimental_features.is_some()).to_string())
+        let mut experimental_features = experimental_features.map(|value| {
+            (value, override_source(workspace.experimental_features.is_some()).to_string())
         });
         let mut project_diagnostics = Vec::new();
 
@@ -307,7 +312,7 @@ impl EditorSession {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
                     style: project_style,
-                    enable_experimental_features: project_enable_experimental,
+                    experimental_features: project_experimental_features,
                     schema: _,
                     entry: _,
                 } = project.resolved_data();
@@ -338,8 +343,8 @@ impl EditorSession {
                 );
                 keep_first(&mut style, project_style, &source, "style", &mut warn);
                 keep_first(
-                    &mut enable_experimental,
-                    project_enable_experimental,
+                    &mut experimental_features,
+                    project_experimental_features,
                     &source,
                     "experimental features",
                     &mut warn,
@@ -358,7 +363,7 @@ impl EditorSession {
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
                 style: style.map(|(style, _)| style),
-                enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
+                experimental_features: experimental_features.map(|(features, _)| features),
                 schema: None,
                 entry: None,
             },
@@ -1004,13 +1009,15 @@ mod preview_tests {
 
     #[test]
     fn initial_preview_configuration_preserves_compiler_defaults() {
-        for enable_experimental in [true, false] {
+        for experimental_features in
+            [i_slint_compiler::ExperimentalFeatures::all(), Default::default()]
+        {
             let mut compiler_config = crate::document_cache::CompilerConfiguration::default();
             compiler_config.compiler_config.style = Some("fluent".into());
             compiler_config.compiler_config.include_paths = vec![PathBuf::from("/include")];
             compiler_config.compiler_config.library_paths =
                 HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]);
-            compiler_config.compiler_config.enable_experimental = enable_experimental;
+            compiler_config.compiler_config.experimental_features = experimental_features;
             compiler_config.format = crate::ByteFormat::Utf16;
             let (to_preview, messages) = crate::test::preview_capture();
             let session =
@@ -1031,7 +1038,10 @@ mod preview_tests {
                     include_paths: vec![PathBuf::from("/include")],
                     library_paths: HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]),
                     format_utf8: false,
-                    enable_experimental,
+                    experimental_features: experimental_features
+                        .iter()
+                        .map(|feature| feature.to_string())
+                        .collect(),
                 })
             );
         }
@@ -1524,7 +1534,7 @@ mod tests {
             let directory = temp.path().join(name);
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
-            std::fs::write(&path, r#"{"style":"fluent","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            std::fs::write(&path, r#"{"style":"fluent","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
             session.project_file_paths.push(path.clone());
             session.active_projects.insert(path.clone(), ProjectFile::load(&path).unwrap());
         }
@@ -1602,8 +1612,8 @@ mod tests {
         let inner = inner_directory.join(FILE_NAME);
         let document = inner_directory.join("main.slint");
         write_document(&document);
-        std::fs::write(&outer, r#"{"style":"fluent","enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#).unwrap();
-        std::fs::write(&inner, r#"{"style":"material","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        std::fs::write(&outer, r#"{"style":"fluent","experimental-features":["match"],"library-paths":{"widgets":"outer"}}"#).unwrap();
+        std::fs::write(&inner, r#"{"style":"material","experimental-features":[],"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
             session.project_file_paths.push(path.clone());
@@ -1629,7 +1639,7 @@ mod tests {
             compiler: Overrides {
                 project: ProjectFileData {
                     style: Some("cupertino".into()),
-                    enable_experimental_features: Some(false),
+                    experimental_features: Some(Default::default()),
                     include_paths: Some(Vec::new()),
                     library_paths: Some(HashMap::new()),
                     ..Default::default()
@@ -1735,7 +1745,7 @@ mod tests {
                     include_paths: Some(startup_paths.clone()),
                     library_paths: Some(startup_libraries.clone()),
                     style: Some("cosmic".into()),
-                    enable_experimental_features: Some(true),
+                    experimental_features: Some(i_slint_compiler::ExperimentalFeatures::all()),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -1757,7 +1767,7 @@ mod tests {
                         include_paths: Some(paths.clone()),
                         library_paths: Some(libraries.clone()),
                         style: Some("cupertino".into()),
-                        enable_experimental_features: Some(false),
+                        experimental_features: Some(Default::default()),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -1768,13 +1778,16 @@ mod tests {
             assert_eq!(session.preview_config.include_paths, paths);
             assert_eq!(session.preview_config.library_paths, libraries);
             assert_eq!(session.preview_config.style, "cupertino");
-            assert!(!session.preview_config.enable_experimental);
+            assert!(session.preview_config.experimental_features.is_empty());
         }
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(session.preview_config.include_paths, startup_paths);
         assert_eq!(session.preview_config.library_paths, startup_libraries);
         assert_eq!(session.preview_config.style, "cosmic");
-        assert!(session.preview_config.enable_experimental);
+        assert_eq!(
+            session.preview_config.experimental_features.join(","),
+            i_slint_compiler::ExperimentalFeatures::all().to_string()
+        );
         session.set_startup_config_overrides(Default::default());
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(session.preview_config.include_paths, vec![temp.path().join("project")]);
@@ -1866,7 +1879,7 @@ mod tests {
         let (merged, _) = session.merged_project_data(Default::default());
         assert_eq!(merged.schema, None);
         assert_eq!(merged.entry, None);
-        assert_eq!(merged.enable_experimental_features, None);
+        assert_eq!(merged.experimental_features, None);
         assert_eq!(session.active_projects[&project_a.join(FILE_NAME)].entry(), Some(document_a));
     }
 

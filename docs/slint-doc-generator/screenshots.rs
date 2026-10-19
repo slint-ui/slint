@@ -541,7 +541,7 @@ fn init_compiler(args: &ScreenshotsArgs) -> slint_interpreter::Compiler {
         Some(component) => ComponentSelection::Named(component.clone()),
         None => ComponentSelection::LastExported,
     };
-    config.enable_experimental = true;
+    config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
 
     compiler
 }

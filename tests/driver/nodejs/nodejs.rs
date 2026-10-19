@@ -94,7 +94,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
         .env("SLINT_LIBRARY_PATH", std::env::join_paths(library_paths).unwrap())
         .env("SLINT_SCALE_FACTOR", "1") // We don't have a testing backend, but we can try to force a SF1 as the tests expect.
-        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
+        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", test_driver_lib::ALL_EXPERIMENTAL_FEATURES)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

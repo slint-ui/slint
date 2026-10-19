@@ -73,8 +73,12 @@ mod tests {
         let new = "export component Test inherits Window { width: 200px; }";
         let old_cache =
             compile_test_with_sources("fluent", [(url.clone(), old.into())].into(), false);
-        let new_cache =
-            recompile_test_with_sources("fluent", [(url.clone(), new.into())].into(), false, false);
+        let new_cache = recompile_test_with_sources(
+            "fluent",
+            [(url.clone(), new.into())].into(),
+            false,
+            i_slint_compiler::ExperimentalFeatures::default(),
+        );
         let request = Request { id: 42, sources: [(url, new.into())].into() };
         PREVIEW_STATE.with_borrow_mut(|state| {
             *state = PreviewState::default();

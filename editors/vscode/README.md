@@ -93,15 +93,9 @@ To ensure your PR does not fail check everything with `pnpm type-check && pnpm f
 
 ## Preview the Library, Preview, and Property Editor
 
-The built-in live-preview can be used to preview itself. For this to work, VS Code needs to be restarted with an environment variable:
-
-1. Close all VS Code Windows and terminate the application.
-2. In a terminal Window, re-launch VS Code:
-   ```bash
-   SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 code
-   ```
-3. Open `tools/lsp/ui/main.slint` and launch the preview, or preview individual components such as the
-   library or properties view.
+The built-in live-preview can preview itself.
+Open `tools/lsp/ui/main.slint` and launch the preview,
+or preview individual components such as the library or properties view.
 
 ## Quality Assurance
 

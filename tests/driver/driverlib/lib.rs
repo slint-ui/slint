@@ -8,6 +8,17 @@ pub mod fork_harness;
 
 use regex::Regex;
 
+/// The value of `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that enables every experimental feature.
+pub const ALL_EXPERIMENTAL_FEATURES: &str = "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window";
+
+#[test]
+fn all_experimental_features_are_listed() {
+    assert_eq!(
+        ALL_EXPERIMENTAL_FEATURES,
+        i_slint_compiler::ExperimentalFeatures::all().to_string()
+    );
+}
+
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
     pub relative_path: std::path::PathBuf,

@@ -524,6 +524,7 @@ pub struct TypeRegister {
     parent_registry: Option<Rc<RefCell<TypeRegister>>>,
     /// If the lookup function should return types that are marked as internal
     pub(crate) expose_internal_types: bool,
+    pub(crate) experimental_features: crate::ExperimentalFeatures,
 }
 
 impl TypeRegister {
@@ -545,6 +546,7 @@ impl TypeRegister {
                 .as_ref()
                 .map(|tr| snapshotter.snapshot_type_register(tr)),
             expose_internal_types: self.expose_internal_types,
+            experimental_features: self.experimental_features,
         }
     }
 
@@ -619,36 +621,42 @@ impl TypeRegister {
         register
     }
 
-    #[doc(hidden)]
-    /// All builtins incl. experimental ones! Do not use in production code!
-    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
-        let register = Self::builtin_internal();
-        Rc::new(RefCell::new(register))
+    pub fn set_experimental_features(&mut self, features: crate::ExperimentalFeatures) {
+        self.experimental_features = features;
     }
 
     pub fn builtin() -> Rc<RefCell<Self>> {
-        let mut register = Self::builtin_internal();
-
-        register.elements.remove("ComponentContainer").unwrap();
-        register.types.remove("component-factory").unwrap();
-
-        Rc::new(RefCell::new(register))
+        Rc::new(RefCell::new(Self::builtin_internal()))
     }
 
     pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {
+        let parent_ref = parent.borrow();
         Self {
             parent_registry: Some(parent.clone()),
-            expose_internal_types: parent.borrow().expose_internal_types,
+            expose_internal_types: parent_ref.expose_internal_types,
+            experimental_features: parent_ref.experimental_features,
             ..Default::default()
         }
     }
 
     pub fn lookup(&self, name: &str) -> Type {
+        let ty = self.lookup_including_disabled(name);
+        if self.is_enabled(ty.experimental_feature()) { ty } else { Type::Invalid }
+    }
+
+    /// Like [`Self::lookup`], but also finds the types of disabled experimental features.
+    pub(crate) fn lookup_including_disabled(&self, name: &str) -> Type {
         self.types
             .get(name)
             .cloned()
-            .or_else(|| self.parent_registry.as_ref().map(|r| r.borrow().lookup(name)))
+            .or_else(|| {
+                self.parent_registry.as_ref().map(|r| r.borrow().lookup_including_disabled(name))
+            })
             .unwrap_or_default()
+    }
+
+    fn is_enabled(&self, feature: Option<crate::ExperimentalFeature>) -> bool {
+        feature.is_none_or(|feature| self.experimental_features.contains(feature))
     }
 
     fn lookup_element_as_result(
@@ -665,7 +673,14 @@ impl TypeRegister {
     }
 
     pub fn lookup_element(&self, name: &str) -> Result<ElementType, String> {
-        self.lookup_element_as_result(name).map_err(|context_restricted_types| {
+        let result = self.lookup_element_as_result(name);
+        if let Ok(element) = &result
+            && let Some(feature) = element.experimental_feature()
+            && !self.is_enabled(Some(feature))
+        {
+            return Err(crate::experimental_feature_error(name, feature));
+        }
+        result.map_err(|context_restricted_types| {
             if let Some(permitted_parent_types) = context_restricted_types.get(name) {
                 if permitted_parent_types.len() == 1 {
                     format!(
@@ -698,10 +713,19 @@ impl TypeRegister {
     }
 
     pub fn lookup_qualified<Member: AsRef<str>>(&self, qualified: &[Member]) -> Type {
-        if qualified.len() != 1 {
-            return Type::Invalid;
+        let ty = self.lookup_qualified_including_disabled(qualified);
+        if self.is_enabled(ty.experimental_feature()) { ty } else { Type::Invalid }
+    }
+
+    /// Like [`Self::lookup_qualified`], but also finds the types of disabled experimental features.
+    pub(crate) fn lookup_qualified_including_disabled<Member: AsRef<str>>(
+        &self,
+        qualified: &[Member],
+    ) -> Type {
+        match qualified {
+            [name] => self.lookup_including_disabled(name.as_ref()),
+            _ => Type::Invalid,
         }
-        self.lookup(qualified[0].as_ref())
     }
 
     /// Add the component with its defined name
@@ -737,8 +761,17 @@ impl TypeRegister {
 
     /// Return a hashmap with all the registered type
     pub fn all_types(&self) -> HashMap<SmolStr, Type> {
-        let mut all =
-            self.parent_registry.as_ref().map(|r| r.borrow().all_types()).unwrap_or_default();
+        let mut all = self.all_types_including_disabled();
+        all.retain(|_, ty| self.is_enabled(ty.experimental_feature()));
+        all
+    }
+
+    fn all_types_including_disabled(&self) -> HashMap<SmolStr, Type> {
+        let mut all = self
+            .parent_registry
+            .as_ref()
+            .map(|r| r.borrow().all_types_including_disabled())
+            .unwrap_or_default();
         for (k, v) in &self.types {
             all.insert(k.clone(), v.clone());
         }
@@ -747,8 +780,17 @@ impl TypeRegister {
 
     /// Return a hashmap with all the registered element type
     pub fn all_elements(&self) -> HashMap<SmolStr, ElementType> {
-        let mut all =
-            self.parent_registry.as_ref().map(|r| r.borrow().all_elements()).unwrap_or_default();
+        let mut all = self.all_elements_including_disabled();
+        all.retain(|_, element| self.is_enabled(element.experimental_feature()));
+        all
+    }
+
+    fn all_elements_including_disabled(&self) -> HashMap<SmolStr, ElementType> {
+        let mut all = self
+            .parent_registry
+            .as_ref()
+            .map(|r| r.borrow().all_elements_including_disabled())
+            .unwrap_or_default();
         for (k, v) in &self.elements {
             all.insert(k.clone(), v.clone());
         }

@@ -26,7 +26,7 @@
 Build the UI test binary from the repository root:
 
 ```sh
-SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window \
   cargo build --locked -p slint-editor --all-features --features slint/mcp
 ```
 

@@ -363,9 +363,6 @@ pub fn diagnostic_end_line_column_with_format(
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
 
-    /// When false, throw error for experimental features
-    pub enable_experimental: bool,
-
     /// When true, reject features not supported by the safety-critical subset
     #[cfg(feature = "slint-sc")]
     pub slint_sc: bool,

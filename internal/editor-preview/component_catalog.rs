@@ -293,8 +293,11 @@ pub fn all_exported_components(
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
     result: &mut Vec<ComponentInformation>,
 ) {
-    let enable_experimental =
-        document_cache.compiler_configuration().compiler_config.enable_experimental;
+    let interfaces_enabled = document_cache
+        .compiler_configuration()
+        .compiler_config
+        .experimental_features
+        .contains(i_slint_compiler::ExperimentalFeature::Interfaces);
 
     for url in document_cache.all_urls() {
         let Some(doc) = document_cache.get_document(&url) else { continue };
@@ -316,7 +319,7 @@ pub fn all_exported_components(
                 && exported_name.as_str() != "PopupWindow"
             {
                 Some(std_widgets_info(exported_name.as_str(), c.is_global()))
-            } else if is_std_widget_interfaces && enable_experimental {
+            } else if is_std_widget_interfaces && interfaces_enabled {
                 Some(std_widget_interfaces_info(exported_name.as_str()))
             } else if !is_builtin {
                 let offset =

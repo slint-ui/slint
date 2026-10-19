@@ -1568,7 +1568,8 @@ async fn parse_source(
     }
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
-    cc.enable_experimental |= config.enable_experimental;
+    cc.experimental_features |=
+        i_slint_compiler::ExperimentalFeatures::from_names(&config.experimental_features);
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
