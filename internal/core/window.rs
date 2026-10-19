@@ -553,6 +553,13 @@ pub struct PopupWindow {
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
 }
 
+impl PopupWindow {
+    /// Whether this popup is shown in the native window `window_adapter`.
+    fn is_native_window(&self, window_adapter: &Rc<dyn WindowAdapter>) -> bool {
+        matches!(&self.location, PopupWindowLocation::TopLevel(wa) if Rc::ptr_eq(wa, window_adapter))
+    }
+}
+
 impl Drop for PopupWindow {
     fn drop(&mut self) {
         // Dropping the `PopupWindow` is the single choke point that every close path funnels through
@@ -1009,13 +1016,8 @@ impl WindowInner {
             .and_then(|internal| internal.get_parent())
             .unwrap_or_else(|| window_adapter.clone());
         let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
-        let native_popup_index = active_popups.borrow().iter().position(|p| {
-            if let PopupWindowLocation::TopLevel(wa) = &p.location {
-                Rc::ptr_eq(wa, &window_adapter)
-            } else {
-                false
-            }
-        });
+        let native_popup_index =
+            active_popups.borrow().iter().position(|p| p.is_native_window(&window_adapter));
 
         if pressed_event {
             self.had_popup_on_press.set(!active_popups.borrow().is_empty());
@@ -2415,12 +2417,12 @@ impl WindowInner {
             return false;
         };
         let parent = WindowInner::from_pub(parent_adapter.window());
-        let popup_id = parent.active_popups.borrow().iter().find_map(|p| match &p.location {
-            PopupWindowLocation::TopLevel(wa) if Rc::ptr_eq(wa, &window_adapter) => {
-                Some(p.popup_id)
-            }
-            _ => None,
-        });
+        let popup_id = parent
+            .active_popups
+            .borrow()
+            .iter()
+            .find(|p| p.is_native_window(&window_adapter))
+            .map(|p| p.popup_id);
         let Some(popup_id) = popup_id else { return false };
         parent.close_popup(popup_id);
         true
