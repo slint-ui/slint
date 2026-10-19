@@ -121,8 +121,10 @@ box-pie-fill = ["box-line-damage"]
 box-line-damage = ["box-parallel"]
 box-touch-irq = ["box-parallel"]
 box-touch-worker = ["box-touch-irq"]
+box-imu = ["box-touch-worker", "dep:libm"]
 box-dma-backoff = ["box-dma"]
 esp32-s3-box-3 = [
+  "i-slint-renderer-software/experimental",
   "slint/unsafe-single-threaded",
   "esp-hal/esp32s3",
   "esp-hal/unstable",               # required for PSRAM support
@@ -245,6 +247,7 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
+libm = { version = "0.2", optional = true }
 slint = { version = "=1.19.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
 i-slint-core-macros = { version = "=1.19.0", path = "../../internal/core-macros" }

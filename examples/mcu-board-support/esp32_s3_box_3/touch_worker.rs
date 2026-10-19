@@ -28,6 +28,8 @@ pub(super) static ERRORS: AtomicU32 = AtomicU32::new(0);
 /// timestamped samples on its own core after the controller transaction ends.
 #[cfg(not(test))]
 pub(super) struct TouchWorker {
+    #[cfg(feature = "box-imu")]
+    imu: super::imu::Imu,
     i2c: BoardI2c,
     driver: Gt911Blocking<BoardI2c>,
     address: u8,
@@ -40,12 +42,14 @@ pub(super) struct TouchWorker {
 #[cfg(not(test))]
 impl TouchWorker {
     pub(super) fn new(
-        i2c: BoardI2c,
+        mut i2c: BoardI2c,
         driver: Gt911Blocking<BoardI2c>,
         address: u8,
         producer: TouchProducer<'static>,
     ) -> Self {
         Self {
+            #[cfg(feature = "box-imu")]
+            imu: super::imu::Imu::new(&mut i2c, now_us()),
             i2c,
             driver,
             address,
@@ -57,6 +61,17 @@ impl TouchWorker {
     }
 
     pub(super) fn poll(&mut self) {
+        self.poll_touch();
+        #[cfg(feature = "box-imu")]
+        {
+            let started = now_us();
+            self.imu.poll(&mut self.i2c, started);
+            #[cfg(feature = "box-profile")]
+            super::imu::Imu::record_read_time(now_us() - started);
+        }
+    }
+
+    fn poll_touch(&mut self) {
         if let Some(sample) = self.pending.take() {
             if let Err(sample) = self.producer.push(sample) {
                 self.pending = Some(sample);

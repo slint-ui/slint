@@ -25,6 +25,14 @@ use esp_hal::{
 };
 use esp_println::logger::init_logger_from_env;
 use gt911::Gt911Blocking;
+#[cfg(feature = "box-imu")]
+#[path = "imu.rs"]
+mod imu;
+#[cfg(feature = "box-imu")]
+#[path = "tilt_fusion.rs"]
+mod tilt_fusion;
+#[cfg(feature = "box-imu")]
+pub use imu::{set_active as set_ink_active, up as ink_up};
 #[cfg(feature = "box-touch-worker")]
 #[path = "touch_samples.rs"]
 mod touch_samples;
@@ -43,6 +51,8 @@ mod pie_pixel;
 
 #[path = "animation_frame.rs"]
 mod animation_frame;
+#[path = "native_buffer.rs"]
+mod native_buffer;
 #[cfg(feature = "box-profile")]
 mod profile;
 #[cfg(feature = "box-profile")]
@@ -687,7 +697,7 @@ fn render_full_frame(
 ) -> slint::platform::software_renderer::PhysicalRegion {
     #[cfg(feature = "box-pie-fill")]
     let pixels = pie_pixel::as_mut(pixels);
-    renderer.render(pixels, 320)
+    renderer.render_into_buffer(&mut native_buffer::FrameBuffer::new(pixels, 320))
 }
 
 #[cfg(feature = "box-frame-buffer")]
@@ -818,7 +828,7 @@ pub fn add_animation_frame_handler(callback: impl FnMut(u64) + 'static) {
 }
 
 #[cfg(feature = "box-profile")]
-pub use profile::{profile_mode, profile_scroll_y};
+pub use profile::{profile_ink_frame, profile_mode, profile_scroll_y};
 #[cfg(feature = "box-profile")]
 pub fn profile_animation_tick() -> u64 {
     queue().render_tick.load(Ordering::Acquire) as u64 + 1

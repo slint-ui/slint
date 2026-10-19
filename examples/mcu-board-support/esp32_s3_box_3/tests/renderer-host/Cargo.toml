@@ -1,0 +1,14 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "box3-texture-parity"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+slint = { path = "../../../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565"] }
+i-slint-renderer-software = { path = "../../../../../internal/renderers/software", features = ["experimental"] }

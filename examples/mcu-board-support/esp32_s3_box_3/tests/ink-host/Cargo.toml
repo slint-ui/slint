@@ -1,0 +1,22 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "box3-ink-host-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+box-ink-particles = []
+box-ink-tilt = ["box-ink-particles"]
+ink-native-assets = []
+box-profile = []
+
+[dependencies]
+libm = "0.2"
+embedded-hal = "1"
+log = "0.4"
+bytemuck = "1"

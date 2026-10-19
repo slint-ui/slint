@@ -551,3 +551,9 @@ path = [
 ]
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["demos/printerdemo_mcu/ink_particles/assets/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © Slint developers <info@slint.dev>"
+SPDX-License-Identifier = "MIT"

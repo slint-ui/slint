@@ -81,6 +81,8 @@ pub fn start(window: &MainWindow) -> slint::Timer {
         let Some(window) = weak.upgrade() else { return };
         let active = window.global::<PrinterState>().get_active_page() == Pages::Ink
             && window.global::<PrinterState>().get_active_subpage() == SubPage::None;
+        #[cfg(all(feature = "box-ink-tilt", target_arch = "xtensa"))]
+        mcu_board_support::set_ink_active(active);
         let mut animation = animation.borrow_mut();
         if !active {
             if animation.entered.is_some() {
@@ -97,7 +99,11 @@ pub fn start(window: &MainWindow) -> slint::Timer {
         let age = tick.saturating_sub(entered).min(45) as u32;
         let t = age * 1024 / 45;
         let reveal = t * t * (3072 - 2 * t) / (1024 * 1024);
+        #[cfg(feature = "box-bench")]
+        let mut times = [0u32; 4];
         for index in 0..4 {
+            #[cfg(feature = "box-bench")]
+            let started = mcu_board_support::profile_now_us();
             let level = window
                 .global::<PrinterState>()
                 .get_ink_levels()
@@ -112,17 +118,39 @@ pub fn start(window: &MainWindow) -> slint::Timer {
                 states: core::array::from_fn(|_| FrameState::default()),
             });
             tile.vial.set_level(((level.clamp(0., 1.) * reveal as f32) as u16).min(1024));
+            #[cfg(all(feature = "box-ink-tilt", target_arch = "xtensa"))]
+            tile.vial.advance_tilt(mcu_board_support::ink_up(), tick);
             tile.vial.set_held(
                 window.global::<InkParticles>().get_held().row_data(index).unwrap_or(false),
                 tick,
             );
+            #[cfg(feature = "box-bench")]
+            let prepared = mcu_board_support::profile_now_us();
             let pixels = tile.buffers[tile.back].make_mut_slice();
             tile.vial.restore_cached(pixels, &mut tile.states[tile.back]);
+            #[cfg(feature = "box-bench")]
+            let restored = mcu_board_support::profile_now_us();
             tile.vial.stamp_cached(tick, pixels, &mut tile.states[tile.back]);
+            #[cfg(feature = "box-bench")]
+            let stamped = mcu_board_support::profile_now_us();
             let frame = slint::Image::from_rgb565(tile.buffers[tile.back].clone());
             tile.back ^= 1;
             animation.frames.set_row_data(index, frame);
+            #[cfg(feature = "box-bench")]
+            {
+                let end = mcu_board_support::profile_now_us();
+                for (sum, value) in times.iter_mut().zip([
+                    prepared - started,
+                    restored - prepared,
+                    stamped - restored,
+                    end - stamped,
+                ]) {
+                    *sum += value as u32;
+                }
+            }
         }
+        #[cfg(feature = "box-bench")]
+        mcu_board_support::profile_ink_frame(times);
     };
     let timer = slint::Timer::default();
     #[cfg(all(feature = "box-ink-particles", target_arch = "xtensa"))]

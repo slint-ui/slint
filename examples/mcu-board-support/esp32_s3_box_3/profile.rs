@@ -14,6 +14,14 @@ use slint::platform::software_renderer::{
 static MODE: AtomicU32 = AtomicU32::new(0);
 static RAW_Y: AtomicU32 = AtomicU32::new(0);
 static CAPTURE: AtomicBool = AtomicBool::new(false);
+static INK_TIMES: [AtomicU32; 5] = [const { AtomicU32::new(0) }; 5];
+
+pub fn profile_ink_frame(times: [u32; 4]) {
+    INK_TIMES[0].fetch_add(1, Ordering::Relaxed);
+    for (total, time) in INK_TIMES[1..].iter().zip(times) {
+        total.fetch_add(time, Ordering::Relaxed);
+    }
+}
 
 pub(super) fn mode() -> u32 {
     MODE.load(Ordering::Relaxed)
@@ -111,6 +119,22 @@ impl Profile {
         let end_us = now_us();
         let end = Snapshot::capture();
         if self.mode != 0 {
+            let times = INK_TIMES.each_ref().map(|v| v.load(Ordering::Relaxed));
+            esp_println::println!(
+                "BOX_INK_TIMES,frames={},tilt_us={},restore_us={},stamp_us={},image_us={}",
+                times[0],
+                times[1],
+                times[2],
+                times[3],
+                times[4]
+            );
+            #[cfg(feature = "box-imu")]
+            {
+                let [samples, errors, max_read_us] = super::imu::telemetry();
+                esp_println::println!(
+                    "BOX_IMU,samples={samples},errors={errors},max_read_us={max_read_us}"
+                );
+            }
             let display: [u32; 5] =
                 core::array::from_fn(|i| end.display[i].wrapping_sub(self.start.display[i]));
             let late = end.late[0].wrapping_sub(self.start.late[0]);
@@ -161,6 +185,9 @@ impl Profile {
             esp_println::println!("PRINTER_MOTION_TRACE_END");
         }
         self.mode = mode;
+        for time in &INK_TIMES {
+            time.store(0, Ordering::Relaxed);
+        }
         self.start_us = now_us();
         self.start = Snapshot::capture();
         self.frames = 0;

@@ -1,23 +1,41 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use alloc::{vec, vec::Vec};
+use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
+#[path = "ink_particles/slosh.rs"]
+mod slosh;
+#[path = "ink_particles/tilt.rs"]
+mod tilt;
+
+#[path = "ink_particles/native_assets.rs"]
+mod native_assets;
 
 pub const BACKGROUND: [u8; 3] = [5, 9, 20];
 pub const COLORS: [[u8; 3]; 3] = [[255, 156, 16], [255, 56, 108], [20, 192, 255]];
 const BLACK_GLOW: [[u8; 3]; 3] = [[218, 234, 255], [94, 203, 236], [203, 157, 224]];
 pub const PARTICLES: usize = if cfg!(feature = "box-ink-particles") { 32 } else { 40 };
-const MAX_PARTICLES: usize = (PARTICLES * 13).div_ceil(10);
+const HELD_BOOST_PERCENT: usize = 30;
+const EXTRA_PARTICLES: usize = (PARTICLES * HELD_BOOST_PERCENT).div_ceil(100);
+const MAX_PARTICLES: usize = PARTICLES + EXTRA_PARTICLES;
 
+#[derive(Default)]
 pub struct FrameState {
     size: (usize, usize),
     level: Option<u16>,
-    bounds: [[u16; 4]; MAX_PARTICLES],
+    surface: Option<tilt::Surface>,
+    surface_rows: core::ops::Range<i32>,
+    rows: Vec<[u16; 2]>,
 }
 
-impl Default for FrameState {
-    fn default() -> Self {
-        Self { size: (0, 0), level: None, bounds: [[0; 4]; MAX_PARTICLES] }
+fn particle_radius(index: usize, seed: u32) -> usize {
+    if index >= PARTICLES || index % 8 == 0 {
+        5
+    } else if seed & 7 == 0 {
+        3
+    } else if seed & 3 != 0 {
+        2
+    } else {
+        1
     }
 }
 
@@ -76,38 +94,6 @@ fn seed(index: usize, vial: usize) -> u32 {
     x ^ (x >> 15)
 }
 
-const fn glow_atlas() -> [u8; 52224] {
-    let mut atlas = [0; 52224];
-    let mut radius = 1i32;
-    let mut offset = 0usize;
-    while radius <= 5 {
-        let width = (radius * 2 + 1) as usize;
-        let r2 = radius * radius * 256;
-        let mut phase = 0;
-        while phase < 256 {
-            let mut y = 0;
-            while y < width {
-                let dy = (y as i32 - radius) * 16 + 8 - (phase >> 4) as i32;
-                let mut x = 0;
-                while x < width {
-                    let dx = (x as i32 - radius) * 16 + 8 - (phase & 15) as i32;
-                    let distance = r2 - dx * dx - dy * dy;
-                    atlas[offset + phase * width * width + y * width + x] =
-                        if distance > 0 { (distance * 32 / r2) as u8 } else { 0 };
-                    x += 1;
-                }
-                y += 1;
-            }
-            phase += 1;
-        }
-        offset += 256 * width * width;
-        radius = if radius == 3 { 5 } else { radius + 1 };
-    }
-    atlas
-}
-
-static GLOW: [u8; 52224] = glow_atlas();
-
 fn add(dst: u16, source: u16) -> u16 {
     let rb = (dst as u32 & 0xf81f) + (source as u32 & 0xf81f);
     let overflow = rb & 0x10020;
@@ -124,24 +110,162 @@ fn blend_word(dst: u16, source: u16, alpha: u32) -> u16 {
     ((red << 11) | (green << 5) | blue) as u16
 }
 
+#[inline(always)]
+fn mix_surface(dst: u16, source: u16, alpha: u32) -> u16 {
+    let red = ((dst >> 11) as u32 * (256 - alpha) + (source >> 11) as u32 * alpha) >> 8;
+    let green = ((dst >> 5 & 63) as u32 * (256 - alpha) + (source >> 5 & 63) as u32 * alpha) >> 8;
+    let blue = ((dst & 31) as u32 * (256 - alpha) + (source & 31) as u32 * alpha) >> 8;
+    ((red << 11) | (green << 5) | blue) as u16
+}
+
+#[inline(always)]
+fn particle_weights(coverage: u32, opacity: u32, mask: u32, shine: u32) -> (u32, u32) {
+    let amount = coverage * opacity;
+    let ring = (amount * (32 - coverage) + 128) / 256;
+    if mask == 255 {
+        ((amount + 16) / 32, (ring * (8 + shine) + 20) / 40)
+    } else {
+        ((amount * mask + 4080) / 8160, (ring * (8 + shine) * mask + 5100) / 10200)
+    }
+}
+
+#[inline(always)]
+fn shade_row<P: Pixel, const MASKED: bool>(
+    pixels: &mut [P],
+    mask: &[u8],
+    colors: &[u16; 33],
+    opacity: u32,
+    radius: usize,
+    dx: i32,
+    dy: i32,
+) {
+    let divisor = (radius * radius * 8) as u32;
+    let mut distance = (radius * radius * 256) as i32 - dx * dx - dy * dy;
+    let mut delta = -32 * dx - 256;
+    for (x, (destination, &mask)) in pixels.iter_mut().zip(mask).enumerate() {
+        let coverage = if distance > 0 { distance as u32 / divisor } else { 0 };
+        distance += delta;
+        delta -= 512;
+        if coverage != 0 {
+            let mask = if MASKED { mask as u32 } else { 255 };
+            let shine = ((-dx - x as i32 * 16 - dy) * 8 / radius as i32 + 12).clamp(0, 32) as u32;
+            let (body, rim) = particle_weights(coverage, opacity, mask, shine);
+            let pixel = blend_word(destination.word(), rgb([3, 7, 13]), body.min(32));
+            *destination = P::from_word(add(pixel, colors[rim.min(32) as usize]));
+        }
+    }
+}
+
+struct StampPlan {
+    tick: u64,
+    population: u32,
+    travel_q8: u32,
+    phase: u32,
+    baseline_count: usize,
+    extra_population: u32,
+}
+
+impl StampPlan {
+    fn new(vial: &Vial, tick: u64) -> Self {
+        let travel_q8 = if vial.height.saturating_sub(vial.surface) < 8 {
+            0
+        } else {
+            (vial.height - vial.surface - 6) as u32 * 256
+        };
+        let population = PARTICLES as u32 * vial.level as u32 / 4;
+        Self {
+            tick,
+            population,
+            travel_q8,
+            phase: if travel_q8 == 0 { 0 } else { (tick % travel_q8 as u64) as u32 },
+            baseline_count: (population as usize).div_ceil(256),
+            extra_population: vial.extra_population(),
+        }
+    }
+
+    fn count(&self) -> usize {
+        if self.travel_q8 == 0 { 0 } else { self.baseline_count + EXTRA_PARTICLES }
+    }
+}
+
+#[cfg(test)]
+pub struct Paint<'a, P> {
+    vial: &'a Vial,
+    pixels: &'a mut [P],
+    state: &'a mut FrameState,
+    plan: StampPlan,
+    row: usize,
+    ordinal: usize,
+}
+
+#[cfg(test)]
+impl<'a, P: Pixel> Paint<'a, P> {
+    pub fn new(vial: &'a Vial, tick: u64, pixels: &'a mut [P], state: &'a mut FrameState) -> Self {
+        assert_eq!(pixels.len(), vial.width * vial.height);
+        state.rows.reserve(vial.height.saturating_sub(state.rows.len()));
+        Self { vial, pixels, state, plan: StampPlan::new(vial, tick), row: 0, ordinal: 0 }
+    }
+
+    pub fn step(&mut self) -> bool {
+        if self.row < self.vial.height {
+            let rows = if self.vial.tilt.as_ref().is_some_and(|t| t.surface.up != [0, -1024]) {
+                2
+            } else {
+                8
+            };
+            let end = (self.row + rows).min(self.vial.height);
+            self.vial.restore_rows(self.pixels, self.state, self.row..end);
+            self.row = end;
+            if end == self.vial.height {
+                self.state.size = (self.vial.width, self.vial.height);
+                self.state.level = Some(self.vial.level);
+                self.state.surface = self.vial.surface_key();
+                self.state.surface_rows = self.vial.surface_rows();
+                self.state.rows.clear();
+                self.state.rows.resize(self.vial.height, [self.vial.width as u16, 0]);
+            }
+        } else if self.ordinal < self.plan.count() {
+            if let Some((_, [x, y, width, height])) =
+                self.vial.stamp_particle(&self.plan, self.ordinal, self.pixels)
+            {
+                if width != 0 {
+                    for row in &mut self.state.rows[y as usize..(y + height) as usize] {
+                        row[0] = row[0].min(x);
+                        row[1] = row[1].max(x + width);
+                    }
+                }
+            }
+            self.ordinal += 1;
+        }
+        self.row == self.vial.height && self.ordinal == self.plan.count()
+    }
+}
+
 pub struct Vial {
     pub width: usize,
     pub height: usize,
     index: usize,
-    background: Vec<u16>,
-    empty: Vec<u16>,
-    liquid: Vec<u16>,
-    meniscus: Vec<[u8; 2]>,
-    mask: Vec<u8>,
-    rim: Vec<u8>,
+    tilt: Option<Box<tilt::Tilt>>,
+    surface_pixels: Vec<u16>,
+    surface_light: [u16; 2],
+    empty: Cow<'static, [u16]>,
+    liquid: Cow<'static, [u16]>,
+    meniscus: Cow<'static, [[u8; 2]]>,
+    mask: Cow<'static, [u8]>,
+    opaque_rows: Cow<'static, [[u16; 2]]>,
     surface: usize,
     level: u16,
-    held_since: Option<u64>,
+    held: bool,
+    extra_births: [Option<u32>; EXTRA_PARTICLES],
     colors: [[u16; 33]; 3],
 }
 
 impl Vial {
     pub fn new(width: usize, height: usize, index: usize) -> Self {
+        Self::build(width, height, index, true)
+    }
+
+    fn build(width: usize, height: usize, index: usize, use_assets: bool) -> Self {
         assert!((8..=512).contains(&width) && (24..=512).contains(&height));
         assert!(index < 4);
         let colors = (if index == 3 { BLACK_GLOW } else { COLORS }).map(|color| {
@@ -150,103 +274,118 @@ impl Vial {
                 rgb(hot.map(|v| ((v as u32 * a as u32 + 16) / 32) as u8))
             })
         });
+        let assets = use_assets.then(|| native_assets::vial(width, height, index)).flatten();
+        let mut rim = if assets.is_none() { vec![0; width * height] } else { Vec::new() };
         let mut vial = Self {
             width,
             height,
             index,
-            background: vec![0; width * height],
-            empty: vec![0; width * height],
-            liquid: vec![0; width * height],
-            meniscus: vec![[0; 2]; width * 7],
-            mask: vec![0; width * height],
-            rim: vec![0; width * height],
+            tilt: None,
+            surface_pixels: vec![0; width * 7],
+            surface_light: [0; 2],
+            empty: assets
+                .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.empty)),
+            liquid: assets
+                .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.liquid)),
+            meniscus: assets
+                .map_or_else(|| Cow::Owned(vec![[0; 2]; width * 7]), |a| Cow::Borrowed(a.meniscus)),
+            mask: assets
+                .map_or_else(|| Cow::Owned(vec![0; width * height]), |a| Cow::Borrowed(a.mask)),
+            opaque_rows: assets
+                .map_or_else(|| Cow::Owned(Vec::new()), |a| Cow::Borrowed(a.opaque_rows)),
             surface: height,
             level: u16::MAX,
-            held_since: None,
+            held: false,
+            extra_births: [None; EXTRA_PARTICLES],
             colors,
         };
-        for y in 0..height {
-            for x in 0..width {
-                let mut inside = 0;
-                let mut inner = 0;
-                for sy in [2, 6, 10, 14] {
-                    for sx in [2, 6, 10, 14] {
-                        let radius = width.min(height) as i32 * 7 - 8;
-                        let px = x as i32 * 16 + sx;
-                        let dx = px - px.clamp(radius + 8, width as i32 * 16 - radius - 8);
-                        let py = y as i32 * 16 + sy;
-                        let cy = py.clamp(radius + 8, height as i32 * 16 - radius - 8);
-                        let dy = py - cy;
-                        let distance = dx * dx + dy * dy;
-                        if distance <= radius * radius {
-                            inside += 1;
-                        }
-                        if distance <= (radius - 20) * (radius - 20) {
-                            inner += 1;
-                        }
-                    }
-                }
-                vial.mask[y * width + x] = (inside * 255 / 16) as u8;
-                vial.rim[y * width + x] = ((inside - inner) * 255 / 16) as u8;
-            }
-        }
-        for y in 0..7 {
-            for x in 0..width {
-                let (mut outer, mut inner) = (0, 0);
-                let rx = width as i64 * 8 - 16;
-                let ry = 48i64;
-                for sy in [2, 6, 10, 14] {
-                    for sx in [2, 6, 10, 14] {
-                        let dx = x as i64 * 16 + sx - width as i64 * 8;
-                        let dy = y as i64 * 16 + sy - 56;
-                        if dx * dx * ry * ry + dy * dy * rx * rx <= rx * rx * ry * ry {
-                            outer += 1;
-                        }
-                        let (ix, iy) = (rx - 12, ry - 12);
-                        if dx * dx * iy * iy + dy * dy * ix * ix <= ix * ix * iy * iy {
-                            inner += 1;
+        if assets.is_none() {
+            for y in 0..height {
+                for x in 0..width {
+                    let mut inside = 0;
+                    let mut inner = 0;
+                    for sy in [2, 6, 10, 14] {
+                        for sx in [2, 6, 10, 14] {
+                            let radius = width.min(height) as i32 * 7 - 8;
+                            let px = x as i32 * 16 + sx;
+                            let dx = px - px.clamp(radius + 8, width as i32 * 16 - radius - 8);
+                            let py = y as i32 * 16 + sy;
+                            let cy = py.clamp(radius + 8, height as i32 * 16 - radius - 8);
+                            let dy = py - cy;
+                            let distance = dx * dx + dy * dy;
+                            if distance <= radius * radius {
+                                inside += 1;
+                            }
+                            if distance <= (radius - 20) * (radius - 20) {
+                                inner += 1;
+                            }
                         }
                     }
+                    vial.mask.to_mut()[y * width + x] = (inside * 255 / 16) as u8;
+                    rim[y * width + x] = ((inside - inner) * 255 / 16) as u8;
                 }
-                vial.meniscus[y * width + x] =
-                    [(outer * 255 / 16) as u8, ((outer - inner) * 255 / 16) as u8];
             }
         }
-        for y in 0..height {
-            for x in 0..width {
-                let at = y * width + x;
-                let tint = vial.tint(x);
-                let dx = (x as i32 * 2 - width as i32 + 1).unsigned_abs();
-                let shade = dx * dx * 100 / (width * width) as u32;
-                let glass = blend([7, 13, 24], [44, 62, 84], shade);
-                let mut light = (170i32 - (x as i32 - 5).abs() * 34).max(0) as u32;
-                light = light * (height * 4 - y * 3) as u32 / (height * 4) as u32;
-                let rim = vial.rim[at] as u32;
-                let right = (82i32 - (x as i32 - width as i32 + 4).abs() * 30).max(0) as u32;
-                let top_x = x as i32 - width as i32 / 2;
-                let arch = 3 + top_x * top_x * 6 / (width * width / 4) as i32;
-                let cap = (230i32 - (y as i32 - arch).abs() * 90).max(0) as u32;
-                let cap = cap * (width as i32 / 3 - top_x.abs()).max(0) as u32 / (width / 3) as u32;
-                let polish = |color| {
-                    let color = blend(color, blend(tint, [255; 3], 65), rim);
-                    let color = blend(color, [180, 207, 234], light);
-                    let color = blend(color, [174, 207, 240], right);
-                    let color = blend(color, [231, 240, 255], cap);
-                    rgb(blend(BACKGROUND, color, vial.mask[at] as u32))
-                };
-                vial.empty[at] = polish(glass);
-                let liquid = if index == 3 {
-                    blend([3, 6, 11], tint, 9 + (height - y) as u32 * 6 / height as u32)
-                } else {
-                    blend(
-                        glass,
-                        tint,
-                        (55 + shade + (y * y * 100 / (height * height)) as u32).min(220),
-                    )
-                };
-                vial.liquid[at] = polish(liquid);
+        if assets.is_none() {
+            vial.opaque_rows = Cow::Owned(
+                vial.mask
+                    .chunks_exact(width)
+                    .map(|row| {
+                        let left = row.iter().position(|&mask| mask == 255).unwrap_or(width);
+                        let right =
+                            left + row[left..].iter().take_while(|&&mask| mask == 255).count();
+                        [left as u16, right as u16]
+                    })
+                    .collect(),
+            );
+            for y in 0..7 {
+                for x in 0..width {
+                    vial.meniscus.to_mut()[y * width + x] = native_assets::meniscus(width, x, y);
+                }
             }
         }
+        if assets.is_none() {
+            for y in 0..height {
+                for x in 0..width {
+                    let at = y * width + x;
+                    let tint = vial.tint(x);
+                    let dx = (x as i32 * 2 - width as i32 + 1).unsigned_abs();
+                    let shade = dx * dx * 100 / (width * width) as u32;
+                    let glass = blend([7, 13, 24], [44, 62, 84], shade);
+                    let mut light = (170i32 - (x as i32 - 5).abs() * 34).max(0) as u32;
+                    light = light * (height * 4 - y * 3) as u32 / (height * 4) as u32;
+                    let rim = rim[at] as u32;
+                    let right = (82i32 - (x as i32 - width as i32 + 4).abs() * 30).max(0) as u32;
+                    let top_x = x as i32 - width as i32 / 2;
+                    let arch = 3 + top_x * top_x * 6 / (width * width / 4) as i32;
+                    let cap = (230i32 - (y as i32 - arch).abs() * 90).max(0) as u32;
+                    let cap =
+                        cap * (width as i32 / 3 - top_x.abs()).max(0) as u32 / (width / 3) as u32;
+                    let polish = |color| {
+                        let color = blend(color, blend(tint, [255; 3], 65), rim);
+                        let color = blend(color, [180, 207, 234], light);
+                        let color = blend(color, [174, 207, 240], right);
+                        let color = blend(color, [231, 240, 255], cap);
+                        rgb(blend(BACKGROUND, color, vial.mask[at] as u32))
+                    };
+                    vial.empty.to_mut()[at] = polish(glass);
+                    let liquid = if index == 3 {
+                        blend([3, 6, 11], tint, 9 + (height - y) as u32 * 6 / height as u32)
+                    } else {
+                        blend(
+                            glass,
+                            tint,
+                            (55 + shade + (y * y * 100 / (height * height)) as u32).min(220),
+                        )
+                    };
+                    vial.liquid.to_mut()[at] = polish(liquid);
+                }
+            }
+        }
+        vial.surface_light = [
+            rgb(blend(vial.tint(0), [255; 3], 128)),
+            rgb(blend(vial.tint(width - 1), [255; 3], 128)),
+        ];
         vial.set_level(0);
         vial
     }
@@ -258,14 +397,14 @@ impl Vial {
         }
         self.level = level;
         self.surface = self.height - (self.height * level as usize / 1024);
-        let split = self.surface * self.width;
-        self.background[..split].copy_from_slice(&self.empty[..split]);
-        self.background[split..].copy_from_slice(&self.liquid[split..]);
+        if self.tilt.is_some() {
+            return;
+        }
         for y in self.surface..(self.surface + 7).min(self.height) {
             for x in 0..self.width {
                 let at = y * self.width + x;
                 let [coverage, rim] = self.meniscus[(y - self.surface) * self.width + x];
-                let pixel = self.background[at];
+                let pixel = self.liquid[at];
                 let color = [
                     ((pixel >> 11) * 255 / 31) as u8,
                     ((pixel >> 5 & 63) * 255 / 63) as u8,
@@ -274,8 +413,105 @@ impl Vial {
                 let tint = self.tint(x);
                 let plane = blend(color, tint, coverage as u32 / 3);
                 let ring = blend(plane, blend(tint, [255; 3], 128), rim as u32);
-                self.background[at] = rgb(blend(color, ring, self.mask[at] as u32));
+                self.surface_pixels[(y - self.surface) * self.width + x] =
+                    rgb(blend(color, ring, self.mask[at] as u32));
             }
+        }
+    }
+
+    pub fn advance_tilt(&mut self, up: [i16; 2], tick: u64) {
+        let mut tilt = self.tilt.take().unwrap_or_else(|| Box::new(tilt::Tilt::new(tick)));
+        if tilt.update(self, up, tick) {
+            self.prepare_surface(&mut tilt);
+        }
+        self.tilt = Some(tilt);
+    }
+
+    fn surface_key(&self) -> Option<tilt::Surface> {
+        self.tilt.as_ref().map(|t| t.surface)
+    }
+
+    fn surface_rows(&self) -> core::ops::Range<i32> {
+        self.tilt.as_ref().map_or(0..0, |t| t.surface_rows.clone())
+    }
+
+    #[inline(never)]
+    fn prepare_surface(&mut self, tilt: &mut tilt::Tilt) {
+        tilt.starts.resize(self.width, 0);
+        if self.surface_pixels.len() < self.width * 8 {
+            self.surface_pixels.reserve_exact(self.width * 8 - self.surface_pixels.len());
+            self.surface_pixels.resize(self.width * 8, 0);
+        }
+        tilt.surface_rows = i32::MAX..i32::MIN;
+        for x in 0..self.width {
+            let base = (tilt.surface.cut * 1024
+                - tilt.surface.up[0] as i32 * (x as i32 * 256 + 128))
+                / tilt.surface.up[1] as i32
+                - 3 * 256
+                + tilt.surface.ripple_offset(x, self.width);
+            let start = base.div_euclid(256);
+            let fraction = base.rem_euclid(256) as u32;
+            tilt.starts[x] = start as i16;
+            tilt.surface_rows.start = tilt.surface_rows.start.min(start);
+            tilt.surface_rows.end = tilt.surface_rows.end.max(start + 8);
+            let tint = rgb(self.tint(x));
+            let light = self.surface_light[usize::from(x * 2 >= self.width)];
+            for row in 0..8 {
+                let y = start + row as i32;
+                if y < 0 || y >= self.height as i32 {
+                    continue;
+                }
+                let at = y as usize * self.width + x;
+                let sample = |r: usize| {
+                    if r < 7 { self.meniscus[r * self.width + x] } else { [0; 2] }
+                };
+                let previous = if row == 0 { [0; 2] } else { sample(row - 1) };
+                let next = sample(row);
+                let profile: [u32; 2] = core::array::from_fn(|i| {
+                    (previous[i] as u32 * fraction + next[i] as u32 * (256 - fraction)) >> 8
+                });
+                let liquid = self.liquid[at];
+                let plane = mix_surface(liquid, tint, profile[0] / 3);
+                let ring = mix_surface(plane, light, profile[1]);
+                let wet = mix_surface(liquid, ring, self.mask[at] as u32);
+                self.surface_pixels[row * self.width + x] =
+                    if row == 0 { mix_surface(self.empty[at], wet, 256 - fraction) } else { wet };
+            }
+        }
+    }
+
+    #[inline(never)]
+    fn restore_tilted_row<P: Pixel>(
+        &self,
+        pixels: &mut [P],
+        y: usize,
+        left: usize,
+        right: usize,
+        tilt: &tilt::Tilt,
+    ) {
+        if left >= right {
+            return;
+        }
+        let start = y * self.width;
+        if (y as i32) < tilt.surface_rows.start || y as i32 >= tilt.surface_rows.end {
+            let background =
+                if (y as i32) < tilt.surface_rows.start { &self.empty } else { &self.liquid };
+            P::copy_background(
+                &mut pixels[start + left..start + right],
+                &background[start + left..start + right],
+            );
+            return;
+        }
+        for x in left..right {
+            let at = start + x;
+            let row = y as i32 - tilt.starts[x] as i32;
+            pixels[at] = P::from_word(if row < 0 {
+                self.empty[at]
+            } else if row < 8 {
+                self.surface_pixels[row as usize * self.width + x]
+            } else {
+                self.liquid[at]
+            });
         }
     }
 
@@ -288,69 +524,166 @@ impl Vial {
         }
     }
 
-    pub fn set_held(&mut self, held: bool, tick: u64) {
-        if held {
-            self.held_since.get_or_insert(tick);
-        } else {
-            self.held_since = None;
-        }
-    }
-
+    #[cfg(test)]
     pub fn draw<P: Pixel>(&self, tick: u64, pixels: &mut [P]) {
         self.restore(pixels);
         self.stamp(tick, pixels);
     }
 
+    #[cfg(test)]
     pub fn restore<P: Pixel>(&self, pixels: &mut [P]) {
-        assert_eq!(pixels.len(), self.background.len());
-        P::copy_background(pixels, &self.background);
+        if let Some(t) = &self.tilt {
+            for y in 0..self.height {
+                self.restore_tilted_row(pixels, y, 0, self.width, t);
+            }
+            return;
+        }
+        assert_eq!(pixels.len(), self.width * self.height);
+        let split = self.surface * self.width;
+        let end = (self.surface + 7).min(self.height) * self.width;
+        P::copy_background(&mut pixels[..split], &self.empty[..split]);
+        P::copy_background(&mut pixels[split..end], &self.surface_pixels[..end - split]);
+        P::copy_background(&mut pixels[end..], &self.liquid[end..]);
     }
 
     pub fn restore_cached<P: Pixel>(&self, pixels: &mut [P], state: &mut FrameState) {
-        assert_eq!(pixels.len(), self.background.len());
-        if state.size != (self.width, self.height) || state.level != Some(self.level) {
-            self.restore(pixels);
-            state.size = (self.width, self.height);
-            state.level = Some(self.level);
+        assert_eq!(pixels.len(), self.width * self.height);
+        self.restore_rows(pixels, state, 0..self.height);
+        state.size = (self.width, self.height);
+        state.level = Some(self.level);
+        state.surface = self.surface_key();
+        state.surface_rows = self.surface_rows();
+        state.rows.clear();
+    }
+
+    #[inline(always)]
+    fn restore_rows<P: Pixel>(
+        &self,
+        pixels: &mut [P],
+        state: &FrameState,
+        rows: core::ops::Range<usize>,
+    ) {
+        let changed = state.size != (self.width, self.height) || state.level != Some(self.level);
+        if let Some(tilt) = &self.tilt {
+            let moved = state.surface != self.surface_key();
+            let surface = state.surface_rows.start.min(tilt.surface_rows.start)
+                ..state.surface_rows.end.max(tilt.surface_rows.end);
+            for row in rows {
+                let [left, right] = if changed || (moved && surface.contains(&(row as i32))) {
+                    [0, self.width as u16]
+                } else {
+                    state.rows.get(row).copied().unwrap_or([0; 2])
+                };
+                self.restore_tilted_row(pixels, row, left as usize, right as usize, tilt);
+            }
+            return;
+        }
+        if changed {
+            let start = rows.start * self.width;
+            let end = rows.end * self.width;
+            let split = self.surface * self.width;
+            let surface_end = (self.surface + 7).min(self.height) * self.width;
+            let empty_end = end.min(split);
+            if start < empty_end {
+                P::copy_background(&mut pixels[start..empty_end], &self.empty[start..empty_end]);
+            }
+            let surface_start = start.max(split);
+            let surface_end_clipped = end.min(surface_end);
+            if surface_start < surface_end_clipped {
+                P::copy_background(
+                    &mut pixels[surface_start..surface_end_clipped],
+                    &self.surface_pixels[surface_start - split..surface_end_clipped - split],
+                );
+            }
+            let liquid_start = start.max(surface_end);
+            if liquid_start < end {
+                P::copy_background(&mut pixels[liquid_start..end], &self.liquid[liquid_start..end]);
+            }
         } else {
-            for &[x, y, width, height] in &state.bounds {
-                for row in y as usize..(y + height) as usize {
-                    let start = row * self.width + x as usize;
-                    let end = start + width as usize;
-                    P::copy_background(&mut pixels[start..end], &self.background[start..end]);
+            for row in rows {
+                let [left, right] = state.rows.get(row).copied().unwrap_or([0; 2]);
+                if left < right {
+                    let start = row * self.width + left as usize;
+                    let end = row * self.width + right as usize;
+                    let background = if row < self.surface {
+                        &self.empty[start..end]
+                    } else if row < self.surface + 7 {
+                        let offset = (row - self.surface) * self.width + left as usize;
+                        &self.surface_pixels[offset..offset + (right - left) as usize]
+                    } else {
+                        &self.liquid[start..end]
+                    };
+                    P::copy_background(&mut pixels[start..end], background);
                 }
             }
         }
-        state.bounds.fill([0; 4]);
     }
 
     pub fn stamp_cached<P: Pixel>(&self, tick: u64, pixels: &mut [P], state: &mut FrameState) {
-        state.bounds = self.stamp(tick, pixels);
+        let bounds = self.stamp(tick, pixels);
+        state.rows.clear();
+        state.rows.resize(self.height, [self.width as u16, 0]);
+        for [x, y, width, height] in bounds {
+            if width != 0 {
+                for row in &mut state.rows[y as usize..(y + height) as usize] {
+                    row[0] = row[0].min(x);
+                    row[1] = row[1].max(x + width);
+                }
+            }
+        }
     }
 
     pub fn stamp<P: Pixel>(&self, tick: u64, pixels: &mut [P]) -> [[u16; 4]; MAX_PARTICLES] {
         let mut bounds = [[0; 4]; MAX_PARTICLES];
-        if self.height.saturating_sub(self.surface) < 8 {
-            return bounds;
+        let plan = StampPlan::new(self, tick);
+        for ordinal in 0..plan.count() {
+            if let Some((index, area)) = self.stamp_particle(&plan, ordinal, pixels) {
+                bounds[index] = area;
+            }
         }
-        let population = PARTICLES as u32 * self.level as u32 / 4;
-        let base_count = self.particle_count();
-        let extra_population = if self.held_since.is_some() { population * 3 / 10 } else { 0 };
-        let extra_count = extra_population.div_ceil(256) as usize;
-        let travel_q8 = (self.height - self.surface - 6) as u32 * 256;
-        let phase = (tick % travel_q8 as u64) as u32;
-        for slot in 0..base_count + extra_count {
-            let extra = slot >= base_count;
-            let index = if extra { PARTICLES + slot - base_count } else { slot };
-            let seed = seed(index, self.index);
-            let radius = if index % 8 == 0 {
-                5
-            } else if seed & 7 == 0 {
-                3
-            } else if seed & 3 != 0 {
-                2
+        bounds
+    }
+
+    #[inline(never)]
+    fn stamp_particle<P: Pixel>(
+        &self,
+        plan: &StampPlan,
+        ordinal: usize,
+        pixels: &mut [P],
+    ) -> Option<(usize, [u16; 4])> {
+        let StampPlan { tick, population, travel_q8, phase, baseline_count, extra_population } =
+            *plan;
+        let extra = ordinal.checked_sub(baseline_count);
+        let index = extra.map_or(ordinal, |extra| PARTICLES + extra);
+        let seed = seed(index, self.index);
+        let radius = particle_radius(index, seed);
+        let visibility = if let Some(extra) = extra {
+            extra_population.saturating_sub(extra as u32 * 256).min(256)
+        } else {
+            population.saturating_sub(index as u32 * 256).min(256)
+        };
+        let (cx, cy, opacity) = if let Some(tilt) = &self.tilt {
+            let b = &tilt.bubbles[index];
+            if b.state != 1 {
+                return None;
+            }
+            let to_surface = (tilt.surface.cut_at(b.x, self.width)
+                - tilt::projection(tilt.surface.up, b.x, b.y))
+            .max(0) as u32;
+            let fade = ((b.age as u32 * 3).min(32)
+                * (to_surface.saturating_sub(radius as u32 * 256) / 24).min(32))
+                / 32;
+            (b.x / 16, b.y / 16, fade * visibility / 256)
+        } else {
+            let age = if let Some(extra) = extra {
+                let Some(born) = self.extra_births[extra] else { return None };
+                let age = (tick as u32).wrapping_sub(born);
+                if age > i32::MAX as u32 {
+                    return None;
+                }
+                Some(age)
             } else {
-                1
+                None
             };
             let margin = 5 + radius;
             let span = self.width.saturating_sub(margin * 2).max(1);
@@ -358,21 +691,13 @@ impl Vial {
             let cx = home as i32 * 16
                 + (wave(seed.wrapping_add((tick as u32).wrapping_mul(170))) * 32 >> 10);
             let speed_q8 = 48 + radius as u32 * 14 + ((seed >> 24) & 15);
-            let (distance, visibility) = if extra {
-                let age = tick.saturating_sub(self.held_since.unwrap());
-                let birth = (slot - base_count) as u64 * 6;
-                if age < birth {
-                    continue;
+            let (distance, visibility) = if let Some(elapsed) = age {
+                let extra = ordinal - baseline_count;
+                let distance = elapsed.saturating_mul(speed_q8);
+                if distance >= travel_q8 {
+                    return None;
                 }
-                (
-                    vertical_distance(
-                        ((age - birth) % travel_q8 as u64) as u32,
-                        0,
-                        speed_q8,
-                        travel_q8,
-                    ),
-                    extra_population.saturating_sub((slot - base_count) as u32 * 256).min(256),
-                )
+                (distance, extra_population.saturating_sub(extra as u32 * 256).min(256))
             } else {
                 (
                     vertical_distance(phase, seed, speed_q8, travel_q8),
@@ -382,69 +707,410 @@ impl Vial {
             let cy = (self.height as i32 - 4) * 16 - (distance >> 4) as i32;
             let opacity =
                 (distance.min(travel_q8 - distance) * 32 / 768).min(32) * visibility / 256;
-            let width = radius * 2 + 1;
-            let phase = ((cy & 15) as usize * 16 + (cx & 15) as usize) * width * width;
-            let offset = match radius {
-                1 => 0,
-                2 => 2304,
-                3 => 8704,
-                _ => 21248,
-            } + phase;
-            let color = if self.index == 3 {
-                match index % 5 {
-                    1 => 1,
-                    2 => 2,
-                    _ => 0,
-                }
-            } else {
-                self.index
-            };
-            let x0 = (cx >> 4) - radius as i32;
-            let y0 = (cy >> 4) - radius as i32;
-            let left = x0.max(0).min(self.width as i32);
-            let top = y0.max(self.surface as i32 + 2).min(self.height as i32);
-            let right = (x0 + width as i32).max(left).min(self.width as i32);
-            let bottom = (y0 + width as i32).max(top).min(self.height as i32);
-            bounds[slot] = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
-            for y in 0..width {
-                let py = y0 + y as i32;
-                if py < self.surface as i32 + 2 || py < 0 || py >= self.height as i32 {
+            (cx, cy, opacity)
+        };
+        let width = radius * 2 + 1;
+        let color = if self.index == 3 {
+            match index % 5 {
+                1 => 1,
+                2 => 2,
+                _ => 0,
+            }
+        } else {
+            self.index
+        };
+        let x0 = (cx >> 4) - radius as i32;
+        let y0 = (cy >> 4) - radius as i32;
+        let left = x0.max(0).min(self.width as i32);
+        let clip_top = if self.tilt.as_ref().is_some_and(|t| t.surface.up != [0, -1024]) {
+            0
+        } else {
+            self.surface as i32 + 2
+        };
+        let top = y0.max(clip_top).min(self.height as i32);
+        let right = (x0 + width as i32).max(left).min(self.width as i32);
+        let bottom = (y0 + width as i32).max(top).min(self.height as i32);
+        let bounds = [left as u16, top as u16, (right - left) as u16, (bottom - top) as u16];
+        if left == right || top == bottom {
+            return Some((index, bounds));
+        }
+        for py in top..bottom {
+            let mut row_left = left;
+            let mut row_right = right;
+            if let Some(t) = &self.tilt
+                && t.surface.up != [0, -1024]
+            {
+                let line = t.surface.cut * 1024 - t.surface.up[1] as i32 * (py * 256 + 128);
+                if t.surface.up[0] > 0 {
+                    row_right = row_right.min((line / t.surface.up[0] as i32 / 256).max(row_left));
+                } else if t.surface.up[0] < 0 {
+                    row_left = row_left.max((line / t.surface.up[0] as i32 / 256).min(row_right));
+                } else if line < 0 {
                     continue;
                 }
-                for x in 0..width {
-                    let px = x0 + x as i32;
-                    if px < 0 || px >= self.width as i32 {
-                        continue;
+            }
+            if row_left == row_right {
+                continue;
+            }
+            let start = py as usize * self.width + row_left as usize;
+            let row_len = (row_right - row_left) as usize;
+            let row = &mut pixels[start..start + row_len];
+            let mask = &self.mask[start..start + row_len];
+            let opaque = self.opaque_rows[py as usize];
+            let dx = row_left * 16 + 8 - cx;
+            let dy = py * 16 + 8 - cy;
+            if row_left >= opaque[0] as i32 && row_right <= opaque[1] as i32 {
+                shade_row::<P, false>(row, mask, &self.colors[color], opacity, radius, dx, dy);
+            } else {
+                shade_row::<P, true>(row, mask, &self.colors[color], opacity, radius, dx, dy);
+            }
+        }
+        Some((index, bounds))
+    }
+
+    pub fn set_held(&mut self, held: bool, tick: u64) {
+        if self.tilt.is_some() {
+            self.held = held;
+            return;
+        }
+        let new_press = held && !self.held;
+        self.held = held;
+        if self.height.saturating_sub(self.surface) < 8 {
+            self.extra_births.fill(None);
+            return;
+        }
+        let tick = tick as u32;
+        let travel = (self.height - self.surface - 6) as u32 * 256;
+        let extra_count = (self.extra_population() as usize).div_ceil(256);
+        for extra in 0..EXTRA_PARTICLES {
+            if let Some(born) = self.extra_births[extra] {
+                let age = tick.wrapping_sub(born);
+                if age > i32::MAX as u32 {
+                    if !held {
+                        self.extra_births[extra] = None;
                     }
-                    let at = py as usize * self.width + px as usize;
-                    let coverage = GLOW[offset + y * width + x] as u32;
-                    if coverage != 0 {
-                        let mask = self.mask[at] as u32;
-                        let body = (coverage * opacity * mask + 4080) / 8160;
-                        let pixel = blend_word(pixels[at].word(), rgb([3, 7, 13]), body.min(32));
-                        let dx = px * 16 + 8 - cx;
-                        let dy = py * 16 + 8 - cy;
-                        let shine = ((-dx - dy) * 8 / radius as i32 + 12).clamp(0, 32) as u32;
-                        let ring = (coverage * (32 - coverage) * opacity + 128) / 256;
-                        let rim = (ring * (8 + shine) * mask + 5100) / 10200;
-                        pixels[at] =
-                            P::from_word(add(pixel, self.colors[color][rim.min(32) as usize]));
-                        continue;
+                } else {
+                    let index = PARTICLES + extra;
+                    let seed = seed(index, self.index);
+                    let speed = 48 + particle_radius(index, seed) as u32 * 14 + ((seed >> 24) & 15);
+                    if age.saturating_mul(speed) >= travel {
+                        self.extra_births[extra] = None;
                     }
                 }
             }
+            if held && extra < extra_count && self.extra_births[extra].is_none() {
+                self.extra_births[extra] =
+                    Some(tick.wrapping_add(if new_press { extra as u32 * 3 } else { 0 }));
+            }
         }
-        bounds
     }
 
+    fn extra_population(&self) -> u32 {
+        (PARTICLES as u32 * self.level as u32 / 4) * HELD_BOOST_PERCENT as u32 / 100
+    }
+
+    #[cfg(test)]
     pub fn particle_count(&self) -> usize {
-        (PARTICLES as usize * self.level as usize).div_ceil(1024)
+        if let Some(t) = &self.tilt {
+            return t.count(self);
+        }
+        if self.height.saturating_sub(self.surface) < 8 {
+            return 0;
+        }
+        (PARTICLES * self.level as usize).div_ceil(1024)
+            + self.extra_births.iter().filter(|born| born.is_some()).count()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn legacy_background(vial: &Vial) -> Vec<u16> {
+        let mut background = vial.empty.to_vec();
+        let split = vial.surface * vial.width;
+        background[split..].copy_from_slice(&vial.liquid[split..]);
+        for y in vial.surface..(vial.surface + 7).min(vial.height) {
+            for x in 0..vial.width {
+                let at = y * vial.width + x;
+                let [coverage, rim] = vial.meniscus[(y - vial.surface) * vial.width + x];
+                let pixel = background[at];
+                let color = [
+                    ((pixel >> 11) * 255 / 31) as u8,
+                    ((pixel >> 5 & 63) * 255 / 63) as u8,
+                    ((pixel & 31) * 255 / 31) as u8,
+                ];
+                let tint = vial.tint(x);
+                let plane = blend(color, tint, coverage as u32 / 3);
+                let ring = blend(plane, blend(tint, [255; 3], 128), rim as u32);
+                background[at] = rgb(blend(color, ring, vial.mask[at] as u32));
+            }
+        }
+        background
+    }
+
+    #[test]
+    fn ellipse_remains_curved_and_continuous_through_zero_and_the_tilt_limit() {
+        let mut vial = Vial::new(48, 140, 0);
+        vial.set_level(512);
+        let mut frames = Vec::new();
+        for x in [-1, 0, 1] {
+            vial.tilt = None;
+            vial.advance_tilt([x, -1024], 0);
+            let mut pixels = vec![0; 48 * 140];
+            vial.restore(&mut pixels);
+            frames.push(pixels);
+        }
+        for other in [&frames[0], &frames[2]] {
+            let changed = other.iter().zip(&frames[1]).filter(|(a, b)| a != b).count();
+            assert!(changed < 150, "near-zero surface changed {changed} pixels");
+        }
+        let surface = &vial.surface_pixels;
+        assert_ne!(surface[2 * 48 + 24], surface[2 * 48 + 4]);
+        vial.tilt = None;
+        vial.advance_tilt([724, -724], 0);
+        assert_eq!(vial.tilt.as_ref().unwrap().surface.up, [512, -886]);
+        vial.tilt = None;
+        vial.advance_tilt([-1024, 0], 0);
+        assert_eq!(vial.tilt.as_ref().unwrap().surface.up, [-512, -886]);
+    }
+
+    #[test]
+    fn ripples_bend_the_surface_without_moving_contact_points() {
+        let mut vial = Vial::new(48, 140, 0);
+        vial.set_level(512);
+        vial.advance_tilt([0, -1024], 0);
+        for tick in 1..=4 {
+            vial.advance_tilt([350, -962], tick);
+        }
+        let tilt = vial.tilt.as_ref().unwrap();
+        assert!(tilt.surface.ripple[0].abs() >= 64);
+        let mut flat = tilt::Tilt::new(4);
+        flat.surface = tilt::Surface { ripple: [0; 2], ..tilt.surface };
+        let rippled = vial.surface_pixels.clone();
+        let rippled_starts = tilt.starts.clone();
+        vial.prepare_surface(&mut flat);
+        assert_ne!(rippled, vial.surface_pixels);
+        assert_eq!(rippled_starts[0], flat.starts[0]);
+        assert_eq!(rippled_starts[47], flat.starts[47]);
+    }
+
+    #[test]
+    fn idle_surface_modes_keep_contact_points_and_balance_displaced_area() {
+        for width in [32, 48, 51] {
+            for ripple in [[140, 39], [-140, 39], [140, -39], [-140, -39]] {
+                let surface = tilt::Surface { up: [0, -1024], cut: 0, ripple };
+                assert_eq!(surface.ripple_offset(0, width), 0);
+                assert_eq!(surface.ripple_offset(width - 1, width), 0);
+                let area: i32 = (0..width).map(|x| surface.ripple_offset(x, width)).sum();
+                assert!(area.abs() <= width as i32, "width {width}: area {area}");
+            }
+        }
+    }
+
+    #[test]
+    fn tilted_retained_buffers_match_full_frames_through_rotation_and_release() {
+        let directions = [
+            [0, -1024],
+            [724, -724],
+            [1024, 0],
+            [724, 724],
+            [0, 1024],
+            [-724, 724],
+            [-1024, 0],
+            [-724, -724],
+        ];
+        for index in 0..4 {
+            let mut v = Vial::new(48, 140, index);
+            v.set_level([409, 665, 512, 819][index]);
+            let mut expected = vec![0u16; 48 * 140];
+            let mut actual = [expected.clone(), expected.clone()];
+            let mut states = [FrameState::default(), FrameState::default()];
+            for tick in 0..720 {
+                v.set_held(tick < 300 || (500..550).contains(&tick), tick);
+                v.advance_tilt(directions[tick as usize / 30 % directions.len()], tick);
+                v.draw(tick, &mut expected);
+                let back = tick as usize & 1;
+                let mut paint = Paint::new(&v, tick, &mut actual[back], &mut states[back]);
+                while !paint.step() {}
+                assert_eq!(actual[back], expected, "vial {index}, tick {tick}");
+            }
+        }
+    }
+
+    #[test]
+    fn tilted_extra_bubbles_retire_at_the_surface_after_release() {
+        let mut v = Vial::new(48, 140, 1);
+        v.set_level(665);
+        for tick in 0..300 {
+            v.set_held(true, tick);
+            v.advance_tilt([724, -724], tick);
+        }
+        assert_eq!(
+            v.particle_count(),
+            (PARTICLES * 665).div_ceil(1024)
+                + ((PARTICLES as u32 * 665 / 4) * HELD_BOOST_PERCENT as u32 / 100).div_ceil(256)
+                    as usize
+        );
+        for tick in 300..2300 {
+            v.set_held(false, tick);
+            let t = v.tilt.as_ref().unwrap();
+            let before = t.bubbles;
+            let cut = t.surface.cut;
+            v.advance_tilt([724, -724], tick);
+            let after = &v.tilt.as_ref().unwrap().bubbles;
+            for i in PARTICLES..MAX_PARTICLES {
+                if before[i].state == 1 && after[i].state == 0 {
+                    let radius = particle_radius(i, seed(i, v.index)) as i32;
+                    assert!(
+                        cut - tilt::projection([512, -886], before[i].x, before[i].y)
+                            < radius * 256 + 256
+                    );
+                }
+            }
+        }
+        assert_eq!(v.particle_count(), (PARTICLES * 665).div_ceil(1024));
+    }
+
+    #[test]
+    fn bounded_paint_matches_cached_frames_through_holds_and_level_changes() {
+        for (width, height) in [(48, 140), (51, 134), (32, 96)] {
+            for index in 0..4 {
+                let mut vial = Vial::new(width, height, index);
+                let mut serial = [vec![0u16; width * height], vec![0; width * height]];
+                let mut batched = serial.clone();
+                let mut serial_states = core::array::from_fn::<_, 2, _>(|_| FrameState::default());
+                let mut batched_states = core::array::from_fn::<_, 2, _>(|_| FrameState::default());
+                for tick in 0..1200 {
+                    let back = tick as usize & 1;
+                    let level = [409, 665, 512, 819][index];
+                    vial.set_level(if (500..540).contains(&tick) { 1024 } else { level });
+                    vial.set_held((20..400).contains(&tick) || (700..850).contains(&tick), tick);
+                    vial.restore_cached(&mut serial[back], &mut serial_states[back]);
+                    vial.stamp_cached(tick, &mut serial[back], &mut serial_states[back]);
+                    let mut paint =
+                        Paint::new(&vial, tick, &mut batched[back], &mut batched_states[back]);
+                    let mut steps = 1;
+                    while !paint.step() {
+                        steps += 1;
+                    }
+                    assert!(steps <= height.div_ceil(8) + MAX_PARTICLES);
+                    assert!(paint.step());
+                    assert_eq!(serial[back], batched[back], "vial {index}, tick {tick}");
+                    assert_eq!(serial_states[back].rows, batched_states[back].rows);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn row_shading_matches_direct_subpixel_coverage() {
+        let colors = core::array::from_fn(|i| rgb([i as u8 * 7, i as u8 * 5, i as u8 * 3]));
+        for radius in [1i32, 2, 3, 5] {
+            let width = (radius * 2 + 1) as usize;
+            for phase in 0..256 {
+                for y in 0..width {
+                    let dx = -radius * 16 + 8 - (phase & 15);
+                    let dy = (y as i32 - radius) * 16 + 8 - (phase >> 4);
+                    for opacity in [0, 1, 7, 16, 31, 32] {
+                        for mask in [0u8, 13, 127, 255] {
+                            let initial: Vec<u16> =
+                                (0..width).map(|x| (x as u16).wrapping_mul(6137)).collect();
+                            let mut expected = initial.clone();
+                            for (x, pixel) in expected.iter_mut().enumerate() {
+                                let px = dx + x as i32 * 16;
+                                let r2 = radius * radius * 256;
+                                let coverage = ((r2 - px * px - dy * dy).max(0) * 32 / r2) as u32;
+                                let shine = ((-px - dy) * 8 / radius + 12).clamp(0, 32) as u32;
+                                let body = (coverage * opacity * mask as u32 + 4080) / 8160;
+                                let ring = (coverage * (32 - coverage) * opacity + 128) / 256;
+                                let rim = (ring * (8 + shine) * mask as u32 + 5100) / 10200;
+                                *pixel = add(
+                                    blend_word(*pixel, rgb([3, 7, 13]), body),
+                                    colors[rim as usize],
+                                );
+                            }
+                            let masks = vec![mask; width];
+                            let mut actual = initial.clone();
+                            shade_row::<u16, true>(
+                                &mut actual,
+                                &masks,
+                                &colors,
+                                opacity,
+                                radius as usize,
+                                dx,
+                                dy,
+                            );
+                            assert_eq!(actual, expected);
+                            if mask == 255 {
+                                let mut opaque = initial;
+                                shade_row::<u16, false>(
+                                    &mut opaque,
+                                    &masks,
+                                    &colors,
+                                    opacity,
+                                    radius as usize,
+                                    dx,
+                                    dy,
+                                );
+                                assert_eq!(opaque, expected);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn cached_opaque_spans_cover_only_full_glass_samples() {
+        for (width, height) in [(8, 24), (32, 96), (48, 140), (51, 134)] {
+            let vial = Vial::new(width, height, 0);
+            for (y, &[left, right]) in vial.opaque_rows.iter().enumerate() {
+                assert!(left <= right && right as usize <= width);
+                assert!(
+                    vial.mask[y * width + left as usize..y * width + right as usize]
+                        .iter()
+                        .all(|&mask| mask == 255)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn opaque_particle_weights_preserve_every_coverage_fade_and_highlight() {
+        for coverage in 0..=32 {
+            for opacity in 0..=32 {
+                for mask in 0..=255 {
+                    for shine in 0..=32 {
+                        let body = (coverage * opacity * mask + 4080) / 8160;
+                        let ring = (coverage * (32 - coverage) * opacity + 128) / 256;
+                        let rim = (ring * (8 + shine) * mask + 5100) / 10200;
+                        assert_eq!(particle_weights(coverage, opacity, mask, shine), (body, rim));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn borrowed_background_spans_preserve_full_composition_at_every_level() {
+        for (width, height) in [(8, 24), (48, 140), (51, 134)] {
+            for index in 0..4 {
+                let mut vial = Vial::new(width, height, index);
+                let mut actual = vec![0; width * height];
+                for level in 0..=1024 {
+                    vial.set_level(level);
+                    vial.restore(&mut actual);
+                    assert_eq!(
+                        actual,
+                        legacy_background(&vial),
+                        "{width}x{height}, vial {index}, level {level}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn saturating_add_matches_component_reference() {
         for a in (0..=65535).step_by(131) {
@@ -462,10 +1128,11 @@ mod tests {
             let mut vial = Vial::new(51, 134, index);
             vial.set_level([410, 205, 512, 819][index]);
             let mut frame = vec![0; 51 * 134];
+            let background = legacy_background(&vial);
             let mut changed = 0;
             for tick in 0..240 {
                 vial.draw(tick, &mut frame);
-                for (at, (&pixel, &background)) in frame.iter().zip(&vial.background).enumerate() {
+                for (at, (&pixel, &background)) in frame.iter().zip(&background).enumerate() {
                     if at / 51 < vial.surface + 2 || vial.mask[at] == 0 {
                         assert_eq!(pixel, background);
                     }
@@ -518,69 +1185,132 @@ mod tests {
     }
 
     #[test]
+    fn native_assets_preserve_procedural_frames() {
+        for index in 0..4 {
+            let mut asset = Vial::new(48, 140, index);
+            let mut reference = Vial::build(48, 140, index, false);
+            let mut a = vec![0; 48 * 140];
+            let mut b = a.clone();
+            for level in [0, 205, 410, 819, 1024] {
+                asset.set_level(level);
+                reference.set_level(level);
+                for tick in [0, 60, 360, 60_000] {
+                    asset.draw(tick, &mut a);
+                    reference.draw(tick, &mut b);
+                    assert_eq!(a, b, "vial {index}, level {level}, tick {tick}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn density_scales_with_fill_level() {
         let mut vial = Vial::new(51, 134, 0);
-        let cases = if PARTICLES == 32 {
-            [(0, 0), (204, 7), (409, 13), (512, 16), (819, 26), (1024, 32)]
-        } else {
-            [(0, 0), (204, 8), (409, 16), (512, 20), (819, 32), (1024, 40)]
-        };
-        for (level, count) in cases {
+        for level in [0, 204, 409, 512, 819, 1024] {
+            let count = (PARTICLES * level as usize).div_ceil(1024);
             vial.set_level(level);
             assert_eq!(vial.particle_count(), count);
         }
     }
 
     #[test]
-    fn held_bubbles_emerge_from_bottom_and_preserve_existing_motion() {
-        let cases = if PARTICLES == 32 {
-            [(0, 409, 4), (1, 665, 7), (2, 512, 5), (3, 819, 8), (3, 1024, 10)]
-        } else {
-            [(0, 409, 5), (1, 665, 8), (2, 512, 6), (3, 819, 10), (3, 1024, 12)]
-        };
-        for (index, level, extra) in cases {
+    fn holding_adds_large_bubbles_and_release_preserves_them() {
+        for (index, level) in [(0, 409), (1, 665), (2, 512), (3, 819)] {
+            let normal = (PARTICLES * level as usize).div_ceil(1024);
+            let extra = ((PARTICLES as u32 * level as u32 / 4) * 30 / 100).div_ceil(256) as usize;
+            let boosted = normal + extra;
             let mut vial = Vial::new(48, 140, index);
             vial.set_level(level);
-            let base = vial.particle_count();
-            let mut pixels = vec![0; 48 * 140];
-            let original = vial.stamp(100, &mut pixels);
+            assert_eq!(vial.particle_count(), normal);
             vial.set_held(true, 100);
-            let born = vial.stamp(100, &mut pixels);
-            assert_eq!(&born[..base], &original[..base]);
-            assert!(born[base][1] as usize >= vial.height - 10);
-            assert!(born[base + 1..].iter().all(|b| *b == [0; 4]));
-            vial.set_held(true, 200);
-            let held = vial.stamp(200, &mut pixels);
-            assert!(held[base..base + extra].iter().all(|b| b[2] > 0 && b[3] > 0));
-            assert!(held[base + extra..].iter().all(|b| *b == [0; 4]));
-            vial.set_held(false, 200);
-            let released = vial.stamp(200, &mut pixels);
-            assert_eq!(&held[..base], &released[..base]);
-            assert!(released[base..].iter().all(|b| *b == [0; 4]));
-            vial.set_held(true, 201);
-            let restarted = vial.stamp(201, &mut pixels);
-            assert!(restarted[base][1] as usize >= vial.height - 10);
-            assert!(restarted[base + 1..].iter().all(|b| *b == [0; 4]));
+            for extra in 0..EXTRA_PARTICLES {
+                assert_eq!(particle_radius(PARTICLES + extra, seed(PARTICLES + extra, index)), 5);
+            }
+            assert_eq!(vial.particle_count(), boosted);
+            assert_eq!(
+                vial.extra_population(),
+                (PARTICLES as u32 * level as u32 / 4) * HELD_BOOST_PERCENT as u32 / 100
+            );
+            let mut frame = vec![0; 48 * 140];
+            vial.restore(&mut frame);
+            let first = vial.stamp(100, &mut frame);
+            assert!(first[PARTICLES][1] >= 128);
+            assert_eq!(first[PARTICLES + 1], [0; 4]);
+            vial.restore(&mut frame);
+            let later = vial.stamp(130, &mut frame);
+            assert!(later[PARTICLES][1] < first[PARTICLES][1]);
+            vial.draw(130, &mut frame);
+            let before_release = frame.clone();
+            vial.set_held(false, 130);
+            vial.draw(130, &mut frame);
+            assert_eq!(frame, before_release);
+            assert!(vial.particle_count() > normal);
+            for tick in 131..800 {
+                let births = vial.extra_births;
+                vial.set_held(false, tick);
+                for (extra, born) in births.into_iter().enumerate() {
+                    if let Some(born) = born {
+                        let seed = seed(PARTICLES + extra, index);
+                        let speed = 48
+                            + particle_radius(PARTICLES + extra, seed) as u32 * 14
+                            + ((seed >> 24) & 15);
+                        let reached_top = (tick as u32).wrapping_sub(born) * speed
+                            >= (vial.height - vial.surface - 6) as u32 * 256;
+                        assert_eq!(vial.extra_births[extra].is_none(), reached_top);
+                    } else {
+                        assert_eq!(vial.extra_births[extra], None);
+                    }
+                }
+            }
+            assert_eq!(vial.particle_count(), normal);
         }
     }
 
     #[test]
-    fn release_restores_both_cached_buffers_to_the_original_population() {
+    fn cached_hold_and_release_preserve_normal_frames_without_trails() {
         for index in 0..4 {
             let mut vial = Vial::new(48, 140, index);
+            let mut normal = Vial::new(48, 140, index);
             vial.set_level([409, 665, 512, 819][index]);
+            normal.set_level([409, 665, 512, 819][index]);
             let mut buffers = [vec![0; 48 * 140], vec![0; 48 * 140]];
             let mut states = [FrameState::default(), FrameState::default()];
             let mut reference = vec![0; 48 * 140];
-            for tick in 0..600 {
-                vial.set_held(tick % 150 < 100, tick);
+            for tick in 0..1000 {
+                let held = (60..180).contains(&tick) || (240..300).contains(&tick);
+                vial.set_held(held, tick);
                 let back = tick as usize % 2;
                 vial.restore_cached(&mut buffers[back], &mut states[back]);
                 vial.stamp_cached(tick, &mut buffers[back], &mut states[back]);
                 vial.draw(tick, &mut reference);
                 assert_eq!(buffers[back], reference, "vial {index}, tick {tick}");
+                assert!(vial.particle_count() <= MAX_PARTICLES);
+                if vial.extra_births.iter().all(Option::is_none) {
+                    normal.draw(tick, &mut reference);
+                    assert_eq!(buffers[back], reference);
+                }
             }
         }
+    }
+
+    #[test]
+    fn live_births_survive_repress_and_handle_panel_tick_wrap() {
+        let mut vial = Vial::new(48, 140, 0);
+        vial.set_level(1024);
+        let start = u32::MAX as u64 - 4;
+        vial.set_held(true, start);
+        let first_birth = vial.extra_births[0];
+        vial.set_held(true, 5);
+        assert_eq!(vial.extra_births[0], first_birth);
+        assert_eq!(vial.particle_count(), MAX_PARTICLES);
+        let mut frame = vec![0; 48 * 140];
+        vial.draw(5, &mut frame);
+        vial.set_held(false, 6);
+        vial.set_held(true, 7);
+        assert_eq!(vial.extra_births[0], first_birth);
+        assert!(vial.held);
+        vial.set_level(0);
+        assert_eq!(vial.particle_count(), 0);
     }
 
     #[test]

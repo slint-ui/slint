@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "mode": 1,
+      "elapsed_us": 10007767,
+      "frames": 600,
+      "draw_total_us": 4929131,
+      "draw_max_us": 9442,
+      "raster_total_us": 4086215,
+      "queue_total_us": 824450,
+      "presented": 600,
+      "changed_hash": 600,
+      "repeated_panel_frames": 0,
+      "skipped_panel_cycles": 0,
+      "timeouts": 0,
+      "late_packets": 0,
+      "late_cycles": 0,
+      "truncated": 0,
+      "fps": 59.95343416768196,
+      "draw_mean_us": 8215.218333333334
+    }
+  ],
+  "parity": [
+    {
+      "pixels": 76800,
+      "differences": 0
+    }
+  ],
+  "sensors": [
+    "BOX_IMU,samples=824,errors=0,max_read_us=1879"
+  ]
+}

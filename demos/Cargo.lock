@@ -3319,6 +3319,7 @@ dependencies = [
  "derive_more",
  "i-slint-core",
  "i-slint-core-macros",
+ "libm",
  "log",
  "once_cell",
  "pin-weak",
@@ -4335,6 +4336,7 @@ version = "1.19.0"
 dependencies = [
  "bytemuck",
  "divan",
+ "libm",
  "mcu-board-support",
  "slint",
  "slint-build",
