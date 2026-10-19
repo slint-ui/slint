@@ -1799,10 +1799,10 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
-                style,
                 enable_experimental_features: experimental,
                 ..Default::default()
             },
+            style,
             ..Default::default()
         },
     }

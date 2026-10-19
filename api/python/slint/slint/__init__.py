@@ -320,7 +320,7 @@ def _load_file(
 
     A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
     settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `entry` is loaded.
+    `path` can also be a `slint-project.json`, whose `main` is loaded.
 
     """
 
@@ -400,7 +400,7 @@ def load_file(
 
     A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
     settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `entry` is loaded.
+    `path` can also be a `slint-project.json`, whose `main` is loaded.
 
     """
 

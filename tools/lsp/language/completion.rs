@@ -2826,11 +2826,11 @@ mod tests {
     }
 
     #[test]
-    fn project_entry_import_graph_supplies_completion_suggestions() {
+    fn project_main_import_graph_supplies_completion_suggestions() {
         let directory = tempfile::TempDir::new().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{ "entry": "entry.slint" }"#,
+            r#"{ "main": "entry.slint" }"#,
         )
         .unwrap();
         std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();

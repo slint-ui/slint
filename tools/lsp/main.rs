@@ -506,9 +506,9 @@ async fn run_main_loop(
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths: startup_include_paths,
                 library_paths: startup_library_paths,
-                style: startup_style,
                 ..Default::default()
             },
+            style: startup_style,
             ..Default::default()
         },
         ..Default::default()
