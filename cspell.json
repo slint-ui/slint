@@ -411,6 +411,52 @@
   ],
   "overrides": [
     {
+      "filename": "examples/mcu-board-support/pico2_touch_lcd_2_8/**",
+      "words": [
+        "autopull",
+        "coprodis",
+        "cpuid",
+        "demangle",
+        "dreq",
+        "execctrl",
+        "fdebug",
+        "fjoin",
+        "flashhash",
+        "flashinfo",
+        "fstat",
+        "hotspots",
+        "mattr",
+        "mcpu",
+        "objcopy",
+        "pagebreak",
+        "pender",
+        "pinctrl",
+        "precheck",
+        "rcmd",
+        "readback",
+        "readbacks",
+        "rfmt",
+        "rustlib",
+        "rxdelay",
+        "shiftctrl",
+        "shiftdir",
+        "sideset",
+        "strided",
+        "touchdispatch",
+        "touchlatency",
+        "touchreplay",
+        "touchstats",
+        "touchtrace",
+        "txstall",
+        "unrotated",
+        "wakeups"
+      ],
+      "ignoreRegExpList": [
+        "/\\b0x[0-9a-f_]+(?:[iu](?:8|16|32|64|128|size))?\\b/gi",
+        "/\\\\t[a-z]+/g"
+      ]
+    },
+    {
       "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
       "words": ["uikit"]
     },

@@ -76,7 +76,7 @@ The raster column excludes input dispatch, particle simulation, transfer plannin
 These automated workloads demonstrate retained display cadence; they do not negate the physical dispatch outlier above.
 Two complete Kiosk cycles also passed all six scene windows with zero missed phases, late strips or scan errors.
 Minimum measured unused main stack was 5,972 bytes; the linked main stack is 24,716 bytes and the heap remains 310 KiB.
-All 52 release host tests passed, including contact handover, history coalescing, edge preservation, overflow cancellation and direct drag behaviour with timestamped history.
+All 52 release host tests passed, including contact handover, history coalescing, edge preservation, overflow cancellation and direct drag behavior with timestamped history.
 
 Four fixed Queue and Settings frame hashes exactly match the earlier captures.
 Both 76,800-pixel panel-memory checks reported zero mismatched pixels.
