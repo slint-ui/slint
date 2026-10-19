@@ -421,6 +421,20 @@ def test_model_modifications() -> None:
     assert len(model) == 0
 
 
+def test_adapter_model_source_model_is_read_only() -> None:
+    source = models.ListModel([1, 2, 3])
+    adapters = [
+        models.MapModel(source, lambda value: value),
+        models.ReverseModel(source),
+        models.FilterModel(source, lambda value: True),
+        models.SortModel(source),
+    ]
+    for adapter in adapters:
+        with pytest.raises(AttributeError):
+            adapter.source_model = models.ListModel([4])  # type: ignore
+        assert adapter.source_model is source
+
+
 def test_list_model_append_alias() -> None:
     model = models.ListModel([1, 2])
     model.append(3)
