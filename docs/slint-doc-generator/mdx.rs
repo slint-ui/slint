@@ -329,6 +329,9 @@ pub fn extract_builtin_structs(
         (Coord) => {
             "length"
         };
+        (Color) => {
+            "color"
+        };
         (Image) => {
             "image"
         };

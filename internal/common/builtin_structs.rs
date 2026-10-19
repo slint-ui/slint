@@ -149,6 +149,111 @@ macro_rules! for_each_builtin_structs {
                 width: Coord,
             }
 
+            /// The color roles of a Material 3 color scheme, as reported by the platform.
+            /// The fields are the [Material 3 color roles](https://m3.material.io/styles/color/roles).
+            struct SystemColorScheme {
+                /// The main color, for the most prominent components such as filled buttons.
+                primary: Color,
+                /// Text and icons on `primary`.
+                on_primary: Color,
+                /// A standout fill for key components, such as floating action buttons.
+                primary_container: Color,
+                /// Text and icons on `primary-container`.
+                on_primary_container: Color,
+                /// A color for components that need less emphasis than `primary`.
+                secondary: Color,
+                /// Text and icons on `secondary`.
+                on_secondary: Color,
+                /// A fill for less prominent components, such as tonal buttons.
+                secondary_container: Color,
+                /// Text and icons on `secondary-container`.
+                on_secondary_container: Color,
+                /// The color for contrasting accents.
+                tertiary: Color,
+                /// Text and icons on `tertiary`.
+                on_tertiary: Color,
+                /// A fill for contrasting components.
+                tertiary_container: Color,
+                /// Text and icons on `tertiary-container`.
+                on_tertiary_container: Color,
+                /// The color for errors.
+                error: Color,
+                /// Text and icons on `error`.
+                on_error: Color,
+                /// The fill of error components.
+                error_container: Color,
+                /// Text and icons on `error-container`.
+                on_error_container: Color,
+                /// The background of the app.
+                background: Color,
+                /// Text and icons on `background`.
+                on_background: Color,
+                /// The default background.
+                surface: Color,
+                /// Text and icons on `surface`.
+                on_surface: Color,
+                /// An alternative to `surface`.
+                surface_variant: Color,
+                /// Lower-emphasis text and icons on any surface.
+                on_surface_variant: Color,
+                /// Important boundaries, such as the outline of a text field.
+                outline: Color,
+                /// Decorative boundaries, such as dividers.
+                outline_variant: Color,
+                /// A surface that contrasts with `surface`, such as a snackbar.
+                inverse_surface: Color,
+                /// Text and icons on `inverse-surface`.
+                inverse_on_surface: Color,
+                /// Actionable elements on `inverse-surface`.
+                inverse_primary: Color,
+                /// Like `primary-container`, but the same in the light and the dark scheme.
+                primary_fixed: Color,
+                /// Text and icons on `primary-fixed` and `primary-fixed-dim`.
+                on_primary_fixed: Color,
+                /// A stronger `primary-fixed`.
+                primary_fixed_dim: Color,
+                /// Lower-emphasis text and icons on `primary-fixed` and `primary-fixed-dim`.
+                on_primary_fixed_variant: Color,
+                /// Like `secondary-container`, but the same in the light and the dark scheme.
+                secondary_fixed: Color,
+                /// Text and icons on `secondary-fixed` and `secondary-fixed-dim`.
+                on_secondary_fixed: Color,
+                /// A stronger `secondary-fixed`.
+                secondary_fixed_dim: Color,
+                /// Lower-emphasis text and icons on `secondary-fixed` and `secondary-fixed-dim`.
+                on_secondary_fixed_variant: Color,
+                /// Like `tertiary-container`, but the same in the light and the dark scheme.
+                tertiary_fixed: Color,
+                /// Text and icons on `tertiary-fixed` and `tertiary-fixed-dim`.
+                on_tertiary_fixed: Color,
+                /// A stronger `tertiary-fixed`.
+                tertiary_fixed_dim: Color,
+                /// Lower-emphasis text and icons on `tertiary-fixed` and `tertiary-fixed-dim`.
+                on_tertiary_fixed_variant: Color,
+                /// The dimmest surface.
+                surface_dim: Color,
+                /// The brightest surface.
+                surface_bright: Color,
+                /// The container with the lowest emphasis.
+                surface_container_lowest: Color,
+                /// A container with low emphasis.
+                surface_container_low: Color,
+                /// The default container, such as for a navigation bar.
+                surface_container: Color,
+                /// A container with high emphasis.
+                surface_container_high: Color,
+                /// The container with the highest emphasis.
+                surface_container_highest: Color,
+            }
+
+            /// The light and dark Material 3 color schemes reported by the platform.
+            struct SystemColorSchemes {
+                /// Used while `Palette.color-scheme` is light.
+                light: SystemColorScheme,
+                /// Used while `Palette.color-scheme` is dark.
+                dark: SystemColorScheme,
+            }
+
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
                 /// The distance between the baseline and the top of the tallest glyph in the font.

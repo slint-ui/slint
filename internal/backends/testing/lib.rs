@@ -102,6 +102,14 @@ pub fn set_motion_preference(preference: MotionPreference) {
         .expect("the testing backend must be initialized first");
 }
 
+/// Set the system Material 3 color schemes, as a platform backend would when the system colors change.
+/// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
+#[cfg(feature = "internal")]
+pub fn set_system_color_schemes(schemes: i_slint_core::items::SystemColorSchemes) {
+    i_slint_core::context::with_existing_context(|ctx| ctx.set_system_color_schemes(schemes))
+        .expect("the testing backend must be initialized first");
+}
+
 /// Replace the font collection with embedded NotoSans fonts for deterministic test results.
 /// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
 #[cfg(feature = "internal")]

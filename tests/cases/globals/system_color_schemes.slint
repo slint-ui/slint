@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `Platform.system-color-schemes` is transparent until the platform reports a scheme,
+// and is read in a global, which has no enclosing component to reach the window from.
+
+global SchemeObserver {
+    out property <color> light-primary: Platform.system-color-schemes.light.primary;
+    out property <color> dark-surface-container-high: Platform.system-color-schemes.dark.surface-container-high;
+}
+
+export component TestCase inherits Window {
+    out property <color> light-primary: SchemeObserver.light-primary;
+    out property <color> dark-surface-container-high: SchemeObserver.dark-surface-container-high;
+    out property <bool> test: light-primary == transparent && dark-surface-container-high == transparent;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_light_primary(), slint::Color::default());
+let mut schemes = i_slint_core::items::SystemColorSchemes::default();
+schemes.light.primary = slint::Color::from_rgb_u8(0x41, 0x5f, 0x91);
+schemes.dark.surface_container_high = slint::Color::from_rgb_u8(0x28, 0x2a, 0x2f);
+slint_testing::set_system_color_schemes(schemes);
+assert_eq!(instance.get_light_primary(), slint::Color::from_rgb_u8(0x41, 0x5f, 0x91));
+assert_eq!(instance.get_dark_surface_container_high(), slint::Color::from_rgb_u8(0x28, 0x2a, 0x2f));
+```
+*/

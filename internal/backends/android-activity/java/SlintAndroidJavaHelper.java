@@ -1046,6 +1046,72 @@ public class SlintAndroidJavaHelper {
         return color;
     }
 
+    // The light and dark resource of each Material 3 color role, in the field order of Slint's
+    // `SystemColorScheme`. The roles without a resource come from the tonal palettes.
+    private static final int[][] SYSTEM_COLOR_ROLES = {
+        { android.R.color.system_primary_light, android.R.color.system_primary_dark },
+        { android.R.color.system_on_primary_light, android.R.color.system_on_primary_dark },
+        { android.R.color.system_primary_container_light, android.R.color.system_primary_container_dark },
+        { android.R.color.system_on_primary_container_light, android.R.color.system_on_primary_container_dark },
+        { android.R.color.system_secondary_light, android.R.color.system_secondary_dark },
+        { android.R.color.system_on_secondary_light, android.R.color.system_on_secondary_dark },
+        { android.R.color.system_secondary_container_light, android.R.color.system_secondary_container_dark },
+        { android.R.color.system_on_secondary_container_light, android.R.color.system_on_secondary_container_dark },
+        { android.R.color.system_tertiary_light, android.R.color.system_tertiary_dark },
+        { android.R.color.system_on_tertiary_light, android.R.color.system_on_tertiary_dark },
+        { android.R.color.system_tertiary_container_light, android.R.color.system_tertiary_container_dark },
+        { android.R.color.system_on_tertiary_container_light, android.R.color.system_on_tertiary_container_dark },
+        { android.R.color.system_error_light, android.R.color.system_error_dark },
+        { android.R.color.system_on_error_light, android.R.color.system_on_error_dark },
+        { android.R.color.system_error_container_light, android.R.color.system_error_container_dark },
+        { android.R.color.system_on_error_container_light, android.R.color.system_on_error_container_dark },
+        { android.R.color.system_background_light, android.R.color.system_background_dark },
+        { android.R.color.system_on_background_light, android.R.color.system_on_background_dark },
+        { android.R.color.system_surface_light, android.R.color.system_surface_dark },
+        { android.R.color.system_on_surface_light, android.R.color.system_on_surface_dark },
+        { android.R.color.system_surface_variant_light, android.R.color.system_surface_variant_dark },
+        { android.R.color.system_on_surface_variant_light, android.R.color.system_on_surface_variant_dark },
+        { android.R.color.system_outline_light, android.R.color.system_outline_dark },
+        { android.R.color.system_outline_variant_light, android.R.color.system_outline_variant_dark },
+        { android.R.color.system_neutral1_800, android.R.color.system_neutral1_100 },
+        { android.R.color.system_neutral1_50, android.R.color.system_neutral1_800 },
+        { android.R.color.system_accent1_200, android.R.color.system_accent1_600 },
+        { android.R.color.system_primary_fixed, android.R.color.system_primary_fixed },
+        { android.R.color.system_on_primary_fixed, android.R.color.system_on_primary_fixed },
+        { android.R.color.system_primary_fixed_dim, android.R.color.system_primary_fixed_dim },
+        { android.R.color.system_on_primary_fixed_variant, android.R.color.system_on_primary_fixed_variant },
+        { android.R.color.system_secondary_fixed, android.R.color.system_secondary_fixed },
+        { android.R.color.system_on_secondary_fixed, android.R.color.system_on_secondary_fixed },
+        { android.R.color.system_secondary_fixed_dim, android.R.color.system_secondary_fixed_dim },
+        { android.R.color.system_on_secondary_fixed_variant, android.R.color.system_on_secondary_fixed_variant },
+        { android.R.color.system_tertiary_fixed, android.R.color.system_tertiary_fixed },
+        { android.R.color.system_on_tertiary_fixed, android.R.color.system_on_tertiary_fixed },
+        { android.R.color.system_tertiary_fixed_dim, android.R.color.system_tertiary_fixed_dim },
+        { android.R.color.system_on_tertiary_fixed_variant, android.R.color.system_on_tertiary_fixed_variant },
+        { android.R.color.system_surface_dim_light, android.R.color.system_surface_dim_dark },
+        { android.R.color.system_surface_bright_light, android.R.color.system_surface_bright_dark },
+        { android.R.color.system_surface_container_lowest_light, android.R.color.system_surface_container_lowest_dark },
+        { android.R.color.system_surface_container_low_light, android.R.color.system_surface_container_low_dark },
+        { android.R.color.system_surface_container_light, android.R.color.system_surface_container_dark },
+        { android.R.color.system_surface_container_high_light, android.R.color.system_surface_container_high_dark },
+        {
+            android.R.color.system_surface_container_highest_light,
+            android.R.color.system_surface_container_highest_dark,
+        },
+    };
+
+    public int[] system_color_schemes() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return new int[0];
+        }
+        int[] colors = new int[SYSTEM_COLOR_ROLES.length * 2];
+        for (int i = 0; i < SYSTEM_COLOR_ROLES.length; i++) {
+            colors[i] = mActivity.getColor(SYSTEM_COLOR_ROLES[i][0]);
+            colors[SYSTEM_COLOR_ROLES.length + i] = mActivity.getColor(SYSTEM_COLOR_ROLES[i][1]);
+        }
+        return colors;
+    }
+
     // Get the size of the window
     public Rect get_view_rect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
