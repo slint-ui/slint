@@ -511,7 +511,7 @@ async fn handle_preview_message(
                 }
                 session.send_state_to_preview(preview_index);
             } else {
-                session.send_files_to_preview(preview_index, files, &[project_root.to_path_buf()]);
+                session.send_files_to_preview(preview_index, files);
             }
             for name in settings {
                 if let Some(contents) =
@@ -1274,14 +1274,26 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         let elsewhere = tempfile::tempdir().unwrap();
         let inside = project.path().join("logo.png");
+        let unreferenced = project.path().join("other.png");
         let outside = elsewhere.path().join("logo.png");
-        std::fs::write(&inside, []).unwrap();
-        std::fs::write(&outside, []).unwrap();
-        let [inside, outside] = [inside, outside].map(|path| Url::from_file_path(path).unwrap());
+        for file in [&inside, &unreferenced, &outside] {
+            std::fs::write(file, []).unwrap();
+        }
+        let main = project.path().join("main.slint");
+        let main_source = r#"export component Main { Image { source: @image-url("logo.png"); } }"#;
+        std::fs::write(&main, main_source).unwrap();
+        spin_on::spin_on(session.load_document_impl(
+            main_source.into(),
+            Url::from_file_path(&main).unwrap(),
+            None,
+        ));
+        clear_messages(&messages);
+        let [inside, unreferenced, outside] =
+            [inside, unreferenced, outside].map(|path| Url::from_file_path(path).unwrap());
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::RequestState {
-                files: vec![inside.clone(), outside.clone()],
+                files: vec![inside.clone(), unreferenced.clone(), outside.clone()],
                 settings: Vec::new(),
             },
             RUN_PREVIEW_INDEX,
@@ -1296,8 +1308,11 @@ mod tests {
                 run_messages.as_slice(),
                 [
                     LspToPreviewMessage::SetContents { url: served, .. },
-                    LspToPreviewMessage::ForgetFile { url: refused },
-                ] if served.url() == &inside && refused == &outside
+                    LspToPreviewMessage::ForgetFile { url: refused_in_project },
+                    LspToPreviewMessage::ForgetFile { url: refused_outside },
+                ] if served.url() == &inside
+                    && refused_in_project == &unreferenced
+                    && refused_outside == &outside
             ),
             "{run_messages:?}"
         );

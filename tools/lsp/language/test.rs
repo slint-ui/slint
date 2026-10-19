@@ -240,36 +240,6 @@ fn request_state_re_sends_only_targeted_files_when_present() {
     ));
 }
 
-#[test]
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-fn request_state_serves_assets_of_the_workspace_folders() {
-    let (capture, messages) = preview_capture();
-    let mut ctx = mock_context();
-    ctx.session.primary_preview_mut().to_preview = capture;
-    let workspace = tempfile::tempdir().unwrap();
-    let logo = workspace.path().join("logo.png");
-    std::fs::write(&logo, []).unwrap();
-    ctx.init_param.workspace_folders = Some(vec![lsp_types::WorkspaceFolder {
-        uri: Url::from_file_path(workspace.path()).unwrap(),
-        name: "workspace".into(),
-    }]);
-
-    crate::language::send_requested_state_to_preview(
-        &ctx,
-        &[Url::from_file_path(&logo).unwrap()],
-        &[],
-    );
-
-    let messages = messages.borrow();
-    assert!(
-        matches!(
-            messages.as_slice(),
-            [i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }]
-        ),
-        "{messages:?}"
-    );
-}
-
 /// Test for issue #11304
 /// When a file is renamed in the editor first, and then is renamed on disk accordingly (i.e.
 /// "appears" as a new file).
