@@ -46,7 +46,10 @@ pub fn generate(
         .globals
         .iter_enumerated()
         .filter(|(_, glob)| glob.must_generate())
-        .map(|(_, glob)| generate_global(glob, &llr));
+        .map(|(_, glob)| generate_global(glob, &llr, compiler_config.library_name.is_some()));
+
+    let library_imports = import_library_types(doc, &llr);
+
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -64,6 +67,7 @@ pub fn generate(
     Ok(quote! {
         mod #generated_mod {
             #module_header
+            #library_imports
             #inner_module
             #(#globals)*
             #(#public_components)*
@@ -271,7 +275,11 @@ fn generate_public_component(
     )
 }
 
-fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -> TokenStream {
+fn generate_global(
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+    is_library: bool,
+) -> TokenStream {
     if !global.exported {
         return quote!();
     }
@@ -351,6 +359,43 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
     let public_component_id = ident(&global.name);
     let aliases = global.aliases.iter().map(|name| ident(name));
+    let global_trait_impls = generate_global_trait_impls(global, root);
+    let public_fields = is_library.then(|| quote!(pub));
+
+    let strong_handle_impl = quote!(
+        impl slint::StrongHandle for #public_component_id<'static> {
+            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
+                let rc = inner.upgrade()?;
+                ::core::option::Option::Some(Self(rc, ::core::marker::PhantomData::default()))
+            }
+        }
+    );
+
+    quote!(
+        #[allow(unused)]
+        pub struct #public_component_id<'a>(
+            #public_fields sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
+            #public_fields ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
+
+        );
+
+        impl<'a> #public_component_id<'a> {
+            #(#property_and_callback_accessors)*
+        }
+        #(pub type #aliases<'a> = #public_component_id<'a>;)*
+        #global_trait_impls
+
+        #strong_handle_impl
+    )
+}
+
+fn generate_global_trait_impls(
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+) -> TokenStream {
+    let public_component_id = ident(&global.name);
     let getters = root.public_components.iter().map(|c| {
         let root_component_id = ident(&c.name);
         quote! {
@@ -370,34 +415,38 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             }
         }
     });
+    quote!(#(#getters)*)
+}
 
-    let strong_handle_impl = quote!(
-        impl slint::StrongHandle for #public_component_id<'static> {
-            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+// returns first the library_imports, then the library_global_trait_impls against the main
+// components
+fn import_library_types(doc: &Document, llr: &llr::CompilationUnit) -> TokenStream {
+    let library_globals_trait_impls: Vec<_> = llr
+        .globals
+        .iter()
+        .filter(|global| global.from_library && global.exported)
+        .map(|global| generate_global_trait_impls(global, llr))
+        .collect();
+    let library_imports: Vec<_> = doc
+        .used_types
+        .borrow()
+        .library_types_imports
+        .iter()
+        .filter(|(symbol, _)| {
+            !llr.globals
+                .iter()
+                .any(|global| global.from_library && symbol == &format!("Inner{}", global.name))
+        })
+        .map(|(symbol, library_info)| {
+            let symbol_path = super::rust::library_symbol_path(library_info, ident(symbol));
+            quote!(#[allow(unused_imports)] pub use #symbol_path;)
+        })
+        .collect();
 
-            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
-                let rc = inner.upgrade()?;
-                ::core::option::Option::Some(Self(rc, ::core::marker::PhantomData::default()))
-            }
-        }
-    );
-
-    quote!(
-        #[allow(unused)]
-        pub struct #public_component_id<'a>(
-            sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
-            ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
-
-        );
-
-        impl<'a> #public_component_id<'a> {
-            #(#property_and_callback_accessors)*
-        }
-        #(pub type #aliases<'a> = #public_component_id<'a>;)*
-        #(#getters)*
-
-        #strong_handle_impl
-    )
+    quote! {
+        #(#library_imports)*
+        #(#library_globals_trait_impls)*
+    }
 }
 
 /// returns a function that converts the type to a Value.
