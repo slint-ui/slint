@@ -180,10 +180,16 @@ class ListModel[T](Model[T]):
         super().notify_row_added(clamped, 1)
 
 
-class _AdapterModel[T](Model[T]):
+class _AdapterModel[S, T](Model[T]):
     """The base class of the models that wrap a model adapter of the Rust core library."""
 
     _adapter: native.PyModelAdapter
+    _source_model: Model[S]
+
+    @property
+    def source_model(self) -> Model[S]:
+        """The model whose rows this model provides."""
+        return self._source_model
 
     def _row_index(self, row: int) -> int:
         return row + self.row_count() if row < 0 else row
@@ -198,7 +204,7 @@ class _AdapterModel[T](Model[T]):
         return typing.cast(T | None, self._adapter.row_data(row))
 
 
-class MapModel[T, U](_AdapterModel[U]):
+class MapModel[T, U](_AdapterModel[T, U]):
     """MapModel is a read-only `Model` that provides the rows of a source model,
     each passed through a map function.
 
@@ -231,7 +237,7 @@ class MapModel[T, U](_AdapterModel[U]):
         Pass `map_function` to map the rows, or omit it in a subclass that
         implements `map_row`."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if map_function is None:
             if type(self).map_row is MapModel.map_row:
                 raise TypeError(
@@ -253,7 +259,7 @@ class MapModel[T, U](_AdapterModel[U]):
         raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
 
 
-class _WritableAdapterModel[T](_AdapterModel[T]):
+class _WritableAdapterModel[T](_AdapterModel[T, T]):
     """The base class of the adapter models whose rows can be set."""
 
     def set_row_data(self, row: int, value: T) -> None:
@@ -283,7 +289,7 @@ class ReverseModel[T](_WritableAdapterModel[T]):
         """Constructs a new ReverseModel that provides the rows of `source_model`
         in reverse order."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         self._adapter = native.PyModelAdapter.reverse(source_model, self)
 
 
@@ -331,7 +337,7 @@ class FilterModel[T](_WritableAdapterModel[T]):
         The constructor applies the filter to all rows of the source model, so
         a subclass sets the state that `filter_row` uses before calling it."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if filter_function is None:
             if type(self).filter_row is FilterModel.filter_row:
                 raise TypeError(
@@ -409,7 +415,7 @@ class SortModel[T](_WritableAdapterModel[T]):
         Omit `key` to order the rows by themselves, or by `sort_key` in a
         subclass that implements it."""
         super().__init__()
-        self.source_model = source_model
+        self._source_model = source_model
         if key is None and type(self).sort_key is not SortModel.sort_key:
             this = weakref.ref(self)
 
