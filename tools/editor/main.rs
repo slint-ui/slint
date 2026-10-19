@@ -289,15 +289,9 @@ async fn lsp_main(
 
     let mut watch_paths_revision = None;
     let mut project_root = project.root;
-    prepare_initial_preview(&mut session, &mut file_watcher, &project_root, project.preview)
-        .await?;
+    prepare_initial_preview(&mut session, &mut file_watcher, project.preview).await?;
     publish_imports.set(true);
-    sync_file_watcher_if_needed(
-        &mut file_watcher,
-        &session,
-        &project_root,
-        &mut watch_paths_revision,
-    )?;
+    sync_file_watcher_if_needed(&mut file_watcher, &session, &mut watch_paths_revision)?;
 
     const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
     let mut recompile_deadline = None;
@@ -374,12 +368,7 @@ async fn lsp_main(
             }
         }
 
-        sync_file_watcher_if_needed(
-            &mut file_watcher,
-            &session,
-            &project_root,
-            &mut watch_paths_revision,
-        )?;
+        sync_file_watcher_if_needed(&mut file_watcher, &session, &mut watch_paths_revision)?;
     }
 }
 
@@ -459,7 +448,6 @@ async fn trigger_editor_file_watcher(
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     session: &editor_preview::EditorSession,
-    root_path: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
     let current_revision = session.document_cache.revision();
@@ -467,9 +455,20 @@ fn sync_file_watcher_if_needed(
         return Ok(());
     }
 
+    // Watching the project root as a target also watches its parent directory.
+    // This is mostly unnecessary, as we don't expect the project root to change.
+    // And on macOS the notify version 8.0.0 has a bug in the kqueue backend that
+    // turns non-recursive watches recursive!
+    //
+    // So watching the project roots (and therefore its parent) could easily cause
+    // us to watch all of /home or /tmp, which quickly exhausts the notify limit.
+    //
+    // Until notify 9.0 is released, let's not watch the project root.
     watcher.update_watched_paths(
-        std::iter::once(root_path.to_path_buf())
-            .chain(session.document_cache.all_paths_to_watch())
+        session
+            .document_cache
+            .all_paths_to_watch()
+            .into_iter()
             .chain(session.previews.iter().filter_map(|preview| {
                 preview
                     .to_show
@@ -604,13 +603,10 @@ async fn handle_preview_message(
 async fn prepare_initial_preview(
     session: &mut editor_preview::EditorSession,
     watcher: &mut FileWatcher,
-    project_root: &Path,
     component: PreviewComponent,
 ) -> Result<()> {
-    watcher.update_watched_paths(
-        std::iter::once(project_root.to_path_buf())
-            .chain(SourcePath::from_url(&component.url).into_native_path()),
-    )?;
+    // See sync_file_watcher_if_needed: the project root must not become a watch target.
+    watcher.update_watched_paths(SourcePath::from_url(&component.url).into_native_path())?;
     let source = SourcePath::from_url(&component.url).read_to_string()?;
     let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     session.document_cache.load_url(&component.url, None, source, &mut diagnostics).await?;
@@ -636,8 +632,7 @@ async fn switch_project(
     let to_previews = session.previews.iter().map(|preview| preview.to_preview.clone()).collect();
     let (mut next_session, publish_imports) = new_editor_session(to_previews);
     let next_project_root = project.root;
-    prepare_initial_preview(&mut next_session, file_watcher, &next_project_root, project.preview)
-        .await?;
+    prepare_initial_preview(&mut next_session, file_watcher, project.preview).await?;
     publish_imports.set(true);
 
     stop_run_preview(session).await;
@@ -770,11 +765,10 @@ mod tests {
         spin_on::spin_on(prepare_initial_preview(
             &mut session,
             &mut watcher,
-            &root,
             PreviewComponent { url: url.clone(), component: None },
         ))
         .unwrap();
-        sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        sync_file_watcher_if_needed(&mut watcher, &session, &mut None).unwrap();
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             PRIMARY_PREVIEW_INDEX,
@@ -826,13 +820,8 @@ mod tests {
         };
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
 
-        spin_on::spin_on(prepare_initial_preview(
-            &mut session,
-            &mut watcher,
-            &root,
-            component.clone(),
-        ))
-        .unwrap();
+        spin_on::spin_on(prepare_initial_preview(&mut session, &mut watcher, component.clone()))
+            .unwrap();
         publish_imports.set(true);
         assert!(captures.iter().all(|(_, messages)| messages.borrow().is_empty()));
         assert_eq!(session.primary_preview().to_show, Some(component.clone()));
