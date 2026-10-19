@@ -123,6 +123,36 @@ pub fn accessible_descendents(root_item: &ItemRc) -> impl Iterator<Item = ItemRc
     })
 }
 
+/// Find the materialized position of the item selected by `accessible-delegate-focus`.
+///
+/// When descendants expose `accessible-item-index`, the delegate focus value refers to that
+/// logical index. This matters for virtualized collections, whose materialized descendants don't
+/// start at index zero. If that index is not materialized, focus remains on the container, even
+/// when the value also matches a materialized position. Trees without indexed descendants retain
+/// the positional behavior.
+pub fn accessible_focus_delegate_position(root_item: &ItemRc) -> Option<usize> {
+    let delegate_index = root_item
+        .accessible_string_property(AccessibleStringProperty::DelegateFocus)?
+        .parse::<usize>()
+        .ok()?;
+
+    let mut has_indexed_descendants = false;
+    let mut count = 0;
+    for (position, descendent) in accessible_descendents(root_item).enumerate() {
+        count += 1;
+        if let Some(item_index) = descendent
+            .accessible_string_property(AccessibleStringProperty::ItemIndex)
+            .and_then(|index| index.parse::<usize>().ok())
+        {
+            has_indexed_descendants = true;
+            if item_index == delegate_index {
+                return Some(position);
+            }
+        }
+    }
+    (!has_indexed_descendants && delegate_index < count).then_some(delegate_index)
+}
+
 /// The item that stands for `item` in the accessibility tree: `item` itself when it is accessible,
 /// otherwise its closest accessible ancestor. The walk stops at a popup boundary.
 pub fn nearest_accessible_item(mut item: ItemRc) -> ItemRc {
