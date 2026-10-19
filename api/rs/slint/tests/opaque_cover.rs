@@ -5,23 +5,15 @@
 //! it. Whatever it leaves unpainted would then show the previous buffer content.
 //! The screenshot tests cover the formats a `.slint` file can load.
 
+mod common;
+
 use slint::platform::software_renderer::{
     LineBufferProvider, MinimalSoftwareWindow, RepaintBufferType,
 };
-use slint::platform::{PlatformError, WindowAdapter};
-use slint::{ComponentHandle, Image, PhysicalSize, Rgb8Pixel, SharedPixelBuffer};
-use std::rc::Rc;
+use slint::{ComponentHandle, Image, Rgb8Pixel, SharedPixelBuffer};
 
 const WIDTH: usize = 37;
 const HEIGHT: usize = 23;
-
-struct TestPlatform(Rc<MinimalSoftwareWindow>);
-
-impl slint::platform::Platform for TestPlatform {
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(self.0.clone())
-    }
-}
 
 slint::slint! {
     export component Scene inherits Window {
@@ -52,6 +44,7 @@ fn render(window: &MinimalSoftwareWindow, fill: Rgb8Pixel) -> Vec<Rgb8Pixel> {
     let mut buffer = vec![fill; WIDTH * HEIGHT];
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
+        renderer.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
         renderer.render_by_line(Lines(&mut buffer));
     }));
     buffer
@@ -67,9 +60,7 @@ fn pixels<T: Clone + Default>(pixel: impl Fn(usize, usize) -> T) -> SharedPixelB
 
 #[test]
 fn covering_image_paints_every_pixel() {
-    let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
-    window.set_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32));
-    slint::platform::set_platform(Box::new(TestPlatform(window.clone()))).unwrap();
+    let window = common::setup(WIDTH as u32, HEIGHT as u32);
 
     let scene = Scene::new().unwrap();
     scene.show().unwrap();
@@ -82,7 +73,7 @@ fn covering_image_paints_every_pixel() {
         #[cfg(feature = "image-pixel-format-rgb565")]
         ("RGB565", Image::from_rgb565(pixels(|x, y| slint::Rgb565Pixel((x * 1500 + y) as u16)))),
         #[cfg(feature = "image-pixel-format-gray8")]
-        ("Gray8", Image::from_gray8(pixels(|x, y| slint::Gray8Pixel::new((x * 6 + y) as u8)))),
+        ("Gray8", Image::from_gray8(pixels(|x, y| slint::Gray8Pixel((x * 6 + y) as u8)))),
     ];
 
     for (format, picture) in pictures {
