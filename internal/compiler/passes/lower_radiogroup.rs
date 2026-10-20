@@ -54,7 +54,7 @@ pub async fn lower_radiogroup(
                 "Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead".into(),
                 &*elem.borrow(),
             );
-            // Unlowered, they would also fail the inherited grid's row numbering.
+            // Left in place, they would also fail the inherited grid's row numbering.
             elem.borrow_mut().children.clear();
         }
         false
