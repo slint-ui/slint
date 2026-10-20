@@ -7364,6 +7364,7 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-renderer-software",
  "js-sys",
  "lyon_path",
  "raw-window-handle",

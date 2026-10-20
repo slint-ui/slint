@@ -117,7 +117,7 @@ pub struct GlobalStorage {
     /// The owning instance, so global bindings can reach the window.
     pub root: OnceCell<vtable::VWeak<ItemTreeVTable, Instance>>,
     pub context: SlintContext,
-    pub font_files: crate::component::FontFiles,
+    pub resources: Rc<crate::component::Resources>,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
     pub debug_hook_callback: RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
@@ -128,7 +128,7 @@ impl GlobalStorage {
     pub fn new(
         compilation_unit: &Rc<CompilationUnit>,
         context: SlintContext,
-        font_files: crate::component::FontFiles,
+        resources: Rc<crate::component::Resources>,
     ) -> Self {
         let globals = compilation_unit
             .globals
@@ -180,7 +180,7 @@ impl GlobalStorage {
             globals,
             root: OnceCell::new(),
             context,
-            font_files,
+            resources,
             debug_hook_callback: RefCell::new(None),
         }
     }

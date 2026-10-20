@@ -4766,6 +4766,7 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-renderer-software",
  "js-sys",
  "lyon_path",
  "smol_str 0.3.6",
