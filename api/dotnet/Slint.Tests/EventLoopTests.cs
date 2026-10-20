@@ -66,4 +66,26 @@ public sealed class EventLoopTests
         safety.Start(TimerMode.SingleShot, TimeSpan.FromSeconds(5), () => Assert.Fail("hiding the last window didn't quit"));
         EventLoop.Run();
     });
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public void WinitNeedsASingleThreadedApartment() => SlintThread.Run(() =>
+    {
+        Assert.AreEqual(ApartmentState.MTA, Thread.CurrentThread.GetApartmentState());
+        using var compiler = new Compiler();
+        using var result = compiler.BuildFromSource("export component App inherits Window { }", "app.slint");
+        using var definition = result.Component("App")!;
+        var backend = Environment.GetEnvironmentVariable("SLINT_BACKEND");
+        try
+        {
+            Environment.SetEnvironmentVariable("SLINT_BACKEND", "winit-software");
+            StringAssert.Contains(Assert.ThrowsExactly<InvalidOperationException>(EventLoop.Run).Message, "[STAThread]");
+            Assert.ThrowsExactly<InvalidOperationException>(() => definition.Create());
+            Assert.ThrowsExactly<InvalidOperationException>(() => ComponentInstance.CreateLive("app.slint", "App"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SLINT_BACKEND", backend);
+        }
+    });
 }

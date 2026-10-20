@@ -56,8 +56,10 @@ public sealed class ComponentDefinition : IDisposable
     }
 
     /// <summary>Creates a new instance of the component, with its own window.</summary>
+    /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
     public ComponentInstance Create()
     {
+        EventLoop.CheckApartment();
         var instance = NativeMethods.slint_dotnet_component_definition_create(_handle);
         if (!NativeError.Check(instance))
         {

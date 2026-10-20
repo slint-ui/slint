@@ -275,6 +275,21 @@ pub extern "C" fn slint_dotnet_struct_size(kind: i32) -> usize {
     }
 }
 
+/// Whether `SLINT_BACKEND` selects winit, following `i_slint_backend_selector::create_backend`.
+/// Callable from any thread, without creating the platform.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_dotnet_backend_is_winit() -> bool {
+    let config = std::env::var("SLINT_BACKEND").unwrap_or_default().to_lowercase();
+    match i_slint_backend_selector::parse_backend_env_var(&config).0 {
+        "winit" => cfg!(feature = "backend-winit"),
+        "qt" if cfg!(feature = "backend-qt") => false,
+        "testing" if cfg!(feature = "backend-testing") => false,
+        "headless" if cfg!(feature = "mcp") => false,
+        "linuxkms" if cfg!(all(feature = "backend-linuxkms", target_os = "linux")) => false,
+        _ => cfg!(feature = "backend-winit") && !cfg!(feature = "backend-qt"),
+    }
+}
+
 /// The optional capabilities compiled into this library, separated by commas.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_dotnet_build_features() -> OwnedString {

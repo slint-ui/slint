@@ -25,6 +25,7 @@ public static unsafe class EventLoop
     /// Runs the event loop until <see cref="Quit"/> or until the last window closes.
     /// Rethrows the first exception that a callback threw, after stopping the loop.
     /// </summary>
+    /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
     public static void Run() => RunNative(NativeMethods.slint_dotnet_run_event_loop);
 
     /// <summary>
@@ -49,6 +50,7 @@ public static unsafe class EventLoop
 
     internal static void RunNative(Func<bool> run)
     {
+        CheckApartment();
         var previous = SynchronizationContext.Current;
         SynchronizationContext.SetSynchronizationContext(new SlintSynchronizationContext(Environment.CurrentManagedThreadId));
         t_isRunning = true;
@@ -60,6 +62,23 @@ public static unsafe class EventLoop
         {
             t_isRunning = false;
             SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    /// On Windows, winit sets up drag and drop with <c>OleInitialize</c>,
+    /// which fails on a thread in a multithreaded apartment and aborts the process.
+    /// </summary>
+    internal static void CheckApartment()
+    {
+        if (OperatingSystem.IsWindows()
+            && Thread.CurrentThread.GetApartmentState() != ApartmentState.STA
+            && NativeMethods.slint_dotnet_backend_is_winit())
+        {
+            throw new InvalidOperationException(
+                "Slint windows on Windows need a single-threaded apartment. "
+                + "Add [STAThread] to Main, which top-level statements and async Main can't have, "
+                + "or use Slint from a thread that you start after calling SetApartmentState(ApartmentState.STA).");
         }
     }
 

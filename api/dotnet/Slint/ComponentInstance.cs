@@ -35,6 +35,7 @@ public sealed unsafe class ComponentInstance : IDisposable
     /// A file with errors keeps the previous version.
     /// If a property or callback that you set no longer exists after a change, the application terminates.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
     public static ComponentInstance CreateLive(
         string path,
         string componentName,
@@ -45,6 +46,7 @@ public sealed unsafe class ComponentInstance : IDisposable
         string? bundledTranslationsPath = null,
         DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
+        EventLoop.CheckApartment();
         using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
         using var domainStr = new PinnedUtf8(translationDomain ?? "");
         using var bundledStr = new PinnedUtf8(bundledTranslationsPath is null ? "" : Path.GetFullPath(bundledTranslationsPath));

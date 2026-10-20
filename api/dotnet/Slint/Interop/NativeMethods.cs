@@ -42,6 +42,10 @@ internal static unsafe partial class NativeMethods
         nint userData);
 
     [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_backend_is_winit();
+
+    [LibraryImport(Library)]
     public static partial OwnedString slint_dotnet_build_features();
 
     [LibraryImport(Library)]
