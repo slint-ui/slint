@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// With a backend that creates native popup windows, a context menu and its sub-menus are native popups too.
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+    width: 300px;
+    height: 300px;
+    TouchArea {
+        clicked => {
+            result += "Background;";
+        }
+    }
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Entry1";
+                activated => {
+                    result += "Entry1;";
+                }
+            }
+            Menu {
+                title: "SubMenu";
+                MenuItem {
+                    title: "SubEntry";
+                    activated => {
+                        result += "SubEntry;";
+                    }
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition, SharedString};
+use slint_testing::{PopupWindowLocation, WindowInner};
+type Adapter = std::rc::Rc<dyn slint::platform::WindowAdapter>;
+
+fn click(window: &slint::Window, x: f32, y: f32, button: PointerEventButton) {
+    let position = LogicalPosition::new(x, y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+fn key(window: &slint::Window, key: Key) {
+    let text = SharedString::from(key);
+    window.dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+    window.dispatch_event(WindowEvent::KeyReleased { text });
+}
+
+// The windows of all open popups, the ones opened from a popup listed after it.
+fn popup_windows(window: &slint::Window) -> Vec<Adapter> {
+    let inner = WindowInner::from_pub(window);
+    let locations: Vec<_> = inner.active_popups.borrow().iter().map(|p| match &p.location {
+        PopupWindowLocation::TopLevel(adapter) => adapter.clone(),
+        PopupWindowLocation::ChildWindow(_) => panic!("the menu should be a native popup window"),
+    }).collect();
+    locations.into_iter().flat_map(|a| {
+        let nested = popup_windows(a.window());
+        std::iter::once(a).chain(nested)
+    }).collect()
+}
+
+// Opens the context menu and its sub-menu, and returns their windows.
+fn open_sub_menu(window: &slint::Window) -> (Adapter, Adapter) {
+    click(window, 15.0, 15.0, PointerEventButton::Right);
+    let menu = popup_windows(window)[0].clone();
+    key(menu.window(), Key::UpArrow);
+    key(menu.window(), Key::RightArrow);
+    let windows = popup_windows(window);
+    assert_eq!(windows.len(), 2);
+    (menu, windows[1].clone())
+}
+
+let instance = TestCase::new().unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+// Open the menu: it's a native window, so a click where it would be drawn in the main window misses it.
+click(instance.window(), 15.0, 15.0, PointerEventButton::Right);
+assert_eq!(popup_windows(instance.window()).len(), 1);
+click(instance.window(), 25.0, 25.0, PointerEventButton::Left);
+assert_eq!(popup_windows(instance.window()).len(), 0);
+assert!(!instance.get_result().contains("Entry1"), "{}", instance.get_result());
+instance.set_result("".into());
+
+// A click in the menu's window activates the entry and closes the menu.
+click(instance.window(), 15.0, 15.0, PointerEventButton::Right);
+let menu = popup_windows(instance.window())[0].clone();
+click(menu.window(), 10.0, 10.0, PointerEventButton::Left);
+assert_eq!(instance.get_result(), "Entry1;");
+assert_eq!(popup_windows(instance.window()).len(), 0);
+instance.set_result("".into());
+
+// The sub-menu is a native window too, and Escape closes one menu level.
+let (menu, sub_menu) = open_sub_menu(instance.window());
+key(sub_menu.window(), Key::Escape);
+assert_eq!(popup_windows(instance.window()).len(), 1);
+key(menu.window(), Key::Escape);
+assert_eq!(popup_windows(instance.window()).len(), 0);
+
+let (_, sub_menu) = open_sub_menu(instance.window());
+key(sub_menu.window(), Key::DownArrow);
+key(sub_menu.window(), Key::Return);
+assert_eq!(instance.get_result(), "SubEntry;");
+assert_eq!(popup_windows(instance.window()).len(), 0);
+
+// A click outside closes the menu and the sub-menu it opened.
+let (menu, _) = open_sub_menu(instance.window());
+click(instance.window(), 250.0, 250.0, PointerEventButton::Left);
+assert_eq!(popup_windows(instance.window()).len(), 0);
+assert!(WindowInner::from_pub(menu.window()).active_popups.borrow().is_empty());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::set_use_native_popup(&instance, true);
+
+// Open the menu: it's a native window, so a click where it would be drawn in the main window misses it.
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({15.0, 15.0}), slint::PointerEventButton::Right);
+assert_eq(slint_testing::active_popup_count(&instance), 1);
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({25.0, 25.0}), slint::PointerEventButton::Left);
+assert_eq(slint_testing::active_popup_count(&instance), 0);
+assert(std::string_view(instance.get_result()).find("Entry1") == std::string_view::npos);
+```
+*/

@@ -4741,6 +4741,18 @@ fn struct_field_access(s: &Struct, name: &str) -> proc_macro2::TokenTree {
     }
 }
 
+/// The globals for a popup, in `shared_global`'s scope: with its own window adapter when
+/// `window`'s backend creates one.
+fn popup_globals(window: &TokenStream, window_kind: &TokenStream) -> TokenStream {
+    quote! {
+        if let Some(popup_window_adapter) = #window.create_child_window_adapter(#window_kind) {
+            shared_global.clone_with_window_adapter(popup_window_adapter)
+        } else {
+            shared_global.clone()
+        }
+    }
+}
+
 #[allow(
     clippy::redundant_closure_call,
     reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
@@ -4845,13 +4857,7 @@ fn compile_builtin_function_call(
                 } else {
                     quote!(sp::WindowKind::Popup)
                 };
-                let globals_init = quote! {
-                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    }
-                };
+                let globals_init = popup_globals(&quote!(window), &window_kind);
                 // The optional 4th argument is a property reference to the synthesized `is-open`,
                 // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
                 // directly against `ctx`/`_self`, exactly like `parent_ref`.
@@ -5015,12 +5021,18 @@ fn compile_builtin_function_call(
                     #popup_id::user_init(popup_instance_vrc);
                 };
 
+                let menu_globals = popup_globals(
+                    &quote!(sp::WindowInner::from_pub(window_adapter.window())),
+                    &quote!(sp::WindowKind::Menu),
+                );
                 let common_init = quote! {
                     let position = #position;
-                    let popup_instance = #popup_id::new(_self.globals.get().unwrap().clone()).unwrap();
+                    let window_adapter = #window_adapter_tokens;
+                    let shared_global = _self.globals.get().unwrap();
+                    let globals = #menu_globals;
+                    let popup_instance = #popup_id::new(globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let parent_weak = _self.self_weak.get().unwrap().clone();
-                    let window_adapter = #window_adapter_tokens;
                 };
 
                 if let Expression::NumberLiteral(tree_index) = entries {
