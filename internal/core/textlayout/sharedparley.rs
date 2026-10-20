@@ -647,6 +647,7 @@ fn text_content_widths_impl(
             &layout_builder,
             &mut ctx.font_context().borrow_mut(),
             text,
+            Default::default(),
             Color::default(),
         );
 
