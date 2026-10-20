@@ -34,7 +34,6 @@ export global AppState {
     in property <length> window-height: 540px;
     out property <Orientation> orientation: window-width > window-height ? landscape : portrait;
     in property <bool> graphics-accelerator-available: true;
-    in-out property <bool> cached-widget-layers: false;
 
     out property <float> special-x-pos-scale: orientation == Orientation.landscape ? window-width / 1920px : window-width / 1080px;
     out property <float> special-y-pos-scale: orientation == Orientation.landscape ? window-height / 1080px : window-height / 1920px;
@@ -186,72 +185,6 @@ export global AppState {
         landscape-bottom-1, // control2
         landscape-bottom-2, // control3
         landscape-bottom-3, // control4
-        // 4: controls
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 435, visible: true }, // control1
-        { x: 507, y: 157, width: 435, height: 435, visible: true }, // control2
-        { x: 978, y: 157, width: 435, height: 435, visible: true }, // control3
-        { x: 1449, y: 157, width: 435, height: 435, visible: true }, // control4
-        // 5: lamps
-        { x: 36, y: 157, width: 278, height: 278, visible: true }, // lamp1
-        { x: 350, y: 157, width: 278, height: 278, visible: true }, // lamp2
-        { x: 664, y: 157, width: 278, height: 278, visible: true }, // lamp3
-        { x: 978, y: 157, width: 278, height: 278, visible: true }, // lamp4
-        { x: 1292, y: 157, width: 278, height: 278, visible: true }, // lamp5
-        { x: 1606, y: 157, width: 278, height: 278, visible: true }, // lamp6
-        { x: 36, y: 471, width: 278, height: 278, visible: true }, // lamp7
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel,
-        // 6: overhead
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 157, visible: true }, // overhead1
-        { x: 507, y: 157, width: 435, height: 157, visible: true }, // overhead2
-        { x: 978, y: 157, width: 435, height: 157, visible: true }, // overhead3
-        { x: 1449, y: 157, width: 435, height: 157, visible: true }, // overhead4
-        { x: 36, y: 350, width: 435, height: 157, visible: true }, // overhead5
-        { x: 507, y: 350, width: 435, height: 157, visible: true }, // overhead6
-        { x: 978, y: 350, width: 435, height: 157, visible: true }, // overhead7
-        { x: 1449, y: 348, width: 435, height: 157, visible: true }, // overhead8
-        { x: 36, y: 543, width: 435, height: 157, visible: true }, // overhead9
-        { x: 507, y: 543, width: 435, height: 157, visible: true }, // overhead10
-        { x: 978, y: 543, width: 435, height: 157, visible: true }, // overhead11
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel,
-        // 7: appliances
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 471, visible: true }, // appliance1
-        { x: 507, y: 157, width: 435, height: 471, visible: true }, // appliance2
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        // 8: info
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 36, y: 314, width: 592, height: 121, visible: true }, // info2
-        { x: 36, y: 471, width: 592, height: 121, visible: true }, // info3
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel,
-        // 9: graphs
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 471, visible: true }, // graph1
-        { x: 507, y: 157, width: 435, height: 471, visible: true }, // graph2
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
     ];
 
     property <[ComponentData]> portrait-layouts: [
@@ -315,71 +248,5 @@ export global AppState {
         { x: margin, y: row3-y, width: big-width, height: big-height, visible: true }, // control2
         { x: big-col2-x, y: row3-y, width: big-width, height: big-height, visible: true }, // control3
         { x: margin, y: row4-y, width: big-width, height: big-height, visible: true }, // control4
-        // 4: controls
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 37, y: 157, width: 435, height: 435, visible: true }, // control1
-        { x: 508, y: 157, width: 435, height: 435, visible: true }, // control2
-        { x: 979, y: 157, width: 435, height: 435, visible: true }, // control3
-        { x: 1450, y: 157, width: 435, height: 435, visible: true }, // control4
-        // 5: lamps
-        { x: 36, y: 157, width: 278, height: 278, visible: true }, // lamp1
-        { x: 350, y: 157, width: 278, height: 278, visible: true }, // lamp2
-        { x: 664, y: 157, width: 278, height: 278, visible: true }, // lamp3
-        { x: 978, y: 157, width: 278, height: 278, visible: true }, // lamp4
-        { x: 1292, y: 157, width: 278, height: 278, visible: true }, // lamp5
-        { x: 1606, y: 157, width: 278, height: 278, visible: true }, // lamp6
-        { x: 36, y: 471, width: 278, height: 278, visible: true }, // lamp7
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel,
-        // 6: overhead
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 157, visible: true }, // overhead1
-        { x: 507, y: 157, width: 435, height: 157, visible: true }, // overhead2
-        { x: 978, y: 157, width: 435, height: 157, visible: true }, // overhead3
-        { x: 1449, y: 157, width: 435, height: 157, visible: true }, // overhead4
-        { x: 37, y: 350, width: 434, height: 157, visible: true }, // overhead5
-        { x: 507, y: 350, width: 435, height: 157, visible: true }, // overhead6
-        { x: 978, y: 350, width: 435, height: 157, visible: true }, // overhead7
-        { x: 1449, y: 348, width: 435, height: 157, visible: true }, // overhead8
-        { x: 37, y: 543, width: 434, height: 157, visible: true }, // overhead9
-        { x: 507, y: 543, width: 435, height: 157, visible: true }, // overhead10
-        { x: 978, y: 543, width: 435, height: 157, visible: true }, // overhead11
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel,
-        // 7: appliances
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 471, visible: true }, // appliance1
-        { x: 507, y: 157, width: 435, height: 471, visible: true }, // appliance2
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        // 8: info
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        { x: 37, y: 314, width: 592, height: 121, visible: true }, // info2
-        { x: 37, y: 471, width: 592, height: 121, visible: true }, // info3
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel,
-        // 9: graphs
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel, hidden-panel,
-        hidden-panel, hidden-panel,
-        { x: 36, y: 157, width: 435, height: 471, visible: true }, // graph1
-        { x: 507, y: 157, width: 435, height: 471, visible: true }, // graph2
-        hidden-panel, hidden-panel, hidden-panel, hidden-panel,
     ];
 }

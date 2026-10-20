@@ -8,9 +8,6 @@ import { Palette } from "../../common.slint";
 export enum DoorState { closed, open }
 
 export component Doors {
-    in property <int> capture-door: 0;
-    in property <bool> cache-doors: false;
-    in property <bool> snap-to-pixels: false;
     property <bool> freeze-lights: false;
     property <int> frozen-volume: 0;
     property <brush> notch-border-color: #0000005d;
@@ -18,16 +15,11 @@ export component Doors {
     in-out property <DoorState> initial-door-state: closed;
     property <DoorState> target-door-state: initial-door-state;
     // Animate progress so window layout and resizing never animate the closed positions.
-    out property <float> open-progress: initial-door-state == DoorState.open ? 1 : 0;
+    property <float> open-progress: initial-door-state == DoorState.open ? 1 : 0;
 
-    out property <length> left-door-x: leftDoor.x;
-    out property <length> right-door-x: rightDoorLayer.x + 106px;
 
     callback unlockDemo();
     callback doorsOpened();
-    callback doorsOpening();
-    callback doorsClosing();
-    callback doorsClosed();
     callback coverage-changed(bool);
     property <bool> fully-closed: target-door-state == DoorState.closed
         && open-progress == 0;
@@ -42,7 +34,6 @@ export component Doors {
         }
         if open-progress == 0 && target-door-state == DoorState.closed {
             freeze-lights = false;
-            root.doorsClosed();
         }
     }
     width: 100%;
@@ -53,7 +44,6 @@ export component Doors {
         freeze-lights = true;
         demo-locked = false;
         target-door-state = DoorState.open;
-        doorsOpening();
     }
 
     Timer {
@@ -62,7 +52,6 @@ export component Doors {
             if initial-door-state == DoorState.open && demo-locked {
                 frozen-volume = dial.volume;
                 freeze-lights = true;
-                root.doorsClosing();
                 target-door-state = DoorState.closed;
                 initial-door-state = DoorState.closed;
             }
@@ -75,10 +64,7 @@ export component Doors {
     }
 
     leftDoor := Rectangle {
-        property <length> position: -30px + root.open-progress * (30px - self.width);
-        x: root.capture-door == 1 ? 0px : root.snap-to-pixels ? round(position / 1px) * 1px : position;
-        visible: root.capture-door != 2;
-        cache-rendering-hint: root.cache-doors;
+        x: -30px + root.open-progress * (30px - self.width);
         width: parent.width / 2 + 70px;
         height: 100%;
         background: Palette.doors-background;
@@ -91,7 +77,6 @@ export component Doors {
             x: parent.width - 125px;
             volume: root.freeze-lights ? root.frozen-volume : dial.volume;
             frozen: root.freeze-lights;
-            snap-to-pixels: root.snap-to-pixels;
         }
     }
 
@@ -117,19 +102,12 @@ export component Doors {
         }
     ]
 
-    rightDoorLayer := Rectangle {
-        property <length> position: root.width / 2 + root.open-progress * (root.width / 2 + 85px);
-        x: root.capture-door == 2 ? 0px : (root.snap-to-pixels ? round(position / 1px) * 1px : position) - 106px;
-        width: root.width / 2 + 136px;
-        height: 100%;
-        visible: root.capture-door != 1;
-        cache-rendering-hint: root.cache-doors;
-        rightDoor := Rectangle {
+    rightDoor := Rectangle {
         property <length> notch-width: 220px;
         property <length> notch-border: 4px;
         property <length> notch-indent: 20px;
 
-        x: 106px;
+        x: root.width / 2 + root.open-progress * (root.width / 2 + 85px);
         width: root.width / 2 + 30px;
         height: 100%;
         Rectangle {
@@ -186,6 +164,5 @@ export component Doors {
                 }
             }
         }
-    }
     }
 }

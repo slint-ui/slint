@@ -87,16 +87,7 @@ export component MainScreen inherits Rectangle {
     in-out property <bool> door-component-loaded: true;
     in-out property <DoorState> initial-door-state: closed;
     property <bool> demo-locked: true;
-    in-out property <bool> content-covered: initial-door-state == DoorState.closed;
-    in property <brush> scene-background: #181532;
-    in property <bool> capture-home: false;
-    in property <int> capture-door: 0;
-    in property <bool> cache-doors: false;
-    in property <bool> snap-doors-to-pixels: false;
-    in property <bool> cache-home: false;
-    in-out property <bool> door-transitioning: false;
-    out property <length> left-door-x;
-    out property <length> right-door-x;
+    property <bool> content-covered: initial-door-state == DoorState.closed;
 
     width: 100%;
     height: 100%;
@@ -160,293 +151,273 @@ export component MainScreen inherits Rectangle {
         }
     }
 
-    home-scene := Rectangle {
-        visible: root.capture-door == 0;
-        width: 100%;
-        height: 100%;
-        cache-rendering-hint: root.cache-home;
-        background: root.scene-background;
+    background: #181532;
 
-        Image {
-            x: 30px;
-            y: AppState.orientation == Orientation.landscape ? 35px : 36px;
-            width: 84px;
-            height: 25px;
-            source: @image-url("../../images/slint-logo-simple-dark.svg");
-        }
-
-        if AppState.orientation == Orientation.landscape: Rectangle {
-            property <bool> showing-time: true;
-            property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
-            width: 200px;
-            height: 50px;
-            x: parent.width - self.width - margin;
-            y: AppState.orientation == Orientation.landscape ? 24px : 30px;
-            opacity: 80%;
-            TouchArea {
-                clicked => {
-                    showing-time = !showing-time;
-                }
-            }
-
-            if !showing-time: HorizontalLayout {
-                alignment: center;
-                spacing: 10px;
-                HaText {
-                    text: Api.return-month();
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                    font-weight: FontWeight.thin;
-                }
-
-                HaText {
-                    text: Api.current-date.day;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                    font-weight: FontWeight.normal;
-                }
-            }
-            if showing-time: HorizontalLayout {
-                alignment: center;
-                HaText {
-                    text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: ":";
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: Api.current-time.minute < 10 ? "0" + Api.current-time.minute : Api.current-time.minute;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: Api.current-time.hour >= 12 ? " PM" : " AM";
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H2-font-size;
-                }
-            }
-        }
-        if AppState.orientation == Orientation.portrait: HorizontalLayout {
-            y: root.height - self.height - 10px;
-            alignment: center;
-            spacing: 30px;
-            height: 50px;
-            opacity: 80%;
-
-            HorizontalLayout {
-                spacing: 10px;
-                HaText {
-                    text: Api.return-month();
-                    font-size: Style.H1-font-size;
-                    font-weight: FontWeight.thin;
-                }
-
-                HaText {
-                    text: Api.current-date.day;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                    font-weight: FontWeight.normal;
-                }
-            }
-            HorizontalLayout {
-                HaText {
-                    text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: ":";
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: Api.current-time.minute;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H1-font-size;
-                }
-
-                HaText {
-                    text: Api.current-time.hour > 12 ? " PM" : " AM";
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    color: Palette.info-foreground;
-                    font-size: Style.H2-font-size;
-                    font-weight: FontWeight.thin;
-                }
-            }
-        }
-
-        Rectangle {
-            x: 0;
-            y: 0;
-            cache-rendering-hint: !root.cache-home && door-component-loaded;
-            visible: root.capture-home || !AppState.graphics-accelerator-available || !door-component-loaded || !content-covered;
-
-            navigation := Rectangle {
-
-                nav-bar := Rectangle {
-                    property <length> portrait-x: 110px;
-                    x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
-                    y: AppState.graphics-accelerator-available ? 26px : 35px;
-                    width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
-                    height: 40px;
-
-                    if !AppState.graphics-accelerator-available: Image {
-                        width: parent.width;
-                        height: self.source.height * 1px;
-                        source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
-                    }
-
-                    if AppState.graphics-accelerator-available: Rectangle {
-                        Rectangle {
-                            border-radius: self.height / 2;
-                            drop-shadow-blur: 5px;
-                            drop-shadow-color: black.transparentize(0.5);
-                            drop-shadow-offset-x: 3px;
-                            drop-shadow-offset-y: 3px;
-                            background: #241433;
-                        }
-
-                        Rectangle {
-                            border-width: 1px;
-                            border-color: Palette.glass-border;
-                            border-radius: self.height / 2;
-                            background: Palette.glass-background;
-                        }
-                    }
-
-                    // We need to have two different highlighter because of #7999
-                    if AppState.graphics-accelerator-available: PageButtonHighlighter {
-                        x: home.x + (tabs.spacing + self.width) * AppState.target-page;
-                        animate x {
-                            duration: Animation.transition-duration;
-                            easing: ease-in-out-sine;
-                        }
-                        width: AppState.orientation == Orientation.landscape ? 120px : 140px;
-                        height: 100%;
-                    }
-
-                    if !AppState.graphics-accelerator-available : PageButtonHighlighter {
-                        x: home.x + (tabs.spacing + self.width) * AppState.target-page;
-                        width: AppState.orientation == Orientation.landscape ? 120px : 140px;
-                        height: 100%;
-                    }
-
-                    tabs := HorizontalLayout {
-                        alignment: center;
-                        y: AppState.graphics-accelerator-available ? 0 : -5px;
-                        home := PageButton {
-                            label: "Home";
-                        }
-
-                        PageButton {
-                            label: "Kitchen";
-                            target-page: 1;
-                        }
-
-                        PageButton {
-                            label: "Bedroom";
-                            target-page: 2;
-                        }
-
-                        if AppState.orientation == Orientation.landscape: PageButton {
-                            label: "Office";
-                            target-page: 3;
-                        }
-                        if AppState.orientation == Orientation.landscape && AppState.graphics-accelerator-available: Rectangle {
-                            width: 50px;
-                            height: 40px;
-                            lock := Image {
-                                source: @image-url("../../images/lock.svg");
-                                colorize: white;
-                                opacity: lta.pressed ? 100% : 50%;
-                            }
-                            lta := TouchArea {
-                                clicked => {
-                                    door-component-loaded = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            fs-holder := Rectangle {
-                y: 20px;
-                if AppState.graphics-accelerator-available: Rectangle {
-                    Backdrop {
-                        y: -fs-holder.y;
-                    }
-
-                    for i[index] in AppState.component-details: WidgetLoader {
-                        index: index;
-                        type: AppState.component-details[index].type;
-                        data: AppState.current-layout-data[AppState.layout-offset + index];
-                        // Lift the selected widget above the backdrop and its siblings.
-                        elevated: root.elevated-index == index;
-                        z: root.elevated-index == index ? 2 : 0;
-                    }
-                }
-
-                if !AppState.graphics-accelerator-available: Rectangle {
-                    Backdrop {
-                        y: -fs-holder.y;
-                    }
-
-                    for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
-                        index: index;
-                        type: AppState.component-details[index].type;
-                        data: AppState.current-layout-data[AppState.layout-offset + index];
-                        z: root.elevated-index == index ? 2 : 0;
-                    }
-                }
-            }
-        }
-
+    Image {
+        x: 30px;
+        y: AppState.orientation == Orientation.landscape ? 35px : 36px;
+        width: 84px;
+        height: 25px;
+        source: @image-url("../../images/slint-logo-simple-dark.svg");
     }
 
-    if AppState.graphics-accelerator-available && door-component-loaded: doors := Doors {
-        init => {
-            root.left-door-x = self.left-door-x;
-            root.right-door-x = self.right-door-x;
+    if AppState.orientation == Orientation.landscape: Rectangle {
+        property <bool> showing-time: true;
+        property <length> margin: AppState.graphics-accelerator-available ? 5px : 20px;
+        width: 200px;
+        height: 50px;
+        x: parent.width - self.width - margin;
+        y: AppState.orientation == Orientation.landscape ? 24px : 30px;
+        opacity: 80%;
+        TouchArea {
+            clicked => {
+                showing-time = !showing-time;
+            }
         }
-        changed left-door-x => { root.left-door-x = self.left-door-x; }
-        changed right-door-x => { root.right-door-x = self.right-door-x; }
-        capture-door: root.capture-door;
-        cache-doors: root.cache-doors;
-        snap-to-pixels: root.snap-doors-to-pixels;
-        visible: !root.capture-home;
-        doorsOpening => { door-transitioning = true; }
-        doorsClosing => { door-transitioning = true; }
-        doorsClosed => { door-transitioning = false; }
+
+        if !showing-time: HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.thin;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.normal;
+            }
+        }
+        if showing-time: HorizontalLayout {
+            alignment: center;
+            HaText {
+                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute < 10 ? "0" + Api.current-time.minute : Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour >= 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+            }
+        }
+    }
+    if AppState.orientation == Orientation.portrait: HorizontalLayout {
+        y: root.height - self.height - 10px;
+        alignment: center;
+        spacing: 30px;
+        height: 50px;
+        opacity: 80%;
+
+        HorizontalLayout {
+            spacing: 10px;
+            HaText {
+                text: Api.return-month();
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.thin;
+            }
+
+            HaText {
+                text: Api.current-date.day;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+                font-weight: FontWeight.normal;
+            }
+        }
+        HorizontalLayout {
+            HaText {
+                text: Api.current-time.hour.mod(12) == 0 ? 12 : Api.current-time.hour.mod(12);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: ":";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.minute;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H1-font-size;
+            }
+
+            HaText {
+                text: Api.current-time.hour > 12 ? " PM" : " AM";
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                color: Palette.info-foreground;
+                font-size: Style.H2-font-size;
+                font-weight: FontWeight.thin;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        cache-rendering-hint: door-component-loaded;
+        visible: !AppState.graphics-accelerator-available || !door-component-loaded || !content-covered;
+
+        navigation := Rectangle {
+
+            nav-bar := Rectangle {
+                property <length> portrait-x: 110px;
+                x: AppState.orientation == Orientation.landscape ? (parent.width - self.width) / 2 : portrait-x;
+                y: AppState.graphics-accelerator-available ? 26px : 35px;
+                width: AppState.orientation == Orientation.landscape ? 600px : root.width - portrait-x;
+                height: 40px;
+
+                if !AppState.graphics-accelerator-available: Image {
+                    width: parent.width;
+                    height: self.source.height * 1px;
+                    source: @image-url("../../images/title-frame.png", nine-slice(0 50 0 50));
+                }
+
+                if AppState.graphics-accelerator-available: Rectangle {
+                    Rectangle {
+                        border-radius: self.height / 2;
+                        drop-shadow-blur: 5px;
+                        drop-shadow-color: black.transparentize(0.5);
+                        drop-shadow-offset-x: 3px;
+                        drop-shadow-offset-y: 3px;
+                        background: #241433;
+                    }
+
+                    Rectangle {
+                        border-width: 1px;
+                        border-color: Palette.glass-border;
+                        border-radius: self.height / 2;
+                        background: Palette.glass-background;
+                    }
+                }
+
+                // We need to have two different highlighter because of #7999
+                if AppState.graphics-accelerator-available: PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    animate x {
+                        duration: Animation.transition-duration;
+                        easing: ease-in-out-sine;
+                    }
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                if !AppState.graphics-accelerator-available : PageButtonHighlighter {
+                    x: home.x + (tabs.spacing + self.width) * AppState.target-page;
+                    width: AppState.orientation == Orientation.landscape ? 120px : 140px;
+                    height: 100%;
+                }
+
+                tabs := HorizontalLayout {
+                    alignment: center;
+                    y: AppState.graphics-accelerator-available ? 0 : -5px;
+                    home := PageButton {
+                        label: "Home";
+                    }
+
+                    PageButton {
+                        label: "Kitchen";
+                        target-page: 1;
+                    }
+
+                    PageButton {
+                        label: "Bedroom";
+                        target-page: 2;
+                    }
+
+                    if AppState.orientation == Orientation.landscape: PageButton {
+                        label: "Office";
+                        target-page: 3;
+                    }
+                    if AppState.orientation == Orientation.landscape && AppState.graphics-accelerator-available: Rectangle {
+                        width: 50px;
+                        height: 40px;
+                        lock := Image {
+                            source: @image-url("../../images/lock.svg");
+                            colorize: white;
+                            opacity: lta.pressed ? 100% : 50%;
+                        }
+                        lta := TouchArea {
+                            clicked => {
+                                door-component-loaded = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        fs-holder := Rectangle {
+            y: 20px;
+            if AppState.graphics-accelerator-available: Rectangle {
+                Backdrop {
+                    y: -fs-holder.y;
+                }
+
+                for i[index] in AppState.component-details: WidgetLoader {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data[AppState.layout-offset + index];
+                    // Lift the selected widget above the backdrop and its siblings.
+                    elevated: root.elevated-index == index;
+                    z: root.elevated-index == index ? 2 : 0;
+                }
+            }
+
+            if !AppState.graphics-accelerator-available: Rectangle {
+                Backdrop {
+                    y: -fs-holder.y;
+                }
+
+                for i[index] in AppState.component-details: WidgetLoaderSoftwareRenderer {
+                    index: index;
+                    type: AppState.component-details[index].type;
+                    data: AppState.current-layout-data[AppState.layout-offset + index];
+                    z: root.elevated-index == index ? 2 : 0;
+                }
+            }
+        }
+    }
+
+
+    if AppState.graphics-accelerator-available && door-component-loaded: doors := Doors {
         coverage-changed(covered) => {
             content-covered = covered;
         }
         doorsOpened => {
-            door-transitioning = false;
             door-component-loaded = false;
             initial-door-state = DoorState.open;
         }
