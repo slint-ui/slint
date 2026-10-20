@@ -2255,6 +2255,9 @@ impl Expression {
                 exp.maybe_convert_to(Type::Bool, Some(&node.into()), ctx.diag, &ctx.symbol_counters)
             }
             '+' | '-' => {
+                if op == '-' {
+                    warn_negated_literal_abs(&node, ctx.diag);
+                }
                 let ty = exp.ty();
                 if ty.default_unit().is_none()
                     && !matches!(
@@ -3460,6 +3463,23 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+/// `-1deg.abs()` is `-(1deg.abs())`, see #7146.
+fn warn_negated_literal_abs(node: &syntax_nodes::UnaryOpExpression, diag: &mut BuildDiagnostics) {
+    if let Some(call) = node.Expression().FunctionCallExpression()
+        && let Some(member) = call.Expression().next().and_then(|callee| callee.MemberAccess())
+        && member.child_text(SyntaxKind::Identifier).is_some_and(|name| name == "abs")
+        && let Some(literal) = member.Expression().child_token(SyntaxKind::NumberLiteral)
+    {
+        let literal = literal.text();
+        diag.push_warning(
+            format!(
+                "'-' applies to the result of 'abs()', so this is negative; write '(-{literal}).abs()' for the absolute value of '-{literal}'"
+            ),
+            node,
+        );
     }
 }
 
