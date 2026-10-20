@@ -224,7 +224,9 @@ class SlintInputView extends View {
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         outAttrs.inputType = mInputType;
-        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN
+                | ((mInputType & EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE) != 0 ? EditorInfo.IME_ACTION_NONE
+                        : EditorInfo.IME_ACTION_DONE);
         outAttrs.initialSelStart = mCursorPosition;
         outAttrs.initialSelEnd = mAnchorPosition;
         return new BaseInputConnection(this, true) {
