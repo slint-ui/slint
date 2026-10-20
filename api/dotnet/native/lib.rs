@@ -16,6 +16,7 @@ mod brush;
 mod instance;
 mod interpreter;
 mod models;
+mod special;
 mod timer;
 mod translations;
 mod value;

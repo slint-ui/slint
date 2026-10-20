@@ -78,6 +78,9 @@ For each `<SlintFile>`, the build generates C# classes in the project's root nam
 | enum | an `enum` |
 
 Names become PascalCase: `request-increase-value` becomes `RequestIncreaseValue`.
+A component exported under another name too, such as with `export { AppWindow as MainWindow }`,
+gets a class for each name.
+Structs and enums keep only their own name.
 
 The types map as follows:
 
@@ -92,9 +95,11 @@ The types map as follows:
 | `brush` | `Slint.Brush`; a `Slint.Color` converts to it |
 | `Point` | `Slint.LogicalPosition` |
 | `image` | `Slint.Image` |
+| `keys` | `Slint.Keys` |
+| `styled-text` | `Slint.StyledText` |
+| `data-transfer` | `Slint.DataTransfer` |
 | `[T]` | `Slint.Model<T>` |
 
-Other types, such as `keys`, are `object?` for now.
 `Color` and `Brush` have `Brighter`, `Darker`, `Transparentize`, and `WithAlpha`, and `Color` has `Mix`.
 
 The build copies the `.slint` files to the output directory, and the generated code loads them at run time.

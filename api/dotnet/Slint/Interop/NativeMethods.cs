@@ -466,6 +466,37 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_value_equals(ValueHandle a, ValueHandle b);
 
+    // special.rs
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_keys(Utf8Str* parts, nuint count);
+
+    [LibraryImport(Library)]
+    public static partial OwnedString slint_dotnet_value_describe(ValueHandle value);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_styled_text(int kind, Utf8Str text);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_data_transfer();
+
+    [LibraryImport(Library)]
+    public static partial OwnedString slint_dotnet_data_transfer_plain_text(ValueHandle value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_data_transfer_set_plain_text(ValueHandle value, Utf8Str text);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_data_transfer_image(ValueHandle value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_data_transfer_set_image(ValueHandle value, nint image);
+
+    [LibraryImport(Library)]
+    public static partial int slint_dotnet_data_transfer_state(ValueHandle value);
+
     // window.rs
 
     [LibraryImport(Library)]

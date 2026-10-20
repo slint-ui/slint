@@ -91,15 +91,6 @@ public sealed class InstanceTests
     });
 
     [TestMethod]
-    public void OpaqueValuesRoundTrip() => SlintThread.Run(() =>
-    {
-        using var app = CreateApp();
-        using var shortcut = (OpaqueValue)app.GetProperty("shortcut")!;
-        app.SetProperty("shortcut", shortcut);
-        using var again = (OpaqueValue)app.GetProperty("shortcut")!;
-    });
-
-    [TestMethod]
     public void LoadsImages() => SlintThread.Run(() =>
     {
         var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../examples/memory/icons/at.png"));

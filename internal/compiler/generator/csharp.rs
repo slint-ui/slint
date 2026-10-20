@@ -112,6 +112,9 @@ fn csharp_type(ty: &Type) -> String {
         Type::Color => "global::Slint.Color".into(),
         Type::Image => "global::Slint.Image".into(),
         Type::Brush => "global::Slint.Brush".into(),
+        Type::Keys => "global::Slint.Keys".into(),
+        Type::StyledText => "global::Slint.StyledText".into(),
+        Type::DataTransfer => "global::Slint.DataTransfer".into(),
         Type::Array(element) => format!("global::Slint.Model<{}>", csharp_type(element)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
@@ -475,8 +478,20 @@ pub fn generate(
         .map(|g| format!("[{}] = {}", string_literal(&g.name), expected_api(&g.public_properties)))
         .join(", ");
 
-    for component in &unit.public_components {
-        let class = ident(&component.name);
+    // A component exported under more names gets a class for each, which creates it by its first name.
+    // Deprecated names are left out: they only keep older generated code compiling.
+    let component_classes = unit.public_components.iter().flat_map(|component| {
+        std::iter::once(&component.name)
+            .chain(
+                unit.type_exports
+                    .iter()
+                    .filter(|e| e.is_alias() && !e.deprecated && e.internal_name == component.name)
+                    .map(|e| &e.exported_name),
+            )
+            .map(move |name| (component, name))
+    });
+    for (component, class_name) in component_classes {
+        let class = ident(class_name);
         let mut members = Members::new(&[
             class.as_str(),
             "Instance",
@@ -562,13 +577,13 @@ pub fn generate(
     if let Some(domain) = &compiler_config.translation_domain {
         let _ = write!(translation_args, ", translationDomain: {}", string_literal(domain));
     }
+    #[cfg(feature = "bundle-translations")]
     if let Some(path) = &compiler_config.bundled_translations_path {
         let _ = write!(translation_args, ", bundledTranslationsPath: {}", absolute(path));
     }
     if compiler_config.default_translation_context == crate::DefaultTranslationContext::None {
-        translation_args.push_str(
-            ", defaultTranslationContext: global::Slint.DefaultTranslationContext.None",
-        );
+        translation_args
+            .push_str(", defaultTranslationContext: global::Slint.DefaultTranslationContext.None");
     }
     let _ = writeln!(out, "file static class SlintFile\n{{");
     let _ = writeln!(out, "    private static global::Slint.CompilationResult? s_result;");

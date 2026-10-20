@@ -19,6 +19,7 @@ export component Generated inherits Window {
     in-out property <color> tint: #102030;
     in-out property <brush> fill: @linear-gradient(90deg, #ff0000 0%, #0000ff 100%);
     in-out property <Point> anchor: { x: 1px, y: 2px };
+    in-out property <keys> shortcut;
     in-out property <Mode> mode: Mode.busy-now;
     in-out property <Person> person: { name: "Ada", age: 36, tags: ["math"] };
     in-out property <[Person]> people;
@@ -32,3 +33,5 @@ export component Generated inherits Window {
     public function call-changed() -> string { return Settings.changed("light"); }
     public function oldest() -> string { return people.length > 0 ? people[0].name : ""; }
 }
+
+export { Generated as GeneratedAlias }

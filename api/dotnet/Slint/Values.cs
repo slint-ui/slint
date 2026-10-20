@@ -203,6 +203,9 @@ public sealed class OpaqueValue : IDisposable
 internal static unsafe class ValueConverter
 {
     private const int KindEnum = 8;
+    private const int KindKeys = 9;
+    private const int KindStyledText = 10;
+    private const int KindDataTransfer = 11;
 
     /// <summary>Returns a new native value; the caller frees it.</summary>
     public static nint ToNative(object? value)
@@ -228,6 +231,8 @@ internal static unsafe class ValueConverter
                 }
             case TimeSpan duration:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_number(duration.TotalMilliseconds));
+            case NativeValue native:
+                return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(native.Handle.DangerousGetHandle()));
             case Brush brush:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(brush.Handle.DangerousGetHandle()));
             case LogicalPosition position:
@@ -342,6 +347,12 @@ internal static unsafe class ValueConverter
                 }
             case (int)ValueType.Image:
                 return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
+            case KindKeys:
+                return new Keys(Clone(value));
+            case KindStyledText:
+                return new StyledText(Clone(value));
+            case KindDataTransfer:
+                return new DataTransfer(Clone(value));
             case KindEnum:
                 return new EnumValue(
                     NativeMethods.slint_dotnet_value_enum_name(value).Take()!,
@@ -363,6 +374,9 @@ internal static unsafe class ValueConverter
             NativeMethods.slint_dotnet_value_free(value);
         }
     }
+
+    private static ValueHandle Clone(nint value) =>
+        new(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value)));
 
     private static OpaqueValue Opaque(nint value) =>
         new(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));

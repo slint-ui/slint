@@ -21,13 +21,15 @@ pub fn value_type_tag(ty: ValueType) -> i32 {
     }
 }
 
-const KIND_ENUM: i32 = 8;
-
-/// The `ValueType` tag of `value`, or 8 for an enum value.
+/// The `ValueType` tag of `value`, or for values that have none:
+/// 8 an enum value, 9 `keys`, 10 `styled-text`, 11 `data-transfer`. Matches `ValueConverter` in C#.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_value_kind(value: &Value) -> i32 {
     match value {
-        Value::EnumerationValue(..) => KIND_ENUM,
+        Value::EnumerationValue(..) => 8,
+        Value::Keys(_) => 9,
+        Value::StyledText(_) => 10,
+        Value::DataTransfer(_) => 11,
         _ => value_type_tag(value.value_type()),
     }
 }

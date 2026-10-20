@@ -71,11 +71,12 @@ C# declares the exports with `[LibraryImport]` in `Slint/Interop/NativeMethods.c
 | `color`, solid `brush` | `Slint.Color` |
 | gradient | `Slint.Brush` |
 | `Point` | `Slint.Struct`, `Slint.LogicalPosition` in generated code |
+| `keys`, `styled-text`, `data-transfer` | `Slint.Keys`, `Slint.StyledText`, `Slint.DataTransfer` |
 | struct | `Slint.Struct` |
 | array, model | `Slint.Model<T>`; any `IEnumerable` converts to a copy |
 | enum | `Slint.EnumValue` |
 | `image` | `Slint.Image` |
-| anything else, such as `keys` | `Slint.OpaqueValue`, passed back unchanged |
+| anything else | `Slint.OpaqueValue`, passed back unchanged; no public property type gives one today |
 
 Generated code narrows the numeric types and maps structs and enums to C# records and enums.
 
@@ -226,11 +227,11 @@ Next:
 8. API gaps compared to Python and Node.js:
    - a `Window` API, for size, position, scale factor, and close requests (done)
    - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize` (done)
-   - typed `keys`, styled text, and data transfer
+   - typed `keys`, styled text, and data transfer (done)
    - include and library paths in generated code (done)
    - translations, bundled and through an `ITranslator` (done)
    - the model adapters, in C# in `Slint/ModelAdapters.cs` (done)
-   - C# names for exported aliases
+   - C# names for exported aliases of components (done); structs and enums keep only their own name
 9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
 10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
 
