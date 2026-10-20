@@ -22,6 +22,8 @@ export component MoveResizeFrame inherits Rectangle {
     in property <bool> shift-pressed;
     in property <angle> rotation;
     in property <bool> show-resize-handles: true;
+    in property <bool> corner-highlighted;
+    in property <CanvasCorner> highlighted-corner;
     in property <bool> show-rotation-handles: true;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
@@ -536,6 +538,14 @@ export component MoveResizeFrame inherits Rectangle {
                     border-width: Metrics.border-width;
                     border-color: Colors.focus;
                     visible: root.show-resize-handles;
+
+                    if root.corner-highlighted && root.highlighted-corner == corner: Rectangle {
+                        x: 2 * Metrics.border-width;
+                        y: self.x;
+                        width: parent.width - 2 * self.x;
+                        height: self.width;
+                        background: Colors.focus;
+                    }
 
                     TouchArea {
                         enabled: root.enabled;

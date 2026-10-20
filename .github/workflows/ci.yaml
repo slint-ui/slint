@@ -783,8 +783,8 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - name: Test the MCP servers
-              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
+            - name: Test the MCP servers and hooks
+              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'
 
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}

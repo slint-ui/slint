@@ -108,6 +108,8 @@ importers:
         specifier: 6.41.0
         version: 6.41.0
 
+  ai-plugins/hooks: {}
+
   ai-plugins/mcp/slint-preview: {}
 
   api/node:
