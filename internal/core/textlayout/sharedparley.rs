@@ -107,12 +107,38 @@ impl FontContext {
         self.resolved_fonts.clear();
     }
 
+    /// Registers the fonts in `data`, also as fallback for the scripts they cover.
     pub fn register_fonts(
         &mut self,
         data: fontique::Blob<u8>,
     ) -> Vec<(fontique::FamilyId, Vec<fontique::FontInfo>)> {
+        use fontique::ScriptExt;
         self.resolved_fonts.clear();
-        self.inner.collection.register_fonts(data, None)
+        let collection = &mut self.inner.collection;
+        let families = collection.register_fonts(data.clone(), None);
+        for (family_id, infos) in &families {
+            let charmaps: Vec<_> = infos
+                .iter()
+                .filter_map(|info| skrifa::FontRef::from_index(data.data(), info.index()).ok())
+                .map(|face| face.charmap())
+                .collect();
+            for (script, sample) in fontique::Script::all_samples() {
+                let covered =
+                    charmaps.iter().any(|charmap| sample.chars().all(|c| charmap.map(c).is_some()));
+                if !covered {
+                    continue;
+                }
+                let key = fontique::FallbackKey::new(*script, None);
+                // Appending to an unset key would hide the system fallback, which fontique
+                // only looks up for keys without an entry.
+                let mut fallbacks: Vec<_> = collection.fallback_families(key).collect();
+                if !fallbacks.contains(family_id) {
+                    fallbacks.push(*family_id);
+                    collection.set_fallbacks(key, fallbacks.into_iter());
+                }
+            }
+        }
+        families
     }
 
     pub fn register_static_font(&mut self, data: &'static [u8]) {
