@@ -28,21 +28,21 @@ export component TestCase inherits Window {
     width: 600px;
     height: 220px;
     in-out property <brush> custom-color <=> AppColors.checkbox;
-    in-out property <brush> foreground: #ffffff;
+    in-out property <brush> foreground-color: #ffffff;
     in-out property <bool> enabled: true;
     in-out property <bool> checked: true;
     in-out property <CheckBoxStyle> checkbox-style: CheckBoxStyles.standard;
     out property <int> activations;
-    out property <brush> switch-foreground: switch.foreground;
+    out property <brush> switch-foreground: switch.foreground-color;
     out property <bool> test: first.checked-color == second.checked-color
         && first.checked-color == root.custom-color
         && button.background-color == root.custom-color
-        && button.foreground == root.foreground
+        && button.foreground-color == root.foreground-color
         && switch.checked-color == root.custom-color
         && slider.fill-color == root.custom-color
         && slider.handle-color == root.custom-color
         && combo.background-color == root.custom-color
-        && combo.foreground == root.foreground
+        && combo.foreground-color == root.foreground-color
         && first.style == root.checkbox-style
         && button.style == ButtonStyles.primary
         && switch.style == SwitchStyles.standard
@@ -88,7 +88,7 @@ export component TestCase inherits Window {
                 text: "Button";
                 style: ButtonStyles.primary;
                 background-color: root.custom-color;
-                foreground: root.foreground;
+                foreground-color: root.foreground-color;
                 enabled: root.enabled;
                 clicked => { root.activations += 1; }
             }
@@ -105,7 +105,7 @@ export component TestCase inherits Window {
                 accessible-label: "ComboBox";
                 model: ["One", "Two"];
                 background-color: root.custom-color;
-                foreground: root.foreground;
+                foreground-color: root.foreground-color;
                 enabled: root.enabled;
                 selected(value) => { root.activations += 1; }
             }
@@ -119,7 +119,7 @@ let instance = TestCase::new().unwrap();
 let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
 assert!(instance.get_test());
 instance.set_custom_color(brush(0x7c, 0x3a, 0xed));
-instance.set_foreground(brush(0xfe, 0xf3, 0xc7));
+instance.set_foreground_color(brush(0xfe, 0xf3, 0xc7));
 assert!(instance.get_test());
 instance.set_checked(false);
 assert!(instance.get_test());

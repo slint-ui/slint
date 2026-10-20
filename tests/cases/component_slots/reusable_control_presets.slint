@@ -44,11 +44,11 @@ export component TestCase inherits Window {
     in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
     in-out property <SwitchMetrics> switch-size: SwitchSizes.medium;
     out property <brush> switch-color: switch.checked-color;
-    out property <length> switch-dimension: switch.indicator-width;
+    out property <length> switch-dimension: switch.size.track-width;
     in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
     in-out property <CheckBoxMetrics> check-box-size: CheckBoxSizes.medium;
     out property <brush> check-box-color: check-box.checked-color;
-    out property <length> check-box-dimension: check-box.indicator-width;
+    out property <length> check-box-dimension: check-box.size.indicator-size;
     in-out property <SliderStyle> slider-style: SliderStyles.standard;
     in-out property <SliderMetrics> slider-size: SliderSizes.medium;
     out property <brush> slider-color: slider.handle-color;
@@ -175,7 +175,7 @@ export component TestCase inherits Window {
         height: 40px;
         style: root.combo-box-style;
         background-color: #123456;
-        foreground: #ffffff;
+        foreground-color: #ffffff;
         size: root.combo-box-size;
         enabled: root.enabled;
         font-size: 13px;

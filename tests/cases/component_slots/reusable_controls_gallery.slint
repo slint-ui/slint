@@ -49,8 +49,8 @@ select_size("Medium");
 for label in ["Primary", "Danger", "Secondary", "Invisible"] {
     let button = find(label, AccessibleRole::Button);
     assert_eq!(button.accessible_enabled(), Some(true));
-    assert_eq!(button.accessible_checkable(), Some(false));
-    assert_eq!(button.accessible_checked(), Some(false));
+    assert_eq!(button.accessible_checkable(), None);
+    assert_eq!(button.accessible_checked(), None);
 }
 for label in ["Checkable", "Checked", "Inactive", "Button content alignment"] {
     assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().is_none());

@@ -3,7 +3,7 @@
 
 import {
     BasicPalette, BasicPalettes, BasicTheme, BasicThemeProvider,
-    Button, CheckBox, Switch, Slider, ComboBox, LineEdit,
+    Button, ButtonStyles, CheckBox, Switch, Slider, ComboBox, LineEdit,
 } from "../../../tools/editor/controls/src/basic.slint";
 export { BasicPalettes, BasicTheme }
 
@@ -62,7 +62,7 @@ export component TestCase inherits Window {
     BasicThemeProvider { palette: AppTheme.palette; }
 
     VerticalLayout {
-        primary := Button { text: "Primary"; primary: true; enabled: root.enabled; }
+        primary := Button { text: "Primary"; style: ButtonStyles.primary; enabled: root.enabled; }
         checkbox := CheckBox { text: "Checkbox"; checked: true; }
         switch := Switch { text: "Switch"; checked: true; }
         slider := Slider { value: 50; }
@@ -71,10 +71,10 @@ export component TestCase inherits Window {
         custom := Button {
             text: "Custom";
             style: {
-                rest: { background-color: #654321, foreground: #ffffff },
-                hover: { background-color: #654321, foreground: #ffffff },
-                pressed: { background-color: #654321, foreground: #ffffff },
-                disabled: { background-color: #654321, foreground: #ffffff },
+                rest: { background-color: #654321, foreground-color: #ffffff },
+                hover: { background-color: #654321, foreground-color: #ffffff },
+                pressed: { background-color: #654321, foreground-color: #ffffff },
+                disabled: { background-color: #654321, foreground-color: #ffffff },
             };
         }
     }

@@ -1,37 +1,59 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase } from "../headless.slint";
+import { LineEditBase, LineEditInterface } from "../headless.slint";
 import { LineEditStyle, LineEditStateStyle, LineEditMetrics } from "line_edit_style.slint";
 import { LineEditStyles, LineEditSizes } from "line_edit_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
-export component LineEdit inherits LineEditBase {
+export component LineEdit {
+    implement LineEditInterface <=> field;
+
     in property <LineEditStyle> style: LineEditStyles.standard;
     in property <LineEditMetrics> size: LineEditSizes.medium;
     private property <LineEditStateStyle> state-style: root.style.rest;
     in property <brush> background-color: root.state-style.background-color;
-    in property <brush> border-color: root.state-style.border-color;
     in property <length> border-width: root.size.border-width;
     in property <length> border-radius: root.size.border-radius;
-    in property <brush> placeholder-color: root.state-style.placeholder-color;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <color> selection-background-color: root.style.selection-background-color;
+    in property <color> selection-foreground-color: root.style.selection-foreground-color;
+    in property <string> font-family <=> field.font-family;
+    in property <length> font-size <=> field.font-size;
+    in property <bool> font-italic <=> field.font-italic;
+    in property <int> font-weight <=> field.font-weight;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> field.horizontal-alignment;
+    in property <length> content-padding: root.size.padding-vertical;
+    in property <length> content-padding-left: root.size.padding-horizontal;
+    in property <length> content-padding-right: root.size.padding-horizontal;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
+    in property <length> spacing: root.size.spacing;
 
-    foreground: root.state-style.foreground;
-    selection-background-color: root.style.selection-background-color;
-    selection-foreground-color: root.style.selection-foreground-color;
-    font-size: root.size.font-size;
-    font-weight: root.size.font-weight;
-    content-padding: root.size.padding-vertical;
-    content-padding-left: root.size.padding-horizontal;
-    content-padding-right: root.size.padding-horizontal;
-    spacing: root.size.spacing;
-    min-width: root.size.min-width;
-    min-height: root.size.min-height;
+    min-width: max(root.size.min-width, field.min-width);
+    min-height: max(root.size.min-height, field.min-height);
+    preferred-width: field.preferred-width;
+    preferred-height: field.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: field;
+    accessible-role: text-input;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    accessible-placeholder-text: root.placeholder-text;
+    accessible-read-only: root.read-only;
+    accessible-action-default => { if root.enabled { field.focus(); } }
+    accessible-action-set-value(value) => {
+        if root.enabled && !root.read-only {
+            root.text = value;
+            root.edited(root.text);
+        }
+    }
+    accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
 
     slot leading;
     slot trailing;
-    leading << leading;
-    trailing << trailing;
 
     states [
         disabled when !root.enabled: {
@@ -42,36 +64,55 @@ export component LineEdit inherits LineEditBase {
         }
     ]
 
-    background << Rectangle {
-        background: root.enabled ? root.background-color : root.state-style.background-color;
-        border-color: root.enabled ? root.border-color : root.state-style.border-color;
-        border-width: root.border-width;
-        border-radius: root.border-radius;
-
-        focus-outline := FocusOutline {
-            active: root.enabled && root.has-focus;
-            outline-color: root.style.focus-color;
-            target-width: parent.width;
-            target-height: parent.height;
-            line-width: root.size.focus-width;
-            offset: root.size.focus-offset;
-            radius: root.border-radius;
-        }
-    }
-
-    placeholder << placeholder-label := Text {
-        x: 0px;
-        y: 0px;
+    field := LineEditBase {
         width: 100%;
         height: 100%;
-        text: root.placeholder-text;
-        color: root.enabled ? root.placeholder-color : root.state-style.placeholder-color;
-        font-family: root.font-family;
-        font-size: root.font-size;
-        font-weight: root.font-weight;
-        font-italic: root.font-italic;
-        horizontal-alignment: root.horizontal-alignment;
-        vertical-alignment: center;
-        overflow: elide;
+        accessible-role: none;
+        foreground-color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+        font-size: root.size.font-size;
+        font-weight: root.size.font-weight;
+        selection-background-color: root.enabled ? root.selection-background-color : root.style.selection-background-color;
+        selection-foreground-color: root.enabled ? root.selection-foreground-color : root.style.selection-foreground-color;
+        content-padding-left: root.content-padding-left;
+        content-padding-right: root.content-padding-right;
+        content-padding-top: root.content-padding-top;
+        content-padding-bottom: root.content-padding-bottom;
+        spacing: root.spacing;
+        leading << leading;
+        trailing << trailing;
+        @children
+
+        background << surface := Rectangle {
+            background: root.enabled ? root.background-color : root.state-style.background-color;
+            border-color: root.state-style.border-color;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
+
+            focus-outline := FocusOutline {
+                active: root.enabled && root.has-focus;
+                outline-color: root.style.focus-color;
+                target-width: parent.width;
+                target-height: parent.height;
+                line-width: root.size.focus-width;
+                offset: root.size.focus-offset;
+                radius: root.border-radius;
+            }
+        }
+
+        placeholder << placeholder-label := Text {
+            x: 0px;
+            y: 0px;
+            width: 100%;
+            height: 100%;
+            text: root.placeholder-text;
+            color: root.state-style.placeholder-color;
+            font-family: root.font-family;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-italic: root.font-italic;
+            horizontal-alignment: root.horizontal-alignment;
+            vertical-alignment: center;
+            overflow: elide;
+        }
     }
 }

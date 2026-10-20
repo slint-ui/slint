@@ -5,12 +5,14 @@ import { ComboBox } from "../../../tools/editor/controls/src/basic.slint";
 import {
     ComboBoxBase,
     ComboBoxPopupBase,
+    ComboBoxInterface,
 } from "../../../tools/editor/controls/src/headless.slint";
-import { ComboBoxInterface } from "std-widget-interfaces.slint";
 
 component SelectionHost {
     slot <ComboBoxInterface> control;
     out property <string> value: control.current-value;
+    out property <int> count: control.count;
+    public function select(index: int) { control.select(index); }
     in-out property <int> selections;
     in-out property <string> last-selected;
     control {
@@ -48,10 +50,11 @@ export component TestCase inherits Window {
     }
 
     init => {
-        styled.select(1);
-        headless.select(1);
+        styled-host.select(1);
+        headless-host.select(1);
     }
     out property <bool> test: styled-host.value == "Beta" && headless-host.value == "Beta"
+        && styled-host.count == 2 && headless-host.count == 2
         && styled-host.selections == 1 && styled-host.last-selected == "Beta"
         && headless-host.selections == 1 && headless-host.last-selected == "Beta"
         && initial-value.current-index == 1 && initial-value.current-value == "Beta"

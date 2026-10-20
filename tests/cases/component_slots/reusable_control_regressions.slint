@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, CheckBox, Switch, ComboBox, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+import { Button, CheckBox, Switch, ComboBox, ComboBoxMetrics, ComboBoxSizes, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
 
 export component TestCase inherits Window {
     width: 600px;
@@ -12,6 +12,19 @@ export component TestCase inherits Window {
     in-out property <[string]> model: ["Zero", "One", "Two", "Three"];
     in-out property <length> combo-height: 40px;
     in-out property <length> indicator-width: 16px;
+    private property <ComboBoxMetrics> combo-size: {
+        min-height: ComboBoxSizes.medium.min-height,
+        min-width: ComboBoxSizes.medium.min-width,
+        preferred-width: ComboBoxSizes.medium.preferred-width,
+        padding-horizontal: ComboBoxSizes.medium.padding-horizontal,
+        padding-vertical: ComboBoxSizes.medium.padding-vertical,
+        font-size: ComboBoxSizes.medium.font-size,
+        indicator-width: root.indicator-width,
+        spacing: ComboBoxSizes.medium.spacing,
+        item-height: ComboBoxSizes.medium.item-height,
+        popup-padding: ComboBoxSizes.medium.popup-padding,
+        item-padding-inline: ComboBoxSizes.medium.item-padding-inline,
+    };
     in-out property <length> field-width: 220px;
     out property <bool> expanded: combo.expanded;
     out property <bool> combo-focused: combo.has-focus;
@@ -40,7 +53,7 @@ export component TestCase inherits Window {
         y: 20px;
         width: 220px;
         height: root.combo-height;
-        indicator-width: root.indicator-width;
+        size: root.combo-size;
         accessible-label: "Selection";
         model: root.model;
         selected(value) => { root.selections += 1; }

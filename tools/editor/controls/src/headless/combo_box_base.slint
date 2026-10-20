@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ComboBoxInterface } from "std-widget-interfaces.slint";
+import { ComboBoxInterface } from "../interfaces/combo_box.slint";
 
 export interface ComboBoxPopupSurface {
     in property <bool> enabled;
@@ -29,9 +29,6 @@ export component ComboBoxBase {
     in property <[string]> model;
     in-out property <int> current-index: root.count > 0 ? 0 : -1;
     in-out property <string> current-value: root.indexed-value;
-    in property <string> placeholder;
-    in property <string> display-text: root.current-index >= 0 && root.current-index < root.count
-        ? root.current-value : root.placeholder;
     out property <int> count: root.model.length;
     out property <int> highlighted-index: root.highlight-index;
     out property <bool> expanded: popup.opened;

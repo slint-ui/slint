@@ -19,8 +19,10 @@ import { FocusOutline } from "focus_outline.slint";
 export component ComboBoxPopup inherits ComboBoxPopupBase {
     in property <ComboBoxPopupStyle> style: ComboBoxStyles.standard.popup;
     in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
+    in property <string> font-family;
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: root.size.font-weight;
+    in property <bool> font-italic;
     item-height: root.size.item-height;
     popup-padding: root.size.popup-padding;
     popup-offset: root.size.popup-offset;
@@ -94,9 +96,11 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
                 padding-right: root.size.item-padding-inline;
                 Text {
                     text: value;
-                    color: item.current-style.foreground;
+                    color: item.current-style.foreground-color;
                     font-size: root.font-size;
                     font-weight: item.item-font-weight;
+                    font-family: root.font-family;
+                    font-italic: root.font-italic;
                     vertical-alignment: center;
                     overflow: elide;
                 }
@@ -106,23 +110,29 @@ export component ComboBoxPopup inherits ComboBoxPopupBase {
 }
 
 export component ComboBox inherits ComboBoxBase {
+    in property <string> placeholder;
+    in property <string> display-text: root.current-index >= 0 && root.current-index < root.count
+        ? root.current-value : root.placeholder;
     in property <ComboBoxStyle> style: ComboBoxStyles.standard;
     in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
     private property <ComboBoxStateStyle> state-style: root.style.rest;
     in property <brush> background-color: root.state-style.background-color;
-    in property <brush> foreground: root.state-style.foreground;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <length> border-width: root.size.border-width;
+    in property <length> border-radius: root.size.border-radius;
     min-width: root.size.min-width;
     min-height: root.size.min-height;
     preferred-width: root.size.preferred-width;
     content-padding: root.size.padding-vertical;
     content-padding-left: root.size.padding-horizontal;
     content-padding-right: root.size.padding-horizontal;
-    in property <length> indicator-width: root.size.indicator-width;
     spacing: root.size.spacing;
     item-height: root.size.item-height;
     popup-padding: root.size.popup-padding;
+    in property <string> font-family;
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: root.size.font-weight;
+    in property <bool> font-italic;
 
     states [
         disabled when !root.enabled: {
@@ -135,11 +145,11 @@ export component ComboBox inherits ComboBoxBase {
             state-style: root.style.hover;
         }
     ]
-    background << Rectangle {
+    background << surface := Rectangle {
         background: root.enabled ? root.background-color : root.state-style.background-color;
         border-color: root.state-style.border-color;
-        border-width: root.size.border-width;
-        border-radius: root.size.border-radius;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
 
         focus-outline := FocusOutline {
             active: root.enabled && (root.has-focus || root.expanded);
@@ -148,26 +158,28 @@ export component ComboBox inherits ComboBoxBase {
             target-height: parent.height;
             line-width: root.size.focus-width;
             offset: root.size.focus-offset;
-            radius: root.size.border-radius;
+            radius: root.border-radius;
         }
     }
 
     content << Text {
         horizontal-stretch: 1;
         text: root.display-text;
-        color: root.enabled ? root.foreground : root.state-style.foreground;
+        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
         font-size: root.font-size;
         font-weight: root.font-weight;
+        font-family: root.font-family;
+        font-italic: root.font-italic;
         vertical-alignment: center;
         overflow: elide;
     }
 
     indicator << Path {
-        width: root.indicator-width;
+        width: root.size.indicator-width;
         height: 100%;
         viewbox-width: 16;
         viewbox-height: 20;
-        stroke: root.enabled ? root.foreground : root.state-style.foreground;
+        stroke: root.enabled ? root.foreground-color : root.state-style.foreground-color;
         stroke-width: root.size.indicator-stroke-width;
         MoveTo {
             x: 3;
@@ -190,5 +202,7 @@ export component ComboBox inherits ComboBoxBase {
         size: root.size;
         font-size: root.font-size;
         font-weight: root.font-weight;
+        font-family: root.font-family;
+        font-italic: root.font-italic;
     }
 }

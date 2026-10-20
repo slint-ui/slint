@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditInterface } from "std-widget-interfaces.slint";
+import { LineEditInterface } from "../interfaces/line_edit.slint";
 
 export component LineEditBase {
     implement LineEditInterface <=> self;
@@ -17,7 +17,7 @@ export component LineEditBase {
     in property <length> font-size <=> input.font-size;
     in property <bool> font-italic <=> input.font-italic;
     in property <int> font-weight <=> input.font-weight;
-    in property <brush> foreground <=> input.color;
+    in property <brush> foreground-color <=> input.color;
     in property <color> selection-background-color <=> input.selection-background-color;
     in property <color> selection-foreground-color <=> input.selection-foreground-color;
     in property <length> content-padding;

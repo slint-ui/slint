@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CheckBoxInterface } from "std-widget-interfaces.slint";
+import { CheckBoxInterface } from "../interfaces/check_box.slint";
 import { PressInteraction } from "internal/press_interaction.slint";
 
 export component CheckBoxBase {
@@ -10,8 +10,6 @@ export component CheckBoxBase {
     in property <bool> enabled: true;
     in-out property <bool> checked;
     in property <string> text;
-    in property <length> font-size;
-    in property <int> font-weight;
     in property <length> spacing;
     in property <length> content-padding;
     in property <length> content-padding-left: root.content-padding;

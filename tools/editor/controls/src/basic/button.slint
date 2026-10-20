@@ -10,18 +10,23 @@ import {
 import { ButtonStyles, ButtonSizes } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
-    in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
+    in property <image> icon;
+    in property <ButtonStyle> style: ButtonStyles.secondary;
     in property <ButtonMetrics> size: ButtonSizes.medium;
     private property <ButtonStateStyle> state-style: root.style.rest;
     in property <brush> background-color: root.state-style.background-color;
-    in property <brush> foreground: root.state-style.foreground;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <brush> icon-color: root.foreground-color;
+    in property <length> border-width: root.size.border-width;
+    in property <length> border-radius: root.size.border-radius;
 
+    in property <string> font-family;
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: 400;
+    in property <bool> font-italic;
     in property <length> spacing: root.size.spacing;
 
-    icon-size: root.size.icon-size;
-    colorize-icon: true;
+    in property <length> icon-size: root.size.icon-size;
     in property <length> content-padding: root.size.padding-vertical;
     in property <length> content-padding-left: root.size.padding-horizontal;
     in property <length> content-padding-right: root.size.padding-horizontal;
@@ -42,11 +47,11 @@ export component Button inherits ButtonBase {
         }
     ]
 
-    background << Rectangle {
+    background << surface := Rectangle {
         background: root.enabled ? root.background-color : root.state-style.background-color;
         border-color: root.state-style.border-color;
-        border-width: root.size.border-width;
-        border-radius: root.size.border-radius;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
 
         focus-outline := Rectangle {
             private property <length> outset: root.size.focus-offset + root.size.focus-width;
@@ -58,7 +63,7 @@ export component Button inherits ButtonBase {
             background: transparent;
             border-color: root.style.focus-color;
             border-width: root.size.focus-width;
-            border-radius: root.size.border-radius + self.outset;
+            border-radius: root.border-radius + self.outset;
         }
     }
 
@@ -73,13 +78,15 @@ export component Button inherits ButtonBase {
             width: root.icon-size;
             height: root.icon-size;
             source: root.icon;
-            colorize: root.colorize-icon ? (root.enabled ? root.foreground : root.state-style.foreground) : transparent;
+            colorize: root.enabled ? root.icon-color : root.state-style.foreground-color;
         }
         if root.text != "": Text {
             text: root.text;
-            color: root.enabled ? root.foreground : root.state-style.foreground;
+            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
             font-size: root.font-size;
             font-weight: root.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
             horizontal-alignment: center;
             vertical-alignment: center;
         }

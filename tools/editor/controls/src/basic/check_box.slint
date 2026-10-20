@@ -17,12 +17,12 @@ export component CheckBox inherits CheckBoxBase {
     private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
     private property <CheckBoxStateStyle> state-style: root.selected-styles.rest;
     in property <brush> checked-color: root.state-style.indicator-color;
-    in property <brush> foreground: root.state-style.foreground;
+    in property <brush> foreground-color: root.state-style.foreground-color;
 
-    in property <length> indicator-width: root.size.indicator-size;
-    in property <length> indicator-height: root.size.indicator-size;
-    font-size: root.size.font-size;
-    font-weight: 400;
+    in property <string> font-family;
+    in property <length> font-size: root.size.font-size;
+    in property <int> font-weight: 400;
+    in property <bool> font-italic;
     spacing: root.size.spacing;
     content-padding: root.size.padding-vertical;
     content-padding-left: root.size.padding-horizontal;
@@ -42,8 +42,8 @@ export component CheckBox inherits CheckBoxBase {
     ]
 
     indicator << Rectangle {
-        width: root.indicator-width;
-        height: root.indicator-height;
+        width: root.size.indicator-size;
+        height: root.size.indicator-size;
         vertical-stretch: 0;
         background: root.enabled && root.checked ? root.checked-color : root.state-style.indicator-color;
         border-color: root.state-style.indicator-border-color;
@@ -88,9 +88,11 @@ export component CheckBox inherits CheckBoxBase {
 
     content << Text {
         text: root.text;
-        color: root.enabled ? root.foreground : root.state-style.foreground;
+        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
         font-size: root.font-size;
         font-weight: root.font-weight;
+        font-family: root.font-family;
+        font-italic: root.font-italic;
         vertical-alignment: center;
     }
 }

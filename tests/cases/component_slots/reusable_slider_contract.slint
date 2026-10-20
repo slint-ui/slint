@@ -5,12 +5,14 @@ import { Slider } from "../../../tools/editor/controls/src/basic.slint";
 import {
     SliderBase,
     LinearSliderSurface,
+    SliderInterface,
 } from "../../../tools/editor/controls/src/headless.slint";
-import { SliderInterface } from "std-widget-interfaces.slint";
 
 component RangeHost {
     slot <SliderInterface> control;
     out property <float> value: control.value;
+    out property <float> position: control.position;
+    public function set-position(position: float) { control.set-position(position); }
     in-out property <int> changes;
     in-out property <int> releases;
     in-out property <float> last-change;
@@ -40,12 +42,13 @@ export component TestCase inherits Window {
     }
 
     init => {
-        styled.set-position(0.5);
+        styled-host.set-position(0.5);
         styled.emit-released();
-        headless.set-position(0.5);
+        headless-host.set-position(0.5);
         headless.emit-released();
     }
     out property <bool> test: styled-host.value == 50 && headless-host.value == 50
+        && styled-host.position == 0.5 && headless-host.position == 0.5
         && styled-host.changes == 1 && styled-host.last-change == 50
         && styled-host.releases == 1 && styled-host.last-release == 50
         && headless-host.changes == 1 && headless-host.last-change == 50

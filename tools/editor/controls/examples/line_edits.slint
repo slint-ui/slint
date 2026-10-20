@@ -4,6 +4,7 @@
 import {
     LineEdit,
     LineEditStyle,
+    LineEditStateStyle,
     LineEditStyles,
     LineEditMetrics,
     LineEditSizes,
@@ -19,6 +20,12 @@ export component LineEditExamples inherits Rectangle {
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
     private property <LineEditMetrics> preview-size: [LineEditSizes.small, LineEditSizes.medium, LineEditSizes.large][clamp(root.size-index, 0, 2)];
+    private property <LineEditStateStyle> green-field-colors: {
+        background-color: #f0fdfa,
+        foreground-color: #0f766e,
+        border-color: #0f766e,
+        placeholder-color: #0f766e,
+    };
     in-out property <int> edits;
     in-out property <int> submissions;
     in-out property <string> last-value;
@@ -44,13 +51,13 @@ export component LineEditExamples inherits Rectangle {
                     placeholder-text: "Enter a name";
                     leading << Text {
                         text: "Name:";
-                        color: name-field.foreground;
+                        color: name-field.foreground-color;
                         font-size: name-field.font-size;
                         vertical-alignment: center;
                     }
                     trailing << Text {
                         text: "Optional";
-                        color: name-field.placeholder-color;
+                        color: BasicTheme.disabled-foreground;
                         font-size: name-field.font-size;
                         vertical-alignment: center;
                     }
@@ -111,22 +118,25 @@ export component LineEditExamples inherits Rectangle {
             HorizontalLayout {
                 spacing: 16px;
                 LineEdit {
-                    style: root.preview-style;
                     size: root.preview-size;
                     enabled: !root.preview-disabled;
                     accessible-label: "Color override field";
                     placeholder-text: "Green field";
-                    background-color: #f0fdfa;
-                    border-color: #0f766e;
-                    foreground: #0f766e;
-                    placeholder-color: #0f766e;
+                    style: {
+                        rest: root.green-field-colors,
+                        hover: root.green-field-colors,
+                        disabled: root.preview-style.disabled,
+                        selection-background-color: root.preview-style.selection-background-color,
+                        selection-foreground-color: root.preview-style.selection-foreground-color,
+                        focus-color: root.preview-style.focus-color,
+                    };
                 }
 
                 bare := LineEditBase {
                     enabled: !root.preview-disabled;
                     accessible-label: "Headless field";
                     placeholder-text: "Headless field";
-                    foreground: #7c3aed;
+                    foreground-color: #7c3aed;
                     font-size: 14px;
                     content-padding: 8px;
                     min-height: 40px;

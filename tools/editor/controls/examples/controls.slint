@@ -73,11 +73,10 @@ export component ControlsDemo inherits Window {
 
                 for page[index] in root.pages: Button {
                     text: page;
-                    checked: root.current-page == index;
                     min-height: 44px;
                     style: ButtonStyles.invisible;
-                    background-color: self.checked ? BasicTheme.accent.with-alpha(0.08) : transparent;
-                    foreground: self.checked ? BasicTheme.accent : BasicTheme.foreground;
+                    background-color: root.current-page == index ? BasicTheme.accent.with-alpha(0.08) : transparent;
+                    foreground-color: root.current-page == index ? BasicTheme.accent : BasicTheme.foreground;
                     font-weight: 600;
                     clicked => { root.current-page = index; }
                 }

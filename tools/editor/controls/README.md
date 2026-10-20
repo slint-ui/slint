@@ -27,6 +27,12 @@ For each control with style and size structs, `<control>_style.slint` defines th
 Import controls, types, and presets through `src/basic.slint`.
 The gallery owns the preview selector and selected index.
 
+Each control and its headless base share a behavior interface defined in `src/interfaces/`.
+Import `ButtonInterface`, `CheckBoxInterface`, `SwitchInterface`,
+`SliderInterface`, `ComboBoxInterface`, or `LineEditInterface` from `src/basic.slint` or `src/headless.slint`.
+Use these interfaces for typed slots that accept either styled controls or custom headless implementations.
+The contracts cover values, interaction state, callbacks, and public behavior functions; styling and layout inputs belong to the concrete components.
+
 ## Application Theme
 
 `BasicPalettes.light` and `BasicPalettes.dark` provide read-only library palettes.
@@ -34,14 +40,14 @@ Controls use the light palette by default; `BasicTheme.default-palette` refers t
 Select the application's palette through one `BasicThemeProvider` inside the root window:
 
 ```slint
-import { BasicPalettes, BasicThemeProvider, Button } from "../src/basic.slint";
+import { BasicPalettes, BasicThemeProvider, Button, ButtonStyles } from "../src/basic.slint";
 
 export component App inherits Window {
     in-out property <bool> dark-mode;
     BasicThemeProvider {
         palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light;
     }
-    Button { text: "Save"; primary: true; }
+    Button { text: "Save"; style: ButtonStyles.primary; }
 }
 ```
 
@@ -70,6 +76,11 @@ Configure its color scheme separately when combining them with basic controls.
 The gallery demonstrates basic palette selection with a runtime dark-mode switch.
 
 ## Button
+
+`Button` and `ButtonBase` implement `ButtonInterface`.
+The interface exposes `enabled`, `text`, `has-focus`, `hovered`, `pressed`, `clicked`, and `activate()`.
+Activation emits `clicked` once while enabled and does nothing while disabled.
+Import the interface from `src/basic.slint` or `src/headless.slint` to declare typed button slots.
 
 Import the button and presets from `src/basic.slint`:
 
@@ -113,15 +124,18 @@ CheckBox {
 
 | Control | Common Color Properties |
 | --- | --- |
-| Button | `background-color`, `foreground` |
-| CheckBox | `checked-color`, `foreground` |
-| Switch | `checked-color`, `foreground` |
+| Button | `background-color`, `foreground-color`, `icon-color` |
+| CheckBox | `checked-color`, `foreground-color` |
+| Switch | `checked-color`, `foreground-color` |
 | Slider | `track-color`, `fill-color`, `handle-color` |
-| ComboBox | `background-color`, `foreground` |
+| ComboBox | `background-color`, `foreground-color` |
+| LineEdit | `background-color`, `foreground-color` |
 
 `checked-color` changes the checked indicator fill or switch track.
 Border and checkmark colors still follow the style.
-`foreground` changes the label or field text.
+`foreground-color` changes the label or field text.
+Button icons use `foreground-color` by default.
+Set `icon-color` to tint an icon separately, or to `transparent` to preserve its original colors.
 Direct colors apply while enabled, including hover and pressed states.
 Disabled controls retain their style's disabled colors.
 Use a complete style when each interaction state needs a different color.
@@ -156,19 +170,25 @@ Focus is independent and only appears on enabled buttons.
 
 Set `enabled: false` to block activation.
 
-Without an explicit `style`, `primary` or `checked` selects `ButtonStyles.primary`.
-Other buttons use `ButtonStyles.secondary`.
-An explicit style remains selected when `checked` changes.
+Buttons use `ButtonStyles.secondary` by default.
+Select a different variant through `style`.
 
 Common color properties override the selected style while enabled.
 Border colors, focus color, and per-state palettes belong to `style`.
-Border widths, shapes, and focus dimensions belong to `size`.
+Border widths, shapes, and focus dimensions have defaults in `size`.
+Button, ComboBox, and LineEdit also expose `border-width` and `border-radius` for individual overrides.
+These geometry overrides apply in every state, and the focus outline follows the overridden radius.
 The selected interaction state is private implementation detail.
 General font and layout properties remain available as overrides.
 The focus outline uses `style.focus-color`, `size.focus-width`, and `size.focus-offset`.
 Set `size.focus-width` to zero to hide the outline.
 
 ## Sizes
+
+Button, CheckBox, Switch, ComboBox, and LineEdit expose `font-family`, `font-size`, `font-weight`, and `font-italic`.
+Font sizes default to the selected metrics; an empty font family uses the application's default font.
+Combo-box popup items and line-edit placeholders follow the control's font settings.
+Popup row states can override font weight through `size.selected-item-font-weight`.
 
 The `size` property accepts a `ButtonMetrics` struct directly.
 Use `ButtonSizes.small`, `ButtonSizes.medium`, or `ButtonSizes.large` for the predefined sizes.
@@ -269,8 +289,9 @@ Switch sizes include `track-radius` and `thumb-radius`.
 Slider sizes include `handle-radius` and `track-radius`.
 These radii default to `-1px`, which follows the corresponding dimensions to produce rounded visuals.
 Set a nonnegative radius for a fixed shape.
-Basic controls expose indicator dimensions and popup dimensions for layout adjustments.
-Explicit dimensions take priority over size presets.
+Indicator and arrow dimensions belong to the control's size metrics.
+Popup dimensions remain available for layout adjustments.
+Explicit control dimensions take priority over size presets.
 
 The Button, Switch, CheckBox, Slider, ComboBox, and LineEdit pages own their preview size and disabled setting.
 `PreviewSettings` shares the settings UI between these six pages.
@@ -306,8 +327,9 @@ Focus draws an independent outline without changing the field border or text lay
 The small, medium, and large presets use minimum heights of 26px, 34px, and 42px.
 Medium preserves the original field's unfocused dimensions and typography.
 Existing direct font, padding, border, and color overrides remain available.
-Background, border, and placeholder color overrides apply while enabled; disabled fields use their style's palette.
-`foreground` and selection color overrides configure the native input directly and remain in effect while disabled.
+Direct background and foreground-color overrides apply while enabled; disabled fields use their style's palette, including native input text.
+Border and placeholder colors belong to `style`.
+Selection color overrides also apply only while enabled; disabled fields use the style's selection colors.
 Use `style` for foreground colors that vary by state.
 
 The basic control forwards `leading` and `trailing` slots while supplying the field background and placeholder.
@@ -349,6 +371,9 @@ Replace assignments to global style or size presets with application properties 
 Keep the common color properties listed above.
 Replace `CheckBox.indicator-color` and `Switch.track-color` with `checked-color` for checked fills, or use style fields for other states.
 Move `Switch.track-width` and `track-height`, `CheckBox.indicator-size`, and Slider handle dimensions into size metrics.
+Move CheckBox and Switch `indicator-width` and `indicator-height` overrides into their indicator or track size metrics.
+Move ComboBox `indicator-width` overrides into `size.indicator-width`.
+Move LineEdit `border-color` and `placeholder-color` overrides into the corresponding style states.
 Move detailed ComboBox popup colors into `style.popup`.
 Move border widths, radii, focus width, and focus offset from styles into the corresponding size metrics.
 Move ComboBox item font weights from `style.popup` into `size.font-weight` and `size.selected-item-font-weight`.
@@ -394,6 +419,8 @@ choice := CheckBoxBase {
 Derived components can add slots and forward them to these slots.
 
 Headless padding and spacing default to zero.
+`CheckBox` owns `font-size` and `font-weight`; `ComboBox` owns `placeholder` and `display-text`.
+`LineEditBase` retains font, color, selection, and alignment inputs to configure its embedded `TextInput`.
 Set combo-box `item-height`, `popup-padding`, and `ComboBoxPopupBase.popup-offset` explicitly when supplying custom popup visuals.
 Set `LinearSliderSurface.handle-width`, `handle-height`, and `track-thickness` to match your visuals and preserve pointer mapping.
 These popup and slider dimensions default to zero; basic controls supply their visual defaults.

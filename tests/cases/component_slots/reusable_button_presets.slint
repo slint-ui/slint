@@ -17,10 +17,9 @@ export component TestCase inherits Window {
     in-out property <ButtonMetrics> size: ButtonSizes.medium;
     in-out property <ButtonMetrics> overridden-size: ButtonSizes.large;
     in-out property <bool> enabled: true;
-    in-out property <bool> checked;
     out property <int> activations;
     out property <brush> subject-background: subject.background-color;
-    out property <brush> foreground: subject.foreground;
+    out property <brush> foreground-color: subject.foreground-color;
     out property <bool> focused: subject.has-focus;
     out property <bool> pressed: subject.pressed;
     out property <length> font-size: subject.font-size;
@@ -29,7 +28,7 @@ export component TestCase inherits Window {
     out property <length> subject-padding: subject.content-padding-left;
     out property <length> preset-font-size: overridden.font-size;
     out property <bool> test: overridden.background-color == #123456
-        && overridden.foreground == #abcdef
+        && overridden.foreground-color == #abcdef
         && subject.style == root.style;
 
     public function focus-subject() { subject.focus(); }
@@ -44,7 +43,6 @@ export component TestCase inherits Window {
         style: root.style;
         size: root.size;
         enabled: root.enabled;
-        checked: root.checked;
         clicked => { root.activations += 1; }
     }
 
@@ -57,7 +55,7 @@ export component TestCase inherits Window {
         size: root.overridden-size;
         style: root.style;
         background-color: #123456;
-        foreground: #abcdef;
+        foreground-color: #abcdef;
         enabled: root.enabled;
     }
 }
@@ -83,10 +81,10 @@ for style in [presets.get_secondary(), presets.get_primary(), presets.get_danger
     instance.set_style(style.clone());
     move_to(outside);
     assert_eq!(instance.get_subject_background(), style.rest.background_color);
-    assert_eq!(instance.get_foreground(), style.rest.foreground);
+    assert_eq!(instance.get_foreground_color(), style.rest.foreground_color);
     move_to(inside);
     assert_eq!(instance.get_subject_background(), style.hover.background_color);
-    assert_eq!(instance.get_foreground(), style.hover.foreground);
+    assert_eq!(instance.get_foreground_color(), style.hover.foreground_color);
     instance.invoke_focus_subject();
     assert!(instance.get_focused());
     let ring = outline().expect("Focused button has no outline");
@@ -107,7 +105,7 @@ for style in [presets.get_secondary(), presets.get_primary(), presets.get_danger
     instance.set_enabled(false);
     assert!(outline().is_none());
     assert_eq!(instance.get_subject_background(), style.disabled.background_color);
-    assert_eq!(instance.get_foreground(), style.disabled.foreground);
+    assert_eq!(instance.get_foreground_color(), style.disabled.foreground_color);
     assert!(instance.get_test());
     let before = instance.get_activations();
     press();
@@ -140,8 +138,6 @@ instance.set_style(custom.clone());
 assert_eq!(instance.get_subject_background(), custom.rest.background_color);
 assert_eq!(outline().unwrap().size().width, subject.size().width + 18.);
 move_to(inside);
-assert_eq!(instance.get_subject_background(), custom.hover.background_color);
-instance.set_checked(true);
 assert_eq!(instance.get_subject_background(), custom.hover.background_color);
 assert!(instance.get_test());
 let mut no_outline = custom_metrics.clone();

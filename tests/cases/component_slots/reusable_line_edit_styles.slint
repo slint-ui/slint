@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEdit, LineEditStyle, LineEditMetrics, LineEditStyles, LineEditSizes, BasicTheme }
+import { Button, ComboBox, LineEdit, LineEditStyle, LineEditMetrics, LineEditStyles, LineEditSizes, BasicTheme }
     from "../../../tools/editor/controls/src/basic.slint";
 export { LineEditStyles, LineEditSizes, BasicTheme }
 
@@ -11,10 +11,10 @@ export component TestCase inherits Window {
     in-out property <LineEditStyle> field-style: LineEditStyles.standard;
     in-out property <LineEditMetrics> field-size: LineEditSizes.medium;
     in-out property <bool> enabled: true;
+    in-out property <length> override-border-width: 3px;
+    in-out property <length> override-border-radius: 9px;
     out property <brush> field-background: subject.background-color;
-    out property <brush> field-foreground: subject.foreground;
-    out property <brush> field-border: subject.border-color;
-    out property <brush> field-placeholder: subject.placeholder-color;
+    out property <brush> field-foreground: subject.foreground-color;
     out property <color> field-selection-background: subject.selection-background-color;
     out property <color> field-selection-foreground: subject.selection-foreground-color;
     out property <length> field-height: subject.height;
@@ -22,8 +22,8 @@ export component TestCase inherits Window {
     out property <length> field-border-width: subject.border-width;
     out property <brush> default-background: defaults.background-color;
     out property <bool> test: prefix.width > 0px && suffix.width > 0px
-        && custom.background-color == #123456 && custom.foreground == #abcdef
-        && custom.font-size == 13px && custom.border-radius == 9px;
+        && custom.background-color == #123456 && custom.foreground-color == #abcdef
+        && custom.font-size == 13px && custom.border-radius == root.override-border-radius;
 
     public function focus-field() { subject.focus(); }
     public function focus-other() { other.focus(); }
@@ -59,9 +59,33 @@ export component TestCase inherits Window {
         style: root.field-style;
         size: root.field-size;
         background-color: #123456;
-        foreground: #abcdef;
+        foreground-color: #abcdef;
+        selection-background-color: #123456;
+        selection-foreground-color: #fedcba;
+        text: "Custom text";
+        enabled: root.enabled;
         font-size: 13px;
-        border-radius: 9px;
+        border-width: root.override-border-width;
+        border-radius: root.override-border-radius;
+    }
+
+    Button {
+        x: 270px;
+        y: 110px;
+        text: "Button";
+        enabled: root.enabled;
+        border-width: root.override-border-width;
+        border-radius: root.override-border-radius;
+    }
+
+    ComboBox {
+        x: 370px;
+        y: 110px;
+        width: 100px;
+        model: ["Combo"];
+        enabled: root.enabled;
+        border-width: root.override-border-width;
+        border-radius: root.override-border-radius;
     }
 
     other := FocusScope { x: 450px; y: 180px; width: 30px; height: 30px; }
@@ -71,17 +95,50 @@ export component TestCase inherits Window {
 ```rust
 use slint::platform::WindowEvent;
 use slint_testing::ElementHandle;
+use i_slint_core::item_tree::ItemRc;
+use std::ops::ControlFlow;
 let instance = TestCase::new().unwrap();
+let root = ItemRc::new_root(i_slint_core::window::WindowInner::from_pub(instance.window()).component());
+let find_item = |parent: &ItemRc, id: &str| {
+    parent.visit_descendants(|item| {
+        let matched = (0..item.element_count().unwrap_or(0))
+            .filter_map(|index| item.element_type_names_and_ids(index))
+            .flatten()
+            .any(|(_, name)| name == id);
+        if matched { ControlFlow::Break(item.clone()) } else { ControlFlow::Continue(()) }
+    }).unwrap_or_else(|| panic!("Missing item {id}"))
+};
+let subject_item = find_item(&root, "TestCase::subject");
+let surface_item = find_item(&subject_item, "LineEdit::surface");
+let surface = surface_item.downcast::<i_slint_core::items::BasicBorderRectangle>().unwrap();
+let placeholder_item = find_item(&subject_item, "LineEdit::placeholder-label");
+let placeholder = placeholder_item.downcast::<i_slint_core::items::ComplexText>().unwrap();
+let custom_item = find_item(&root, "TestCase::custom");
+let input_item = find_item(&custom_item, "LineEditBase::input");
+let input = input_item.downcast::<i_slint_core::items::TextInput>().unwrap();
+let surfaces = [
+    find_item(&custom_item, "LineEdit::surface"),
+    find_item(&root, "Button::surface"),
+    find_item(&root, "ComboBox::surface"),
+];
+let assert_geometry = |width: f32, radius: f32| {
+    for item in &surfaces {
+        let rectangle = item.downcast::<i_slint_core::items::BasicBorderRectangle>().unwrap();
+        assert_eq!(rectangle.as_pin_ref().border_width().get(), width);
+        assert_eq!(rectangle.as_pin_ref().border_radius().get(), radius);
+    }
+};
+assert_geometry(3., 9.);
 let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
 let mut style = instance.global::<LineEditStyles<'_>>().get_standard();
 style.rest.background_color = brush(0xf0, 0xe0, 0xd0);
-style.rest.foreground = brush(0x10, 0x20, 0x30);
+style.rest.foreground_color = brush(0x10, 0x20, 0x30);
 style.hover.background_color = brush(0xe0, 0xd0, 0xc0);
-style.hover.foreground = brush(0x30, 0x20, 0x10);
+style.hover.foreground_color = brush(0x30, 0x20, 0x10);
 style.hover.border_color = brush(0x80, 0x40, 0x20);
 style.hover.placeholder_color = brush(0x90, 0x70, 0x50);
 style.disabled.background_color = brush(0xd0, 0xc0, 0xb0);
-style.disabled.foreground = brush(0x70, 0x60, 0x50);
+style.disabled.foreground_color = brush(0x70, 0x60, 0x50);
 style.selection_background_color = slint::Color::from_rgb_u8(0x60, 0x30, 0x90);
 style.selection_foreground_color = slint::Color::from_rgb_u8(0xff, 0xff, 0xff);
 instance.set_field_style(style.clone());
@@ -90,12 +147,15 @@ let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved 
 });
 move_to(480., 200.);
 assert_eq!(instance.get_field_background(), style.rest.background_color);
-assert_eq!(instance.get_field_foreground(), style.rest.foreground);
+assert_eq!(instance.get_field_foreground(), style.rest.foreground_color);
 move_to(120., 30.);
 assert_eq!(instance.get_field_background(), style.hover.background_color);
-assert_eq!(instance.get_field_foreground(), style.hover.foreground);
-assert_eq!(instance.get_field_border(), style.hover.border_color);
-assert_eq!(instance.get_field_placeholder(), style.hover.placeholder_color);
+assert_eq!(instance.get_field_foreground(), style.hover.foreground_color);
+assert_eq!(surface.as_pin_ref().border_color(), style.hover.border_color);
+assert_eq!(placeholder.as_pin_ref().color(), style.hover.placeholder_color);
+assert_eq!(input.as_pin_ref().color(), brush(0xab, 0xcd, 0xef));
+assert_eq!(input.as_pin_ref().selection_background_color(), slint::Color::from_rgb_u8(0x12, 0x34, 0x56));
+assert_eq!(input.as_pin_ref().selection_foreground_color(), slint::Color::from_rgb_u8(0xfe, 0xdc, 0xba));
 assert_eq!(instance.get_field_selection_background(), style.selection_background_color);
 assert_eq!(instance.get_field_selection_foreground(), style.selection_foreground_color);
 let field = ElementHandle::find_by_accessible_label(&instance, "Styled field").next().unwrap();
@@ -106,9 +166,14 @@ assert_eq!(instance.get_field_border_width(), 1.);
 instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
 assert_eq!(instance.get_field_background(), style.disabled.background_color);
-assert_eq!(instance.get_field_foreground(), style.disabled.foreground);
+assert_eq!(instance.get_field_foreground(), style.disabled.foreground_color);
+assert_eq!(input.as_pin_ref().color(), style.disabled.foreground_color);
+assert_eq!(input.as_pin_ref().selection_background_color(), style.selection_background_color);
+assert_eq!(input.as_pin_ref().selection_foreground_color(), style.selection_foreground_color);
+assert_geometry(3., 9.);
 assert!(field.query_descendants().match_id("LineEdit::focus-outline").find_first().is_none());
 instance.set_enabled(true);
+assert_eq!(input.as_pin_ref().color(), brush(0xab, 0xcd, 0xef));
 instance.invoke_focus_other();
 let presets = instance.global::<LineEditSizes<'_>>();
 let mut previous_height = 0.;
@@ -141,6 +206,14 @@ let mut palette = theme.get_palette();
 palette.background = brush(0x12, 0x34, 0x56);
 theme.set_palette(palette);
 assert_eq!(instance.get_default_background(), brush(0x12, 0x34, 0x56));
+assert!(instance.get_test());
+instance.set_override_border_width(5.);
+instance.set_override_border_radius(0.);
+assert_geometry(5., 0.);
+instance.set_enabled(false);
+assert_geometry(5., 0.);
+instance.set_override_border_radius(12.);
+assert_geometry(5., 12.);
 assert!(instance.get_test());
 ```
 */
