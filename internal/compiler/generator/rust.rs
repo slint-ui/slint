@@ -260,7 +260,6 @@ pub fn generate(
             .map(|(symbol, library_info)| {
                 let symbol_path = library_symbol_path(library_info, ident(symbol));
                 quote!(
-                    #[allow(unused_imports)]
                     pub use #symbol_path;
                 )
             })
@@ -354,12 +353,11 @@ pub fn generate(
 pub(super) fn generate_module_header() -> TokenStream {
     quote! {
         #![allow(non_snake_case, non_camel_case_types)]
-        #![allow(unused_braces, unused_parens, dead_code)]
+        #![allow(unused)]
         #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
         #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
 
         use slint::private_unstable_api::re_exports as sp;
-        #[allow(unused_imports)]
         use sp::{RepeatedItemTree as _, ModelExt as _, Model as _};
     }
 }
@@ -721,7 +719,7 @@ fn generate_shared_globals(
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
             context : sp::SlintContext,
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
-            #(#[allow(dead_code)]
+            #(
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
         }
         impl SharedGlobals {
@@ -747,7 +745,6 @@ fn generate_shared_globals(
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
-            #[allow(dead_code)]
             #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
                 sp::Rc::new(Self {
                     #(#global_names : self.#global_names.clone(),)*
@@ -764,7 +761,6 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
-            #[allow(dead_code)]
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
             }
@@ -876,7 +872,6 @@ fn generate_enum(en: &std::sync::Arc<Enumeration>) -> TokenStream {
         rust_attributes_tokens(&en.rust_attributes, "enum", &en.name, en.node.as_ref());
     quote! {
         #attributes
-        #[allow(dead_code)]
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
         pub enum #enum_name {
             #(#enum_values,)*
@@ -1175,7 +1170,6 @@ fn public_api(
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop.call(&(#(#args_name,)*))
@@ -1186,10 +1180,8 @@ fn public_api(
             let set_dirty = access_callback_tracker(&p.prop, ctx)
                 .map(|t| t.then(|t| quote!({ #t.mark_dirty(); })));
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let _self = #self_init;
-                    #[allow(unused)]
                     #prop.set_handler(
                         // FIXME: why do i need to clone here?
                         move |args| f(#(args.#args_index.clone()),*)
@@ -1205,7 +1197,6 @@ fn public_api(
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop(#(#args_name,)*)
@@ -1219,9 +1210,7 @@ fn public_api(
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
-                    #[allow(unused_imports)]
                     let _self = #self_init;
                     #prop_expression
                 }
@@ -1231,16 +1220,14 @@ fn public_api(
             if !p.read_only() {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        #[allow(unused_imports)]
                         let _self = #self_init;
                         #set_value
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -1249,15 +1236,14 @@ fn public_api(
     for (name, ty) in private_properties {
         if let Type::Function { .. } = ty {
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
-            property_and_callback_accessors.push(
-                quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
-            );
+            property_and_callback_accessors
+                .push(quote!( fn #caller_ident(&self, _private_function: ()) {} ));
         } else {
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
-                #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
+                fn #getter_ident(&self, _private_property: ()) {}
+                fn #setter_ident(&self, _private_property: ()) {}
             ));
         }
     }
@@ -1309,7 +1295,6 @@ fn emit_in_chunks(
             chunk_fns.push(quote!(
                 #[inline(never)]
                 fn #name(#params) #ret {
-                    #![allow(unused)]
                     #prologue
                     #(#chunk)*
                     #ok
@@ -1586,7 +1571,7 @@ fn generate_sub_component_body(
                 quote!((#index, sp::AccessibilityAction::#what) => { #e })
             } else {
                 let arg = (0..arg_count).map(|i| format_ident!("arg_{i}")).collect::<Vec<_>>();
-                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { #[allow(unused_variables)] let args = (#(#arg,)*); #e })
+                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { let args = (#(#arg,)*); #e })
             });
             supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
@@ -1802,7 +1787,6 @@ fn generate_sub_component_body(
                     new_row: bool,
                     result: &mut [sp::GridLayoutInputData],
                 ) {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1816,7 +1800,6 @@ fn generate_sub_component_body(
                 fn flexbox_layout_item_info_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                 ) -> sp::FlexboxLayoutItemInfo {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1830,7 +1813,6 @@ fn generate_sub_component_body(
                 fn cross_axis_self_alignment_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                 ) -> sp::CrossAxisAlignment {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1842,7 +1824,6 @@ fn generate_sub_component_body(
             let expr = compile_expression(&expr.borrow(), &ctx);
             quote! {
                 fn layout_order_for_repeated(self: ::core::pin::Pin<&Self>) -> i32 {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1943,12 +1924,10 @@ fn generate_sub_component_body(
         impl #inner_component_id {
             // Shorthands used by the generated expression code: these accesses are
             // emitted many times, so keep the call sites as small as possible.
-            #[allow(dead_code)]
             fn globals(&self) -> &sp::Rc<SharedGlobals> {
                 self.globals.get().unwrap()
             }
 
-            #[allow(dead_code)]
             fn origin_rc(&self) -> sp::ItemTreeRc {
                 sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
             }
@@ -1958,7 +1937,6 @@ fn generate_sub_component_body(
                     tree_index: u32, tree_index_of_first_child: u32)
                 -> ::core::result::Result<(), slint::PlatformError>
             {
-                #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
                 let _ = _self.globals.set(globals);
@@ -1969,7 +1947,6 @@ fn generate_sub_component_body(
             }
 
             fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
@@ -1982,7 +1959,6 @@ fn generate_sub_component_body(
                 order: sp::TraversalOrder,
                 visitor: sp::ItemVisitorRefMut<'_>
             ) -> sp::VisitChildrenResult {
-                #![allow(unused)]
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
@@ -1991,7 +1967,6 @@ fn generate_sub_component_body(
             }
 
             fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                #![allow(unused)]
                 let _self = self;
                 let mut _changed = false;
                 #(#ensure_instantiated_stmts)*
@@ -1999,7 +1974,6 @@ fn generate_sub_component_body(
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-                #![allow(unused)]
                 let _self = self;
                 match orientation {
                     sp::Orientation::Horizontal => #layout_info_h,
@@ -2016,7 +1990,6 @@ fn generate_sub_component_body(
             #layout_order_for_repeated_fn
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-                #![allow(unused)]
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
@@ -2025,7 +1998,6 @@ fn generate_sub_component_body(
             }
 
             fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-                #![allow(unused)]
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
@@ -2034,13 +2006,11 @@ fn generate_sub_component_body(
             }
 
             fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
-                #![allow(unused)]
                 let _self = self;
                 #subtree_index_function
             }
 
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                #![allow(unused)]
                 let _self = self;
                 // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
                 // fields are in alphabetical order
@@ -2052,7 +2022,6 @@ fn generate_sub_component_body(
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                #![allow(unused)]
                 let _self = self;
                 match index {
                     #(#accessible_role_branch)*
@@ -2066,7 +2035,6 @@ fn generate_sub_component_body(
                 index: u32,
                 what: sp::AccessibleStringProperty,
             ) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
@@ -2075,7 +2043,6 @@ fn generate_sub_component_body(
             }
 
             fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                #![allow(unused)]
                 let _self = self;
                 match (index, action) {
                     #(#accessibility_action_branch)*
@@ -2084,7 +2051,6 @@ fn generate_sub_component_body(
             }
 
             fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                #![allow(unused)]
                 let _self = self;
                 match index {
                     #(#supported_accessibility_actions_branch)*
@@ -2093,7 +2059,6 @@ fn generate_sub_component_body(
             }
 
             fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
                 let _self = self;
                 match index {
                     #(#item_element_infos_branch)*
@@ -2276,7 +2241,6 @@ fn generate_global(
         );
 
         quote!(
-            #[allow(unused)]
             pub struct #public_component_id<'a>(#pub_token ::core::pin::Pin<sp::Rc<#inner_component_id>>, #pub_token ::core::marker::PhantomData<&'a #inner_component_id>);
 
             impl<'a> #public_component_id<'a> {
@@ -2306,7 +2270,6 @@ fn generate_global(
             impl #inner_component_id {
                 // Shorthand used by the generated expression code: the member access is
                 // emitted for every global property access, so keep it as small as possible.
-                #[allow(dead_code)]
                 fn globals(&self) -> sp::Rc<SharedGlobals> {
                     self.globals.get().unwrap().upgrade().unwrap()
                 }
@@ -2314,7 +2277,6 @@ fn generate_global(
                     sp::Rc::pin(Self::default())
                 }
                 fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
-                    #![allow(unused)]
                     let _ = self.globals.set(sp::Rc::downgrade(globals));
                     let self_rc = self;
                     let _self = self_rc.as_ref();
@@ -2635,7 +2597,6 @@ fn generate_item_tree_body(
 
         impl #inner_component_id {
             fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
-                #![allow(unused)]
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);
@@ -3024,7 +2985,6 @@ fn generate_repeated_component_body(
                         .collect();
 
                     quote! {
-                        #[allow(unused)]
                         if let Some(index) = child_index {
                             let _self = self.as_ref();
                             let mut count = 0usize;
@@ -3103,19 +3063,16 @@ fn generate_repeated_component_body(
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }
-                    #[allow(unused_variables)]
                     fn flexbox_layout_item_info_at_cross_width(
                         self: ::core::pin::Pin<&Self>,
                         #cross_width_param: f32,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #at_cross_width_body
@@ -3144,9 +3101,7 @@ fn generate_repeated_component_body(
                         self: ::core::pin::Pin<&Self>,
                         #param: f32,
                     ) -> sp::LayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
-                        #[allow(unused)]
                         let o = sp::Orientation::Vertical;
                         sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
                     }
@@ -3780,7 +3735,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::StoreLocalVariable { name, value } => (|| {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
-            quote!(#[allow(unused_variables)] let #name = #value;)
+            quote!(let #name = #value;)
         })(),
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
@@ -6199,7 +6154,6 @@ fn generate_translations(
     quote!(
         const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
-        #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
         const _SLINT_BUNDLED_TRANSLATIONS: &[sp::TranslationsBundled] = &[#(#lang),*];
     )
