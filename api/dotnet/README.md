@@ -150,6 +150,13 @@ todos.Add(new TodoItem { Title = "Write the docs" });
 To show your own data, derive from `Model<T>`,
 and call `NotifyRowChanged`, `NotifyRowAdded`, `NotifyRowRemoved`, or `NotifyReset` when it changes.
 
+`Filter`, `Sort`, `Map`, and `Reverse` return views of a model that follow its changes:
+
+```csharp
+var todos = new ListModel<TodoItem>();
+app.OpenTodos = todos.Filter(todo => !todo.Done).Sort((a, b) => a.Title.CompareTo(b.Title));
+```
+
 ## Timers and Async Code
 
 Use `Slint.Timer` to run code after a delay, or repeatedly:
