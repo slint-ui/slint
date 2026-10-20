@@ -48,6 +48,7 @@ impl FrameThrottle for TimerBasedFrameThrottle {
         if self.timer.running() {
             return;
         }
+        winit_window.request_redraw();
         let refresh_interval_millihertz = winit_window
             .current_monitor()
             .and_then(|monitor| monitor.refresh_rate_millihertz())
@@ -57,30 +58,16 @@ impl FrameThrottle for TimerBasedFrameThrottle {
         let interval =
             std::time::Duration::from_millis((1000 * 1000) / refresh_interval_millihertz);
         self.timer.start(TimerMode::Repeated, interval, move || {
-            redraw_now(&window_adapter);
-
-            let Some(timer) = timer.upgrade() else { return };
-            let Some(window_adapter) = window_adapter.upgrade() else { return };
-
-            let keep_running = window_adapter.pending_redraw();
-
-            if timer.running() {
-                if !keep_running {
-                    timer.stop();
+            let Some(adapter) = window_adapter.upgrade() else { return };
+            if adapter.pending_redraw() {
+                if let Some(winit_window) = adapter.winit_window() {
+                    winit_window.request_redraw();
                 }
-            } else if keep_running {
-                timer.restart();
+            } else if let Some(timer) = timer.upgrade() {
+                timer.stop();
             }
         });
     }
-}
-
-fn redraw_now(window_adapter: &Weak<WinitWindowAdapter>) {
-    let Some(winit_window) = window_adapter.upgrade().and_then(|adapter| adapter.winit_window())
-    else {
-        return;
-    };
-    winit_window.request_redraw();
 }
 
 struct WinitBasedFrameThrottle;
