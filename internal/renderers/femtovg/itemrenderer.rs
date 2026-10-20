@@ -1349,6 +1349,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
+    /// How much the canvas transform magnifies in the direction where it magnifies the most:
+    /// the largest singular value of its linear part.
+    fn current_transform_scale(&self) -> f32 {
+        let [a, b, c, d, _, _] = self.canvas.borrow().transform().0;
+        i_slint_core::graphics::transform_max_scale(a, b, c, d)
+    }
+
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
@@ -1359,19 +1366,23 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             return;
         }
 
+        let transform_scale = self.current_transform_scale();
+        let scale_factor = self.scale_factor;
+
+        let image = item.source();
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-                let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
-                    Some(i_slint_core::graphics::scalable_render_size(
+                    Some(i_slint_core::graphics::transformed_scalable_render_size(
                         image.size(),
                         item.image_fit(),
-                        item.target_size() * self.scale_factor,
-                        self.scale_factor,
+                        item.target_size(),
+                        scale_factor,
                         tiling,
+                        transform_scale,
                     )?)
                 } else {
                     None
@@ -1416,12 +1427,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
             // later when the callback from load_html_image has issued a repaint
-            let cached_image = match image_cache_entry {
-                Some(entry) if entry.as_texture().size().is_some() => entry,
-                _ => {
-                    return;
-                }
-            };
+            let Some(cached_image) = image_cache_entry else { return };
+            let Some(texture_size) = cached_image.as_texture().size() else { return };
 
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
@@ -1431,10 +1438,23 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 continue;
             }
 
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            if i_slint_core::graphics::svg_needs_rasterizing_again(
+                texture_size,
+                &image,
+                item.image_fit(),
+                item.target_size(),
+                scale_factor,
+                item.tiling(),
+                transform_scale,
+            ) {
+                self.graphics_cache.release(item_rc);
+                continue;
+            }
+
             break cached_image.as_texture().clone();
         };
 
-        let image = item.source();
         let image_id = cached_image.id;
         let orig_size = image.size().cast::<f32>();
         let buf_size = cached_image.size().unwrap_or_default().cast::<f32>();
@@ -1572,11 +1592,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 gradient.end.y,
                 to_femtovg_stops(&gradient.stops),
             ),
-            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::radial_gradient_stops(
+            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::elliptical_gradient_stops(
                 gradient.center.x,
                 gradient.center.y,
                 0.,
-                gradient.radius.get(),
+                0.,
+                gradient.radius_x.get(),
+                gradient.radius_y.get(),
                 to_femtovg_stops(&gradient.stops),
             ),
             ResolvedBrush::ConicGradient(gradient) => {

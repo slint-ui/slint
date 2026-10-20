@@ -572,6 +572,9 @@ impl EditorSession {
         }
     }
 
+    /// Send `files` to the preview at `preview_index`.
+    /// Files that aren't loaded are read from disk only if they belong to the project,
+    /// where `workspace_folders` are the directories the user opened.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -580,9 +583,10 @@ impl EditorSession {
         &self,
         preview_index: usize,
         files: &[lsp_types::Url],
-        allows_file: impl Fn(&std::path::Path) -> bool,
+        workspace_folders: &[PathBuf],
     ) {
         let Some(preview) = self.preview(preview_index) else { return };
+        let file_access = std::cell::OnceCell::new();
         #[cfg(feature = "preview-remote")]
         let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
@@ -604,7 +608,14 @@ impl EditorSession {
                 tracing::warn!("Cannot convert URL to file path: {url}");
                 continue;
             };
-            if !allows_file(&path) {
+            let file_access = file_access.get_or_init(|| {
+                crate::preview_files::PreviewFileAccess::new(
+                    workspace_folders,
+                    &self.preview_config,
+                    &self.document_cache,
+                )
+            });
+            if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
                     path.display()
@@ -1072,7 +1083,7 @@ mod preview_tests {
         assert!(session.preview_mut(2).is_none());
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
-        session.send_files_to_preview(2, &[], |_| true);
+        session.send_files_to_preview(2, &[], &[]);
         session.show_preview(2, component);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
@@ -1131,7 +1142,9 @@ mod preview_tests {
         let path = temp_directory.path().join("requested.slint");
         std::fs::write(&path, "export component Requested {}").unwrap();
         let url = Url::from_file_path(path).unwrap();
-        let component = PreviewComponent { url: url.clone(), component: Some("Requested".into()) };
+        let component = PreviewComponent { url, component: Some("Requested".into()) };
+        let asset = temp_directory.path().join("requested.png");
+        std::fs::write(&asset, []).unwrap();
 
         session.show_preview(1, component.clone());
         for recorded_messages in &messages {
@@ -1139,7 +1152,11 @@ mod preview_tests {
         }
 
         session.send_state_to_preview(1);
-        session.send_files_to_preview(1, &[url], |_| true);
+        session.send_files_to_preview(
+            1,
+            &[Url::from_file_path(asset).unwrap()],
+            &[temp_directory.path().to_path_buf()],
+        );
 
         assert!(messages[0].borrow().is_empty());
         let secondary_messages = messages[1].borrow();

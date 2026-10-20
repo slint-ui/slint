@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
-import { mountPreview, canvasPixels, readFixture } from "./browser-harness";
+import {
+    mountCanvasPreview,
+    mountPreview,
+    expectCanvasPixels,
+    readFixture,
+} from "./browser-harness";
 
 const firstSource = await readFixture("fixtures/button.slint");
 const secondSource = await readFixture("fixtures/frame.slint");
@@ -53,7 +58,7 @@ test.each([false, true])(
 );
 
 test("built production preview clears busy, failed and empty selections and rejects stale output", async () => {
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     p.send({
         type: "preview-source",
         revision: 1,
@@ -63,10 +68,11 @@ test("built production preview clears busy, failed and empty selections and reje
     await p.ready(1);
     expect(p.doc.querySelector("#timing-panel")).toBeNull();
     expect(p.doc.querySelector("#copy-snapshot")).toBeNull();
-    const pixels = await canvasPixels(p);
-    expect(pixels.width).toBe(240);
-    expect(pixels.height).toBe(72);
-    expect(pixels.data.some((v, i) => i % 4 !== 3 && v < 200)).toBe(true);
+    await expectCanvasPixels(p, (pixels) => {
+        expect(pixels.width).toBe(240);
+        expect(pixels.height).toBe(72);
+        expect(pixels.data.some((v, i) => i % 4 !== 3 && v < 200)).toBe(true);
+    });
     p.send({ type: "preview-busy", revision: 2 });
     await expect
         .poll(() =>

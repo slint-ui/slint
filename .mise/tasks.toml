@@ -152,8 +152,8 @@ depends = ["prepare:pnpm-install"]
 ### Tests
 
 ["test:ai-plugins"]
-description = "Run the tests of the AI plugin's MCP servers"
-run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'"
+description = "Run the tests of the AI plugin's MCP servers and hooks"
+run = "node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'"
 
 ### Build
 

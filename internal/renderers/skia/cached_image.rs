@@ -27,11 +27,14 @@ impl OpaqueImage for SkiaCachedImage {
     }
 }
 
+/// `transform_scale` is how much the canvas transform magnifies the image,
+/// see [`i_slint_core::graphics::transformed_scalable_render_size`].
 pub(crate) fn as_skia_image(
     image: Image,
     target_size_fn: &dyn Fn() -> LogicalSize,
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
+    transform_scale: f32,
     canvas: &skia_safe::Canvas,
     surface: Option<&dyn crate::Surface>,
 ) -> Option<skia_safe::Image> {
@@ -52,12 +55,13 @@ pub(crate) fn as_skia_image(
         }
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let target_size = i_slint_core::graphics::scalable_render_size(
+            let target_size = i_slint_core::graphics::transformed_scalable_render_size(
                 svg.size(),
                 image_fit,
-                target_size_fn() * scale_factor,
+                target_size_fn(),
                 scale_factor,
                 Default::default(),
+                transform_scale,
             )?;
             let pixels = match svg.render(Some(target_size)).ok()? {
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
@@ -92,6 +96,7 @@ pub(crate) fn as_skia_image(
             target_size_fn,
             ImageFit::Preserve,
             scale_factor,
+            transform_scale,
             canvas,
             surface,
         ),
@@ -100,6 +105,7 @@ pub(crate) fn as_skia_image(
             target_size_fn,
             image_fit,
             scale_factor,
+            transform_scale,
             canvas,
             surface,
         ),

@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Api, PropertyValue } from "../../../api.slint";
+import { InspectorColorField, InspectorCornerEditor, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorAppearanceSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> pane-width;
+
+    title: @tr("APPEARANCE");
+    use-shared-title: true;
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-small;
+
+        Text {
+            height: Metrics.icon-small;
+            text: InspectorContext.is-text-selection() ? @tr("Color") : @tr("Fill");
+            color: Colors.muted;
+            font-size: Typography.control.size;
+            vertical-alignment: center;
+        }
+
+        if InspectorContext.is-root-selection(): InspectorColorField {
+            property <PropertyValue> background-value: Api.runtime-property-value-data("background", {});
+            accessible-name: @tr("Root background");
+            value: Api.source-property-value("background", "");
+            swatch: background-value.value-resolved ? background-value.value-brush : transparent;
+            commit-key: InspectorContext.field-key("background");
+            preview-key: InspectorContext.field-key("background");
+            session-key: InspectorContext.fill-session-key("background");
+            property-name: "background";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("background", text);
+            }
+        }
+
+        if InspectorContext.is-rectangle-selection(): InspectorColorField {
+            accessible-name: @tr("Rectangle background");
+            target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
+            value: Api.source-property-value("background", "");
+            swatch: InspectorContext.property-brush("background");
+            commit-key: InspectorContext.field-key("background");
+            preview-key: InspectorContext.field-key("background");
+            session-key: InspectorContext.fill-session-key("background");
+            property-name: "background";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("background", text);
+            }
+        }
+
+        if InspectorContext.is-text-selection(): InspectorColorField {
+            accessible-name: @tr("Text color");
+            target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
+            value: Api.source-property-value("color", "");
+            swatch: InspectorContext.property-brush("color");
+            commit-key: InspectorContext.field-key("color");
+            preview-key: InspectorContext.field-key("color");
+            session-key: InspectorContext.fill-session-key("color");
+            property-name: "color";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => {
+                return InspectorContext.commit-code("color", text);
+            }
+        }
+    }
+    if InspectorContext.is-rectangle-selection(): HorizontalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        InspectorCornerEditor {
+            width: root.pane-width - 2 * root.style.padding - Metrics.border-width;
+            values: [InspectorContext.control-values[1], InspectorContext.control-values[2], InspectorContext.control-values[3], InspectorContext.control-values[4]];
+            maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
+            selection-key: InspectorContext.selection-key;
+            commit-key: InspectorContext.inspector-key;
+            preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "all-corners", value); }
+            accepted(index, value) => {
+                return InspectorContext.commit-inspector(index < 0 ? "all-corners" : index == 0 ? "border-top-left-radius" : index == 1 ? "border-top-right-radius" : index == 2 ? "border-bottom-left-radius" : "border-bottom-right-radius", value);
+            }
+            canceled => { Api.inspector-cancel(); }
+        }
+    }
+}

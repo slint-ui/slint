@@ -76,7 +76,9 @@ Codex, Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugin
 Each assistant reads its own manifest: `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, and, for
 Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
 `mcp/slint-preview` is an MCP App that shows `.slint` source as a live preview in the conversation.
-Run its tests with `mise run test:ai-plugins`.
+`hooks/` holds hooks that report `.slint` compiler diagnostics to the agent, or tell it the tool for that is missing.
+Claude Code uses `slint-lsp` for diagnostics, and Codex, which has no LSP support, runs `hooks/check-slint-edit.mjs` after each patch or shell command.
+Run their tests with `mise run test:ai-plugins`.
 
 ## Documentation
 

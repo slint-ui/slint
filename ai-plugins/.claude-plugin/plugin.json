@@ -19,6 +19,19 @@
       }
     }
   },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/check-slint-tool.mjs\" slint-lsp"
+          }
+        ]
+      }
+    ]
+  },
   "mcpServers": {
     "slint-docs": {
       "type": "http",

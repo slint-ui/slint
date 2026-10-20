@@ -343,7 +343,8 @@ impl<'a> SkiaItemRenderer<'a> {
 
                 paint.set_dither(true);
 
-                let mut local_matrix = skia_safe::Matrix::scale((g.radius.get(), g.radius.get()));
+                let mut local_matrix =
+                    skia_safe::Matrix::scale((g.radius_x.get(), g.radius_y.get()));
                 local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
@@ -411,30 +412,55 @@ impl<'a> SkiaItemRenderer<'a> {
         dest_rect: PhysicalRect,
     ) {
         let tiling = item.tiling();
+        let image_fit =
+            || if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() };
+        let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
+        let scale_factor = self.scale_factor;
 
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
-        let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let image = item.source();
-            super::cached_image::as_skia_image(
-                image,
-                &|| item.target_size(),
-                if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
-                self.scale_factor,
-                self.canvas,
-                self.surface,
-            )
-            .and_then(|skia_image| {
-                let brush = item.colorize();
-                if !brush.is_transparent() {
-                    self.colorize_image(skia_image, brush)
-                } else {
-                    Some(skia_image)
-                }
-            })
-        });
+        let skia_image = self.image_cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || {
+                let image = item.source();
+                super::cached_image::as_skia_image(
+                    image,
+                    &|| item.target_size(),
+                    image_fit(),
+                    scale_factor,
+                    transform_scale,
+                    self.canvas,
+                    self.surface,
+                )
+                .and_then(|skia_image| {
+                    let brush = item.colorize();
+                    if !brush.is_transparent() {
+                        self.colorize_image(skia_image, brush)
+                    } else {
+                        Some(skia_image)
+                    }
+                })
+            },
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            |cached| {
+                cached.as_ref().is_some_and(|cached| {
+                    i_slint_core::graphics::svg_needs_rasterizing_again(
+                        i_slint_core::graphics::IntSize::new(
+                            cached.width() as _,
+                            cached.height() as _,
+                        ),
+                        &item.source(),
+                        image_fit(),
+                        item.target_size(),
+                        scale_factor,
+                        Default::default(),
+                        transform_scale,
+                    )
+                })
+            },
+        );
+        let source = item.source();
 
         let Some(skia_image) = skia_image else { return };
-        let source = item.source();
         let source_size = source.size();
         if source_size.is_empty() {
             // Not sure how this can happen, but we've seen with #6280
@@ -1013,6 +1039,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             &|| LogicalSize::from_untyped(image.size().cast()),
             ImageFit::Fill,
             self.scale_factor,
+            1.,
             self.canvas,
             self.surface,
         );

@@ -1472,7 +1472,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
-                ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                ("radial-gradient(..)", "radial-gradient(${1|circle,ellipse|}, $2)"),
                 ("conic-gradient(..)", "conic-gradient($1)"),
             ]
             .into_iter()
@@ -1513,6 +1513,7 @@ fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::test::CURSOR_EMOJI;
     use lsp_types::Position;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
@@ -1525,7 +1526,6 @@ mod tests {
     }
 
     fn get_completions_impl(file: &str, enable_experimental: bool) -> Option<Vec<CompletionItem>> {
-        const CURSOR_EMOJI: char = '🔺';
         let offset = (file.find(CURSOR_EMOJI).unwrap() as u32).into();
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = if enable_experimental {
@@ -2788,7 +2788,6 @@ mod tests {
     ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
 
-        const CURSOR_EMOJI: char = '🔺';
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
         let cursor_offset = (main_file_with_cursor.find(CURSOR_EMOJI).unwrap() as u32).into();
 

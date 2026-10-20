@@ -697,7 +697,7 @@ def test_shadow_switch_focus_ring_requires_tab_navigation(
             f"Enable {shadow_family.title.lower()}",
             slint_testing.AccessibleRole.Switch,
         )
-        ring = query(switch, id="InspectorShadowControl::switch-focus-ring")
+        ring = query(switch, id="InspectorSwitch::switch-focus-ring")
         gesture(window, center(switch), center(switch))
         disabled = wait_for_source_change(shadow_scene, baseline)
         expect.poll(lambda: switch.accessible_checked).to_equal(False)
