@@ -44,6 +44,9 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial OwnedString slint_dotnet_build_features();
 
+    [LibraryImport(Library)]
+    public static partial nuint slint_dotnet_struct_size(int kind);
+
     // value.rs
 
     [LibraryImport(Library)]

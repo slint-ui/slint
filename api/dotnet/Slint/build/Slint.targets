@@ -84,7 +84,7 @@
 
   <Target Name="SlintGenerate"
           DependsOnTargets="_SlintPrepare"
-          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildProjectFullPath);$(_SlintOptionsFile)"
+          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
           Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
@@ -92,7 +92,7 @@
     <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.LiveOption)" />
   </Target>
 
-  <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile" DependsOnTargets="SlintGenerate">
+  <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile;BeforeCompile" DependsOnTargets="SlintGenerate">
     <ItemGroup>
       <Compile Include="@(_SlintGenerate->'%(GeneratedFile)')" />
       <FileWrites Include="@(_SlintGenerate->'%(GeneratedFile)');$(_SlintOptionsFile)" />

@@ -119,7 +119,9 @@ jobs:
             - uses: actions/upload-artifact@v7
               with:
                   name: nuget-packages
-                  path: packages/*.nupkg
+                  path: |
+                      packages/*.nupkg
+                      packages/*.snupkg
 
     test_packages:
         needs: pack
@@ -170,6 +172,7 @@ jobs:
         # and the secret NUGET_USER with the nuget.org profile name that owns the policy.
         permissions:
             id-token: write
+            contents: read
         steps:
             - uses: actions/setup-dotnet@v5
               with:

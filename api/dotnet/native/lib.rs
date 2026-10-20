@@ -262,6 +262,19 @@ pub extern "C" fn slint_dotnet_invoke_from_event_loop(
     }
 }
 
+/// The size of each struct that crosses the boundary, to check that C# lays them out the same:
+/// 0 `Utf8Str`, 1 `OwnedString`, 2 `DiagnosticInfo`, 3 `ModelVTable`; 0 for any other `kind`.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_dotnet_struct_size(kind: i32) -> usize {
+    match kind {
+        0 => std::mem::size_of::<Utf8Str>(),
+        1 => std::mem::size_of::<OwnedString>(),
+        2 => std::mem::size_of::<interpreter::DiagnosticInfo>(),
+        3 => std::mem::size_of::<models::ModelVTable>(),
+        _ => 0,
+    }
+}
+
 /// The optional capabilities compiled into this library, separated by commas.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_dotnet_build_features() -> OwnedString {

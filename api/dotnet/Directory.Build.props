@@ -11,6 +11,12 @@
     <!-- NuGet license expressions only know SPDX licenses, so the packages carry LICENSE.md, which lists all three. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageTags>gui;ui;toolkit;slint;desktop;embedded</PackageTags>
+    <!-- Lets debuggers step into the bindings from the package, through Source Link and a symbol package. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     <SlintPackageId Condition="'$(SlintPackageId)' == ''">Slint</SlintPackageId>
     <SlintCompilerPackageId Condition="'$(SlintCompilerPackageId)' == ''">$(SlintPackageId).Compiler</SlintCompilerPackageId>
   </PropertyGroup>

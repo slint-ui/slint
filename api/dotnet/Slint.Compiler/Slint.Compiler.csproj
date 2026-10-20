@@ -10,6 +10,8 @@
     <PackageId>$(SlintCompilerPackageId)</PackageId>
     <Description>$(SlintDescriptionPrefix)The slint-compiler that the $(SlintPackageId) package runs to generate C# code from .slint files.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- No assembly, so nothing to debug. -->
+    <IncludeSymbols>false</IncludeSymbols>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <!-- The package has no lib folder on purpose. -->
