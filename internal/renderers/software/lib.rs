@@ -1519,7 +1519,7 @@ fn process_rectangle_impl(
         _unit: Default::default(),
     };
     // Add a small value to make sure that the clip is always positive despite floating point
-    // issues
+    // issues. A clip past `i16::MAX` saturates, which is still larger than any radius or border.
     const E: f32 = 0.00001;
     let rounded_shape = RoundedShape {
         radius,
@@ -1753,25 +1753,43 @@ fn process_rectangle_impl(
         return;
     }
 
-    if color.alpha > 0
-        && let Some(r) =
-            geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
-    {
-        processor.process_simple_rectangle(r, color);
+    // `cast` panics past the `i16` range, while `as` saturates and keeps a far edge far away.
+    let b = border.get();
+    let g = geom.round().to_box2d();
+    let outer = euclid::Box2D::<i16, PhysicalPx>::new(
+        euclid::point2(g.min.x as i16, g.min.y as i16),
+        euclid::point2(g.max.x as i16, g.max.y as i16),
+    );
+    let inner = euclid::Box2D::new(
+        euclid::point2(outer.min.x.saturating_add(b), outer.min.y.saturating_add(b)),
+        euclid::point2(outer.max.x.saturating_sub(b), outer.max.y.saturating_sub(b)),
+    );
+    let clip = clip.to_box2d();
+    let mut fill = |r: euclid::Box2D<i16, PhysicalPx>, color| {
+        if let Some(r) = r.intersection(&clip) {
+            processor.process_simple_rectangle(r.to_rect(), color);
+        }
+    };
+    if color.alpha > 0 {
+        fill(inner, color);
     }
-
     if border_color.alpha > 0 {
-        let mut add_border = |r: PhysicalRect| {
-            if let Some(r) = r.intersection(clip) {
-                processor.process_simple_rectangle(r, border_color);
-            }
-        };
-        let b = border.get();
-        let g = geom.round().cast();
-        add_border(euclid::rect(g.min_x(), g.min_y(), g.width(), b));
-        add_border(euclid::rect(g.min_x(), g.min_y() + g.height() - b, g.width(), b));
-        add_border(euclid::rect(g.min_x(), g.min_y() + b, b, g.height() - b - b));
-        add_border(euclid::rect(g.min_x() + g.width() - b, g.min_y() + b, b, g.height() - b - b));
+        fill(euclid::Box2D::new(outer.min, euclid::point2(outer.max.x, inner.min.y)), border_color);
+        fill(euclid::Box2D::new(euclid::point2(outer.min.x, inner.max.y), outer.max), border_color);
+        fill(
+            euclid::Box2D::new(
+                euclid::point2(outer.min.x, inner.min.y),
+                euclid::point2(inner.min.x, inner.max.y),
+            ),
+            border_color,
+        );
+        fill(
+            euclid::Box2D::new(
+                euclid::point2(inner.max.x, inner.min.y),
+                euclid::point2(outer.max.x, inner.max.y),
+            ),
+            border_color,
+        );
     }
 }
 
