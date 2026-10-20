@@ -223,7 +223,7 @@ Next:
 7. Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
    with the official `Slint` package IDs and a `ChangeLog:` trailer.
 8. API gaps compared to Python and Node.js:
-   - a `Window` API, for size, position, scale factor, and close requests
+   - a `Window` API, for size, position, scale factor, and close requests (done)
    - typed `brush`, gradients, `keys`, styled text, data transfer, `LogicalPosition`, and `LogicalSize`
    - include and library paths in generated code (done)
    - translations, the model adapters, and C# names for exported aliases

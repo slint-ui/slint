@@ -401,4 +401,65 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial ulong slint_dotnet_timer_interval_ms(TimerHandle timer);
+
+    // window.rs
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_window_is_visible(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial float slint_dotnet_window_scale_factor(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_request_redraw(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_position(ComponentInstanceHandle instance, int* x, int* y);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_physical_position(ComponentInstanceHandle instance, int x, int y);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_logical_position(ComponentInstanceHandle instance, float x, float y);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_size(ComponentInstanceHandle instance, uint* width, uint* height);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_physical_size(ComponentInstanceHandle instance, uint width, uint height);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_logical_size(ComponentInstanceHandle instance, float width, float height);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_window_is_fullscreen(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_fullscreen(ComponentInstanceHandle instance, [MarshalAs(UnmanagedType.U1)] bool value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_window_is_maximized(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_maximized(ComponentInstanceHandle instance, [MarshalAs(UnmanagedType.U1)] bool value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_window_is_minimized(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_set_minimized(ComponentInstanceHandle instance, [MarshalAs(UnmanagedType.U1)] bool value);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_on_close_requested(
+        ComponentInstanceHandle instance,
+        delegate* unmanaged<nint, int> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_window_dispatch_close_requested(ComponentInstanceHandle instance);
 }

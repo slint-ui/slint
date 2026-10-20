@@ -21,7 +21,7 @@ pub enum DotnetInstance {
 
 impl DotnetInstance {
     /// Calls `f` with the component; for a live component, the one from the latest reload.
-    fn with<R>(&self, f: impl FnOnce(&ComponentInstance) -> R) -> R {
+    pub(crate) fn with<R>(&self, f: impl FnOnce(&ComponentInstance) -> R) -> R {
         match self {
             Self::Static(instance) => f(instance),
             #[cfg(feature = "live-preview")]

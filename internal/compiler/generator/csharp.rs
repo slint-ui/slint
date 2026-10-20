@@ -471,6 +471,7 @@ pub fn generate(
         let mut members = Members::new(&[
             class.as_str(),
             "Instance",
+            "Window",
             "Create",
             "Show",
             "Hide",
@@ -502,7 +503,8 @@ pub fn generate(
         let _ = writeln!(types, "    public void Show() => Instance.Show();");
         let _ = writeln!(types, "    public void Hide() => Instance.Hide();");
         let _ = writeln!(types, "    public void Run() => Instance.Run();");
-        let _ = writeln!(types, "    public void Dispose() => Instance.Dispose();\n");
+        let _ = writeln!(types, "    public void Dispose() => Instance.Dispose();");
+        let _ = writeln!(types, "    public global::Slint.Window Window => Instance.Window;\n");
         for global in &globals {
             let class = ident(&global.name);
             let member = members.claim(class.clone());

@@ -119,6 +119,20 @@ Paths are relative to the project.
 The generated code loads imports from these directories where they are,
 so an application that runs elsewhere needs the imported files copied, such as with `<SlintFile Generate="false" />`.
 
+## Window
+
+Each component has a `Window`, for the window it shows in:
+
+```csharp
+app.Window.LogicalSize = new LogicalSize(800, 600);
+app.Window.IsMaximized = true;
+app.Window.OnCloseRequested(() =>
+    HasUnsavedChanges() ? CloseRequestResponse.KeepWindowShown : CloseRequestResponse.HideWindow);
+```
+
+It has the position and size in logical and physical pixels, the scale factor,
+`IsFullscreen`, `IsMaximized`, and `IsMinimized`, and `Show`, `Hide`, and `RequestRedraw`.
+
 ## Models
 
 Use a `ListModel<T>` for the rows of a `for` repeater, or any array property.

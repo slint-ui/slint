@@ -77,6 +77,9 @@ public sealed unsafe class ComponentInstance : IDisposable
     /// <summary>Whether the native library can create components with <see cref="CreateLive"/>.</summary>
     public static bool LiveReloadAvailable => EventLoop.BuildFeatures.Contains("live-preview");
 
+    /// <summary>The window of the component.</summary>
+    public Window Window => field ??= new Window(_handle);
+
     /// <summary>Whether the instance comes from <see cref="CreateLive"/>.</summary>
     public bool IsLive => _live != null;
 
