@@ -281,10 +281,16 @@ pub fn generate(
 
     let inner_module = generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
+    // Each sub-component in its own module: rustc doesn't split a module into several codegen
+    // units, so with incremental compilation one change would rebuild all of them.
     let sub_compos = llr
         .used_sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(*sub_compo, &llr, None, None, false))
+        .map(|sub_compo| {
+            let module = format_ident!("sc_{}", ident(&llr.sub_components[*sub_compo].name));
+            let code = generate_sub_component(*sub_compo, &llr, None, None, false);
+            quote!(mod #module { use super::*; #code } use #module::*;)
+        })
         .collect::<Vec<_>>();
     let public_components =
         llr.public_components.iter().map(|p| generate_public_component(p, &llr, compiler_config));
@@ -713,7 +719,7 @@ fn generate_shared_globals(
     });
 
     quote! {
-        #pub_token struct SharedGlobals {
+        pub struct SharedGlobals {
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
@@ -1830,9 +1836,6 @@ fn generate_sub_component_body(
             }
         });
 
-    // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
-    let visibility = parent_ctx.is_none().then(|| quote!(pub));
-
     let subtree_index_function = if let Some(property_index) = index_property {
         let prop = access_local_member(&property_index.into(), &ctx);
         quote!(#prop.get() as usize)
@@ -1903,36 +1906,35 @@ fn generate_sub_component_body(
         #[const_field_offset(sp::const_field_offset)]
         #[repr(C)]
         #pin_macro
-        #visibility
-        struct #inner_component_id {
-            #(#item_names : sp::#item_types,)*
-            #(#sub_component_names : #sub_component_types,)*
-            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
-            #(#declared_property_vars : sp::Property<#declared_property_types>,)*
-            #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#callback_tracker_names : sp::Property<()>,)*
-            #(#repeated_element_components,)*
-            #(#change_tracker_names : sp::ChangeTracker,)*
-            #(#timer_names : sp::Timer,)*
-            self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
-            #(parent : #parent_component_type,)*
-            globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
-            tree_index: ::core::cell::Cell<u32>,
-            tree_index_of_first_child: ::core::cell::Cell<u32>,
+        pub struct #inner_component_id {
+            #(pub(super) #item_names : sp::#item_types,)*
+            #(pub(super) #sub_component_names : #sub_component_types,)*
+            #(pub(super) #popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
+            #(pub(super) #declared_property_vars : sp::Property<#declared_property_types>,)*
+            #(pub(super) #declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(pub(super) #callback_tracker_names : sp::Property<()>,)*
+            #(pub(super) #repeated_element_components,)*
+            #(pub(super) #change_tracker_names : sp::ChangeTracker,)*
+            #(pub(super) #timer_names : sp::Timer,)*
+            pub(super) self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
+            #(pub(super) parent : #parent_component_type,)*
+            pub(super) globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
+            pub(super) tree_index: ::core::cell::Cell<u32>,
+            pub(super) tree_index_of_first_child: ::core::cell::Cell<u32>,
         }
 
         impl #inner_component_id {
             // Shorthands used by the generated expression code: these accesses are
             // emitted many times, so keep the call sites as small as possible.
-            fn globals(&self) -> &sp::Rc<SharedGlobals> {
+            pub(super) fn globals(&self) -> &sp::Rc<SharedGlobals> {
                 self.globals.get().unwrap()
             }
 
-            fn origin_rc(&self) -> sp::ItemTreeRc {
+            pub(super) fn origin_rc(&self) -> sp::ItemTreeRc {
                 sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
             }
 
-            fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
+            pub(super) fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32)
                 -> ::core::result::Result<(), slint::PlatformError>
@@ -1946,14 +1948,14 @@ fn generate_sub_component_body(
                 ::core::result::Result::Ok(())
             }
 
-            fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
 
             #(#chunk_fns)*
 
-            fn visit_dynamic_children(
+            pub(super) fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
                 order: sp::TraversalOrder,
@@ -1966,14 +1968,14 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+            pub(super) fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
                 let _self = self;
                 let mut _changed = false;
                 #(#ensure_instantiated_stmts)*
                 _changed
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
+            pub(super) fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
                 let _self = self;
                 match orientation {
                     sp::Orientation::Horizontal => #layout_info_h,
@@ -1989,7 +1991,7 @@ fn generate_sub_component_body(
 
             #layout_order_for_repeated_fn
 
-            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
+            pub(super) fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
@@ -1997,7 +1999,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
+            pub(super) fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
@@ -2005,12 +2007,12 @@ fn generate_sub_component_body(
                 };
             }
 
-            fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
+            pub(super) fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 let _self = self;
                 #subtree_index_function
             }
 
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
+            pub(super) fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 let _self = self;
                 // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
                 // fields are in alphabetical order
@@ -2021,7 +2023,7 @@ fn generate_sub_component_body(
                 sp::euclid::rect(x, y, w, h)
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
+            pub(super) fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
                 let _self = self;
                 match index {
                     #(#accessible_role_branch)*
@@ -2030,7 +2032,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn accessible_string_property(
+            pub(super) fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 what: sp::AccessibleStringProperty,
@@ -2042,7 +2044,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+            pub(super) fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
                 let _self = self;
                 match (index, action) {
                     #(#accessibility_action_branch)*
@@ -2050,7 +2052,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+            pub(super) fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
                 let _self = self;
                 match index {
                     #(#supported_accessibility_actions_branch)*
@@ -2058,7 +2060,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
                 let _self = self;
                 match index {
                     #(#item_element_infos_branch)*
@@ -2596,7 +2598,7 @@ fn generate_item_tree_body(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            pub(super) fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);
@@ -2609,12 +2611,12 @@ fn generate_item_tree_body(
                 ::core::result::Result::Ok(self_rc)
             }
 
-            fn item_tree() -> &'static [sp::ItemTreeNode] {
+            pub(super) fn item_tree() -> &'static [sp::ItemTreeNode] {
                 const ITEM_TREE : [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 &ITEM_TREE
             }
 
-            fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
+            pub(super) fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
                 const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
                     = [#(#item_array),*];
                 &ITEM_ARRAY
