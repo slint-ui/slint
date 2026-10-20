@@ -10,6 +10,7 @@
 //! dependencies, so neither may shape through anything narrower.
 
 use super::*;
+use crate::SharedString;
 
 /// Font size of inline `code` runs, as a fraction of the surrounding body
 /// text. Matches the convention used by GitHub-style markdown renderers — the
@@ -29,6 +30,7 @@ pub(super) struct Brush {
     pub(super) link_color: Option<Color>,
 }
 
+#[derive(Clone, PartialEq)]
 pub(super) struct LayoutWithoutLineBreaksBuilder {
     font_request: Option<FontRequest>,
     /// See [`crate::item_rendering::RenderString::line_height_factor`].
@@ -270,10 +272,86 @@ pub(super) fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>>
     })
 }
 
+/// The plain text and the builder that paragraphs were shaped with.
+pub(super) struct PlainTextSource {
+    text: SharedString,
+    builder: LayoutWithoutLineBreaksBuilder,
+}
+
 pub(super) fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut FontContext,
     text: PlainOrStyledText,
+    link_color: Color,
+) -> Vec<TextParagraph> {
+    shape_text(layout_builder, font_context, text, link_color, None).0
+}
+
+fn shape_text(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut FontContext,
+    text: PlainOrStyledText,
+    link_color: Color,
+    previous: Option<(Vec<TextParagraph>, PlainTextSource)>,
+) -> (Vec<TextParagraph>, Option<PlainTextSource>) {
+    match text {
+        PlainOrStyledText::Plain(text) => {
+            let (paragraphs, source) =
+                shape_plain_text(layout_builder, font_context, text, previous);
+            (paragraphs, Some(source))
+        }
+        PlainOrStyledText::Styled(rich_text) => {
+            (shape_styled_text(layout_builder, font_context, rich_text, link_color), None)
+        }
+    }
+}
+
+/// Shapes the paragraphs of `text`, taking over those of `previous` whose text is unchanged at the
+/// start and the end, so that an edit only reshapes the paragraphs around it.
+pub(super) fn shape_plain_text(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut FontContext,
+    text: SharedString,
+    previous: Option<(Vec<TextParagraph>, PlainTextSource)>,
+) -> (Vec<TextParagraph>, PlainTextSource) {
+    let ranges: Vec<Range<usize>> = paragraph_ranges(&text).collect();
+    let (mut paragraphs, prefix, suffix) = if let Some((old, source)) = previous
+        && source.builder == *layout_builder
+    {
+        let unchanged = |(old, new): &(&TextParagraph, &Range<usize>)| {
+            source.text[old.range.clone()] == text[(*new).clone()]
+        };
+        let prefix = old.iter().zip(&ranges).take_while(unchanged).count();
+        let suffix = old[prefix..]
+            .iter()
+            .rev()
+            .zip(ranges[prefix..].iter().rev())
+            .take_while(unchanged)
+            .count();
+        (old, prefix, suffix)
+    } else {
+        (Vec::new(), 0, 0)
+    };
+
+    let changed = ranges[prefix..ranges.len() - suffix].iter().map(|range| {
+        let paragraph_text = &text[range.clone()];
+        let layout = layout_builder.build(font_context, paragraph_text, None, None);
+        TextParagraph::new(paragraph_text, range.clone(), layout, Vec::new(), Vec::new())
+    });
+    let old_len = paragraphs.len();
+    paragraphs.reserve_exact(ranges.len().saturating_sub(old_len));
+    paragraphs.splice(prefix..old_len - suffix, changed);
+    for (paragraph, range) in paragraphs.iter_mut().zip(ranges) {
+        paragraph.range = range;
+    }
+
+    (paragraphs, PlainTextSource { text, builder: layout_builder.clone() })
+}
+
+fn shape_styled_text(
+    layout_builder: &LayoutWithoutLineBreaksBuilder,
+    font_context: &mut FontContext,
+    rich_text: crate::styled_text::StyledText,
     link_color: Color,
 ) -> Vec<TextParagraph> {
     let paragraph_from_text =
@@ -288,54 +366,28 @@ pub(super) fn create_text_paragraphs(
                 .map(|s| s.range.clone())
                 .collect();
 
-            let control_characters = text
-                .char_indices()
-                .filter_map(|(index, c)| c.is_control().then_some(index))
-                .collect();
-
             let layout = layout_builder.build(font_context, text, formatting, Some(link_color));
 
-            TextParagraph {
-                range,
-                y: PhysicalLength::default(),
-                layout,
-                links,
-                code_ranges,
-                control_characters,
-            }
+            TextParagraph::new(text, range, layout, links, code_ranges)
         };
 
-    let mut paragraphs = Vec::with_capacity(1);
-
-    match text {
-        PlainOrStyledText::Plain(ref text) => {
-            for range in paragraph_ranges(text) {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &text[range.clone()],
-                    range,
-                    Default::default(),
-                    Default::default(),
-                ));
-            }
-        }
-        PlainOrStyledText::Styled(rich_text) => {
-            // Offsets into the text as `styled_text::get_raw_text` joins it, which a selection's
-            // offsets index.
-            let ranges: Vec<_> = crate::styled_text::raw_text_ranges(&rich_text).collect();
-            for (paragraph, range) in rich_text.paragraphs.into_iter().zip(ranges) {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &paragraph.text,
-                    range,
-                    paragraph.formatting,
-                    paragraph.links,
-                ));
-            }
-        }
-    };
-
-    paragraphs
+    // Offsets into the text as `styled_text::get_raw_text` joins it, which a selection's
+    // offsets index.
+    let ranges: Vec<_> = crate::styled_text::raw_text_ranges(&rich_text).collect();
+    rich_text
+        .paragraphs
+        .into_iter()
+        .zip(ranges)
+        .map(|(paragraph, range)| {
+            paragraph_from_text(
+                font_context,
+                &paragraph.text,
+                range,
+                paragraph.formatting,
+                paragraph.links,
+            )
+        })
+        .collect()
 }
 
 /// The builder the shaped paragraphs of `text` must be produced with. Measuring and drawing share
@@ -403,16 +455,15 @@ pub(super) fn shape_paragraphs(
     text_wrap: TextWrap,
     scale_factor: ScaleFactor,
     font_context: &RefCell<FontContext>,
-) -> Vec<TextParagraph> {
+    previous: Option<(Vec<TextParagraph>, PlainTextSource)>,
+) -> (Vec<TextParagraph>, Option<PlainTextSource>) {
     let builder = shaping_builder(text, item_rc, text_wrap, scale_factor);
-    let plain_or_styled_text = text.text();
-    let link_color = text.link_color();
-    create_text_paragraphs(
-        &builder,
-        &mut font_context.borrow_mut(),
-        plain_or_styled_text,
-        link_color,
-    )
+    let content = text.text();
+    let link_color = match content {
+        PlainOrStyledText::Plain(_) => Color::default(),
+        PlainOrStyledText::Styled(_) => text.link_color(),
+    };
+    shape_text(&builder, &mut font_context.borrow_mut(), content, link_color, previous)
 }
 
 pub(super) struct TextParagraph {
@@ -426,4 +477,32 @@ pub(super) struct TextParagraph {
     pub(super) code_ranges: std::vec::Vec<Range<usize>>,
     /// Ascending byte offsets of the control characters in the paragraph's text.
     pub(super) control_characters: std::vec::Vec<usize>,
+    /// The maximum width and alignment that the lines of `layout` are broken for.
+    pub(super) broken_for: Option<(Option<PhysicalLength>, parley::Alignment)>,
+    /// The width and height of the lines when broken without a maximum width.
+    pub(super) unconstrained_size: Option<PhysicalSize>,
+}
+
+impl TextParagraph {
+    fn new(
+        text: &str,
+        range: Range<usize>,
+        layout: parley::Layout<Brush>,
+        links: std::vec::Vec<(Range<usize>, std::string::String)>,
+        code_ranges: std::vec::Vec<Range<usize>>,
+    ) -> Self {
+        Self {
+            range,
+            y: PhysicalLength::default(),
+            layout,
+            links,
+            code_ranges,
+            control_characters: text
+                .char_indices()
+                .filter_map(|(index, c)| c.is_control().then_some(index))
+                .collect(),
+            broken_for: None,
+            unconstrained_size: None,
+        }
+    }
 }

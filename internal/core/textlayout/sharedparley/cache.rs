@@ -11,7 +11,7 @@
 //! with the one shaping function every path must share.
 
 use super::layout::RetainedLineBreaking;
-use super::shaping::TextParagraph;
+use super::shaping::{PlainTextSource, TextParagraph};
 use super::*;
 
 /// Shaped paragraphs together with the wrap mode and line-height factor they were shaped with.
@@ -24,6 +24,7 @@ use super::*;
 /// `ranged_builder`), and the line height into the line metrics. The scale factor is the other
 /// input baked into the shaping, but it applies to every entry at once and so is handled by the
 /// cache as a whole.
+#[derive(Default)]
 struct CachedParagraphs {
     wrap: TextWrap,
     line_height_factor: Option<f32>,
@@ -36,6 +37,8 @@ struct CachedParagraphs {
     /// evicted them, or that the previous caller returned without handing them back, and the
     /// entry has to be reshaped rather than served empty.
     paragraphs: Option<Vec<TextParagraph>>,
+    /// What `paragraphs` were shaped from, when it was plain text.
+    plain_source: Option<PlainTextSource>,
     /// The [`TextLayoutCache::generation`] at which this entry was last served.
     last_used: u32,
 }
@@ -54,6 +57,8 @@ pub struct TextLayoutCache {
     content_widths: crate::item_rendering::ItemCache<crate::renderer::ContentWidths>,
     /// Bumped once per rendered frame; entries are stamped with it when served.
     generation: std::cell::Cell<u32>,
+    /// The [`FontContext::font_generation`] that every entry was shaped with.
+    font_generation: std::cell::Cell<u64>,
     /// Approximate entry count; a stale-high value just triggers one extra sweep.
     entry_count_estimate: std::cell::Cell<usize>,
     /// Estimate above which the next sweep runs; raised when the active set exceeds the limit.
@@ -73,6 +78,7 @@ impl Default for TextLayoutCache {
             inner: Default::default(),
             content_widths: Default::default(),
             generation: Default::default(),
+            font_generation: Default::default(),
             entry_count_estimate: Default::default(),
             sweep_threshold: std::cell::Cell::new(ENTRY_LIMIT),
             #[cfg(feature = "testing")]
@@ -86,13 +92,22 @@ impl Default for TextLayoutCache {
 }
 
 impl TextLayoutCache {
-    /// Drops everything shaped for the previous scale factor. Glyph advances are in physical
-    /// pixels, so a new scale factor invalidates every entry at once. Called on the way into the
-    /// cache rather than when rendering starts, because the layout pass that follows a scale
-    /// factor change measures before anything renders.
-    pub(super) fn clear_if_scale_factor_changed(&self, window: &crate::api::Window) {
+    /// Drops everything shaped for the previous scale factor or fonts. Glyph advances are in
+    /// physical pixels, so a new scale factor invalidates every entry at once. Called on the way
+    /// into the cache rather than when rendering starts, because the layout pass that follows a
+    /// scale factor change measures before anything renders.
+    pub(super) fn clear_if_stale(
+        &self,
+        window: &crate::api::Window,
+        font_context: &std::cell::RefCell<FontContext>,
+    ) {
         self.inner.clear_cache_if_scale_factor_changed(window);
         self.content_widths.clear_cache_if_scale_factor_changed(window);
+        let Ok(font_context) = font_context.try_borrow() else { return };
+        if font_context.font_generation != self.font_generation.get() {
+            self.font_generation.set(font_context.font_generation);
+            self.clear_all();
+        }
     }
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
         self.inner.component_destroyed(component);
@@ -107,7 +122,7 @@ impl TextLayoutCache {
     ///
     /// The entry is invalidated by the properties `compute` reads, so it must read the
     /// text, the font request and the line limit itself. The scale factor is handled by
-    /// [`Self::clear_if_scale_factor_changed`], which the caller runs first.
+    /// [`Self::clear_if_stale`], which the caller runs first.
     pub(super) fn content_widths(
         &self,
         item_rc: &crate::item_tree::ItemRc,
@@ -137,6 +152,7 @@ impl TextLayoutCache {
             kept += keep as usize;
             if !keep {
                 entry.paragraphs = None;
+                entry.plain_source = None;
                 entry.line_breaking = None;
             }
         });
@@ -197,10 +213,10 @@ impl CachedParagraphsGuard<'_> {
     pub(super) fn restore(
         &mut self,
         paragraphs: Vec<TextParagraph>,
-        line_breaking: RetainedLineBreaking,
+        line_breaking: Option<RetainedLineBreaking>,
     ) {
         self.paragraphs = Some(paragraphs);
-        self.line_breaking = Some(line_breaking);
+        self.line_breaking = line_breaking;
     }
 }
 
@@ -232,17 +248,20 @@ pub(super) fn cached_paragraphs<'a>(
     line_height_factor: Option<f32>,
     width_only: bool,
     window: &crate::api::Window,
-    shape: &dyn Fn() -> Vec<TextParagraph>,
+    font_context: &std::cell::RefCell<FontContext>,
+    shape: &dyn Fn(
+        Option<(Vec<TextParagraph>, PlainTextSource)>,
+    ) -> (Vec<TextParagraph>, Option<PlainTextSource>),
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {
-            paragraphs: Some(shape()),
+            paragraphs: Some(shape(None).0),
             line_breaking: None,
             container: None,
         };
     };
 
-    cache.clear_if_scale_factor_changed(window);
+    cache.clear_if_stale(window, font_context);
 
     // Sweep before this item's entry is checked out and blocks `for_each_mut`'s access.
     if cache.entry_count_estimate.get() > cache.sweep_threshold.get() {
@@ -253,14 +272,17 @@ pub(super) fn cached_paragraphs<'a>(
     // entry only holds one of each at a time, so a mismatching one is reshaped.
     let mut entry = cache.inner.get_or_update_cache_entry_ref_unless(
         item_rc,
-        || {
+        |previous| {
             #[cfg(feature = "testing")]
             cache.cache_miss_count.set(cache.cache_miss_count.get() + 1);
             cache.entry_count_estimate.set(cache.entry_count_estimate.get() + 1);
+            let (paragraphs, plain_source) =
+                shape(previous.and_then(|entry| entry.paragraphs.zip(entry.plain_source)));
             CachedParagraphs {
                 wrap,
                 line_height_factor,
-                paragraphs: Some(shape()),
+                paragraphs: Some(paragraphs),
+                plain_source,
                 line_breaking: None,
                 last_used: 0, // stamped right below, for both a hit and this miss
             }
