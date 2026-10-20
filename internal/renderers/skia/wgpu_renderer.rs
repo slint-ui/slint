@@ -6,7 +6,6 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 #[cfg(feature = "wgpu-30")]
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowAdapter;
@@ -141,7 +140,6 @@ impl SkiaWGPU29Renderer {
             0,
             Some(&*surface),
             window,
-            None,
         );
 
         surface.backend.release_surface(gr_context, &mut skia_surface);
@@ -187,7 +185,7 @@ impl SkiaWGPU30Renderer {
     /// `Rgba8Unorm` and `Rgba8UnormSrgb` are supported on all backends,
     /// and `Bgra8Unorm` on Metal and Vulkan too.
     pub fn render_to_texture(&self, texture: &wgpu_30::Texture) -> Result<(), PlatformError> {
-        self.render_to_texture_transformed(texture, 0., (0., 0.), None)
+        self.render_to_texture_transformed(texture, 0., (0., 0.))
     }
 }
 
@@ -199,13 +197,11 @@ pub trait SkiaWGPU30RendererExt {
     /// Like [`SkiaWGPU30Renderer::render_to_texture`], but rotates the scene by
     /// `rotation_angle_degrees` around the origin and then moves it by `translation`,
     /// for a screen mounted in a different orientation than the window's.
-    /// `post_render_cb` draws on top of the finished scene, for a cursor the platform renders.
     fn render_to_texture_transformed(
         &self,
         texture: &wgpu_30::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError>;
 }
 
@@ -217,7 +213,6 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
         texture: &wgpu_30::Texture,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), PlatformError> {
         let surface = self.surface();
         self.renderer.invoke_rendering_notifier_setup(&*surface)?;
@@ -241,7 +236,6 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
             0,
             Some(&*surface),
             window,
-            post_render_cb,
         );
 
         surface.backend.release_surface(gr_context, &mut skia_surface);

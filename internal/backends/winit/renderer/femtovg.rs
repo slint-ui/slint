@@ -7,8 +7,11 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+use i_slint_core::graphics::RequestedGraphicsAPI;
+#[cfg(all(supports_opengl, target_os = "windows"))]
+use i_slint_core::graphics::RequestedOpenGLVersion;
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
-use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 #[cfg(supports_opengl)]
 use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
@@ -24,6 +27,9 @@ mod glcontext;
 #[cfg(all(supports_opengl, target_os = "windows"))]
 mod glprobe;
 
+#[cfg(all(supports_opengl, target_os = "windows"))]
+const OPENGL_2_REQUIRED: &str = "The FemtoVG renderer requires an OpenGL 2.0 driver";
+
 #[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
@@ -37,10 +43,16 @@ impl GlutinFemtoVGRenderer {
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         // Bail out before a window is created, so that the backend can still fall back to
-        // another renderer.
+        // another renderer (#13762).
         #[cfg(target_os = "windows")]
-        if !glprobe::opengl_2_available() {
-            return Err("The FemtoVG renderer requires an OpenGL 2.0 driver".into());
+        {
+            let desktop_opengl_required = matches!(
+                shared_backend_data.requested_graphics_api,
+                Some(RequestedGraphicsAPI::OpenGL(RequestedOpenGLVersion::OpenGL(_)))
+            );
+            if !desktop_opengl_required && !glprobe::opengl_2_available() {
+                return Err(OPENGL_2_REQUIRED.into());
+            }
         }
 
         Ok(Box::new(Self {
@@ -226,7 +238,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
         // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.
-        self.renderer.render_transformed_with_post_callback(0., (0., 0.), window.size(), None)
+        self.renderer.render_transformed(0., (0., 0.), window.size())
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {

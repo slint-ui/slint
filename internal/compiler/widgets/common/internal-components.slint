@@ -86,7 +86,7 @@ export component IconButton {
         alignment: center;
 
         icon-image := Image {
-            x: (parent.width - self.width) / 2;
+            cross-axis-self-alignment: center;
             width: root.style.icon-size;
             colorize: root.style.foreground;
             accessible-role: none;
@@ -161,7 +161,6 @@ export component SelectionButton {
         }
 
         icon-image := Image {
-            y: (parent.height - self.height) / 2;
             width: root.style.icon-size;
             colorize: root.style.foreground;
             transform-rotation: root.checked ? 180deg : 0;

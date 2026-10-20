@@ -26,6 +26,9 @@ use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 ))]
 mod input;
 
+#[cfg(all(feature = "libinput", not(feature = "libseat")))]
+mod console;
+
 #[derive(Clone)]
 struct Proxy {
     loop_signal: Arc<Mutex<Option<calloop::LoopSignal>>>,
@@ -89,6 +92,13 @@ pub struct Backend {
 
 impl Backend {
     pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
+        #[cfg(all(feature = "dlopen", feature = "libinput", not(test)))]
+        {
+            crate::dlopen::libudev::load()?;
+            crate::dlopen::libinput::load()?;
+            crate::dlopen::xkbcommon::load()?;
+        }
+
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
         let renderer_factory = match builder.renderer_name.as_deref() {
@@ -241,6 +251,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        #[cfg(all(feature = "libinput", not(feature = "libseat")))]
+        let _console_keyboard = console::ConsoleKeyboard::acquire().unwrap_or_else(|e| {
+            eprintln!("Warning: Could not switch off the console keyboard: {e}");
+            None
+        });
+
         let mut event_loop: EventLoop<LoopData> =
             EventLoop::try_new().map_err(|e| format!("Error creating event loop: {}", e))?;
 
@@ -253,20 +269,13 @@ impl i_slint_core::platform::Platform for Backend {
         let quit_loop = self.proxy.quit_loop.clone();
 
         #[cfg(feature = "libinput")]
-        let mouse_position_property = input::LibInputHandler::init(
+        input::LibInputHandler::init(
             &self.window,
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
             &self.libinput_event_hook,
         )?;
-
-        // Without libinput there is no pointer to track, so the cursor property
-        // stays empty for the lifetime of the loop.
-        #[cfg(not(feature = "libinput"))]
-        let mouse_position_property = Rc::pin(i_slint_core::Property::<
-            Option<i_slint_core::api::LogicalPosition>,
-        >::new(None));
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err("Re-entering the linuxkms event loop is currently not supported"
@@ -313,7 +322,7 @@ impl i_slint_core::platform::Platform for Backend {
                 }
 
                 if let Some(adapter) = self.window.borrow().as_ref() {
-                    adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
+                    adapter.clone().render_if_needed()?;
                     adapter.flush_unless_frame_follows()?;
                 };
 

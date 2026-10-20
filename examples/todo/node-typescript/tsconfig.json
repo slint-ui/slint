@@ -4,6 +4,9 @@
         "moduleResolution": "bundler",
         "target": "esnext",
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "paths": {
+            "slint-ui": ["./node_modules/slint-ui"]
+        }
     }
 }

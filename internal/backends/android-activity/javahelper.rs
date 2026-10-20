@@ -163,6 +163,10 @@ bind_java_type! {
             ) -> (),
             fn = callback_update_text,
         },
+        pub static fn update_selection {
+            sig = (cursor_position: jint, anchor_position: jint) -> (),
+            fn = callback_update_selection,
+        },
     },
 }
 
@@ -686,6 +690,38 @@ fn callback_update_text<'local>(
                 }
             };
             adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+fn callback_update_selection<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    cursor_position: jint,
+    anchor_position: jint,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.show_cursor_handles.set(false);
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
+            {
+                let text_input = text_input.as_pin_ref();
+                let text = text_input.text();
+                let to_byte_offset =
+                    |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
+                text_input.set_selection_offsets(
+                    &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                    &focus_item,
+                    to_byte_offset(anchor_position),
+                    to_byte_offset(cursor_position),
+                );
+            }
         }
     })
     .unwrap();

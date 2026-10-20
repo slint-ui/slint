@@ -9,17 +9,20 @@
 
 use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
-use crate::instance::SubComponentInstance;
+use crate::instance::{RepeaterOrConditional, SubComponentInstance};
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
-use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::llr::{
+    self, Expression, LocalMemberIndex, MemberReference, RadialGradientShape,
+};
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
 use i_slint_core::item_tree::ItemRc;
+use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
 use smol_str::SmolStr;
@@ -138,7 +141,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     // The stored `Type::Callback` — `Expression::ty()`'s
                     // CallBackCall arm extracts the return type from it.
                     LocalMemberIndex::Callback(idx) => &g.callbacks[*idx].ty,
-                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    LocalMemberIndex::Native { .. }
+                    | LocalMemberIndex::Timer(_)
+                    | LocalMemberIndex::Repeater(_) => &Type::Invalid,
                 }
             }
             MemberReference::Relative { parent_level, local_reference } => {
@@ -161,6 +166,8 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     LocalMemberIndex::Callback(idx) => &sc.callbacks[*idx].ty,
                     // A timer reference is only valid as the RestartTimer argument.
                     LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    // A repeater reference is only valid as the ListViewEnsureRowVisible argument.
+                    LocalMemberIndex::Repeater(_) => &Type::Invalid,
                     LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         if prop_name == "elements" {
                             // The `Path::elements` property is not in the NativeClass
@@ -227,8 +234,9 @@ fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Val
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
-        | LocalMemberIndex::Timer(_) => {
-            panic!("load_local called on callback/function/timer reference")
+        | LocalMemberIndex::Timer(_)
+        | LocalMemberIndex::Repeater(_) => {
+            panic!("load_local called on callback/function/timer/repeater reference")
         }
     }
 }
@@ -295,8 +303,9 @@ fn store_local(
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
+        | LocalMemberIndex::Repeater(_)
         | LocalMemberIndex::Timer(_) => {
-            panic!("store_local called on callback/function/timer reference")
+            panic!("store_local called on callback/function/repeater/timer reference")
         }
     }
 }
@@ -732,6 +741,45 @@ fn cast_constant_value(value: Value, to: &Type) -> Value {
     }
 }
 
+/// Builds the brush of a `@radial-gradient` from its shape, evaluated center, and stops.
+pub fn radial_gradient_brush<E>(
+    shape: &RadialGradientShape<E>,
+    mut radius: impl FnMut(&E) -> f32,
+    center: Option<(f32, f32)>,
+    stops: impl IntoIterator<Item = GradientStop>,
+) -> RadialGradientBrush {
+    let g = match shape {
+        RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
+        RadialGradientShape::Circle(Some(r)) => {
+            RadialGradientBrush::new_circle(stops).with_radius(radius(r))
+        }
+        RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
+        RadialGradientShape::Ellipse(Some((rx, ry))) => {
+            RadialGradientBrush::new_ellipse(stops).with_radii(radius(rx), radius(ry))
+        }
+    };
+    match center {
+        Some((cx, cy)) => g.with_center(cx, cy),
+        None => g,
+    }
+}
+
+/// Returns the shape and center part of a `@radial-gradient`,
+/// such as `ellipse 80px 40px at 10px 20px`.
+#[cfg(any(feature = "internal", feature = "internal-json"))]
+pub fn radial_gradient_shape_to_string(g: &RadialGradientBrush) -> String {
+    let mut result = String::from(if g.is_circle() { "circle" } else { "ellipse" });
+    match g.explicit_radii() {
+        Some((r, _)) if g.is_circle() => result += &format!(" {r}px"),
+        Some((rx, ry)) => result += &format!(" {rx}px {ry}px"),
+        None => {}
+    }
+    if let Some((cx, cy)) = g.explicit_center() {
+        result += &format!(" at {cx}px {cy}px");
+    }
+    result
+}
+
 pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value {
     if let Some(r) = &ctx.return_value {
         return r.clone();
@@ -980,18 +1028,12 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 eval_stops(ctx, stops),
             )))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
-            if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
-            }
-            Value::Brush(Brush::RadialGradient(g))
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = eval_stops(ctx, stops);
+            let mut number =
+                |e: &Expression| -> f32 { eval_expression(ctx, e).try_into().unwrap_or_default() };
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(Brush::RadialGradient(radial_gradient_brush(shape, number, center, stops)))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
@@ -1124,7 +1166,7 @@ fn with_layout_item_info(
     ctx: &mut EvalContext,
     cells_variable: &str,
     elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
-    orientation: i_slint_compiler::layout::Orientation,
+    orientation: i_slint_compiler::expression_types::Orientation,
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
@@ -1182,7 +1224,7 @@ fn push_repeater_layout_items(
     ctx: &mut EvalContext,
     repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
-    orientation: i_slint_compiler::layout::Orientation,
+    orientation: i_slint_compiler::expression_types::Orientation,
     cross_size: Option<f32>,
     grid_cross_width: Option<&Expression>,
     cells: &mut Vec<Value>,
@@ -1279,7 +1321,7 @@ fn push_repeater_layout_items(
 /// cache read for one instance. `None` on a non-numeric value, so the caller
 /// falls back to the plain layout info rather than measuring at 0.
 fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usize) -> Option<f32> {
-    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_REPEATER_INDEX_LOCAL;
+    use i_slint_compiler::llr::GRID_MEASURE_REPEATER_INDEX_LOCAL;
     let prev = ctx.locals.insert(
         SmolStr::new_static(GRID_MEASURE_REPEATER_INDEX_LOCAL),
         Value::Number(index as f64),
@@ -1306,13 +1348,13 @@ fn total_row_child_count(
 }
 
 pub(crate) fn llr_to_core_orientation(
-    o: i_slint_compiler::layout::Orientation,
+    o: i_slint_compiler::expression_types::Orientation,
 ) -> i_slint_core::items::Orientation {
     match o {
-        i_slint_compiler::layout::Orientation::Horizontal => {
+        i_slint_compiler::expression_types::Orientation::Horizontal => {
             i_slint_core::items::Orientation::Horizontal
         }
-        i_slint_compiler::layout::Orientation::Vertical => {
+        i_slint_compiler::expression_types::Orientation::Vertical => {
             i_slint_core::items::Orientation::Vertical
         }
     }
@@ -1973,12 +2015,42 @@ fn eval_translation_reference(
     ))
 }
 
+/// Unlike `From<_> for Value`, this isn't public API.
+trait IntoBuiltinValue {
+    fn into_value(self) -> Value;
+}
+
+impl<T: Into<Value>> IntoBuiltinValue for T {
+    fn into_value(self) -> Value {
+        self.into()
+    }
+}
+
+macro_rules! declare_builtin_struct_result {
+    (struct $name:path { $($field:ident),* }) => {
+        impl IntoBuiltinValue for $name {
+            fn into_value(self) -> Value {
+                let $name { $($field),* } = self;
+                Value::Struct(
+                    [$((stringify!($field).into(), Value::Number($field.into()))),*]
+                        .into_iter()
+                        .collect(),
+                )
+            }
+        }
+    };
+}
+
+declare_builtin_struct_result!(struct i_slint_core::graphics::RgbaColorU8 { red, green, blue, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::HsvaColor { hue, saturation, value, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::OklchColor { lightness, chroma, hue, alpha });
+
 macro_rules! call_runtime_function {
     ($context:ident, $item:ident, $args:ident, ($($params:tt)*)) => { None };
     ($context:ident, $item:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) $body:block) => {{
         $(let Some($ctx) = $context else { return Some(Value::Void) };)?
         $(let $param = runtime_function_argument!($item, $args, ($ty $(<$gen>)?) $($as)?);)*
-        Some(Value::from(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*)))
+        Some(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*).into_value())
     }};
 }
 
@@ -1987,12 +2059,7 @@ macro_rules! runtime_function_argument {
         $item?.clone()
     };
     ($item:ident, $args:ident, (ItemArg<$native:ident>) ElementReference) => {
-        i_slint_core::builtin_functions::ItemArg {
-            item: i_slint_core::items::ItemRef::downcast_pin::<i_slint_core::items::$native>(
-                $item?.borrow(),
-            )?,
-            rc: $item?.clone(),
-        }
+        i_slint_core::builtin_functions::ItemArg::new($item?)?
     };
     ($item:ident, $args:ident, ($($ty:tt)*) $($as:tt)?) => {
         $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default()
@@ -2008,7 +2075,7 @@ macro_rules! declare_call_runtime_builtin_function {
         /// Calls the function that implements `f`, if it has one, with the arguments converted
         /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
         /// `item` is the first argument if it's an `ElementReference`, and isn't in `args` then.
-        /// Without it, the ones that need it return `None`.
+        /// Without it, or if it isn't of the right type, the ones that need it return `None`.
         pub fn call_runtime_builtin_function(
             f: &BuiltinFunction,
             context: Option<&SlintContext>,
@@ -2240,6 +2307,17 @@ fn call_builtin_function(
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)
             {
+                if let Some(data) = root.globals.font_files.get(s.as_str()) {
+                    let blob =
+                        i_slint_core::textlayout::sharedparley::fontique::Blob::new(data.clone());
+                    root.globals.context.font_context().borrow_mut().register_fonts(blob);
+                    return Value::Void;
+                }
+                // The browser has no file system to read the font from,
+                // and a font that failed to load got a warning when compiling.
+                if cfg!(all(target_arch = "wasm32", target_os = "unknown")) {
+                    return Value::Void;
+                }
                 // Log and skip if the window adapter can't be created; the
                 // same error resurfaces when the window is actually used.
                 let result =
@@ -2434,6 +2512,36 @@ fn call_builtin_function(
         BuiltinFunction::StartTimer | BuiltinFunction::StopTimer => {
             // Lowered into property assignments by `materialize_state`; never reached.
             Value::Void
+        }
+        BuiltinFunction::ListViewEnsureRowVisible => {
+            if let [
+                Expression::PropertyReference(MemberReference::Relative {
+                    parent_level,
+                    local_reference,
+                }),
+                Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+                && let LocalMemberIndex::Repeater(repeater_idx) = &local_reference.reference
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let RepeaterOrConditional::Repeater(repeater) =
+                    &instance.repeaters[*repeater_idx]
+                && let Some((flickable_instance, flat_idx)) =
+                    resolve_item_rc_from_ref(ctx, flickable)
+            {
+                let row: i32 = eval_expression(ctx, row).try_into().unwrap_or_default();
+                let behavior: ScrollBehavior =
+                    eval_expression(ctx, behavior).try_into().unwrap_or_default();
+                let flickable_rc = i_slint_core::items::ItemRc::new(
+                    vtable::VRc::into_dyn(flickable_instance),
+                    flat_idx as u32,
+                );
+                repeater.as_ref().listview_ensure_row_visible(row, behavior, &flickable_rc);
+                return Value::Void;
+            }
+
+            panic!("internal error: invalid arguments to ListViewEnsureRowVisible {arguments:?}")
         }
     }
 }

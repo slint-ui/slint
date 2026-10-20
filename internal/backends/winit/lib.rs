@@ -299,6 +299,9 @@ pub struct BackendBuilder {
 
 impl BackendBuilder {
     /// Configures this builder to require a renderer that supports the specified graphics API.
+    ///
+    /// Requesting desktop OpenGL affects the FemtoVG renderer on Windows,
+    /// see `BackendSelector::require_opengl()`.
     #[must_use]
     pub fn request_graphics_api(mut self, graphics_api: RequestedGraphicsAPI) -> Self {
         self.requested_graphics_api = Some(graphics_api);

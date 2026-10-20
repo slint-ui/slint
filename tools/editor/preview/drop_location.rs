@@ -90,7 +90,7 @@ fn calculate_drop_acceptance(
             LogicalPoint::new(geometry.origin.x + horizontal, geometry.origin.y),
             LogicalSize::new(geometry.size.width - (2.0 * horizontal), geometry.size.height),
         ),
-        ui::LayoutKind::Grid => *geometry,
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => *geometry,
     };
 
     if certain_rect.contains(position) { DropAccept::Yes } else { DropAccept::Maybe }
@@ -279,7 +279,7 @@ fn calculate_drop_information_for_layout(
             }
             unreachable!("We missed the target layout")
         }
-        ui::LayoutKind::Grid => {
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => {
             // TODO: Do something here
             (None, usize::MAX)
         }
@@ -946,6 +946,9 @@ pub fn drop_at_with_geometry(
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
     let mut extra_properties =
         geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
+    if component.name == "Text" {
+        extra_properties.retain(|property| !matches!(property.name.as_str(), "width" | "height"));
+    }
     extend_with_new_properties(
         &mut extra_properties,
         &component.default_properties,
@@ -1024,15 +1027,10 @@ pub(super) fn visual_properties_for_drop(
             ),
             i_slint_editor_preview::editing::PropertyChange::new("border-width", "1px".to_string()),
         ],
-        "Text" => vec![
-            i_slint_editor_preview::editing::PropertyChange::new("text", "\"Text\"".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("color", "#1f2328".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("font-size", "24px".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new(
-                "vertical-alignment",
-                "center".to_string(),
-            ),
-        ],
+        "Text" => vec![i_slint_editor_preview::editing::PropertyChange::new(
+            "text",
+            "\"Text\"".to_string(),
+        )],
         "Image" => vec![i_slint_editor_preview::editing::PropertyChange::new(
             "image-fit",
             "contain".to_string(),

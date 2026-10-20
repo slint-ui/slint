@@ -1,0 +1,5 @@
+{
+    "name": "slint-preview-mcp",
+    "private": true,
+    "type": "module"
+}

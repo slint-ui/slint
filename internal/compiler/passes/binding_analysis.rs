@@ -16,9 +16,9 @@ use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, ByteFormat, SourceLocation, Spanned};
 use crate::element_type::{BuiltinElement, ElementType};
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::expression_types::Unit;
+use crate::expression_types::{Orientation, Unit};
 use crate::langtype::Type;
-use crate::layout::{LayoutItem, Orientation};
+use crate::layout::LayoutItem;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Document, Element, ElementRc, PropertyAnimation, find_parent_element};
 use derive_more as dm;
@@ -1489,7 +1489,7 @@ fn visit_cell_cross_axis_implicit_dependency(
 /// With `GivenByLayout`, the caller passes the item its width, so a
 /// height-for-width item's vertical info doesn't read it.
 fn visit_implicit_layout_info_dependencies(
-    orientation: crate::layout::Orientation,
+    orientation: crate::expression_types::Orientation,
     cross_size: CrossAxisSize,
     item: &ElementRc,
     vis: &mut impl FnMut(&PropertyPath, ReadType),

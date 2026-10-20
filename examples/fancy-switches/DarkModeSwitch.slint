@@ -44,7 +44,6 @@ component SunIcon {
             width: sun-size;
             height: self.width;
             border-radius: self.width / 2;
-            background: transparent;
             border-color: root.color;
             border-width: 5px;
         }
@@ -81,8 +80,6 @@ export component DarkModeSwitch {
     }
 
     frameBacker := Rectangle {
-        width: parent.width;
-        height: parent.height;
         background: transparent;
         border-radius: self.height / 2;
     }

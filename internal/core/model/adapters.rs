@@ -968,7 +968,11 @@ where
     type Data = M::Data;
 
     fn row_count(&self) -> usize {
-        self.0.wrapped_model.row_count()
+        if self.0.sorted_rows_dirty.get() {
+            self.0.wrapped_model.row_count()
+        } else {
+            self.0.mapping.borrow().len()
+        }
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
@@ -1211,6 +1215,19 @@ mod sort_tests {
         assert_eq!(model.row_data(7), None);
 
         assert!(Rc::ptr_eq(model.source_model(), &wrapped_rc));
+    }
+
+    #[test]
+    fn test_sorted_model_row_count_follows_mapping() {
+        let wrapped_rc = BrokenModel::new(std::vec![Some(3), Some(1), Some(2)]);
+        let sorted_model = SortModel::new_ascending(wrapped_rc.clone());
+        assert_eq!(sorted_model.row_data(0), Some(1));
+
+        // Grow the source without notifying, so the mapping isn't rebuilt.
+        wrapped_rc.data.borrow_mut().push(Some(4));
+
+        assert_eq!(sorted_model.row_count(), 3);
+        assert_eq!(sorted_model.row_data(3), None);
     }
 }
 

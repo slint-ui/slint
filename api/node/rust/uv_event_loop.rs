@@ -332,7 +332,7 @@ mod platform {
     use super::windows::Watcher;
     use napi::Env;
     use napi::bindgen_prelude::*;
-    use std::cell::{Cell, OnceCell, RefCell};
+    use std::cell::{OnceCell, RefCell};
     use std::time::Duration;
 
     struct PrepareState {
@@ -347,7 +347,6 @@ mod platform {
         uv: OnceCell<Option<uv::Functions>>,
         watcher: OnceCell<Watcher>,
         prepare: RefCell<Option<Box<PrepareState>>>,
-        quit_requested: Cell<bool>,
     }
 
     thread_local! {
@@ -356,7 +355,6 @@ mod platform {
                 uv: OnceCell::new(),
                 watcher: OnceCell::new(),
                 prepare: RefCell::new(None),
-                quit_requested: Cell::new(false),
             }
         };
     }
@@ -371,11 +369,6 @@ mod platform {
 
     pub(crate) fn has_integrated_event_loop_impl(env: &Env) -> bool {
         get_uv(env).is_ok()
-    }
-
-    /// Request the integrated event loop to exit.
-    pub(crate) fn request_quit() {
-        TLS.with(|tls| tls.quit_requested.set(true));
     }
 
     /// Get the per-thread watcher, creating it on first use.
@@ -433,10 +426,6 @@ mod platform {
                 Ok(ProcessEventsResult::Continue) => {}
             }
 
-            if TLS.with(|tls| tls.quit_requested.replace(false)) {
-                return ProcessEventsResult::Exited;
-            }
-
             state.prepare_handle.update_time();
             if state.watcher.take_ready() || uv_timeout == 0 {
                 // Wake libuv so it doesn't sleep in its I/O poll and
@@ -478,11 +467,7 @@ mod platform {
             Box::new(PrepareState { watcher, prepare_handle, async_handle, env: *env, on_exit });
 
         // Ref'd handle keeps Node.js alive until on_exit fires.
-        // Clear stale quit request from a previous run.
-        TLS.with(|tls| {
-            tls.quit_requested.set(false);
-            *tls.prepare.borrow_mut() = Some(state);
-        });
+        TLS.with(|tls| *tls.prepare.borrow_mut() = Some(state));
 
         Ok(())
     }
@@ -502,13 +487,9 @@ mod platform {
     ) -> napi::Result<()> {
         Err(napi::Error::from_reason("integrated event loop isn't available on this platform"))
     }
-
-    pub(crate) fn request_quit() {}
 }
 
 use napi::Env;
-
-pub(crate) use platform::request_quit;
 
 #[napi]
 pub fn has_integrated_event_loop(env: Env) -> bool {

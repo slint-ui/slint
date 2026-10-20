@@ -98,6 +98,7 @@ fn copy_to_clipboard(global: &ui::Diagnostics<'_>) {
             let level = match diagnostic.level {
                 ui::DiagnosticLevel::Debug => "debug",
                 ui::DiagnosticLevel::Note => "note",
+                ui::DiagnosticLevel::Info => "info",
                 ui::DiagnosticLevel::Warning => "warning",
                 ui::DiagnosticLevel::Error => "error",
             };
@@ -151,14 +152,17 @@ pub fn set_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) {
     diagnostics.iter().for_each(|diagnostic| {
-        let location = diagnostic.source_path().map(|path| {
-            let (line, column) = diagnostic.line_column();
-            (path.into(), line, column)
-        });
+        let location = i_slint_compiler::diagnostics::Spanned::source_file(diagnostic)
+            .map(|file| file.path().to_string())
+            .map(|path| {
+                let (line, column) = diagnostic.line_column();
+                (path.into(), line, column)
+            });
 
         let level = match diagnostic.level() {
             DiagnosticLevel::Error => ui::DiagnosticLevel::Error,
             DiagnosticLevel::Warning => ui::DiagnosticLevel::Warning,
+            DiagnosticLevel::Info => ui::DiagnosticLevel::Info,
             DiagnosticLevel::Note => ui::DiagnosticLevel::Note,
             _ => ui::DiagnosticLevel::Debug,
         };
@@ -183,6 +187,9 @@ pub(in crate::preview) fn set_compilation_diagnostics(
     no_component: bool,
     has_component: bool,
 ) {
+    if !has_component {
+        crate::preview::inline_text_edit::discard();
+    }
     if no_component {
         diagnostics.retain(|diagnostic| !is_no_component_diagnostic(diagnostic));
     }
@@ -220,7 +227,7 @@ pub(in crate::preview) fn has_only_no_component_error(
 // The editor distinguishes those files from compilation failures through NoComponent.
 fn is_no_component_diagnostic(diagnostic: &slint_interpreter::Diagnostic) -> bool {
     diagnostic.level() == DiagnosticLevel::Error
-        && diagnostic.source_path().is_none()
+        && i_slint_compiler::diagnostics::Spanned::source_file(diagnostic).is_none()
         && diagnostic.message() == "No component found"
 }
 

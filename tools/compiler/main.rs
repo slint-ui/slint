@@ -59,6 +59,10 @@ struct Cli {
     #[cfg_attr(feature = "cpp", doc = "'cpp' generates a C++ header.")]
     #[cfg_attr(feature = "rust", doc = "'rust' generates Rust code.")]
     #[cfg_attr(feature = "python", doc = "'python' generates a typed Python module.")]
+    #[cfg_attr(
+        feature = "typescript",
+        doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
+    )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
@@ -90,13 +94,12 @@ struct Cli {
 
     /// Specify the path to the main .slint file to compile.
     /// A slint-project.json in its directory, or in a directory above it, provides the settings.
-    /// A slint-project.json given here compiles its entry.
+    /// A slint-project.json given here compiles its main file.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
 
     /// Set the style for the UI (e.g., 'native' or 'fluent').
-    /// Wins over the style of the project file.
     #[arg(long, name = "style name")]
     style: Option<String>,
 
@@ -152,14 +155,14 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
-/// Replaces a project file given as input by its entry,
+/// Replaces a project file given as input by its main file,
 /// and returns the project file that applies to the input.
 fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file::ProjectFile> {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
     if args.slint_sc {
         if i_slint_compiler::project_file::is_project_file(&args.path) {
-            eprintln!("--slint-sc can't compile a project file, pass its entry instead");
+            eprintln!("--slint-sc can't compile a project file, pass its main file instead");
             std::process::exit(1);
         }
         return None;
@@ -279,6 +282,8 @@ fn main() -> std::io::Result<()> {
         && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
         && name != "-"
         && !name.ends_with(".d.ts")
+        // What TypeScript looks for with `allowArbitraryExtensions`, such as for `nodenext` modules
+        && !name.ends_with(".d.slint.ts")
     {
         eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
         std::process::exit(1);

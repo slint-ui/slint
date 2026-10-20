@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A ListView with a negative height, like `root.height - 50px` before the window gets its size,
+// creates no row until it gets a height, instead of re-creating rows until the instantiation gives up.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    in-out property <length> list-height: -10px;
+    in-out property <int> init-count;
+
+    ListView {
+        height: root.list-height;
+        for index in 3: Rectangle {
+            height: 20px;
+            init => {
+                root.init-count += 1;
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_init_count(), 0);
+instance.set_list_height(50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_init_count(), 3);
+// Without a height again, the rows go, and come back with the height.
+instance.set_list_height(0.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_list_height(50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_init_count(), 6);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_init_count(), 0);
+instance.set_list_height(50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_init_count(), 3);
+// Without a height again, the rows go, and come back with the height.
+instance.set_list_height(0.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+instance.set_list_height(50.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_init_count(), 6);
+```
+*/

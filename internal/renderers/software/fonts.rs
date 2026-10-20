@@ -137,7 +137,7 @@ pub fn match_font(
     request: &FontRequest,
     scale_factor: ScaleFactor,
     #[cfg(feature = "systemfonts")]
-    font_context: &mut i_slint_core::textlayout::sharedparley::parley::FontContext,
+    font_context: &mut i_slint_core::textlayout::sharedparley::FontContext,
 ) -> Font {
     let requested_weight = request
         .weight
@@ -164,12 +164,7 @@ pub fn match_font(
         Some(bitmap_font) => bitmap_font,
         None => {
             #[cfg(feature = "systemfonts")]
-            if let Some(vectorfont) = systemfonts::match_font(
-                request,
-                scale_factor,
-                &mut font_context.collection,
-                &mut font_context.source_cache,
-            ) {
+            if let Some(vectorfont) = systemfonts::match_font(request, scale_factor, font_context) {
                 return vectorfont.into();
             }
             if let Some(fallback_bitmap_font) = BITMAP_FONTS.with(|fonts| {
@@ -184,13 +179,7 @@ pub fn match_font(
                 fallback_bitmap_font
             } else {
                 #[cfg(feature = "systemfonts")]
-                return systemfonts::fallbackfont(
-                    request,
-                    scale_factor,
-                    &mut font_context.collection,
-                    &mut font_context.source_cache,
-                )
-                .into();
+                return systemfonts::fallbackfont(request, scale_factor, font_context).into();
                 #[cfg(not(feature = "systemfonts"))]
                 panic!(
                     "No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files."

@@ -15,8 +15,8 @@ export component InspectorColorField inherits Rectangle {
     in property <string> value;
     in property <brush> swatch;
     in property <Size> target-size: {
-        width: Api.current-property-value-data("width").value-float * 1px,
-        height: Api.current-property-value-data("height").value-float * 1px,
+        width: Api.runtime-property-value-data("width", {}).value-float * 1px,
+        height: Api.runtime-property-value-data("height", {}).value-float * 1px,
     };
     in property <bool> wide: false;
     in property <string> commit-key: "";
@@ -24,7 +24,7 @@ export component InspectorColorField inherits Rectangle {
     in property <string> session-key: "";
     in property <string> property-name: "";
     callback accepted(string) -> bool;
-    private property <ColorFieldData> data: Api.current-color-field-data(root.property-name);
+    private property <ColorFieldData> data: Api.source-color-field-data(root.property-name);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
 
@@ -169,7 +169,7 @@ export component InspectorColorField inherits Rectangle {
 
     private property <int> focus-generation: FillSession.focus-generation;
     changed focus-generation => {
-        if FillSession.request.target.key == root.preview-key {
+        if !FillSession.request.target.canvas && FillSession.request.target.key == root.preview-key {
             if root.is-literal-color { solid-field.focus-swatch(); }
             else { swatch-focus.focus(); }
         }

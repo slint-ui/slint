@@ -61,12 +61,18 @@ type Result<T> = std::result::Result<T, Error>;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        value_parser = clap::value_parser!(std::ffi::OsString)
+    )]
+    include_paths: Option<Vec<std::ffi::OsString>>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    library_paths: Option<Vec<String>>,
 
     /// The .slint file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
@@ -350,13 +356,21 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.set_include_paths(args.include_paths.clone());
-    compiler.set_library_paths(
-        args.library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-    );
+    if let Some(paths) = &args.include_paths {
+        compiler.set_include_paths(
+            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
+        );
+    }
+    if let Some(entries) = &args.library_paths {
+        compiler.set_library_paths(
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }
@@ -364,6 +378,7 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {
         Some(component) => ComponentSelection::Named(component.clone()),
+        None if args.check => ComponentSelection::AllExported,
         None => ComponentSelection::LastExported,
     };
     cc.is_preview = true;

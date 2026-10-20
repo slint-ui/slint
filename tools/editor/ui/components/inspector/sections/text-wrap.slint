@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { InspectorComboBox, InspectorEnumOptions, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorTextWrapSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> popup-bottom;
+
+    title: @tr("Text Wrap");
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        InspectorComboBox {
+            accessible-name: @tr("Text Wrap");
+            value: InspectorEnumOptions.text-word-wrap-label();
+            selected-index: InspectorEnumOptions.text-word-wrap-index();
+            options: InspectorEnumOptions.text-word-wrap-options;
+            wide: true;
+            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+            accepted(text) => {
+                return text != "" && InspectorContext.commit-code("wrap", text);
+            }
+        }
+    }
+}

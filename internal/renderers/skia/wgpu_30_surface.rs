@@ -560,6 +560,10 @@ impl crate::Surface for WGPUSurface {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+
+    fn free_gpu_resources(&self) {
+        self.gr_context.borrow_mut().free_gpu_resources();
+    }
 }
 
 struct WindowAndDisplayHandle(

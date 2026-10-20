@@ -46,12 +46,10 @@ To use Slint with Bun, ensure the following programs are installed:
 
 ### Building from Source
 
-Slint-node comes with pre-built binaries for macOS, Linux, and Windows. If you'd like to use Slint-node on a system
-without pre-built binaries, you need to install additional software:
-
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)**
-  * Depending on your operating system, you may need additional components. For a list of required system libraries,
-    see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
+Slint-node comes with pre-built binaries for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
+On other systems, `npm install slint-ui` succeeds, but it doesn't build Slint-node from source, so loading it fails.
+To build it yourself and make your application use that build,
+see [Node.js API Build](https://github.com/slint-ui/slint/blob/master/docs/building.md#nodejs-api-build).
 
 ## Getting Started (Node.js)
 
@@ -286,8 +284,8 @@ Use this when you need to:
 With both approaches,
 the exported component is available as a constructor function.
 The constructor takes an optional object to set initial property values and callbacks.
-The returned instance implements the `ComponentHandle` interface
-for showing, hiding, and accessing the window.
+The returned instance implements the `ComponentHandle` interface:
+`show()`, `hide()`, `run()`, and `window`.
 
 Given this `.slint` file:
 
@@ -314,6 +312,10 @@ let component = new MainWindow({
     clicked: function() { console.log("hello"); }
 });
 ```
+
+If a property, callback, or function of the component is called `window`, `show`, `hide`, or `run`, it takes that name.
+Use `component[slint.windowSymbol]` to access the window then.
+Loading such a component emits a `SLINT_SHADOWED_BUILTIN` warning, unless the `quiet` option of `loadFile()` is set.
 
 ### Accessing Properties
 
@@ -377,8 +379,8 @@ The types used for properties in .slint design markup each translate to specific
 | `bool` | `Boolean` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | `RgbaColor` | |
-| `brush` | `Brush` | |
+| `color` | `Brush` | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
+| `brush` | `Brush` | Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
 | `keys` | `Keys` | |
 | `image` | `ImageData` | |
 | `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
@@ -508,14 +510,23 @@ component.Logic.to_uppercase = (str) => {
 };
 ```
 
+Alternatively, use `slint.globalsSymbol` to access the global,
+even when a property of the component has the same name as the global:
+
+```js
+component[slint.globalsSymbol].Logic.to_uppercase = (str) => str.toUpperCase();
+```
+
 **Note**: Global singletons are instantiated once per component.
 When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated global singletons.
 
 ### TypeScript Support
 
-Importing a `.slint` file works in TypeScript out of the box — it compiles and runs.
-But TypeScript doesn't know the types of the exported components until you generate them.
+Node.js, Deno, and Bun run a TypeScript file that imports a `.slint` file without extra setup,
+because they strip the types without checking them.
+The TypeScript compiler and editors don't know `.slint` files, though:
+`tsc` reports "Cannot find module './main.slint'" until you add type declarations.
 
 #### Generating Type Declarations
 
@@ -545,16 +556,24 @@ The app runs without it; you just lose type checking.
 #### tsconfig Setup
 
 Use `moduleResolution: "bundler"` so TypeScript resolves `import "./main.slint"`
-to the generated `main.slint.d.ts`:
+to the generated `main.slint.d.ts`.
+That file imports `slint-ui`: if your `.slint` files are outside the folder that has `node_modules`,
+also map `slint-ui` with `paths`, or TypeScript silently types every component as `any`:
 
 ```json
 {
   "compilerOptions": {
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "paths": {
+      "slint-ui": ["./node_modules/slint-ui"]
+    }
   }
 }
 ```
+
+With `moduleResolution: "nodenext"`, TypeScript doesn't find `main.slint.d.ts`.
+Name the generated file `main.d.slint.ts` instead, and enable `allowArbitraryExtensions` in `tsconfig.json`.
 
 For a complete example,
 see [/examples/todo/node-typescript](https://github.com/slint-ui/slint/tree/master/examples/todo/node-typescript).

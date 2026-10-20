@@ -62,7 +62,10 @@ libseat = ["dep:libseat"]
 ## Handle mouse, touch and keyboard input via libinput. Without this feature the
 ## backend renders but receives no input events (and libinput, libudev and
 ## libxkbcommon are not needed at build or run time).
-libinput = ["dep:input", "dep:xkbcommon", "nix/time"]
+libinput = ["dep:input", "dep:xkbcommon", "dep:libudev-sys", "nix/time"]
+gbm = ["dep:gbm", "dep:gbm-sys"]
+# (internal) Load libinput, libudev, libxkbcommon, and libgbm at run-time instead of linking them.
+dlopen = ["dep:libloading"]
 
 default = []
 
@@ -93,6 +96,13 @@ bytemuck = { workspace = true, optional = true, features = ["derive"] }
 memmap2 = { version = "0.9.4", optional = true }
 # For the Vulkan calls wgpu doesn't offer. Keep in sync with the ash version wgpu-hal uses.
 ash = { version = "^0.38.0", optional = true }
+libloading = { version = "0.9", optional = true }
+# The dlopen feature checks its function signatures against these.
+libudev-sys = { version = "0.1.4", optional = true }
+gbm-sys = { version = "0.4", optional = true }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+drm-ffi = "0.9.1"
 
 [build-dependencies]
 cfg_aliases = { workspace = true }

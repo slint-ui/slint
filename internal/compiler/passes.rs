@@ -30,6 +30,7 @@ mod inject_debug_hooks;
 pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
+mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
@@ -53,6 +54,7 @@ mod optimize_useless_rectangles;
 #[cfg(test)]
 pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
+mod redundant_property_bindings;
 mod remove_aliases;
 mod remove_constant_conditions;
 mod remove_return;
@@ -173,7 +175,18 @@ pub async fn run_passes(
         return raw_type_loader;
     }
 
+    let mut checked_components = std::collections::HashSet::new();
+    doc.visit_all_used_components(|component| {
+        if checked_components.insert(std::rc::Rc::as_ptr(component)) {
+            listview::check_children_in_flickable(component, diag);
+        }
+    });
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
+    doc.visit_all_used_components(|component| {
+        listview::lower_ensure_row_visible(component, diag);
+    });
+
     collect_subcomponents::collect_subcomponents(doc);
     let diagnostics_before_typed_slots = diag.iter().count();
     doc.visit_all_used_components(|component| {
@@ -257,6 +270,7 @@ pub async fn run_passes(
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
     }
+    default_geometry::adjust_image_clip_rects(doc);
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
@@ -421,4 +435,5 @@ pub fn run_import_passes(
     check_expressions::check_expressions(doc, diag);
     windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
+    redundant_property_bindings::check_redundant_property_bindings(doc, diag);
 }

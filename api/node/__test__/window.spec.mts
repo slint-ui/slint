@@ -3,7 +3,13 @@
 
 import { test, expect } from "vitest";
 
-import { language, platform, private_api } from "../dist/index.js";
+import {
+    CloseRequestResponse,
+    language,
+    loadSource,
+    platform,
+    private_api,
+} from "../dist/index.js";
 import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
@@ -281,4 +287,43 @@ test("Window dispatch event result", () => {
     expect(window.dispatchEvent({ type: "key-pressed", text: "a" })).toBe(
         platform.WindowEventDispatchResult.Rejected,
     );
+});
+
+test("Window close request", () => {
+    const app = new (
+        loadSource(
+            "export component App inherits Window { width: 10px; height: 10px; }",
+            "",
+        ) as any
+    ).App();
+    const close = () => app.window.dispatchEvent({ type: "close-requested" });
+
+    let keepShown = true;
+    // Returning nothing, which TypeScript rejects, hides the window too.
+    app.window.onCloseRequested(() => {
+        if (keepShown) {
+            return CloseRequestResponse.KeepWindowShown;
+        }
+    });
+
+    global.gc!({ type: "major", execution: "sync" });
+
+    app.show();
+    expect(close()).toBe(platform.WindowEventDispatchResult.Rejected);
+    expect(app.window.visible).toBe(true);
+    keepShown = false;
+    expect(close()).toBe(platform.WindowEventDispatchResult.Accepted);
+    expect(app.window.visible).toBe(false);
+
+    for (const callback of [
+        () => {
+            throw new Error("close failed");
+        },
+        () => "not a response",
+    ]) {
+        app.window.onCloseRequested(callback);
+        app.show();
+        close();
+        expect(app.window.visible).toBe(false);
+    }
 });

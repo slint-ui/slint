@@ -429,7 +429,7 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 ///
 /// ### Project File
 ///
-/// Settings such as the style or the include paths can come from a `slint-project.json` file.
+/// Settings such as include paths can come from a `slint-project.json` file.
 /// The search for it starts in the directory of the `.rs` file and goes up from there.
 ///
 /// A macro body that only re-exports from a single `.slint` file, such as
@@ -522,8 +522,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{syntax_node:#?}");
-    let (root_component, diag, loader) =
+    let (root_component, mut diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);

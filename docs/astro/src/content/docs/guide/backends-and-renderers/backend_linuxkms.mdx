@@ -2,7 +2,7 @@
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm DMABUF */}
+{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm DMABUF logind */}
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
@@ -96,16 +96,35 @@ The configure output reports which of the two libraries the build ends up with.
 </TabItem>
 </Tabs>
 
-:::note[Note]
-Without libseat, the application must run as a user privileged to access the input and DRM/KMS device
-files; typically that's the root user.
-:::
+### Device Access With libseat
 
-:::note[Note]
-Without libinput the application renders but receives no input events, and the
-<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut that otherwise quits the application is
-not available. Quit the event loop from a timer or another thread instead.
-:::
+libseat manages access to the GPU and input devices through a seat manager such as logind or seatd.
+It also manages the virtual console's keyboard mode.
+
+Without libseat, run the application as a user with access to the input and DRM/KMS device files, typically root.
+When libinput is enabled, Slint disables the active virtual console's keyboard while the event loop runs.
+This prevents keystrokes, including passwords, from also reaching the shell on that console.
+Slint flushes queued console input and restores the previous keyboard mode when the event loop exits, including during panic unwinding.
+Caught panics and panics in other threads don't restore the keyboard while the event loop is still running.
+If disabling the keyboard fails, Slint warns and continues; keystrokes may still reach the console.
+
+Slint also restores the keyboard before terminating on `SIGINT`, `SIGTERM`, or `SIGHUP`.
+The process still terminates by the original signal.
+Signals already handled or ignored by the application keep their existing behavior.
+Install application handlers before starting the event loop.
+Set `SLINT_KMS_NO_SIGNAL_HANDLER=1` before launching the application to disable Slint's signal handlers.
+The application then owns restoration on signals; normal event-loop cleanup still restores the keyboard.
+
+`SIGKILL` and aborting panics can't restore the keyboard through this cleanup.
+If the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
+Replace `/dev/tty1` with the affected console; `-u` selects Unicode mode.
+
+### Input Events With libinput
+
+libinput reads mouse, touch, and keyboard events from input devices.
+Without libinput, the application renders but receives no input events.
+The <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut for quitting the application is then unavailable.
+Quit the event loop from a timer or another thread instead.
 
 ## Renderers
 
@@ -129,18 +148,16 @@ This backend is still experimental. The backend has not undergone a great variet
 and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
 :::
 
-:::note[Note]
-A mouse is supported as input device, but rendering of the mouse cursor only works with the Skia and FemtoVG renderers,
-not with the Slint software renderer.
-:::
-
 Enable the Rust `renderer-skia-software` feature together with a Linux KMS backend feature
 to compile Skia's CPU rendering path without a GPU renderer.
 
 ## Display Selection
 
 All renderers use Linux's direct rendering manager (DRM) subsystem to configure display outputs. Slint defaults to selecting the first connected
-display and configures it at either its preferred resolution (if available) or its highest. Set the `SLINT_DRM_OUTPUT`
+display and configures it at its preferred mode.
+Without a preferred mode, Slint keeps the mode the display already shows, for example from the console or a boot splash.
+Otherwise it picks the highest resolution at its highest refresh rate.
+Set the `SLINT_DRM_OUTPUT`
 environment variable to select a specific display. To get a list of available outputs, set `SLINT_DRM_OUTPUT`
 to `list`, run your program, and observe the output.
 
@@ -173,6 +190,14 @@ Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
 ```
 
 Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
+
+To select a resolution without depending on its index, set `SLINT_DRM_MODE` to
+`WIDTHxHEIGHT`, for example `1920x1080`.
+The resolution must match a mode advertised by the selected output; this doesn't create a custom mode.
+When several modes match, preferred modes take precedence, then the highest refresh rate wins.
+To select a specific refresh rate, append it in whole hertz as `list` shows it, for example `1920x1080@50`.
+An unavailable resolution or invalid value fails DRM initialization.
+Software renderers may then fall back to the legacy Linux framebuffer, where this setting has no effect.
 
 ## Configuring the Keyboard
 

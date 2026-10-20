@@ -76,6 +76,10 @@ impl BackendSelector {
     }
 
     /// Adds the requirement to the selector that the backend must render with OpenGL.
+    ///
+    /// With the FemtoVG renderer on Windows, this shortens start-up,
+    /// but Slint doesn't fall back to another renderer when the driver lacks OpenGL 2.0.
+    /// The event loop returns an error instead.
     #[must_use]
     pub fn require_opengl(mut self) -> Self {
         self.requested_graphics_api = Some(RequestedOpenGLVersion::OpenGL(None).into());
@@ -84,6 +88,8 @@ impl BackendSelector {
 
     /// Adds the requirement to the selector that the backend must render with OpenGL
     /// and the specified major and minor version.
+    ///
+    /// See [`Self::require_opengl()`] for how this affects the FemtoVG renderer on Windows.
     #[must_use]
     pub fn require_opengl_with_version(mut self, major: u8, minor: u8) -> Self {
         self.requested_graphics_api =

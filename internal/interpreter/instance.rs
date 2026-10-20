@@ -517,13 +517,6 @@ impl Instance {
         if let Some(lv) = listview_info.as_ref() {
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let listview_height = read_logical_length(&sub, &lv.listview_height);
-            // If layout hasn't propagated a real visible height yet (eager
-            // hit-test before show()), bail out instead of running the
-            // virtualization with `0`, which would create no rows or — with
-            // the loop_count == 3 retry — instantiate the whole model.
-            if listview_height.get() <= 0.0 {
-                return false;
-            }
             let props = ValueListViewProps {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
@@ -640,6 +633,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -648,6 +642,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            font_files,
             None,
             context,
             false,
@@ -660,6 +655,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         context: i_slint_core::SlintContext,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_options(
@@ -667,6 +663,7 @@ impl Instance {
             public_component_index,
             None,
             type_loaders,
+            font_files,
             None,
             context,
             false,
@@ -679,6 +676,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -687,6 +685,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            font_files,
             None,
             context,
             true,
@@ -701,6 +700,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -713,6 +713,7 @@ impl Instance {
             public_component_index,
             None,
             type_loaders,
+            font_files,
             Some((parent, parent_item_tree_index)),
             context,
             false,
@@ -726,12 +727,13 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
+        font_files: crate::component::FontFiles,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
         context: i_slint_core::SlintContext,
         disable_window_attachment: bool,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
-        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context));
+        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context, font_files));
         let item_tree = &public.item_tree;
         let vrc = build_instance(
             &compilation_unit,
@@ -1282,7 +1284,7 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         self: Pin<&Self>,
         cross_width: f32,
     ) -> i_slint_core::layout::LayoutItemInfo {
-        use i_slint_compiler::llr::lower_layout_expression::CROSS_WIDTH_LOCAL;
+        use i_slint_compiler::llr::CROSS_WIDTH_LOCAL;
         let orientation = i_slint_core::items::Orientation::Vertical;
         let cu = self.root_sub_component.compilation_unit.clone();
         let sc = &cu.sub_components[self.root_sub_component.sub_component_idx];
@@ -1365,7 +1367,7 @@ impl Instance {
         if let Some(v_expr) = &sc.layout_info_v_at_cross_width_for_repeated {
             let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
             ctx.locals.insert(
-                i_slint_compiler::llr::lower_layout_expression::CROSS_WIDTH_LOCAL.into(),
+                i_slint_compiler::llr::CROSS_WIDTH_LOCAL.into(),
                 crate::Value::Number(cross_width as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &v_expr.borrow())
@@ -1455,7 +1457,7 @@ fn row_child_cross_width(
     sc: &i_slint_compiler::llr::SubComponent,
     flat_index: usize,
 ) -> Option<f32> {
-    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_CHILD_INDEX_LOCAL;
+    use i_slint_compiler::llr::GRID_MEASURE_CHILD_INDEX_LOCAL;
     let expr = sc.grid_row_child_cross_width.as_ref()?;
     let mut ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
     ctx.locals

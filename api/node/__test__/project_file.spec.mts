@@ -64,36 +64,6 @@ test("library paths come from the project file", () => {
     expect(() => loadFile(main)).not.toThrow();
 });
 
-test("the project file style reaches the compiler", () => {
-    const directory = projectDirectory({ style: "no-such-style" });
-    const main = writeMain(
-        directory,
-        "export component Main inherits Window { }",
-    );
-
-    // A style name the compiler rejects shows which style it actually used.
-    let error: CompileError | undefined;
-    try {
-        loadFile(main);
-    } catch (e) {
-        error = e as CompileError;
-    }
-    expect(error).toBeDefined();
-    expect(
-        error!.diagnostics.some((d) => d.message.includes("no-such-style")),
-    ).toBe(true);
-});
-
-test("a style passed to loadFile wins over the project file", () => {
-    const directory = projectDirectory({ style: "no-such-style" });
-    const main = writeMain(
-        directory,
-        "export component Main inherits Window { }",
-    );
-
-    expect(() => loadFile(main, { style: "fluent" })).not.toThrow();
-});
-
 test("a project file that isn't valid json is reported", () => {
     const directory = fs.realpathSync(
         fs.mkdtempSync(path.join(os.tmpdir(), "slint-project-file-")),
@@ -118,9 +88,9 @@ test("a project file that isn't valid json is reported", () => {
     ).toBe(true);
 });
 
-test("loading the project file loads its entry", () => {
+test("loading the project file loads its main file", () => {
     const directory = projectDirectory({
-        entry: "ui/main.slint",
+        main: "ui/main.slint",
         "include-paths": ["include"],
     });
     fs.mkdirSync(path.join(directory, "ui"));

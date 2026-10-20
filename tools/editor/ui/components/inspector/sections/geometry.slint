@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { Api } from "../../../api.slint";
+import { EditorAngles } from "../../index.slint";
+import { InspectorPropertyRow, InspectorRotationKnob, InspectorSection, InspectorValueField } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorGeometrySection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+
+    title: @tr("Geometry");
+    InspectorPropertyRow {
+        label: @tr("Position");
+        InspectorValueField {
+            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
+            accessible-name: @tr("Position X"); prefix: "X";
+            value: InspectorContext.selected-x-label(); commit-key: InspectorContext.field-key("x");
+            scrubbable: true; scrub-value: InspectorContext.selected-x() / 1px;
+            scrub-preview(value) => { return InspectorContext.preview-geometry-property("x", value); }
+            scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
+            scrub-canceled(value) => { InspectorContext.preview-geometry-property("x", value); }
+            accepted(text) => { return InspectorContext.commit-geometry(text, InspectorContext.selected-y-label(), InspectorContext.selected-width-label(), InspectorContext.selected-height-label()); }
+        }
+        InspectorValueField {
+            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
+            accessible-name: @tr("Position Y"); prefix: "Y";
+            value: InspectorContext.selected-y-label(); commit-key: InspectorContext.field-key("y");
+            scrubbable: true; scrub-value: InspectorContext.selected-y() / 1px;
+            scrub-preview(value) => { return InspectorContext.preview-geometry-property("y", value); }
+            scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
+            scrub-canceled(value) => { InspectorContext.preview-geometry-property("y", value); }
+            accepted(text) => { return InspectorContext.commit-geometry(InspectorContext.selected-x-label(), text, InspectorContext.selected-width-label(), InspectorContext.selected-height-label()); }
+        }
+    }
+    InspectorPropertyRow {
+        label: @tr("Size");
+        InspectorValueField {
+            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
+            accessible-name: @tr("Width"); prefix: "W";
+            value: InspectorContext.selected-width-label(); commit-key: InspectorContext.field-key("width");
+            scrubbable: true; scrub-value: InspectorContext.selected-width() / 1px;
+            scrub-has-minimum: true; scrub-minimum: 1;
+            scrub-preview(value) => { return InspectorContext.preview-geometry-property("width", value); }
+            scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
+            scrub-canceled(value) => { InspectorContext.preview-geometry-property("width", value); }
+            accepted(text) => { return InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), text, InspectorContext.selected-height-label()); }
+        }
+        InspectorValueField {
+            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
+            accessible-name: @tr("Height"); prefix: "H";
+            value: InspectorContext.selected-height-label(); commit-key: InspectorContext.field-key("height");
+            scrubbable: true; scrub-value: InspectorContext.selected-height() / 1px;
+            scrub-has-minimum: true; scrub-minimum: 1;
+            scrub-preview(value) => { return InspectorContext.preview-geometry-property("height", value); }
+            scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
+            scrub-canceled(value) => { InspectorContext.preview-geometry-property("height", value); }
+            accepted(text) => { return InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), InspectorContext.selected-width-label(), text); }
+        }
+    }
+    if !InspectorContext.is-root-selection(): InspectorPropertyRow {
+        label: @tr("Rotation");
+        height: Metrics.control-large;
+        knob := InspectorRotationKnob {
+            value: InspectorContext.control-values[0];
+            commit-key: InspectorContext.inspector-key;
+            preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "transform-rotation", value); }
+            accepted(value) => { return InspectorContext.commit-inspector("transform-rotation", value); }
+            canceled => { Api.inspector-cancel(); }
+        }
+        InspectorValueField {
+            width: parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap - knob.width;
+            accessible-name: @tr("Rotation"); prefix: "°";
+            value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
+            commit-key: InspectorContext.inspector-key;
+            scrubbable: true; scrub-value: knob.visual-value;
+            scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "transform-rotation", value); }
+            scrub-accepted(value) => { return InspectorContext.commit-inspector("transform-rotation", value); }
+            scrub-canceled(value) => { Api.inspector-cancel(); }
+            accepted(text) => { return text.is-float() && InspectorContext.commit-inspector("transform-rotation", text.to-float()); }
+        }
+    }
+}

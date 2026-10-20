@@ -1,0 +1,226 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
+import { InspectorEnumOptions } from "../enum-options.slint";
+
+export global InspectorContext {
+    out property <ElementInformation> element-information: Api.current-element;
+    out property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(InspectorContext.element-information.source-uri, InspectorContext.element-information.offset)
+        : [];
+    out property <string> selection-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index;
+    out property <string> inspector-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.source-version + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
+    out property <[float]> control-values: Api.inspector-values(InspectorContext.inspector-key);
+
+    public function commit-inspector(name: string, value: float) -> bool {
+        return Api.inspector-commit(InspectorContext.inspector-key, name, value);
+    }
+
+    public pure function has-backend-rect() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.selection-rects.length > Api.selection.highlight-index;
+    }
+
+    public pure function is-rectangle-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
+    }
+
+    public pure function is-touch-area-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "TouchArea";
+    }
+
+    public pure function is-text-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Text";
+    }
+
+    public pure function is-image-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Image";
+    }
+
+    public pure function is-root-selection() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.id == "root";
+    }
+
+    public pure function is-layout-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "GridLayout"
+                || InspectorContext.element-information.type-name == "HorizontalLayout"
+                || InspectorContext.element-information.type-name == "VerticalLayout"
+                || InspectorContext.element-information.type-name == "FlexboxLayout");
+    }
+
+    public pure function selected-x() -> length {
+        return InspectorContext.has-backend-rect()
+            ? InspectorContext.selection-rects[Api.selection.highlight-index].x
+            : 0px;
+    }
+
+    public pure function selected-y() -> length {
+        return InspectorContext.has-backend-rect()
+            ? InspectorContext.selection-rects[Api.selection.highlight-index].y
+            : 0px;
+    }
+
+    public pure function selected-width() -> length {
+        if InspectorContext.has-backend-rect() {
+            return InspectorContext.selection-rects[Api.selection.highlight-index].width;
+        }
+        return 0px;
+    }
+
+    public pure function selected-height() -> length {
+        if InspectorContext.has-backend-rect() {
+            return InspectorContext.selection-rects[Api.selection.highlight-index].height;
+        }
+        return 0px;
+    }
+
+    public pure function selected-x-label() -> string {
+        return (InspectorContext.selected-x() / 1px).to-fixed(0);
+    }
+
+    public pure function selected-y-label() -> string {
+        return (InspectorContext.selected-y() / 1px).to-fixed(0);
+    }
+
+    public pure function selected-width-label() -> string {
+        return (InspectorContext.selected-width() / 1px).to-fixed(0);
+    }
+
+    public pure function selected-height-label() -> string {
+        return (InspectorContext.selected-height() / 1px).to-fixed(0);
+    }
+
+    public function commit-geometry(x-text: string, y-text: string, width-text: string, height-text: string) -> bool {
+        if !x-text.is-float() || !y-text.is-float() || !width-text.is-float() || !height-text.is-float() {
+            return false;
+        }
+
+        let new-position = {
+            x: x-text.to-float() * 1px,
+            y: y-text.to-float() * 1px,
+        };
+        let new-size = {
+            width: width-text.to-float() * 1px,
+            height: height-text.to-float() * 1px,
+        };
+
+        if new-size.width <= 0px || new-size.height <= 0px {
+            return false;
+        }
+
+        if InspectorContext.has-backend-rect() {
+            Api.selected-element-resize(new-position.x, new-position.y, new-size.width, new-size.height);
+            return true;
+        }
+
+        return false;
+    }
+
+    public function preview-geometry-property(name: string, value: float) -> bool {
+        if !InspectorContext.has-backend-rect() {
+            return false;
+        }
+        Api.override-selected-element-geometry(
+            name == "x" ? value * 1px : InspectorContext.selected-x(),
+            name == "y" ? value * 1px : InspectorContext.selected-y(),
+            name == "width" ? value * 1px : InspectorContext.selected-width(),
+            name == "height" ? value * 1px : InspectorContext.selected-height(),
+        );
+        return true;
+    }
+
+    public function accept-geometry-scrub() -> bool {
+        return Api.persist-selected-element-geometry();
+    }
+
+    public function commit-code(property-name: string, value: string) -> bool {
+        return Api.commit-code-binding(InspectorContext.element-information, property-name, value);
+    }
+
+    public function commit-px-code(property-name: string, value: string) -> bool {
+        if !value.is-float() {
+            return false;
+        }
+        return InspectorContext.commit-code(property-name, value + "px");
+    }
+
+    public pure function field-key(property-name: string) -> string {
+        return InspectorContext.inspector-key + ":" + property-name;
+    }
+
+    public pure function fill-session-key(property-name: string) -> string {
+        return InspectorContext.selection-key + ":" + Api.inspector-fill-generation + ":" + property-name;
+    }
+
+    public pure function property-brush(property-name: string) -> brush {
+        let property = Api.runtime-property-value-data(property-name, {});
+        return property.value-resolved ? property.value-brush : transparent;
+    }
+
+    public pure function property-string(property-name: string, fallback: string) -> string {
+        let property = Api.source-property-value-data(property-name, {});
+        if property.code == "" {
+            return fallback;
+        }
+        if property.value-kind == PropertyValueKind.string && property.value-string != "" {
+            return property.value-string;
+        }
+        if property.display-string != "" {
+            return property.display-string;
+        }
+        return property.code;
+    }
+
+    public pure function property-length-label(property-name: string, fallback: string) -> string {
+        let property = Api.source-property-value-data(property-name, {});
+        if property.code == "" {
+            return fallback;
+        }
+        if property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float {
+            return property.value-float.to-fixed(0);
+        }
+        return property.code;
+    }
+
+    public function commit-codes(bindings: [CodeBinding]) -> bool {
+        return Api.set-code-bindings(
+            InspectorContext.element-information.source-uri,
+            InspectorContext.element-information.source-version,
+            InspectorContext.element-information.offset,
+            bindings,
+        );
+    }
+
+    public pure function quote(value: string) -> string {
+        return "\"" + value + "\"";
+    }
+
+    public function choose-image-source() {
+        let expression = Api.choose-image-file(InspectorContext.element-information.source-uri);
+        if expression != "" {
+            InspectorContext.commit-code("source", expression);
+        }
+    }
+
+    public pure function text-font-family-value() -> string {
+        return InspectorContext.property-string("font-family", @tr("Default font"));
+    }
+
+    public pure function text-font-size-value() -> string {
+        return InspectorContext.property-length-label("font-size", @tr("Default size"));
+    }
+
+    public function set-image-alignment(column: int, row: int) -> bool {
+        if column < 0 || column > 2 || row < 0 || row > 2 {
+            return false;
+        }
+        if column == InspectorEnumOptions.image-horizontal-alignment-index() && row == InspectorEnumOptions.image-vertical-alignment-index() {
+            return true;
+        }
+        return InspectorContext.commit-codes([
+            { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
+            { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
+        ]);
+    }
+}

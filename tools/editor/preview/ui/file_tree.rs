@@ -113,6 +113,7 @@ pub fn setup(
 
     api.on_copy_nine_slice_expression(|value| copy_to_clipboard(&value, "nine-slice expression"));
     api.on_copy_file_path(|path| copy_to_clipboard(&path, "file path"));
+    api.on_open_file(|path| open_with_default_application(Path::new(path.as_str())));
 
     controller
 }
@@ -123,6 +124,23 @@ fn copy_to_clipboard(text: &str, what: &str) {
         Ok(())
     }) {
         tracing::warn!("Failed to copy {what} to clipboard: {err}");
+    }
+}
+
+fn open_with_default_application(path: &Path) {
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.args(["/C", "start", ""]);
+        command
+    };
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    if let Err(err) = command.arg(path).spawn() {
+        tracing::warn!("Failed to open {}: {err}", path.display());
     }
 }
 

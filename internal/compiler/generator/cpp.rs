@@ -473,17 +473,12 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
-use crate::expression_types::{EasingCurve, MinMaxOp};
+use crate::expression_types::{EasingCurve, MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
-use crate::layout::Orientation;
-use crate::llr::lower_expression::lower_constant_expression;
-use crate::llr::lower_layout_expression::{
-    CROSS_WIDTH_LOCAL, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
-    MEASURE_KNOWN_W_LOCAL,
-};
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext, EvaluationScope, ParentScope,
-    TypeResolutionContext as _,
+    self, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext, EvaluationScope,
+    GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL, MEASURE_KNOWN_W_LOCAL,
+    ParentScope, RadialGradientShape, TypeResolutionContext as _,
 };
 use crate::native_class::NativeClass;
 use crate::object_tree::Document;
@@ -1356,7 +1351,7 @@ fn generate_struct(
             // so that default construction is fully deterministic, like in the other language backends.
             let init = match the_struct.field_defaults.get(name) {
                 Some(default_value) => {
-                    Some(compile_expression(&lower_constant_expression(default_value), &ctx))
+                    Some(compile_expression(&llr::Expression::from_constant(default_value), &ctx))
                 }
                 None if !the_struct.field_defaults.is_empty() => Some("{}".into()),
                 None => None,
@@ -3003,9 +2998,9 @@ fn repeated_layout_item_fields(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
 ) -> (String, String) {
-    let orientation_name = |o: &crate::layout::Orientation| match o {
-        crate::layout::Orientation::Horizontal => "Horizontal",
-        crate::layout::Orientation::Vertical => "Vertical",
+    let orientation_name = |o: &crate::expression_types::Orientation| match o {
+        crate::expression_types::Orientation::Horizontal => "Horizontal",
+        crate::expression_types::Orientation::Vertical => "Vertical",
     };
     let align_self = match &root_sc.cross_axis_self_alignment_for_repeated {
         Some((cross_o, expr)) => {
@@ -3987,6 +3982,10 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     }
                     llr::LocalMemberIndex::Timer(timer_index) => path
                         .with_member(format!("->{compo_path}timer{}", usize::from(*timer_index))),
+                    llr::LocalMemberIndex::Repeater(repeater_index) => path.with_member(format!(
+                        "->{compo_path}repeater_{}",
+                        usize::from(*repeater_index)
+                    )),
                     llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
@@ -4731,48 +4730,44 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops.len()
             )
         })(),
-        Expression::RadialGradient { center, radius, stops } => (|| {
+        Expression::RadialGradient { center, shape, stops } => (|| {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
-            let center_setup = match (center, radius) {
-                (Some((cx, cy)), Some(r)) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (Some((cx, cy)), None) => {
-                    let cx = compile_expression(cx, ctx);
-                    let cy = compile_expression(cy, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, Some(r)) => {
-                    let r = compile_expression(r, ctx);
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
-                        stops_count = stops.len()
-                    )
-                }
-                (None, None) => {
-                    format!(
-                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}));",
-                        stops.len()
-                    )
+            let (cx, cy) = match center {
+                Some((cx, cy)) => (
+                    format!("float({})", compile_expression(cx, ctx)),
+                    format!("float({})", compile_expression(cy, ctx)),
+                ),
+                None => {
+                    let nan = "std::numeric_limits<float>::quiet_NaN()".to_string();
+                    (nan.clone(), nan)
                 }
             };
+            let circle = "slint::cbindgen_private::types::RADIAL_GRADIENT_SHAPE_CIRCLE";
+            let ellipse = "slint::cbindgen_private::types::RADIAL_GRADIENT_SHAPE_ELLIPSE";
+            let (radii_setup, radii) = match shape {
+                RadialGradientShape::Circle(None) => (String::new(), circle.into()),
+                RadialGradientShape::Ellipse(None) => (String::new(), ellipse.into()),
+                RadialGradientShape::Circle(Some(r)) => (
+                    format!("const float r = float({});", compile_expression(r, ctx)),
+                    format!("r, r, {circle}"),
+                ),
+                RadialGradientShape::Ellipse(Some((rx, ry))) => (
+                    String::new(),
+                    format!(
+                        "float({}), float({}), {ellipse}",
+                        compile_expression(rx, ctx),
+                        compile_expression(ry, ctx)
+                    ),
+                ),
+            };
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {radii_setup} return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}, {cx}, {cy}, {radii})); }}()",
                 stops_it.join(", "),
-                center_setup
+                stops.len(),
             )
         })(),
         Expression::ConicGradient { from_angle, center, stops } => (|| {
@@ -5073,10 +5068,8 @@ fn compile_builtin_function_call(
                 None => call(None),
                 Some(pr) => {
                     let call_with_item = |owner: &str| {
-                        let (item, item_rc) = native_item_from_owner(pr, ctx, owner);
-                        call(Some(format!(
-                            "slint::cbindgen_private::BuiltinItemArg{{ &{item}, &{item_rc} }}"
-                        )))
+                        let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                        call(Some(format!("slint::cbindgen_private::ItemRc{{ {item_rc} }}")))
                     };
                     if function.ty().return_type == Type::Void {
                         item_owner(pr).then(call_with_item)
@@ -5187,6 +5180,27 @@ fn compile_builtin_function_call(
                     auto menu_wrapper = {menu_wrapper};
                     slint::private_api::setup_menu_bar_from_menu_item_tree(&{window}.handle(), {no_native}, menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
+        })(),
+        BuiltinFunction::ListViewEnsureRowVisible => (|| {
+            let [
+                llr::Expression::PropertyReference(repeater),
+                llr::Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+            else {
+                panic!("internal error: invalid args to ListViewEnsureRowVisible {arguments:?}")
+            };
+            let row = compile_expression(row, ctx);
+            let behavior = compile_expression(behavior, ctx);
+            access_member(repeater, ctx).then_named("repeater", |repeater| {
+                item_owner(flickable).then(|owner| {
+                    let (_, flickable_rc) = native_item_from_owner(flickable, ctx, owner);
+                    format!(
+                        "{repeater}.listview_ensure_row_visible({row}, {behavior}, slint::cbindgen_private::ItemRc{{ {flickable_rc} }})"
+                    )
+                })
+            })
         })(),
         BuiltinFunction::SetupSystemTrayIcon => (|| {
             let [

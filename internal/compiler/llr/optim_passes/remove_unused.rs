@@ -16,7 +16,9 @@ impl Mapping {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
             LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => true,
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => true,
         }
     }
 }
@@ -640,7 +642,9 @@ mod visitor {
             LocalMemberIndex::Callback(c) => {
                 visitor.visit_callback_idx(c, scope, state);
             }
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => {}
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => {}
         }
     }
 }
@@ -652,19 +656,7 @@ mod tests {
     /// across all sub-components. The names are prefixed by the element path, so
     /// callers match with `contains`.
     fn lowered_property_names(source: &str) -> std::collections::HashSet<String> {
-        let mut config =
-            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-        config.style = Some("fluent".into());
-        let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node = crate::parser::parse(
-            source.into(),
-            Some(crate::source_path::SourcePath::new("t.slint")),
-            &mut diags,
-        );
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
-        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
-        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let unit = crate::llr::lower_test_source(source);
         unit.sub_components
             .iter()
             .flat_map(|sc| sc.properties.iter().map(|p| p.name.to_string()))

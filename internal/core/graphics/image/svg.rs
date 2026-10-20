@@ -46,8 +46,8 @@ impl ParsedSVG {
         [size.width(), size.height()].into()
     }
 
-    pub fn cache_key(&self) -> ImageCacheKey {
-        self.cache_key.clone()
+    pub fn cache_key(&self) -> &ImageCacheKey {
+        &self.cache_key
     }
 
     /// Approximate number of bytes the parsed tree keeps alive, for cache accounting.

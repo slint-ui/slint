@@ -598,7 +598,7 @@ impl Struct {
 /// Keep the matches over this type exhaustive,
 /// so that adding a variant is a compile error in each consumer:
 /// the conversion to an expression tree (`Expression::from_constant`),
-/// the lowering for the code generators (`lower_constant_expression` in the llr module),
+/// the lowering for the code generators (`llr::Expression::from_constant`),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
 pub enum ConstantExpression {
@@ -759,15 +759,27 @@ pub struct EnumerationValue {
 
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+        self.value == other.value && same_declaration(&self.enumeration, &other.enumeration)
     }
+}
+
+/// Whether two enums come from the same declaration, including a copy renamed by a pass.
+/// Two declarations in different files can share a name.
+fn same_declaration(a: &Arc<Enumeration>, b: &Arc<Enumeration>) -> bool {
+    Arc::ptr_eq(a, b)
+        || matches!((&a.node, &b.node), (Some(a), Some(b))
+            if a.span.offset == b.span.offset
+                && a.source_file.as_ref().map(|f| f.path()) == b.source_file.as_ref().map(|f| f.path()))
 }
 
 impl Eq for EnumerationValue {}
 
 impl std::hash::Hash for EnumerationValue {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.enumeration).hash(state);
+        match &self.enumeration.node {
+            Some(node) => node.span.offset.hash(state),
+            None => Arc::as_ptr(&self.enumeration).hash(state),
+        }
         self.value.hash(state);
     }
 }

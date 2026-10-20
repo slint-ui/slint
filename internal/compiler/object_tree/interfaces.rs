@@ -93,7 +93,6 @@ impl ImplementedInterface {
 }
 
 fn resolve_implement_statement(
-    element: &Element,
     node: syntax_nodes::ImplementStatement,
     type_register: &TypeRegister,
     diagnostics: &mut BuildDiagnostics,
@@ -123,16 +122,8 @@ fn resolve_implement_statement(
         return None;
     }
 
-    match element.base_type.lookup_type_for_child_element(&interface_name, type_register) {
-        Ok(ElementType::Component(c)) => {
-            if !c.is_interface() {
-                diagnostics.push_error(
-                    format!("Cannot implement {}. It is not an interface", interface_name),
-                    &qualified_name,
-                );
-                return None;
-            }
-
+    match type_register.lookup_element(&interface_name) {
+        Ok(ElementType::Component(c)) if c.is_interface() => {
             c.used.set(true);
             Some(ImplementedInterface {
                 node,
@@ -142,16 +133,10 @@ fn resolve_implement_statement(
             })
         }
         Ok(_) => {
-            // `lookup_type_for_child_element` resolves names like `Row` that are only valid
-            // within a specific parent context (e.g. `GridLayout`), since it accounts for the
-            // element's own base type. `tr.lookup_element` ignores that context and, for such
-            // names, fails with a more specific diagnostic instead - reuse it here when it
-            // applies, rather than the generic "not an interface" message.
-            let message = match type_register.lookup_element(&interface_name) {
-                Err(context_restricted_message) => context_restricted_message,
-                Ok(_) => format!("Cannot implement {}. It is not an interface", interface_name),
-            };
-            diagnostics.push_error(message, &qualified_name);
+            diagnostics.push_error(
+                format!("Cannot implement {}. It is not an interface", interface_name),
+                &qualified_name,
+            );
             None
         }
         Err(err) => {
@@ -312,14 +297,13 @@ fn filter_conflicting_implement_statements(
 }
 
 pub(super) fn get_implemented_interfaces(
-    element: &Element,
     node: &syntax_nodes::Element,
     type_register: &TypeRegister,
     diagnostics: &mut BuildDiagnostics,
 ) -> (Vec<ImplementedInterface>, Vec<ImplementedInterface>) {
     let resolved: Vec<ImplementedInterface> = node
         .ImplementStatement()
-        .filter_map(|stmt| resolve_implement_statement(element, stmt, type_register, diagnostics))
+        .filter_map(|stmt| resolve_implement_statement(stmt, type_register, diagnostics))
         .collect();
 
     let resolved = filter_inherited_implement_statements(diagnostics, resolved);

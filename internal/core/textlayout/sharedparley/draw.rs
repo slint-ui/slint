@@ -46,6 +46,11 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         x.round()
     }
 
+    /// Snaps a physical y coordinate relative to the item to the device pixel grid.
+    fn snap_y(&self, y: f32) -> f32 {
+        y.round()
+    }
+
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
     /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
     /// font rendering. The `synthesis` contains design-space variation settings and faux
@@ -628,16 +633,23 @@ impl TextParagraph {
 
         // A decoration spans the whole run. Where a selection boundary cuts through it, the
         // renderer clip that cuts the glyphs cuts the rectangle too.
+
+        // A decoration line is snapped to the pixel grid and is at least one pixel thick, like in
+        // browsers: font metrics often make it thinner than a pixel, and a renderer that rounds
+        // the rectangle's edges then drops it on some lines.
+        let decoration = |item_renderer: &R, offset: f32, size: f32| {
+            PhysicalRect::new(
+                PhysicalPoint::new(
+                    glyph_run.offset(),
+                    item_renderer.snap_y(para_y.get() + glyph_run.baseline() - offset),
+                ),
+                PhysicalSize::new(glyph_run.advance(), size.round().max(1.)),
+            )
+        };
+
         if glyph_run.style().underline.is_some() {
             item_renderer.fill_rectangle(
-                PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        PhysicalLength::new(glyph_run.offset()),
-                        para_y
-                            + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
-                    ),
-                    PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
-                ),
+                decoration(item_renderer, metrics.underline_offset, metrics.underline_size),
                 fill_brush.clone(),
                 PhysicalLength::zero(),
                 None,
@@ -646,16 +658,7 @@ impl TextParagraph {
 
         if glyph_run.style().strikethrough.is_some() {
             item_renderer.fill_rectangle(
-                PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        PhysicalLength::new(glyph_run.offset()),
-                        para_y
-                            + PhysicalLength::new(
-                                glyph_run.baseline() - metrics.strikethrough_offset,
-                            ),
-                    ),
-                    PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
-                ),
+                decoration(item_renderer, metrics.strikethrough_offset, metrics.strikethrough_size),
                 fill_brush,
                 PhysicalLength::zero(),
                 None,

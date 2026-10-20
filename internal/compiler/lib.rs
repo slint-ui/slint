@@ -41,6 +41,7 @@ pub mod native_class;
 pub mod object_tree;
 pub mod parser;
 pub mod project_file;
+pub mod property_analysis;
 pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
@@ -113,6 +114,11 @@ pub enum ComponentSelection {
 
     /// The component with the given name is generated
     Named(String),
+
+    /// All exported components, regardless if they inherit Window or not
+    ///
+    /// A document that exports no component, such as a library of globals, is valid.
+    AllExported,
 }
 
 /// Type alias for the callback to open files mentioned in `import` statements
@@ -214,7 +220,7 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
-    /// The project file that a tool was given as input, whose entry is being compiled.
+    /// The project file that a tool was given as input, whose main file is being compiled.
     /// Generated Python code loads it at run time instead of the entry,
     /// so that run time applies the same project file.
     pub input_project_file: Option<std::path::PathBuf>,
