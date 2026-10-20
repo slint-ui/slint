@@ -213,11 +213,11 @@ pub async fn run_passes(
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
 
+    border_radius::handle_border_radius(doc, diag);
     doc.visit_all_used_components(|component| {
         // After inlining, so that path elements added through `@children` or to a
         // component inheriting `Path` are direct children of the `Path` element
         compile_paths::compile_paths(component, &doc.local_registry, diag);
-        border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
