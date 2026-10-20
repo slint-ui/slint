@@ -267,7 +267,7 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
 fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
     compiler_config: &mut CompilerConfiguration,
-    edition: &mut Option<project_file::SlintVersion>,
+    edition: &mut Option<(project_file::SlintVersion, proc_macro::Span)>,
 ) -> Result<impl Iterator<Item = TokenTree>, TokenStream> {
     let mut remaining_stream;
     loop {
@@ -336,7 +336,7 @@ fn extract_compiler_config(
                                 Some(TokenTree::Punct(equal_punct)),
                                 Some(TokenTree::Literal(value)),
                             ) if equal_punct.as_char() == '=' => {
-                                *edition = Some(parse_edition(&value)?);
+                                *edition = Some((parse_edition(&value)?, value.span()));
                             }
                             _ => break,
                         }
@@ -561,8 +561,18 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         diag.push_error_with_span(message, Default::default());
         return diag.report_macro_diagnostic(&tokens);
     }
-    if edition.is_some() {
-        compiler_config.edition = edition;
+    // A compiler diagnostic in the project file would only be printed, not be a rustc warning.
+    // The macro reports the edition warning for its own attribute only.
+    compiler_config.edition_location = None;
+    let mut edition_warning = None;
+    if let Some((edition, span)) = edition {
+        compiler_config.edition = Some(edition);
+        edition_warning = edition.behavior_change_warning().map(|warning| {
+            let span = proc_macro2::Span::from(span);
+            TokenStream::from(
+                quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #warning)] const WARNING: () = (); WARNING };),
+            )
+        });
     }
 
     // Consult the output cache before doing any (expensive) compilation. The key
@@ -623,11 +633,13 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     result.extend(quote! {const _ : ::core::option::Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
 
     let mut result = TokenStream::from(result);
+    let has_edition_warning = edition_warning.is_some();
+    result.extend(edition_warning);
     if !diag.is_empty() {
         // Output carries span-bearing diagnostic tokens tied to this call site, so
         // it must not be cached.
         result.extend(diag.report_macro_diagnostic(&tokens));
-    } else if let Some(key) = cache_key {
+    } else if !has_edition_warning && let Some(key) = cache_key {
         // Clean expansion: cache the full output (including the reload markers) so
         // the next identical expansion is a cheap re-parse.
         expansion_cache::store(key, result.to_string(), &loaded);

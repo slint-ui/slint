@@ -76,6 +76,24 @@ slint::slint!{ #[edition = "999.0"] export component Hello { } }
 #[cfg(doctest)]
 const INVALID_EDITION: () = ();
 
+/**
+Test that an edition older than the latest behavior change warns.
+
+No warning for the latest edition:
+```
+#![deny(deprecated)]
+slint::slint!{ #[edition = "1.19"] export component Hello inherits Window { } }
+```
+
+But a warning for an older one:
+```compile_fail
+#![deny(deprecated)]
+slint::slint!{ #[edition = "1.18"] export component Hello inherits Window { } }
+```
+*/
+#[cfg(doctest)]
+const OLD_EDITION_WARNING: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();

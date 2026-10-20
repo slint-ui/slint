@@ -38,6 +38,17 @@ pub struct SlintVersion {
 impl SlintVersion {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
 
+    /// The warning for an edition that misses a newer behavior change.
+    pub fn behavior_change_warning(self) -> Option<String> {
+        let newer = crate::CompilerConfiguration::LATEST_BEHAVIOR_CHANGE;
+        (self < newer).then(|| {
+            format!(
+                "edition {self} misses the language behavior changes up to edition {newer}: raise the edition to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/tooling/project-file/#edition",
+                env!("CARGO_PKG_VERSION")
+            )
+        })
+    }
+
     /// The release of this compiler.
     pub fn current() -> Self {
         Self {
@@ -297,6 +308,16 @@ impl ProjectFile {
         self.edition
     }
 
+    /// The project file itself, for diagnostics about its `slint-edition`.
+    pub fn edition_location(&self) -> crate::diagnostics::SourceLocation {
+        crate::diagnostics::SourceLocation {
+            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                self.source_path.clone(),
+            )),
+            span: crate::diagnostics::Span::new(0, 0),
+        }
+    }
+
     /// The `.slint` file to compile when a tool is given this project file.
     pub fn main(&self) -> Option<SourcePath> {
         self.source_path.parent().join(&self.data.main.as_ref()?.to_string_lossy())
@@ -315,6 +336,7 @@ impl ProjectFile {
     /// leaving the settings the project file doesn't specify untouched.
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
+        compiler_config.edition_location = Some(self.edition_location());
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {
@@ -359,6 +381,7 @@ impl ProjectFileData {
         }
         if let Some(slint_edition) = slint_edition {
             compiler_config.edition = Some(*slint_edition);
+            compiler_config.edition_location = None;
         }
     }
 }
@@ -892,6 +915,17 @@ mod tests {
         assert!(parse("1.9") < parse("1.10"));
         assert!(parse("1.19") < parse("2.0"));
         assert_eq!(parse("1.0").to_string(), "1.0");
+    }
+
+    #[test]
+    fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
+        let parse = |s: &str| s.parse::<SlintVersion>().unwrap();
+        let warning = parse("1.18").behavior_change_warning().unwrap();
+        assert!(
+            warning
+                .contains("edition 1.18 misses the language behavior changes up to edition 1.19")
+        );
+        assert_eq!(SlintVersion::current().behavior_change_warning(), None);
     }
 
     #[test]

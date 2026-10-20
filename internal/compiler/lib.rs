@@ -187,6 +187,10 @@ pub struct CompilerConfiguration {
     /// before editions existed.
     pub edition: Option<project_file::SlintVersion>,
 
+    /// Where `edition` is set, such as in a project file. A warning about the edition points
+    /// there, and there is no such warning without it.
+    pub edition_location: Option<diagnostics::SourceLocation>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -242,6 +246,10 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// The newest edition that one of the checks below depends on.
+    pub const LATEST_BEHAVIOR_CHANGE: project_file::SlintVersion =
+        project_file::SlintVersion::V1_19;
+
     /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
     pub fn repeated_children_constrain_parent(&self) -> bool {
         self.edition.is_some_and(|version| version >= project_file::SlintVersion::V1_19)
@@ -353,6 +361,7 @@ impl CompilerConfiguration {
             accessibility: true,
             enable_experimental,
             edition,
+            edition_location: None,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -408,6 +417,11 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    if let Some(location) = &compiler_config.edition_location
+        && let Some(warning) = compiler_config.edition.and_then(|e| e.behavior_change_warning())
+    {
+        diagnostics.push_warning_with_span(warning, location.clone());
+    }
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
