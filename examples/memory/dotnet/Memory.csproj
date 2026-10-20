@@ -12,7 +12,7 @@
   <ItemGroup>
     <SlintFile Include="../memory.slint" />
   </ItemGroup>
-  <!-- Outside this repository, use <PackageReference Include="Slint" Version="..." /> instead of the two lines below. -->
+  <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below. -->
   <ItemGroup>
     <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
   </ItemGroup>

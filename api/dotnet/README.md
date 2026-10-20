@@ -13,12 +13,12 @@ Slint for .NET is a preview: its APIs may still change.
 
 ## Quick Start
 
-1. Create a project and add the `Slint` package:
+1. Create a project and add the `yurkinh.slint.net` package:
 
    ```sh
    dotnet new console -o MyApp
    cd MyApp
-   dotnet add package Slint --prerelease
+   dotnet add package yurkinh.slint.net --prerelease
    ```
 
 2. Create `ui/app-window.slint`:
@@ -56,9 +56,17 @@ Slint for .NET is a preview: its APIs may still change.
    ```csharp
    using MyApp;
 
-   using var app = AppWindow.Create();
-   app.OnRequestIncreaseValue(() => app.Counter++);
-   app.Run();
+   internal static class Program
+   {
+       // Windows needs this for the window, see Threading.
+       [STAThread]
+       private static void Main()
+       {
+           using var app = AppWindow.Create();
+           app.OnRequestIncreaseValue(() => app.Counter++);
+           app.Run();
+       }
+   }
    ```
 
 5. Run it with `dotnet run`.
@@ -268,7 +276,16 @@ Set `SlintNoDefaultTranslationContext` to `true` if your `.po` files have no con
 ## Threading
 
 Slint objects belong to the thread that first uses Slint.
-Use them from that thread only, and on macOS, make it the main thread: the one that runs `Main`.
+Use them from that thread only, and make it the main thread: the one that runs `Main`.
+
+On Windows, mark `Main` with `[STAThread]`.
+The windowing backend sets up OLE for drag and drop, which needs a single-threaded apartment,
+and without one the application crashes when it creates its first window.
+Top-level statements can't take the attribute, so write `Main` out, as in the [Quick Start](#quick-start).
+The attribute does nothing on macOS and Linux, so keep it for every platform.
+
+Don't make `Main` `async`, since an `async Main` runs in a multithreaded apartment.
+For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchronous `Main`.
 
 ## Without Generated Code
 

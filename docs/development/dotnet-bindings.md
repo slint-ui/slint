@@ -175,6 +175,12 @@ and the `nuget` environment, plus the secret `NUGET_USER` with the nuget.org pro
 winit and AppKit need the event loop on the process main thread.
 A console app's `Main` runs there, so call `EventLoop.Run()` from `Main`.
 
+On Windows, winit calls `OleInitialize` for drag and drop when it creates a window,
+which panics on a thread in a multithreaded apartment.
+The main thread of a .NET console app is one, unless `Main` has `[STAThread]`,
+so the README, the samples, and the templates use an explicit `[STAThread] Main`.
+Top-level statements and `async Main` can't have it.
+
 While the loop runs, `SynchronizationContext.Current` is a `SlintSynchronizationContext`,
 which posts through `invoke_from_event_loop`.
 So `await` in a callback continues on the Slint thread,
@@ -234,6 +240,11 @@ Next:
    - C# names for exported aliases of components (done); structs and enums keep only their own name
 9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
 10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
+11. On Windows, check `Thread.CurrentThread.GetApartmentState()` in `Create` and `Run`,
+    and throw a clear exception for a thread that isn't in a single-threaded apartment,
+    instead of letting winit panic across the boundary.
+    Turning off drag and drop in winit would make such threads work, but lose file drops,
+    and Slint doesn't expose that option.
 
 ## Live Reload
 
