@@ -395,8 +395,14 @@ impl OpenGLSurface {
                 .ok_or("Unable to find suitable GL config")?
         };
 
-        let requested_opengl_version =
-            requested_opengl_version.unwrap_or(RequestedOpenGLVersion::OpenGLES(Some((3, 0))));
+        // WGL creates OpenGL ES contexts through an extension that some drivers, such as
+        // Intel's for Ivy Bridge, implement without the functions Skia needs.
+        let default_opengl_version = if cfg!(target_os = "windows") {
+            RequestedOpenGLVersion::OpenGL(None)
+        } else {
+            RequestedOpenGLVersion::OpenGLES(Some((3, 0)))
+        };
+        let requested_opengl_version = requested_opengl_version.unwrap_or(default_opengl_version);
         let preferred_context_attributes = match requested_opengl_version {
             RequestedOpenGLVersion::OpenGL(version) => {
                 let version =
