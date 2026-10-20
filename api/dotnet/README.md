@@ -144,10 +144,14 @@ app.OnRefresh(async () =>
 
 From another thread, call `EventLoop.InvokeFromEventLoop` to run code on the Slint thread.
 
-## Live Reload
+## Hot Reload
 
-While you work on the UI, let the running application reload `.slint` files when you save them.
-Turn it on for Debug builds in your project file:
+Change the UI and the code of a running application without restarting it:
+`.slint` files reload through Slint's live reload, and C# code through .NET Hot Reload.
+
+### `.slint` Files
+
+Turn on live reload for Debug builds in your project file:
 
 ```xml
 <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -156,16 +160,45 @@ Turn it on for Debug builds in your project file:
 ```
 
 The generated code then loads the `.slint` files from the project directory,
-and each component reloads in its window when a file it uses changes.
+and each component reloads in its window when you save a file it uses.
 The properties and callbacks you set, models included, carry over to the new version.
 A file with errors keeps the previous version until you fix it.
-Run the application with `dotnet watch` to also apply C# changes with .NET Hot Reload.
 
-Renaming or removing a property or callback that your code sets ends the application at the next reload.
-Rebuild after such changes, and use live reload during development only.
 To reload a single file, set `LivePreview="true"` on its `<SlintFile>` instead.
 `ComponentInstance.Reloaded` tells you when a component reloaded,
 and `ComponentInstance.CreateLive` creates a reloading component without generated code.
+Use live reload during development only.
+
+### C# Code
+
+.NET Hot Reload applies C# changes, such as the body of a callback handler, to the running application.
+Use it in one of these ways:
+
+- Run `dotnet watch`, which applies each change when you save.
+- Start the application in the debugger of Visual Studio, VS Code with C# Dev Kit, or Rider,
+  and apply changes with the IDE's Hot Reload command, or on save if the IDE has that turned on.
+
+A handler you passed to an `On…` method runs the new code from its next call,
+because Slint keeps calling the same delegate.
+
+### Both at Once
+
+With `SlintLivePreview` on, run:
+
+```sh
+dotnet watch
+```
+
+Saving a `.slint` file reloads the UI, and saving a `.cs` file applies the C# change,
+both without a restart and without losing the state of the application.
+
+### What Needs a Restart
+
+- Renaming or removing a property, callback, or function that your C# code uses.
+  The generated classes still have the old members, and the application ends at the next reload.
+- A C# change that .NET Hot Reload can't apply, such as a new method signature or a new type.
+  `dotnet watch` offers to restart the application.
+- Changes to the project file, such as turning `SlintLivePreview` on or off.
 
 ## Threading
 
