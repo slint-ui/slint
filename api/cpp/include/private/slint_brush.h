@@ -89,8 +89,8 @@ public:
     RadialGradientBrush() = default;
     /// Constructs a new radial gradient of the given \a shape and \a colorSpace whose radii
     /// derive from the bounding box.
-    RadialGradientBrush(GradientColorSpace colorSpace, const GradientStop *firstStop,
-                        int stopCount, float center_x, float center_y, float shape)
+    RadialGradientBrush(GradientColorSpace colorSpace, const GradientStop *firstStop, int stopCount,
+                        float center_x, float center_y, float shape)
     {
         init(colorSpace, firstStop, stopCount, center_x, center_y,
              cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_RADIUS,
@@ -99,9 +99,8 @@ public:
 
     /// Constructs a new radial gradient of the given \a shape and \a colorSpace with explicit
     /// radii. Negative radii are treated as 0.
-    RadialGradientBrush(GradientColorSpace colorSpace, const GradientStop *firstStop,
-                        int stopCount, float center_x, float center_y, float radius_x,
-                        float radius_y, float shape)
+    RadialGradientBrush(GradientColorSpace colorSpace, const GradientStop *firstStop, int stopCount,
+                        float center_x, float center_y, float radius_x, float radius_y, float shape)
     {
         init(colorSpace, firstStop, stopCount, center_x, center_y, std::max(0.f, radius_x),
              std::max(0.f, radius_y), shape);
