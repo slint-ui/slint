@@ -1,4 +1,4 @@
-# cSpell:ignore stdenv
+# cSpell:ignore stdenv taplo
 {
   inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
