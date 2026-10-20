@@ -59,8 +59,6 @@ export component ComboBoxBase {
     private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
         ? root.model[root.current-index] : "";
 
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
     forward-focus: keys;
     accessible-role: combobox;
     accessible-label: "";
