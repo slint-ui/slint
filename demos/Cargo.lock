@@ -3062,6 +3062,7 @@ name = "launcher"
 version = "1.19.0"
 dependencies = [
  "input",
+ "libc",
  "slint",
  "slint-build",
 ]
