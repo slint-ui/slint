@@ -602,7 +602,10 @@ export class DoxygenConverter {
             out.push("", `## ${heading}`);
             for (const page of pages) {
                 out.push(
-                    `- [${page.name}](${relativeUrl(this.currentSlug, page.slug)})`,
+                    this.listItem(
+                        `[${page.name}](${relativeUrl(this.currentSlug, page.slug)})`,
+                        child(page.members[0], "briefdescription"),
+                    ),
                 );
             }
         };
@@ -654,25 +657,35 @@ export class DoxygenConverter {
             : `\`${text}\``;
     }
 
+    private listItem(link: string, brief: XmlElement | undefined): string {
+        const summary = firstLine(this.renderBlocks(brief));
+        return summary ? `- ${link}: ${summary}` : `- ${link}`;
+    }
+
     /** List the nested namespaces and classes/structs of a compound, with links to their pages. */
     private renderInnerCompounds(entry: IndexEntry, def: XmlElement): string[] {
         const out: string[] = [];
-        const link = (el: XmlElement): string => {
+        const item = (el: XmlElement): string => {
             const name = textContent(el).trim();
             const display = name.startsWith(`${entry.name}::`)
                 ? name.slice(entry.name.length + 2)
                 : name;
             const target = this.compoundTargets.get(el.attrs.refid);
-            return target
+            const text = target
                 ? `[${display}](${relativeUrl(this.currentSlug, target.slug)})`
                 : `\`${display}\``;
+            const inner = this.loadCompound(el.attrs.refid);
+            return this.listItem(
+                text,
+                inner && child(inner, "briefdescription"),
+            );
         };
 
         const namespaces = children(def, "innernamespace");
         if (namespaces.length > 0) {
             out.push("", "## Namespaces");
             for (const n of namespaces) {
-                out.push(`- ${link(n)}`);
+                out.push(item(n));
             }
         }
         const classes = children(def, "innerclass").filter(
@@ -683,7 +696,7 @@ export class DoxygenConverter {
             // is immaterial to users, so the heading is kind-neutral.
             out.push("", "## Types");
             for (const c of classes) {
-                out.push(`- ${link(c)}`);
+                out.push(item(c));
             }
         }
         return out;
