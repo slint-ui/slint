@@ -43,6 +43,23 @@ pub async fn lower_radiogroup(
         return;
     }
 
+    // An instance of a subclass that declares its own RadioButtons (#14256):
+    // see the matching filter in `lower_tabwidget`.
+    radio_groups.retain(|elem| {
+        if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
+            return true;
+        }
+        if !elem.borrow().children.is_empty() {
+            diag.push_error(
+                "Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead".into(),
+                &*elem.borrow(),
+            );
+            // Unlowered, they would also fail the inherited grid's row numbering.
+            elem.borrow_mut().children.clear();
+        }
+        false
+    });
+
     let mut ignore = BuildDiagnostics::default();
     let radio_group_impl = type_loader
         .import_component("std-widgets-impl.slint", "RadioGroupImpl", &mut ignore)
