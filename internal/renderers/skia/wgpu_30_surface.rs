@@ -96,6 +96,9 @@ impl WGPUSurface {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
+        // With only `RENDER_ATTACHMENT`, wgpu makes the CAMetalLayer `framebufferOnly`,
+        // which breaks Skia reading back the backdrop for backdrop-blur.
+        surface_config.usage |= swapchain_capabilities.usages & wgpu::TextureUsages::COPY_SRC;
 
         // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
         // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
