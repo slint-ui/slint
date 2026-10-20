@@ -14,6 +14,10 @@
                         then to the repository build, then to slint-compiler on PATH
     SlintNamespace      the namespace of the generated code; defaults to RootNamespace
     SlintStyle          the widget style, such as fluent
+    SlintIncludePaths   directories that imports search, separated by semicolons; relative to the project
+
+  Library paths, for imports such as "@mylib/widgets.slint", relative to the project:
+    <SlintLibraryPath Include="mylib" Path="../mylib/" />
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
                         a file that refers to images outside the project
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
@@ -56,11 +60,14 @@
         <LiveOption Condition="'%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
       <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
+      <_SlintIncludePath Include="$(SlintIncludePaths)" />
     </ItemGroup>
     <PropertyGroup>
       <_SlintOptions />
       <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'@(_SlintIncludePath)' != ''">$(_SlintOptions) @(_SlintIncludePath->'-I &quot;%(FullPath)&quot;', ' ')</_SlintOptions>
+      <_SlintOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->

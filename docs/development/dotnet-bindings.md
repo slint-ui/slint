@@ -118,6 +118,8 @@ and copies them to the output directory, where the generated code loads them fro
 
 Mark the files that `app.slint` imports with `Generate="false"`, so that they're copied but generate nothing.
 `SlintNamespace` defaults to `RootNamespace`, and `SlintStyle` selects the widget style.
+`SlintIncludePaths` and `<SlintLibraryPath Include="name" Path="..." />` items become `-I` and `-L`.
+The generator passes them to `GeneratedApi.Load` and `CreateLive` as absolute paths.
 `SlintCompilerPath` defaults to `target/debug/slint-compiler` in the repository, then to `slint-compiler` on `PATH`.
 A package reference imports the targets automatically; with a project reference, import `Slint/build/Slint.targets`.
 
@@ -128,8 +130,8 @@ since a `dotnet build` per case takes seconds.
 A case whose generated code doesn't compile is dropped from the runner and fails on its own.
 The driver builds `slint-dotnet` with the `testing` feature,
 which uses the test fonts and reports Windows as the operating system, like the interpreter driver.
-It skips cases that need include paths, library paths, or bundled translations,
-because the generated code doesn't pass those to the interpreter yet.
+It passes the include and library paths of a case like the other drivers do.
+It skips cases with bundled translations, which the generated code doesn't load yet.
 
 ## Packages
 
@@ -223,7 +225,7 @@ Next:
 8. API gaps compared to Python and Node.js:
    - a `Window` API, for size, position, scale factor, and close requests
    - typed `brush`, gradients, `keys`, styled text, data transfer, `LogicalPosition`, and `LogicalSize`
-   - include and library paths in generated code, which `tests/driver/dotnet` skips 31 cases for
+   - include and library paths in generated code (done)
    - translations, the model adapters, and C# names for exported aliases
 9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
 10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.

@@ -83,12 +83,24 @@ public sealed record ExpectedApi(
 public static class GeneratedApi
 {
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
-    public static CompilationResult Load(string path, string? style)
+    public static CompilationResult Load(
+        string path,
+        string? style,
+        IReadOnlyList<string>? includePaths = null,
+        IReadOnlyDictionary<string, string>? libraryPaths = null)
     {
         using var compiler = new Compiler();
         if (style != null)
         {
             compiler.Style = style;
+        }
+        if (includePaths is { Count: > 0 })
+        {
+            compiler.IncludePaths = includePaths;
+        }
+        if (libraryPaths is { Count: > 0 })
+        {
+            compiler.LibraryPaths = libraryPaths;
         }
         var result = compiler.BuildFromPath(path);
         if (result.HasErrors)
@@ -127,7 +139,9 @@ public static class GeneratedApi
         string generatedFile,
         string name,
         ExpectedApi component,
-        IReadOnlyDictionary<string, ExpectedApi> globals)
+        IReadOnlyDictionary<string, ExpectedApi> globals,
+        IReadOnlyList<string>? includePaths = null,
+        IReadOnlyDictionary<string, string>? libraryPaths = null)
     {
         using var definition = Check(result, generatedFile, name, component, globals);
         if (!ComponentInstance.LiveReloadAvailable)
@@ -135,7 +149,7 @@ public static class GeneratedApi
             Console.Error.WriteLine($"Slint: the native library can't reload .slint files, so {name} won't reload");
             return definition.Create();
         }
-        return ComponentInstance.CreateLive(path, name, style);
+        return ComponentInstance.CreateLive(path, name, style, includePaths, libraryPaths);
     }
 
     private static ComponentDefinition Check(

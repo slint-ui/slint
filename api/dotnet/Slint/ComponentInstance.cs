@@ -39,17 +39,30 @@ public sealed unsafe class ComponentInstance : IDisposable
         string path,
         string componentName,
         string? style = null,
-        IReadOnlyList<string>? includePaths = null)
+        IReadOnlyList<string>? includePaths = null,
+        IReadOnlyDictionary<string, string>? libraryPaths = null)
     {
         using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
         using var nameStr = new PinnedUtf8(componentName);
         using var styleStr = new PinnedUtf8(style ?? "");
         using var includes = new PinnedUtf8Array(includePaths ?? []);
+        var libraries = (libraryPaths ?? new Dictionary<string, string>()).ToArray();
+        using var libraryNames = new PinnedUtf8Array(libraries.Select(l => l.Key));
+        using var libraryFiles = new PinnedUtf8Array(libraries.Select(l => l.Value));
         ComponentInstanceHandle handle;
         fixed (Utf8Str* includesPtr = includes.Strs)
+        fixed (Utf8Str* namesPtr = libraryNames.Strs)
+        fixed (Utf8Str* filesPtr = libraryFiles.Strs)
         {
             handle = NativeMethods.slint_dotnet_live_component_new(
-                pathStr.Str, nameStr.Str, styleStr.Str, includesPtr, (nuint)includes.Strs.Length);
+                pathStr.Str,
+                nameStr.Str,
+                styleStr.Str,
+                includesPtr,
+                (nuint)includes.Strs.Length,
+                namesPtr,
+                filesPtr,
+                (nuint)libraries.Length);
         }
         if (!NativeError.Check(handle))
         {

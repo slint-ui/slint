@@ -533,8 +533,27 @@ pub fn generate(
         let _ = writeln!(out, "namespace {namespace};\n");
     }
     out.push_str(&types);
+    // Made absolute, since the application doesn't run in the directory that the compiler ran in.
+    let absolute = |path: &std::path::Path| {
+        string_literal(
+            &std::path::absolute(path).unwrap_or_else(|_| path.to_owned()).to_string_lossy(),
+        )
+    };
+    let include_paths = compiler_config.include_paths.iter().map(|p| absolute(p)).join(", ");
+    let library_paths = compiler_config
+        .library_paths
+        .iter()
+        .sorted_by(|a, b| a.0.cmp(b.0))
+        .map(|(name, path)| format!("[{}] = {}", string_literal(name), absolute(path)))
+        .join(", ");
     let _ = writeln!(out, "file static class SlintFile\n{{");
-    let _ = writeln!(out, "    private static global::Slint.CompilationResult? s_result;\n");
+    let _ = writeln!(out, "    private static global::Slint.CompilationResult? s_result;");
+    let _ =
+        writeln!(out, "    private static readonly string[] s_includePaths = [{include_paths}];");
+    let _ = writeln!(
+        out,
+        "    private static readonly global::System.Collections.Generic.Dictionary<string, string> s_libraryPaths = new() {{ {library_paths} }};\n"
+    );
     let _ = writeln!(out, "    static SlintFile()\n    {{\n{registrations}    }}\n");
     let _ = writeln!(
         out,
@@ -553,7 +572,7 @@ pub fn generate(
     let _ = writeln!(out, "        var path = {path};");
     let _ = writeln!(
         out,
-        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style});"
+        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style}, s_includePaths, s_libraryPaths);"
     );
     let generated_file = string_literal(&format!("the C# code generated from {file_name}"));
     let globals = format!(
@@ -562,7 +581,7 @@ pub fn generate(
     if config.live_preview {
         let _ = writeln!(
             out,
-            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals});"
+            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals}, s_includePaths, s_libraryPaths);"
         );
     } else {
         let _ = writeln!(

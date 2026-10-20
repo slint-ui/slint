@@ -238,7 +238,10 @@ internal static unsafe partial class NativeMethods
         Utf8Str component,
         Utf8Str style,
         Utf8Str* includePaths,
-        nuint includeCount);
+        nuint includeCount,
+        Utf8Str* libraryNames,
+        Utf8Str* libraryPaths,
+        nuint libraryCount);
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]

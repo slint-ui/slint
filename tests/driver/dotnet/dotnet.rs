@@ -59,7 +59,8 @@ fn repository() -> PathBuf {
 fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
     let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source, Some(source_path::SourcePath::new(path)), &mut diag);
+    let syntax_node =
+        parser::parse(source.clone(), Some(source_path::SourcePath::new(path)), &mut diag);
     let format = generator::OutputFormat::CSharp(csharp::Config {
         namespace: Some(format!("Case_{identifier}")),
         runtime_path: Some(path.to_string_lossy().into_owned()),
@@ -67,6 +68,12 @@ fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
     });
     let mut config = CompilerConfiguration::new(format.clone());
     config.style = Some(STYLE.into());
+    // Relative to the directory of this crate, which cargo test runs in, like the other drivers.
+    config.include_paths =
+        test_driver_lib::extract_include_paths(&source).map(PathBuf::from).collect();
+    config.library_paths = test_driver_lib::extract_library_paths(&source)
+        .map(|(name, path)| (name.to_string(), PathBuf::from(path)))
+        .collect();
     let (doc, diag, loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
     if diag.has_errors() {
         return Err(diag.to_string_vec().join("\n"));

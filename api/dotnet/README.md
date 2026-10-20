@@ -107,6 +107,17 @@ Set these properties to change the generated code:
 - `SlintNamespace`: the namespace, instead of the root namespace.
 - `SlintStyle`: the widget style, such as `fluent` or `cupertino`.
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
+- `SlintIncludePaths`: directories that imports search, separated by semicolons.
+
+For imports from a library, such as `import { Button } from "@mylib/button.slint"`, add a library path:
+
+```xml
+<SlintLibraryPath Include="mylib" Path="../mylib/" />
+```
+
+Paths are relative to the project.
+The generated code loads imports from these directories where they are,
+so an application that runs elsewhere needs the imported files copied, such as with `<SlintFile Generate="false" />`.
 
 ## Models
 

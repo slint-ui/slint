@@ -4,11 +4,9 @@
 use std::io::Write;
 
 /// Whether the generated C# can't run `testcase`: the generated code loads the file
-/// with the interpreter, without the include paths, library paths, or bundled translations.
+/// with the interpreter, without the bundled translations.
 fn unsupported(source: &str) -> bool {
-    source.contains("//include_path:")
-        || source.contains("//library_path(")
-        || source.contains("//bundle-translations")
+    source.contains("//bundle-translations")
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

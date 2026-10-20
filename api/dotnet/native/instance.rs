@@ -272,6 +272,9 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
     style: Utf8Str,
     include_paths: *const Utf8Str,
     include_count: usize,
+    library_names: *const Utf8Str,
+    library_paths: *const Utf8Str,
+    library_count: usize,
 ) -> *mut DotnetInstance {
     guard(std::ptr::null_mut(), || {
         #[cfg(feature = "live-preview")]
@@ -283,10 +286,20 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
                 .into_iter()
                 .map(std::path::PathBuf::from)
                 .collect::<Vec<_>>();
+            let library_paths = unsafe { crate::utf8_slice(library_names, library_count) }?
+                .into_iter()
+                .map(String::from)
+                .zip(
+                    unsafe { crate::utf8_slice(library_paths, library_count) }?
+                        .into_iter()
+                        .map(std::path::PathBuf::from),
+                )
+                .collect();
             // The compiler runs on a thread of its own, which builds it from these.
             let compiler_factory = move || {
                 let mut compiler = slint_interpreter::Compiler::default();
                 compiler.set_include_paths(include_paths);
+                compiler.set_library_paths(library_paths);
                 if let Some(style) = style {
                     compiler.set_style(style);
                 }
@@ -299,6 +312,7 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
         #[cfg(not(feature = "live-preview"))]
         {
             let _ = (path, component, style, include_paths, include_count);
+            let _ = (library_names, library_paths, library_count);
             Err("This native library was built without the live-preview feature".into())
         }
     })

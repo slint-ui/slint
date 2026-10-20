@@ -108,4 +108,11 @@ public sealed class GeneratedTests
 
         Assert.ThrowsExactly<SlintException>(() => global::Slint.Generated.GeneratedApi.Create(result, "App.g.cs", "Other", expected, globals));
     });
+
+    [TestMethod]
+    public void ImportsThroughIncludeAndLibraryPaths() => SlintThread.Run(() =>
+    {
+        using var app = ImportPaths.Create();
+        Assert.AreEqual("badge/tag", app.Text);
+    });
 }
