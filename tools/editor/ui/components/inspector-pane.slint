@@ -76,13 +76,13 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection() || InspectorContext.is-image-selection() || InspectorContext.is-touch-area-selection()): InspectorGeometrySection { }
+                if InspectorContext.is-resizable-selection(): InspectorGeometrySection { }
 
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
                 }
 
-                if InspectorContext.is-touch-area-selection(): InspectorEnabledSection { }
+                if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
