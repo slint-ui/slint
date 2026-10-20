@@ -2393,6 +2393,12 @@ impl WindowAdapter for QtWindow {
         if visible {
             let widget_ptr = self.widget_ptr();
             cpp! {unsafe [widget_ptr as "QWidget*"] {
+                // QWidget::show() caps the size hint of a window that was never resized to 2/3 of the screen.
+                if (widget_ptr->isWindow() && !widget_ptr->testAttribute(Qt::WA_Resized)) {
+                    if (auto size = widget_ptr->sizeHint(); size.isValid()) {
+                        widget_ptr->resize(size.boundedTo(widget_ptr->screen()->availableSize()));
+                    }
+                }
                 widget_ptr->show();
             }};
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
