@@ -593,6 +593,22 @@ pub(super) fn draw_rounded_rectangle_line(
     });
 }
 
+/// Like [`interpolate_color`], keeping the fraction of the result.
+fn interpolate_gradient_color(
+    a: Fixed<u32, 8>,
+    color1: PremultipliedRgbaColor,
+    color2: PremultipliedRgbaColor,
+) -> GradientColor {
+    let (a, b) = (a.0, (255 << 8) - a.0);
+    let lerp = |c1: u8, c2: u8| Fixed(((b * c1 as u32 + a * c2 as u32) / 255) as u16);
+    GradientColor {
+        red: lerp(color1.red, color2.red),
+        green: lerp(color1.green, color2.green),
+        blue: lerp(color1.blue, color2.blue),
+        alpha: lerp(color1.alpha, color2.alpha),
+    }
+}
+
 // a is between 0 and 255. When 0, we get color1, when 255 we get color2
 fn interpolate_color(
     a: u32,
@@ -837,12 +853,19 @@ impl super::LinearGradientCommand {
     }
 
     /// The position (0 to 255) in a vertical band on `line`, or `None` where the band draws nothing.
-    fn vertical_position(&self, rect: &PhysicalRect, line: PhysicalLength) -> Option<i32> {
+    fn vertical_position(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+    ) -> Option<Fixed<u32, 8>> {
         debug_assert_eq!(self.start, 0);
         let (y, size_y) = self.band_y(rect, line);
         let p = 255 * y / size_y;
         let (fill_col1, fill_col2) = self.fills_beyond_stops();
-        ((fill_col1 || p >= 0) && (fill_col2 || p < 255)).then_some(p)
+        ((fill_col1 || p >= 0) && (fill_col2 || p < 255)).then(|| {
+            let y = y.clamp(0, size_y) as u64;
+            Fixed(Fixed::<u64, 8>::from_fraction(255 * y, size_y as u64).0 as u32)
+        })
     }
 
     /// Whether [`draw_linear_gradient`] overwrites every pixel of `rect` on `line`.
@@ -881,7 +904,7 @@ fn draw_linear_gradient(
 
     if g.start == 0 {
         if let Some(p) = g.vertical_position(rect, line) {
-            let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
+            let col = interpolate_gradient_color(p, color1, color2);
             blend_gradient_slice(buffer, col, noise);
         }
         return;
@@ -905,7 +928,7 @@ fn draw_linear_gradient(
     if x < 0 {
         let l = (-x as usize).min(buffer.len());
         if fill_left {
-            blend_gradient_slice(&mut buffer[..l], left_color, noise);
+            blend_gradient_slice(&mut buffer[..l], left_color.into(), noise);
         }
         buffer = &mut buffer[l..];
         offset += l;
@@ -915,7 +938,7 @@ fn draw_linear_gradient(
     if buffer.len() + x as usize > len {
         let l = len.saturating_sub(x as usize);
         if fill_right {
-            blend_gradient_slice(&mut buffer[l..], right_color, noise.skip(offset + l));
+            blend_gradient_slice(&mut buffer[l..], right_color.into(), noise.skip(offset + l));
         }
         buffer = &mut buffer[..l];
     }
@@ -940,13 +963,13 @@ fn draw_linear_gradient(
 
     let mut noise = noise.skip(offset);
     for pix in buffer {
-        let color = PremultipliedRgbaColor {
-            red: (r >> 15) as u8,
-            green: (g >> 15) as u8,
-            blue: (b >> 15) as u8,
-            alpha: (a >> 15) as u8,
+        let color = GradientColor {
+            red: Fixed((r >> 7) as u16),
+            green: Fixed((g >> 7) as u16),
+            blue: Fixed((b >> 7) as u16),
+            alpha: Fixed((a >> 7) as u16),
         };
-        pix.blend_dithered(color, noise.next());
+        color.blend_into(pix, noise.next());
         r = r.wrapping_add(dr as _);
         g = g.wrapping_add(dg as _);
         b = b.wrapping_add(db as _);
@@ -971,22 +994,22 @@ fn blend_stops(
                 (position - stop1.position) / (stop2.position - stop1.position)
             };
             let (c1, c2) = (stop1.color, stop2.color);
-            let lerp = |a: u8, b: u8| ((1.0 - t) * a as f32 + t * b as f32) as u8;
+            let lerp = |a: u8, b: u8| Fixed((((1.0 - t) * a as f32 + t * b as f32) * 256.) as u16);
 
-            let color = PremultipliedRgbaColor {
+            let color = GradientColor {
                 alpha: lerp(c1.alpha, c2.alpha),
                 red: lerp(c1.red, c2.red),
                 green: lerp(c1.green, c2.green),
                 blue: lerp(c1.blue, c2.blue),
             };
-            pixel.blend_dithered(color, noise.next());
+            color.blend_into(pixel, noise.next());
 
             return;
         } else if position > stop2.position {
             fallback = stop2.color;
         }
     }
-    pixel.blend_dithered(fallback, noise.next());
+    GradientColor::from(fallback).blend_into(pixel, noise.next());
 }
 
 /// Draw a radial gradient on a line
@@ -1126,10 +1149,11 @@ impl GradientNoise {
         Self(self.0.wrapping_add(Self::X.wrapping_mul(n as u32)))
     }
 
-    fn next(&mut self) -> u8 {
-        let noise = (((self.0 >> 16) * Self::SCALE) >> 18) as u8;
+    /// Two independent noise values, the top two bytes of the noise's fraction.
+    fn next(&mut self) -> [u8; 2] {
+        let noise = (self.0 >> 16) * Self::SCALE;
         self.0 = self.0.wrapping_add(Self::X);
-        noise
+        [(noise >> 18) as u8, (noise >> 10) as u8]
     }
 }
 
@@ -1144,13 +1168,51 @@ fn dither_rgb565(color: PremultipliedRgbaColor, noise: u8) -> PremultipliedRgbaC
     }
 }
 
+/// A premultiplied gradient color with 8 fractional bits per component.
+#[derive(Clone, Copy)]
+struct GradientColor {
+    red: Fixed<u16, 8>,
+    green: Fixed<u16, 8>,
+    blue: Fixed<u16, 8>,
+    alpha: Fixed<u16, 8>,
+}
+
+impl From<PremultipliedRgbaColor> for GradientColor {
+    fn from(col: PremultipliedRgbaColor) -> Self {
+        let fixed = |v: u8| Fixed::from_integer(v as u16);
+        Self {
+            red: fixed(col.red),
+            green: fixed(col.green),
+            blue: fixed(col.blue),
+            alpha: fixed(col.alpha),
+        }
+    }
+}
+
+impl GradientColor {
+    /// Dithers to 8 bits with the first noise value and passes the second to [`TargetPixel::blend_dithered`].
+    /// Formats with fewer bits dither again, which stays unbiased only with independent noise.
+    #[inline]
+    fn blend_into(self, pixel: &mut impl TargetPixel, [noise8, noise]: [u8; 2]) {
+        let alpha = self.alpha.truncate() as u8;
+        let dither = |v: Fixed<u16, 8>| ((v.0.saturating_add(noise8 as u16) >> 8) as u8).min(alpha);
+        let color = PremultipliedRgbaColor {
+            red: dither(self.red),
+            green: dither(self.green),
+            blue: dither(self.blue),
+            alpha,
+        };
+        pixel.blend_dithered(color, noise);
+    }
+}
+
 fn blend_gradient_slice(
     slice: &mut [impl TargetPixel],
-    color: PremultipliedRgbaColor,
+    color: GradientColor,
     mut noise: GradientNoise,
 ) {
     for pix in slice {
-        pix.blend_dithered(color, noise.next());
+        color.blend_into(pix, noise.next());
     }
 }
 
@@ -1469,7 +1531,7 @@ fn gradient_noise_matches_formula() {
         for x in -40..40 {
             let expected =
                 fract(52.9829189 * fract(0.06711056 * x as f64 + 0.00583715 * y as f64)) * 256.;
-            let diff = (noise.next() as f64 - expected).abs();
+            let diff = (noise.next()[0] as f64 - expected).abs();
             assert!(diff.min(256. - diff) <= 2., "({x}, {y}): diff {diff}");
         }
     }
@@ -1490,14 +1552,24 @@ fn rgb565_dither_keeps_representable_colors() {
 }
 
 #[test]
-fn rgb565_dither_stays_premultiplied() {
+fn dither_stays_premultiplied() {
     let c = PremultipliedRgbaColor { red: 20, green: 18, blue: 19, alpha: 20 };
     let d = dither_rgb565(c, 255);
     assert!(d.red <= d.alpha && d.green <= d.alpha && d.blue <= d.alpha);
+
+    let c = GradientColor {
+        red: Fixed(0x14ff),
+        green: Fixed(0x12ff),
+        blue: Fixed(0x13ff),
+        alpha: Fixed(0x14ff),
+    };
+    let mut pix = PremultipliedRgbaColor::default();
+    c.blend_into(&mut pix, [255, 0]);
+    assert!(pix.red <= pix.alpha && pix.green <= pix.alpha && pix.blue <= pix.alpha);
 }
 
 #[test]
-fn rgb565_gradient_is_dithered() {
+fn gradient_is_dithered() {
     let rect = PhysicalRect::from_size(super::PhysicalSize::new(256, 64));
     let black = PremultipliedRgbaColor { red: 0, green: 0, blue: 0, alpha: 255 };
     let gray = PremultipliedRgbaColor { red: 8, green: 8, blue: 8, alpha: 255 };
@@ -1512,13 +1584,13 @@ fn rgb565_gradient_is_dithered() {
         bottom_clip: PhysicalLength::new(0),
         clip: Default::default(),
     };
-    // Halfway down, the color is about 3/8 of the way to the first non-black 565 red level.
-    let line = PhysicalLength::new(32);
+    // The color is 2.5 here, 5/16 of the way to the first non-black 565 red level.
+    let line = PhysicalLength::new(20);
 
     let mut rgb565 = [Rgb565Pixel(0); 256];
     draw_linear_gradient(&rect, line, &g, &mut rgb565, 0);
     let lit = rgb565.iter().filter(|p| p.red() != 0).count();
-    assert!((64..=128).contains(&lit), "{lit} of 256 pixels above black");
+    assert!((48..=112).contains(&lit), "{lit} of 256 pixels above black");
 
     let mut big_endian = [Rgb565BigEndianPixel(0); 256];
     draw_linear_gradient(&rect, line, &g, &mut big_endian, 0);
@@ -1526,7 +1598,9 @@ fn rgb565_gradient_is_dithered() {
 
     let mut rgb8 = [Rgb8Pixel::new(0, 0, 0); 256];
     draw_linear_gradient(&rect, line, &g, &mut rgb8, 0);
-    assert!(rgb8.iter().all(|p| *p == rgb8[0]));
+    assert!(rgb8.iter().all(|p| p.r == p.g && p.r == p.b && (2..=3).contains(&p.r)));
+    let lit = rgb8.iter().filter(|p| p.r == 3).count();
+    assert!((96..=160).contains(&lit), "{lit} of 256 pixels rounded up");
 }
 
 #[test]
@@ -1544,7 +1618,7 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
         PremultipliedRgbaColor { red: 0x45, green: 0x31, blue: 0x0e, alpha: 0x60 },
     );
     let expected_fill = |color: PremultipliedRgbaColor, x: i32, y: i32| {
-        let c = dither_rgb565(color, GradientNoise::new(x, y).next());
+        let c = dither_rgb565(color, GradientNoise::new(x, y).next()[1]);
         let mut pix = background;
         pix.blend(c);
         pix
