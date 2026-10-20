@@ -183,6 +183,8 @@ impl SharedState {
 
 pub struct RemoteLspToPreview {
     shared: SharedState,
+    #[cfg(feature = "preview-serial")]
+    serial: super::serial::SerialLspToPreview,
 }
 
 impl RemoteLspToPreview {
@@ -191,6 +193,11 @@ impl RemoteLspToPreview {
         to_previews: Weak<LspToPreviews>,
     ) -> Self {
         Self {
+            #[cfg(feature = "preview-serial")]
+            serial: super::serial::SerialLspToPreview::new(
+                preview_to_lsp_sender.clone(),
+                to_previews.clone(),
+            ),
             shared: SharedState {
                 connection: Arc::default(),
                 preview_to_lsp_sender: RemotePreviewSender(preview_to_lsp_sender),
@@ -230,7 +237,7 @@ impl RemoteLspToPreview {
     }
 
     /// Forward a connection-state transition to the local preview dialog.
-    fn emit_state(
+    pub(super) fn emit_state(
         to_previews: &Weak<LspToPreviews>,
         state: RemoteConnectionState,
         target: String,
@@ -710,6 +717,10 @@ impl RemotePreviewSender {
 // recurse forever.
 impl crate::editor_preview::RemoteTransport for RemoteLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
+        #[cfg(feature = "preview-serial")]
+        if self.serial.is_connected() {
+            return self.serial.send(message);
+        }
         RemoteLspToPreview::send(self, message);
     }
 
@@ -718,10 +729,33 @@ impl crate::editor_preview::RemoteTransport for RemoteLspToPreview {
         addresses: Vec<String>,
         port: u16,
     ) -> Pin<Box<dyn Future<Output = crate::editor_preview::Result<()>>>> {
+        #[cfg(feature = "preview-serial")]
+        self.serial.disconnect();
         Box::pin(RemoteLspToPreview::connect(self, addresses, port))
     }
 
+    fn connect_serial(
+        &self,
+        port: String,
+    ) -> Pin<Box<dyn Future<Output = crate::editor_preview::Result<()>>>> {
+        #[cfg(feature = "preview-serial")]
+        {
+            let disconnected = RemoteLspToPreview::disconnect(self);
+            self.serial.connect(port);
+            Box::pin(async move {
+                disconnected.await;
+                Ok(())
+            })
+        }
+        #[cfg(not(feature = "preview-serial"))]
+        Box::pin(async move {
+            Err(format!("Cannot connect to {port}: this build has no serial port support").into())
+        })
+    }
+
     fn disconnect(&self) -> Pin<Box<dyn Future<Output = ()>>> {
+        #[cfg(feature = "preview-serial")]
+        self.serial.disconnect();
         Box::pin(RemoteLspToPreview::disconnect(self))
     }
 

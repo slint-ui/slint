@@ -196,17 +196,17 @@ impl GlobalStorage {
         compilation_unit: &'a CompilationUnit,
         name: &str,
     ) -> Option<(&'a i_slint_compiler::llr::GlobalComponent, &'a Rc<GlobalInstance>)> {
-        let needle = i_slint_compiler::parser::normalize_identifier(name);
+        let needle = i_slint_compiler::names::normalize_identifier(name);
         for (idx, global) in compilation_unit.globals.iter_enumerated() {
             if !global.exported {
                 continue;
             }
             let name_matches =
-                i_slint_compiler::parser::normalize_identifier(&global.name) == needle;
+                i_slint_compiler::names::normalize_identifier(&global.name) == needle;
             let alias_matches = global
                 .aliases
                 .iter()
-                .any(|a| i_slint_compiler::parser::normalize_identifier(a) == needle);
+                .any(|a| i_slint_compiler::names::normalize_identifier(a) == needle);
             if name_matches || alias_matches {
                 return self.get(idx).map(|inst| (global, inst));
             }

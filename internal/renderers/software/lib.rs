@@ -1090,6 +1090,13 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    fn register_shared_bitmap_font(
+        &self,
+        font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::Owned>>,
+    ) {
+        fonts::register_shared_bitmap_font(font);
+    }
+
     #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
@@ -1203,7 +1210,7 @@ fn parley_disabled() -> bool {
 /// `text_input_has_parley_layout` reports, and it has to be the one that was drawn.
 #[cfg(feature = "systemfonts")]
 fn uses_parley(font: &fonts::Font) -> bool {
-    matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled()
+    matches!(font, fonts::Font::Vector(_)) && !parley_disabled()
 }
 
 /// The paragraph layout the cursor and hit-testing queries measure against.
@@ -2345,6 +2352,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    let colorize = match &buffer {
+                        SharedImageBuffer::AlphaMap { color, .. } if colorize.alpha() == 0 => {
+                            *color
+                        }
+                        _ => colorize,
+                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {
@@ -2461,6 +2475,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                     let data = match &glyph.alpha_map {
                         fonts::GlyphAlphaMap::Static(data) => {
+                            let data = *data;
                             if glyph.sdf {
                                 let geometry = clipped_target.translate(offset).round();
                                 let origin =
@@ -2525,11 +2540,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 ),
                             )
                         }
-                        fonts::GlyphAlphaMap::Shared(data) => {
+                        _ => {
                             let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::AlphaMap {
-                                    data: data.clone(),
+                                    data: glyph.alpha_map.clone(),
                                     width: glyph.pixel_stride,
                                 },
                                 source_rect,
@@ -3408,7 +3423,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                 target_pixel_buffer::TextureDataContainer::Shared {
                     buffer: SharedBufferData::AlphaMap {
-                        data: glyph.alpha_map,
+                        data: glyph.alpha_map.into(),
                         width: glyph.pixel_stride,
                     },
                     source_rect,

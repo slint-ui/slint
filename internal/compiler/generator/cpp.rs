@@ -1223,7 +1223,7 @@ fn embed_resource(
                 array_size: Some(family_name_size),
                 init: Some(format!(
                     "{{ {} }}",
-                    family_name.as_bytes().iter().map(ToString::to_string).join(", ")
+                    family_name.iter().map(ToString::to_string).join(", ")
                 )),
                 ..Default::default()
             }));

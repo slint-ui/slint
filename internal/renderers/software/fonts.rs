@@ -2,23 +2,80 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore pixelfont vectorfont
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
-use i_slint_core::graphics::{BitmapFont, FontRequest};
+use i_slint_core::graphics::{BitmapFont, FontRequest, Owned, Storage};
 use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::textlayout::TextLayout;
+use pixelfont::PixelFont;
 
 i_slint_core::thread_local! {
-    static BITMAP_FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
+    static BITMAP_FONTS: RefCell<Vec<RegisteredFont>> = RefCell::default()
+}
+
+/// A font in [`BITMAP_FONTS`]. A shared font stays only as long as its owner keeps it.
+enum RegisteredFont {
+    Static(&'static BitmapFont),
+    Shared(Weak<BitmapFont<Owned>>),
+}
+
+impl RegisteredFont {
+    /// The font at `pixel_size`, with how far its weight is from `weight`, when it is still
+    /// alive, of `family`, and `italic` (any, when `None`).
+    fn pixel_font(
+        &self,
+        family: Option<&str>,
+        italic: Option<bool>,
+        weight: u16,
+        pixel_size: PhysicalLength,
+    ) -> Option<(u16, Font)> {
+        fn matches<S: Storage>(
+            font: &BitmapFont<S>,
+            family: Option<&str>,
+            italic: Option<bool>,
+        ) -> bool {
+            italic.is_none_or(|italic| font.italic == italic)
+                && family.is_none_or(|family| &*font.family_name == family.as_bytes())
+        }
+        match self {
+            Self::Static(font) => matches(font, family, italic).then(|| {
+                (font.weight.abs_diff(weight), Font::Pixel(PixelFont::new(*font, pixel_size)))
+            }),
+            Self::Shared(font) => {
+                let font = font.upgrade()?;
+                matches(&font, family, italic).then(|| {
+                    (
+                        font.weight.abs_diff(weight),
+                        Font::SharedPixel(PixelFont::new(font, pixel_size)),
+                    )
+                })
+            }
+        }
+    }
 }
 
 #[derive(derive_more::From, Clone)]
 pub enum GlyphAlphaMap {
+    /// A glyph of a font that generated code keeps in a static
     Static(&'static [u8]),
-    Shared(Rc<[u8]>),
+    /// A glyph of a font built at run time, which it keeps alive while the glyph is drawn
+    #[from(skip)]
+    Shared { font: Rc<BitmapFont<Owned>>, glyphs: usize, glyph: usize },
+    /// A glyph rendered at run time, from a vector font
+    Rendered(Rc<[u8]>),
+}
+
+impl GlyphAlphaMap {
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Static(data) => data,
+            Self::Shared { font, glyphs, glyph } => &font.glyphs[*glyphs].glyph_data[*glyph].data,
+            Self::Rendered(data) => data,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -79,9 +136,10 @@ pub mod systemfonts;
 
 #[derive(derive_more::From)]
 pub enum Font {
-    PixelFont(pixelfont::PixelFont),
+    Pixel(PixelFont),
+    SharedPixel(PixelFont<Owned>),
     #[cfg(feature = "systemfonts")]
-    VectorFont(vectorfont::VectorFont),
+    Vector(vectorfont::VectorFont),
 }
 
 /// Runs `$body` with `$bound` bound to the concrete font held by `$font`.
@@ -98,18 +156,14 @@ pub enum Font {
 macro_rules! with_font {
     ($font:expr, |$bound:ident| $body:block) => {
         match $font {
-            $crate::fonts::Font::PixelFont($bound) => $body,
+            $crate::fonts::Font::Pixel($bound) => $body,
+            $crate::fonts::Font::SharedPixel($bound) => $body,
             #[cfg(feature = "systemfonts")]
-            $crate::fonts::Font::VectorFont($bound) => $body,
+            $crate::fonts::Font::Vector($bound) => $body,
         }
     };
 }
 pub(crate) use with_font;
-
-/// Returns the size of the pre-rendered font in pixels.
-pub fn pixel_size(glyphs: &i_slint_core::graphics::BitmapGlyphs) -> PhysicalLength {
-    PhysicalLength::new(glyphs.pixel_size)
-}
 
 impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for Font {
     fn ascent(&self) -> PhysicalLength {
@@ -143,63 +197,43 @@ pub fn match_font(
         .weight
         .and_then(|weight| weight.try_into().ok())
         .unwrap_or(/* CSS normal */ 400);
-
-    let bitmap_font = BITMAP_FONTS.with(|fonts| {
-        let fonts = fonts.borrow();
-
-        request.family.as_ref().and_then(|requested_family| {
-            fonts
-                .iter()
-                .filter(|bitmap_font| {
-                    core::str::from_utf8(bitmap_font.family_name.as_slice()).unwrap()
-                        == requested_family.as_str()
-                        && bitmap_font.italic == request.italic
-                })
-                .min_by_key(|bitmap_font| bitmap_font.weight.abs_diff(requested_weight))
-                .copied()
-        })
-    });
-
-    let font = match bitmap_font {
-        Some(bitmap_font) => bitmap_font,
-        None => {
-            #[cfg(feature = "systemfonts")]
-            if let Some(vectorfont) = systemfonts::match_font(request, scale_factor, font_context) {
-                return vectorfont.into();
-            }
-            if let Some(fallback_bitmap_font) = BITMAP_FONTS.with(|fonts| {
-                let fonts = fonts.borrow();
-                fonts
-                    .iter()
-                    .cloned()
-                    .filter(|bitmap_font| bitmap_font.italic == request.italic)
-                    .min_by_key(|bitmap_font| bitmap_font.weight.abs_diff(requested_weight))
-                    .or_else(|| fonts.first().cloned())
-            }) {
-                fallback_bitmap_font
-            } else {
-                #[cfg(feature = "systemfonts")]
-                return systemfonts::fallbackfont(request, scale_factor, font_context).into();
-                #[cfg(not(feature = "systemfonts"))]
-                panic!(
-                    "No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files."
-                )
-            }
-        }
-    };
-
     let requested_pixel_size: PhysicalLength =
         (request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
+    let nearest_weight = |family: Option<&str>, italic: Option<bool>| {
+        BITMAP_FONTS.with(|fonts| {
+            fonts
+                .borrow()
+                .iter()
+                .filter_map(|font| {
+                    font.pixel_font(family, italic, requested_weight, requested_pixel_size)
+                })
+                .min_by_key(|(distance, _)| *distance)
+                .map(|(_, font)| font)
+        })
+    };
 
-    let nearest_pixel_size = font
-        .glyphs
-        .partition_point(|glyphs| pixel_size(glyphs) <= requested_pixel_size)
-        .saturating_sub(1);
-    let matching_glyphs = &font.glyphs[nearest_pixel_size];
-
-    let pixel_size = if font.sdf { requested_pixel_size } else { pixel_size(matching_glyphs) };
-
-    pixelfont::PixelFont { bitmap_font: font, glyphs: matching_glyphs, pixel_size }.into()
+    if let Some(font) = request
+        .family
+        .as_ref()
+        .and_then(|family| nearest_weight(Some(family.as_str()), Some(request.italic)))
+    {
+        return font;
+    }
+    #[cfg(feature = "systemfonts")]
+    if let Some(vectorfont) = systemfonts::match_font(request, scale_factor, font_context) {
+        return vectorfont.into();
+    }
+    if let Some(font) =
+        nearest_weight(None, Some(request.italic)).or_else(|| nearest_weight(None, None))
+    {
+        return font;
+    }
+    #[cfg(feature = "systemfonts")]
+    return systemfonts::fallbackfont(request, scale_factor, font_context).into();
+    #[cfg(not(feature = "systemfonts"))]
+    panic!(
+        "No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files."
+    )
 }
 
 pub fn text_layout_for_font<'a, Font>(
@@ -223,8 +257,22 @@ where
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     BITMAP_FONTS.with(|fonts| {
         let mut fonts = fonts.borrow_mut();
-        if !fonts.iter().any(|font| core::ptr::eq(*font, font_data)) {
-            fonts.push(font_data);
+        if !fonts.iter().any(
+            |font| matches!(font, RegisteredFont::Static(font) if core::ptr::eq(*font, font_data)),
+        ) {
+            fonts.push(RegisteredFont::Static(font_data));
+        }
+    })
+}
+
+pub fn register_shared_bitmap_font(font_data: &Rc<BitmapFont<Owned>>) {
+    BITMAP_FONTS.with(|fonts| {
+        let mut fonts = fonts.borrow_mut();
+        fonts.retain(|font| !matches!(font, RegisteredFont::Shared(font) if font.strong_count() == 0));
+        if !fonts.iter().any(|font| {
+            matches!(font, RegisteredFont::Shared(font) if core::ptr::eq(font.as_ptr(), Rc::as_ptr(font_data)))
+        }) {
+            fonts.push(RegisteredFont::Shared(Rc::downgrade(font_data)));
         }
     })
 }
@@ -290,6 +338,43 @@ mod tests {
         register_bitmap_font(&FONT);
         register_bitmap_font(&FONT);
         assert_eq!(BITMAP_FONTS.with(|fonts| fonts.borrow().len()), 1);
+    }
+
+    #[test]
+    fn a_shared_font_goes_away_with_its_owner() {
+        let font = Rc::new(BitmapFont::<Owned> {
+            family_name: b"Shared".to_vec(),
+            character_map: Vec::new(),
+            units_per_em: 1.,
+            ascent: 0.,
+            descent: 0.,
+            x_height: 0.,
+            cap_height: 0.,
+            glyphs: alloc::vec![i_slint_core::graphics::BitmapGlyphs::<Owned> {
+                pixel_size: 12,
+                glyph_data: Vec::new(),
+            }],
+            weight: 400,
+            italic: false,
+            sdf: false,
+        });
+        let registered = || {
+            BITMAP_FONTS.with(|fonts| {
+                fonts
+                    .borrow()
+                    .iter()
+                    .filter(|font| {
+                        font.pixel_font(Some("Shared"), None, 400, PhysicalLength::new(12))
+                            .is_some()
+                    })
+                    .count()
+            })
+        };
+        register_shared_bitmap_font(&font);
+        register_shared_bitmap_font(&font);
+        assert_eq!(registered(), 1);
+        drop(font);
+        assert_eq!(registered(), 0);
     }
 
     #[test]

@@ -135,8 +135,17 @@ impl DrawTextureArgs {
                         stride,
                         size,
                     ),
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap {
+                        alpha, ..
+                    }) => TextureData::new(
+                        &alpha.as_bytes()[start..end],
+                        TexturePixelFormat::AlphaMap,
+                        stride,
+                        size,
+                    ),
                     SharedBufferData::AlphaMap { data, .. } => TextureData::new(
-                        &data[start..end],
+                        &data.as_slice()[start..end],
                         TexturePixelFormat::AlphaMap,
                         stride,
                         size,

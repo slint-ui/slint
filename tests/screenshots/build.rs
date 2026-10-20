@@ -30,6 +30,9 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "software-embed-assets")]
     gen_software_embed_assets(&mut generated_file)?;
 
+    #[cfg(feature = "interpreter-embed-assets")]
+    gen_interpreter_embed_assets(&mut generated_file)?;
+
     #[cfg(feature = "anyrender")]
     gen_anyrender(&mut generated_file)?;
 
@@ -99,6 +102,59 @@ fn gen_software_embed_assets(generated_file: &mut impl Write) -> std::io::Result
         )?;
 
         output.flush()?;
+    }
+    Ok(())
+}
+
+// Renders every case like `gen_software_embed_assets`, but compiled at run time by the interpreter
+// and sent through serialization, and compares against the same references.
+#[cfg(feature = "interpreter-embed-assets")]
+fn gen_interpreter_embed_assets(generated_file: &mut impl Write) -> std::io::Result<()> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "software_embed_assets"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        let reference = references_root_dir
+            .join(testcase.relative_path.clone())
+            .with_extension("png")
+            .to_str()
+            .unwrap()
+            .escape_default()
+            .to_string();
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let markers = parse_markers(&source, &testcase);
+        let ignored = if testcase.is_ignored("software")
+            || testcase.is_ignored("software-embed-assets")
+            || testcase.is_ignored("interpreter-embed-assets")
+        {
+            "#[ignore]"
+        } else {
+            ""
+        };
+        let (size_w, size_h) = markers.size;
+        let scale_factor = markers.scale_factor.unwrap_or(1.);
+        let path = testcase.absolute_path.to_str().unwrap().escape_default().to_string();
+        let include_paths = test_driver_lib::extract_include_paths(&source)
+            .map(|path| format!("\"{}\"", path.escape_default()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let module_name = testcase.identifier();
+        let ScreenshotMarkers { base_threshold, rotation_threshold, skip_clipping, .. } = markers;
+        writeln!(
+            generated_file,
+            r#"
+#[cfg(test)]
+mod r#interpreter_embed_assets_{module_name} {{
+    #[test] {ignored} fn sw() {{
+        let window = crate::software::init_swr();
+        window.set_size(slint::PhysicalSize::new({size_w}, {size_h}));
+        let options = crate::testing::TestCaseOptions {{ base_threshold: {base_threshold}f32, rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping}, create_path: None }};
+        let instance = crate::interpreter::load_through_bytes("{path}", {scale_factor}f32, &[{include_paths}]);
+        slint::ComponentHandle::show(&instance).unwrap();
+        crate::software::assert_with_render("{reference}", window.clone(), &options);
+    }}
+}}"#
+        )?;
     }
     Ok(())
 }

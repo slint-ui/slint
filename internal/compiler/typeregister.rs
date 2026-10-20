@@ -3,17 +3,30 @@
 
 // cSpell: ignore imum noarg strarg
 
-use smol_str::{SmolStr, StrExt, ToSmolStr};
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use smol_str::ToSmolStr;
+use smol_str::{SmolStr, StrExt};
+#[cfg(feature = "std")]
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(feature = "std")]
+use std::collections::{HashMap, HashSet};
+#[cfg(feature = "std")]
 use std::rc::Rc;
-use std::sync::Arc;
 
+#[cfg(feature = "std")]
 use crate::builtin_functions::BuiltinFunction;
+#[cfg(feature = "std")]
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
 use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
+#[cfg(feature = "std")]
 use crate::native_class::PropertyVisibility;
+#[cfg(feature = "std")]
 use crate::object_tree::Component;
+#[cfg(feature = "std")]
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -66,9 +79,11 @@ macro_rules! declare_enums {
                     stringify!($vis) == "pub",
                 )),* }
             }
-            fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
+            #[cfg(any(feature = "std", feature = "serde"))]
+            pub(crate) fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
                 [$(&self.$Name),*].into_iter()
             }
+            #[cfg(feature = "std")]
             fn fill_register(&self, register: &mut TypeRegister) {
                 for e in self.all() {
                     if !matches!(e.name.as_str(), "PathEvent" | "BuiltInMouseCursor") {
@@ -91,6 +106,7 @@ fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
             .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
+        #[cfg(feature = "std")]
         node: None,
         rust_attributes: Vec::new(),
     })
@@ -103,13 +119,13 @@ pub struct BuiltinTypes {
     pub set_selection_offsets_callback_type: Type,
     /// The builtin structs that aren't in `for_each_builtin_structs` nor path elements,
     /// by name. See [`builtin_structs::get`].
-    structs: HashMap<BuiltinStruct, Arc<Struct>>,
+    structs: BTreeMap<BuiltinStruct, Arc<Struct>>,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
         let enums = BuiltinEnums::new();
-        let mut structs = HashMap::new();
+        let mut structs = BTreeMap::new();
         let mut add = |name: BuiltinStruct, fields: &[(&str, Type)]| {
             let fields = fields.iter().map(|(field, ty)| (SmolStr::new(field), ty.clone()));
             let s = Arc::new(Struct::new(fields.collect(), name.clone()));
@@ -287,8 +303,10 @@ impl BuiltinTypes {
     }
 }
 
-pub static BUILTIN: std::sync::LazyLock<BuiltinTypes> = std::sync::LazyLock::new(BuiltinTypes::new);
+pub static BUILTIN: once_cell::sync::Lazy<BuiltinTypes> =
+    once_cell::sync::Lazy::new(BuiltinTypes::new);
 
+#[cfg(feature = "std")]
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
     ("opacity", Type::Float32),
@@ -374,6 +392,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
 }
 
 /// list of reserved property injected in every item
+#[cfg(feature = "std")]
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, PropertyVisibility)> {
     RESERVED_GEOMETRY_PROPERTIES
         .iter()
@@ -435,6 +454,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
 }
 
+#[cfg(feature = "std")]
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     static RESERVED_PROPERTIES: std::sync::LazyLock<
@@ -489,6 +509,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     PropertyLookupResult::invalid(name)
 }
 
+#[cfg(feature = "std")]
 pub fn reserved_member_functions()
 -> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
     IntoIterator::into_iter([
@@ -498,6 +519,7 @@ pub fn reserved_member_functions()
     ])
 }
 
+#[cfg(feature = "std")]
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     for (m, e, _) in reserved_member_functions() {
@@ -508,6 +530,7 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     None
 }
 
+#[cfg(feature = "std")]
 /// All types (datatypes, internal elements, properties, ...) are stored in this type
 #[derive(Debug, Default)]
 pub struct TypeRegister {
@@ -526,6 +549,7 @@ pub struct TypeRegister {
     pub(crate) expose_internal_types: bool,
 }
 
+#[cfg(feature = "std")]
 impl TypeRegister {
     pub(crate) fn snapshot(&self, snapshotter: &mut typeloader::Snapshotter) -> Self {
         Self {
@@ -768,8 +792,8 @@ pub mod builtin_structs {
     use super::*;
     use crate::langtype::ConstantExpression;
 
-    pub static BUILTIN_STRUCTS: std::sync::LazyLock<BuiltinStructs> =
-        std::sync::LazyLock::new(BuiltinStructs::new);
+    pub static BUILTIN_STRUCTS: once_cell::sync::Lazy<BuiltinStructs> =
+        once_cell::sync::Lazy::new(BuiltinStructs::new);
 
     #[rustfmt::skip]
     macro_rules! map_type {
@@ -842,6 +866,7 @@ pub mod builtin_structs {
     i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 
     /// The path elements' structs, made of the properties of their native class.
+    #[cfg(feature = "std")]
     static PATH_ELEMENTS: std::sync::LazyLock<HashMap<BuiltinStruct, Arc<Struct>>> =
         std::sync::LazyLock::new(|| {
             crate::builtin_elements::BUILTIN_ELEMENTS
@@ -858,17 +883,18 @@ pub mod builtin_structs {
     /// The definition of the builtin struct `name`.
     /// Code that makes a struct with a builtin name takes its type from here.
     pub fn get(name: &BuiltinStruct) -> Arc<Struct> {
+        let s = find(name);
+        #[cfg(feature = "std")]
+        let s = s.or_else(|| PATH_ELEMENTS.get(name).cloned());
+        s.unwrap_or_else(|| panic!("no definition for {name:?}"))
+    }
+
+    /// The definition of the builtin struct `name`, unless it's a path element:
+    /// those come from the builtin elements, which need std.
+    pub fn find(name: &BuiltinStruct) -> Option<Arc<Struct>> {
         // Each lookup touches only the static that holds `name`: the macro structs ask for
         // `LogicalPosition` while they're built, and the path elements need a builtin register.
-        if let Some(s) = from_macro(name) {
-            return s;
-        }
-        BUILTIN
-            .structs
-            .get(name)
-            .or_else(|| PATH_ELEMENTS.get(name))
-            .unwrap_or_else(|| panic!("no definition for {name:?}"))
-            .clone()
+        from_macro(name).or_else(|| BUILTIN.structs.get(name).cloned())
     }
 
     fn build_struct(

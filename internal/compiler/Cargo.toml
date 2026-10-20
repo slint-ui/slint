@@ -19,28 +19,57 @@ build = "build.rs"
 path = "lib.rs"
 
 [features]
+default = ["std"]
+
+# Everything but the LLR and its deserialization needs std.
+# Without it, the crate is `no_std` and only provides what an interpreter needs to run
+# a compilation unit deserialized with `llr::serialize`.
+std = [
+  "i-slint-common/color-parsing",
+  "i-slint-common/markdown",
+  "dep:num_enum",
+  "dep:icu_normalizer",
+  "dep:icu_properties",
+  "dep:unicode-segmentation",
+  "dep:rowan",
+  "dep:lyon_path",
+  "dep:lyon_extra",
+  "dep:by_address",
+  "dep:itertools",
+  "dep:url",
+  "dep:indexmap",
+  "dep:serde_json",
+  "dep:data-url",
+  "once_cell/std",
+  "serde/std",
+  "smol_str/std",
+  "strum/std",
+  "typed-index-collections/std",
+]
+
 # Generators
-cpp = []
-rust = ["quote", "proc-macro2", "dep:syn"]
-python = ["dep:pathdiff", "smol_str/serde", "dep:flate2", "dep:base64"]
-typescript = []
+cpp = ["std"]
+rust = ["std", "quote", "proc-macro2", "dep:syn"]
+python = ["std", "dep:pathdiff", "smol_str/serde", "dep:flate2", "dep:base64"]
+typescript = ["std"]
 
 # Keep the documentation of the builtin elements in the binary, for hover documentation
 # and doc generation.
-builtin-docs = []
+builtin-docs = ["std"]
 
 # Safety-critical subset: enables the SlintSc output format and compile-time checks.
 # The `image` crate decodes `@image-url()` images at compile time.
-slint-sc = ["quote", "proc-macro2", "proc-macro2/span-locations", "image"]
+slint-sc = ["std", "quote", "proc-macro2", "proc-macro2/span-locations", "image"]
 
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
-proc_macro_span = ["quote", "proc-macro2"]
+proc_macro_span = ["std", "quote", "proc-macro2"]
 
 # Feature to print the diagnostics to the console
-display-diagnostics = ["dep:annotate-snippets"]
+display-diagnostics = ["std", "dep:annotate-snippets"]
 
 # Enable the support to render images and font in the binary
 renderer-software = [
+  "std",
   "image",
   "dep:resvg",
   "dep:swash",
@@ -57,35 +86,46 @@ image-default-formats = ["image?/default-formats"]
 sdf-fonts = ["renderer-software", "dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
-bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
+bundle-translations = ["std", "dep:rspolib", "i-slint-common/locale-decimal-separator"]
+
+# Serialize the LLR (`llr::serialize`), for sending a compiled unit to another process
+serde = [
+  "serde/rc",
+  "i-slint-common/serde",
+  "dep:postcard",
+  "either/serde",
+  "smol_str/serde",
+  "typed-index-collections/serde-alloc",
+  "url?/serde",
+]
 
 # Enable experimental library module support
-experimental-library-module = []
-
-default = []
+experimental-library-module = ["std"]
 
 [dependencies]
-i-slint-common = { workspace = true, features = ["default", "color-parsing", "markdown"] }
+i-slint-common = { workspace = true }
 
-num_enum = "0.7"
-icu_normalizer = { workspace = true }
-icu_properties = { workspace = true }
-unicode-segmentation = { workspace = true }
+num_enum = { version = "0.7", optional = true }
+icu_normalizer = { workspace = true, optional = true }
+icu_properties = { workspace = true, optional = true }
+unicode-segmentation = { workspace = true, optional = true }
 strum = { workspace = true }
-rowan = { version = "0.17.0" }
+rowan = { version = "0.17.0", optional = true }
 smol_str = { workspace = true }
 derive_more = { workspace = true }
 annotate-snippets = { version = "0.12.9", optional = true }
 quote = { version = "1.0", optional = true }
 proc-macro2 = { version = "1.0.17", optional = true }
 syn = { version = "3.0", optional = true, default-features = false, features = ["derive", "parsing", "printing"] }
-lyon_path = { workspace = true, features = ["std"] }
-lyon_extra = "1.0.1"
-by_address = { workspace = true }
-itertools = { workspace = true }
-url = "2.2.1"
-indexmap = "2.14"
-typed-index-collections = { workspace = true }
+lyon_path = { workspace = true, optional = true, features = ["std"] }
+lyon_extra = { version = "1.0.1", optional = true }
+by_address = { workspace = true, optional = true }
+itertools = { workspace = true, optional = true }
+url = { version = "2.2.1", optional = true }
+indexmap = { version = "2.14", optional = true }
+typed-index-collections = { workspace = true, features = ["alloc"] }
+either = { version = "1.13", default-features = false }
+once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 
 # for processing and embedding the rendered image (texture)
 image = { workspace = true, optional = true }
@@ -103,11 +143,12 @@ rspolib = { version = "0.1.2", optional = true }
 
 pathdiff = { version = "0.2.3", optional = true }
 
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde = { workspace = true, features = ["alloc"] }
+serde_json = { workspace = true, optional = true }
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
 flate2 = { version = "1.1.5", optional = true }
 base64 = { version = "0.23", optional = true }
-data-url = "0.3.2"
+data-url = { version = "0.3.2", optional = true }
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
@@ -117,6 +158,7 @@ serde_json = { workspace = true }
 spin_on = { workspace = true }
 rayon = { workspace = true }
 divan = "0.1.14"
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"] }
 
 [[bench]]
 name = "semantic_analysis"

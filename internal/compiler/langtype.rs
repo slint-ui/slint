@@ -1,16 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt::Display;
 
 use smol_str::SmolStr;
 
+#[cfg(feature = "std")]
 use crate::diagnostics::SourceLocation;
 use crate::expression_types::Unit;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Type {
     /// Correspond to an uninitialized type, or an error
     #[default]
@@ -47,8 +54,14 @@ pub enum Type {
     Brush,
     /// This is usually a model
     Array(Arc<Type>),
-    Struct(Arc<Struct>),
-    Enumeration(Arc<Enumeration>),
+    Struct(
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
+        Arc<Struct>,
+    ),
+    Enumeration(
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::enumeration"))]
+        Arc<Enumeration>,
+    ),
     Keys,
     /// `data-transfer` - a special type that handles reading a value from the system with
     /// some set of available MIME types.
@@ -120,7 +133,7 @@ impl core::cmp::PartialEq for Type {
 }
 
 impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Type::Invalid => write!(f, "<error>"),
             Type::Void => write!(f, "void"),
@@ -364,7 +377,8 @@ macro_rules! define_builtin_struct_enum {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty $(= $field_default:expr)?, )*
         }
     )*) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, strum::EnumString, strum::IntoStaticStr)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
@@ -455,6 +469,7 @@ impl BuiltinStruct {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Function {
     pub return_type: Type,
     pub args: Vec<Type>,
@@ -464,7 +479,7 @@ pub struct Function {
 }
 
 impl Display for Function {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(formatter, "(")?;
         for (i, arg) in self.args.iter().enumerate() {
             if i > 0 {
@@ -485,6 +500,7 @@ impl Display for Function {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StructName {
     /// Anonymous structs
     None,
@@ -492,6 +508,8 @@ pub enum StructName {
     User {
         name: SmolStr,
         /// Where the declaration was written (for the language server).
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
         node: SourceLocation,
         /// The raw text of each `@rust-attr(...)` on the declaration, captured
         /// at build time so the Rust generator does not need the syntax tree.
@@ -548,6 +566,7 @@ impl From<BuiltinStruct> for StructName {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
     /// Default values for the fields.
@@ -564,6 +583,7 @@ impl Struct {
     }
 
     /// Where a user-declared struct was written (for the language server).
+    #[cfg(feature = "std")]
     pub fn node(&self) -> Option<&SourceLocation> {
         match &self.name {
             StructName::User { node, .. } => Some(node),
@@ -601,6 +621,7 @@ impl Struct {
 /// the lowering for the code generators (`llr::Expression::from_constant`),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConstantExpression {
     StringLiteral(SmolStr),
     /// A number and its unit, in normalized form
@@ -616,6 +637,7 @@ pub enum ConstantExpression {
         op: char,
     },
     Struct {
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
         ty: Arc<Struct>,
         values: BTreeMap<SmolStr, ConstantExpression>,
     },
@@ -626,7 +648,7 @@ pub enum ConstantExpression {
 }
 
 impl Display for Struct {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let Some(name) = &self.name.slint_name() {
             write!(f, "{name}")
         } else {
@@ -641,6 +663,7 @@ impl Display for Struct {
 
 /// Call `visitor` for every user-declared (non-builtin) struct or enum reachable from `ty`,
 /// recursing through struct fields, arrays, and callback/function signatures.
+#[cfg(feature = "std")]
 pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr, &Type)) {
     match ty {
         Type::Struct(s) => {
@@ -664,11 +687,14 @@ pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Enumeration {
     pub name: SmolStr,
     pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
+    #[cfg(feature = "std")]
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub node: Option<SourceLocation>,
     /// Whether a built-in enum is re-exported as `slint::language::X`.
     pub public: bool,
@@ -700,6 +726,7 @@ impl Enumeration {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyboardModifiers {
     pub alt: bool,
     pub control: bool,
@@ -708,6 +735,7 @@ pub struct KeyboardModifiers {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Keys {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
@@ -715,9 +743,9 @@ pub struct Keys {
     pub ignore_alt: bool,
 }
 
-impl std::fmt::Display for Keys {
+impl core::fmt::Display for Keys {
     // Make sure to keep this in sync with the implementation in core/input.rs
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")
         } else {
@@ -752,11 +780,14 @@ impl std::fmt::Display for Keys {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EnumerationValue {
     pub value: usize, // index in enumeration.values
+    #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::enumeration"))]
     pub enumeration: Arc<Enumeration>,
 }
 
+/// Compares the enumerations by name, like [`Enumeration`] does.
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value && same_declaration(&self.enumeration, &other.enumeration)
@@ -766,26 +797,33 @@ impl PartialEq for EnumerationValue {
 /// Whether two enums come from the same declaration, including a copy renamed by a pass.
 /// Two declarations in different files can share a name.
 fn same_declaration(a: &Arc<Enumeration>, b: &Arc<Enumeration>) -> bool {
-    Arc::ptr_eq(a, b)
-        || matches!((&a.node, &b.node), (Some(a), Some(b))
-            if a.span.offset == b.span.offset
-                && a.source_file.as_ref().map(|f| f.path()) == b.source_file.as_ref().map(|f| f.path()))
+    #[cfg(feature = "std")]
+    let same_node = matches!((&a.node, &b.node), (Some(a), Some(b))
+        if a.span.offset == b.span.offset
+            && a.source_file.as_ref().map(|f| f.path()) == b.source_file.as_ref().map(|f| f.path()));
+    #[cfg(not(feature = "std"))]
+    let same_node = false;
+    Arc::ptr_eq(a, b) || same_node
 }
 
 impl Eq for EnumerationValue {}
 
-impl std::hash::Hash for EnumerationValue {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match &self.enumeration.node {
-            Some(node) => node.span.offset.hash(state),
-            None => Arc::as_ptr(&self.enumeration).hash(state),
+impl core::hash::Hash for EnumerationValue {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        #[cfg(feature = "std")]
+        if let Some(node) = &self.enumeration.node {
+            node.span.offset.hash(state);
+        } else {
+            Arc::as_ptr(&self.enumeration).hash(state);
         }
+        #[cfg(not(feature = "std"))]
+        Arc::as_ptr(&self.enumeration).hash(state);
         self.value.hash(state);
     }
 }
 
-impl std::fmt::Display for EnumerationValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for EnumerationValue {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.enumeration.values[self.value].fmt(f)
     }
 }

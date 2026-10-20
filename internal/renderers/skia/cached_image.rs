@@ -70,6 +70,8 @@ pub(crate) fn as_skia_image(
                 SharedImageBuffer::RGB565(_) => unreachable!(),
                 #[cfg(feature = "image-pixel-format-gray8")]
                 SharedImageBuffer::Gray8(_) => unreachable!(),
+                #[cfg(feature = "image-pixel-format-alpha-map")]
+                SharedImageBuffer::AlphaMap { .. } => unreachable!(),
             };
 
             let image_info = crate::image_info(
@@ -179,6 +181,10 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             skia_safe::ColorType::Gray8,
             skia_safe::AlphaType::Opaque,
         ),
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { .. } => {
+            panic!("unsupported image format: alpha maps are only drawn by the software renderer")
+        }
     };
     let image_info = crate::image_info(
         skia_safe::ISize::new(size.width as i32, size.height as i32),

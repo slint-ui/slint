@@ -335,6 +335,10 @@ fn image_buffer_to_image_source(
         SharedImageBuffer::RGB565(..) => {
             unreachable!("RGB565 buffers are converted to RGB8 before the femtovg upload")
         }
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { .. } => {
+            panic!("unsupported image format: alpha maps are only drawn by the software renderer")
+        }
         SharedImageBuffer::RGB8(buffer) => {
             (image_source(buffer).into(), femtovg::ImageFlags::empty())
         }

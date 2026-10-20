@@ -18,6 +18,8 @@ use i_slint_compiler::llr::{
 };
 use i_slint_core::items::PropertyAnimation;
 use i_slint_core::rtti::AnimatedBindingKind;
+#[cfg(not(feature = "std"))]
+use num_traits::Float as _;
 
 /// Install every binding declared by the LLR on `instance`, skipping
 /// `init_code`; call [`run_init_code_for_instance`] separately.

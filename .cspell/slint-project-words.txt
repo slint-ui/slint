@@ -55,6 +55,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
@@ -594,6 +595,7 @@ segmenteditem
 semihosting
 Segoe
 serde
+serialport
 setattr
 SETFL
 Shaderiv
