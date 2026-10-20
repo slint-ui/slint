@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host {
+    slot background;
+    slot content;
+    background { }
+    content { }
+}
+
+component Forwarder {
+    slot body;
+    Host {
+        content << body;
+    }
+}
+
+component InheritedHost inherits Host {
+    content << Text { text: "Inherited"; }
+}
+
+component PathHost {
+    slot commands;
+    Path {
+        commands { }
+    }
+}
+
+component PathForwarder {
+    slot commands;
+    PathHost {
+        commands << commands;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 200px;
+    in-out property <int> value: 42;
+    out property <bool> test: direct.content-width == root.value * 1px
+        && forwarded.body-height == root.value * 1px;
+
+    direct := Host {
+        out property <length> content-width: content.width;
+        background << Rectangle { background: blue; }
+        content << HorizontalLayout {
+            width: root.value * 1px;
+            Text { text: "Direct"; }
+        }
+    }
+    forwarded := Forwarder {
+        out property <length> body-height: body.height;
+        body << Rectangle { height: root.value * 1px; background: green; }
+    }
+    InheritedHost { }
+    PathForwarder {
+        commands << LineTo { x: 20; y: 20; }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_value(64);
+assert!(instance.get_test());
+```
+
+*/

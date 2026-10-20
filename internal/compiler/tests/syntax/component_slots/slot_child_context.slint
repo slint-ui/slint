@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host {
+    slot content;
+    content { }
+}
+
+component PathHost {
+    slot commands;
+    Path { commands { } }
+}
+
+component Forwarder {
+    slot commands;
+    PathHost { commands << commands; }
+}
+
+component DerivedPathHost inherits PathHost { }
+
+component RootPathHost inherits Path {
+    slot commands;
+    commands { }
+}
+
+component DerivedRootPathHost inherits RootPathHost {
+    slot extra;
+    extra { }
+}
+
+export component Test inherits Window {
+    Host {
+        content << Text { text: "Named content"; }
+        Rectangle { }
+//      >        <error{'Host' cannot have children. Only components with @children can have children}
+    }
+    PathHost {
+        commands << Rectangle { }
+//                  >        <error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
+    }
+    Forwarder {
+        commands << Rectangle { }
+//                  >        <error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
+    }
+    DerivedPathHost {
+        commands << Rectangle { }
+//                  >        <error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
+    }
+    DerivedRootPathHost {
+        extra << Rectangle { }
+//               >        <error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
+    }
+}

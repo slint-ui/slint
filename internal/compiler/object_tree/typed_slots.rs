@@ -41,6 +41,30 @@ pub(crate) fn lookup_slot(component: &Rc<Component>, name: &str) -> Option<Decla
     })
 }
 
+fn slot_content_parent_type(component: &Rc<Component>, name: &str) -> Option<ElementType> {
+    let insertion_point = component.child_insertion_points.borrow().get(name).cloned();
+    if let Some(insertion_point) = insertion_point {
+        let parent = insertion_point.parent.borrow();
+        if matches!(insertion_point.node, ChildInsertionPointNode::SlotForwarding(_)) {
+            let forwarding = parent.forwarded_slots.iter().find(|f| f.source == name)?;
+            let ElementType::Component(target) = &parent.base_type else { return None };
+            return slot_content_parent_type(target, &forwarding.target);
+        }
+        return if Rc::ptr_eq(&insertion_point.parent, &component.root_element) {
+            // The root component's unnamed slot does not constrain a named placeholder.
+            parent.builtin_type().map(ElementType::Builtin)
+        } else {
+            Some(parent.base_type.clone())
+        };
+    }
+    let base_type = component.root_element.borrow().base_type.clone();
+    if let ElementType::Component(base) = base_type {
+        slot_content_parent_type(&base, name)
+    } else {
+        None
+    }
+}
+
 pub(crate) fn validate_assignments(root: &ElementRc, diag: &mut BuildDiagnostics) {
     recurse_elem(root, &(), &mut |parent, _| {
         let parent = parent.borrow();
@@ -396,11 +420,11 @@ impl Element {
             }
         }
         let parent_type = match &parent_type {
-            ElementType::Component(component)
-                if lookup_slot(component, &name).is_some_and(|slot| slot.interface.is_some()) =>
-            {
-                tr.empty_type()
-            }
+            ElementType::Component(component) => match lookup_slot(component, &name) {
+                Some(slot) if slot.interface.is_some() => tr.empty_type(),
+                Some(_) => slot_content_parent_type(component, &name).unwrap_or(parent_type),
+                None => parent_type,
+            },
             _ => parent_type,
         };
         let element = Element::from_sub_element_node(

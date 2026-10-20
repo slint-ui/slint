@@ -34,6 +34,10 @@ A declared slot must be rendered exactly once.
 The user of a component fills a slot with the `<<` operator, naming the slot on the left and the content on the right.
 Content that is not assigned to a named slot goes to `@children`, as usual.
 
+Named slots don't require an `@children` placeholder or an explicit base such as `Rectangle`.
+Assigned elements must be valid children of the element containing the slot's placeholder.
+For example, a slot inside a `Path` accepts path commands rather than visual elements such as `Rectangle`.
+
 ```slint no-test
 export component App inherits Rectangle {
     Base {
