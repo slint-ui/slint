@@ -468,8 +468,7 @@ fn analyze_binding(
     });
 
     // `remove_aliases` merges two-way bound properties into one, keeping only one of the bindings,
-    // so the expression of a property aliased to this one is a dependency of this binding too.
-    // The other direction is covered by the `two_way_bindings` loop above.
+    // so the expression of every property in the alias group is a dependency of this binding too.
     let mut aliased_deps = Vec::new();
     // A binding on the instance overrides the one in the component, and its
     // expression is in the scope of the instance's own component.
@@ -507,23 +506,13 @@ fn analyze_binding(
                 let mut elements = outer_elements.to_vec();
                 elements.extend(p.elements.iter().cloned());
                 instance_deps.push((PropertyPath { elements, prop: p.prop.clone() }, r))
+            } else {
+                aliased_deps.push((p.clone(), r))
             }
         });
         if refers_to_itself {
             let span = binding.span.clone().unwrap_or_else(|| scope_borrow.to_source_location());
             self_references.push((alias.name().clone(), span));
-        }
-    }
-    for alias in transitive_reverse_aliases(&current.prop, reverse_aliases) {
-        let element = alias.element();
-        let element_borrow = element.borrow();
-        if let Some(alias_binding) = element_borrow.binding(alias.name()) {
-            recurse_expression(&element, &alias_binding.expression, &mut |p, r| {
-                // A reference back to this property is reported as "cannot refer to itself".
-                if !(p.elements.is_empty() && p.prop == current.prop) {
-                    aliased_deps.push((p.clone(), r))
-                }
-            });
         }
     }
     // Process outside of the loop so that the alias binding isn't borrowed while it is analyzed.
@@ -866,23 +855,6 @@ fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
         out.push_str(&prop.prop.declared_name());
     }
     out
-}
-
-fn transitive_reverse_aliases(
-    prop: &NamedReference,
-    reverse_aliases: &ReverseAliases,
-) -> Vec<NamedReference> {
-    let mut result = Vec::new();
-    let mut pending = vec![prop];
-    while let Some(p) = pending.pop() {
-        for alias in reverse_aliases.get(p).into_iter().flatten() {
-            if alias != prop && !result.contains(alias) {
-                result.push(alias.clone());
-                pending.push(alias);
-            }
-        }
-    }
-    result
 }
 
 /// `prop` and the properties two-way bound to it, directly or through other properties.
