@@ -557,6 +557,19 @@ pub fn generate(
         .sorted_by(|a, b| a.0.cmp(b.0))
         .map(|(name, path)| format!("[{}] = {}", string_literal(name), absolute(path)))
         .join(", ");
+    // Named arguments of GeneratedApi.Load and CreateLive, for the options that aren't their defaults.
+    let mut translation_args = String::new();
+    if let Some(domain) = &compiler_config.translation_domain {
+        let _ = write!(translation_args, ", translationDomain: {}", string_literal(domain));
+    }
+    if let Some(path) = &compiler_config.bundled_translations_path {
+        let _ = write!(translation_args, ", bundledTranslationsPath: {}", absolute(path));
+    }
+    if compiler_config.default_translation_context == crate::DefaultTranslationContext::None {
+        translation_args.push_str(
+            ", defaultTranslationContext: global::Slint.DefaultTranslationContext.None",
+        );
+    }
     let _ = writeln!(out, "file static class SlintFile\n{{");
     let _ = writeln!(out, "    private static global::Slint.CompilationResult? s_result;");
     let _ =
@@ -583,7 +596,7 @@ pub fn generate(
     let _ = writeln!(out, "        var path = {path};");
     let _ = writeln!(
         out,
-        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style}, s_includePaths, s_libraryPaths);"
+        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style}, s_includePaths, s_libraryPaths{translation_args});"
     );
     let generated_file = string_literal(&format!("the C# code generated from {file_name}"));
     let globals = format!(
@@ -592,7 +605,7 @@ pub fn generate(
     if config.live_preview {
         let _ = writeln!(
             out,
-            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals}, s_includePaths, s_libraryPaths);"
+            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals}, s_includePaths, s_libraryPaths{translation_args});"
         );
     } else {
         let _ = writeln!(

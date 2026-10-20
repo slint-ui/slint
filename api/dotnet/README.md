@@ -228,6 +228,31 @@ both without a restart and without losing the state of the application.
   `dotnet watch` offers to restart the application.
 - Changes to the project file, such as turning `SlintLivePreview` on or off.
 
+## Translations
+
+Mark strings for translation with `@tr()` in `.slint` files.
+To bundle gettext `.po` files into the application, set in your project file:
+
+```xml
+<PropertyGroup>
+  <SlintTranslationDomain>myapp</SlintTranslationDomain>
+  <SlintBundledTranslations>translations</SlintBundledTranslations>
+</PropertyGroup>
+```
+
+The build bundles `translations/<language>/LC_MESSAGES/myapp.po`.
+After creating a component, switch the language at run time:
+
+```csharp
+Translations.SelectBundledTranslation("de");
+```
+
+An empty string selects the strings as written in the `.slint` file.
+To translate with your own code instead, such as a .NET gettext library,
+implement `ITranslator` and pass it to `Translations.SetTranslator`.
+It translates the components that you compiled without bundled translations.
+Set `SlintNoDefaultTranslationContext` to `true` if your `.po` files have no context for strings without one.
+
 ## Threading
 
 Slint objects belong to the thread that first uses Slint.

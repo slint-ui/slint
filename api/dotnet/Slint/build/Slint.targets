@@ -15,6 +15,10 @@
     SlintNamespace      the namespace of the generated code; defaults to RootNamespace
     SlintStyle          the widget style, such as fluent
     SlintIncludePaths   directories that imports search, separated by semicolons; relative to the project
+    SlintTranslationDomain              the gettext domain of the @tr() strings
+    SlintBundledTranslations            a directory with <language>/LC_MESSAGES/<domain>.po files to bundle,
+                                        relative to the project; select one with Translations.SelectBundledTranslation
+    SlintNoDefaultTranslationContext    true gives @tr() strings without a context none, instead of the component name
 
   Library paths, for imports such as "@mylib/widgets.slint", relative to the project:
     <SlintLibraryPath Include="mylib" Path="../mylib/" />
@@ -67,6 +71,9 @@
       <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
       <_SlintOptions Condition="'@(_SlintIncludePath)' != ''">$(_SlintOptions) @(_SlintIncludePath->'-I &quot;%(FullPath)&quot;', ' ')</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintTranslationDomain)' != ''">$(_SlintOptions) --translation-domain &quot;$(SlintTranslationDomain)&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintBundledTranslations)' != ''">$(_SlintOptions) --bundle-translations &quot;$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))&quot;</_SlintOptions>
+      <_SlintOptions Condition="'$(SlintNoDefaultTranslationContext)' == 'true'">$(_SlintOptions) --no-default-translation-context</_SlintOptions>
       <_SlintOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>

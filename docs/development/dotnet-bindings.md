@@ -132,8 +132,7 @@ since a `dotnet build` per case takes seconds.
 A case whose generated code doesn't compile is dropped from the runner and fails on its own.
 The driver builds `slint-dotnet` with the `testing` feature,
 which uses the test fonts and reports Windows as the operating system, like the interpreter driver.
-It passes the include and library paths of a case like the other drivers do.
-It skips cases with bundled translations, which the generated code doesn't load yet.
+It passes the include and library paths and the bundled translations of a case like the other drivers do.
 
 ## Packages
 
@@ -229,7 +228,8 @@ Next:
    - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize` (done)
    - typed `keys`, styled text, and data transfer
    - include and library paths in generated code (done)
-   - translations, the model adapters, and C# names for exported aliases
+   - translations, bundled and through an `ITranslator` (done)
+   - the model adapters, and C# names for exported aliases
 9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
 10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
 

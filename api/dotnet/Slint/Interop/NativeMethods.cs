@@ -147,6 +147,16 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_compiler_set_bundled_translations_path(CompilerHandle compiler, Utf8Str path);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_compiler_set_default_translation_context(
+        CompilerHandle compiler,
+        [MarshalAs(UnmanagedType.U1)] bool componentName);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_compiler_set_include_paths(
         CompilerHandle compiler,
         Utf8Str* paths,
@@ -241,7 +251,26 @@ internal static unsafe partial class NativeMethods
         nuint includeCount,
         Utf8Str* libraryNames,
         Utf8Str* libraryPaths,
-        nuint libraryCount);
+        nuint libraryCount,
+        Utf8Str translationDomain,
+        Utf8Str bundledTranslationsPath,
+        [MarshalAs(UnmanagedType.U1)] bool defaultTranslationContext);
+
+    // translations.rs
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_select_bundled_translation(Utf8Str language);
+
+    [LibraryImport(Library)]
+    public static partial OwnedString slint_dotnet_string_new(Utf8Str s);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_set_translator(
+        delegate* unmanaged<nint, Utf8Str, Utf8Str, ulong, byte, Utf8Str, byte, OwnedString> translate,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]

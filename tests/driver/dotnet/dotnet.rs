@@ -74,6 +74,14 @@ fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
     config.library_paths = test_driver_lib::extract_library_paths(&source)
         .map(|(name, path)| (name.to_string(), PathBuf::from(path)))
         .collect();
+    if source.contains("//bundle-translations") {
+        config.bundled_translations_path = path.parent().map(Path::to_path_buf);
+        config.translation_domain =
+            path.file_stem().map(|stem| stem.to_string_lossy().into_owned());
+    }
+    if source.contains("//no-default-translation-context") {
+        config.default_translation_context = i_slint_compiler::DefaultTranslationContext::None;
+    }
     let (doc, diag, loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
     if diag.has_errors() {
         return Err(diag.to_string_vec().join("\n"));

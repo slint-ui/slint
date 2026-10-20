@@ -87,9 +87,21 @@ public static class GeneratedApi
         string path,
         string? style,
         IReadOnlyList<string>? includePaths = null,
-        IReadOnlyDictionary<string, string>? libraryPaths = null)
+        IReadOnlyDictionary<string, string>? libraryPaths = null,
+        string? translationDomain = null,
+        string? bundledTranslationsPath = null,
+        DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
         using var compiler = new Compiler();
+        if (translationDomain != null)
+        {
+            compiler.TranslationDomain = translationDomain;
+        }
+        if (bundledTranslationsPath != null)
+        {
+            compiler.BundledTranslationsPath = bundledTranslationsPath;
+        }
+        compiler.DefaultTranslationContext = defaultTranslationContext;
         if (style != null)
         {
             compiler.Style = style;
@@ -141,7 +153,10 @@ public static class GeneratedApi
         ExpectedApi component,
         IReadOnlyDictionary<string, ExpectedApi> globals,
         IReadOnlyList<string>? includePaths = null,
-        IReadOnlyDictionary<string, string>? libraryPaths = null)
+        IReadOnlyDictionary<string, string>? libraryPaths = null,
+        string? translationDomain = null,
+        string? bundledTranslationsPath = null,
+        DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
         using var definition = Check(result, generatedFile, name, component, globals);
         if (!ComponentInstance.LiveReloadAvailable)
@@ -149,7 +164,8 @@ public static class GeneratedApi
             Console.Error.WriteLine($"Slint: the native library can't reload .slint files, so {name} won't reload");
             return definition.Create();
         }
-        return ComponentInstance.CreateLive(path, name, style, includePaths, libraryPaths);
+        return ComponentInstance.CreateLive(
+            path, name, style, includePaths, libraryPaths, translationDomain, bundledTranslationsPath, defaultTranslationContext);
     }
 
     private static ComponentDefinition Check(

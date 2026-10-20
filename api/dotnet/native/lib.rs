@@ -17,6 +17,7 @@ mod instance;
 mod interpreter;
 mod models;
 mod timer;
+mod translations;
 mod value;
 mod window;
 
@@ -64,6 +65,12 @@ pub struct OwnedString {
 impl OwnedString {
     fn none() -> Self {
         Self { ptr: std::ptr::null_mut(), len: 0, cap: 0 }
+    }
+
+    /// Takes the string back, or returns `None` for no string.
+    fn into_string(self) -> Option<String> {
+        (!self.ptr.is_null())
+            .then(|| unsafe { String::from_raw_parts(self.ptr, self.len, self.cap) })
     }
 }
 

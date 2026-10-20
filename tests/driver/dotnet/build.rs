@@ -3,12 +3,6 @@
 
 use std::io::Write;
 
-/// Whether the generated C# can't run `testcase`: the generated code loads the file
-/// with the interpreter, without the bundled translations.
-fn unsupported(source: &str) -> bool {
-    source.contains("//bundle-translations")
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1",);
 
@@ -22,10 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         testcase.requested_style.is_none()
     }) {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
-        let ignored = testcase.is_ignored("csharp")
-            || testcase.is_ignored("interpreter")
-            || unsupported(&source);
+        let ignored = testcase.is_ignored("csharp") || testcase.is_ignored("interpreter");
         let identifier = testcase.identifier();
         if !ignored {
             writeln!(cases_file, "{identifier}\t{}", testcase.absolute_path.display())?;

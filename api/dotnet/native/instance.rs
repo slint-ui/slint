@@ -275,6 +275,9 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
     library_names: *const Utf8Str,
     library_paths: *const Utf8Str,
     library_count: usize,
+    translation_domain: Utf8Str,
+    bundled_translations_path: Utf8Str,
+    default_translation_context: bool,
 ) -> *mut DotnetInstance {
     guard(std::ptr::null_mut(), || {
         #[cfg(feature = "live-preview")]
@@ -295,11 +298,27 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
                         .map(std::path::PathBuf::from),
                 )
                 .collect();
+            let translation_domain =
+                Some(unsafe { translation_domain.as_str() }?.to_string()).filter(|s| !s.is_empty());
+            let bundled_translations_path = Some(unsafe { bundled_translations_path.as_str() }?)
+                .filter(|s| !s.is_empty())
+                .map(std::path::PathBuf::from);
             // The compiler runs on a thread of its own, which builds it from these.
             let compiler_factory = move || {
                 let mut compiler = slint_interpreter::Compiler::default();
                 compiler.set_include_paths(include_paths);
                 compiler.set_library_paths(library_paths);
+                if let Some(domain) = translation_domain {
+                    compiler.set_translation_domain(domain);
+                }
+                if let Some(path) = bundled_translations_path {
+                    compiler.set_bundled_translations_path(path);
+                }
+                if !default_translation_context {
+                    compiler.set_default_translation_context(
+                        slint_interpreter::DefaultTranslationContext::None,
+                    );
+                }
                 if let Some(style) = style {
                     compiler.set_style(style);
                 }
@@ -313,6 +332,7 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
         {
             let _ = (path, component, style, include_paths, include_count);
             let _ = (library_names, library_paths, library_count);
+            let _ = (translation_domain, bundled_translations_path, default_translation_context);
             Err("This native library was built without the live-preview feature".into())
         }
     })

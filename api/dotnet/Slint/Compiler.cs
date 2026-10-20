@@ -48,6 +48,37 @@ public sealed unsafe class Compiler : IDisposable
         }
     }
 
+    /// <summary>
+    /// The directory with <c>&lt;language&gt;/LC_MESSAGES/&lt;domain&gt;.po</c> files to bundle,
+    /// where the domain is <see cref="TranslationDomain"/>.
+    /// Switch between them with <see cref="Translations.SelectBundledTranslation"/>.
+    /// </summary>
+    [DisallowNull]
+    public string? BundledTranslationsPath
+    {
+        get;
+        set
+        {
+            using var path = new PinnedUtf8(Path.GetFullPath(value));
+            NativeError.Check(NativeMethods.slint_dotnet_compiler_set_bundled_translations_path(_handle, path.Str));
+            field = value;
+        }
+    }
+
+    /// <summary>
+    /// The context of <c>@tr()</c> strings that give none: the component name by default.
+    /// </summary>
+    public DefaultTranslationContext DefaultTranslationContext
+    {
+        get;
+        set
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_compiler_set_default_translation_context(
+                _handle, value == DefaultTranslationContext.ComponentName));
+            field = value;
+        }
+    }
+
     /// <summary>The directories that <c>import</c> statements search.</summary>
     public IReadOnlyList<string> IncludePaths
     {
@@ -107,6 +138,15 @@ public sealed unsafe class Compiler : IDisposable
 
     /// <summary>Releases the native compiler.</summary>
     public void Dispose() => _handle.Dispose();
+}
+
+/// <summary>The context of <c>@tr()</c> strings that give none, see <see cref="Compiler.DefaultTranslationContext"/>.</summary>
+public enum DefaultTranslationContext
+{
+    /// <summary>The name of the component that the string is in.</summary>
+    ComponentName,
+    /// <summary>No context.</summary>
+    None,
 }
 
 /// <summary>The severity of a <see cref="Diagnostic"/>.</summary>

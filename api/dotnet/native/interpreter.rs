@@ -41,6 +41,34 @@ pub unsafe extern "C" fn slint_dotnet_compiler_set_translation_domain(
     })
 }
 
+/// The directory with `<lang>/LC_MESSAGES/<domain>.po` files to bundle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_compiler_set_bundled_translations_path(
+    compiler: &mut Compiler,
+    path: Utf8Str,
+) -> bool {
+    guard_bool(|| {
+        compiler.set_bundled_translations_path(unsafe { path.as_str() }?);
+        Ok(())
+    })
+}
+
+/// Without a default, `@tr()` strings have no context unless they give one, instead of the component name.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_compiler_set_default_translation_context(
+    compiler: &mut Compiler,
+    component_name: bool,
+) -> bool {
+    guard_bool(|| {
+        compiler.set_default_translation_context(if component_name {
+            slint_interpreter::DefaultTranslationContext::ComponentName
+        } else {
+            slint_interpreter::DefaultTranslationContext::None
+        });
+        Ok(())
+    })
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_compiler_set_include_paths(
     compiler: &mut Compiler,

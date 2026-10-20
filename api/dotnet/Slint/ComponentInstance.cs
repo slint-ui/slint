@@ -40,9 +40,14 @@ public sealed unsafe class ComponentInstance : IDisposable
         string componentName,
         string? style = null,
         IReadOnlyList<string>? includePaths = null,
-        IReadOnlyDictionary<string, string>? libraryPaths = null)
+        IReadOnlyDictionary<string, string>? libraryPaths = null,
+        string? translationDomain = null,
+        string? bundledTranslationsPath = null,
+        DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
         using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
+        using var domainStr = new PinnedUtf8(translationDomain ?? "");
+        using var bundledStr = new PinnedUtf8(bundledTranslationsPath is null ? "" : Path.GetFullPath(bundledTranslationsPath));
         using var nameStr = new PinnedUtf8(componentName);
         using var styleStr = new PinnedUtf8(style ?? "");
         using var includes = new PinnedUtf8Array(includePaths ?? []);
@@ -62,7 +67,10 @@ public sealed unsafe class ComponentInstance : IDisposable
                 (nuint)includes.Strs.Length,
                 namesPtr,
                 filesPtr,
-                (nuint)libraries.Length);
+                (nuint)libraries.Length,
+                domainStr.Str,
+                bundledStr.Str,
+                defaultTranslationContext == DefaultTranslationContext.ComponentName);
         }
         if (!NativeError.Check(handle))
         {
