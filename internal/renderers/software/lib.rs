@@ -701,6 +701,12 @@ impl SoftwareRenderer {
             }
         }
 
+        if let Some(overlay_rect) =
+            self.rendering_metrics_collector.as_ref().and_then(|m| m.overlay_rect())
+        {
+            renderer.dirty_region.add_rect(overlay_rect);
+        }
+
         let alignment = self.dirty_region_alignment.get();
         let rotation = self.rotation.get();
         let physical_region = to_physical_region(
