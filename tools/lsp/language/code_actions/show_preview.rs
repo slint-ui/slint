@@ -9,9 +9,7 @@ use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use lsp_types::CodeActionOrCommand;
 
 pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
-    let Some(component) = component_of_header(&ctx.node)
-        .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"))
-    else {
+    let Some(component) = component_of_header(&ctx.node).filter(|c| !super::is_global(c)) else {
         return;
     };
     let Some(component_name) =
