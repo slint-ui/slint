@@ -3,6 +3,8 @@
 
 import json
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -67,6 +69,20 @@ class EditorSync:
 
 
 current_editor_sync: ContextVar[EditorSync] = ContextVar("current_editor_sync")
+_input_action_active: ContextVar[bool] = ContextVar(
+    "input_action_active", default=False
+)
+
+
+@contextmanager
+def input_action() -> Iterator[None]:
+    """Settle before an input sequence without adding waits between its events."""
+    settle()
+    token = _input_action_active.set(True)
+    try:
+        yield
+    finally:
+        _input_action_active.reset(token)
 
 
 def wait_for_source(path: Path, expected: bytes, timeout: float = 15) -> None:
@@ -81,6 +97,8 @@ def settle() -> None:
     so a test can otherwise act before a popup is placed or a field takes focus.
     Does nothing until the editor initializes its preview, such as on the startup page.
     """
+    if _input_action_active.get():
+        return
     sync = current_editor_sync.get(None)
     if sync is not None:
         sync.settle()

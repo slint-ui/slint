@@ -10,7 +10,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import slint_testing
-from editor_sync import EditorSync, current_editor_sync
+from editor_sync import EditorSync, current_editor_sync, input_action
 from PIL import Image
 from slint_testing import wait_until
 from ui_assertions import expect
@@ -36,6 +36,17 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
 
 
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
+
+
+def double_click_at(
+    window: slint_testing.Window, position: slint_testing.LogicalPosition
+) -> None:
+    with input_action():
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        for _ in range(2):
+            window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:

@@ -15,12 +15,14 @@ from canvas_interactions import (
     hover_fixture_element,
     zoom_canvas,
 )
+from editor_sync import input_action
 from PIL import Image
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from test_palette import canvas_drop_position, release_palette_drag
 from test_undo_redo import shortcut
 from ui_driver import (
+    double_click_at,
     element,
     elements,
     first_window,
@@ -91,11 +93,7 @@ def test_unselected_text_double_click_begins_inline_edit(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         target = center(hover_fixture_element(window, "Text"))
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        double_click_at(window, target)
         inline_editor = element(
             window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
         )
@@ -118,15 +116,16 @@ def test_unselected_text_click_then_drag_moves_instead_of_editing(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         target = center(hover_fixture_element(window, "Text"))
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        with input_action():
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
-        start = center(element(window, "Text move handle"))
-        end = slint_testing.LogicalPosition(x=start.x + 30, y=start.y)
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+            start = center(element(window, "Text move handle"))
+            end = slint_testing.LogicalPosition(x=start.x + 30, y=start.y)
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
         assert not elements(window.root_element, "Inline text editor")
         snapshot.wait_for_applied(expected)
