@@ -15,7 +15,8 @@ pub fn create_frame_throttle(
     _winit_window: &winit::window::Window,
     _is_wayland: bool,
 ) -> Box<dyn FrameThrottle> {
-    if _is_wayland {
+    // Winit already schedules web redraws through requestAnimationFrame.
+    if cfg!(target_arch = "wasm32") || _is_wayland {
         WinitBasedFrameThrottle::create()
     } else {
         #[cfg(target_vendor = "apple")]
