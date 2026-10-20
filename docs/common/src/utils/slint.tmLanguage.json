@@ -673,14 +673,6 @@
                 }
             ]
         },
-        "interpolation-mode": {
-            "patterns": [
-                {
-                    "match": "(?<!-)\\b(linear|shorter|longer|increasing|decreasing)\\b(?!-)",
-                    "name": "support.constant.interpolation-mode.slint"
-                }
-            ]
-        },
         "number": {
             "patterns": [
                 {
