@@ -168,9 +168,16 @@ pub fn init() {
     let mut delay = Delay::new();
 
     // --- Initialize I2C bus for all I2C devices (AXP2101, AW9523, touch controller) ---
+    // Plugging or unplugging USB can leave a transfer that the peripheral never
+    // marks as done. Without a software timeout the blocking driver waits for it
+    // forever and the event loop freezes; with one, the touch read just fails once.
     let power_i2c = I2c::new(
         peripherals.I2C0,
-        esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+        esp_hal::i2c::master::Config::default()
+            .with_frequency(Rate::from_khz(400))
+            .with_software_timeout(esp_hal::i2c::master::SoftwareTimeout::Transaction(
+                esp_hal::time::Duration::from_millis(10),
+            )),
     )
     .unwrap()
     .with_sda(peripherals.GPIO12) // AXP2101 SDA
