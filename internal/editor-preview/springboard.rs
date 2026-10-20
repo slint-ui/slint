@@ -79,12 +79,10 @@ struct SpringboardTask {
     viewers: Vec<DiscoveredViewer>,
     advertised: HashSet<String>,
     selected: Option<EndpointIdentity>,
+    /// The stored selection while it waits to be preselected in this run.
+    /// Any selection clears it, so a viewer that failed or was passed over by
+    /// the user isn't selected again when discovery re-advertises it.
     last_selected: Option<NamedEndpointIdentity>,
-    /// Whether the preselect has already had its say in this session. Any
-    /// selection consumes it, so it is a one-shot decision rather than a
-    /// reaction to every discovery report, which would otherwise select a
-    /// viewer that failed or was passed over by the user.
-    preselect_consumed: bool,
     credentials: HashMap<String, PairingCredentials>,
     #[cfg(test)]
     discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
@@ -134,7 +132,6 @@ impl Springboard {
             advertised: HashSet::new(),
             selected: None,
             last_selected: None,
-            preselect_consumed: false,
             credentials: HashMap::new(),
             #[cfg(test)]
             discovery_receiver: None,
@@ -223,20 +220,7 @@ impl SpringboardTask {
             return;
         }
         self.state = ui::SpringboardState::Idle;
-        // The stored selection gets applied once per run, whatever the previous
-        // run ended up doing with it.
-        self.preselect_consumed = false;
-        // The springboard has no filesystem access of its own, so it asks the
-        // editor for the blob holding the last selection. Asked only when the
-        // selection is not already known from an earlier run, since the reply
-        // could not change the outcome: the known selection is applied below,
-        // before it can arrive. The reply is handled in [`Self::send`].
-        if self.last_selected.is_none() {
-            self.request_last_selected();
-        }
-        // A selection already known from an earlier run still has to be applied,
-        // because `select_endpoint` refused to act while stopped.
-        self.apply_last_selected();
+        self.request_last_selected();
         #[cfg(test)]
         if let Some(receiver) = &self.discovery_receiver {
             self.discovery = Some(Discovery::from_receiver(receiver.clone()));
@@ -343,9 +327,7 @@ impl SpringboardTask {
         };
         self.preview = None;
         self.selected = Some(identity.clone());
-        // Selecting an endpoint consumes the preselect, so the stored one must
-        // not supersede it when its endpoint shows up again.
-        self.preselect_consumed = true;
+        self.last_selected = None;
         self.store_last_selected(named);
         self.error.clear();
         self.viewers.retain(|viewer| {
@@ -506,6 +488,7 @@ impl SpringboardTask {
         self.viewers.clear();
         self.advertised.clear();
         self.selected = None;
+        self.last_selected = None;
         self.state = ui::SpringboardState::Stopped;
         self.connection_state = ui::ConnectionState::None;
         self.update_ui();
@@ -520,15 +503,10 @@ impl SpringboardTask {
         });
     }
 
-    /// Remember the selection and persist it through the editor, which owns the
-    /// filesystem. The display name travels with the identity, see
-    /// [`NamedEndpointIdentity`].
-    fn store_last_selected(&mut self, last_selected: NamedEndpointIdentity) {
-        if self.last_selected.as_ref() == Some(&last_selected) {
-            return;
-        }
-        self.last_selected = Some(last_selected);
-        let settings = SpringboardSettings::new(self.last_selected.clone());
+    /// Persist the selection through the editor, which owns the filesystem.
+    /// The display name travels with the identity, see [`NamedEndpointIdentity`].
+    fn store_last_selected(&self, last_selected: NamedEndpointIdentity) {
+        let settings = SpringboardSettings::new(Some(last_selected));
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
             contents: settings.serialize(),
@@ -542,21 +520,13 @@ impl SpringboardTask {
     /// endpoint is usable. `Local` is always usable; a remote viewer only once a
     /// discovery report carried a usable address, which is the same condition
     /// that makes its row clickable (`unavailable_reason` is what disables it).
-    /// Selections that arrive out of order are all handled, because callers are
-    /// the three places where one of those two facts can arrive last:
-    /// [`Self::start`], the settings branch of [`Self::send`], and
-    /// [`Self::handle_discovery`].
+    /// Callers are the two places where one of those facts can arrive last:
+    /// the settings branch of [`Self::send`], and [`Self::handle_discovery`].
     ///
-    /// Fires once per session. Preselecting connects, and a viewer is
-    /// re-advertised as discovery resolves more of its addresses, so reacting to
-    /// every report would dial a viewer that just failed, or take the selection
-    /// back from the user.
+    /// Fires at most once per run, see `last_selected`.
     fn apply_last_selected(&mut self) {
-        if self.preselect_consumed {
-            return;
-        }
-        let Some(last_selected) = self.last_selected.clone() else { return };
-        let available = match &last_selected {
+        let Some(last_selected) = &self.last_selected else { return };
+        let available = match last_selected {
             NamedEndpointIdentity::Local => true,
             NamedEndpointIdentity::Remote { fullname, .. } => self.viewers.iter().any(|viewer| {
                 &viewer.fullname == fullname
@@ -564,7 +534,7 @@ impl SpringboardTask {
                     && !viewer.addresses.is_empty()
             }),
         };
-        if available {
+        if available && let Some(last_selected) = self.last_selected.take() {
             self.select_endpoint(last_selected.into());
         }
     }
@@ -577,9 +547,15 @@ impl SpringboardTask {
         if let LspToPreviewMessage::SetUserSettings { name, contents } = &message
             && name == SPRINGBOARD_SETTINGS_FILE
         {
-            if let Some(settings) = SpringboardSettings::deserialize(contents) {
+            // A reply that arrives after the user already selected, or after the
+            // run ended, must not take the selection back.
+            if self.state != ui::SpringboardState::Stopped
+                && self.selected.is_none()
+                && let Some(settings) = SpringboardSettings::deserialize(contents)
+            {
                 self.last_selected = settings.last_selected;
                 self.apply_last_selected();
+                self.update_ui();
             }
             return;
         }
@@ -803,9 +779,9 @@ mod tests {
                     }))
                     .unwrap();
                 controller.start();
-                // The selection is already known, so no request goes out.
-                assert!(receiver.try_recv().is_err());
+                assert_user_setting_request(&mut receiver).await;
                 select(&controller, 0);
+                assert_user_setting_set(&mut receiver).await;
                 let second_process = started(&mut receiver).await;
                 assert_ne!(first_process, second_process);
                 assert!(old_sender.send(PreviewToLspMessage::Exited).is_err());
@@ -816,11 +792,10 @@ mod tests {
                 controller.shutdown().await;
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                // The stored selection is known already, so starting again asks
-                // the editor for nothing and only preselects the known endpoint.
-                assert!(receiver.try_recv().is_err());
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                assert_user_setting_request(&mut receiver).await;
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 select(&controller, 0);
+                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 controller.shutdown().await;
@@ -917,6 +892,7 @@ mod tests {
                     }))
                     .unwrap();
                 select(&controller, 0);
+                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
                 assert!(inspect(&controller, |task| task.error.is_empty()).await);
                 controller.shutdown().await;
@@ -943,6 +919,7 @@ mod tests {
                 task.local_preview.arguments = fixture_config("echo_child").1;
             })).unwrap();
             select(&controller, 0);
+            assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
             assert!(inspect(&controller, |task| task.error.is_empty()).await);
             controller.close();
@@ -976,10 +953,8 @@ mod tests {
                 assert!(inspect(&controller, |task| task.error.is_empty()).await);
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                // The stored selection is known already, so starting again asks
-                // the editor for nothing.
-                assert!(receiver.try_recv().is_err());
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                assert_user_setting_request(&mut receiver).await;
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 controller.shutdown().await;
             })
             .await;
@@ -1539,6 +1514,7 @@ mod tests {
                     )
                     .await;
                     controller.start();
+                    assert_user_setting_request(&mut upstream).await;
                     discover(
                         &controller,
                         &discovered,
@@ -1546,6 +1522,7 @@ mod tests {
                     )
                     .await;
                     select(&controller, 1);
+                    assert_user_setting_set(&mut upstream).await;
                     if replacement_requires_pairing {
                         let ConnectionMessage::PairingStarted { code, .. } = replacement
                             .event(|event| {
@@ -1789,11 +1766,38 @@ mod tests {
                 controller.start();
                 assert_user_setting_request(&mut upstream).await;
                 reply_last_selection(&controller, NamedEndpointIdentity::Local);
+                assert_user_setting_set(&mut upstream).await;
                 started(&mut upstream).await;
                 assert!(
                     inspect(&controller, |task| {
                         task.selected == Some(EndpointIdentity::Local)
                             && task.state == ui::SpringboardState::EndpointSelected
+                    })
+                    .await
+                );
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_late_reply_keeps_the_user_selection() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, _discovery) = controller("echo_child");
+                controller.start();
+                assert_user_setting_request(&mut upstream).await;
+                select(&controller, 0);
+                assert_user_setting_set(&mut upstream).await;
+                started(&mut upstream).await;
+                reply_last_selection(
+                    &controller,
+                    NamedEndpointIdentity::Remote { fullname: "late".into(), name: String::new() },
+                );
+                assert!(
+                    inspect(&controller, |task| {
+                        task.selected == Some(EndpointIdentity::Local)
+                            && task.last_selected.is_none()
                     })
                     .await
                 );
