@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../../../api.slint";
+import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorEnabledSection inherits InspectorSection {
+    private property <bool> value: Api.runtime-property-value-data("enabled", { value-bool: true }).value-bool;
+    changed value => { toggle.checked = root.value; }
+
+    title: @tr("Interaction");
+
+    InspectorPropertyRow {
+        label: @tr("Enabled");
+
+        toggle := InspectorSwitch {
+            accessible-label: @tr("Enabled");
+            checked: root.value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.value;
+                InspectorContext.commit-code("enabled", requested ? "true" : "false");
+            }
+        }
+    }
+}
