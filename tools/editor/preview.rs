@@ -3585,6 +3585,7 @@ mod tests {
                     path: i_slint_editor_preview::test::main_test_file_name(),
                     offset: (offset.unwrap() as u32).into(),
                     instance_index: 0,
+                    editing_text: false,
                 }),
                 SelectionNotification::Never,
             );
