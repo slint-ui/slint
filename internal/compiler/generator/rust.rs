@@ -1077,13 +1077,31 @@ fn handle_property_init(
     }
 }
 
+/// The member `member` (a field offset) of the current component, or of the parent component
+/// that `parent_path` walks to (see [`parent_access_path`]).
+fn pinned_member(parent_path: &Option<TokenStream>, member: TokenStream) -> MemberAccess {
+    match parent_path {
+        None => MemberAccess::Direct(quote!(#member.apply_pin(_self))),
+        Some(parent_path) => MemberAccess::Option(option_map(
+            quote!(&#parent_path),
+            quote!(#member.apply_pin(x.as_pin_ref())),
+        )),
+    }
+}
+
+/// `opt.map(|x| body)`, spelled as a `match` so that it doesn't instantiate `Option::map` with
+/// a new closure type at every use.
+fn option_map(opt: TokenStream, body: TokenStream) -> TokenStream {
+    quote!(match #opt { Some(x) => Some(#body), None => None })
+}
+
 /// Token stream that walks up `parent_level` parent pointers (`_self.parent.upgrade()...`),
 /// or `None` when `parent_level` is 0 (the member lives on the current component).
 fn parent_access_path(parent_level: usize) -> Option<TokenStream> {
     (parent_level != 0).then(|| {
         let mut path = quote!(_self.parent.upgrade());
         for _ in 1..parent_level {
-            path = quote!(#path.and_then(|x| x.parent.upgrade()));
+            path = quote!(match #path { Some(x) => x.parent.upgrade(), None => None });
         }
         path
     })
@@ -1146,12 +1164,7 @@ fn access_callback_tracker(
             let tracker_field = access_component_field_offset(&component_id, &tracker_name);
 
             let parent_path = parent_access_path(*parent_level);
-            Some(parent_path.map_or_else(
-                || MemberAccess::Direct(quote!((#compo_path #tracker_field).apply_pin(_self))),
-                |parent_path| {
-                    MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #tracker_field).apply_pin(x.as_pin_ref()))))
-                },
-            ))
+            Some(pinned_member(&parent_path, quote!((#compo_path #tracker_field))))
         }
         _ => None,
     }
@@ -3279,12 +3292,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     let property_field =
                         access_component_field_offset(&component_id, &property_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #property_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #property_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #property_field)))
                 }
                 llr::LocalMemberIndex::Callback(callback_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3296,12 +3304,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let callback_name = ident(&sub_component.callbacks[*callback_index].name);
                     let callback_field =
                         access_component_field_offset(&component_id, &callback_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #callback_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #callback_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #callback_field)))
                 }
                 llr::LocalMemberIndex::Function(function_index) => {
                     let mut sub_component = &ctx.compilation_unit.sub_components
@@ -3323,7 +3326,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     parent_path.map_or_else(
                         || MemberAccess::Direct(quote!(#compo_path.#fn_id)),
                         |parent_path| {
-                            MemberAccess::OptionFn(parent_path, quote!(|x| #compo_path.#fn_id))
+                            MemberAccess::OptionFn(parent_path, quote!(#compo_path.#fn_id))
                         },
                     )
                 }
@@ -3336,12 +3339,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let component_id = inner_component_id(sub_component);
                     let timer_ident = format_ident!("timer{}", usize::from(*timer_index));
                     let timer_field = access_component_field_offset(&component_id, &timer_ident);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #timer_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #timer_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #timer_field)))
                 }
                 llr::LocalMemberIndex::Repeater(repeater_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3353,12 +3351,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let repeater_ident = format_ident!("repeater{}", usize::from(*repeater_index));
                     let repeater_field =
                         access_component_field_offset(&component_id, &repeater_ident);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #repeater_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #repeater_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #repeater_field)))
                 }
                 llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3371,12 +3364,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let item_field = access_component_field_offset(&component_id, &item_name);
                     if prop_name.is_empty() {
                         // then this is actually a reference to the element itself
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))))
-                            }
-                        )
+                        pinned_member(&parent_path, quote!((#compo_path #item_field)))
                     } else if matches!(
                         sub_component.items[*item_index].ty.lookup_property(prop_name),
                         Some(&Type::Function(..))
@@ -3385,19 +3373,14 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         parent_path.map_or_else(
                             || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self).#property_name)),
                             |parent_path| {
-                                MemberAccess::OptionFn(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))), quote!(|x| x .#property_name))
+                                MemberAccess::OptionFn(parent_path, quote!((#compo_path #item_field).apply_pin(x.as_pin_ref()).#property_name))
                             }
                         )
                     } else {
                         let property_name = ident(prop_name);
                         let item_ty = ident(&sub_component.items[*item_index].ty.class_name);
                         let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name()));
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!(#prop_offset.apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| #prop_offset.apply_pin(x.as_pin_ref()))))
-                            }
-                        )
+                        pinned_member(&parent_path, quote!(#prop_offset))
                     }
                 }
             }
@@ -3433,7 +3416,8 @@ enum MemberAccess {
     Direct(TokenStream),
     /// The token stream is a an expression to an option of the member
     Option(TokenStream),
-    /// the first token stream is an option, and the second is a path to the function in a `.map` and it must be called
+    /// The first token stream is an option of the component, and the second is a path to the
+    /// function relative to that component bound as `x`
     OptionFn(TokenStream, TokenStream),
 }
 
@@ -3451,11 +3435,11 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 let r = f(quote!(#binding));
-                quote!({ let _ = #t.map(|#binding| #r); })
+                quote!({ if let Some(#binding) = #t { let _ = #r; } })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
-                quote!({ let _ = #opt.as_ref().map(#r); })
+                quote!({ if let Some(x) = &#opt { let _ = #r; } })
             }
         }
     }
@@ -3465,11 +3449,11 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 let r = f(quote!(x));
-                quote!(#t.map(|x| #r).unwrap_or_default())
+                quote!(match #t { Some(x) => #r, None => ::core::default::Default::default() })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
-                quote!(#opt.as_ref().map(#r).unwrap_or_default())
+                quote!(match &#opt { Some(x) => #r, None => ::core::default::Default::default() })
             }
         }
     }
@@ -3477,9 +3461,7 @@ impl MemberAccess {
     fn get_property(self) -> TokenStream {
         match self {
             MemberAccess::Direct(t) => quote!(#t.get()),
-            MemberAccess::Option(t) => {
-                quote!(#t.map(|x| x.get()).unwrap_or_default())
-            }
+            MemberAccess::Option(_) => self.map_or_default(|x| quote!(#x.get())),
             MemberAccess::OptionFn(..) => panic!("function is not a property"),
         }
     }
@@ -3543,7 +3525,7 @@ fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
     match parent_access_path(*parent_level) {
         None => MemberAccess::Direct(quote!(_self)),
         Some(parent_path) => {
-            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| x.as_pin_ref())))
+            MemberAccess::Option(option_map(quote!(&#parent_path), quote!(x.as_pin_ref())))
         }
     }
 }
@@ -4160,7 +4142,7 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
     let value = compile_expression(value, ctx);
-    let mut owner = MemberAccess::Direct(quote!(_self));
+    let owner = MemberAccess::Option(parent_access_path(level + 1).unwrap());
     let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
     let mut repeater_index = None;
     for _ in 0..=*level {
@@ -4168,13 +4150,6 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
         par = x.parent;
         repeater_index = x.repeater_index;
         sc = x.sub_component;
-        owner = match owner {
-            MemberAccess::Direct(t) => MemberAccess::Option(quote!(#t.parent.upgrade())),
-            MemberAccess::Option(t) => {
-                MemberAccess::Option(quote!(#t.and_then(|a| a.as_pin_ref().parent.upgrade())))
-            }
-            MemberAccess::OptionFn(..) => unreachable!(),
-        };
     }
     let repeater_index = repeater_index.unwrap();
     let sub_component = &ctx.compilation_unit.sub_components[sc];
@@ -4652,22 +4627,12 @@ fn compile_builtin_function_call(
                 is_open_args @ ..,
             ] = arguments
             {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref
                 else {
                     unreachable!()
                 };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
+                let component_access_tokens = parent_access_path(*parent_level)
+                    .map_or(MemberAccess::Direct(quote!(_self)), MemberAccess::Option);
                 let (suffix, _) = follow_sub_component_path_fields(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
@@ -4780,22 +4745,12 @@ fn compile_builtin_function_call(
                 Expression::PropertyReference(parent_ref),
             ] = arguments
             {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
                 else {
                     unreachable!()
                 };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
+                let component_access_tokens = parent_access_path(*parent_level)
+                    .map_or(MemberAccess::Direct(quote!(_self)), MemberAccess::Option);
                 let (suffix, _) = follow_sub_component_path_fields(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
