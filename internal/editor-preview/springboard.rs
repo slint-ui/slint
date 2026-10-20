@@ -327,7 +327,6 @@ impl SpringboardTask {
         };
         self.preview = None;
         self.selected = Some(identity.clone());
-        self.last_selected = None;
         self.store_last_selected(named);
         self.error.clear();
         self.viewers.retain(|viewer| {
@@ -503,9 +502,11 @@ impl SpringboardTask {
         });
     }
 
-    /// Persist the selection through the editor, which owns the filesystem.
+    /// Persist the selection through the editor, which owns the filesystem,
+    /// and cancel the pending preselect, see `last_selected`.
     /// The display name travels with the identity, see [`NamedEndpointIdentity`].
-    fn store_last_selected(&self, last_selected: NamedEndpointIdentity) {
+    fn store_last_selected(&mut self, last_selected: NamedEndpointIdentity) {
+        self.last_selected = None;
         let settings = SpringboardSettings::new(Some(last_selected));
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
@@ -549,8 +550,7 @@ impl SpringboardTask {
         {
             // A reply that arrives after the user already selected, or after the
             // run ended, must not take the selection back.
-            if self.state != ui::SpringboardState::Stopped
-                && self.selected.is_none()
+            if self.state == ui::SpringboardState::Idle
                 && let Some(settings) = SpringboardSettings::deserialize(contents)
             {
                 self.last_selected = settings.last_selected;
