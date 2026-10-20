@@ -48,7 +48,7 @@ fn process_slint_code(
     let len = syntax_node.text_range().end().into();
     if let Some(doc) = syntax_nodes::Document::new(syntax_node) {
         let mut writer = writer::FileWriter { file };
-        fmt::format_document(doc, &mut writer)?;
+        fmt::format_document(doc, fmt::DEFAULT_INDENTATION, &mut writer)?;
     } else {
         return Err(std::io::Error::other("Not a Document"));
     }
