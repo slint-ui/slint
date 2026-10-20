@@ -42,10 +42,12 @@ struct RustGeneratorContext {
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
 
 pub fn ident(ident: &str) -> proc_macro2::Ident {
-    if ident.contains('-') {
-        format_ident!("r#{}", ident.replace('-', "_"))
-    } else {
-        format_ident!("r#{}", ident)
+    match ident {
+        // These keywords can't be raw identifiers
+        "self" | "Self" | "super" | "crate" => format_ident!("{}_", ident),
+        // No keyword contains `_`
+        _ if ident.contains('-') => format_ident!("{}", ident.replace('-', "_")),
+        _ => format_ident!("r#{}", ident),
     }
 }
 

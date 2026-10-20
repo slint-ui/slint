@@ -23,14 +23,29 @@ export struct mod := {
     loop: string,
 }
 
+// Rust doesn't allow these as raw identifiers (#8923)
+export struct PlayerData {
+    name: string,
+    self: bool,
+    super: int,
+    crate: string,
+}
+
 match := Rectangle {
     property<mod> move: {loop : "mod" };
-    property<bool> test: move.loop == "mod";
+    in-out property<PlayerData> player: { name: "a", self: true, super: 42, crate: "c" };
+    property<bool> test: move.loop == "mod" && player.self && player.super == 42 && player.crate == "c";
 }
 
 /*
 ```rust
 let instance = r#match::new().unwrap();
 assert_eq!(instance.get_move(), r#mod{ r#loop: "mod".into() });
+let player = instance.get_player();
+assert!(player.self_);
+assert_eq!(player.super_, 42);
+assert_eq!(player.crate_, "c");
+instance.set_player(PlayerData { self_: false, ..player });
+assert!(!instance.get_test());
 ```
 */
