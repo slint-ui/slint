@@ -1328,14 +1328,18 @@ export component Test { in property <Foobar> test1; }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 20.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 40.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
@@ -1353,7 +1357,9 @@ export component Test { in property <Foobar> test1; }"#,
             3,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert!(!result.fill.custom_radius);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
@@ -1401,23 +1407,6 @@ export component Test { in property <Foobar> test1; }"#,
             ]
         );
         assert_eq!(result.code, "@conic-gradient(white 36deg, #239 126deg, red 306deg)");
-    }
-
-    #[test]
-    fn radial_shape_follows_source_with_equal_radii() {
-        for (gradient, ellipse, radii) in [
-            ("@radial-gradient(circle 40px, red, blue)", false, (40., 40.)),
-            ("@radial-gradient(ellipse 40px 40px, red, blue)", true, (40., 40.)),
-            ("@radial-gradient(ellipse 40px 20px, red, blue)", true, (40., 20.)),
-        ] {
-            let source =
-                format!("export component Test {{ in property <brush> test1: {gradient}; }}");
-            let result = property_conversion_test(&source, 0);
-            assert!(result.value_resolved);
-            assert_eq!(result.fill.kind, ui::BrushKind::Radial);
-            assert_eq!(result.fill.radial_ellipse, ellipse);
-            assert_eq!((result.fill.radius, result.fill.radius_y), radii);
-        }
     }
 
     #[test]

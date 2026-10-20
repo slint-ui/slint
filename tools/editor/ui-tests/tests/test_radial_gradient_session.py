@@ -95,7 +95,6 @@ def test_radial_keyboard_and_collapsed_radius(
 def test_external_edit_invalidates_radial_session(
     editor_binary, editor_environment, radial_scene
 ):
-
     original = radial_scene.read_text()
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
