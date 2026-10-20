@@ -210,8 +210,8 @@ def test_radial_radius_save_reopen_and_history(
         center_canvas_selection(window)
         open_radial(window)
         move_picker_to_files(window, "main")
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius Y handle"), 35)
+        c = center(control(window, "Gradient center handle"))
+        r = center(control(window, "Gradient radius Y handle"), 90)
         gesture(window, r, shifted(c, y=percent), shift=True)
         click(window, "Close Custom")
         saved = wait_for_source_change(

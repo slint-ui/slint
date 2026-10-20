@@ -2424,6 +2424,7 @@ mod tests {
                 session_key: ":0:0:0:background".into(),
                 property_name: "background".into(),
                 size: slint::LogicalSize::new(200., 200.),
+                element_rotation: 0.,
             },
             ..Default::default()
         });

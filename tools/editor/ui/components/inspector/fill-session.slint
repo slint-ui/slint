@@ -302,8 +302,7 @@ export global FillSession {
         }
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
-        let fill-changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill)
-            || (FillSession.working-fill.kind == BrushKind.radial && FillSession.working-fill.radial-ellipse != FillSession.request.fill.radial-ellipse);
+        let fill-changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill);
         let rotation-changed = FillSession.request.target.canvas && FillSession.element-rotation != FillSession.request.target.element-rotation;
         if !accept || (!fill-changed && !rotation-changed) || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill, FillSession.element-rotation, fill-changed, rotation-changed) {
             if FillSession.has-preview {

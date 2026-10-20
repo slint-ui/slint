@@ -153,7 +153,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         click_picker_button(window, "Close Custom")
         geometry = {
             "linear": "36deg",
-            "radial": "circle 95px at 37px 61px",
+            "radial": "ellipse 95px 95px at 37px 61px",
             "conic": "from 36deg at 37px 61px",
         }[kind]
         saved_stops = (
@@ -242,7 +242,6 @@ def test_custom_geometry_survives_mode_changes(
 def test_stop_precision_survives_save_and_reopen(
     editor_binary, editor_environment, tmp_path, kind
 ):
-
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     unit = "deg" if kind == "conic" else "%"
     expression = f"@{kind}-gradient({prefix}, #ff0000 0{unit} - 12.345678{unit}, #00ff0080 33.333333{unit}, blue 33.333333{unit}, white 123.456789{unit})"
@@ -362,7 +361,6 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
 def test_picker_pointer_cancel_restores_stops(
     editor_binary, editor_environment, tmp_path, insert
 ):
-
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
@@ -498,7 +496,6 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
 def test_recent_gradient_resets_custom_geometry_initialization(
     editor_binary, editor_environment, tmp_path
 ):
-
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
@@ -529,8 +526,8 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 def radial_geometry(window, element_id="Gradient::fill"):
     rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius X and rectangle rotation handle"), 35)
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius X and rectangle rotation handle"))
     return (
         c.x - rectangle.absolute_position.x,
         c.y - rectangle.absolute_position.y,
@@ -539,7 +536,6 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
-
     rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
     c = center(control(window, "Gradient center handle"), angle - 90)
     r = center(control(window, "Gradient rotation handle"), angle - 90)
@@ -551,21 +547,18 @@ def conic_geometry(window, angle=0, element_id="Gradient::fill"):
 
 
 def set_conic_center(window, x, y, angle=0):
-
     old_x, old_y, _ = conic_geometry(window, angle)
     c = center(control(window, "Gradient center handle"), angle - 90)
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
 
 
 def rotate_conic(window, previous, next_angle):
-
     c = center(control(window, "Gradient center handle"), previous - 90)
     r = center(control(window, "Gradient rotation handle"), previous - 90)
     gesture(window, r, around(c, math.hypot(r.x - c.x, r.y - c.y), next_angle))
 
 
 def set_radial_geometry(window, x, y, radius):
-
     old_x, old_y, _ = radial_geometry(window)
     c = center(control(window, "Gradient center handle"))
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))

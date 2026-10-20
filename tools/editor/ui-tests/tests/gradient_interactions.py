@@ -6,8 +6,8 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
-from ui_driver import element, elements, select_outline_row
 from slint_testing import keys
+from ui_driver import element, elements, select_outline_row
 
 
 def control(window, label, role=slint_testing.AccessibleRole.Button):
