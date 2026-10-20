@@ -976,7 +976,8 @@ fn handle_property_init(
     // instantiated once per property type instead of per (property type,
     // component). Globals are behind a plain Rc without a type-erased weak
     // form and keep the helpers that are generic over the component.
-    let erased = ctx.current_global().is_none();
+    let inner_component = ctx.current_sub_component().map(inner_component_id);
+    let erased = inner_component.is_some();
     // A closure evaluating `body` on the component, in the form expected by
     // the selected helper. Optionally takes extra arguments.
     let self_closure = |args: TokenStream, body: TokenStream| {
@@ -985,6 +986,18 @@ fn handle_property_init(
         } else {
             quote!(move |self_rc #args| { let _self = self_rc.as_ref(); #body })
         }
+    };
+    // Like `self_closure`, but a function item when the types can be spelled out: converting a
+    // closure to a function pointer generates one more function per binding.
+    let self_fn = |args: TokenStream, ret: Option<TokenStream>, body: TokenStream| match (
+        ret,
+        &inner_component,
+    ) {
+        (Some(ret), Some(inner)) => quote!({
+            fn binding(_self: ::core::pin::Pin<&#inner> #args) -> #ret { #body }
+            binding
+        }),
+        _ => self_closure(args, body),
     };
     let helper = |name: &str| {
         if erased {
@@ -1003,7 +1016,14 @@ fn handle_property_init(
             compile_expression(&binding_expression.expression.borrow(), &ctx2);
         let as_ = if matches!(callback.return_type, Type::Void) { quote!(;) } else { quote!(as _) };
         let set_callback_handler = helper("set_callback_handler");
-        let handler = self_closure(quote!(, args), quote!({ (#tokens_for_expression) #as_ }));
+        let arg_types = callback.args.iter().map(rust_primitive_type).collect::<Option<Vec<_>>>();
+        let (args, ret) = match arg_types {
+            Some(arg_types) => {
+                (quote!(, args: &(#(#arg_types,)*)), rust_primitive_type(&callback.return_type))
+            }
+            None => (quote!(, args), None),
+        };
+        let handler = self_fn(args, ret, quote!({ (#tokens_for_expression) #as_ }));
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             #set_callback_handler(#rust_property, &self_rc, { #handler });
@@ -1030,16 +1050,22 @@ fn handle_property_init(
                 quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
             }
             llr::BindingKind::State => {
-                let binding_tokens =
-                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
+                let binding_tokens = self_fn(
+                    unit_arg.clone(),
+                    Some(quote!(i32)),
+                    quote!((#tokens_for_expression) #maybe_cast),
+                );
                 let set_property_state_binding = helper("set_property_state_binding");
                 quote! { {
                     #set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             }
             llr::BindingKind::Normal => {
-                let binding_tokens =
-                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
+                let binding_tokens = self_fn(
+                    unit_arg.clone(),
+                    rust_property_type(prop_type),
+                    quote!((#tokens_for_expression) #maybe_cast),
+                );
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
