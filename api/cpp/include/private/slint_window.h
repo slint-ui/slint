@@ -147,28 +147,42 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
+    /// The globals for a popup: with its own window adapter when the backend creates one.
+    template<typename SharedGlobals>
+    const SharedGlobals *popup_globals(const SharedGlobals *globals,
+                                       cbindgen_private::WindowKind window_kind) const
+    {
+        if (auto popup_adapter = create_child_window_adapter(window_kind)) {
+            return globals->clone_with_window_adapter(*popup_adapter);
+        }
+        return globals;
+    }
+
     template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item,
                         cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
-        using SharedGlobals = decltype(parent_component->globals);
-        SharedGlobals _own_globals = nullptr;
-        if (auto _popup_adapter = create_child_window_adapter(window_kind)) {
-            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
-        }
-        if (!_own_globals) {
-            _own_globals = parent_component->globals;
-        }
+        auto popup = Component::create(parent_component,
+                                       popup_globals(parent_component->globals, window_kind));
+        return show_popup_instance(std::move(popup), std::move(pos), close_policy, parent_item,
+                                   window_kind, std::move(is_open_setter));
+    }
 
-        auto popup = Component::create(parent_component, _own_globals);
+    /// Shows a created popup. `pos` takes the popup and returns its position.
+    template<typename Popup, typename PosGetter, typename IsOpenSetter>
+    uint32_t
+    show_popup_instance(Popup popup, PosGetter pos, cbindgen_private::PopupClosePolicy close_policy,
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
+    {
         auto popup_dyn = popup.into_dyn();
 
         struct PopupPositionData
         {
             PosGetter pos;
-            decltype(popup) popup_component;
+            Popup popup_component;
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
@@ -228,22 +242,13 @@ public:
             }
         }
 
-        auto popup = Component::create(globals);
+        auto popup = Component::create(popup_globals(globals, cbindgen_private::WindowKind::Menu));
         init(&*popup);
-        auto popup_dyn = popup.into_dyn();
-        auto position_data = new LogicalPosition(pos);
-        auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn,
-                [](void *user_data, LogicalPosition *pos) {
-                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
-                },
-                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
-                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, cbindgen_private::WindowKind::Menu,
-                // Menus do not expose `is-open`, so the setter is a no-op.
-                [](void *, bool) {}, [](void *) {}, nullptr);
-        popup->user_init();
-        return id;
+        // Menus don't expose `is-open`.
+        return show_popup_instance(
+                std::move(popup), [pos](const auto &) { return pos; },
+                cbindgen_private::PopupClosePolicy::CloseOnClickOutside, context_menu_rc,
+                cbindgen_private::WindowKind::Menu, [](bool) {});
     }
 
     template<std::invocable<RenderingState, GraphicsAPI> F>
