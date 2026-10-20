@@ -6,7 +6,7 @@
 use super::Context;
 use crate::util;
 
-use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 use lsp_types::{CodeActionKind, CodeActionOrCommand, Range, TextEdit};
 
 pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
@@ -19,6 +19,12 @@ pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
     let Some(element) = ctx.node.parent().filter(|n| n.kind() == SyntaxKind::Element) else {
         return;
     };
+    if std::iter::successors(element.parent(), |n| n.parent())
+        .find_map(syntax_nodes::Component::new)
+        .is_some_and(|c| super::is_global(&c))
+    {
+        return;
+    }
     let range = util::text_range_to_lsp_range(
         &ctx.token.source_file,
         element.text_range(),
@@ -302,6 +308,17 @@ mod tests {
             .snippets()
             .load();
             assert!(!actions.titles().contains(&"Remove element"), "{child}");
+        }
+    }
+
+    #[test]
+    fn test_code_action_no_element_actions_in_global() {
+        for source in [
+            "global Foo {\n    🔺Text { }\n}\n",
+            "global Foo 🔺Bar {\n    Text { }\n}\n",
+            "global Foo 🔺Bar {\n    a := Text { }\n}\n",
+        ] {
+            CodeActionRequest::at(source).snippets().load().assert_empty();
         }
     }
 

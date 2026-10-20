@@ -14,7 +14,7 @@ mod translate;
 
 use crate::editor_preview::{self, DocumentCache};
 
-use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
 
 struct Context<'a> {
@@ -63,6 +63,10 @@ fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &
         .as_ref()
         .and_then(|o| o.get(name).and_then(|v| v.as_bool()))
         .unwrap_or(false)
+}
+
+fn is_global(component: &syntax_nodes::Component) -> bool {
+    component.child_text(SyntaxKind::Identifier).is_some_and(|t| t == "global")
 }
 
 pub fn get_code_actions(
