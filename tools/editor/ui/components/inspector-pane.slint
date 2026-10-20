@@ -296,9 +296,9 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection() || root.is-touch-area-selection()): InspectorSection {
+                if (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection() || root.is-touch-area-selection()): InspectorSection {
                     title: @tr("Geometry");
-                    InspectorPropertyRow {
+                    if !root.is-root-selection(): InspectorPropertyRow {
                         label: @tr("Position");
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
