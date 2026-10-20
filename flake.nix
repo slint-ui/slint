@@ -36,9 +36,26 @@
         );
       in
         mkShell {
+          # Mirrors the tools in .mise/config.toml
           nativeBuildInputs = [
             pkg-config
+
+            cargo
+            rustc
+            rustfmt
+            clippy
+            rust-analyzer
+
+            cmake
+            ninja
+            clang-tools
+
+            fd
+            taplo
+            uv
+            wasm-pack
           ] ++ (lib.optional pkgs.stdenv.hostPlatform.isLinux perf);
+          RUST_SRC_PATH = rustPlatform.rustLibSrc;
           hardeningDisable = ["fortify"];
           buildInputs = [
             # Not strictly required, but helps with
@@ -49,8 +66,8 @@
             libGL
             freetype
             fontconfig
-            nodejs
-            pnpm
+            nodejs_24
+            pnpm_11
 
             fontconfig
             runtime-libs
