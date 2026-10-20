@@ -115,4 +115,17 @@ public sealed class GeneratedTests
         using var app = ImportPaths.Create();
         Assert.AreEqual("badge/tag", app.Text);
     });
+
+    [TestMethod]
+    public void TypedBrushesAndPoints() => SlintThread.Run(() =>
+    {
+        using var app = Generated.Create();
+        Assert.AreEqual(new Color(0xFF, 0, 0), app.Fill.Color);
+        app.Fill = new Color(0, 0, 0xFF);
+        Assert.AreEqual(new Color(0, 0, 0xFF), app.Fill.Color);
+
+        Assert.AreEqual(new LogicalPosition(1, 2), app.Anchor);
+        app.Anchor = new LogicalPosition(5, 6);
+        Assert.AreEqual(new LogicalPosition(5, 6), app.Anchor);
+    });
 }

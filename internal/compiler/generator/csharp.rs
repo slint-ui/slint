@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 use itertools::Itertools;
 
 use crate::CompilerConfiguration;
-use crate::langtype::{Function, StructName, Type};
+use crate::langtype::{BuiltinStruct, Function, StructName, Type};
 use crate::llr;
 use crate::names::{normalize_identifier, to_pascal_case};
 use crate::object_tree::Document;
@@ -111,9 +111,14 @@ fn csharp_type(ty: &Type) -> String {
         Type::Duration => "global::System.TimeSpan".into(),
         Type::Color => "global::Slint.Color".into(),
         Type::Image => "global::Slint.Image".into(),
+        Type::Brush => "global::Slint.Brush".into(),
         Type::Array(element) => format!("global::Slint.Model<{}>", csharp_type(element)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
+            StructName::Builtin(BuiltinStruct::LogicalPosition) => {
+                "global::Slint.LogicalPosition".into()
+            }
+            StructName::Builtin(BuiltinStruct::LogicalSize) => "global::Slint.LogicalSize".into(),
             _ => "global::Slint.Struct".into(),
         },
         Type::Enumeration(e) if e.node.is_some() => ident(&e.name),
@@ -127,13 +132,17 @@ fn default_value(ty: &Type) -> Option<String> {
     match ty {
         Type::String => Some("\"\"".into()),
         Type::Image => Some("new global::Slint.Image()".into()),
+        Type::Brush => Some("new global::Slint.Brush(default(global::Slint.Color))".into()),
         Type::Array(element) => {
             Some(format!("new global::Slint.ListModel<{}>()", csharp_type(element)))
         }
-        Type::Struct(s) => Some(match &s.name {
-            StructName::User { name, .. } => format!("new {}()", ident(name)),
-            _ => "new global::Slint.Struct()".into(),
-        }),
+        Type::Struct(s) => match &s.name {
+            StructName::User { name, .. } => Some(format!("new {}()", ident(name))),
+            StructName::Builtin(BuiltinStruct::LogicalPosition | BuiltinStruct::LogicalSize) => {
+                None
+            }
+            _ => Some("new global::Slint.Struct()".into()),
+        },
         _ => None,
     }
 }

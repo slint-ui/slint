@@ -23,7 +23,7 @@ public enum ValueType
     Model = 4,
     /// <summary>A struct, as <see cref="Slint.Struct"/>.</summary>
     Struct = 5,
-    /// <summary><c>brush</c> or <c>color</c>, as <see cref="Color"/> for a solid color.</summary>
+    /// <summary><c>brush</c> or <c>color</c>, as <see cref="Color"/> for a solid color and <see cref="Slint.Brush"/> for a gradient.</summary>
     Brush = 6,
     /// <summary><c>image</c>, as <see cref="Slint.Image"/>.</summary>
     Image = 7,
@@ -38,6 +38,92 @@ public readonly record struct Color(byte Red, byte Green, byte Blue, byte Alpha 
 
     /// <summary>Returns the color as <c>0xAARRGGBB</c>.</summary>
     public uint ToArgb() => (uint)Alpha << 24 | (uint)Red << 16 | (uint)Green << 8 | Blue;
+
+    /// <summary>Returns a brighter color; a <paramref name="factor"/> of 0.5 is 50% brighter.</summary>
+    public Color Brighter(float factor) => FromArgb(NativeMethods.slint_dotnet_color_brighter(ToArgb(), factor));
+
+    /// <summary>Returns a darker color; a <paramref name="factor"/> of 0.5 is 50% darker.</summary>
+    public Color Darker(float factor) => FromArgb(NativeMethods.slint_dotnet_color_darker(ToArgb(), factor));
+
+    /// <summary>Returns a more transparent color; a <paramref name="factor"/> of 0.5 halves the opacity.</summary>
+    public Color Transparentize(float factor) =>
+        FromArgb(NativeMethods.slint_dotnet_color_transparentize(ToArgb(), factor));
+
+    /// <summary>Mixes with <paramref name="other"/>; a <paramref name="factor"/> of 1 is this color, 0 the other.</summary>
+    public Color Mix(Color other, float factor) =>
+        FromArgb(NativeMethods.slint_dotnet_color_mix(ToArgb(), other.ToArgb(), factor));
+
+    /// <summary>Returns the color with an opacity of <paramref name="alpha"/>, from 0 to 1.</summary>
+    public Color WithAlpha(float alpha) => FromArgb(NativeMethods.slint_dotnet_color_with_alpha(ToArgb(), alpha));
+}
+
+/// <summary>
+/// A <c>brush</c>: a solid color or a gradient.
+/// Slint gives a solid brush as a <see cref="Color"/>, and a gradient as a <see cref="Brush"/>.
+/// </summary>
+public sealed class Brush : IEquatable<Brush>, IDisposable
+{
+    /// <summary>Creates a solid brush.</summary>
+    public Brush(Color color)
+        : this(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_color(color.ToArgb()))))
+    {
+    }
+
+    internal Brush(ValueHandle handle)
+    {
+        Handle = handle;
+    }
+
+    internal ValueHandle Handle { get; }
+
+    /// <summary>Converts a color to a solid brush.</summary>
+    public static implicit operator Brush(Color color) => new(color);
+
+    /// <summary>The color of a solid brush, or the first color of a gradient.</summary>
+    public Color Color => Color.FromArgb(Checked(NativeMethods.slint_dotnet_brush_color(Handle)));
+
+    /// <summary>Whether the brush paints nothing.</summary>
+    public bool IsTransparent => Checked(NativeMethods.slint_dotnet_brush_is_transparent(Handle));
+
+    /// <summary>Whether the brush covers what's below it completely.</summary>
+    public bool IsOpaque => Checked(NativeMethods.slint_dotnet_brush_is_opaque(Handle));
+
+    /// <summary>Returns a brighter brush, see <see cref="Color.Brighter"/>.</summary>
+    public Brush Brighter(float factor) => Derive(0, factor);
+
+    /// <summary>Returns a darker brush, see <see cref="Color.Darker"/>.</summary>
+    public Brush Darker(float factor) => Derive(1, factor);
+
+    /// <summary>Returns a more transparent brush, see <see cref="Color.Transparentize"/>.</summary>
+    public Brush Transparentize(float factor) => Derive(2, factor);
+
+    /// <summary>Returns the brush with an opacity of <paramref name="alpha"/>, see <see cref="Color.WithAlpha"/>.</summary>
+    public Brush WithAlpha(float alpha) => Derive(3, alpha);
+
+    /// <inheritdoc/>
+    public bool Equals(Brush? other) =>
+        other is not null && Checked(NativeMethods.slint_dotnet_value_equals(Handle, other.Handle));
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is Brush other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => Color.GetHashCode();
+
+    /// <summary>Releases the native brush.</summary>
+    public void Dispose() => Handle.Dispose();
+
+    private Brush Derive(int operation, float factor) =>
+        new(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_brush_derive(Handle, operation, factor))));
+
+    private static T Checked<T>(T value)
+    {
+        if (NativeError.TakeMessage() is { } message)
+        {
+            throw new SlintException(message);
+        }
+        return value;
+    }
 }
 
 /// <summary>A value of a Slint enum, such as <c>TextHorizontalAlignment.center</c>.</summary>
@@ -142,6 +228,12 @@ internal static unsafe class ValueConverter
                 }
             case TimeSpan duration:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_number(duration.TotalMilliseconds));
+            case Brush brush:
+                return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(brush.Handle.DangerousGetHandle()));
+            case LogicalPosition position:
+                return StructToNative([new("x", position.X), new("y", position.Y)]);
+            case LogicalSize size:
+                return StructToNative([new("width", size.Width), new("height", size.Height)]);
             case Image image:
                 return NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(image.Handle.DangerousGetHandle()));
             case OpaqueValue o:
@@ -243,7 +335,10 @@ internal static unsafe class ValueConverter
             case (int)ValueType.Brush:
                 {
                     uint argb;
-                    return NativeMethods.slint_dotnet_value_to_color(value, &argb) ? Color.FromArgb(argb) : Opaque(value);
+                    // Typed as object, or the conditional would convert the color to a Brush.
+                    return NativeMethods.slint_dotnet_value_to_color(value, &argb)
+                    ? (object)Color.FromArgb(argb)
+                    : new Brush(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
                 }
             case (int)ValueType.Image:
                 return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_clone(value))));
@@ -299,6 +394,18 @@ internal static unsafe class ValueConverter
         {
             return (T)(object)TimeSpan.FromMilliseconds(milliseconds);
         }
+        if (typeof(T) == typeof(Brush) && value is Color color)
+        {
+            return (T)(object)new Brush(color);
+        }
+        if (typeof(T) == typeof(LogicalPosition) && value is Struct position)
+        {
+            return (T)(object)new LogicalPosition(Field(position, "x"), Field(position, "y"));
+        }
+        if (typeof(T) == typeof(LogicalSize) && value is Struct size)
+        {
+            return (T)(object)new LogicalSize(Field(size, "width"), Field(size, "height"));
+        }
         var target = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         if (value is double number && target.IsPrimitive)
         {
@@ -310,6 +417,9 @@ internal static unsafe class ValueConverter
         }
         throw new InvalidCastException($"Can't convert {value?.GetType().Name ?? "null"} to {typeof(T).Name}");
     }
+
+    private static float Field(Struct value, string name) =>
+        value.TryGetValue(name, out var field) && field is double number ? (float)number : 0;
 
     /// <summary>Converts <paramref name="args"/> to native values for the duration of <paramref name="body"/>.</summary>
     public static T WithNativeArgs<T>(object?[] args, Func<nint[], T> body)

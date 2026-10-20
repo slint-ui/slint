@@ -12,6 +12,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::OnceLock;
 use std::thread::ThreadId;
 
+mod brush;
 mod instance;
 mod interpreter;
 mod models;

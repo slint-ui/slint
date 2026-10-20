@@ -402,6 +402,41 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial ulong slint_dotnet_timer_interval_ms(TimerHandle timer);
 
+    // brush.rs
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_color_brighter(uint argb, float factor);
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_color_darker(uint argb, float factor);
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_color_transparentize(uint argb, float factor);
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_color_mix(uint argb, uint other, float factor);
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_color_with_alpha(uint argb, float alpha);
+
+    [LibraryImport(Library)]
+    public static partial uint slint_dotnet_brush_color(ValueHandle value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_brush_is_transparent(ValueHandle value);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_brush_is_opaque(ValueHandle value);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_brush_derive(ValueHandle value, int operation, float factor);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_value_equals(ValueHandle a, ValueHandle b);
+
     // window.rs
 
     [LibraryImport(Library)]

@@ -69,11 +69,13 @@ C# declares the exports with `[LibraryImport]` in `Slint/Interop/NativeMethods.c
 | `int`, `float`, `length`, `duration`, … | `double` |
 | `bool` | `bool` |
 | `color`, solid `brush` | `Slint.Color` |
+| gradient | `Slint.Brush` |
+| `Point` | `Slint.Struct`, `Slint.LogicalPosition` in generated code |
 | struct | `Slint.Struct` |
 | array, model | `Slint.Model<T>`; any `IEnumerable` converts to a copy |
 | enum | `Slint.EnumValue` |
 | `image` | `Slint.Image` |
-| anything else, such as a gradient | `Slint.OpaqueValue`, passed back unchanged |
+| anything else, such as `keys` | `Slint.OpaqueValue`, passed back unchanged |
 
 Generated code narrows the numeric types and maps structs and enums to C# records and enums.
 
@@ -224,7 +226,8 @@ Next:
    with the official `Slint` package IDs and a `ChangeLog:` trailer.
 8. API gaps compared to Python and Node.js:
    - a `Window` API, for size, position, scale factor, and close requests (done)
-   - typed `brush`, gradients, `keys`, styled text, data transfer, `LogicalPosition`, and `LogicalSize`
+   - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize` (done)
+   - typed `keys`, styled text, and data transfer
    - include and library paths in generated code (done)
    - translations, the model adapters, and C# names for exported aliases
 9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.

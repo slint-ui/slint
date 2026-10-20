@@ -25,6 +25,8 @@ public sealed class InstanceTests
             in-out property <[int]> numbers: [1, 2, 3];
             in-out property <Mode> mode: Mode.busy;
             in-out property <image> picture;
+            in-out property <keys> shortcut;
+            in-out property <Point> point;
             callback compute(int, string) -> string;
             callback notify();
             public function twice(x: int) -> int { return x * 2; }
@@ -59,7 +61,8 @@ public sealed class InstanceTests
         Assert.AreEqual("Ada", person["name"]);
         Assert.AreEqual(36.0, person["age"]);
 
-        using var fill = (OpaqueValue)app.GetProperty("fill")!;
+        using var fill = (Brush)app.GetProperty("fill")!;
+        Assert.AreEqual(new Color(0xFF, 0, 0), fill.Color);
         using var picture = (Image)app.GetProperty("picture")!;
         Assert.IsNull(picture.Path);
     });
@@ -91,9 +94,9 @@ public sealed class InstanceTests
     public void OpaqueValuesRoundTrip() => SlintThread.Run(() =>
     {
         using var app = CreateApp();
-        using var fill = (OpaqueValue)app.GetProperty("fill")!;
-        app.SetProperty("fill", fill);
-        using var again = (OpaqueValue)app.GetProperty("fill")!;
+        using var shortcut = (OpaqueValue)app.GetProperty("shortcut")!;
+        app.SetProperty("shortcut", shortcut);
+        using var again = (OpaqueValue)app.GetProperty("shortcut")!;
     });
 
     [TestMethod]
@@ -189,5 +192,49 @@ public sealed class InstanceTests
         app.SetGlobalCallback("Settings", "changed", args => $"now {args[0]}");
         Assert.AreEqual("now light", app.Invoke("call-global"));
         Assert.ThrowsExactly<SlintException>(() => app.GetGlobalProperty("Missing", "theme"));
+    });
+
+    [TestMethod]
+    public void BrushesAndGradients() => SlintThread.Run(() =>
+    {
+        using var app = CreateApp();
+        using var gradient = (Brush)app.GetProperty("fill")!;
+        Assert.IsTrue(gradient.IsOpaque);
+        Assert.IsFalse(gradient.IsTransparent);
+        using var faded = gradient.WithAlpha(0.5f);
+        Assert.IsFalse(faded.IsOpaque);
+        Assert.AreNotEqual(gradient, faded);
+
+        app.SetProperty("fill", faded);
+        using var back = (Brush)app.GetProperty("fill")!;
+        Assert.AreEqual(faded, back);
+
+        app.SetProperty("fill", new Brush(new Color(0, 0x80, 0)));
+        Assert.AreEqual(new Color(0, 0x80, 0), app.GetProperty("fill"));
+    });
+
+    [TestMethod]
+    public void ColorHelpersMatchBrushes() => SlintThread.Run(() =>
+    {
+        var color = new Color(0x40, 0x80, 0xC0);
+        using var brush = new Brush(color);
+        Assert.AreEqual(color.Brighter(0.5f), brush.Brighter(0.5f).Color);
+        Assert.AreEqual(color.Darker(0.5f), brush.Darker(0.5f).Color);
+        Assert.AreEqual(color.Transparentize(0.5f), brush.Transparentize(0.5f).Color);
+        Assert.AreEqual(color.WithAlpha(0.25f), brush.WithAlpha(0.25f).Color);
+        Assert.AreEqual(64, color.WithAlpha(0.25f).Alpha);
+        Assert.IsGreaterThan(color.Red, color.Brighter(0.5f).Red);
+        Assert.IsLessThan(color.Red, color.Darker(0.5f).Red);
+        Assert.AreEqual(color, color.Mix(new Color(0, 0, 0), 1f));
+    });
+
+    [TestMethod]
+    public void PointsConvertToLogicalPositions() => SlintThread.Run(() =>
+    {
+        using var app = CreateApp();
+        app.SetProperty("point", new LogicalPosition(3, 4));
+        var point = (Struct)app.GetProperty("point")!;
+        Assert.AreEqual(3.0, point["x"]);
+        Assert.AreEqual(new LogicalPosition(3, 4), global::Slint.Generated.Conversion.FromSlint<LogicalPosition>(point));
     });
 }

@@ -89,10 +89,13 @@ The types map as follows:
 | `string` | `string` |
 | `bool` | `bool` |
 | `color` | `Slint.Color` |
+| `brush` | `Slint.Brush`; a `Slint.Color` converts to it |
+| `Point` | `Slint.LogicalPosition` |
 | `image` | `Slint.Image` |
 | `[T]` | `Slint.Model<T>` |
 
-Other types, such as `brush`, are `object?` for now.
+Other types, such as `keys`, are `object?` for now.
+`Color` and `Brush` have `Brighter`, `Darker`, `Transparentize`, and `WithAlpha`, and `Color` has `Mix`.
 
 The build copies the `.slint` files to the output directory, and the generated code loads them at run time.
 Mark files that another `<SlintFile>` imports with `Generate="false"`:
