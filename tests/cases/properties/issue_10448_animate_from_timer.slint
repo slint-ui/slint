@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #10448: a timer that fires before the first frame starts the animation from the initial value.
+
+export component TestCase inherits Window {
+    out property <float> o: rect.opacity;
+    rect := Rectangle {
+        background: green;
+        animate opacity { duration: 1s; }
+
+        Timer {
+            interval: 1ms;
+            triggered => {
+                rect.opacity = 0.5;
+                self.running = false;
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+slint_testing::mock_elapsed_time(50);
+slint_testing::mock_elapsed_time(100);
+let o = instance.get_o();
+assert!(o > 0.8 && o < 0.96, "{o} is not in range [0.8, 0.96]");
+
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_o(), 0.5);
+```
+*/
