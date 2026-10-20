@@ -72,7 +72,8 @@ C# declares the exports with `[LibraryImport]` in `Slint/Interop/NativeMethods.c
 | struct | `Slint.Struct` |
 | array, model | `Slint.Model<T>`; any `IEnumerable` converts to a copy |
 | enum | `Slint.EnumValue` |
-| anything else, such as an image or a gradient | `Slint.OpaqueValue`, passed back unchanged |
+| `image` | `Slint.Image` |
+| anything else, such as a gradient | `Slint.OpaqueValue`, passed back unchanged |
 
 Generated code narrows the numeric types and maps structs and enums to C# records and enums.
 
@@ -195,3 +196,75 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet` (done).
 4. CI workflow, user documentation, an example, NuGet packages per runtime identifier (done).
    `.github/workflows/dotnet_test_reusable.yaml` runs the tests, and `examples/memory/dotnet` is the example.
+5. Live reload of `.slint` files, see [Planned: Live Reload](#planned-live-reload).
+
+## Planned: Live Reload
+
+Reload `.slint` files in a running application when they change on disk,
+like the live preview of Rust and C++ (`docs/astro/src/content/docs/guide/tooling/live-preview.mdx`).
+Combined with `dotnet watch`, this gives C# hot reload and `.slint` reload in one session.
+
+### How Rust and C++ Do It
+
+Both use `LiveReloadingComponent` in `internal/live-preview/live_component.rs`:
+
+- With live preview enabled, the generator emits a wrapper over the interpreter instead of compiled code
+  (`generator/rust_live_preview.rs`, `generator/cpp_live_preview.rs`).
+- A `notify` watcher follows the main file and its imports, from the `watch_paths` of each compilation result.
+- A background thread compiles, debounced by `REBUILD_DEBOUNCE`, and drops results that a newer change made stale.
+- On the event loop thread, the new instance is created in the existing window with `create_with_existing_window`.
+  Every property and callback the application set is then set again, so models and handlers survive.
+- A file with errors keeps the previous UI.
+  Renaming a member that code uses can terminate the application.
+- It's enabled at build time: `SLINT_LIVE_PREVIEW=1` with the `live-preview` feature in Rust,
+  `SLINT_FEATURE_LIVE_PREVIEW` in CMake for C++.
+  C++ reaches it through the `slint_live_preview_*` C ABI.
+
+### Design for .NET
+
+The generated C# code already runs on the interpreter, so .NET needs no second generator mode.
+Reuse `LiveReloadingComponent` instead of re-implementing it with `FileSystemWatcher`,
+which would duplicate it and still need new exports such as creating an instance in an existing window.
+
+- Native: a `live-preview` feature that enables `i-slint-live-preview/live-component`.
+  The instance handle becomes `enum DotnetInstance { Static(ComponentInstance), Live(Rc<RefCell<LiveReloadingComponent>>) }`,
+  and every `slint_dotnet_component_instance_*` export dispatches on it, so the C# API doesn't change.
+  Add `slint_dotnet_live_component_new` with the compiler options, built like `slint_live_preview_new`,
+  and an export that sets `set_post_reload_hook`.
+- C#: `GeneratedApi.CreateLive`, which returns a `ComponentInstance`,
+  and a `ComponentInstance.Reloaded` event.
+  After each reload, run the `GeneratedApi` check again and warn about mismatches,
+  instead of failing later with a panic.
+- Generator: `--csharp-live-preview`, with which `Create()` loads the absolute source path with live reload,
+  instead of the copy in the output directory.
+- MSBuild: `<SlintLivePreview>true</SlintLivePreview>` passes that option.
+  `.slint` files must stay out of the files that `dotnet watch` restarts the application for.
+
+Open decisions:
+
+- Whether the NuGet native library includes the feature, or a separate development package does,
+  like `slint-dev` for Python and the dev binary for Node.js.
+  Including it is simpler, since it stays inactive until generated code opts in.
+- Whether Debug builds enable it by default.
+  Rust and C++ make it opt-in, and so should .NET.
+
+### Steps
+
+| Step | Estimate |
+|---|---|
+| Native: `DotnetInstance`, the `live-preview` feature, the constructor and reload hook exports | 1–1.5 days |
+| C#: `CreateLive`, the `Reloaded` event, the API check after reloads | 0.5 day |
+| Generator option and `SlintLivePreview` MSBuild property | 0.5 day |
+| Tests: rewrite a file, wait for `Reloaded`, check that properties, callbacks, and models survive, and that errors keep the old UI | 1 day |
+| Docs: the package README, this document, a .NET tab in `live-preview.mdx` | 0.5 day |
+| CI and packages on macOS, Linux, and Windows | 0.5 day |
+
+The estimate is four to five days in total.
+
+### Risks
+
+- File watching timing differs per platform, such as macOS FSEvents latency and editors that save through a temporary file.
+  Tests must wait for `Reloaded` with a generous timeout, not sleep.
+- `LiveReloadingComponent` panics when it sets a property that no longer exists.
+  Debug builds turn that into an exception from `EventLoop.Run`, release builds abort.
+- A change to the API that code uses still needs a rebuild and restart, like in Rust and C++.
