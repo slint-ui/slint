@@ -68,10 +68,7 @@
             fontconfig
             nodejs_24
             pnpm_11
-
-            fontconfig
-            runtime-libs
-          ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+          ] ++ runtime-libs ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
             libgbm
             libinput
             # Merge the qt packages together to make a lighter version of qt6.full
