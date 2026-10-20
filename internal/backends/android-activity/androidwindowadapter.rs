@@ -156,7 +156,11 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
             }
             InputMethodRequest::Disable => {
                 self.pending_ime_update.take();
-                self.ime_client.take();
+                if let Some(item) = self.ime_client.take().upgrade()
+                    && let Some(text_input) = item.downcast::<i_slint_core::items::TextInput>()
+                {
+                    text_input.as_pin_ref().set_composition(0..0);
+                }
                 self.java_helper
                     .clear_text_input_client()
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));

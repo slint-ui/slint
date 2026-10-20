@@ -719,6 +719,13 @@ fn callback_update_text<'local>(
 
     let cursor_position = utf16_offset_to_byte_offset_clamped(&text, cursor_position as usize);
     let anchor_position = utf16_offset_to_byte_offset_clamped(&text, anchor_position as usize);
+    let (composing_start, composing_end) = remote_state.composing;
+    let composition = if composing_start >= 0 {
+        utf16_offset_to_byte_offset_clamped(&text, composing_start as usize)
+            ..utf16_offset_to_byte_offset_clamped(&text, composing_end as usize)
+    } else {
+        0..0
+    };
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
@@ -796,6 +803,11 @@ fn callback_update_text<'local>(
                     }
                 }
                 None => edit(text, Some(i32::MIN..i32::MAX), selection),
+            }
+            if let Some(focus_item) = focus_item.as_ref()
+                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
+            {
+                text_input.as_pin_ref().set_composition(composition);
             }
         }
     })
