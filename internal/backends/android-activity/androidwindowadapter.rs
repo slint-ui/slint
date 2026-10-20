@@ -114,6 +114,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                         &props,
                         self.window.scale_factor(),
                         self.show_cursor_handles.get(),
+                        self.focused_text_input_is_single_line(),
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
@@ -139,6 +140,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                         &props,
                         self.window.scale_factor(),
                         self.show_cursor_handles.get(),
+                        self.focused_text_input_is_single_line(),
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
             }
@@ -194,6 +196,19 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 }
 
 impl AndroidWindowAdapter {
+    #[cfg(feature = "native-activity")]
+    fn focused_text_input_is_single_line(&self) -> bool {
+        WindowInner::from_pub(&self.window)
+            .focus_item
+            .borrow()
+            .upgrade()
+            .and_then(|item| {
+                item.downcast::<i_slint_core::items::TextInput>()
+                    .map(|text_input| text_input.as_pin_ref().single_line())
+            })
+            .unwrap_or(true)
+    }
+
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
