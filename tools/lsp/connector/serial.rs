@@ -700,11 +700,7 @@ mod tests {
                     }
                     DeviceEvent::Resource { key, data } => {
                         let resource = serialize::resource_from_bytes(&data).unwrap();
-                        slint_interpreter::register_embedded_resource(
-                            key,
-                            resource,
-                            InternalToken,
-                        );
+                        slint_interpreter::register_embedded_resource(key, resource, InternalToken);
                     }
                     DeviceEvent::Show { id, component, unit, resources } => {
                         slint_interpreter::retain_embedded_resources(&resources, InternalToken);
