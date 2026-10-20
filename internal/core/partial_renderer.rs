@@ -31,11 +31,11 @@ use crate::item_tree::{
 };
 #[cfg(feature = "path")]
 use crate::items::Path;
-#[cfg(feature = "occlusion-culling")]
-use crate::items::{BasicBorderRectangle, BorderRectangle, Rectangle};
 use crate::items::{
     BackdropBlur, BoxShadow, Clip, ItemRc, ItemRef, Layer, Opacity, RenderingResult, TextInput,
 };
+#[cfg(feature = "occlusion-culling")]
+use crate::items::{BasicBorderRectangle, BorderRectangle, Rectangle};
 #[cfg(feature = "occlusion-culling")]
 use crate::lengths::LogicalLength;
 use crate::lengths::{
