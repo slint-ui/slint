@@ -211,6 +211,22 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 4. CI workflow, user documentation, an example, NuGet packages per runtime identifier (done).
    `.github/workflows/dotnet_test_reusable.yaml` runs the tests, and `examples/memory/dotnet` is the example.
 5. Live reload of `.slint` files, see [Live Reload](#live-reload) (done).
+   Together with .NET Hot Reload, through `dotnet watch` or a debugger, both `.slint` and C# changes apply without a restart.
+6. Publishing to nuget.org with trusted publishing, see [Packages](#packages) (done).
+   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
+   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`, first released as `1.19.0-preview.1`.
+
+Next:
+
+7. Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
+   with the official `Slint` package IDs and a `ChangeLog:` trailer.
+8. API gaps compared to Python and Node.js:
+   - a `Window` API, for size, position, scale factor, and close requests
+   - typed `brush`, gradients, `keys`, styled text, data transfer, `LogicalPosition`, and `LogicalSize`
+   - include and library paths in generated code, which `tests/driver/dotnet` skips 31 cases for
+   - translations, the model adapters, and C# names for exported aliases
+9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
+10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
 
 ## Live Reload
 
