@@ -1,0 +1,159 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Api } from "../../../api.slint";
+import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorImageSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> field-width;
+    in property <length> popup-bottom;
+
+    title: @tr("Image");
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            InspectorFieldLabel {
+                text: @tr("Source");
+            }
+
+            InspectorImageSourceField {
+                value: Api.image-source-file-name(Api.source-property-value("source", ""));
+                browse => { InspectorContext.choose-image-source(); }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Image fit");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-fit");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Image fit");
+                value: InspectorEnumOptions.image-fit-value();
+                selected-index: InspectorEnumOptions.image-fit-index();
+                options: InspectorEnumOptions.image-fit-options;
+                wide: true;
+                width: root.field-width;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("image-fit", text);
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+
+                InspectorFieldLabel {
+                    text: @tr("Alignment");
+                    horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: alignment.selected-label == "" ? @tr("Custom") : alignment.selected-label;
+                    color: Colors.muted;
+                    font-size: Typography.caption.size;
+                    horizontal-alignment: right;
+                }
+            }
+
+            alignment := InspectorImageAlignment {
+                selected-column: InspectorEnumOptions.image-horizontal-alignment-index();
+                selected-row: InspectorEnumOptions.image-vertical-alignment-index();
+                chosen(column, row) => { InspectorContext.set-image-alignment(column, row); }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Horizontal tiling");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#horizontal-tiling");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Horizontal tiling");
+                value: InspectorEnumOptions.image-tiling-value("horizontal-tiling");
+                selected-index: InspectorEnumOptions.image-tiling-index("horizontal-tiling");
+                options: InspectorEnumOptions.image-tiling-options;
+                wide: true;
+                width: root.field-width;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("horizontal-tiling", text);
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Vertical tiling");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#vertical-tiling");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Vertical tiling");
+                value: InspectorEnumOptions.image-tiling-value("vertical-tiling");
+                selected-index: InspectorEnumOptions.image-tiling-index("vertical-tiling");
+                options: InspectorEnumOptions.image-tiling-options;
+                wide: true;
+                width: root.field-width;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("vertical-tiling", text);
+                }
+            }
+        }
+    }
+}
