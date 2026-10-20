@@ -121,7 +121,7 @@ export global FillSession {
     }
     public function add-stop(point: Point) {
         if !FillSession.canvas-active { return; }
-        FillSession.add-stop-position(FillSession.stop-position(point));
+        FillSession.add-stop-position(FillSession.stop-position(point).clamp(0, 1));
         FillSession.focus-stop-generation += 1;
     }
     function prepare-draft(fill: FillData) {
@@ -160,9 +160,6 @@ export global FillSession {
         else { if Api.undo-enabled { Api.undo(); } }
     }
 
-    public function move-stop(point: Point) {
-        FillSession.move-stop-position(FillSession.stop-position(point));
-    }
     public function move-stop-position(position: float) -> bool {
         FillSession.prepare-draft(FillSession.working-fill);
         FillSession.draft.stops[FillSession.selected-stop].position = position;
