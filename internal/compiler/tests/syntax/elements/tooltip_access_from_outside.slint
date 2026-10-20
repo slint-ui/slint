@@ -43,9 +43,9 @@ export component Test inherits Window {
     // Access a named child inside a custom-content tooltip.
     Rectangle {
         Tooltip {
-//      >      <error{Cannot access property or callback 'inner.background' inside of a PopupWindow from enclosing component}
             inner := Rectangle { background: blue; }
         }
     }
     property <color> c: inner.background;
+//                      >               <error{Cannot access property or callback 'inner.background' inside of a PopupWindow from enclosing component}
 }

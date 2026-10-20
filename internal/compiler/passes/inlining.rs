@@ -5,7 +5,7 @@
 
 #![allow(clippy::mutable_key_type)] // pass uses identity-based keys backed by interior mutability
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::Type;
@@ -602,14 +602,24 @@ fn inline_element(
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
-        recurse_elem_no_borrow(&root_component.root_element.clone(), &(), &mut |e, _| {
-            if !moved_into_popup.contains(&element_key(e.clone())) {
-                visit_all_named_references_in_element(e, |nr| {
-                    if moved_into_popup.contains(&element_key(nr.element())) {
-                        diag.push_error(format!("Access to property '{nr:?}' which is inlined into a PopupWindow via @children is forbidden"), &*e.borrow());
-                    }
-                });
+        let mut reported = HashSet::new();
+        let mut check = |nr: &NamedReference, span: &SourceLocation| {
+            if moved_into_popup.contains(&element_key(nr.element())) && reported.insert(nr.clone())
+            {
+                diag.push_error(format!("Access to property '{nr:?}' which is inlined into a PopupWindow via @children is forbidden"), span);
             }
+        };
+        recurse_elem_no_borrow(&root_component.root_element.clone(), &(), &mut |e, _| {
+            if moved_into_popup.contains(&element_key(e.clone())) {
+                return;
+            }
+            let element_span = e.borrow().to_source_location();
+            visit_element_expressions_with_location(e, &element_span, &mut |expr, span| {
+                if let Some(nr) = expr.referenced_property() {
+                    check(nr, span)
+                }
+            });
+            visit_all_named_references_in_element(e, |nr| check(nr, &element_span));
         });
     }
 }

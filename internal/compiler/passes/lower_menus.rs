@@ -468,6 +468,7 @@ fn process_window(
         enclosing_component: window.enclosing_component.clone(),
         repeated: condition.clone().map(|condition| crate::object_tree::RepeatedElementInfo {
             model: condition,
+            model_location: None,
             model_data_id: SmolStr::default(),
             index_id: SmolStr::default(),
             is_conditional_element: true,

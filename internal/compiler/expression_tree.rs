@@ -497,6 +497,18 @@ pub enum Expression {
 }
 
 impl Expression {
+    /// The property this expression reads, or the callback or function it calls
+    pub fn referenced_property(&self) -> Option<&NamedReference> {
+        match self {
+            Expression::PropertyReference(nr)
+            | Expression::FunctionCall {
+                function: Callable::Callback(nr) | Callable::Function(nr),
+                ..
+            } => Some(nr),
+            _ => None,
+        }
+    }
+
     /// Return the type of this property
     pub fn ty(&self) -> Type {
         match self {
