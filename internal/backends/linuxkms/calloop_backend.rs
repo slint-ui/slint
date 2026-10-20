@@ -94,24 +94,28 @@ pub struct Backend {
 // Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then SLINT_DRM_LEASE_NAME.
 // A variable that is set but unusable is an error.
 fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd>>, String> {
-    let fd = match builder_fd {
-        Some(fd) => fd,
-        None => match drm_lease_fd_from_env()? {
-            Some(fd) => fd,
-            None => match drm_lease_fd_from_manager()? {
-                Some(fd) => fd,
-                None => return Ok(None),
-            },
-        },
+    let fd = if let Some(fd) = builder_fd {
+        fd
+    } else if let Some(fd) = drm_lease_fd_from_env()? {
+        fd
+    } else if let Some(fd) = drm_lease_fd_from_manager()? {
+        fd
+    } else {
+        return Ok(None);
     };
-    // Page flip polling needs a blocking fd.
-    let flags = nix::fcntl::fcntl(fd.as_fd(), nix::fcntl::FcntlArg::F_GETFL)
-        .map_err(|e| format!("Error getting DRM lease fd flags: {e}"))?;
+    make_blocking(fd.as_fd())?;
+    Ok(Some(Rc::new(fd)))
+}
+
+// Polling for drm::control::Event::PageFlip needs a blocking fd.
+fn make_blocking(fd: std::os::fd::BorrowedFd<'_>) -> Result<(), String> {
+    let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
+        .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
     let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
     flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
-    nix::fcntl::fcntl(fd.as_fd(), nix::fcntl::FcntlArg::F_SETFL(flags))
-        .map_err(|e| format!("Error making DRM lease fd blocking: {e}"))?;
-    Ok(Some(Rc::new(fd)))
+    nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
+        .map_err(|e| format!("Error making file descriptor blocking: {e}"))?;
+    Ok(())
 }
 
 // Lease fd inherited from a launcher. Ok(None) when the variable is unset.
@@ -291,14 +295,9 @@ impl i_slint_core::platform::Platform for Backend {
                 .open_device(&device)
                 .map_err(|e| format!("Error opening device {}: {e}", device.display()))?;
 
-            // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
+            // Would be better to poll non-blocking.
             let fd = device.as_fd();
-            let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
-                .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
-            let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
-            flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
-            nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
-                .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
+            make_blocking(fd)?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
             Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd.as_raw_fd()) }))
