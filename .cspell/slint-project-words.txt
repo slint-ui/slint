@@ -18,6 +18,7 @@ Amoled
 analogclock
 androideabi
 anyrender
+apng
 Appbar
 appicon
 appiconset
@@ -31,6 +32,7 @@ armeabi
 armhf
 arrayvec
 artboard
+ashpd
 assetcatalog
 astrolib
 astrowind
@@ -105,6 +107,7 @@ coldict
 colorspace
 colour
 colprop
+copysign
 commodo
 compdef
 compilerlib
@@ -139,6 +142,7 @@ datatypes
 datepickerpopup
 Datelike
 DBUILD
+dbus
 DCACHE
 DCMAKE
 DDEFAULT
@@ -670,6 +674,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+testdata
 texels
 texteditor
 textinput

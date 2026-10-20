@@ -82,8 +82,7 @@ impl GbmDmabufDisplay {
         device: &wgpu::Device,
         buffer_count: usize,
     ) -> Result<Self, PlatformError> {
-        let gbm_device = gbm::Device::new(drm_output.drm_device.clone())
-            .map_err(|e| format!("Error creating gbm device: {e}"))?;
+        let gbm_device = drm_output.create_gbm_device()?;
 
         let (width, height) = drm_output.size();
 
@@ -101,12 +100,33 @@ impl GbmDmabufDisplay {
             let hal_device = crate::renderer::dmabuf::vulkan_device(device)?;
             let properties2 =
                 Properties2::new(hal_device.shared_instance(), hal_device.raw_physical_device())?;
-            let importable_modifiers =
-                importable_modifiers(&hal_device, &properties2, width, height);
-            let by_modifier =
-                importable_modifiers.as_ref().is_ok_and(|m| m.contains(&gbm::Modifier::Linear));
+            // `texture_from_dmabuf_fd` needs the feature, not just the modifier extension.
+            let modifier_import_available =
+                device.features().contains(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF);
+            let (importable_modifiers, modifier_import) = if modifier_import_available {
+                let importable_modifiers =
+                    importable_modifiers(&hal_device, &properties2, width, height);
+                let modifier_import = if importable_modifiers
+                    .as_ref()
+                    .is_ok_and(|m| m.contains(&gbm::Modifier::Linear))
+                {
+                    ModifierImport::IncludingLinear
+                } else {
+                    ModifierImport::ExceptLinear
+                };
+                (importable_modifiers, modifier_import)
+            } else {
+                (
+                    Err(PlatformError::Other(
+                        "Vulkan can't import a scanout buffer by DRM format modifier without \
+                         VK_EXT_image_drm_format_modifier"
+                            .into(),
+                    )),
+                    ModifierImport::Unavailable,
+                )
+            };
             let linear_import =
-                LinearImport::new(&hal_device, &properties2, width, height, by_modifier);
+                LinearImport::new(&hal_device, &properties2, width, height, modifier_import);
             (importable_modifiers, linear_import)
         };
 
@@ -504,11 +524,9 @@ impl Properties2 {
                 instance.raw_instance(),
             )));
         }
-        // Physical device queries follow the version of both the instance and the device.
-        let device_api_version = unsafe {
-            instance.raw_instance().get_physical_device_properties(physical_device).api_version
-        };
-        if instance.instance_api_version().min(device_api_version) >= ash::vk::API_VERSION_1_1 {
+        if unsafe { crate::renderer::dmabuf::api_version(instance, physical_device) }
+            >= ash::vk::API_VERSION_1_1
+        {
             Ok(Self::Core(instance.raw_instance().clone()))
         } else {
             Err(PlatformError::Other(
@@ -641,7 +659,15 @@ fn import_dmabuf_texture(
     Ok((texture, note))
 }
 
-/// Imports linear scanout buffers as `VK_IMAGE_TILING_LINEAR` images.
+#[derive(Clone, Copy, PartialEq)]
+enum ModifierImport {
+    Unavailable,
+    ExceptLinear,
+    IncludingLinear,
+}
+
+/// Imports linear scanout buffers as `VK_IMAGE_TILING_LINEAR` images,
+/// and decides which buffers the modifier import takes instead.
 ///
 /// `VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT` with `DRM_FORMAT_MOD_LINEAR` describes the
 /// same memory, but NXP's Vivante driver ignores that modifier and renders tiled.
@@ -651,7 +677,7 @@ struct LinearImport {
     /// Fails with the reason where the driver can't render to a linear image of the display's
     /// size, or can't import one from a dma-buf.
     tiling: Result<ash::khr::external_memory_fd::Device, String>,
-    by_modifier: bool,
+    modifier_import: ModifierImport,
 }
 
 impl LinearImport {
@@ -662,9 +688,12 @@ impl LinearImport {
         properties2: &Properties2,
         width: u32,
         height: u32,
-        by_modifier: bool,
+        modifier_import: ModifierImport,
     ) -> Self {
-        Self { tiling: unsafe { Self::probe(hal_device, properties2, width, height) }, by_modifier }
+        Self {
+            tiling: unsafe { Self::probe(hal_device, properties2, width, height) },
+            modifier_import,
+        }
     }
 
     /// Why the `VK_IMAGE_TILING_LINEAR` import doesn't work, where it doesn't.
@@ -674,7 +703,7 @@ impl LinearImport {
 
     /// Whether Vulkan can render into a linear scanout buffer at all.
     fn is_possible(&self) -> bool {
-        self.tiling.is_ok() || self.by_modifier
+        self.tiling.is_ok() || self.modifier_import == ModifierImport::IncludingLinear
     }
 
     /// # Safety
@@ -687,10 +716,29 @@ impl LinearImport {
     ) -> Result<ash::khr::external_memory_fd::Device, String> {
         use ash::vk;
 
+        let enabled = hal_device.enabled_device_extensions();
+        if let Some(missing) = crate::renderer::dmabuf::LINEAR_DMABUF_IMPORT
+            .iter()
+            .find(|extension| !enabled.contains(extension))
+        {
+            return Err(format!(
+                "the Vulkan device doesn't have {} enabled",
+                missing.to_string_lossy()
+            ));
+        }
+
         // Safety: `properties2` comes from `hal_device`'s instance, see `# Safety`, and the
         // queries and the function loading have no side effects.
         unsafe {
             let physical_device = hal_device.raw_physical_device();
+
+            // The import uses external memory and dedicated allocations, both core in Vulkan 1.1.
+            // wgpu enables neither `VK_KHR_external_memory` nor `VK_KHR_dedicated_allocation`.
+            if crate::renderer::dmabuf::api_version(hal_device.shared_instance(), physical_device)
+                < vk::API_VERSION_1_1
+            {
+                return Err("the import needs Vulkan 1.1".into());
+            }
 
             let mut properties = vk::FormatProperties2::default();
             properties2.format(physical_device, VK_FORMAT, &mut properties);
@@ -759,7 +807,14 @@ impl LinearImport {
         hal_descriptor: &wgpu::hal::TextureDescriptor,
     ) -> Result<(Option<wgpu::hal::vulkan::Texture>, Option<String>), PlatformError> {
         if modifier != gbm::Modifier::Linear {
-            return Ok((None, None));
+            return if self.modifier_import != ModifierImport::Unavailable {
+                Ok((None, None))
+            } else {
+                Err(PlatformError::Other(format!(
+                    "The scanout buffer has the DRM format modifier {modifier:?}, and Vulkan \
+                     imports linear buffers only"
+                )))
+            };
         }
         let imported = match &self.tiling {
             Ok(external_memory_fd) => unsafe {
@@ -769,7 +824,7 @@ impl LinearImport {
         };
         match imported {
             Ok(texture) => Ok((Some(texture), None)),
-            Err(reason) if self.by_modifier => Ok((
+            Err(reason) if self.modifier_import == ModifierImport::IncludingLinear => Ok((
                 None,
                 Some(format!(
                     "Importing linear scanout buffers by their DRM format modifier, which some \

@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Row 0's init runs during the ListView's layout pass and requests a scroll.
+// The C++ repeater used to drop that request when the layout pass ended.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    out property <bool> requested;
+
+    listview := ListView {
+        width: 300px;
+        height: 300px;
+        for i in 20: Rectangle {
+            height: 100px;
+            init => {
+                if i == 0 && !root.requested {
+                    root.requested = true;
+                    listview.ensure-row-visible(10, ScrollBehavior.instant);
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_requested());
+assert_eq!(instance.get_content_y(), -(11. * 100. - instance.get_visible_height()));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_requested());
+assert_eq(instance.get_content_y(), -(11. * 100. - instance.get_visible_height()));
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.requested);
+assert.equal(instance.content_y, -(11 * 100 - instance.visible_height));
+```
+*/

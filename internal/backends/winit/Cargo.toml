@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore adwaita arboard webbrowser zbus
+# cSpell: ignore adwaita arboard smithay webbrowser zbus
 [package]
 name = "i-slint-backend-winit"
 description = "Winit backend for Slint"
@@ -40,7 +40,7 @@ wayland = [
   "glutin?/wayland",
   "glutin-winit?/wayland",
   "dep:arboard",
-  "arboard/wayland-data-control",
+  "dep:smithay-clipboard",
   "i-slint-renderer-skia?/wayland",
   "softbuffer?/wayland",
   "softbuffer?/wayland-dlopen",
@@ -128,8 +128,8 @@ wasm-bindgen = { version = "0.2" }
 glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-accesskit = { version = "0.24", optional = true }
-accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
+accesskit = { version = "0.25", optional = true }
+accesskit_winit = { version = "0.34", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
@@ -137,9 +137,10 @@ i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
-# Clipboard, activated by the x11/wayland features. X11 support is built-in;
-# Wayland support (data-control protocol) comes with "arboard/wayland-data-control".
+# Clipboard, activated by the x11/wayland features: arboard for X11, smithay-clipboard on the
+# winit Wayland connection, so it works without the privileged data-control protocol.
 arboard = { version = "3.6", default-features = false, optional = true }
+smithay-clipboard = { version = "0.7", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # To disable macOS automatic shortcut translation

@@ -1799,10 +1799,10 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
-                style,
                 enable_experimental_features: experimental,
                 ..Default::default()
             },
+            style,
             ..Default::default()
         },
     }
@@ -2151,6 +2151,17 @@ pub mod tests {
         assert_eq!(diag.len(), 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");
         assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn test_load_document_redundant_binding() {
+        let (_, url, diag) = loaded_document_cache(
+            r#"export component Main inherits Rectangle { visible: true; }"#.into(),
+        );
+
+        let diagnostics = diag.get(&url).expect("URL not found in result");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::INFORMATION));
     }
 
     #[test]

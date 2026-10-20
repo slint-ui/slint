@@ -1,0 +1,148 @@
+================================================================================
+match_negative_number
+================================================================================
+
+component Test {
+    match n {
+        -1: Rectangle { }
+        -1.5px: Rectangle { }
+        *: Rectangle { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (unary_expression
+              (unary_prec_operator)
+              (expression
+                (value
+                  (int_value)))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (unary_expression
+              (unary_prec_operator)
+              (expression
+                (value
+                  (length_value)))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block)))))))
+
+================================================================================
+match_string
+================================================================================
+
+component Test {
+    match s {
+        "a": Text { }
+        "b": { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (value
+              (string_value)))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (value
+              (string_value))))))))
+
+================================================================================
+match_enum
+================================================================================
+
+component Test {
+    match mode {
+        Mode.foo: Rectangle { }
+        bar: Rectangle { }
+        *: { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (member_access
+              (expression
+                (simple_identifier))
+              (expression
+                (simple_identifier))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (simple_identifier))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case)))))
+
+================================================================================
+match_comments
+================================================================================
+
+component Test {
+    match n {
+        // first
+        0: Rectangle { }
+        /* wildcard */
+        *: Rectangle { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (line_comment)
+        (match_case
+          (expression
+            (value
+              (int_value)))
+          (component
+            (user_type_identifier)
+            (block)))
+        (block_comment)
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block)))))))

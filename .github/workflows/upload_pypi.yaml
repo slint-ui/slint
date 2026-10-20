@@ -140,7 +140,7 @@ jobs:
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.3.0
+              uses: pypa/cibuildwheel@v4.3.1
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -199,7 +199,7 @@ jobs:
               run: |
                   sudo timeout 600 apt-get update
                   sudo timeout 600 apt-get install -y \
-                    libxkbcommon-x11-0 libxkbcommon0 libgbm1 libinput10 \
+                    libxkbcommon-x11-0 libxkbcommon0 \
                     libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
               with:

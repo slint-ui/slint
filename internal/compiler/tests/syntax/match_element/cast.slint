@@ -103,3 +103,14 @@ export component FractionalCaseOnInt {
         *: Rectangle { }
     }
 }
+
+export component GradientCaseOnBrush {
+    in property <brush> fill: #123;
+
+    match fill {
+        #123: Rectangle { }
+        @linear-gradient(90deg, red, blue): Rectangle { }
+//      >                                <error{Cases must be literal values}
+        *: Rectangle { }
+    }
+}

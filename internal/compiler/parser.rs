@@ -273,6 +273,12 @@ macro_rules! declare_syntax {
                     }
                 }
 
+                impl From<$nodekind> for NodeOrToken {
+                    fn from(node: $nodekind) -> Self {
+                        NodeOrToken::Node(node.0)
+                    }
+                }
+
                 impl From<SyntaxNode> for $nodekind {
                     #[track_caller]
                     fn from(node: SyntaxNode) -> Self {
@@ -1063,6 +1069,15 @@ impl Spanned for Option<NodeOrToken> {
     }
     fn source_file(&self) -> Option<&SourceFile> {
         self.as_ref().and_then(|t| t.source_file())
+    }
+}
+
+impl Spanned for Option<&NodeOrToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.and_then(|t| t.source_file())
     }
 }
 

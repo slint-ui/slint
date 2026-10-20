@@ -155,25 +155,19 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            0.,
-            (0., 0.),
-            self.window_adapter()?.window().size(),
-            None,
-        )
-        .map(|_| ())
+        self.internal_render_transformed(0., (0., 0.), self.window_adapter()?.window().size())
+            .map(|_| ())
     }
 
     fn can_draw(&self, window_size: i_slint_core::api::PhysicalSize) -> bool {
         window_size.width > 0 && window_size.height > 0 && self.canvas.borrow().is_some()
     }
 
-    fn internal_render_with_post_callback(
+    fn internal_render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = match self.graphics_backend.begin_surface_rendering()? {
             BeginRendering::Acquired(s) => s,
@@ -314,10 +308,6 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
                 post_render(&mut item_renderer);
 
-                if let Some(cb) = post_render_cb.as_ref() {
-                    cb(&mut item_renderer)
-                }
-
                 if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
                     let metrics = item_renderer.metrics();
                     collector.measure_frame_rendered(&mut item_renderer, metrics);
@@ -456,12 +446,11 @@ impl<B: GraphicsBackend> Drop for FemtoVGRenderer<B> {
 pub trait FemtoVGRendererExt {
     fn new_suspended() -> Self;
     fn clear_graphics_context(&self) -> Result<(), i_slint_core::platform::PlatformError>;
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
@@ -534,19 +523,13 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            rotation_angle_degrees,
-            translation,
-            surface_size,
-            post_render_cb,
-        )
+        self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
     }
 }
 

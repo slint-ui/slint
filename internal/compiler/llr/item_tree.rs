@@ -27,7 +27,7 @@ pub struct PublicComponentIdx(usize);
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RepeatedElementIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TimerIdx(usize);
@@ -171,7 +171,7 @@ pub struct GlobalComponent {
     /// True if this component is imported from an external library
     pub from_library: bool,
     /// Analysis for each properties
-    pub prop_analysis: TiVec<PropertyIdx, crate::object_tree::PropertyAnalysis>,
+    pub prop_analysis: TiVec<PropertyIdx, crate::property_analysis::PropertyAnalysis>,
 }
 
 impl GlobalComponent {
@@ -196,6 +196,8 @@ pub enum LocalMemberIndex {
     /// Only valid as the argument of a `RestartTimer` builtin function call.
     #[from]
     Timer(TimerIdx),
+    #[from]
+    Repeater(RepeatedElementIdx),
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
@@ -568,13 +570,14 @@ pub struct SubComponent {
     /// (cross-axis) orientation only, so the main-axis cache stays independent
     /// of it. The cross-axis layout-info pass shares that accessor and so also
     /// evaluates it, unlike static cells (`box_layout_info_ortho` ignores it).
-    pub cross_axis_self_alignment_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
+    pub cross_axis_self_alignment_for_repeated:
+        Option<(crate::expression_types::Orientation, MutExpression)>,
     /// The root's `layout-order` for a repeated element in a box layout,
     /// returned by the generated `layout_item_info` for the given (main-axis)
     /// orientation only, so the cross-axis cache stays independent of it. The
     /// main-axis layout-info pass shares that accessor and so also evaluates
     /// it, unlike static cells (`box_layout_info` ignores the field).
-    pub layout_order_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
+    pub layout_order_for_repeated: Option<(crate::expression_types::Orientation, MutExpression)>,
     /// Vertical `LayoutInfo` for a repeated element, computed with a width
     /// constraint (its preferred width) so a height-for-width instance in a
     /// column FlexboxLayout doesn't read `self.width` and recurse through the
@@ -647,7 +650,7 @@ pub struct Timer {
 pub struct PropAnalysis {
     /// Index in SubComponent::property_init for this property
     pub property_init: Option<usize>,
-    pub analysis: crate::object_tree::PropertyAnalysis,
+    pub analysis: crate::property_analysis::PropertyAnalysis,
 }
 
 impl SubComponent {

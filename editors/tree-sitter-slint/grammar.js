@@ -427,9 +427,7 @@ module.exports = grammar({
 
     match_case: ($) =>
       seq(
-        field("case", choice($._basic_value,
-          $.user_type_identifier,
-          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        field("case", $.expression),
         ":",
         choice($.component, seq("{", "}"))
       ),
@@ -757,7 +755,11 @@ module.exports = grammar({
             "arguments",
             seq(
               field("type", $.radial_gradient_kind),
-              optional(field("radius", $.length_value)),
+              // One radius for a circle, two for an ellipse.
+              optional(seq(
+                field("radius", $.expression),
+                optional(field("radius", $.expression)),
+              )),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
@@ -776,7 +778,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("from", field("from_angle", $.angle_value))),
+              optional(seq("from", field("from_angle", $.expression))),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
@@ -974,7 +976,7 @@ module.exports = grammar({
       choice("@linear-gradient", "@linear_gradient"),
     radial_gradient_identifier: (_) =>
       choice("@radial-gradient", "@radial_gradient"),
-    radial_gradient_kind: (_) => "circle", // currently only one
+    radial_gradient_kind: (_) => choice("circle", "ellipse"),
     conic_gradient_identifier: (_) =>
       choice("@conic-gradient", "@conic_gradient"),
 

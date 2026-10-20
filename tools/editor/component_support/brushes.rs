@@ -238,7 +238,8 @@ pub fn create_brush(
     }
 }
 
-pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
+/// Returns `None` for a brush the fill editor can't represent, such as an elliptical gradient.
+pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
     let mut fill = ui::FillData::default();
     let stops: Vec<_> = match brush {
         slint::Brush::SolidColor(color) => {
@@ -251,12 +252,16 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
             g.stops().copied().collect()
         }
         slint::Brush::RadialGradient(g) => {
+            if !g.is_circle() {
+                return None;
+            }
             fill.kind = ui::BrushKind::Radial;
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
-            fill.radius = g.radius_or_default(0., 0.);
-            fill.custom_radius = fill.radius == g.radius_or_default(2., 2.);
+            let radius = g.explicit_radii().map(|(r, _)| r);
+            fill.custom_radius = radius.is_some();
+            fill.radius = radius.unwrap_or_default();
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -275,7 +280,7 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
             .collect::<Vec<_>>(),
     ))
     .into();
-    fill
+    Some(fill)
 }
 
 pub fn fill_brush(fill: ui::FillData) -> slint::Brush {

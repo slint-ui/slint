@@ -134,6 +134,7 @@ path = [
   "internal/core-macros/link-data.json",
   "internal/**.md",
   "package.json",
+  "ai-plugins/mcp/slint-preview/package.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
@@ -245,6 +246,7 @@ path = [
 
   "ai-plugins/*.json",
   "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.codex-plugin/*.json",
   "ai-plugins/.cursor-plugin/*.json",
   "ai-plugins/**/*.md",
 ]
@@ -258,6 +260,7 @@ path = [
   "api/**.hbs",
   "api/**/**.json",
   "api/node/__test__/resources/**.png",
+  "api/node/__test__/resources/**.svg",
   "CMakePresets.json",
 
   "editors/**.md",
@@ -270,7 +273,9 @@ path = [
 
   "internal/compiler/tests/syntax/slint-sc/image_2x2.png",
   "internal/compiler/tests/syntax/slint-sc/image.svg",
+  "internal/core/graphics/image/testdata/**",
 
+  "docs/astro/src/content/docs/reference/elements/animation.gif",
   "docs/astro/src/content/docs/reference/language/images/logo.png",
 
   "tests/screenshots/**/**.png",

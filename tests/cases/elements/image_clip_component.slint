@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Instances of a component share the item type of its elements.
+// One instance using an alignment or tiling property makes the image of every
+// instance clip, and each still shows its whole source by default.
+
+//include_path: ../../../demos/printerdemo/ui/images/
+
+component Icon inherits Image {}
+component BigIcon inherits Icon {}
+component LeftIcon inherits BigIcon { horizontal-alignment: left; }
+component OtherIcon inherits Image {}
+component OtherBigIcon inherits OtherIcon {}
+
+component Framed inherits Rectangle {
+    in property <ImageHorizontalAlignment> alignment <=> img.horizontal-alignment;
+    in property <image> source <=> img.source;
+    out property <length> image-width: img.width;
+    out property <length> image-height: img.height;
+    img := Image { }
+}
+
+component StateIcon inherits Image {
+    in property <bool> aligned;
+    states [
+        aligned when aligned: { horizontal-alignment: left; }
+    ]
+}
+
+component ReadIcon inherits Image {}
+component CroppedIcon inherits Image { source-clip-width: 10; }
+component TileIcon inherits Image {}
+
+component Row inherits Rectangle {
+    Icon {
+        source: @image-url("cat.jpg");
+        horizontal-tiling: repeat;
+    }
+}
+
+export component TestCase inherits Rectangle {
+    icon := Icon {
+        source: @image-url("cat.jpg");
+    }
+    Icon {
+        source: @image-url("cat.jpg");
+        horizontal-alignment: left;
+    }
+    // The default clip follows the source of each instance.
+    small-icon := Icon {
+        source: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
+    }
+    clipped-icon := Icon {
+        source: @image-url("cat.jpg");
+        source-clip-x: 20;
+    }
+    Row { }
+
+    big-icon := BigIcon {
+        source: @image-url("cat.jpg");
+    }
+    left-icon := LeftIcon {
+        source: @image-url("cat.jpg");
+    }
+    other-icon := OtherIcon {
+        source: @image-url("cat.jpg");
+    }
+    OtherBigIcon {
+        source: @image-url("cat.jpg");
+        vertical-alignment: top;
+    }
+
+    framed := Framed {
+        source: @image-url("cat.jpg");
+    }
+    Framed {
+        source: @image-url("cat.jpg");
+        alignment: left;
+    }
+
+    state-icon := StateIcon {
+        source: @image-url("cat.jpg");
+    }
+    StateIcon {
+        source: @image-url("cat.jpg");
+        aligned: true;
+    }
+
+    read-icon := ReadIcon {
+        source: @image-url("cat.jpg");
+    }
+
+    // A clip the component sets, or that only a state sets, is kept.
+    cropped-icon := CroppedIcon {
+        source: @image-url("cat.jpg");
+    }
+    state-cropped-icon := Icon {
+        source: @image-url("cat.jpg");
+        states [
+            cropped when false: { source-clip-width: 10; }
+        ]
+    }
+
+    tile-icon := TileIcon {
+        source: @image-url("cat.jpg");
+    }
+    for tiling in [ImageTiling.repeat, ImageTiling.none]: TileIcon {
+        source: @image-url("cat.jpg");
+        horizontal-tiling: tiling;
+    }
+
+    out property <bool> test: icon.width == 320px && icon.height == 480px
+        && small-icon.width == 1px && small-icon.height == 1px
+        && clipped-icon.width == 300px && clipped-icon.height == 480px
+        && big-icon.width == 320px && big-icon.height == 480px
+        && left-icon.width == 320px && left-icon.height == 480px
+        && other-icon.width == 320px && other-icon.height == 480px
+        && framed.image-width == 320px && framed.image-height == 480px
+        && state-icon.width == 320px && state-icon.height == 480px
+        && read-icon.horizontal-alignment == ImageHorizontalAlignment.center && read-icon.width == 320px && read-icon.height == 480px
+        && cropped-icon.width == 10px && state-cropped-icon.width == 320px
+        && tile-icon.width == 320px && tile-icon.height == 480px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

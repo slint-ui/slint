@@ -53,7 +53,8 @@
 //! leave the docs of the native items out of the element's.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
-//! that exists only at compile time and `@sc` one of the Slint SC subset. A default value is a
+//! that exists only at compile time and `@sc` one of the Slint SC subset.
+//! A default value of `computed` gives `BuiltinPropertyDefault::Computed`. Any other default value is a
 //! literal (`true`, `4`, `8px`, `500ms`, `"text"`, `#00f`) or an enum value
 //! (`ImageFit.contain`); the compiler sets it as the property's binding.
 //!
@@ -94,19 +95,22 @@ fn join_docs(lines: &[&str]) -> Option<String> {
 }
 
 /// The default value as written after the property: a literal (`true`, `4`, `8px`, `"text"`,
-/// `#00f`) or an enum value (`ImageFit.contain`). A number on an `int` property is cast, as the
-/// compiler does for a binding.
-fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
+/// `#00f`), an enum value (`ImageFit.contain`), or `computed`. A number on an `int` property is
+/// cast, as the compiler does for a binding.
+fn default(ty: &Type, text: &str) -> BuiltinPropertyDefault {
     if text.is_empty() {
-        return None;
+        return BuiltinPropertyDefault::None;
+    }
+    if text == "computed" {
+        return BuiltinPropertyDefault::Computed;
     }
     if text.starts_with('"') {
-        return Some(ConstantExpression::StringLiteral(
+        return BuiltinPropertyDefault::Expr(ConstantExpression::StringLiteral(
             crate::literals::unescape_string(text).unwrap(),
         ));
     }
     let text = text.replace(' ', "");
-    Some(match text.as_str() {
+    BuiltinPropertyDefault::Expr(match text.as_str() {
         "true" => ConstantExpression::BoolLiteral(true),
         "false" => ConstantExpression::BoolLiteral(false),
         color if color.starts_with('#') => {
@@ -278,7 +282,7 @@ impl Builder {
         name: &str,
         ty: Type,
         vis: PropertyVisibility,
-        default: Option<ConstantExpression>,
+        default: BuiltinPropertyDefault,
         alias: Option<&str>,
         mods: &[&str],
         docs: &[&str],
@@ -303,20 +307,20 @@ impl Builder {
         } else {
             vis
         };
-        if let Some(default) = default {
+        if let BuiltinPropertyDefault::Expr(default) = &default {
             assert!(
                 !mods.contains(&"shadowable"),
                 "shadowable property {}::{name} can't have a default value as it would end up on the shadowing declaration",
                 self.class.class_name
             );
             debug_assert_eq!(
-                Expression::from_constant(&default).ty(),
+                Expression::from_constant(default).ty(),
                 info.ty,
                 "the default value of {}::{name} has the wrong type",
                 self.class.class_name
             );
-            info.default_value = BuiltinPropertyDefault::Expr(default);
         }
+        info.default_value = default;
         self.add(name, info, mods, docs);
     }
 
@@ -625,13 +629,13 @@ fn build(l: &mut Loader) {
     item! { BorderRectangle: BasicBorderRectangle {
         //! To target specific corners with different values use the following properties:
         ///
-        in property <length> border-top-left-radius;
+        in property <length> border-top-left-radius: computed;
         ///
-        in property <length> border-top-right-radius;
+        in property <length> border-top-right-radius: computed;
         ///
-        in property <length> border-bottom-left-radius;
+        in property <length> border-bottom-left-radius: computed;
         ///
-        in property <length> border-bottom-right-radius;
+        in property <length> border-bottom-right-radius: computed;
         //! ## Drop Shadows
         //!
         //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
@@ -809,8 +813,8 @@ fn build(l: &mut Loader) {
     }
 
     item! { ImageItem: Empty {
-        in property <length> width;
-        in property <length> height;
+        in property <length> width: computed;
+        in property <length> height: computed;
         /// When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
         /// ```slint imageAlt="image example" width="300" height="200"
         /// Image {
@@ -868,7 +872,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \default `contain` when the `Image` element is part of a layout, `fill` otherwise
-        in property <ImageFit> image-fit;
+        in property <ImageFit> image-fit: computed;
         /// ```slint imageAlt="image smooth example" width="300" height="300"
         /// Image {
         ///     width: 800px;
@@ -951,13 +955,13 @@ fn build(l: &mut Loader) {
         // in property <ImageTiling> tiling;
         //! ## Source Clip
         ///
-        in property <int> source-clip-x;
+        in property <int> source-clip-x: computed;
         ///
-        in property <int> source-clip-y;
+        in property <int> source-clip-y: computed;
         /// \default source.width - source-clip-x
-        in property <int> source-clip-width;
+        in property <int> source-clip-width: computed;
         /// \default source.height - source-clip-y
-        in property <int> source-clip-height;
+        in property <int> source-clip-height: computed;
         //! Properties in source image coordinates that define the region of the source image that is rendered.
         //! By default the entire source image is visible:
     } }
@@ -984,6 +988,21 @@ fn build(l: &mut Loader) {
         ///
         /// \footer
         /// <NotInSC>
+        /// ## Animated Images
+        ///
+        /// The `Image` element plays animated GIF, PNG, and WebP images.
+        /// The animation repeats as many times as the image file specifies, then stays on its last frame.
+        ///
+        /// In Rust, enable the `image-default-formats` feature of the `slint` crate for GIF and WebP.
+        /// Images that the compiler embeds for the software renderer show only their first frame.
+        /// In Rust, web builds show only the first frame.
+        ///
+        /// ```slint
+        /// Image {
+        ///     source: @image-url("animation.gif");
+        /// }
+        /// ```
+        ///
         /// ## Accessibility
         ///
         /// ### Alternative text
@@ -1021,8 +1040,8 @@ fn build(l: &mut Loader) {
         in property <component-factory> component-factory;
         out property <bool> has-component;
 
-        in-out property <length> width;
-        in-out property <length> height;
+        in-out property <length> width: computed;
+        in-out property <length> height: computed;
     } }
 
     element! {
@@ -1043,8 +1062,8 @@ fn build(l: &mut Loader) {
     }
 
     item! { SimpleText: Empty {
-        in property <length> width;
-        in property <length> height;
+        in property <length> width: computed;
+        in property <length> height: computed;
         /// The color of the text.
         ///
         /// ```slint "color: #3586f4;" imageAlt="text color" width="200" height="200" needsBackground
@@ -1055,7 +1074,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \default <depends on theme>
-        in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+        in property <brush> color: computed;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
         /// The font size of the text.
         ///
         /// ```slint "font-size: 70pt;" imageAlt="text font-size" width="200" height="200" needsBackground
@@ -1242,11 +1261,11 @@ fn build(l: &mut Loader) {
     }
 
     item! { StyledTextItem: Empty {
-        in property <length> width;
-        in property <length> height;
+        in property <length> width: computed;
+        in property <length> height: computed;
         /// The default color of the text, used when no color is specified via markup.
         /// \default <depends on theme>
-        in property <brush> default-color;
+        in property <brush> default-color: computed;
         /// The default font family used to render the text, when no font is specified via markup. If left empty, the value falls back to the enclosing `Window`'s `default-font-family`.
         in property <string> default-font-family;
         /// The default font size used to render the text, when no size is specified via markup. If unset (or zero), the value falls back to the enclosing `Window`'s `default-font-size`.
@@ -1403,8 +1422,6 @@ fn build(l: &mut Loader) {
         ///     width: 200px;
         ///     height: 100px;
         ///     area := TouchArea {
-        ///         width: parent.width;
-        ///         height: parent.height;
         ///         clicked => {
         ///             rect2.background = #ff0;
         ///         }
@@ -1558,9 +1575,9 @@ fn build(l: &mut Loader) {
         /// Panning with a touch screen is only affected by `interactive`.
         in property <bool> mouse-drag-pan-enabled: true;
         /// The total width of the scrollable content.
-        @shadowable in property <length> content-width;
+        @shadowable in property <length> content-width: computed;
         /// The total height of the scrollable content.
-        @shadowable in property <length> content-height;
+        @shadowable in property <length> content-height: computed;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
         @shadowable in-out property <length> content-x;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
@@ -1575,7 +1592,7 @@ fn build(l: &mut Loader) {
         /// For example, `scroll-to({ x: 0px, y: 100px }, ScrollBehavior.instant)` sets `content-y` to `-100px`.
         /// A `pos` outside the scrollable range is clamped to it.
         /// Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate.
-        function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
+        @shadowable function scroll-to(pos: Point, behavior: ScrollBehavior) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
@@ -2154,14 +2171,14 @@ fn build(l: &mut Loader) {
         /// The application gives the window its size when it creates the component, so this is a value the file reads,
         /// and binding it is an error. \{#sls.ref.window.width-out}
         /// </OnlyInSC>
-        @sc in-out property <length> width;
+        @sc in-out property <length> width: computed;
         /// The height of the window. \{#sls.ref.window.height}
         ///
         /// <OnlyInSC>
         /// The application gives the window its size when it creates the component, so this is a value the file reads,
         /// and binding it is an error. \{#sls.ref.window.height-out}
         /// </OnlyInSC>
-        @sc in-out property <length> height;
+        @sc in-out property <length> height: computed;
         /// Whether the window should be placed above all other windows on window managers supporting it.
         /// \default false
         in property <bool> always-on-top;
@@ -2180,10 +2197,10 @@ fn build(l: &mut Loader) {
         /// underneath the window for a translucent background to blend with. \{#sls.ref.window.opaque}
         /// </OnlyInSC>
         /// \default depends on the style
-        @sc in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
+        @sc in property <brush> background: computed; // StyleMetrics.background  set in apply_default_properties_from_style
         @deprecated in property <brush> color <=> background;
         /// The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
-        in property <string> default-font-family;
+        in property <string> default-font-family: computed;
         /// The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
         /// \default 0
         in property <length> default-font-size;
@@ -2210,7 +2227,8 @@ fn build(l: &mut Loader) {
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
         out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
-        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// This invokes the close request handler that the application set on the window,
+        /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
         @shadowable function close() -> bool { BuiltinFunction.WindowClose }
@@ -2337,11 +2355,11 @@ fn build(l: &mut Loader) {
         in property <int> font-weight;
         /// The color of the text.
         /// \default depends on the style
-        in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+        in property <brush> color: computed; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
         /// The foreground color of the selection.
-        in property <color> selection-foreground-color; // StyleMetrics.selection-foreground set in apply_default_properties_from_style
+        in property <color> selection-foreground-color: computed; // StyleMetrics.selection-foreground set in apply_default_properties_from_style
         /// The background color of the selection.
-        in property <color> selection-background-color; // StyleMetrics.selection-background set in apply_default_properties_from_style
+        in property <color> selection-background-color: computed; // StyleMetrics.selection-background set in apply_default_properties_from_style
         /// The horizontal alignment of the text.
         in property <TextHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the text.
@@ -2360,13 +2378,13 @@ fn build(l: &mut Loader) {
         /// not the font size, and keyword or length values aren't supported.
         /// \default 1
         in property <float> line-height-factor: 1;
-        in property <length> width;
-        in property <length> height;
+        in property <length> width: computed;
+        in property <length> height: computed;
         /// The height of the page used to compute how much to scroll when the user presses page up or page down.
         in property <length> page-height;
         /// The width of the text cursor.
         /// \default provided at run-time by the selected widget style
-        in property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
+        in property <length> text-cursor-width: computed; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
         ///  Use this to configure `TextInput` for editing special input, such as password fields.
         /// \default text
         in property <InputType> input-type;
@@ -2746,7 +2764,7 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            in property <CrossAxisAlignment> cross-axis-alignment;
+            in property <CrossAxisAlignment> cross-axis-alignment: computed;
         }
     }
 
@@ -2837,7 +2855,7 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            in property <CrossAxisAlignment> cross-axis-alignment;
+            in property <CrossAxisAlignment> cross-axis-alignment: computed;
         }
     }
 
@@ -3018,7 +3036,7 @@ fn build(l: &mut Loader) {
             in property <LayoutAlignment> cross-axis-line-alignment;
             /// Set the alignment of individual items along the cross axis within each flex line.
             /// CSS Flexbox calls this "align-items". The default value is `stretch`.
-            in property <CrossAxisAlignment> cross-axis-alignment;
+            in property <CrossAxisAlignment> cross-axis-alignment: computed;
             /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
             /// The default value is `wrap`, unlike CSS where it is `nowrap`.
             in property <FlexboxLayoutWrap> flex-wrap;
@@ -3145,9 +3163,9 @@ fn build(l: &mut Loader) {
         /// An odd number of entries is repeated to make the list even.
         /// An empty list draws the outline solid.
         /// \default []
-        @fake in property <[length]> stroke-dash-array;
+        @shadowable @fake in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
-        in property <length> stroke-dash-offset;
+        @shadowable in property <length> stroke-dash-offset;
         //! ### width
         //! <SlintProperty propName="width" typeName="length">
         //! If non-zero, the path will be scaled to fit into the specified width.
@@ -3223,8 +3241,11 @@ fn build(l: &mut Loader) {
         //!
         //! ### Commands
         //! <SlintProperty propName="commands" typeName="string">
-        //! A string providing the commands according to the SVG path specification.
-        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! A string with the commands in the SVG path syntax.
+        //!
+        //! :::note[Note]
+        //! This property is special: you can set it with any expression, but other expressions can't read it.
+        //! :::
         //! </SlintProperty>
         //!
         //! ## Path Using SVG Path Elements
@@ -3329,7 +3350,7 @@ fn build(l: &mut Loader) {
         RadioGroup {
             in property <string> title;
             in property <bool> enabled: true;
-            in property <Orientation> orientation;
+            in property <Orientation> orientation: computed;
             out property <string> current-value;
             out property <bool> has-focus;
             callback selected(value: string);
@@ -3346,12 +3367,11 @@ fn build(l: &mut Loader) {
         ///     height: 100px;
         ///
         ///     popup := PopupWindow {
-        ///         Rectangle { height:100%; width: 100%; background: yellow; }
+        ///         Rectangle { background: yellow; }
         ///         x: 20px; y: 20px; height: 50px; width: 50px;
         ///     }
         ///
         ///     TouchArea {
-        ///         height:100%; width: 100%;
         ///         clicked => { popup.show(); }
         ///     }
         /// }
@@ -3366,8 +3386,8 @@ fn build(l: &mut Loader) {
         PopupWindow {
             //property <length> x;
             //property <length> y;
-            in property <length> width;
-            in property <length> height;
+            in property <length> width: computed;
+            in property <length> height: computed;
             /*property <length> anchor_x;
             in property <length> anchor-y;
             in property <length> anchor-height;
@@ -3570,7 +3590,7 @@ fn build(l: &mut Loader) {
         ///     }
         /// }
         /// ```
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @can_be_declared_without_children_slot
         Timer {
             /// The interval between timer ticks. This property is mandatory.
             /// ```slint "interval: 250ms;"
@@ -3583,7 +3603,7 @@ fn build(l: &mut Loader) {
             ///     }
             /// }
             /// ```
-            in property <duration> interval;
+            in property <duration> interval: computed;
             /// `true` if the timer is running.
             /// ```slint "running: false; // timer is not running"
             /// Timer {
@@ -3975,8 +3995,8 @@ fn build(l: &mut Loader) {
     }
 
     item! { NativeTabWidget {
-        in property <length> width;
-        in property <length> height;
+        in property <length> width: computed;
+        in property <length> height: computed;
 
         out property <length> content-x;
         out property <length> content-y;
@@ -4132,9 +4152,9 @@ fn build(l: &mut Loader) {
         /// :::
         ///
         /// :::note{Note}
-        /// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
-        /// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
-        /// use `if` / `for` to build its entries dynamically.
+        /// A `SystemTrayIcon` can contain one <Link type="Menu" /> child, and that `Menu` must not
+        /// be inside a `for`. The menu itself may use `if` / `for` to build its entries dynamically.
+        /// <Link type="Timer" /> children are also allowed.
         /// :::
         ///
         /// \skip_children

@@ -38,7 +38,6 @@ component CitySlideArea inherits Rectangle {
         width: 100%;
 
         content-width: slide-layout.preferred-width;
-        content-x: 0;
 
         property<length> last-content-x: 0px;
         flicked => {
@@ -203,8 +202,6 @@ export component CityListView inherits PageBase {
         block-width: root.selected-tile.size.width;
         block-height: root.selected-tile.size.height;
 
-        full-x: 0px;
-        full-y: 0px;
         full-width: parent.width;
         full-height: parent.height;
 

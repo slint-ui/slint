@@ -37,7 +37,6 @@ component TableViewColumn inherits Rectangle {
             colorize: CupertinoPalette.foreground;
             visible: root.sort-order != SortOrder.unsorted;
             width: 8px;
-            y: (parent.height - self.height) / 2;
             source: root.sort-order == SortOrder.ascending ? Icons.chevron-down : Icons.chevron-up;
             accessible-role: none;
 
@@ -144,13 +143,13 @@ export component StandardTableView {
     @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
-    in property <bool> mouse-drag-pan-enabled <=> scroll-view.mouse-drag-pan-enabled;
+    @shadowable in property <bool> mouse-drag-pan-enabled <=> scroll-view.mouse-drag-pan-enabled;
 
     callback sort-ascending(column: int);
     callback sort-descending(column: int);
     callback row-pointer-event(row: int, event: PointerEvent, position: Point);
     callback current-row-changed(current-row: int);
-    callback scrolled <=> scroll-view.scrolled;
+    @shadowable callback scrolled <=> scroll-view.scrolled;
 
     public function set-current-row(index: int) {
         if (index < 0 || index >= rows.length) {

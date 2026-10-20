@@ -124,8 +124,9 @@ impl PlatformContext {
     }
 }
 
+/// Keeps the event loop running after the last window is closed, until it's dropped.
 #[must_use]
-pub(crate) struct KeepAlive(PinWeak<PlatformContext>);
+pub struct KeepAlive(PinWeak<PlatformContext>);
 
 impl Drop for KeepAlive {
     fn drop(&mut self) {
@@ -442,7 +443,7 @@ impl SlintContext {
         core::mem::replace(&mut *slot, handler)
     }
 
-    pub(crate) fn keep_alive(&self) -> KeepAlive {
+    pub fn keep_alive(&self) -> KeepAlive {
         self.platform_context().acquire_keepalive();
         KeepAlive(PinWeak::downgrade(self.0.platform_context.clone()))
     }

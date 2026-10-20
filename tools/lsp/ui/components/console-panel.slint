@@ -296,7 +296,6 @@ export component ConsolePanel inherits SimpleColumn {
         }
 
         scroll-timer := Timer {
-            running: true;
             interval: 1ms;
             triggered => {
                 lv.content-y = -100000px;

@@ -101,6 +101,7 @@ impl PyDiagnostic {
         match self.0.level() {
             slint_interpreter::DiagnosticLevel::Error => PyDiagnosticLevel::Error,
             slint_interpreter::DiagnosticLevel::Warning => PyDiagnosticLevel::Warning,
+            slint_interpreter::DiagnosticLevel::Info => PyDiagnosticLevel::Info,
             slint_interpreter::DiagnosticLevel::Note => PyDiagnosticLevel::Note,
             _ => unimplemented!(),
         }
@@ -123,7 +124,7 @@ impl PyDiagnostic {
 
     #[getter]
     fn source_file(&self) -> Option<PathBuf> {
-        self.0.source_path().map(PathBuf::from)
+        self.0.source_file().map(PathBuf::from).or_else(|| self.0.source_url().map(PathBuf::from))
     }
 
     fn __str__(&self) -> String {
@@ -136,6 +137,7 @@ impl PyDiagnostic {
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
+    Info,
     Note,
 }
 

@@ -3,13 +3,18 @@
 
 import { expect, test } from "vitest";
 import { buttonFamily } from "./button-family";
-import { mountPreview, readFixture, canvasPixels } from "./browser-harness";
+import {
+    mountCanvasPreview,
+    readFixture,
+    type CanvasPixels,
+    expectCanvasPixels,
+} from "./browser-harness";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import type { SourceCapture } from "../src/plugin/source";
 
 test("local 144-variant family preserves pixels in both emission modes", async () => {
-    let referencePixels: Awaited<ReturnType<typeof canvasPixels>> | undefined;
+    let referencePixels: CanvasPixels | undefined;
     for (const specialize of [false, true]) {
         const capture = buttonFamily(
             JSON.parse(
@@ -21,7 +26,7 @@ test("local 144-variant family preserves pixels in both emission modes", async (
             throw Error("Invalid button family");
         const converted = convertSnapshot(normalized.snapshot, { specialize });
         if (!converted.ok) throw Error(JSON.stringify(converted.diagnostics));
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -29,17 +34,20 @@ test("local 144-variant family preserves pixels in both emission modes", async (
             exportPackage: { source: converted.source, files: [] },
         });
         await p.ready(1);
-        const pixels = await canvasPixels(p);
-        expect(pixels.data.some((value, i) => i % 4 === 2 && value < 240)).toBe(
-            true,
-        );
-        if (referencePixels) {
-            expect(pixels.width).toBe(referencePixels.width);
-            expect(pixels.height).toBe(referencePixels.height);
-            let differences = 0;
-            for (let i = 0; i < pixels.data.length; i++)
-                if (pixels.data[i] !== referencePixels.data[i]) differences++;
-            expect(differences).toBe(0);
-        } else referencePixels = pixels;
+        const pixels = await expectCanvasPixels(p, (pixels) => {
+            expect(
+                pixels.data.some((value, i) => i % 4 === 2 && value < 240),
+            ).toBe(true);
+            if (referencePixels) {
+                expect(pixels.width).toBe(referencePixels.width);
+                expect(pixels.height).toBe(referencePixels.height);
+                let differences = 0;
+                for (let i = 0; i < pixels.data.length; i++)
+                    if (pixels.data[i] !== referencePixels.data[i])
+                        differences++;
+                expect(differences).toBe(0);
+            }
+        });
+        referencePixels ??= pixels;
     }
 }, 120000);

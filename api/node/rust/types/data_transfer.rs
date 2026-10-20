@@ -222,7 +222,7 @@ impl SlintDataTransfer {
         {
             let mut anchors = js.extra_anchors.borrow_mut();
             anchors.retain(|a| a.owner.seq.upgrade().is_some());
-            if anchors.iter().any(|a| std::rc::Weak::ptr_eq(&a.owner.seq, &owner.seq)) {
+            if anchors.iter().any(|a| a.owner.is_same(owner)) {
                 return Ok(());
             }
         }

@@ -4,7 +4,7 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
@@ -18,16 +18,17 @@ import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { ElementVisuals } from "components/element-presentation.slint";
 import { GradientOverlay } from "components/gradient-overlay.slint";
+import { ShadowOverlay } from "components/shadow-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
-import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, ShadowGesture, ShadowValues, InspectorShadowPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, Hover, Preview, Project, Springboard,
+    Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -172,7 +173,13 @@ export component EditorUi inherits Window {
             FillSession.close-picker(false, false);
         }
     }
+    private property <bool> editor-focus-requested;
+    public function focus-editor() { root.editor-focus-requested = true; }
     private property <bool> palette-drag-in-outline: false;
+    private property <Size> palette-text-drag-size: {
+        width: palette-text-metrics.width,
+        height: palette-text-metrics.height,
+    };
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -184,9 +191,13 @@ export component EditorUi inherits Window {
     init => {
         EditorWindow.width = root.width;
         EditorWindow.height = root.height;
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
     }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
+    changed palette-text-drag-size => {
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
+    }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
@@ -245,7 +256,20 @@ export component EditorUi inherits Window {
     function apply-history(redo: bool) {
         if !Diagnostics.preview-editable { return; }
         CanvasView.nudging = false;
+        ShadowSession.cancel();
         FillSession.apply-history(redo);
+    }
+
+    palette-text-metrics := Text {
+        x: -10000px;
+        opacity: 0;
+        accessible-role: none;
+        text: @tr("Text");
+        font-family: Api.preview-default-font-family;
+        font-size: Api.preview-default-font-size * 1px;
+        font-weight: Api.preview-default-font-weight;
+        width: self.preferred-width;
+        height: self.preferred-height;
     }
 
     function toggle-maximized() {
@@ -361,7 +385,24 @@ export component EditorUi inherits Window {
 
     VerticalLayout {
         if !Api.startup-wizard-visible: editor := FocusScope {
+            private property <bool> shadow-open: ShadowSession.open;
+            changed shadow-open => { if !self.shadow-open { self.focus(); } }
+            private property <bool> editor-focus-requested: root.editor-focus-requested;
+            changed editor-focus-requested => {
+                if self.editor-focus-requested {
+                    root.editor-focus-requested = false;
+                    self.focus();
+                }
+            }
             property <bool> shift-pressed: false;
+            private property <bool> window-active: Api.window-active();
+            changed window-active => {
+                if !self.window-active { self.shift-pressed = false; }
+            }
+            private property <int> fill-focus-generation: FillSession.focus-generation;
+            changed fill-focus-generation => {
+                if FillSession.request.target.canvas { self.focus(); }
+            }
             property <bool> nudge-key-held;
             property <bool> nudge-write-pending;
             property <Point> nudge-origin;
@@ -567,6 +608,7 @@ export component EditorUi inherits Window {
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
+                                palette-scale: CanvasView.zoom;
                                 show-outline: false;
                                 visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
@@ -700,6 +742,42 @@ export component EditorUi inherits Window {
             }
 
             DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
+
+            shadow-layer := TouchArea {
+                visible: ShadowSession.open;
+                enabled: ShadowSession.open;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down { ShadowSession.close(); }
+                }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll(event, { x: x, y: y });
+                    }
+                    return reject;
+                }
+                Rectangle {
+                    visible: ShadowSession.canvas-visible;
+                    x: canvas-viewport.absolute-position.x - shadow-layer.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - shadow-layer.absolute-position.y;
+                    width: canvas-viewport.width;
+                    height: canvas-viewport.height;
+                    clip: true;
+                    ShadowOverlay {
+                        show-guides: editor.shift-pressed;
+                        viewport: { x: -self.x, y: -self.y, width: parent.width, height: parent.height };
+                        x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                        y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                        width: FillSession.canvas-size.width;
+                        height: FillSession.canvas-size.height;
+                    }
+                }
+                InspectorShadowPicker {
+                    parent-origin: shadow-layer.absolute-position;
+                    history-requested(redo) => { root.apply-history(redo); }
+                }
+            }
 
             fill-layer := TouchArea {
                 visible: FillSession.open;

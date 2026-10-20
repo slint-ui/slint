@@ -6,12 +6,12 @@
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
 use i_slint_core::DataTransfer;
-use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
+use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, ImageCacheKey, IntRect, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
+    Brush, Color, ImageCacheKey, IntSize, Point, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer,
     euclid,
 };
 use i_slint_core::input::{
@@ -739,13 +739,15 @@ fn into_qbrush(
             }}
         }
         i_slint_core::Brush::RadialGradient(g) => {
+            // QRadialGradient is circle-only, so scale a unit circle into the ellipse.
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
             let (cx, cy) = g.center_or_default(width as f32, height as f32);
             let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
-            let radius = g.radius_or_default(width as f32, height as f32) as qttypes::qreal;
+            let (rx, ry) = g.radii_or_default(width as f32, height as f32);
+            let (rx, ry) = (rx as qttypes::qreal, ry as qttypes::qreal);
             let mut qrg = cpp! {
-                unsafe [cx as "qreal", cy as "qreal", radius as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(cx, cy, radius);
+                unsafe [] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(QPointF(0, 0), 1.0);
                     return qrg;
                 }
             };
@@ -757,9 +759,16 @@ fn into_qbrush(
                     qrg.setColorAt(pos, QColor::fromRgba(color));
                 }};
             }
-            cpp! {unsafe [qrg as "QRadialGradient"] -> qttypes::QBrush as "QBrush" {
-                return QBrush(qrg);
-            }}
+            cpp! {
+                unsafe [qrg as "QRadialGradient", cx as "qreal", cy as "qreal", rx as "qreal", ry as "qreal"] -> qttypes::QBrush as "QBrush" {
+                    QBrush b(qrg);
+                    QTransform t;
+                    t.translate(cx, cy);
+                    t.scale(rx, ry);
+                    b.setTransform(t);
+                    return b;
+                }
+            }
         }
         i_slint_core::Brush::ConicGradient(g) => {
             cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
@@ -1726,6 +1735,22 @@ pub(crate) fn qimage_to_shared_pixel_buffer(
 }
 
 impl QtItemRenderer<'_> {
+    /// How much the painter's transform magnifies in the direction where it magnifies the most,
+    /// see [`i_slint_core::graphics::transform_max_scale`].
+    fn painter_max_scale(&mut self) -> f32 {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        let mut m = [0f32; 4];
+        let m_ptr = m.as_mut_ptr();
+        cpp!(unsafe [painter as "QPainterPtr*", m_ptr as "float*"] {
+            const QTransform t = (*painter)->transform();
+            m_ptr[0] = t.m11();
+            m_ptr[1] = t.m12();
+            m_ptr[2] = t.m21();
+            m_ptr[3] = t.m22();
+        });
+        i_slint_core::graphics::transform_max_scale(m[0], m[1], m[2], m[3])
+    }
+
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
@@ -1740,66 +1765,88 @@ impl QtItemRenderer<'_> {
                 || rect.size.height != source_size.height
         });
 
-        let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
-            let source = image.source();
-            let origin = source.size();
-            let source: &ImageInner = (&source).into();
+        let scale_factor = self.scale_factor();
+        // Only an SVG is rasterized for the transform and the Qt ratio, so only then are they read.
+        let is_svg = <&ImageInner>::from(&image.source()).is_svg() && source_rect.is_none();
+        let (transform_scale, qt_ratio) = if is_svg {
+            let transform_scale = self.painter_max_scale();
+            // In order to render at the actual size, we need the Qt ratio from the window
+            let painter: &mut QPainterPtr = &mut self.painter;
+            let device_pixel_ratio = cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
+                return (*painter)->device()->devicePixelRatioF();
+            }};
+            (transform_scale, device_pixel_ratio / scale_factor.get())
+        } else {
+            (1., 1.)
+        };
 
-            let source_size = if source.is_svg() {
-                if source_rect.is_some() {
-                    // Source size & clipping is not implemented yet
-                    None
-                } else {
-                    let scale_factor = self.scale_factor();
-                    let actual_target_size = i_slint_core::graphics::fit(
+        let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || {
+                let source = image.source();
+                let origin = source.size();
+                let source: &ImageInner = (&source).into();
+
+                // Source size & clipping is not implemented yet for SVGs, so they draw unsized.
+                let source_size = if is_svg {
+                    i_slint_core::graphics::transformed_scalable_render_size(
+                        origin,
                         image.image_fit(),
                         // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-                        (image.target_size() * scale_factor).cast(),
-                        IntRect::from_size(origin.cast()),
+                        image.target_size(),
                         scale_factor,
-                        Default::default(), // We only care about the size, so alignments don't matter
                         image.tiling(),
+                        transform_scale,
                     )
-                    .size;
+                    .map(|size| (size.cast::<f32>() * qt_ratio).cast::<u32>())
+                } else {
+                    None
+                };
 
-                    // In order to render at the actual size, we need the Qt ratio from the window
-                    let painter: &mut QPainterPtr = &mut self.painter;
-                    let qt_ratio = cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
-                        return (*painter)->device()->devicePixelRatioF();
-                    }} / scale_factor.get();
-
-                    Some((actual_target_size * qt_ratio).cast())
-                }
-            } else {
-                None
-            };
-
-            image_to_pixmap(source, source_size).map_or_else(
-                Default::default,
-                |mut pixmap: qttypes::QPixmap| {
-                    let colorize = image.colorize();
-                    if !colorize.is_transparent() {
-                        let pixmap_size = pixmap.size();
-                        let brush: qttypes::QBrush = into_qbrush(
-                            colorize,
-                            pixmap_size.width.into(),
-                            pixmap_size.height.into(),
-                        );
-                        cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
-                            QPainter p(&pixmap);
-                            p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-                            p.fillRect(QRect(QPoint(), pixmap.size()), brush);
-                        });
-                    }
-                    pixmap
-                },
-            )
-        });
+                image_to_pixmap(source, source_size).map_or_else(
+                    Default::default,
+                    |mut pixmap: qttypes::QPixmap| {
+                        let colorize = image.colorize();
+                        if !colorize.is_transparent() {
+                            let pixmap_size = pixmap.size();
+                            let brush: qttypes::QBrush = into_qbrush(
+                                colorize,
+                                pixmap_size.width.into(),
+                                pixmap_size.height.into(),
+                            );
+                            cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
+                                QPainter p(&pixmap);
+                                p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                                p.fillRect(QRect(QPoint(), pixmap.size()), brush);
+                            });
+                        }
+                        pixmap
+                    },
+                )
+            },
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            // The pixmap holds `qt_ratio` pixels per rendered pixel.
+            |pixmap| {
+                let size = pixmap.size();
+                is_svg
+                    && i_slint_core::graphics::svg_needs_rasterizing_again(
+                        IntSize::new(
+                            (size.width as f32 / qt_ratio).ceil() as u32,
+                            (size.height as f32 / qt_ratio).ceil() as u32,
+                        ),
+                        &image.source(),
+                        image.image_fit(),
+                        image.target_size(),
+                        scale_factor,
+                        image.tiling(),
+                        transform_scale,
+                    )
+            },
+        );
 
         let image_size = pixmap.size();
         let source_rect = source_rect
             .unwrap_or_else(|| euclid::rect(0, 0, image_size.width as _, image_size.height as _));
-        let scale_factor = self.scale_factor();
 
         let fit = if let ImageInner::NineSlice(nine) = <&ImageInner>::from(&image.source()) {
             i_slint_core::graphics::fit9slice(
@@ -2716,7 +2763,7 @@ impl WindowAdapterInternal for QtWindow {
         Some(child_window as _)
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         let widget_ptr = self.widget_ptr();
         match cursor {
             MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
@@ -2778,6 +2825,7 @@ impl WindowAdapterInternal for QtWindow {
             }
             _ => {}
         }
+        MouseCursorHandling::Platform
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {

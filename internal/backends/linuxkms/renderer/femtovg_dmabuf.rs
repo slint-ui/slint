@@ -11,7 +11,6 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::RequestedGraphicsAPI;
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_femtovg::{FemtoVGWGPURenderer, FemtoVGWGPURendererExt};
@@ -65,7 +64,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGDmabufRendere
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         // `Skipped` would ask for the next frame right away, which would draw nothing either.
         if !self.renderer.can_draw()? {
@@ -83,7 +81,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGDmabufRendere
                     texture,
                     rotation.degrees(),
                     rotation.translation_after_rotation(self.size),
-                    Some(draw_mouse_cursor_callback),
                 )
             })
             .and_then(|()| self.barriers.release(index, texture, false).map(drop));

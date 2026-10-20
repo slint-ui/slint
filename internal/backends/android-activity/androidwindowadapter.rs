@@ -251,6 +251,7 @@ impl AndroidWindowAdapter {
                         false,
                     )?;
                     self.resize()?;
+                    self.request_redraw();
 
                     // Fixes a problem for old Android versions: the soft input always prompt out on startup.
                     #[cfg(feature = "native-activity")]
@@ -258,6 +259,12 @@ impl AndroidWindowAdapter {
                         .show_or_hide_soft_input(false)
                         .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
+            }
+            PollEvent::Main(MainEvent::LowMemory) => self.renderer.free_gpu_resources(),
+            PollEvent::Main(MainEvent::TerminateWindow { .. }) => {
+                // The window, and with it the context that a rendering notifier's resources belong
+                // to, is only valid until this callback returns.
+                self.renderer.suspend()?;
             }
             PollEvent::Main(
                 MainEvent::WindowResized { .. } | MainEvent::ContentRectChanged { .. },
@@ -595,11 +602,10 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            let _ = self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },
-                None,
             )?;
         }
         Ok(())
@@ -676,14 +682,10 @@ fn long_press_timeout() {
             if !geometry.contains(i_slint_core::lengths::logical_point_from_api(current.position)) {
                 return;
             };
-            let (cursor, anchor) = text_input.selection_anchor_and_cursor();
-            if cursor == anchor {
-                let text = text_input.text();
-                if text.len() > cursor && text.as_bytes()[cursor] != b'\n' {
-                    let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
-                    text_input.select_word(&adaptor, &focus_item);
-                }
-            }
+            text_input.select_word_on_long_press(
+                &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                &focus_item,
+            );
             adaptor
                 .java_helper
                 .show_action_menu()

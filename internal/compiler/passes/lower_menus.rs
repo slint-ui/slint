@@ -678,6 +678,15 @@ fn lower_menu_items(
                     );
                 }
 
+                if matches!(&element.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+                {
+                    diag.push_error(
+                        "Timer cannot be in a menu, move it outside of the menu".into(),
+                        &*element.borrow(),
+                    );
+                    return false;
+                }
+
                 if element.borrow().base_type.type_name() == Some("MenuSeparator") {
                     element.borrow_mut().set_binding(
                         "title".into(),

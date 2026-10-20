@@ -558,9 +558,8 @@ public:
     LogicalPosition absolute_position() const
     {
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            return private_api::call_builtin(
-                    cbindgen_private::slint_builtin_item_absolute_position,
-                    cbindgen_private::BuiltinItemArg { nullptr, &item->item_tree, item->index });
+            return private_api::call_builtin(cbindgen_private::slint_builtin_item_absolute_position,
+                                             *item);
         }
         return LogicalPosition({ 0, 0 });
     }

@@ -104,6 +104,7 @@ impl MatchSubjectDomain {
             | Type::Float32
             | Type::String
             | Type::Color
+            | Type::Brush
             | Type::Duration
             | Type::PhysicalLength
             | Type::LogicalLength

@@ -17,7 +17,7 @@ from ui_assertions import expect
 from ui_reporting import capture_failure, current_report, replay_stage
 
 
-def screenshot(window: slint_testing.Window) -> Image.Image:
+def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Image:
     previous = b""
 
     def settled() -> Image.Image | None:
@@ -25,6 +25,8 @@ def screenshot(window: slint_testing.Window) -> Image.Image:
         image = Image.open(
             BytesIO(window.grab_window_with_mime_type("image/bmp"))
         ).convert("RGB")
+        if not settle:
+            return image
         data = image.tobytes()
         stable = data == previous
         previous = data

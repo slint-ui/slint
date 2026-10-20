@@ -1472,7 +1472,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
-                ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                ("radial-gradient(..)", "radial-gradient(${1|circle,ellipse|}, $2)"),
                 ("conic-gradient(..)", "conic-gradient($1)"),
             ]
             .into_iter()
@@ -2826,11 +2826,11 @@ mod tests {
     }
 
     #[test]
-    fn project_entry_import_graph_supplies_completion_suggestions() {
+    fn project_main_import_graph_supplies_completion_suggestions() {
         let directory = tempfile::TempDir::new().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{ "entry": "entry.slint" }"#,
+            r#"{ "main": "entry.slint" }"#,
         )
         .unwrap();
         std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();

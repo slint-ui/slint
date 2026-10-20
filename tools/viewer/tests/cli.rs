@@ -253,6 +253,32 @@ fn check_syntax_error_exits_one() {
 }
 
 #[test]
+fn check_library_file_without_component_exits_zero() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_reports_errors_in_every_exported_component() {
+    let f = write_slint(
+        "export component First { width: self.height; height: self.width; }\n\
+         export component Last { }\n",
+    );
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("binding loop"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_missing_named_component_exits_one() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) =
+        run(&["--check", "--component", "Missing", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+}
+
+#[test]
 fn check_conflicts_with_auto_reload() {
     let f = write_slint("export component Ok { }\n");
     let (code, _stdout, stderr) = run(&["--check", "--auto-reload", f.path().to_str().unwrap()]);
@@ -272,6 +298,70 @@ fn check_conflicts_with_screenshot() {
         run(&["--check", "--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(stderr.contains("--check") && stderr.contains("--screenshot"), "stderr was:\n{stderr}");
+}
+
+// --- Project file -------------------------------------------------------
+
+fn project_with_shared_component(project_file: &str) -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir(tmp.path().join("shared")).unwrap();
+    std::fs::write(
+        tmp.path().join("shared/shared.slint"),
+        "export component Shared inherits Rectangle {}\n",
+    )
+    .unwrap();
+    std::fs::write(tmp.path().join("slint-project.json"), project_file).unwrap();
+    tmp
+}
+
+#[test]
+fn project_file_include_paths_are_used() {
+    let project = project_with_shared_component(r#"{ "include-paths": ["shared"] }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(
+        &main,
+        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+    )
+    .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", main.to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn project_file_library_paths_are_used() {
+    let project =
+        project_with_shared_component(r#"{ "library-paths": { "lib": "shared/shared.slint" } }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+        .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", main.to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn an_empty_include_path_wins_over_the_project_file() {
+    let project = project_with_shared_component(r#"{ "include-paths": ["shared"] }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(
+        &main,
+        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+    )
+    .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-I", "", main.to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn an_empty_library_path_wins_over_the_project_file() {
+    let project =
+        project_with_shared_component(r#"{ "library-paths": { "lib": "shared/shared.slint" } }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+        .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-L", "", main.to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
 }
 
 // --- Screenshot rendering ----------------------------------------------

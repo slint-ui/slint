@@ -24,7 +24,7 @@
     },
     "devDependencies": {
         "@astrojs/check": "catalog:",
-        "@astrojs/markdown-remark": "7.3.2",
+        "@astrojs/markdown-remark": "7.3.3",
         "@biomejs/biome": "catalog:",
         "@playwright/test": "catalog:",
         "@types/node": "catalog:",

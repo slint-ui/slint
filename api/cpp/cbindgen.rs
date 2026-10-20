@@ -333,7 +333,7 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     )?;
     writeln!(
         out,
-        "namespace slint::cbindgen_private {{ struct BuiltinItemArg; struct FontMetrics; extern \"C\" {{"
+        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; extern \"C\" {{"
     )?;
     macro_rules! print_builtin_functions {
         ($(
@@ -348,17 +348,9 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
         (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
             let params = vec![
                 format!("{} *", rust_type_to_cpp(stringify!($Ret))),
-                $(format!("const {} *", cpp_param_type!($ty $(=> $as)?))),*
+                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
             ];
             writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
-        };
-    }
-    macro_rules! cpp_param_type {
-        ($item:ident => ElementReference) => {
-            "BuiltinItemArg"
-        };
-        ($ty:tt $(=> $as:tt)?) => {
-            rust_type_to_cpp(stringify!($ty))
         };
     }
     i_slint_common::for_each_builtin_function!(print_builtin_functions);
@@ -373,6 +365,8 @@ fn rust_type_to_cpp(rust_type: &str) -> &str {
         "f32" | "Coord" => "float",
         "f64" => "double",
         "RgbaColorU8" => "RgbaColor<uint8_t>",
+        // An `ItemArg<Item>` in Rust
+        "ItemArg" => "ItemRc",
         "()" => "void",
         other => other,
     }
@@ -521,7 +515,6 @@ fn gen_corelib(
         "ItemTreeVTable",
         "Slice",
         "WindowAdapterRcOpaque",
-        "BuiltinItemArg",
         "PropertyAnimation",
         "AnimationDirection",
         "EasingCurve",
@@ -568,7 +561,6 @@ fn gen_corelib(
         "StandardListViewItem",
         "Rgb8Pixel",
         "Rgba8Pixel",
-        "Gray8Pixel",
     ];
 
     config.export.exclude = [
@@ -739,7 +731,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -758,7 +750,8 @@ fn gen_corelib(
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
                  "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "slint_brush_compare_equal", "RADIAL_GRADIENT_DEFAULT_RADIUS",
+                 "RADIAL_GRADIENT_SHAPE_CIRCLE", "RADIAL_GRADIENT_SHAPE_ELLIPSE"],
             "slint_brush_internal.h",
             "",
         ),
@@ -883,9 +876,13 @@ fn gen_corelib(
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
+            "Gray8Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
+            "RADIAL_GRADIENT_DEFAULT_RADIUS",
+            "RADIAL_GRADIENT_SHAPE_CIRCLE",
+            "RADIAL_GRADIENT_SHAPE_ELLIPSE",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
@@ -953,11 +950,6 @@ fn gen_corelib(
     public_config.export.body.insert(
         "Rgba8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
-            .into(),
-    );
-    public_config.export.body.insert(
-        "Gray8Pixel".to_owned(),
-        "/// \\private\nfriend bool operator==(const Gray8Pixel&, const Gray8Pixel&) = default;"
             .into(),
     );
 

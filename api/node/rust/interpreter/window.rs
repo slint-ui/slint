@@ -1,9 +1,49 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::JsAnchorOwner;
 use crate::types::{JsWindowEvent, JsWindowEventDispatchResult, SlintPoint, SlintSize};
 use i_slint_core::{platform::WindowEvent, window::WindowAdapterRc};
-use slint_interpreter::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use napi::Env;
+use napi::bindgen_prelude::*;
+use slint_interpreter::{
+    CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
+};
+
+/// The value that the callback of {@link Window.onCloseRequested} returns.
+#[napi(js_name = "CloseRequestResponse")]
+pub enum JsCloseRequestResponse {
+    /// The window is hidden.
+    HideWindow,
+    /// The window stays shown.
+    KeepWindowShown,
+}
+
+impl From<JsCloseRequestResponse> for CloseRequestResponse {
+    fn from(value: JsCloseRequestResponse) -> Self {
+        match value {
+            JsCloseRequestResponse::HideWindow => CloseRequestResponse::HideWindow,
+            JsCloseRequestResponse::KeepWindowShown => CloseRequestResponse::KeepWindowShown,
+        }
+    }
+}
+
+const CLOSE_REQUESTED_KEY: &str = "__slint_close_requested";
+type CloseRequestedCallback<'a> = Function<'a, (), Option<JsCloseRequestResponse>>;
+
+fn invoke_close_requested(owner: &JsAnchorOwner, env: Env) -> Option<CloseRequestResponse> {
+    let callback = owner
+        .object(env)?
+        .get_named_property::<CloseRequestedCallback>(CLOSE_REQUESTED_KEY)
+        .ok()?;
+    match callback.call(()) {
+        Ok(response) => response.map(Into::into),
+        Err(err) => {
+            crate::console_err!(env, "Node.js: Invoking onCloseRequested failed: {err}");
+            None
+        }
+    }
+}
 
 /// This type represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
@@ -11,12 +51,8 @@ use slint_interpreter::{LogicalPosition, LogicalSize, PhysicalPosition, Physical
 #[napi(js_name = "Window")]
 pub struct JsWindow {
     pub(crate) inner: WindowAdapterRc,
-}
-
-impl From<WindowAdapterRc> for JsWindow {
-    fn from(instance: WindowAdapterRc) -> Self {
-        Self { inner: instance }
-    }
+    /// The component instance that holds the callbacks set on this window.
+    pub(crate) owner: JsAnchorOwner,
 }
 
 #[napi]
@@ -138,6 +174,25 @@ impl JsWindow {
             .dispatch_event_with_result(event)
             .map_err(|_| napi::Error::from_reason("Cannot dispatch event".to_string()))?
             .into())
+    }
+
+    /// Sets the callback that's invoked when the user tries to close the window.
+    #[napi(js_name = "onCloseRequested")]
+    pub fn on_close_requested(
+        &self,
+        env: &Env,
+        #[napi(ts_arg_type = "() => CloseRequestResponse")] callback: CloseRequestedCallback,
+    ) -> napi::Result<()> {
+        let Some(mut owner_obj) = self.owner.object(*env) else {
+            return Err(napi::Error::from_reason("The component of the window was deleted"));
+        };
+        crate::set_hidden_property(&mut owner_obj, CLOSE_REQUESTED_KEY, &callback)?;
+        let owner = self.owner.clone();
+        let env = *env;
+        self.inner.window().on_close_requested(move || {
+            invoke_close_requested(&owner, env).unwrap_or(CloseRequestResponse::HideWindow)
+        });
+        Ok(())
     }
 
     /// Returns if the window is currently fullscreen

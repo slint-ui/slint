@@ -320,7 +320,7 @@ def _load_file(
 
     A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
     settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `entry` is loaded.
+    `path` can also be a `slint-project.json`, whose `main` is loaded.
 
     """
 
@@ -343,6 +343,8 @@ def _load_file(
             for diag in diagnostics:
                 if diag.level == native.DiagnosticLevel.Warning:
                     _logger.warning(diag)
+                if diag.level == native.DiagnosticLevel.Info:
+                    _logger.info(diag)
                 if diag.level == native.DiagnosticLevel.Note:
                     _logger.debug(diag)
 
@@ -398,7 +400,7 @@ def load_file(
 
     A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
     settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `entry` is loaded.
+    `path` can also be a `slint-project.json`, whose `main` is loaded.
 
     """
 

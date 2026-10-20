@@ -68,6 +68,10 @@ pub struct LookupCtx<'a> {
     /// LSP probe: while resolving, the `Type` is set to the `expected_type` at the innermost
     /// node containing the offset. `None` during normal compilation.
     pub expected_type_probe: Option<(TextSize, Type)>,
+
+    /// Whether the value of the expression being resolved is discarded,
+    /// such as a statement that isn't the last of a code block.
+    pub value_discarded: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -90,6 +94,7 @@ impl<'a> LookupCtx<'a> {
             current_token: None,
             local_variables: Default::default(),
             expected_type_probe: None,
+            value_discarded: false,
         }
     }
 
@@ -747,6 +752,22 @@ impl LookupObject for TypeSpecificLookup {
             Type::Enumeration(enumeration) => enumeration.clone().lookup(ctx, name),
             _ => None,
         }
+    }
+}
+
+impl TypeSpecificLookup {
+    /// The qualified form of `name`, such as `MouseCursor.text`, if `name` is a value of the
+    /// expected type, or `None` otherwise.
+    pub fn qualified_name(ctx: &LookupCtx, name: &SmolStr) -> Option<SmolStr> {
+        let namespace: &dyn std::fmt::Display = match &ctx.expected_type {
+            Type::Color | Type::Brush => &BuiltinNamespace::Colors,
+            Type::Easing => &BuiltinNamespace::Easing,
+            Type::MouseCursor => &BuiltinNamespace::MouseCursor,
+            Type::Enumeration(enumeration) => &enumeration.name,
+            _ => return None,
+        };
+        Self.lookup(ctx, name)?;
+        Some(format_smolstr!("{namespace}.{name}"))
     }
 }
 

@@ -23,10 +23,7 @@ export component Button {
     forward-focus: native;
 
     HorizontalLayout {
-        native := NativeButton {
-            checkable: false;
-            enabled: true;
-        }
+        native := NativeButton { }
     }
 }
 
@@ -54,7 +51,6 @@ export component StandardButton {
             }
             is-standard-button: true;
             accessible-enabled: root.enabled;
-            checkable: false;
         }
     }
 }

@@ -1,0 +1,251 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+    in-out property <int> clicked-index: -1;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000: Rectangle {
+            height: (i.mod(10) * 50 + 10) * 1px;
+            background: i.mod(2) == 0 ? blue : red;
+
+            TouchArea {
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+
+const FRAME_MS: u64 = 16;
+const MAX_SCROLL_DURATION_MS: u64 = 3000;
+const PROBE_INSET: f32 = 2.;
+const OUTSIDE_LISTVIEW: LogicalPosition = LogicalPosition::new(300., 620.);
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let viewport = instance.get_visible_height();
+let row_height = |row: i32| ((row % 10) * 50 + 10) as f32;
+
+let advance_frame_and_layout = || {
+    slint_testing::mock_elapsed_time(FRAME_MS);
+    window.dispatch_event(WindowEvent::PointerMoved { position: OUTSIDE_LISTVIEW });
+    instance.get_content_y()
+};
+
+let run_until_settled = || {
+    let mut previous = instance.get_content_y();
+    let mut unchanged_frames = 0;
+    let mut elapsed = 0;
+    while unchanged_frames < 3 {
+        assert!(elapsed <= MAX_SCROLL_DURATION_MS, "scrolling didn't settle within {MAX_SCROLL_DURATION_MS} ms");
+        let y = advance_frame_and_layout();
+        unchanged_frames = if y == previous { unchanged_frames + 1 } else { 0 };
+        previous = y;
+        elapsed += FRAME_MS;
+    }
+};
+
+let row_at = |y: f32| {
+    instance.set_clicked_index(-1);
+    let position = LogicalPosition::new(300., y);
+    window.dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    window.dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    instance.get_clicked_index()
+};
+
+let assert_top_aligned = |row: i32| {
+    assert_eq!(row_at(PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+    assert_eq!(row_at(row_height(row) - PROBE_INSET), row, "row {row} must start at the viewport's top edge");
+};
+
+let assert_bottom_aligned = |row: i32| {
+    assert_eq!(row_at(viewport - PROBE_INSET), row, "row {row} must end at the viewport's bottom edge");
+    assert_eq!(
+        row_at(viewport - row_height(row) + PROBE_INSET),
+        row,
+        "row {row} must end at the viewport's bottom edge"
+    );
+};
+
+let scroll_to = |row: i32| {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    run_until_settled();
+};
+
+assert_top_aligned(0);
+
+// Close below the viewport.
+scroll_to(5);
+assert_bottom_aligned(5);
+
+// Far below the viewport.
+scroll_to(905);
+assert_bottom_aligned(905);
+
+// The last row.
+scroll_to(999);
+assert_bottom_aligned(999);
+
+// Far above the viewport.
+scroll_to(13);
+assert_top_aligned(13);
+
+// Close above the viewport.
+scroll_to(11);
+assert_top_aligned(11);
+
+// Far below again, from a position reached by scrolling up.
+scroll_to(507);
+assert_bottom_aligned(507);
+```
+
+```cpp
+using slint::PointerEventButton;
+using slint::language::ScrollBehavior;
+
+constexpr uint64_t frame_ms = 16;
+constexpr uint64_t max_scroll_duration_ms = 3000;
+constexpr float probe_inset = 2.;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+const float viewport = instance.get_visible_height();
+auto row_height = [](int row) { return float((row % 10) * 50 + 10); };
+
+auto run_until_settled = [&] {
+    float previous = instance.get_content_y();
+    int unchanged_frames = 0;
+    uint64_t elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= max_scroll_duration_ms);
+        slint_testing::mock_elapsed_time(frame_ms);
+        instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 300., 620. }));
+        const float y = instance.get_content_y();
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += frame_ms;
+    }
+};
+
+auto row_at = [&](float y) {
+    instance.set_clicked_index(-1);
+    slint::LogicalPosition position({ 300., y });
+    instance.window().dispatch_pointer_press_event(position, PointerEventButton::Left);
+    instance.window().dispatch_pointer_release_event(position, PointerEventButton::Left);
+    return instance.get_clicked_index();
+};
+
+auto assert_top_aligned = [&](int row) {
+    assert_eq(row_at(probe_inset), row);
+    assert_eq(row_at(row_height(row) - probe_inset), row);
+};
+
+auto assert_bottom_aligned = [&](int row) {
+    assert_eq(row_at(viewport - probe_inset), row);
+    assert_eq(row_at(viewport - row_height(row) + probe_inset), row);
+};
+
+auto scroll_to = [&](int row) {
+    instance.invoke_ensure_row_visible(row, ScrollBehavior::Smooth);
+    run_until_settled();
+};
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+```
+
+```js
+const FRAME_MS = 16;
+const MAX_SCROLL_DURATION_MS = 3000;
+const PROBE_INSET = 2;
+
+var instance = new slint.TestCase({});
+const viewport = instance.visible_height;
+const row_height = (row) => (row % 10) * 50 + 10;
+
+function run_until_settled() {
+    let previous = instance.content_y;
+    let unchanged_frames = 0;
+    let elapsed = 0;
+    while (unchanged_frames < 3) {
+        assert(elapsed <= MAX_SCROLL_DURATION_MS, `scrolling didn't settle within ${MAX_SCROLL_DURATION_MS} ms`);
+        slintlib.private_api.mock_elapsed_time(FRAME_MS);
+        instance.window.dispatchEvent({ type: "pointer-moved", position: { x: 300, y: 620 } });
+        const y = instance.content_y;
+        unchanged_frames = y == previous ? unchanged_frames + 1 : 0;
+        previous = y;
+        elapsed += FRAME_MS;
+    }
+}
+
+function row_at(y) {
+    instance.clicked_index = -1;
+    slintlib.private_api.send_mouse_click(instance, 300, y);
+    return instance.clicked_index;
+}
+
+function assert_top_aligned(row) {
+    assert.equal(row_at(PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+    assert.equal(row_at(row_height(row) - PROBE_INSET), row, `row ${row} must start at the viewport's top edge`);
+}
+
+function assert_bottom_aligned(row) {
+    assert.equal(row_at(viewport - PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+    assert.equal(row_at(viewport - row_height(row) + PROBE_INSET), row, `row ${row} must end at the viewport's bottom edge`);
+}
+
+function scroll_to(row) {
+    instance.ensure_row_visible(row, "smooth");
+    run_until_settled();
+}
+
+assert_top_aligned(0);
+scroll_to(5);
+assert_bottom_aligned(5);
+scroll_to(905);
+assert_bottom_aligned(905);
+scroll_to(999);
+assert_bottom_aligned(999);
+scroll_to(13);
+assert_top_aligned(13);
+scroll_to(11);
+assert_top_aligned(11);
+scroll_to(507);
+assert_bottom_aligned(507);
+```
+*/

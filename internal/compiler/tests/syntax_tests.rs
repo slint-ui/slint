@@ -23,7 +23,7 @@
 //! should be an additional character to the left, which is useful if the diagnostic starts or ends
 //! in the first or second column, where otherwise the `//` is located.
 //!
-//! Warnings with `> <warning{expected_message}` are also supported.
+//! Warnings, infos, and notes with `> <warning{expected_message}`, `info{…}`, and `note{…}` are also supported.
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
@@ -180,7 +180,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note|info)\{([^\n]*)\}",
     )
     .unwrap();
 
@@ -248,6 +248,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
+            "info" => DiagnosticLevel::Info,
             "note" => DiagnosticLevel::Note,
             _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
@@ -416,6 +417,7 @@ fn update(
             let level = match d.level() {
                 DiagnosticLevel::Error => "error",
                 DiagnosticLevel::Warning => "warning",
+                DiagnosticLevel::Info => "info",
                 DiagnosticLevel::Note => "note",
                 _ => todo!(),
             };

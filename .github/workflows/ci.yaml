@@ -150,8 +150,18 @@ jobs:
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
+                  RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
                   SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
-              run: ./run-tests.sh
+              run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
+
+            - name: Upload UI test failure diagnostics
+              if: failure() && matrix.run_ui_tests
+              uses: actions/upload-artifact@v7
+              with:
+                  name: visual-editor-${{ matrix.os }}-failures
+                  path: ${{ runner.temp }}/visual-editor-ui-tests/**/screenshots/
+                  if-no-files-found: ignore
+                  retention-days: 7
 
             - name: Upload Cargo timing reports
               if: always()
@@ -163,8 +173,9 @@ jobs:
                   retention-days: 7
 
     # For changes to the test cases, do a quick test on Linux for Node.js only.
+    # LinuxKMS changes can add a run-time loaded library to the binary's dependencies.
     node_test_linux:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'linuxkms_backend') }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Linux"
@@ -762,6 +773,18 @@ jobs:
               run: cmake -S . -B build -GNinja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
             - name: Build todo example app bundle
               run: cmake --build build --target todo
+
+    test-ai-plugins:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'ai_plugins') }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - name: Test the MCP servers
+              run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs'
 
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}

@@ -138,6 +138,7 @@ class SlintInputView extends View {
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
     private int mInBatch = 0;
     private boolean mPending = false;
+    private boolean mHasPreedit = false;
     private SlintEditable mEditable;
 
     private InputHandle mCursorHandle;
@@ -169,8 +170,33 @@ class SlintInputView extends View {
             mText = toString();
             mCursorPosition = Selection.getSelectionStart(this);
             mAnchorPosition = Selection.getSelectionEnd(this);
-            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition,
-                    BaseInputConnection.getComposingSpanStart(this), BaseInputConnection.getComposingSpanEnd(this));
+            int composingStart = BaseInputConnection.getComposingSpanStart(this);
+            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
+            mHasPreedit = composingStart != composingEnd;
+            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, composingStart, composingEnd);
+        }
+
+        public void updateSelection() {
+            int cursorPosition = Selection.getSelectionStart(this);
+            int anchorPosition = Selection.getSelectionEnd(this);
+            int composingStart = BaseInputConnection.getComposingSpanStart(this);
+            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
+            boolean hasPreedit = composingStart != composingEnd;
+            if (cursorPosition == mCursorPosition && anchorPosition == mAnchorPosition
+                    && hasPreedit == mHasPreedit) {
+                return;
+            }
+            // finishComposingText() drops the composing span without a replace(), so the preedit
+            // that Slint still shows is only cleared by a full update.
+            if (mHasPreedit || hasPreedit) {
+                update();
+            } else {
+                mCursorPosition = cursorPosition;
+                mAnchorPosition = anchorPosition;
+                SlintAndroidJavaHelper.updateSelection(cursorPosition, anchorPosition);
+            }
+            getContext().getSystemService(InputMethodManager.class).updateSelection(SlintInputView.this,
+                    cursorPosition, anchorPosition, composingStart, composingEnd);
         }
     }
 
@@ -207,10 +233,23 @@ class SlintInputView extends View {
             @Override
             public boolean endBatchEdit() {
                 mInBatch -= 1;
-                if (mInBatch == 0 && mPending) {
-                    mEditable.update();
+                if (mInBatch == 0) {
+                    if (mPending) {
+                        mEditable.update();
+                    } else {
+                        mEditable.updateSelection();
+                    }
                 }
                 return super.endBatchEdit();
+            }
+
+            @Override
+            public boolean setSelection(int start, int end) {
+                boolean result = super.setSelection(start, end);
+                if (mInBatch == 0) {
+                    mEditable.updateSelection();
+                }
+                return result;
             }
         };
     }
@@ -224,6 +263,7 @@ class SlintInputView extends View {
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
+        mHasPreedit = preeditStart != preeditEnd;
         mInputType = inputType;
 
         if (typeChanged) {
@@ -389,13 +429,12 @@ class SlintInputView extends View {
             // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+                // The selection rect is in window coordinates, Android expects it relative to the
+                // view, which sits below the status bar unless the window is edge-to-edge.
+                int[] location = new int[2];
+                view.getLocationInWindow(location);
                 outRect.set(mSelectionRect);
-                if (outRect.top < 0) {
-                    // FIXME: I don't know why this is the case, but without that, the menu doesn't
-                    // show at the right position when there is no room on top.
-                    // Looks like the menu is always shown at outRect.top.
-                    outRect.top = outRect.bottom;
-                }
+                outRect.offset(-location[0], -location[1]);
             }
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
@@ -534,6 +573,8 @@ public class SlintAndroidJavaHelper {
 
     public static native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditEnd);
+
+    public static native void updateSelection(int cursorPosition, int anchorPosition);
 
     public static native void setNightMode(int nightMode);
 

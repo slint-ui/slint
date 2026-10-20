@@ -8,6 +8,8 @@ use i_slint_core::platform::PlatformError;
 
 pub trait SoftwareBufferDisplay {
     fn size(&self) -> (u32, u32);
+    /// Calls the callback with exactly `pitch * height` bytes, including row padding
+    /// but excluding any allocation padding after the last row.
     fn map_back_buffer(
         &self,
         callback: &mut dyn FnMut(

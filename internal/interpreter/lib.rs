@@ -108,6 +108,7 @@ pub use api::*;
 #[doc(hidden)]
 pub use eval::{
     call_runtime_builtin_function, default_value_for_struct_field, default_value_for_type,
+    radial_gradient_brush, radial_gradient_shape_to_string,
 };
 
 #[cfg(test)]

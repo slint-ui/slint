@@ -54,8 +54,10 @@ component ValueDelegate {
                 }
 
                 i-unit := Text {
-                    y: Theme.spaces.small;
-                    vertical-alignment: center;
+                    // Lower than the value next to it, to roughly line up the baselines.
+                    min-height: self.preferred-height + 2 * Theme.spaces.small;
+                    cross-axis-self-alignment: center;
+                    vertical-alignment: bottom;
                     color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.lemon-green;
                     font-size: Theme.typo.label-light.size;
                     font-weight: Theme.typo.label-light.weight;
@@ -82,8 +84,6 @@ export component ValueDisplay {
 
     i-container := Rectangle {
         visible: !transparent-background;
-        width: 100%;
-        height: 100%;
         border-radius: 4px;
         background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.lemon-green-gradient;
     }

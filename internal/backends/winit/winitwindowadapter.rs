@@ -16,7 +16,7 @@ use euclid::approxeq::ApproxEq;
 
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::cursor::{MouseCursorInner, scaled_hotspot};
+use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner, scaled_hotspot};
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
@@ -878,6 +878,12 @@ impl WinitWindowAdapter {
 
         self.pending_redraw.set(false);
 
+        // `Occluded(false)` requests the skipped frame.
+        #[cfg(target_os = "ios")]
+        if crate::ios::is_in_background() {
+            return Ok(());
+        }
+
         #[cfg(target_os = "windows")]
         self.mark_windows_update_region_dirty();
 
@@ -1641,6 +1647,12 @@ impl WinitWindowAdapter {
                     self.draw()?;
                 }
 
+                // UIKit still reports the app as in the background at this point, so `draw()` would skip.
+                #[cfg(target_os = "ios")]
+                if !*occluded {
+                    self.request_redraw();
+                }
+
                 // Same hack as in the Resized arm above, so that we handle Minimized changes
                 self.window_state_event();
             }
@@ -2106,7 +2118,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
+    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
         let winit_cursor = match &cursor {
             MouseCursorInner::BuiltIn(cursor) => Some(match cursor {
                 BuiltInMouseCursor::Default => winit::window::CursorIcon::Default,
@@ -2176,6 +2188,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 winit_window.set_cursor(cursor);
             }
         }
+        MouseCursorHandling::Platform
     }
 
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
