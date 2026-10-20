@@ -1835,6 +1835,9 @@ pub struct TextInputVisualRepresentation {
 /// measuring, hit-testing and drawing agree on the shaped text and can share it.
 pub(crate) const PASSWORD_CHARACTER: char = '\u{25cf}';
 
+/// The characters a single-line `TextInput` shows, and inserts, as spaces.
+const LINE_BREAKS: [char; 2] = ['\r', '\n'];
+
 /// Replaces every character of `text` with [`PASSWORD_CHARACTER`].
 pub(crate) fn mask_password(text: &str) -> SharedString {
     core::iter::repeat_n(PASSWORD_CHARACTER, text.chars().count()).collect()
@@ -2322,8 +2325,8 @@ impl TextInput {
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         let mut inserted_text: SharedString = text_to_insert.into();
-        if text_to_insert.contains('\n') && self.single_line() {
-            inserted_text = text_to_insert.replace('\n', " ").into();
+        if text_to_insert.contains(LINE_BREAKS) && self.single_line() {
+            inserted_text = text_to_insert.replace(LINE_BREAKS, " ").into();
             text.insert_str(cursor_pos, &inserted_text);
         } else {
             text.insert_str(cursor_pos, text_to_insert);
@@ -2504,7 +2507,8 @@ impl TextInput {
 
     /// Returns the `text` property with the IME composition (preedit) inserted at the cursor, and
     /// the byte range that composition occupies within the returned string. The range is empty
-    /// when no composition is in progress, in which case the text is returned unchanged.
+    /// when no composition is in progress.
+    /// In a single-line input, each line break becomes a space, so byte offsets match `text`.
     ///
     /// Password fields are *not* masked here; callers that render or measure the text apply the
     /// substitution themselves, because the masking character is renderer-specific.
@@ -2513,16 +2517,19 @@ impl TextInput {
     /// nor the selection nor the colors, so that callers which only need the string -- sizing above
     /// all -- don't end up making the layout depend on the blinking cursor.
     pub(crate) fn text_with_preedit(self: Pin<&Self>) -> (SharedString, core::ops::Range<usize>) {
-        let text = self.text();
+        let mut text = self.text();
         let preedit_text = self.preedit_text();
-        if preedit_text.is_empty() {
-            return (text, Default::default());
+        let mut composition = 0..0;
+        if !preedit_text.is_empty() {
+            let cursor_position = self.cursor_position(&text);
+            composition = cursor_position..cursor_position + preedit_text.len();
+            text =
+                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
         }
-        let cursor_position = self.cursor_position(&text);
-        (
-            [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into(),
-            cursor_position..cursor_position + preedit_text.len(),
-        )
+        if self.single_line() && text.contains(LINE_BREAKS) {
+            text = text.replace(LINE_BREAKS, " ").into();
+        }
+        (text, composition)
     }
 
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,

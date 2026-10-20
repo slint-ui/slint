@@ -19,7 +19,8 @@ TestCase := Window {
             anchor-position-byte-offset: 7;
         }
         TextInput {
-            text: "Hello";
+            // `single-line` defaults to true, so the new line renders as a space (#7413).
+            text: "Hel\nlo";
             color: #abcd;
             opacity: 0.9;
             font-size: 10px;
