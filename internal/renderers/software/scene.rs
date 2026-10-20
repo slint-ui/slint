@@ -652,10 +652,8 @@ impl PremultipliedGradientStop {
         let mut stops = stops
             .map(|(color, position)| Self {
                 color,
-                position: Fixed(
-                    (position.clamp(-MAX_POSITION, MAX_POSITION)
-                        * (1 << GradientPosition::SHIFT) as f32) as i32,
-                ),
+                position: GradientPosition::from_f32(position.clamp(-MAX_POSITION, MAX_POSITION))
+                    .unwrap_or_default(),
                 step: Fixed(0),
             })
             .peekable();
