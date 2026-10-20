@@ -189,7 +189,18 @@ pub struct EditorSession {
     /// The project files of the open documents, broadest first.
     /// A shared document cache has one configuration, so their settings are merged.
     project_file_paths: Vec<PathBuf>,
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+    ))]
+    preview_file_access: std::cell::RefCell<Option<PreviewFileAccessCache>>,
 }
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
+type PreviewFileAccessCache = ((u64, HashSet<Url>), Rc<crate::preview_files::PreviewFileAccess>);
 
 impl EditorSession {
     pub fn primary_preview(&self) -> &PreviewConnection {
@@ -264,6 +275,15 @@ impl EditorSession {
             workspace_config_overrides: Default::default(),
             active_projects: Default::default(),
             project_file_paths: Default::default(),
+            #[cfg(all(
+                not(target_arch = "wasm32"),
+                any(
+                    feature = "preview-external",
+                    feature = "preview-engine",
+                    feature = "preview-remote"
+                ),
+            ))]
+            preview_file_access: Default::default(),
         }
     }
 
@@ -706,7 +726,7 @@ impl EditorSession {
     }
 
     /// Send `files` to the preview at `preview_index`.
-    /// Files that aren't loaded are read from disk only if the project's sources name them.
+    /// Files that aren't loaded are read from disk only if `PreviewFileAccess` allows them.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -742,12 +762,7 @@ impl EditorSession {
                 preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
-            let file_access = file_access.get_or_init(|| {
-                crate::preview_files::PreviewFileAccess::new(
-                    &self.document_cache,
-                    &self.document_roots(),
-                )
-            });
+            let file_access = file_access.get_or_init(|| self.preview_file_access());
             if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
@@ -770,6 +785,24 @@ impl EditorSession {
                 }
             }
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+    ))]
+    fn preview_file_access(&self) -> Rc<crate::preview_files::PreviewFileAccess> {
+        let key = (self.document_cache.revision(), self.document_roots());
+        let mut cache = self.preview_file_access.borrow_mut();
+        if let Some((cached_key, file_access)) = &*cache
+            && *cached_key == key
+        {
+            return file_access.clone();
+        }
+        let file_access =
+            Rc::new(crate::preview_files::PreviewFileAccess::new(&self.document_cache, &key.1));
+        *cache = Some((key, file_access.clone()));
+        file_access
     }
 
     /// Read each font file imported by the `.slint` at `doc_url` and push it
