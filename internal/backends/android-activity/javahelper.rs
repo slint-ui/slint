@@ -109,6 +109,14 @@ bind_java_type! {
             name = "show_action_menu",
             sig = (),
         },
+        fn hide_action_menu {
+            name = "hide_action_menu",
+            sig = (),
+        },
+        fn defer_action_menu {
+            name = "defer_action_menu",
+            sig = (deferred: jboolean),
+        },
         fn show_keyboard {
             name = "show_keyboard",
             sig = (),
@@ -608,6 +616,15 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
+    pub fn hide_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.hide_action_menu(env))
+    }
+
+    /// Keeps the text selection menu from showing for a new selection while `deferred` is set.
+    pub fn defer_action_menu(&self, deferred: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.defer_action_menu(env, deferred))
+    }
+
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let text = JString::new(env, text)?;
@@ -777,6 +794,7 @@ fn callback_move_cursor_handle<'local>(
                 .upgrade()
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    adaptor.show_cursor_handles.set(true);
                     let scale_factor = adaptor.window.scale_factor();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input
