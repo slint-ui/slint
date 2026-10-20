@@ -51,8 +51,9 @@ struct Case {
     components: Vec<(String, bool)>,
 }
 
+/// Not canonicalized: on Windows that gives a `\\?\` path, which MSBuild can't import from.
 fn repository() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize().unwrap()
+    Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap().to_path_buf()
 }
 
 fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
