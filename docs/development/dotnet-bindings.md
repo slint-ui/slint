@@ -152,6 +152,20 @@ packs them, builds and runs a project with the packages on macOS, Linux, and Win
 and publishes them to nuget.org when asked to.
 NuGet license expressions only know SPDX licenses, so the packages carry `LICENSE.md` instead.
 
+NuGet only imports `build/<id>.targets` and `buildTransitive/<id>.props`,
+so the packed MSBuild files take the name of the package.
+`SlintPackageId` sets the ID, `Slint` by default, and the compiler package is `<id>.Compiler`.
+`SlintCommunityPackage=true` packs a build that the Slint project doesn't publish:
+it takes the authors and repository from `SlintPackageAuthors` and `SlintPackageRepositoryUrl`,
+leaves out the Slint logo, and says so in the description.
+The workflow switches to it when the repository variable `SLINT_NUGET_PACKAGE_ID` is set,
+and refuses to pack `Slint` outside `slint-ui/slint`.
+
+Publishing uses nuget.org trusted publishing, so the repository stores no API key.
+`NuGet/login` trades the GitHub OIDC token for an API key that's valid for an hour.
+It needs a nuget.org policy for the repository, the workflow file `publish_nuget_package.yaml`,
+and the `nuget` environment, plus the secret `NUGET_USER` with the nuget.org profile name that owns the policy.
+
 ## Threading and macOS
 
 winit and AppKit need the event loop on the process main thread.

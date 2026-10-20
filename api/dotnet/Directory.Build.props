@@ -8,17 +8,33 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>1.19.0</Version>
-    <Authors>Slint Developers</Authors>
-    <Company>SixtyFPS GmbH</Company>
     <!-- NuGet license expressions only know SPDX licenses, so the packages carry LICENSE.md, which lists all three. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageTags>gui;ui;toolkit;slint;desktop;embedded</PackageTags>
+    <SlintPackageId Condition="'$(SlintPackageId)' == ''">Slint</SlintPackageId>
+    <SlintCompilerPackageId Condition="'$(SlintCompilerPackageId)' == ''">$(SlintPackageId).Compiler</SlintCompilerPackageId>
+  </PropertyGroup>
+  <!--
+    SlintCommunityPackage=true packs a build that the Slint project doesn't publish, such as from a fork:
+    it takes the authors and repository from SlintPackageAuthors and SlintPackageRepositoryUrl,
+    leaves out the Slint logo, and says so in the description.
+    Pick a SlintPackageId other than Slint for it.
+  -->
+  <PropertyGroup Condition="'$(SlintCommunityPackage)' != 'true'">
+    <Authors>Slint Developers</Authors>
+    <Company>SixtyFPS GmbH</Company>
     <PackageProjectUrl>https://slint.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/slint-ui/slint</RepositoryUrl>
-    <PackageTags>gui;ui;toolkit;slint;desktop;embedded</PackageTags>
     <PackageIcon>slint-logo.png</PackageIcon>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SlintCommunityPackage)' == 'true'">
+    <Authors>$(SlintPackageAuthors)</Authors>
+    <PackageProjectUrl>$(SlintPackageRepositoryUrl)</PackageProjectUrl>
+    <RepositoryUrl>$(SlintPackageRepositoryUrl)</RepositoryUrl>
+    <SlintDescriptionPrefix>Community build of the Slint .NET bindings, not published by the Slint project. </SlintDescriptionPrefix>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../../LICENSE.md" Pack="true" PackagePath="/" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)../../logo/slint-logo-square-light-128x128.png" Pack="true" PackagePath="slint-logo.png" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../logo/slint-logo-square-light-128x128.png" Pack="true" PackagePath="slint-logo.png" Visible="false" Condition="'$(SlintCommunityPackage)' != 'true'" />
   </ItemGroup>
 </Project>

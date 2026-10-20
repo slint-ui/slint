@@ -7,8 +7,8 @@
 -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Slint.Compiler</PackageId>
-    <Description>The slint-compiler that the Slint package runs to generate C# code from .slint files.</Description>
+    <PackageId>$(SlintCompilerPackageId)</PackageId>
+    <Description>$(SlintDescriptionPrefix)The slint-compiler that the $(SlintPackageId) package runs to generate C# code from .slint files.</Description>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
@@ -16,7 +16,8 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="buildTransitive/Slint.Compiler.props" Pack="true" PackagePath="buildTransitive/" />
+    <!-- NuGet imports buildTransitive/<package id>.props, so the file takes the name of the package. -->
+    <None Include="buildTransitive/Slint.Compiler.props" Pack="true" PackagePath="buildTransitive/$(PackageId).props" />
     <None Include="$(SlintCompilerBinariesDir)/**/*" Pack="true" PackagePath="tools/" Condition="'$(SlintCompilerBinariesDir)' != ''" />
   </ItemGroup>
 </Project>

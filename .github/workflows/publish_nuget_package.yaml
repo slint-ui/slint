@@ -25,6 +25,9 @@ env:
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
     DOTNET_CLI_TELEMETRY_OPTOUT: 1
     DOTNET_NOLOGO: 1
+    # A fork publishes under its own package IDs: set the repository variable SLINT_NUGET_PACKAGE_ID,
+    # and optionally SLINT_NUGET_AUTHORS. The compiler package is <id>.Compiler.
+    SLINT_PACKAGE_ID: ${{ vars.SLINT_NUGET_PACKAGE_ID || 'Slint' }}
 
 jobs:
     build_binaries:
@@ -92,9 +95,27 @@ jobs:
                   echo "version=$version" >> "$GITHUB_OUTPUT"
             - name: Pack
               working-directory: api/dotnet
+              shell: bash
               run: |
-                  dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" -p:Version=${{ steps.version.outputs.version }} -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
-                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" -p:Version=${{ steps.version.outputs.version }} -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native"
+                  props=(-p:Version=${{ steps.version.outputs.version }} -p:SlintPackageId="$SLINT_PACKAGE_ID")
+                  if [ "$SLINT_PACKAGE_ID" = "Slint" ]; then
+                      if [ "$GITHUB_REPOSITORY" != "slint-ui/slint" ]; then
+                          echo "::error::Only slint-ui/slint packs the Slint packages; set the repository variable SLINT_NUGET_PACKAGE_ID"
+                          exit 1
+                      fi
+                  else
+                      props+=(-p:SlintCommunityPackage=true
+                              "-p:SlintPackageAuthors=${{ vars.SLINT_NUGET_AUTHORS || github.repository_owner }}"
+                              -p:SlintPackageRepositoryUrl="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
+                      # The README of the packages installs them by ID.
+                      sed -i "s/dotnet add package Slint /dotnet add package $SLINT_PACKAGE_ID /" README.md
+                      { head -n 1 README.md
+                        printf '\n> This is a community build of the Slint .NET bindings, not published by the Slint project.\n'
+                        tail -n +2 README.md; } > README.community.md
+                      mv README.community.md README.md
+                  fi
+                  dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
+                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native"
             - uses: actions/upload-artifact@v7
               with:
                   name: nuget-packages
@@ -125,11 +146,13 @@ jobs:
             - name: Build and run a project with the packages
               shell: bash
               run: |
-                  version=$(ls packages/Slint.Compiler.*.nupkg | sed 's/.*Slint\.Compiler\.\(.*\)\.nupkg/\1/')
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
                   mkdir app && cd app
                   dotnet new console
                   dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
-                  dotnet add package Slint --version "$version"
+                  dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
                   mkdir ui
                   printf 'export component App inherits Window { in-out property <int> counter: 41; }\n' > ui/app.slint
                   sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' app.csproj
@@ -142,6 +165,11 @@ jobs:
         runs-on: ubuntu-22.04
         environment:
             name: nuget
+        # Trusted publishing: nuget.org trades the GitHub OIDC token for an API key that's valid for an hour.
+        # It needs a policy on nuget.org for this repository, this workflow file, and the nuget environment,
+        # and the secret NUGET_USER with the nuget.org profile name that owns the policy.
+        permissions:
+            id-token: write
         steps:
             - uses: actions/setup-dotnet@v5
               with:
@@ -150,5 +178,10 @@ jobs:
               with:
                   name: nuget-packages
                   path: packages
+            - name: Log in to nuget.org
+              id: login
+              uses: NuGet/login@v1
+              with:
+                  user: ${{ secrets.NUGET_USER }}
             - name: Publish to nuget.org
-              run: dotnet nuget push "packages/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+              run: dotnet nuget push "packages/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
