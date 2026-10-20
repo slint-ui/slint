@@ -623,6 +623,8 @@ def test_radial_stops_cross_insert_delete_and_color(
         window = first_window(editor)
         open_radial(window)
         start = center(control(window, "Gradient stop 2"))
+        c = center(control(window, "Gradient center handle"))
+        r = center(control(window, "Gradient radius X and rectangle rotation handle"))
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for distance in [40, 100, -80, 30]:
@@ -632,8 +634,12 @@ def test_radial_stops_cross_insert_delete_and_color(
             )
             window.dispatch_event(slint_testing.PointerMoveEvent(p))
             actual = center(control(window, "Gradient stop 2"))
-            assert actual.x == pytest.approx(p.x, abs=0.001)
+            assert actual.x == pytest.approx(min(max(p.x, c.x), r.x), abs=0.001)
             assert actual.y == pytest.approx(p.y, abs=0.001)
+            position = control(
+                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+            )
+            assert 0 <= float(position.accessible_value) <= 100
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
@@ -653,5 +659,80 @@ def test_radial_stops_cross_insert_delete_and_color(
         press_key(window, keys.Delete)
         control(window, "Gradient center handle")
         control(window, "Gradient stop 2")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+@pytest.mark.parametrize("rotation", [0, 35])
+def test_ellipse_stops_stay_on_radius_with_out_of_range_source(
+    editor_binary, editor_environment, radial_scene, tmp_path, rotation
+):
+    radial_scene.write_text(
+        radial_scene.read_text()
+        .replace(
+            "        width: 200px;",
+            f"        transform-rotation: {rotation}deg;\n        width: 200px;",
+        )
+        .replace(
+            "@radial-gradient(circle, #7e3b66 0%, #264052 45%, #568fb8 100%)",
+            "@radial-gradient(ellipse 130px 70px, #7e3b66 0%, #264052 45%, #568fb8 180%)",
+        )
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
+        window = first_window(editor)
+        open_radial(window)
+        c = center(control(window, "Gradient center handle"), rotation)
+        r = center(
+            control(window, "Gradient radius X and rectangle rotation handle"), rotation
+        )
+        radius_x = r.x - c.x
+        radius_y = r.y - c.y
+        radius_squared = radius_x**2 + radius_y**2
+
+        def stop_position(index):
+            point = center(control(window, f"Gradient stop {index}"), rotation)
+            return (
+                (point.x - c.x) * radius_x + (point.y - c.y) * radius_y
+            ) / radius_squared
+
+        assert stop_position(1) == pytest.approx(0, abs=0.001)
+        assert stop_position(3) == pytest.approx(1, abs=0.001)
+        original.assert_unchanged_now()
+
+        start = center(control(window, "Gradient stop 1"), rotation)
+        gesture(window, start, shifted(start, x=radius_x * 0.2, y=radius_y * 0.2))
+        assert stop_position(1) == pytest.approx(0.2, abs=0.001)
+        position = control(
+            window, "Stop 1 position", slint_testing.AccessibleRole.TextInput
+        )
+        assert float(position.accessible_value) == pytest.approx(20, abs=0.1)
+        assert (
+            center(
+                control(window, "Gradient radius X and rectangle rotation handle"),
+                rotation,
+            )
+            == r
+        )
+
+        start = center(control(window, "Gradient stop 3"), rotation)
+        gesture(window, start, shifted(start, x=radius_x, y=radius_y))
+        assert stop_position(3) == pytest.approx(1, abs=0.001)
+        position = control(
+            window, "Stop 3 position", slint_testing.AccessibleRole.TextInput
+        )
+        assert float(position.accessible_value) == pytest.approx(100, abs=0.1)
+        press_key(window, keys.RightArrow)
+        assert float(position.accessible_value) == pytest.approx(100, abs=0.1)
+        press_key(window, keys.LeftArrow)
+        assert float(position.accessible_value) == pytest.approx(99, abs=0.1)
+        position.accessible_value = "-25"
+        assert float(position.accessible_value) == pytest.approx(0, abs=0.1)
+        assert stop_position(3) == pytest.approx(0, abs=0.001)
+        position.accessible_value = "250"
+        assert float(position.accessible_value) == pytest.approx(100, abs=0.1)
+        assert stop_position(3) == pytest.approx(1, abs=0.001)
+
         press_key(window, keys.Escape)
         original.assert_unchanged()
