@@ -4,7 +4,7 @@
 import json
 
 import pytest
-from editor_sync import EditorSync, current_editor_sync, input_action, settle
+from editor_sync import EditorSync
 
 
 def test_wait_rejects_old_response_and_unfinished_edit(tmp_path, monkeypatch):
@@ -42,29 +42,13 @@ def test_wait_timeout_reports_last_state_and_removes_request(tmp_path):
     assert not (tmp_path / "request.json").exists()
 
 
-@pytest.mark.parametrize("fail", [False, True])
-def test_input_action_settles_once_and_restores_after_exit(tmp_path, monkeypatch, fail):
-    barriers = []
-    monkeypatch.setattr(EditorSync, "settle", lambda self: barriers.append("settled"))
-    token = current_editor_sync.set(EditorSync(tmp_path))
+def test_wait_accepts_first_response_after_missing_file(tmp_path, monkeypatch):
+    def respond(_):
+        request = json.loads((tmp_path / "request.json").read_text())
+        (tmp_path / "response.json").write_text(
+            json.dumps({"id": request["id"], "ready": True})
+        )
 
-    def perform_action():
-        with input_action():
-            settle()
-            with input_action():
-                settle()
-            settle()
-            assert barriers == ["settled"]
-            if fail:
-                raise ValueError("input failed")
-
-    try:
-        if fail:
-            with pytest.raises(ValueError, match="input failed"):
-                perform_action()
-        else:
-            perform_action()
-        settle()
-        assert barriers == ["settled", "settled"]
-    finally:
-        current_editor_sync.reset(token)
+    monkeypatch.setattr("editor_sync.time.sleep", respond)
+    EditorSync(tmp_path).wait_for_source(tmp_path / "Main.slint", b"source")
+    assert not (tmp_path / "request.json").exists()

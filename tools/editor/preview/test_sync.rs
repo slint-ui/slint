@@ -42,7 +42,6 @@ fn response(request: &Request) -> serde_json::Value {
 pub(super) fn initialize() {
     let Some(directory) = std::env::var_os("SLINT_EDITOR_TEST_SYNC") else { return };
     let directory = std::path::PathBuf::from(directory);
-    write_response(&directory, &serde_json::json!({ "id": 0, "ready": false }));
     thread_local! {
         static TIMER: slint::Timer = slint::Timer::default();
     }

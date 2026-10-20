@@ -3,20 +3,14 @@
 
 # cspell:ignore addoption nodeid
 
-import functools
 import math
 import os
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TypeVar
 
 import pytest
-import slint_testing
-from editor_sync import settle
 from ui_reporting import TestReport, current_report
-
-T = TypeVar("T")
 
 UI_TEST_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = UI_TEST_ROOT.parents[2]
@@ -87,31 +81,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=0,
         help="Pause for this many seconds after replay stages; use -s to see stage names",
     )
-
-
-@pytest.fixture(autouse=True, scope="session")
-def settle_before_interactions() -> Iterator[None]:
-    with pytest.MonkeyPatch.context() as patch:
-        for cls, name in (
-            (slint_testing.Window, "dispatch_event"),
-            (slint_testing.Element, "invoke_accessible_default_action"),
-            (slint_testing.Element, "single_click"),
-            (slint_testing.Element, "double_click"),
-        ):
-            patch.setattr(cls, name, settled(getattr(cls, name)))
-        for name in ("absolute_position", "absolute_rect", "size"):
-            getter = getattr(slint_testing.Element, name).fget
-            patch.setattr(slint_testing.Element, name, property(settled(getter)))
-        yield
-
-
-def settled(function: Callable[..., T]) -> Callable[..., T]:
-    @functools.wraps(function)
-    def wrapper(*args, **kwargs) -> T:
-        settle()
-        return function(*args, **kwargs)
-
-    return wrapper
 
 
 @pytest.fixture(autouse=True)

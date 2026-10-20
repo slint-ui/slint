@@ -3,8 +3,6 @@
 
 import json
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +17,6 @@ class EditorSync:
         self,
         sources: dict[str, str],
         timeout: float,
-        require_ready: bool,
         failure: str,
     ) -> None:
         self.request_id += 1
@@ -40,7 +37,7 @@ class EditorSync:
                 if (
                     last_response is not None
                     and last_response["id"] == self.request_id
-                    and (last_response["ready"] or not require_ready)
+                    and last_response["ready"]
                 ):
                     return
                 if time.monotonic() >= deadline:
@@ -48,7 +45,7 @@ class EditorSync:
                         f"{failure} within {timeout}s: "
                         f"{last_response!r}. Build with system-testing enabled."
                     )
-                time.sleep(0.005)
+                time.sleep(0.02)
         finally:
             (self.directory / "request.json").unlink(missing_ok=True)
 
@@ -56,49 +53,13 @@ class EditorSync:
         self._round_trip(
             {path.as_uri(): expected.decode("utf-8")},
             timeout,
-            require_ready=True,
             failure=f"Preview did not apply {path}",
-        )
-
-    def settle(self, timeout: float = 5) -> None:
-        if not (self.directory / "response.json").exists():
-            return
-        self._round_trip(
-            {}, timeout, require_ready=False, failure="Editor did not respond"
         )
 
 
 current_editor_sync: ContextVar[EditorSync] = ContextVar("current_editor_sync")
-_input_action_active: ContextVar[bool] = ContextVar(
-    "input_action_active", default=False
-)
-
-
-@contextmanager
-def input_action() -> Iterator[None]:
-    """Settle before an input sequence without adding waits between its events."""
-    settle()
-    token = _input_action_active.set(True)
-    try:
-        yield
-    finally:
-        _input_action_active.reset(token)
 
 
 def wait_for_source(path: Path, expected: bytes, timeout: float = 15) -> None:
     """Wait for the requested source in the installed preview and completed history work."""
     current_editor_sync.get().wait_for_source(path, expected, timeout)
-
-
-def settle() -> None:
-    """Wait for the editor to run its expired timers and deferred `changed` handlers.
-
-    Slint runs both from its event loop, not while it serves system-testing requests,
-    so a test can otherwise act before a popup is placed or a field takes focus.
-    Does nothing until the editor initializes its preview, such as on the startup page.
-    """
-    if _input_action_active.get():
-        return
-    sync = current_editor_sync.get(None)
-    if sync is not None:
-        sync.settle()
