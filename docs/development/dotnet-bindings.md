@@ -224,7 +224,7 @@ Next:
 
 7. Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
    with the official `Slint` package IDs and a `ChangeLog:` trailer.
-8. API gaps compared to Python and Node.js:
+8. API gaps compared to Python and Node.js (done):
    - a `Window` API, for size, position, scale factor, and close requests (done)
    - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize` (done)
    - typed `keys`, styled text, and data transfer (done)
