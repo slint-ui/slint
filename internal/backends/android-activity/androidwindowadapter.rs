@@ -54,6 +54,14 @@ pub struct AndroidWindowAdapter {
     /// Pending dead-key accent from `KeyMapChar::CombiningAccent`, composed with
     /// the next Unicode key.
     pending_dead_key: Cell<Option<char>>,
+
+    /// The text input the input method is connected to.
+    #[cfg(feature = "native-activity")]
+    ime_client: std::cell::RefCell<i_slint_core::item_tree::ItemWeak>,
+    /// The latest input method update, sent once the current events are processed so the input
+    /// method never sees the intermediate states of an edit.
+    #[cfg(feature = "native-activity")]
+    pending_ime_update: std::cell::RefCell<Option<i_slint_core::window::InputMethodProperties>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -109,11 +117,15 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
     fn input_method_request(&self, request: InputMethodRequest) {
         match request {
             InputMethodRequest::Enable(props) => {
+                self.pending_ime_update.take();
+                let focus_item = WindowInner::from_pub(&self.window).focus_item.borrow().clone();
+                let new_client = self.ime_client.replace(focus_item.clone()) != focus_item;
                 self.java_helper
                     .set_imm_data(
                         &props,
                         self.window.scale_factor(),
                         self.show_cursor_handles.get(),
+                        new_client,
                     )
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
@@ -134,15 +146,20 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
                 }
             }
             InputMethodRequest::Update(props) => {
-                self.java_helper
-                    .set_imm_data(
-                        &props,
-                        self.window.scale_factor(),
-                        self.show_cursor_handles.get(),
-                    )
-                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                if self.pending_ime_update.replace(Some(props)).is_none() {
+                    let _ = i_slint_core::api::invoke_from_event_loop(|| {
+                        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+                            adaptor.flush_ime_update();
+                        }
+                    });
+                }
             }
             InputMethodRequest::Disable => {
+                self.pending_ime_update.take();
+                self.ime_client.take();
+                self.java_helper
+                    .clear_text_input_client()
+                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 self.java_helper
                     .show_or_hide_soft_input(false)
                     .unwrap_or_else(|e| print_jni_error(&self.app, e));
@@ -194,6 +211,20 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 }
 
 impl AndroidWindowAdapter {
+    #[cfg(feature = "native-activity")]
+    fn flush_ime_update(&self) {
+        if let Some(props) = self.pending_ime_update.take() {
+            self.java_helper
+                .set_imm_data(
+                    &props,
+                    self.window.scale_factor(),
+                    self.show_cursor_handles.get(),
+                    false,
+                )
+                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+        }
+    }
+
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
@@ -216,6 +247,10 @@ impl AndroidWindowAdapter {
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
             pending_dead_key: Cell::new(None),
+            #[cfg(feature = "native-activity")]
+            ime_client: Default::default(),
+            #[cfg(feature = "native-activity")]
+            pending_ime_update: Default::default(),
         })
     }
 

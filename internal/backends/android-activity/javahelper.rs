@@ -98,7 +98,9 @@ bind_java_type! {
                 anchor_y: jint,
                 cursor_height: jint,
                 input_type: jint,
-                show_cursor_handles: jboolean
+                show_cursor_handles: jboolean,
+                new_client: jboolean,
+                update_editing_state: jboolean
             ),
         },
         fn set_light_system_bars {
@@ -107,6 +109,10 @@ bind_java_type! {
         },
         fn show_action_menu {
             name = "show_action_menu",
+            sig = (),
+        },
+        fn clear_text_input_client {
+            name = "clear_text_input_client",
             sig = (),
         },
         fn show_keyboard {
@@ -162,10 +168,6 @@ bind_java_type! {
                     preedit_end: jint
             ) -> (),
             fn = callback_update_text,
-        },
-        pub static fn update_selection {
-            sig = (cursor_position: jint, anchor_position: jint) -> (),
-            fn = callback_update_selection,
         },
     },
 }
@@ -311,7 +313,36 @@ pub struct JavaHelper(
     jni::refs::Global<SlintAndroidJavaHelper<'static>>,
     AndroidApp,
     std::cell::OnceCell<i64>,
+    /// The editing state as last sent to or received from the Java side.
+    std::cell::RefCell<Option<ImeEditState>>,
 );
+
+/// Text, selection and composing region in UTF-16 offsets, as the Java side's editable holds them.
+#[derive(Clone, PartialEq, Debug)]
+pub(crate) struct ImeEditState {
+    text: String,
+    cursor: i32,
+    anchor: i32,
+    /// `(-1, -1)` without a composing region
+    composing: (i32, i32),
+}
+
+impl ImeEditState {
+    fn new(
+        text: String,
+        cursor: i32,
+        anchor: i32,
+        composing_start: i32,
+        composing_end: i32,
+    ) -> Self {
+        let composing = if composing_start >= 0 && composing_start < composing_end {
+            (composing_start, composing_end)
+        } else {
+            (-1, -1)
+        };
+        Self { text, cursor, anchor, composing }
+    }
+}
 
 fn get_helper_class_loader(
     env: &mut Env,
@@ -408,7 +439,7 @@ impl JavaHelper {
         Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
     }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default(), Default::default()))
     }
 
     fn with_jni_env<R>(
@@ -436,6 +467,7 @@ impl JavaHelper {
         data: &i_slint_core::window::InputMethodProperties,
         scale_factor: f32,
         show_cursor_handles: bool,
+        new_client: bool,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -452,7 +484,33 @@ impl JavaHelper {
                 }
             }
 
-            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize);
+            let to_utf16 = |x| byte_offset_to_utf16_offset(&text, x as usize) as i32;
+            let mut last_known = self.3.borrow_mut();
+            // Slint doesn't track the composition, which input methods keep in the text, so their
+            // composing region is kept until the text changes.
+            let composing = if !data.preedit_text.is_empty() {
+                (
+                    to_utf16(data.preedit_offset),
+                    to_utf16(data.preedit_offset + data.preedit_text.len()),
+                )
+            } else {
+                last_known
+                    .as_ref()
+                    .filter(|known| !new_client && known.text == text)
+                    .map_or((-1, -1), |known| known.composing)
+            };
+            let state = ImeEditState::new(
+                text.clone(),
+                to_utf16(cursor_position),
+                to_utf16(anchor_position),
+                composing.0,
+                composing.1,
+            );
+            let update_editing_state = new_client || last_known.as_ref() != Some(&state);
+            if update_editing_state {
+                *last_known = Some(state.clone());
+            }
+            drop(last_known);
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
@@ -531,10 +589,10 @@ impl JavaHelper {
             helper.set_imm_data(
                 env,
                 &text,
-                to_utf16(cursor_position) as i32,
-                to_utf16(anchor_position) as i32,
-                to_utf16(data.preedit_offset) as i32,
-                to_utf16(data.preedit_offset + data.preedit_text.len()) as i32,
+                state.cursor,
+                state.anchor,
+                state.composing.0,
+                state.composing.1,
                 cur_x,
                 cur_y,
                 anchor_x,
@@ -542,6 +600,8 @@ impl JavaHelper {
                 cursor_height,
                 input_type,
                 show_cursor_handles,
+                new_client,
+                update_editing_state,
             )?;
 
             Ok(())
@@ -608,6 +668,12 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
+    /// Disconnects the input method from the text input that lost focus.
+    pub fn clear_text_input_client(&self) -> Result<(), jni::errors::Error> {
+        self.3.take();
+        self.with_jni_env(|env, helper| helper.clear_text_input_client(env))
+    }
+
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let text = JString::new(env, text)?;
@@ -643,84 +709,93 @@ fn callback_update_text<'local>(
     let java_str = text.to_string();
     let decoded: std::borrow::Cow<str> = (&java_str).into();
     let text = SharedString::from(decoded.as_ref());
+    let remote_state = ImeEditState::new(
+        text.to_string(),
+        cursor_position,
+        anchor_position,
+        preedit_start,
+        preedit_end,
+    );
 
     let cursor_position = utf16_offset_to_byte_offset_clamped(&text, cursor_position as usize);
     let anchor_position = utf16_offset_to_byte_offset_clamped(&text, anchor_position as usize);
-    let preedit_start = utf16_offset_to_byte_offset_clamped(&text, preedit_start as usize);
-    let preedit_end = utf16_offset_to_byte_offset_clamped(&text, preedit_end as usize);
 
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            adaptor.show_cursor_handles.set(false);
-            let event = if preedit_start != preedit_end {
-                let adjust = |pos| {
-                    if pos <= preedit_start {
-                        pos
-                    } else if pos >= preedit_end {
-                        preedit_start + (pos - preedit_end)
-                    } else {
-                        preedit_start
-                    }
-                } as i32;
-                let mut key_event = KeyEvent::default();
-                key_event.text =
-                    i_slint_core::format!("{}{}", &text[..preedit_start], &text[preedit_end..]);
+            // Input methods also move the composing region when the user taps or selects, which
+            // mustn't hide the handles.
+            let previous = adaptor.java_helper.3.replace(Some(remote_state.clone()));
+            if previous.is_none_or(|previous| {
+                (&previous.text, previous.cursor, previous.anchor)
+                    != (&remote_state.text, remote_state.cursor, remote_state.anchor)
+            }) {
+                adaptor.show_cursor_handles.set(false);
+            }
 
-                InternalKeyEvent {
-                    event_type: KeyEventType::UpdateComposition,
-                    preedit_text: text[preedit_start..preedit_end].into(),
-                    preedit_selection: Some(0..(preedit_end - preedit_start) as i32),
-                    replacement_range: Some(i32::MIN..i32::MAX),
-                    cursor_position: Some(adjust(cursor_position)),
-                    anchor_position: Some(adjust(anchor_position)),
-                    key_event,
-                    ..Default::default()
-                }
-            } else {
-                let mut key_event = KeyEvent::default();
-                key_event.text = text;
-
-                InternalKeyEvent {
-                    event_type: KeyEventType::CommitComposition,
-                    replacement_range: Some(i32::MIN..i32::MAX),
-                    cursor_position: Some(cursor_position as _),
-                    anchor_position: Some(anchor_position as _),
-                    key_event,
-                    ..Default::default()
-                }
-            };
-            adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
-        }
-    })
-    .unwrap();
-    Ok(())
-}
-
-fn callback_update_selection<'local>(
-    _env: &mut Env<'local>,
-    _class: JClass<'local>,
-    cursor_position: jint,
-    anchor_position: jint,
-) -> Result<(), jni::errors::Error> {
-    i_slint_core::api::invoke_from_event_loop(move || {
-        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            adaptor.show_cursor_handles.set(false);
-            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+            // Only the changed part of the text is replaced, so that a selection or composition
+            // change doesn't edit the text.
+            let focus_item = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
                 .focus_item
                 .borrow()
-                .upgrade()
-                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
-            {
+                .upgrade();
+            let focused_text = focus_item.as_ref().and_then(|item| {
+                let text_input = item.downcast::<i_slint_core::items::TextInput>()?;
                 let text_input = text_input.as_pin_ref();
-                let text = text_input.text();
-                let to_byte_offset =
-                    |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
-                text_input.set_selection_offsets(
-                    &(adaptor.clone() as Rc<dyn WindowAdapter>),
-                    &focus_item,
-                    to_byte_offset(anchor_position),
-                    to_byte_offset(cursor_position),
-                );
+                let current = text_input.text();
+                let cursor = text_input.cursor_position(&current);
+                Some((current, cursor))
+            });
+            let edit = |text: SharedString,
+                        replacement_range,
+                        selection: Option<(usize, usize)>| {
+                let mut key_event = KeyEvent::default();
+                key_event.text = text;
+                let event = InternalKeyEvent {
+                    event_type: KeyEventType::CommitComposition,
+                    replacement_range,
+                    cursor_position: selection.map(|(cursor, _)| cursor as i32),
+                    anchor_position: selection.map(|(_, anchor)| anchor as i32),
+                    key_event,
+                    ..Default::default()
+                };
+                adaptor.window.dispatch_event(i_slint_core::platform::WindowEvent::internal(event));
+            };
+            let selection = Some((cursor_position, anchor_position));
+            match focused_text {
+                Some((current, cursor)) => {
+                    let (start, current_end, new_end) = changed_range(&current, &text);
+                    let relative = |pos: usize| (pos as i64 - cursor as i64) as i32;
+                    if start == current_end && start == new_end {
+                        if let Some(focus_item) = focus_item.as_ref()
+                            && let Some(text_input) =
+                                focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            text_input.as_pin_ref().set_selection_offsets(
+                                &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                                focus_item,
+                                anchor_position as i32,
+                                cursor_position as i32,
+                            );
+                        }
+                    } else if start == new_end {
+                        // A deletion only reports `edited` when it places the cursor itself.
+                        edit(
+                            SharedString::default(),
+                            Some(relative(start)..relative(current_end)),
+                            None,
+                        );
+                        if (cursor_position, anchor_position) != (start, start) {
+                            edit(SharedString::default(), None, selection);
+                        }
+                    } else {
+                        edit(
+                            text[start..new_end].into(),
+                            Some(relative(start)..relative(current_end)),
+                            selection,
+                        );
+                    }
+                }
+                None => edit(text, Some(i32::MIN..i32::MAX), selection),
             }
         }
     })
@@ -728,6 +803,23 @@ fn callback_update_selection<'local>(
     Ok(())
 }
 
+fn changed_range(old: &str, new: &str) -> (usize, usize, usize) {
+    let mut start = old.bytes().zip(new.bytes()).take_while(|(a, b)| a == b).count();
+    while !old.is_char_boundary(start) || !new.is_char_boundary(start) {
+        start -= 1;
+    }
+    let mut suffix = old
+        .bytes()
+        .rev()
+        .zip(new.bytes().rev())
+        .take(old.len().min(new.len()) - start)
+        .take_while(|(a, b)| a == b)
+        .count();
+    while !old.is_char_boundary(old.len() - suffix) || !new.is_char_boundary(new.len() - suffix) {
+        suffix -= 1;
+    }
+    (start, old.len() - suffix, new.len() - suffix)
+}
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
