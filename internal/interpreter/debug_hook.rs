@@ -5,16 +5,14 @@
 //! `Expression::DebugHook` calls the callback installed with
 //! `ComponentInstance::set_debug_hook_callback`, which may override the value.
 
-use crate::Value;
 use crate::eval::EvalContext;
-
-use smol_str::SmolStr;
+use crate::prelude::*;
 
 pub type DebugHookCallback = Box<dyn Fn(&str) -> Option<Value>>;
 
 #[cfg(feature = "internal")]
 pub(crate) fn set_debug_hook_callback(
-    instance: &vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
+    instance: &VRc<ItemTreeVTable, Instance>,
     func: Option<DebugHookCallback>,
 ) {
     *instance.globals.debug_hook_callback.borrow_mut() = func;

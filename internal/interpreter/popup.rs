@@ -5,16 +5,14 @@
 //! `SetupMenuBar` / `ShowPopupMenu` builtins: build the popup `Instance`,
 //! register it with the window, and wire the menu callbacks.
 
-use crate::Value;
 use crate::eval::{
     EvalContext, eval_expression, find_window_adapter, resolve_item_rc_from_ref, store_property,
     try_walk_to,
 };
 use crate::instance::SubComponentInstance;
+use crate::prelude::*;
 use i_slint_compiler::llr::{Expression, LocalMemberIndex, MemberReference};
 use i_slint_core::model::Model;
-use std::pin::Pin;
-use std::rc::Rc;
 
 pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression]) -> Value {
     // Expected args (from `BuiltinFunction::ShowPopupWindow`):
@@ -65,7 +63,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
         return Value::Void;
     };
     let parent_item_rc = i_slint_core::items::ItemRc::new(
-        vtable::VRc::into_dyn(parent_instance.clone()),
+        VRc::into_dyn(parent_instance.clone()),
         parent_flat as u32,
     );
     // The owner may itself be a popup without its own window adapter; walk
@@ -112,7 +110,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     let is_open_setter: Box<dyn Fn(bool)> = match is_open_args.first() {
         Some(Expression::PropertyReference(is_open_ref)) => {
             let is_open_ref = is_open_ref.clone();
-            let current_weak = std::rc::Rc::downgrade(&Pin::into_inner(current.clone()));
+            let current_weak = Rc::downgrade(&Pin::into_inner(current.clone()));
             Box::new(move |value: bool| {
                 if let Some(current) = current_weak.upgrade() {
                     let ctx = EvalContext::new(Pin::new(current));
@@ -122,7 +120,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
         }
         _ => Box::new(|_| {}),
     };
-    let popup_dyn = vtable::VRc::into_dyn(popup_vrc.clone());
+    let popup_dyn = VRc::into_dyn(popup_vrc.clone());
     let popup_id = i_slint_core::window::WindowInner::from_pub(adapter.window()).show_popup(
         &popup_dyn,
         access_position,
@@ -198,9 +196,9 @@ pub(crate) fn setup_menubar(ctx: &mut EvalContext, arguments: &[Expression]) -> 
     let menu_vrc = new_popup_for(&current, menu_tree);
     crate::instance::finalize_instance(&menu_vrc);
 
-    let menu_dyn = vtable::VRc::into_dyn(menu_vrc);
+    let menu_dyn = VRc::into_dyn(menu_vrc);
     let menu_item_tree =
-        vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new_with_condition_and_visible(
+        VRc::new(i_slint_core::menus::MenuFromItemTree::new_with_condition_and_visible(
             menu_dyn,
             bool_binding(&current, condition),
             bool_binding(&current, visible),
@@ -208,12 +206,12 @@ pub(crate) fn setup_menubar(ctx: &mut EvalContext, arguments: &[Expression]) -> 
 
     let Some(adapter) = find_window_adapter(ctx) else { return Value::Void };
     let window_inner = i_slint_core::window::WindowInner::from_pub(adapter.window());
-    let menubar = vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree));
-    window_inner.setup_menubar_shortcuts(vtable::VRc::clone(&menubar));
+    let menubar = VRc::into_dyn(VRc::clone(&menu_item_tree));
+    window_inner.setup_menubar_shortcuts(VRc::clone(&menubar));
 
     // Keep the menubar alive on the owning sub-component: the native menu bar only holds a weak
     // reference to it.
-    *current.menubar.borrow_mut() = Some(vtable::VRc::clone(&menubar));
+    *current.menubar.borrow_mut() = Some(VRc::clone(&menubar));
 
     if !no_native && window_inner.supports_native_menu_bar() {
         window_inner.setup_menubar(menubar);
@@ -260,8 +258,8 @@ pub(crate) fn setup_system_tray_icon(ctx: &mut EvalContext, arguments: &[Express
         None => Box::new(|| true),
     };
     let menu_item_tree =
-        vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new_with_condition_and_visible(
-            vtable::VRc::into_dyn(menu_vrc),
+        VRc::new(i_slint_core::menus::MenuFromItemTree::new_with_condition_and_visible(
+            VRc::into_dyn(menu_vrc),
             condition,
             || true,
         ));
@@ -269,10 +267,9 @@ pub(crate) fn setup_system_tray_icon(ctx: &mut EvalContext, arguments: &[Express
     let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, system_tray_ref) else {
         return Value::Void;
     };
-    let item_rc =
-        i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(parent_inst), flat_idx as u32);
+    let item_rc = i_slint_core::items::ItemRc::new(VRc::into_dyn(parent_inst), flat_idx as u32);
     if let Some(tray) = item_rc.downcast::<i_slint_core::items::SystemTrayIcon>() {
-        tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_item_tree));
+        tray.as_pin_ref().set_menu(&item_rc, VRc::into_dyn(menu_item_tree));
     }
     Value::Void
 }
@@ -291,7 +288,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         return Value::Void;
     };
     let context_item_rc = i_slint_core::items::ItemRc::new(
-        vtable::VRc::into_dyn(parent_inst.clone()),
+        VRc::into_dyn(parent_inst.clone()),
         context_flat_idx as u32,
     );
     let context_menu_item_weak = context_item_rc.downgrade();
@@ -326,21 +323,20 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         let Some(menu_tree) = sc.menu_item_trees.get(*tree_index as usize) else {
             return Value::Void;
         };
-        let menu_vrc = crate::instance::Instance::new_popup(
+        let menu_vrc = Instance::new_popup(
             cu.clone(),
             menu_tree,
-            std::rc::Rc::downgrade(&Pin::into_inner(current.clone())),
+            Rc::downgrade(&Pin::into_inner(current.clone())),
             popup_vrc.globals.clone(),
         );
         crate::instance::finalize_instance(&menu_vrc);
-        let menu_item_tree = vtable::VRc::new(i_slint_core::menus::MenuFromItemTree::new(
-            vtable::VRc::into_dyn(menu_vrc),
-        ));
+        let menu_item_tree =
+            VRc::new(i_slint_core::menus::MenuFromItemTree::new(VRc::into_dyn(menu_vrc)));
 
         // Prefer the platform's native context menu; fall back to the
         // Slint-rendered popup below when the backend doesn't provide one.
         if i_slint_core::window::WindowInner::from_pub(adapter.window()).show_native_popup_menu(
-            vtable::VRc::into_dyn(vtable::VRc::clone(&menu_item_tree)),
+            VRc::into_dyn(VRc::clone(&menu_item_tree)),
             position,
             &context_item_rc,
         ) {
@@ -369,8 +365,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
                 return Value::Void;
             };
             let item_index_for_sub = *item_index;
-            let sub_menu_owner_weak =
-                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+            let sub_menu_owner_weak = Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
             wire_popup_menu_cb(&popup_ctx, &popup_menu.sub_menu, move |args| {
                 let Some(owner) = sub_menu_owner_weak.upgrade() else { return Value::Void };
                 let item = Pin::as_ref(&owner.items[item_index_for_sub]);
@@ -390,8 +385,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
                 ))
             });
 
-            let activated_owner_weak =
-                std::rc::Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
+            let activated_owner_weak = Rc::downgrade(&Pin::into_inner(sub_menu_owner.clone()));
             let item_index_for_activated = *item_index;
             wire_popup_menu_cb(&popup_ctx, &popup_menu.activated, move |args| {
                 let Some(owner) = activated_owner_weak.upgrade() else { return Value::Void };
@@ -413,8 +407,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     // `root.close()` dismisses the popup. The shared `Cell` bridges the
     // popup id (only known after `show_popup`) into the close handler
     // installed before the show.
-    let popup_id_cell: std::rc::Rc<std::cell::Cell<Option<core::num::NonZeroU32>>> =
-        std::rc::Rc::new(std::cell::Cell::new(None));
+    let popup_id_cell: Rc<Cell<Option<core::num::NonZeroU32>>> = Rc::new(Cell::new(None));
     let id_cell_for_close = popup_id_cell.clone();
     let adapter_for_close = adapter.clone();
     wire_popup_menu_cb(&popup_ctx, &popup_menu.close, move |_args| {
@@ -424,7 +417,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
         Value::Void
     });
 
-    let popup_dyn = vtable::VRc::into_dyn(popup_vrc.clone());
+    let popup_dyn = VRc::into_dyn(popup_vrc.clone());
     let window_inner = i_slint_core::window::WindowInner::from_pub(adapter.window());
     let popup_id = window_inner.show_popup(
         &popup_dyn,
@@ -457,20 +450,18 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
 fn new_popup_for(
     owner: &Pin<Rc<SubComponentInstance>>,
     item_tree: &i_slint_compiler::llr::ItemTree,
-) -> vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance> {
+) -> VRc<ItemTreeVTable, Instance> {
     let cu = owner.compilation_unit.clone();
-    let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
-    let globals = owner
-        .root
-        .get()
-        .and_then(|w| w.upgrade())
-        .map(|inst| inst.globals.clone())
-        .unwrap_or_else(|| {
-            let context = i_slint_core::SlintContext::current()
-                .expect("a component exists, so there is a current context");
-            std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu, context, Default::default()))
-        });
-    crate::instance::Instance::new_popup(cu, item_tree, parent_weak, globals)
+    let parent_weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let globals =
+        owner.root.get().and_then(|w| w.upgrade()).map(|inst| inst.globals.clone()).unwrap_or_else(
+            || {
+                let context = SlintContext::current()
+                    .expect("a component exists, so there is a current context");
+                Rc::new(crate::globals::GlobalStorage::new(&cu, context, Default::default()))
+            },
+        );
+    Instance::new_popup(cu, item_tree, parent_weak, globals)
 }
 
 /// A closure that evaluates `expr` in `owner`'s scope on each call;
@@ -480,7 +471,7 @@ fn bool_binding(
     expr: &Expression,
 ) -> impl Fn() -> bool + 'static {
     let expr = expr.clone();
-    let weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
+    let weak = Rc::downgrade(&Pin::into_inner(owner.clone()));
     move || {
         let Some(owner) = weak.upgrade() else { return false };
         let mut ctx = EvalContext::new(Pin::new(owner));
@@ -496,10 +487,7 @@ fn wire_menu_from_item_tree(
     entries: &MemberReference,
     sub_menu: &MemberReference,
     activated: &MemberReference,
-    menu_item_tree: vtable::VRc<
-        i_slint_core::menus::MenuVTable,
-        i_slint_core::menus::MenuFromItemTree,
-    >,
+    menu_item_tree: VRc<i_slint_core::menus::MenuVTable, i_slint_core::menus::MenuFromItemTree>,
 ) {
     fn entries_model(
         mt: &i_slint_core::menus::MenuFromItemTree,
@@ -511,9 +499,9 @@ fn wire_menu_from_item_tree(
             entries.into_iter().map(Value::from).collect::<Vec<_>>(),
         )))
     }
-    let mt = vtable::VRc::clone(&menu_item_tree);
+    let mt = VRc::clone(&menu_item_tree);
     wire_popup_menu_prop(ctx, entries, move || entries_model(&mt, None));
-    let mt = vtable::VRc::clone(&menu_item_tree);
+    let mt = VRc::clone(&menu_item_tree);
     wire_popup_menu_cb(ctx, sub_menu, move |args| {
         let entry = args.first().cloned().unwrap_or_default().try_into().unwrap_or_default();
         entries_model(&mt, Some(&entry))
