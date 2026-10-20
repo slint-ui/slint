@@ -267,7 +267,8 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
 fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
     compiler_config: &mut CompilerConfiguration,
-) -> impl Iterator<Item = TokenTree> {
+    edition: &mut Option<project_file::SlintVersion>,
+) -> Result<impl Iterator<Item = TokenTree>, TokenStream> {
     let mut remaining_stream;
     loop {
         remaining_stream = stream.clone();
@@ -327,13 +328,45 @@ fn extract_compiler_config(
                             _ => break,
                         }
                     }
+                    Some(TokenTree::Ident(edition_ident))
+                        if edition_ident.to_string() == "edition" =>
+                    {
+                        match (attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(value)),
+                            ) if equal_punct.as_char() == '=' => {
+                                *edition = Some(parse_edition(&value)?);
+                            }
+                            _ => break,
+                        }
+                    }
                     _ => break,
                 }
             }
             _ => break,
         }
     }
-    remaining_stream
+    Ok(remaining_stream)
+}
+
+fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintVersion, TokenStream> {
+    let current = project_file::SlintVersion::current();
+    let text = value.to_string();
+    let edition = text
+        .strip_prefix('"')
+        .and_then(|text| text.strip_suffix('"'))
+        .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))
+        .and_then(str::parse);
+    let message = match edition {
+        Ok(edition) if edition > current => format!(
+            "'edition' is {edition}, newer than this Slint {current}: upgrade Slint, or set #[edition = \"{current}\"]"
+        ),
+        Ok(edition) => return Ok(edition),
+        Err(message) => message,
+    };
+    let span = proc_macro2::Span::from(value.span());
+    Err(quote::quote_spanned!(span => compile_error!{ #message }).into())
 }
 
 /// The directory the search for `slint-project.json` starts in.
@@ -435,6 +468,24 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// `export { App } from "ui/app.slint";`, searches from that file instead.
 /// Such a macro then uses the same project file as building `ui/app.slint` directly.
 ///
+/// ### Edition
+///
+/// Set the
+#[doc = concat!("[edition](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/tooling/project-file/#edition)")]
+/// with an attribute at the start of the macro body:
+///
+/// ```rust,ignore
+/// slint::slint! {
+///     #[edition = "1.19"]
+///     export component App inherits Window { }
+/// }
+/// ```
+///
+/// It wins over the edition of the project file,
+/// so a macro that re-exports from a `.slint` file can behave differently than building that file directly.
+/// Without either, the macro uses the behavior from before Slint 1.19.
+/// The editor and the live preview don't read the attribute: they use the edition of the project file.
+///
 /// ### Limitations
 ///
 /// Because this macro receives its input through Rust's tokenizer, a few constructs that are
@@ -461,7 +512,11 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    let token_iter = extract_compiler_config(token_iter, &mut compiler_config);
+    let mut edition = None;
+    let token_iter = match extract_compiler_config(token_iter, &mut compiler_config, &mut edition) {
+        Ok(token_iter) => token_iter,
+        Err(error) => return error,
+    };
 
     let mut tokens = Vec::new();
     fill_token_vec(token_iter, &mut tokens);
@@ -505,6 +560,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     if let Err(message) = apply_project_file(&search_directory, &mut compiler_config, &mut diag) {
         diag.push_error_with_span(message, Default::default());
         return diag.report_macro_diagnostic(&tokens);
+    }
+    if edition.is_some() {
+        compiler_config.edition = edition;
     }
 
     // Consult the output cache before doing any (expensive) compilation. The key

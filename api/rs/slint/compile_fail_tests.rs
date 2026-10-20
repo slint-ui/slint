@@ -50,6 +50,32 @@ slint!{
 */
 const INVALID_RUST_ATTR: () = ();
 
+/**
+Test that an invalid `#[edition]` is a compilation error.
+
+This works:
+```
+slint::slint!{ #[edition = "1.19"] export component Hello { } }
+```
+
+But not a malformed edition:
+```compile_fail
+slint::slint!{ #[edition = "1.19.0"] export component Hello { } }
+```
+
+Nor one that isn't a string:
+```compile_fail
+slint::slint!{ #[edition = 1.19] export component Hello { } }
+```
+
+Nor one newer than this Slint:
+```compile_fail
+slint::slint!{ #[edition = "999.0"] export component Hello { } }
+```
+*/
+#[cfg(doctest)]
+const INVALID_EDITION: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();
