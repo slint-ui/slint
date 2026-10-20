@@ -504,6 +504,10 @@ pub enum PlainOrStyledText {
 #[allow(missing_docs)]
 pub trait RenderString: HasFont {
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    /// Styles for spans of [`Self::text`] when it is plain text.
+    fn formatting(self: Pin<&Self>) -> alloc::vec::Vec<i_slint_common::styled_text::FormattedSpan> {
+        Default::default()
+    }
     fn max_lines(self: Pin<&Self>) -> i32 {
         0
     }

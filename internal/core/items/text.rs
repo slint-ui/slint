@@ -792,6 +792,9 @@ pub struct TextInput {
     pub preedit_text: Property<SharedString>,
     /// A selection within the preedit (cursor and anchor)
     preedit_selection: Property<PreEditSelection>,
+    /// The byte range of `text` that an input method composes as part of the text, as on Android.
+    composition_start: Property<i32>,
+    composition_end: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -1347,6 +1350,24 @@ impl RenderString for TextInput {
         // the selection too -- see `text_with_preedit`.
         let text = self.text_with_preedit().0;
         PlainOrStyledText::Plain(if self.is_password() { mask_password(&text) } else { text })
+    }
+
+    /// Underlines the composition, like Android's native text fields.
+    fn formatting(self: Pin<&Self>) -> alloc::vec::Vec<i_slint_common::styled_text::FormattedSpan> {
+        let range = self.composition_start() as usize..self.composition_end() as usize;
+        let text = self.text();
+        if range.is_empty()
+            || self.is_password()
+            || !self.preedit_text().is_empty()
+            || !text.is_char_boundary(range.start)
+            || !text.is_char_boundary(range.end)
+        {
+            return Default::default();
+        }
+        alloc::vec![i_slint_common::styled_text::FormattedSpan {
+            range,
+            style: i_slint_common::styled_text::Style::Underline,
+        }]
     }
 }
 
@@ -2058,6 +2079,13 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
+    }
+
+    /// Sets the byte range of the text that the input method is composing, which is underlined.
+    /// An empty range removes the underline.
+    pub fn set_composition(self: Pin<&Self>, range: core::ops::Range<usize>) {
+        self.composition_start.set(range.start as i32);
+        self.composition_end.set(range.end as i32);
     }
 
     /// Selects the word where a long press started; while the press is held, dragging then
