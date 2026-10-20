@@ -3223,6 +3223,7 @@ dependencies = [
  "log",
  "memmap2",
  "nix",
+ "pkg-config",
  "raw-window-handle",
  "slint",
  "wgpu 30.0.1",

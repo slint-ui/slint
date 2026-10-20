@@ -56,7 +56,7 @@ impl LinuxFBDisplay {
         path: &std::path::Path,
         renderer_formats: &[drm::buffer::DrmFourcc],
     ) -> Result<Arc<dyn super::SoftwareBufferDisplay>, PlatformError> {
-        let fd = device_opener(path)?;
+        let fd = device_opener.open(path)?;
 
         let vinfo = unsafe {
             let mut vinfo: fb_var_screeninfo = std::mem::zeroed();
