@@ -20,7 +20,7 @@ The follow table summarizes the entire mapping:
 | `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
 | `styled-text` | [`StyledText`] | Use [`StyledText::from_markdown`](crate::StyledText::from_markdown) or [`StyledText::from_plain_text`](crate::StyledText::from_plain_text) to create values in Rust. |
-| anonymous object | anonymous tuple | The fields are in alphabetical order. |
+| anonymous struct | tuple | The fields are in alphabetical order. |
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | structure | `struct` of the same name | |
 
@@ -43,6 +43,23 @@ struct MyStruct {
     bar: slint::SharedString,
     names: slint::ModelRc<slint::SharedString>,
 }
+```
+
+An anonymous struct has no name to generate a struct for.
+It becomes a tuple of its field values instead, with the fields in alphabetical order.
+For example, with this property
+
+```slint,ignore
+export component Example {
+    in-out property <{score: int, name: string}> player;
+}
+```
+
+the generated accessors use a `(slint::SharedString, i32)`:
+
+```rust,ignore
+example.set_player(("Foo".into(), 100));
+let (name, score) = example.get_player();
 ```
 
 The `.slint` file allows you to utilize Rust attributes and features for defining structures using the `@rust-attr()` directive.
