@@ -419,6 +419,29 @@ pub fn error_on_slot_in_inner_builtin(
     }
 }
 
+/// Walks a chain of `component Sub inherits Base { ... }` steps (as `base_type`s of
+/// components collected by a lowering pass in `roots`), skipping empty pass-through
+/// subclasses, to check whether some component along the way already declares children.
+/// Stops (and returns `false`) as soon as the chain leaves `roots`, e.g. at the
+/// style-selected builtin itself.
+pub fn base_chain_declares_children(
+    base_type: &ElementType,
+    roots: &HashSet<*const RefCell<Element>>,
+) -> bool {
+    let mut base_type = base_type.clone();
+    loop {
+        let ElementType::Component(c) = &base_type else { return false };
+        if !roots.contains(&Rc::as_ptr(&c.root_element)) {
+            return false;
+        }
+        if !c.root_element.borrow().children.is_empty() {
+            return true;
+        }
+        let next = c.root_element.borrow().base_type.clone();
+        base_type = next;
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),
