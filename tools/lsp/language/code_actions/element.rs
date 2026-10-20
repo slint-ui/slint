@@ -86,7 +86,7 @@ fn add_remove(
         })
         .collect::<Vec<_>>();
 
-    let can_remove = if ctx.component.is_some() {
+    let can_remove = if element.parent().is_some_and(|n| n.kind() == SyntaxKind::Component) {
         matches!(sub_elements.as_slice(), [sub_element] if is_sub_element_without_id(sub_element))
     } else {
         sub_elements.iter().any(|n| n.kind() == SyntaxKind::SubElement)
