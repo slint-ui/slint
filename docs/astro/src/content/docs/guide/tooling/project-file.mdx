@@ -66,6 +66,7 @@ New features don't depend on the edition: use them with any edition.
 A Slint older than the edition refuses to compile the project.
 
 Without a project file, Slint uses the behavior from before Slint 1.19.
+The Rust `slint!` macro can select an edition without a project file, with `#[edition = "1.19"]` at the start of the macro body.
 
 These releases changed the behavior:
 
@@ -90,7 +91,7 @@ From highest to lowest priority:
 2. The project file.
 3. A compiler default.
 
-`slint-edition` comes only from the project file.
+The `#[edition]` attribute of the Rust `slint!` macro wins over `slint-edition`.
 
 ## Compiling the Project File
 
