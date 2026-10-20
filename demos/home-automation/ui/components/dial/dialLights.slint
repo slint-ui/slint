@@ -9,6 +9,13 @@ export component Light {
         return 1 * (1 - abs(sin(360deg * animation-tick() / duration)));
     }
 
+    in property <bool> frozen: false;
+    in property <bool> snap-to-pixels: false;
+    property <float> live-opacity: 1;
+    property <float> frozen-opacity: 1;
+    changed frozen => {
+        if frozen { frozen-opacity = live-opacity; }
+    }
     in property <int> index;
     in property <int> volume;
     property <angle> gap: (360deg - (DialState.startAngle - DialState.endAngle)) / DialState.totalLights;
@@ -16,25 +23,25 @@ export component Light {
     property <bool> lightOn: index <= volume;
     property <float> pulse:   index == 0 && lightOn && volume <= 1 ? pulseAnimation(5s) : 1.0;
 
-    x: DialState.elementRadius * angle.cos();
-    y: DialState.elementRadius * angle.sin();
+    x: root.snap-to-pixels ? round(DialState.elementRadius * angle.cos() / 1px) * 1px : DialState.elementRadius * angle.cos();
+    y: root.snap-to-pixels ? round(DialState.elementRadius * angle.sin() / 1px) * 1px : DialState.elementRadius * angle.sin();
     width: 0;
     height: 0;
 
     states [
         lightOff when !root.lightOn: {
-            dialLed.opacity: 0;
+            root.live-opacity: 0;
         }
         lightOn when root.lightOn: {
-            dialLed.opacity: pulse;
+            root.live-opacity: pulse;
             in {
-                animate dialLed.opacity {
+                animate root.live-opacity {
                     duration: 100ms;
                     easing: ease-in-sine;
                 }
             }
             out {
-                animate dialLed.opacity {
+                animate root.live-opacity {
                     duration: 600ms;
                     easing: ease-out-sine;
                 }
@@ -52,6 +59,7 @@ export component Light {
         }
 
         dialLed := Image {
+            opacity: root.frozen ? root.frozen-opacity : root.live-opacity;
             source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
             width: self.source.width * 0.5 * 1px;
             height: self.source.height * 0.5 * 1px;
@@ -60,6 +68,8 @@ export component Light {
 }
 
 export component DialLights {
+    in property <bool> frozen: false;
+    in property <bool> snap-to-pixels: false;
     width: 212px;
     height: 213px;
     in property <int> volume;
@@ -74,6 +84,8 @@ export component DialLights {
             y: 1px;
             for i in DialState.totalLights + 1: Light {
                 index: i;
+                frozen: root.frozen;
+                snap-to-pixels: root.snap-to-pixels;
                 volume: root.volume;
             }
         }

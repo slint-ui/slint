@@ -19,97 +19,98 @@ import { Animation } from "../../common.slint";
 
 
 export component WidgetLoader {
+    cache-rendering-hint: AppState.cached-widget-layers;
     in property <int> index;
     in property <ComponentData> data;
     in property <WidgetType> type;
     property <bool> full-screen: AppState.full-screen-index == root.index;
     property <ComponentData> effective-data: root.full-screen ? AppState.full-screen-data : root.data;
-    property <bool> show: effective-data.visible;
-    // Set for the whole full screen transition, including the shrink back into the grid.
+    property <bool> show: false;
     in property <bool> elevated;
-    // The first run shortcut skips the animation, which a full screen transition needs.
-    property <bool> instant-layout: AppState.first-run && !root.elevated;
-    property <length> targetX;
-    property <length> targetY;
-    property <length> targetWidth;
-    property <length> targetHeight;
-    property <length> animTargetX;
-    property <length> animTargetY;
-    property <length> animTargetWidth;
-    property <length> animTargetHeight;
+    property <bool> initialized: false;
+    property <bool> animate-geometry: false;
+    property <ComponentData> layout-data;
+    property <length> layout-x;
+    property <length> layout-y;
+    property <length> layout-width;
+    property <length> layout-height;
+    property <duration> fade-duration: 0ms;
+    property <duration> fade-delay: 0ms;
 
-    animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
-        duration: root.elevated ? Animation.full-screen-duration : Animation.transition-duration;
+    animate layout-x, layout-y, layout-width, layout-height {
+        duration: root.animate-geometry && (!AppState.first-run || root.elevated)
+            ? (root.elevated ? Animation.full-screen-duration : Animation.transition-duration) : 0ms;
+        easing: ease-in-out-sine;
+    }
+    animate opacity {
+        duration: root.fade-duration;
+        delay: root.fade-delay;
         easing: ease-in-out-sine;
     }
 
-    changed effective-data => {
-        if root.show != root.effective-data.visible {
-            // hiding then set the position so it fades in on the correct place
-            if !root.show {
-                targetX = root.effective-data.x * 1px;
-                targetY = root.effective-data.y * 1px;
-                targetWidth = root.effective-data.width * 1px;
-                targetHeight = root.effective-data.height * 1px;
-                animTargetX = root.effective-data.x * 1px;
-                animTargetY = root.effective-data.y * 1px;
-                animTargetWidth = root.effective-data.width * 1px;
-                animTargetHeight = root.effective-data.height * 1px;
-            } // but if visible don't change the pos so it just fades away.
+    function set-layout(data: ComponentData, motion: bool) {
+        root.animate-geometry = motion;
+        if (motion && data.x != root.layout-data.x) || (!motion && root.layout-x != data.x * 1px) { root.layout-x = data.x * 1px; }
+        if (motion && data.y != root.layout-data.y) || (!motion && root.layout-y != data.y * 1px) { root.layout-y = data.y * 1px; }
+        if (motion && data.width != root.layout-data.width) || (!motion && root.layout-width != data.width * 1px) { root.layout-width = data.width * 1px; }
+        if (motion && data.height != root.layout-data.height) || (!motion && root.layout-height != data.height * 1px) { root.layout-height = data.height * 1px; }
+        root.layout-data = data;
+    }
 
-            root.show = root.effective-data.visible == true;
-        } else {
-            targetX = root.effective-data.x * 1px;
-            targetY = root.effective-data.y * 1px;
-            targetWidth = root.effective-data.width * 1px;
-            targetHeight = root.effective-data.height * 1px;
-            animTargetX = root.effective-data.x * 1px;
-            animTargetY = root.effective-data.y * 1px;
-            animTargetWidth = root.effective-data.width * 1px;
-            animTargetHeight = root.effective-data.height * 1px;
+    function hold-layout() {
+        let x = root.layout-x;
+        let y = root.layout-y;
+        let width = root.layout-width;
+        let height = root.layout-height;
+        root.animate-geometry = false;
+        if x != root.layout-data.x * 1px { root.layout-x = x; }
+        if y != root.layout-data.y * 1px { root.layout-y = y; }
+        if width != root.layout-data.width * 1px { root.layout-width = width; }
+        if height != root.layout-data.height * 1px { root.layout-height = height; }
+    }
+
+    function set-opacity(value: float, fade-time: duration, wait-time: duration) {
+        if root.opacity != value {
+            root.fade-duration = fade-time;
+            root.fade-delay = wait-time;
+            root.opacity = value;
+        }
+    }
+
+    changed effective-data => {
+        if root.initialized {
+            if root.effective-data.visible {
+                if root.show {
+                    root.set-opacity(1, 0ms, 0ms);
+                    root.set-layout(root.effective-data, true);
+                } else {
+                    root.set-opacity(0, 0ms, 0ms);
+                    root.set-layout(root.effective-data, false);
+                    root.set-opacity(1,
+                        AppState.first-run ? 0ms : Animation.transition-duration,
+                        AppState.first-run ? 0ms : Animation.transition-duration / 2);
+                }
+            } else if root.show {
+                root.hold-layout();
+                root.set-opacity(0, AppState.first-run ? 0ms : Animation.transition-duration / 2, 0ms);
+            }
+            root.show = root.effective-data.visible;
         }
     }
 
     init => {
-        targetX = root.effective-data.x * 1px;
-        targetY = root.effective-data.y * 1px;
-        targetWidth = root.effective-data.width * 1px;
-        targetHeight = root.effective-data.height * 1px;
-        animTargetX = root.effective-data.x * 1px;
-        animTargetY = root.effective-data.y * 1px;
-        animTargetWidth = root.effective-data.width * 1px;
-        animTargetHeight = root.effective-data.height * 1px;
+        root.set-layout(root.effective-data, false);
         root.show = root.effective-data.visible;
+        root.set-opacity(root.show ? 1 : 0, 0ms, 0ms);
+        root.initialized = true;
     }
 
     opacity: 0;
-    x: root.instant-layout ? targetX * AppState.special-x-pos-scale : (root.opacity < 1 ? targetX : animTargetX) * AppState.special-x-pos-scale;
-    y: root.instant-layout ? targetY * AppState.special-y-pos-scale : (root.opacity < 1 ? targetY : animTargetY) * AppState.special-y-pos-scale;
-    width: root.instant-layout ? targetWidth * AppState.special-x-pos-scale : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.special-x-pos-scale;
-    height: root.instant-layout ? targetHeight * AppState.special-y-pos-scale : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.special-y-pos-scale;
+    x: root.layout-x * AppState.special-x-pos-scale;
+    y: root.layout-y * AppState.special-y-pos-scale;
+    width: root.layout-width * AppState.special-x-pos-scale;
+    height: root.layout-height * AppState.special-y-pos-scale;
     visible: root.opacity > 0;
-
-    states [
-        instantVisible when root.show && AppState.first-run: {
-            root.opacity: 1;
-        }
-        isVisible when root.show && !AppState.first-run: {
-            root.opacity: 1;
-            in {
-                animate root.opacity {
-                    delay: Animation.transition-duration / 2;
-                    duration: Animation.transition-duration;
-                    easing: ease-in-out-sine;
-                }
-            }
-            out {
-                animate root.opacity {
-                    duration: Animation.transition-duration / 2;
-                    easing: ease-in-out-sine;
-                }
-            }
-        }
-    ]
 
     // Use the correct component based on type
     if root.type == WidgetType.lamp: Lamp {
@@ -192,13 +193,11 @@ export component WidgetLoader {
         height: root.height;
     }
     if root.type == WidgetType.weatherInfo: WeatherInfo {
-        property <float> scaler: Math.min(1.0, root.width / 270px);
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
-        transform-scale: scaler;
     }
 
     if root.type == WidgetType.powerInfo: PowerInfo {

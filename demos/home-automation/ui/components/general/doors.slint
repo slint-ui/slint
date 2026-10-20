@@ -8,19 +8,49 @@ import { Palette } from "../../common.slint";
 export enum DoorState { closed, open }
 
 export component Doors {
+    in property <int> capture-door: 0;
+    in property <bool> cache-doors: false;
+    in property <bool> snap-to-pixels: false;
+    property <bool> freeze-lights: false;
+    property <int> frozen-volume: 0;
     property <brush> notch-border-color: #0000005d;
     in-out property <bool> demo-locked: true;
     in-out property <DoorState> initial-door-state: closed;
     property <DoorState> target-door-state: initial-door-state;
+    // Animate progress so window layout and resizing never animate the closed positions.
+    out property <float> open-progress: initial-door-state == DoorState.open ? 1 : 0;
+
+    out property <length> left-door-x: leftDoor.x;
+    out property <length> right-door-x: rightDoorLayer.x + 106px;
 
     callback unlockDemo();
     callback doorsOpened();
     callback doorsOpening();
+    callback doorsClosing();
     callback doorsClosed();
+    callback coverage-changed(bool);
+    property <bool> fully-closed: target-door-state == DoorState.closed
+        && open-progress == 0;
+    changed fully-closed => {
+        root.coverage-changed(fully-closed);
+    }
+    changed open-progress => {
+        if open-progress == 1 && target-door-state == DoorState.open
+            && initial-door-state == DoorState.closed {
+            freeze-lights = false;
+            root.doorsOpened();
+        }
+        if open-progress == 0 && target-door-state == DoorState.closed {
+            freeze-lights = false;
+            root.doorsClosed();
+        }
+    }
     width: 100%;
     height: 100%;
 
     unlockDemo => {
+        frozen-volume = dial.volume;
+        freeze-lights = true;
         demo-locked = false;
         target-door-state = DoorState.open;
         doorsOpening();
@@ -30,6 +60,9 @@ export component Doors {
         interval: 1ms;
         triggered => {
             if initial-door-state == DoorState.open && demo-locked {
+                frozen-volume = dial.volume;
+                freeze-lights = true;
+                root.doorsClosing();
                 target-door-state = DoorState.closed;
                 initial-door-state = DoorState.closed;
             }
@@ -42,7 +75,10 @@ export component Doors {
     }
 
     leftDoor := Rectangle {
-        x: -30px;
+        property <length> position: -30px + root.open-progress * (30px - self.width);
+        x: root.capture-door == 1 ? 0px : root.snap-to-pixels ? round(position / 1px) * 1px : position;
+        visible: root.capture-door != 2;
+        cache-rendering-hint: root.cache-doors;
         width: parent.width / 2 + 70px;
         height: 100%;
         background: Palette.doors-background;
@@ -50,47 +86,30 @@ export component Doors {
         border-color: notch-border-color;
         border-radius: 30px;
         clip: true;
-        changed x => {
-            if root.initial-door-state == DoorState.closed && self.x <= -leftDoor.width {
-                root.doorsOpened();
-            }
-            if self.x == -60px {
-                root.doorsClosed();
-            }
-        }
-
-        Image {
-            x: 0;
-            y: 0;
-            width: self.source.width * 2 * 1px;
-            height: self.source.height * 2 * 1px;
-            source: @image-url("../../images/logo-fragment.png");
-            opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
-        }
 
         DialLights {
             x: parent.width - 125px;
-            volume: dial.volume;
+            volume: root.freeze-lights ? root.frozen-volume : dial.volume;
+            frozen: root.freeze-lights;
+            snap-to-pixels: root.snap-to-pixels;
         }
     }
 
     states [
         doorsOpen when target-door-state == DoorState.open: {
-            leftDoor.x: -leftDoor.width;
-            rightDoor.x: root.width + 85px;
+            root.open-progress: 1;
             dial.dialAngle: DialState.startAngle;
             in {
-                animate rightDoor.x, leftDoor.x {
+                animate root.open-progress {
                     duration: 800ms;
                     easing: ease-in-expo;
                 }
             }
         }
         doorsClosed when target-door-state == DoorState.closed: {
-            leftDoor.x: -30px;
-            rightDoor.x: root.width / 2;
+            root.open-progress: 0;
             in {
-                animate rightDoor.x, leftDoor.x {
+                animate root.open-progress {
                     duration: 800ms;
                     easing: ease-in-expo;
                 }
@@ -98,27 +117,25 @@ export component Doors {
         }
     ]
 
-    rightDoor := Rectangle {
+    rightDoorLayer := Rectangle {
+        property <length> position: root.width / 2 + root.open-progress * (root.width / 2 + 85px);
+        x: root.capture-door == 2 ? 0px : (root.snap-to-pixels ? round(position / 1px) * 1px : position) - 106px;
+        width: root.width / 2 + 136px;
+        height: 100%;
+        visible: root.capture-door != 1;
+        cache-rendering-hint: root.cache-doors;
+        rightDoor := Rectangle {
         property <length> notch-width: 220px;
         property <length> notch-border: 4px;
         property <length> notch-indent: 20px;
 
-        x: parent.width / 2;
-        width: parent.width / 2 + 30px;
+        x: 106px;
+        width: root.width / 2 + 30px;
         height: 100%;
         Rectangle {
             background: Palette.doors-background;
             clip: true;
             border-radius: 30px;
-            Image {
-                x: parent.width - self.width;
-                y: parent.height - self.height;
-                width: self.source.width * 2 * 1px;
-                height: self.source.height * 2 * 1px;
-                source: @image-url("../../images/logo-fragment.png");
-                transform-rotation: 180deg;
-                opacity: Palette.dark-color-scheme ? 0.08 : 0.02;
-            }
         }
 
         Rectangle {
@@ -162,12 +179,13 @@ export component Doors {
         dial := Dial {
             x: -82px;
             y: (parent.height - self.height) / 2 - 1px;
-            interactive: root.demo-locked;
+            interactive: root.demo-locked && !root.freeze-lights;
             changed volume => {
                 if self.volume >= 60 {
                     root.unlockDemo()
                 }
             }
         }
+    }
     }
 }
