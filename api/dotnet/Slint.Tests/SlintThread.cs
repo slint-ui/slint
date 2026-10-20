@@ -18,18 +18,29 @@ public static partial class SlintThread
 
     static SlintThread()
     {
-        // The native library reads the process environment, which Environment.SetEnvironmentVariable doesn't change on Unix.
-        if (!OperatingSystem.IsWindows() && Environment.GetEnvironmentVariable("SLINT_BACKEND") is null)
+        if (Environment.GetEnvironmentVariable("SLINT_BACKEND") is null)
         {
-            setenv("SLINT_BACKEND", "testing", 1);
-        }
-        var thread = new Thread(() =>
-        {
-            foreach (var action in s_queue.GetConsumingEnumerable())
+            // The native library reads the process environment.
+            // Environment.SetEnvironmentVariable changes it on Windows, but only a .NET copy of it on Unix.
+            if (OperatingSystem.IsWindows())
             {
-                action();
+                Environment.SetEnvironmentVariable("SLINT_BACKEND", "testing");
             }
-        })
+            else
+            {
+                setenv("SLINT_BACKEND", "testing", 1);
+            }
+        }
+        // Debug builds of the Slint compiler recurse deeply; Slint's own Windows builds link with an 8 MB stack.
+        var thread = new Thread(
+            () =>
+            {
+                foreach (var action in s_queue.GetConsumingEnumerable())
+                {
+                    action();
+                }
+            },
+            maxStackSize: 16 * 1024 * 1024)
         {
             IsBackground = true,
             Name = "Slint",
