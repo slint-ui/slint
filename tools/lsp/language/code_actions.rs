@@ -14,7 +14,7 @@ mod translate;
 
 use crate::editor_preview::{self, DocumentCache};
 
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{ClientCapabilities, CodeActionKind, CodeActionOrCommand, TextEdit, Url};
 
 struct Context<'a> {
@@ -22,7 +22,6 @@ struct Context<'a> {
     token: SyntaxToken,
     node: SyntaxNode,
     uri: Url,
-    component: Option<syntax_nodes::Component>,
     snippets: bool,
 }
 
@@ -34,23 +33,8 @@ impl<'a> Context<'a> {
     ) -> Option<Self> {
         let node = token.parent();
         let uri = token.source_file.path().to_url()?;
-        let component = syntax_nodes::Component::new(node.clone())
-            .or_else(|| {
-                syntax_nodes::DeclaredIdentifier::new(node.clone())
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Component::new)
-            })
-            .or_else(|| {
-                syntax_nodes::QualifiedName::new(node.clone())
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Element::new)
-                    .and_then(|n| n.parent())
-                    .and_then(syntax_nodes::Component::new)
-            })
-            .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
-            .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
         let snippets = has_experimental_client_capability(client_capabilities, "snippetTextEdit");
-        Some(Self { document_cache, token, node, uri, component, snippets })
+        Some(Self { document_cache, token, node, uri, snippets })
     }
 
     fn push_edit(
