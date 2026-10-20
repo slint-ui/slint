@@ -37,6 +37,8 @@ All notable changes to this project are documented in this file.
  - winit: Fixed Shift, Control, and Meta keys on some keyboards. (#13233)
  - winit: Fixed `Window.icon` set from `Image::from_rgba8` not being shown. (#13615)
  - winit: Fixed several window issues on Wayland. (#13948, #13982)
+ - winit: Fixed copy and paste on Wayland compositors without the data-control protocol, such
+   as GNOME, and in sandboxes such as Flatpak.
  - winit: Fixed a panic when a rendering notifier sets a property on `RenderingTeardown`.
  - winit: Fixed a memory leak while an accessibility client is active.
  - WebAssembly: Hiding the last window no longer ends the event loop.
