@@ -19,6 +19,7 @@
   <ItemGroup>
     <SlintFile Include="ui/generated.slint" />
     <SlintFile Include="ui/shared.slint" Generate="false" />
+    <SlintFile Include="ui/live.slint" LivePreview="true" />
   </ItemGroup>
   <!-- A package reference imports this automatically; a project reference doesn't. -->
   <Import Project="../Slint/build/Slint.targets" />

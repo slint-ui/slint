@@ -20,7 +20,7 @@ name = "slint_dotnet"
 
 [features]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
-default = ["backend-linuxkms-libinput", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
+default = ["backend-linuxkms-libinput", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility", "live-preview"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
@@ -38,6 +38,8 @@ backend-testing = ["i-slint-backend-selector/backend-testing"]
 # With SLINT_BACKEND=testing, also use the test fonts and report Windows as the OS, like Slint's other test drivers.
 testing = ["backend-testing", "dep:i-slint-backend-testing"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+# Reloads .slint files that change on disk, for the code that `slint-compiler --csharp-live-preview` generates.
+live-preview = ["dep:i-slint-live-preview"]
 mcp = ["i-slint-backend-selector/mcp"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
@@ -54,6 +56,7 @@ i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics"] }
 spin_on = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 i-slint-backend-linuxkms = { workspace = true, optional = true }

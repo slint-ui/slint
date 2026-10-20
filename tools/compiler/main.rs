@@ -168,6 +168,12 @@ struct Cli {
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-runtime-path", name = "runtime path")]
     csharp_runtime_path: Option<String>,
+
+    /// Make the generated C# code load the main .slint file from its source path,
+    /// and reload components when it or a file it imports changes. For development only.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-live-preview")]
+    csharp_live_preview: bool,
 }
 
 /// Replaces a project file given as input by its main file,
@@ -241,6 +247,8 @@ fn main() -> std::io::Result<()> {
         reject(args.csharp_namespace.is_some(), "--csharp-namespace");
         #[cfg(feature = "csharp")]
         reject(args.csharp_runtime_path.is_some(), "--csharp-runtime-path");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_live_preview, "--csharp-live-preview");
     }
 
     #[allow(unused_mut)]
@@ -299,11 +307,15 @@ fn main() -> std::io::Result<()> {
     }
 
     #[cfg(feature = "csharp")]
-    if args.csharp_namespace.is_some() || args.csharp_runtime_path.is_some() {
+    if args.csharp_namespace.is_some()
+        || args.csharp_runtime_path.is_some()
+        || args.csharp_live_preview
+    {
         match &mut format {
             generator::OutputFormat::CSharp(config) => {
                 config.namespace = args.csharp_namespace.clone();
                 config.runtime_path = args.csharp_runtime_path.clone();
+                config.live_preview = args.csharp_live_preview;
             }
             _ => {
                 eprintln!("C# options were set but the output format is not C# - ignoring");

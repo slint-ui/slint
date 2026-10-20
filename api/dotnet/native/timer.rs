@@ -9,14 +9,14 @@ use i_slint_core::timers::{Timer, TimerMode};
 use crate::{guard, guard_bool, into_raw, release};
 
 /// A .NET `Action`; dropping it releases `user_data` through `drop_user_data`.
-struct ManagedAction {
-    call: unsafe extern "C" fn(user_data: *mut c_void),
-    user_data: *mut c_void,
-    drop_user_data: unsafe extern "C" fn(user_data: *mut c_void),
+pub(crate) struct ManagedAction {
+    pub(crate) call: unsafe extern "C" fn(user_data: *mut c_void),
+    pub(crate) user_data: *mut c_void,
+    pub(crate) drop_user_data: unsafe extern "C" fn(user_data: *mut c_void),
 }
 
 impl ManagedAction {
-    fn call(&self) {
+    pub(crate) fn call(&self) {
         unsafe { (self.call)(self.user_data) }
     }
 }

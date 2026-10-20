@@ -144,6 +144,29 @@ app.OnRefresh(async () =>
 
 From another thread, call `EventLoop.InvokeFromEventLoop` to run code on the Slint thread.
 
+## Live Reload
+
+While you work on the UI, let the running application reload `.slint` files when you save them.
+Turn it on for Debug builds in your project file:
+
+```xml
+<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+  <SlintLivePreview>true</SlintLivePreview>
+</PropertyGroup>
+```
+
+The generated code then loads the `.slint` files from the project directory,
+and each component reloads in its window when a file it uses changes.
+The properties and callbacks you set, models included, carry over to the new version.
+A file with errors keeps the previous version until you fix it.
+Run the application with `dotnet watch` to also apply C# changes with .NET Hot Reload.
+
+Renaming or removing a property or callback that your code sets ends the application at the next reload.
+Rebuild after such changes, and use live reload during development only.
+To reload a single file, set `LivePreview="true"` on its `<SlintFile>` instead.
+`ComponentInstance.Reloaded` tells you when a component reloaded,
+and `ComponentInstance.CreateLive` creates a reloading component without generated code.
+
 ## Threading
 
 Slint objects belong to the thread that first uses Slint.

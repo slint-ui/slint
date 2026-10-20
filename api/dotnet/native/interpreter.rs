@@ -1,14 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::ffi::c_void;
 use std::path::PathBuf;
 
-use slint_interpreter::{
-    Compiler, ComponentDefinition, ComponentHandle, ComponentInstance, Diagnostic, DiagnosticLevel,
-    Value,
-};
+use slint_interpreter::{Compiler, ComponentDefinition, Diagnostic, DiagnosticLevel};
 
+use crate::instance::DotnetInstance;
 use crate::value::value_type_tag;
 use crate::{NameList, OwnedString, Utf8Str, guard, guard_bool, into_raw, release, utf8_slice};
 
@@ -275,182 +272,8 @@ pub unsafe extern "C" fn slint_dotnet_component_definition_global_functions(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_component_definition_create(
     definition: &ComponentDefinition,
-) -> *mut ComponentInstance {
-    guard(std::ptr::null_mut(), || definition.create().map(into_raw).map_err(|e| e.to_string()))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_free(instance: *mut ComponentInstance) {
-    unsafe { release(instance) }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_show(
-    instance: &ComponentInstance,
-) -> bool {
-    guard_bool(|| instance.show().map_err(|e| e.to_string()))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_hide(
-    instance: &ComponentInstance,
-) -> bool {
-    guard_bool(|| instance.hide().map_err(|e| e.to_string()))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_run(instance: &ComponentInstance) -> bool {
-    guard_bool(|| instance.run().map_err(|e| e.to_string()))
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_get_property(
-    instance: &ComponentInstance,
-    name: Utf8Str,
-) -> *mut Value {
+) -> *mut DotnetInstance {
     guard(std::ptr::null_mut(), || {
-        instance.get_property(unsafe { name.as_str() }?).map(into_raw).map_err(|e| e.to_string())
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_set_property(
-    instance: &ComponentInstance,
-    name: Utf8Str,
-    value: &Value,
-) -> bool {
-    guard_bool(|| {
-        instance.set_property(unsafe { name.as_str() }?, value.clone()).map_err(|e| e.to_string())
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_get_global_property(
-    instance: &ComponentInstance,
-    global: Utf8Str,
-    name: Utf8Str,
-) -> *mut Value {
-    guard(std::ptr::null_mut(), || {
-        let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
-        instance.get_global_property(global, name).map(into_raw).map_err(|e| e.to_string())
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_set_global_property(
-    instance: &ComponentInstance,
-    global: Utf8Str,
-    name: Utf8Str,
-    value: &Value,
-) -> bool {
-    guard_bool(|| {
-        let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
-        instance.set_global_property(global, name, value.clone()).map_err(|e| e.to_string())
-    })
-}
-
-unsafe fn borrowed_args(args: *const *const Value, count: usize) -> Vec<Value> {
-    if count == 0 {
-        return Vec::new();
-    }
-    unsafe { std::slice::from_raw_parts(args, count) }
-        .iter()
-        .map(|v| unsafe { (**v).clone() })
-        .collect()
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_invoke(
-    instance: &ComponentInstance,
-    name: Utf8Str,
-    args: *const *const Value,
-    count: usize,
-) -> *mut Value {
-    guard(std::ptr::null_mut(), || {
-        let args = unsafe { borrowed_args(args, count) };
-        instance.invoke(unsafe { name.as_str() }?, &args).map(into_raw).map_err(|e| e.to_string())
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_invoke_global(
-    instance: &ComponentInstance,
-    global: Utf8Str,
-    name: Utf8Str,
-    args: *const *const Value,
-    count: usize,
-) -> *mut Value {
-    guard(std::ptr::null_mut(), || {
-        let args = unsafe { borrowed_args(args, count) };
-        let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
-        instance.invoke_global(global, name, &args).map(into_raw).map_err(|e| e.to_string())
-    })
-}
-
-/// Receives borrowed arguments and stores an owned return value in `result`, or leaves it null for void.
-pub type CallbackFn = unsafe extern "C" fn(
-    user_data: *mut c_void,
-    args: *const *const Value,
-    count: usize,
-    result: *mut *mut Value,
-);
-
-pub type DropUserDataFn = unsafe extern "C" fn(user_data: *mut c_void);
-
-/// A managed delegate; dropping it releases `user_data` through `drop_user_data`.
-struct ManagedCallback {
-    callback: CallbackFn,
-    user_data: *mut c_void,
-    drop_user_data: DropUserDataFn,
-}
-
-impl ManagedCallback {
-    fn call(&self, args: &[Value]) -> Value {
-        let args: Vec<*const Value> = args.iter().map(|v| v as *const Value).collect();
-        let mut result = std::ptr::null_mut();
-        unsafe { (self.callback)(self.user_data, args.as_ptr(), args.len(), &mut result) };
-        if result.is_null() { Value::Void } else { *unsafe { Box::from_raw(result) } }
-    }
-}
-
-impl Drop for ManagedCallback {
-    fn drop(&mut self) {
-        unsafe { (self.drop_user_data)(self.user_data) }
-    }
-}
-
-/// Takes ownership of `user_data`, also on failure.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_set_callback(
-    instance: &ComponentInstance,
-    name: Utf8Str,
-    callback: CallbackFn,
-    user_data: *mut c_void,
-    drop_user_data: DropUserDataFn,
-) -> bool {
-    let callback = ManagedCallback { callback, user_data, drop_user_data };
-    guard_bool(|| {
-        instance
-            .set_callback(unsafe { name.as_str() }?, move |args| callback.call(args))
-            .map_err(|e| e.to_string())
-    })
-}
-
-/// Takes ownership of `user_data`, also on failure.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_component_instance_set_global_callback(
-    instance: &ComponentInstance,
-    global: Utf8Str,
-    name: Utf8Str,
-    callback: CallbackFn,
-    user_data: *mut c_void,
-    drop_user_data: DropUserDataFn,
-) -> bool {
-    let callback = ManagedCallback { callback, user_data, drop_user_data };
-    guard_bool(|| {
-        let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
-        instance
-            .set_global_callback(global, name, move |args| callback.call(args))
-            .map_err(|e| e.to_string())
+        definition.create().map(|i| into_raw(DotnetInstance::Static(i))).map_err(|e| e.to_string())
     })
 }

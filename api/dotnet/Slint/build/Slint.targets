@@ -16,6 +16,9 @@
     SlintStyle          the widget style, such as fluent
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
                         a file that refers to images outside the project
+    SlintLivePreview    true makes the generated code load the .slint files from their source directory,
+                        and reload components when the files change; for development only.
+                        LivePreview metadata on a SlintFile overrides it for that file.
 -->
 <Project>
   <PropertyGroup>
@@ -32,6 +35,8 @@
   <ItemGroup>
     <None Remove="@(SlintFile)" />
     <None Include="@(SlintFile)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
+    <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
+    <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true'" />
   </ItemGroup>
 
   <Target Name="_SlintPrepare">
@@ -48,30 +53,35 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
         <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintAssigned.FullPath)</RuntimePath>
+        <LiveOption Condition="'%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
       <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
     </ItemGroup>
-  </Target>
-
-  <Target Name="SlintGenerate"
-          DependsOnTargets="_SlintPrepare"
-          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildProjectFullPath)"
-          Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
-    <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
-    <!-- NuGet doesn't keep the executable bit of files in packages. -->
-    <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
     <PropertyGroup>
       <_SlintOptions />
       <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
+      <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
-    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)" />
+    <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
+    <MakeDir Directories="$(_SlintGeneratedDir)" />
+    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target Name="SlintGenerate"
+          DependsOnTargets="_SlintPrepare"
+          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildProjectFullPath);$(_SlintOptionsFile)"
+          Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
+    <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
+    <!-- NuGet doesn't keep the executable bit of files in packages. -->
+    <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.LiveOption)" />
   </Target>
 
   <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile" DependsOnTargets="SlintGenerate">
     <ItemGroup>
       <Compile Include="@(_SlintGenerate->'%(GeneratedFile)')" />
-      <FileWrites Include="@(_SlintGenerate->'%(GeneratedFile)')" />
+      <FileWrites Include="@(_SlintGenerate->'%(GeneratedFile)');$(_SlintOptionsFile)" />
     </ItemGroup>
   </Target>
 </Project>

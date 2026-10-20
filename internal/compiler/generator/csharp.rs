@@ -25,6 +25,8 @@ pub struct Config {
     /// The path of the `.slint` file at run time, relative to the application directory.
     /// Defaults to the file name of the main file.
     pub runtime_path: Option<String>,
+    /// Load the main file from its absolute source path instead, and reload components when it changes.
+    pub live_preview: bool,
 }
 
 const CONVERSION: &str = "global::Slint.Generated.Conversion";
@@ -538,17 +540,36 @@ pub fn generate(
         out,
         "    public static global::Slint.ComponentInstance Create(string name, global::Slint.Generated.ExpectedApi api)\n    {{"
     );
+    let style = compiler_config.style.as_deref().map_or("null".into(), string_literal);
+    let path = if config.live_preview {
+        let source = std::path::absolute(main_file).unwrap_or_else(|_| main_file.to_owned());
+        string_literal(&source.to_string_lossy())
+    } else {
+        format!(
+            "global::System.IO.Path.Combine(global::System.AppContext.BaseDirectory, {})",
+            string_literal(&runtime_path)
+        )
+    };
+    let _ = writeln!(out, "        var path = {path};");
     let _ = writeln!(
         out,
-        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(global::System.IO.Path.Combine(global::System.AppContext.BaseDirectory, {}), {});",
-        string_literal(&runtime_path),
-        compiler_config.style.as_deref().map_or("null".into(), string_literal)
+        "        s_result ??= global::Slint.Generated.GeneratedApi.Load(path, {style});"
     );
-    let _ = writeln!(
-        out,
-        "        return global::Slint.Generated.GeneratedApi.Create(s_result, {}, name, api, new global::System.Collections.Generic.Dictionary<string, global::Slint.Generated.ExpectedApi> {{ {expected_globals} }});",
-        string_literal(&format!("the C# code generated from {file_name}"))
+    let generated_file = string_literal(&format!("the C# code generated from {file_name}"));
+    let globals = format!(
+        "new global::System.Collections.Generic.Dictionary<string, global::Slint.Generated.ExpectedApi> {{ {expected_globals} }}"
     );
+    if config.live_preview {
+        let _ = writeln!(
+            out,
+            "        return global::Slint.Generated.GeneratedApi.CreateLive(s_result, path, {style}, {generated_file}, name, api, {globals});"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "        return global::Slint.Generated.GeneratedApi.Create(s_result, {generated_file}, name, api, {globals});"
+        );
+    }
     let _ = writeln!(out, "    }}\n}}");
     Ok(out)
 }

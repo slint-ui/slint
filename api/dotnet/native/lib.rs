@@ -12,6 +12,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::OnceLock;
 use std::thread::ThreadId;
 
+mod instance;
 mod interpreter;
 mod models;
 mod timer;
@@ -263,6 +264,9 @@ pub extern "C" fn slint_dotnet_build_features() -> OwnedString {
     }
     if cfg!(feature = "mcp") {
         features.push("mcp");
+    }
+    if cfg!(feature = "live-preview") {
+        features.push("live-preview");
     }
     features.join(",").into()
 }

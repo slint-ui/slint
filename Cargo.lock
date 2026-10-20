@@ -7308,6 +7308,7 @@ dependencies = [
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-core",
+ "i-slint-live-preview",
  "slint-interpreter",
  "spin_on",
 ]

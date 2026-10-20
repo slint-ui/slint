@@ -17,10 +17,73 @@ namespace Slint;
 public sealed unsafe class ComponentInstance : IDisposable
 {
     private readonly ComponentInstanceHandle _handle;
+    private readonly LiveEvents? _live;
 
-    internal ComponentInstance(ComponentInstanceHandle handle)
+    internal ComponentInstance(ComponentInstanceHandle handle, LiveEvents? live = null)
     {
         _handle = handle;
+        _live = live;
+    }
+
+    /// <summary>
+    /// Compiles the component <paramref name="componentName"/> of the <c>.slint</c> file <paramref name="path"/> and creates it.
+    /// While the event loop runs, the component reloads whenever the file or a file it imports changes,
+    /// keeping the window and every property and callback you set.
+    /// </summary>
+    /// <remarks>
+    /// Use it during development only.
+    /// A file with errors keeps the previous version.
+    /// If a property or callback that you set no longer exists after a change, the application terminates.
+    /// </remarks>
+    public static ComponentInstance CreateLive(
+        string path,
+        string componentName,
+        string? style = null,
+        IReadOnlyList<string>? includePaths = null)
+    {
+        using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
+        using var nameStr = new PinnedUtf8(componentName);
+        using var styleStr = new PinnedUtf8(style ?? "");
+        using var includes = new PinnedUtf8Array(includePaths ?? []);
+        ComponentInstanceHandle handle;
+        fixed (Utf8Str* includesPtr = includes.Strs)
+        {
+            handle = NativeMethods.slint_dotnet_live_component_new(
+                pathStr.Str, nameStr.Str, styleStr.Str, includesPtr, (nuint)includes.Strs.Length);
+        }
+        if (!NativeError.Check(handle))
+        {
+            throw new SlintException($"Failed to create component {componentName} from {path}");
+        }
+        var live = new LiveEvents();
+        NativeError.Check(NativeMethods.slint_dotnet_live_component_set_reload_hook(
+            handle, &ActionTrampoline.Invoke, ActionTrampoline.Alloc(live.Raise), &ActionTrampoline.Release));
+        return new ComponentInstance(handle, live);
+    }
+
+    /// <summary>Whether the native library can create components with <see cref="CreateLive"/>.</summary>
+    public static bool LiveReloadAvailable => EventLoop.BuildFeatures.Contains("live-preview");
+
+    /// <summary>Whether the instance comes from <see cref="CreateLive"/>.</summary>
+    public bool IsLive => _live != null;
+
+    /// <summary>Raised on the Slint thread after a component from <see cref="CreateLive"/> reloaded.</summary>
+    public event Action? Reloaded
+    {
+        add
+        {
+            if (_live != null)
+            {
+                _live.Reloaded += value;
+            }
+        }
+        remove
+        {
+            if (_live != null)
+            {
+                _live.Reloaded -= value;
+            }
+        }
     }
 
     /// <summary>Returns the value of the public property <paramref name="name"/>.</summary>
@@ -160,6 +223,14 @@ public sealed unsafe class ComponentInstance : IDisposable
 
     /// <summary>Releases the instance.</summary>
     public void Dispose() => _handle.Dispose();
+}
+
+/// <summary>The receiver of the reload hook; it doesn't reference the instance, so the hook doesn't keep it alive.</summary>
+internal sealed class LiveEvents
+{
+    public event Action? Reloaded;
+
+    public void Raise() => Reloaded?.Invoke();
 }
 
 internal static unsafe class CallbackTrampoline

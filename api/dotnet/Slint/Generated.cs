@@ -111,7 +111,41 @@ public static class GeneratedApi
         ExpectedApi component,
         IReadOnlyDictionary<string, ExpectedApi> globals)
     {
-        using var definition = result.Component(name)
+        using var definition = Check(result, generatedFile, name, component, globals);
+        return definition.Create();
+    }
+
+    /// <summary>
+    /// Like <see cref="Create"/>, but the component reloads <paramref name="path"/> when it changes,
+    /// see <see cref="ComponentInstance.CreateLive"/>.
+    /// Without live reload in the native library, warns and creates the component once.
+    /// </summary>
+    public static ComponentInstance CreateLive(
+        CompilationResult result,
+        string path,
+        string? style,
+        string generatedFile,
+        string name,
+        ExpectedApi component,
+        IReadOnlyDictionary<string, ExpectedApi> globals)
+    {
+        using var definition = Check(result, generatedFile, name, component, globals);
+        if (!ComponentInstance.LiveReloadAvailable)
+        {
+            Console.Error.WriteLine($"Slint: the native library can't reload .slint files, so {name} won't reload");
+            return definition.Create();
+        }
+        return ComponentInstance.CreateLive(path, name, style);
+    }
+
+    private static ComponentDefinition Check(
+        CompilationResult result,
+        string generatedFile,
+        string name,
+        ExpectedApi component,
+        IReadOnlyDictionary<string, ExpectedApi> globals)
+    {
+        var definition = result.Component(name)
             ?? throw new SlintException($"{generatedFile} is out of date: the .slint file no longer exports '{name}'");
         var problems = new List<string>();
         Compare(name, component, definition.Properties, definition.Callbacks, definition.Functions, problems);
@@ -127,9 +161,10 @@ public static class GeneratedApi
         }
         if (problems.Count > 0)
         {
+            definition.Dispose();
             throw new SlintException($"{generatedFile} is out of date; regenerate it:\n" + string.Join("\n", problems));
         }
-        return definition.Create();
+        return definition;
     }
 
     private static void Compare(

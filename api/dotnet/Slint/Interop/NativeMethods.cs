@@ -233,6 +233,22 @@ internal static unsafe partial class NativeMethods
     public static partial void slint_dotnet_component_instance_free(nint instance);
 
     [LibraryImport(Library)]
+    public static partial ComponentInstanceHandle slint_dotnet_live_component_new(
+        Utf8Str path,
+        Utf8Str component,
+        Utf8Str style,
+        Utf8Str* includePaths,
+        nuint includeCount);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_live_component_set_reload_hook(
+        ComponentInstanceHandle instance,
+        delegate* unmanaged<nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
+
+    [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_component_instance_show(ComponentInstanceHandle instance);
 
