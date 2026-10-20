@@ -375,8 +375,6 @@
         `The Slint preview, with ${runtime}, reported:\n` +
           problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
       );
-    } else {
-      reportToModel(`The Slint preview, with ${runtime}, compiled without errors or warnings.`);
     }
 
     if (!component) {
