@@ -1409,7 +1409,7 @@ mod preview_tests {
                 session.send_state_to_preview(preview_index);
                 assert_project_contents(messages, &url, source, version);
                 messages.borrow_mut().clear();
-                session.send_files_to_preview(preview_index, std::slice::from_ref(&url), |_| false);
+                session.send_files_to_preview(preview_index, std::slice::from_ref(&url), &[]);
                 assert_project_contents(messages, &url, source, version);
             }
         }
@@ -1665,7 +1665,11 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, "{}").unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
-            session.send_files_to_preview(preview_index, std::slice::from_ref(&url), |_| true);
+            session.send_files_to_preview(
+                preview_index,
+                std::slice::from_ref(&url),
+                &[directory.path().to_path_buf()],
+            );
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
@@ -1682,7 +1686,11 @@ mod preview_tests {
             session.send_state_to_preview(preview_index);
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
             messages.borrow_mut().clear();
-            session.send_files_to_preview(preview_index, std::slice::from_ref(&url), |_| true);
+            session.send_files_to_preview(
+                preview_index,
+                std::slice::from_ref(&url),
+                &[directory.path().to_path_buf()],
+            );
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
