@@ -6,9 +6,9 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorAppearanceSection, InspectorBorderSection, InspectorContext, InspectorEffectsSection, InspectorGeometrySection,
-    InspectorImageSection, InspectorLayoutSection, InspectorTextAlignmentSection, InspectorTextContentSection,
-    InspectorTextWrapSection, InspectorTypographySection,
+    InspectorAppearanceSection, InspectorBorderSection, InspectorContext, InspectorEffectsSection, InspectorEnabledSection,
+    InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorTextAlignmentSection,
+    InspectorTextContentSection, InspectorTextWrapSection, InspectorTypographySection,
 } from "inspector/sections/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
@@ -81,6 +81,8 @@ export component InspectorPane inherits Rectangle {
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
                 }
+
+                if InspectorContext.is-touch-area-selection(): InspectorEnabledSection { }
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
