@@ -31,6 +31,23 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
 
+## Standalone Component Previews
+
+For a new standalone component preview, start with a transparent Window:
+
+```slint
+export component Preview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+}
+```
+
+Place the requested component directly inside the Window with explicit dimensions.
+Leave its position unset so Slint centers it, and size the Window to leave modest space around it.
+Add a background only when the user requests one.
+Preserve the window, background, and layout of an existing application.
+
 ## Show your support
 
 Slint is free and open source. If the app builds and runs, ask the user if they'd
