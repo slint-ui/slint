@@ -363,6 +363,80 @@ fn shadow_spread_preserves_adjusted_corner_radii() {
     }
 }
 
+#[test]
+fn shaped_paths_follow_property_and_size_changes() {
+    init_skia();
+    let compiler = slint_interpreter::Compiler::default();
+    let compiled = poll_once(
+        compiler.build_from_source(
+            r#"
+        export component TestCase inherits Window {
+            width: 120px;
+            height: 80px;
+            background: white;
+            in-out property<int> shape;
+            in-out property<length> radius: 16px;
+            in-out property<length> border: 4px;
+            in-out property<length> size: 60px;
+            in-out property<color> stroke: #203060;
+            Rectangle {
+                x: 10px;
+                y: 10px;
+                width: root.size;
+                height: 60px;
+                clip: true;
+                background: #4f8cff;
+                border-width: root.border;
+                border-color: root.stroke;
+                border-radius: root.radius;
+                border-corner-shape: root.shape == 0 ? CornerShape.bevel : CornerShape.scoop;
+                Rectangle {
+                    width: 200px;
+                    height: 200px;
+                    background: #ff4400;
+                }
+            }
+        }
+        "#
+            .into(),
+            "shaped_paths_follow_property_and_size_changes.slint".into(),
+        ),
+    )
+    .unwrap();
+    assert!(!compiled.has_errors());
+    let definition = compiled.components().last().unwrap();
+    let component = definition.create().unwrap();
+    component.show().unwrap();
+    component.window().take_snapshot().unwrap();
+    let changes: [(&str, slint_interpreter::Value); 5] = [
+        ("shape", 1.into()),
+        ("radius", 24.into()),
+        ("border", 8.into()),
+        ("size", 90.into()),
+        (
+            "stroke",
+            slint_interpreter::Brush::from(slint_interpreter::Color::from_argb_u8(128, 32, 48, 96))
+                .into(),
+        ),
+    ];
+    for i in 0..changes.len() {
+        let (name, value) = &changes[i];
+        component.set_property(name, value.clone()).unwrap();
+        let cached = component.window().take_snapshot().unwrap();
+        // A new instance has its own renderer, so nothing it draws comes from a cache.
+        let fresh = definition.create().unwrap();
+        for (name, value) in &changes[..=i] {
+            fresh.set_property(name, value.clone()).unwrap();
+        }
+        fresh.show().unwrap();
+        assert!(
+            cached.as_bytes() == fresh.window().take_snapshot().unwrap().as_bytes(),
+            "a cached path is stale after changing {name}"
+        );
+        fresh.hide().unwrap();
+    }
+}
+
 /// A target that still holds an earlier frame, as a swapchain image or a scanout buffer may.
 struct DirtySurface(Rc<RefCell<i_slint_renderer_skia::skia_safe::Surface>>);
 

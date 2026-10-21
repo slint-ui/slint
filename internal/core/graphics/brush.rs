@@ -266,7 +266,7 @@ impl LinearGradientBrush {
 
 /// NaN-aware float equality: two NaNs compare equal (unlike IEEE 754).
 #[inline]
-fn nan_eq(a: f32, b: f32) -> bool {
+pub(crate) fn nan_eq(a: f32, b: f32) -> bool {
     a == b || (a.is_nan() && b.is_nan())
 }
 

@@ -166,6 +166,8 @@ macro_rules! for_each_builtin_function {
             Oklch: pure fn oklch(l: f32, c: f32, h: f32, a: f32) -> Color {
                 Color::from_oklch(l.clamp(0., 1.), c.max(0.), h, a.clamp(0., 1.))
             }
+            CornerShapeSuperellipse: pure fn corner_shape_superellipse(k: f32) -> CornerShape { CornerShape::Superellipse(k) }
+            CornerShapeToString: pure fn corner_shape_to_string(shape: CornerShape) -> SharedString { shape.to_shared_string() }
             ColorScheme: pure fn() -> ColorScheme
             AccentColor: pure fn accent_color(&context) -> Color { context.accent_color() }
             SupportsNativeMenuBar: pure fn() -> bool

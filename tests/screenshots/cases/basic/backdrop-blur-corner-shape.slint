@@ -1,0 +1,42 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=224x64
+// BASE_THRESHOLD=3
+//ignore: software
+//ignore: software-embed-assets
+//ignore: anyrender
+//ignore: vello_cpu
+
+// The backdrop blur follows the corner shape, uniform in the first four and per corner in the last.
+export component TestCase inherits Window {
+    width: 224px;
+    height: 64px;
+    background: white;
+
+    for i in 28: Rectangle {
+        x: i * 8px;
+        width: 4px;
+        background: mod(i, 2) == 0 ? red : blue;
+    }
+
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 8px;
+
+        for shape in [CornerShape.bevel, CornerShape.scoop, CornerShape.notch, CornerShape.squircle]: Rectangle {
+            background: #ffffff40;
+            border-radius: 14px;
+            border-corner-shape: shape;
+            backdrop-blur: 4px;
+        }
+
+        Rectangle {
+            background: #ffffff40;
+            border-radius: 14px;
+            border-top-left-corner-shape: notch;
+            border-bottom-right-corner-shape: bevel;
+            backdrop-blur: 4px;
+        }
+    }
+}

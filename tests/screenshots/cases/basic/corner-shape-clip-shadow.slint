@@ -1,0 +1,77 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=224x124
+//ignore: software, anyrender, vello_cpu
+
+// Clips and shadows follow the corner shape.
+// The first row clips an oversized child to each shape, inside a border.
+// The second has drop shadows with and without blur, per-corner shapes, and an inner shadow.
+
+export component TestCase inherits Window {
+    width: 224px;
+    height: 124px;
+
+    background: #f3f5f8;
+
+    GridLayout {
+        padding: 8px;
+        spacing: 12px;
+
+        Row {
+            for shape in [CornerShape.bevel, CornerShape.scoop, CornerShape.notch, CornerShape.squircle]: Rectangle {
+                clip: true;
+                background: #4f8cff;
+                border-radius: 14px;
+                border-width: 4px;
+                border-color: #203060;
+                border-corner-shape: shape;
+                Rectangle {
+                    x: -10px;
+                    y: -10px;
+                    width: parent.width + 20px;
+                    height: parent.height + 20px;
+                    background: @linear-gradient(90deg, #ffcc00 0%, #ff4400 100%);
+                }
+            }
+        }
+
+        Row {
+            Rectangle {
+                background: #4f8cff;
+                border-radius: 14px;
+                border-corner-shape: bevel;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-radius: 14px;
+                border-corner-shape: scoop;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+                drop-shadow-blur: 6px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-radius: 14px;
+                border-top-left-corner-shape: notch;
+                border-bottom-right-corner-shape: squircle;
+                drop-shadow-color: #ff0000cc;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                background: #4f8cff;
+                border-radius: 14px;
+                border-corner-shape: bevel;
+                inner-shadow-color: #000000cc;
+                inner-shadow-offset-x: 4px;
+                inner-shadow-offset-y: 4px;
+                inner-shadow-blur: 4px;
+            }
+        }
+    }
+}

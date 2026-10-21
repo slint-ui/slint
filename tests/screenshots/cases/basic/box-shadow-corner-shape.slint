@@ -1,0 +1,102 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore unoffset
+
+// SIZE=240x205
+// BASE_THRESHOLD=3
+//ignore: software, anyrender, vello_cpu
+
+// Box shadows on non-round corners: the shadow must follow border-corner-shape, both filled
+// (no blur) and blurred, for drop shadows and inner shadows alike.
+
+export component TestCase inherits Window {
+    width: 240px;
+    height: 205px;
+    background: #f3f5f8;
+
+    GridLayout {
+        spacing: 15px;
+        padding: 14px;
+
+        Row {
+            // Blurred drop shadow, unoffset: visible past every corner alike.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.notch;
+                border-top-right-corner-shape: CornerShape.scoop;
+                border-bottom-right-corner-shape: CornerShape.bevel;
+                border-bottom-left-corner-shape: CornerShape.superellipse(-2);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.round;
+                border-top-right-corner-shape: CornerShape.squircle;
+                border-bottom-right-corner-shape: CornerShape.square;
+                border-bottom-left-corner-shape: CornerShape.superellipse(4);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+            }
+        }
+        Row {
+            // Same corners and blur as the row above, shadowed from the inside instead.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.notch;
+                border-top-right-corner-shape: CornerShape.scoop;
+                border-bottom-right-corner-shape: CornerShape.bevel;
+                border-bottom-left-corner-shape: CornerShape.superellipse(-2);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.round;
+                border-top-right-corner-shape: CornerShape.squircle;
+                border-bottom-right-corner-shape: CornerShape.square;
+                border-bottom-left-corner-shape: CornerShape.superellipse(4);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+            }
+        }
+        Row {
+            // Same corners and blur as the row above, shadowed from the inside instead.
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.notch;
+                border-top-right-corner-shape: CornerShape.scoop;
+                border-bottom-right-corner-shape: CornerShape.bevel;
+                border-bottom-left-corner-shape: CornerShape.superellipse(-2);
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 2px;
+                inner-shadow-spread: 5px;
+                inner-shadow-offset-x: 5px;
+                inner-shadow-offset-y: 5px;
+            }
+            Rectangle {
+                background: skyblue;
+                border-radius: 16px;
+                border-top-left-corner-shape: CornerShape.round;
+                border-top-right-corner-shape: CornerShape.squircle;
+                border-bottom-right-corner-shape: CornerShape.square;
+                border-bottom-left-corner-shape: CornerShape.superellipse(4);
+                drop-shadow-color: #000000c0;
+                drop-shadow-blur: 2px;
+                drop-shadow-spread: 5px;
+                drop-shadow-offset-x: 5px;
+                drop-shadow-offset-y: 5px;
+            }
+        }
+    }
+}

@@ -9,6 +9,9 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use std::cell::{Cell, RefCell};
 
+use crate::graphics::CornerShapes;
+#[cfg(feature = "path")]
+use crate::graphics::corner_path::Outline;
 use crate::items::ItemRc;
 use crate::{
     Color,
@@ -18,7 +21,8 @@ use crate::{
 /// Struct to store options affecting the rendering of a box shadow
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct BoxShadowOptions {
-    /// The source paint and geometry for non-inset shadows.
+    /// The source paint and geometry for non-inset shadows, with the geometry grown by
+    /// the spread.
     pub source: Option<(crate::Brush, crate::item_rendering::BorderRectLayout)>,
     /// Scale used to resolve absolute gradient coordinates.
     pub scale_factor: ScaleFactor,
@@ -32,6 +36,8 @@ pub struct BoxShadowOptions {
     pub blur: euclid::Length<f32, PhysicalPx>,
     /// The radii of the box shadow.
     pub radius: PhysicalBorderRadius,
+    /// The shape of each corner of the box shadow.
+    pub corner_shape: CornerShapes,
     /// The spread radius in physical pixels. Positive grows the shadow shape, negative shrinks it.
     pub spread: euclid::Length<f32, PhysicalPx>,
     /// Whether the shadow is rendered inside the element's geometry.
@@ -70,14 +76,58 @@ impl BoxShadowOptions {
         euclid::point2(self.blur.get(), self.blur.get())
     }
 
-    /// The corner radii of the shadow shape: `max(0, radius + spread)`.
-    pub fn outer_radius(&self) -> PhysicalBorderRadius {
-        (self.radius + PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+    /// The corner radii of the hole an inset shadow leaves around round corners.
+    pub fn inner_radius(&self) -> PhysicalBorderRadius {
+        self.radius.spread(-self.spread.get())
     }
 
-    /// The corner radii of the hole an inset shadow leaves: `max(0, radius - spread)`.
-    pub fn inner_radius(&self) -> PhysicalBorderRadius {
-        (self.radius - PhysicalBorderRadius::new_uniform(self.spread.get())).max(Default::default())
+    /// The shape of a drop shadow whose source has an opaque background, at
+    /// [`Self::shape_origin`] within the drop shadow texture, or `None` for any other source.
+    #[cfg(feature = "path")]
+    pub fn opaque_drop_shadow_outline(&self) -> Option<Outline> {
+        let radius = self.opaque_source_radius()?;
+        let spread = self.spread.get();
+        let shape = euclid::Rect::new(self.shape_origin(), self.shape_size());
+        Some(match self.corner_shape.rounded_rect_radius(self.radius) {
+            Some(_) => Outline::RoundedRect(shape, radius.spread(spread)),
+            None => {
+                let geometry = euclid::Rect::new(
+                    self.shape_origin() + euclid::vec2(spread, spread),
+                    euclid::size2(self.width.get(), self.height.get()),
+                );
+                Outline::Shaped(super::corner_geometry::offset_outline(
+                    geometry.to_untyped(),
+                    self.radius,
+                    self.corner_shape,
+                    spread,
+                ))
+            }
+        })
+    }
+
+    /// The hole an inset shadow leaves: the geometry shrunk by the spread, translated by the
+    /// inset offset.
+    #[cfg(feature = "path")]
+    pub fn inset_shadow_hole(&self) -> Outline {
+        let geometry = euclid::Rect::new(
+            euclid::point2(self.offset_x_inset, self.offset_y_inset),
+            euclid::size2(self.width.get(), self.height.get()),
+        );
+        Outline::new(geometry, self.radius, self.corner_shape, -self.spread.get())
+    }
+
+    /// The outer edge of the ring an inset shadow paints: the geometry inflated far enough
+    /// that the edge stays outside it after the blur, an offset hole, or a negative spread.
+    pub fn inset_shadow_outer_rect(&self) -> euclid::Rect<f32, PhysicalPx> {
+        let inflate = self.blur.get()
+            + self.spread.get().abs()
+            + self.offset_x_inset.abs()
+            + self.offset_y_inset.abs()
+            + 16.;
+        euclid::Rect::new(
+            euclid::point2(-inflate, -inflate),
+            euclid::size2(self.width.get() + 2. * inflate, self.height.get() + 2. * inflate),
+        )
     }
 
     /// The Gaussian sigma corresponding to the CSS blur radius.
@@ -126,9 +176,7 @@ impl BoxShadowOptions {
                 // lets us inset the fill, but shrinking both independently opens a gap.
                 layout.background_rect =
                     euclid::Rect::from_size(layout.brush_size).inflate(spread, spread);
-                layout.background_radius = (layout.outer_radius
-                    + PhysicalBorderRadius::new_uniform(spread))
-                .max(Default::default());
+                layout.background_radius = layout.outer_radius.spread(spread);
             }
             if layout.border_width.get() > 0. {
                 layout.border_width =
@@ -144,6 +192,7 @@ impl BoxShadowOptions {
             color,
             blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
             radius: box_shadow.logical_border_radius() * scale_factor,
+            corner_shape: box_shadow.logical_corner_shape(),
             spread: box_shadow.spread() * scale_factor,
             inset,
             offset_x_inset,

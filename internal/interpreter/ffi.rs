@@ -263,6 +263,24 @@ pub extern "C" fn slint_interpreter_value_to_mouse_cursor_inner(
     }
 }
 
+/// Construct a new Value containing a CornerShape
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_corner_shape(
+    shape: &i_slint_core::graphics::CornerShape,
+) -> Box<Value> {
+    Box::new(Value::CornerShape(*shape))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_corner_shape(
+    val: &Value,
+) -> Option<&i_slint_core::graphics::CornerShape> {
+    match val {
+        Value::CornerShape(shape) => Some(shape),
+        _ => None,
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_enum_to_string(
     val: &Value,
