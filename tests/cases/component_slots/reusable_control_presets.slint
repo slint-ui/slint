@@ -273,7 +273,19 @@ macro_rules! sizes {
 sizes!(SwitchSizes<'_>, set_switch_size, get_switch_dimension, track_width);
 sizes!(CheckBoxSizes<'_>, set_check_box_size, get_check_box_dimension, indicator_size);
 sizes!(SliderSizes<'_>, set_slider_size, get_slider_dimension, handle_width);
-sizes!(ComboBoxSizes<'_>, set_combo_box_size, get_combo_box_dimension, item_height);
+let combo_sizes = instance.global::<ComboBoxSizes<'_>>();
+for metrics in [combo_sizes.get_small(), combo_sizes.get_medium(), combo_sizes.get_large()] {
+    instance.set_combo_box_size(metrics.clone());
+    assert_eq!(instance.get_combo_box_size(), metrics);
+    assert!(instance.get_combo_box_dimension() >= metrics.item_height);
+    assert!(instance.get_test());
+}
+let mut custom = combo_sizes.get_medium();
+custom.item_height = 37.;
+custom.focus_width = 3.;
+custom.focus_offset = 4.;
+instance.set_combo_box_size(custom);
+assert_eq!(instance.get_combo_box_dimension(), 37.);
 
 move_to(590., 310.);
 for (index, label, id, width, height) in [

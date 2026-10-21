@@ -13,6 +13,7 @@ export component TestCase inherits Window {
     in-out property <bool> italic;
     in-out property <bool> controls-enabled: true;
     out property <int> selected-weight: combo.size.selected-item-font-weight;
+    out property <length> row-height: combo.item-height;
     out property <bool> test: combo.current-index == 0 && field.text == "";
     public function open-popup() { combo.open(); }
     public function highlight-second() { combo.highlight(1); }
@@ -87,7 +88,7 @@ let collect_fonts = |root: &ItemRc| {
         })).or_else(|| item.downcast::<TextInput>().map(|text| {
             ("Input".into(), text.as_pin_ref().font_request(item))
         }));
-        if let Some(text) = text { fonts.push(text); }
+        if let Some(text) = text.filter(|(text, _)| !text.is_empty()) { fonts.push(text); }
         ControlFlow::<()>::Continue(())
     });
     fonts
@@ -118,7 +119,7 @@ instance.invoke_open_popup();
 instance.invoke_highlight_second();
 let popup = WindowInner::from_pub(instance.window()).active_popups()[0].component.clone();
 let popup_root = ItemRc::new_root(popup);
-for (family, size, weight, italic) in [("serif", 20., 700, true), ("monospace", 16., 500, false)] {
+for (family, size, weight, italic) in [("serif", 20., 700, true), ("monospace", 40., 500, false)] {
     instance.set_family(family.into());
     instance.set_point_size(size);
     instance.set_weight(weight);
@@ -128,6 +129,10 @@ for (family, size, weight, italic) in [("serif", 20., 700, true), ("monospace", 
     for (text, font) in fonts {
         let expected_weight = if text == "Combo one" { instance.get_selected_weight() } else { weight };
         assert_font(&font, family, size, expected_weight, italic);
+        let row = slint_testing::ElementHandle::find_by_accessible_label(&instance, text.as_str())
+            .find(|item| item.accessible_role() == Some(slint_testing::AccessibleRole::ListItem)).unwrap();
+        assert_eq!(row.size().height, instance.get_row_height());
+        assert!(row.size().height >= size);
     }
 }
 instance.invoke_close_popup();

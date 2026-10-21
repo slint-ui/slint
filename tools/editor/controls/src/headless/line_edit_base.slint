@@ -20,11 +20,12 @@ export component LineEditBase {
     in property <brush> foreground-color <=> input.color;
     in property <color> selection-background-color <=> input.selection-background-color;
     in property <color> selection-foreground-color <=> input.selection-foreground-color;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
     in property <length> spacing;
     out property <bool> has-focus: input.has-focus;
     @shadowable out property <bool> has-selection: input.has-selection;
@@ -72,10 +73,10 @@ export component LineEditBase {
         clicked => { input.focus(); }
 
         HorizontalLayout {
-            padding-left: root.content-padding-left;
-            padding-right: root.content-padding-right;
-            padding-top: root.content-padding-top;
-            padding-bottom: root.content-padding-bottom;
+            padding-left: root.left-padding;
+            padding-right: root.right-padding;
+            padding-top: root.top-padding;
+            padding-bottom: root.bottom-padding;
             spacing: root.spacing;
             leading { }
 

@@ -11,11 +11,12 @@ export component CheckBoxBase {
     in-out property <bool> checked;
     in property <string> text;
     in property <length> spacing;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
@@ -49,10 +50,10 @@ export component CheckBoxBase {
     }
 
     HorizontalLayout {
-        padding-left: root.content-padding-left;
-        padding-right: root.content-padding-right;
-        padding-top: root.content-padding-top;
-        padding-bottom: root.content-padding-bottom;
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
         spacing: root.spacing;
         indicator { }
         content { }

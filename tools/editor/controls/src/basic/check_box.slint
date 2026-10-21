@@ -23,10 +23,9 @@ export component CheckBox inherits CheckBoxBase {
     in property <length> font-size: root.size.font-size;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
-    spacing: root.size.spacing;
-    content-padding: root.size.padding-vertical;
-    content-padding-left: root.size.padding-horizontal;
-    content-padding-right: root.size.padding-horizontal;
+    spacing: root.text == "" ? 0px : root.size.spacing;
+    horizontal-padding: root.size.padding-horizontal;
+    vertical-padding: root.size.padding-vertical;
     min-height: root.size.min-height;
 
     states [
@@ -86,13 +85,15 @@ export component CheckBox inherits CheckBoxBase {
         }
     }
 
-    content << Text {
-        text: root.text;
-        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-        font-size: root.font-size;
-        font-weight: root.font-weight;
-        font-family: root.font-family;
-        font-italic: root.font-italic;
-        vertical-alignment: center;
+    content << HorizontalLayout {
+        if root.text != "": Text {
+            text: root.text;
+            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
+            vertical-alignment: center;
+        }
     }
 }

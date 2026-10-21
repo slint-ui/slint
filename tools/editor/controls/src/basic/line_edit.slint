@@ -23,11 +23,12 @@ export component LineEdit {
     in property <bool> font-italic <=> field.font-italic;
     in property <int> font-weight <=> field.font-weight;
     in property <TextHorizontalAlignment> horizontal-alignment <=> field.horizontal-alignment;
-    in property <length> content-padding: root.size.padding-vertical;
-    in property <length> content-padding-left: root.size.padding-horizontal;
-    in property <length> content-padding-right: root.size.padding-horizontal;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
+    in property <length> horizontal-padding: root.size.padding-horizontal;
+    in property <length> vertical-padding: root.size.padding-vertical;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
     in property <length> spacing: root.size.spacing;
 
     min-width: max(root.size.min-width, field.min-width);
@@ -70,13 +71,13 @@ export component LineEdit {
         accessible-role: none;
         foreground-color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
         font-size: root.size.font-size;
-        font-weight: root.size.font-weight;
+        font-weight: 400;
         selection-background-color: root.enabled ? root.selection-background-color : root.style.selection-background-color;
         selection-foreground-color: root.enabled ? root.selection-foreground-color : root.style.selection-foreground-color;
-        content-padding-left: root.content-padding-left;
-        content-padding-right: root.content-padding-right;
-        content-padding-top: root.content-padding-top;
-        content-padding-bottom: root.content-padding-bottom;
+        left-padding: root.left-padding;
+        right-padding: root.right-padding;
+        top-padding: root.top-padding;
+        bottom-padding: root.bottom-padding;
         spacing: root.spacing;
         leading << leading;
         trailing << trailing;

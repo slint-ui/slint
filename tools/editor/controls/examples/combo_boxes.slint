@@ -69,7 +69,7 @@ export component ComboBoxExamples inherits Rectangle {
                     accessible-label: "Choose a size";
                     model: ["Small", "Medium", "Large", "Extra large"];
                     current-index: -1;
-                    placeholder: "Choose a size";
+                    placeholder-text: "Choose a size";
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
 
@@ -152,9 +152,10 @@ export component ComboBoxExamples inherits Rectangle {
                         accessible-label: "Custom combo box";
                         model: ["First", "Second", "Third"];
                         min-height: 40px;
-                        content-padding: 6px;
-                        content-padding-left: 16px;
-                        content-padding-right: 16px;
+                        horizontal-padding: 6px;
+                        vertical-padding: 6px;
+                        left-padding: 16px;
+                        right-padding: 16px;
                         background << Rectangle {
                             background: #fef3c7;
                             border-radius: 20px;
