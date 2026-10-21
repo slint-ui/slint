@@ -1,6 +1,9 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cspell:ignore getcolors
+
+import pytest
 import slint_testing
 from ui_assertions import expect
 from ui_driver import element, first_window, launch_editor, query, screenshot
@@ -43,13 +46,28 @@ def test_viewer_autostart_transport_and_popup(
             - manager.absolute_position.y
             - manager.size.height
         )
-        assert bottom_gap == inset
+        assert bottom_gap == pytest.approx(inset, abs=0.01)
         selector.single_click(left)
         expect(
             query(window, "Local viewer", role=slint_testing.AccessibleRole.Button)
         ).to_be_visible()
         assert popup.absolute_rect == bounds
-        screenshot(window).save(tmp_path / "viewer-list.png")
+        viewer_list = screenshot(window)
+        viewer_list.save(tmp_path / "viewer-list.png")
+        selected = element(
+            window, "Local viewer", role=slint_testing.AccessibleRole.Button
+        )
+        scale = viewer_list.width / window.root_element.size.width
+        # Nested popup bounds are popup-relative, so count the selected fill in the window capture.
+        colors = viewer_list.getcolors(viewer_list.width * viewer_list.height) or []
+        selected_pixels = sum(
+            count for count, color in colors if color == (232, 243, 255)
+        )
+        assert (
+            selected_pixels
+            >= selected.size.width * selected.size.height * scale**2 * 0.75
+        )
+
         element(
             window, "Local viewer", role=slint_testing.AccessibleRole.Button
         ).single_click(left)
