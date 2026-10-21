@@ -370,6 +370,69 @@ fn an_empty_library_path_wins_over_the_project_file() {
     assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
 }
 
+#[test]
+fn file_with_project_root_keeps_the_selected_file() {
+    for project_file in [
+        None,
+        Some(r#"{"slint-edition":"1.19"}"#),
+        Some(r#"{"slint-edition":"1.19","main":"other.slint"}"#),
+    ] {
+        let project = tempfile::tempdir().unwrap();
+        let main = project.path().join("main.slint");
+        std::fs::write(&main, "export component Main inherits Window {}").unwrap();
+        std::fs::write(project.path().join("other.slint"), "invalid Slint").unwrap();
+        if let Some(project_file) = project_file {
+            std::fs::write(project.path().join("slint-project.json"), project_file).unwrap();
+        }
+        let (code, _stdout, stderr) = run(&[
+            "--check",
+            "--project-root",
+            project.path().to_str().unwrap(),
+            main.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
+}
+
+#[test]
+fn file_with_project_root_uses_only_the_direct_project_file() {
+    let container = tempfile::tempdir().unwrap();
+    let root = container.path().join("project");
+    let source_directory = root.join("ui");
+    std::fs::create_dir_all(&source_directory).unwrap();
+    std::fs::create_dir(root.join("include")).unwrap();
+    std::fs::write(container.path().join("slint-project.json"), "{").unwrap();
+    std::fs::write(source_directory.join("slint-project.json"), "{").unwrap();
+    std::fs::write(
+        root.join("slint-project.json"),
+        r#"{"slint-edition":"1.19","include-paths":["include"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("include/shared.slint"), "export component Shared {}").unwrap();
+    let main = source_directory.join("main.slint");
+    std::fs::write(
+        &main,
+        r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#,
+    )
+    .unwrap();
+    let (code, _stdout, stderr) =
+        run(&["--check", "-p", root.to_str().unwrap(), main.to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn directory_input_and_project_root_conflict() {
+    let project = tempfile::tempdir().unwrap();
+    let (code, _stdout, stderr) = run(&[
+        "--check",
+        "--project-root",
+        project.path().to_str().unwrap(),
+        project.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("cannot be combined"), "stderr was:\n{stderr}");
+}
+
 // --- Screenshot rendering ----------------------------------------------
 
 // Cases known to produce the same RGB output as their reference under both

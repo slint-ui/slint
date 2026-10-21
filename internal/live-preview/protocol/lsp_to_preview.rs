@@ -69,7 +69,7 @@ pub enum LspToPreviewMessage {
     /// doesn't expose frame-level pings.
     Ping,
     OpenProject {
-        root: Url,
+        root: Option<Url>,
     },
     /// Answer to [`super::PreviewToLspMessage::PairingReady`], and the first
     /// thing a remote connection sends. `token` names the reconnect token

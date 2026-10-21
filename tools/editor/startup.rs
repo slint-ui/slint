@@ -48,7 +48,7 @@ pub fn setup(
         let Some(path) = choose_project_file(window) else {
             return false;
         };
-        match Project::from_file(path, None) {
+        match Project::from_selected_file(path, None) {
             Ok(project) => start_existing_project(project),
             Err(error) => {
                 tracing::warn!("Failed to open project: {error}");

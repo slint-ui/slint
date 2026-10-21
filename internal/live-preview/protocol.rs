@@ -3,7 +3,6 @@
 
 mod lsp_to_preview;
 pub mod pairing;
-mod preview_source;
 mod preview_to_lsp;
 pub mod session;
 mod versioned_url;
@@ -12,7 +11,6 @@ pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
 pub use pairing::PairingRejection;
-pub use preview_source::preview_source_path;
 pub use preview_to_lsp::{PreviewTarget, PreviewToLsp, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 

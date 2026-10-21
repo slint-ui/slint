@@ -705,10 +705,49 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
+    let root = preview_project_root(&ctx.session, &url);
+    if *ctx.session.primary_preview().project_root.borrow() != root {
+        ctx.session.primary_preview_mut().to_show = None;
+        ctx.session.primary_preview().project_root.replace(root);
+        ctx.session.send_state_to_preview(0);
+    }
     let c = PreviewComponent { url, component };
     ctx.session.show_preview(0, c);
 
     Ok(())
+}
+
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+fn preview_project_root(session: &editor_preview::EditorSession, url: &Url) -> Option<Url> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (session, url);
+        return None;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let source = SourcePath::from_url(url);
+        let source = source.as_native_path()?;
+        session
+            .active_project_file_paths()
+            .filter_map(|project_file| project_file.parent())
+            .filter(|root| source.starts_with(root))
+            .last()
+            .and_then(|root| Url::from_directory_path(root).ok())
+    }
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-builtin", feature = "preview-external")
+))]
+pub fn sync_preview_project_root(session: &editor_preview::EditorSession) {
+    let Some(component) = session.primary_preview().to_show.as_ref() else { return };
+    let root = preview_project_root(session, &component.url);
+    if *session.primary_preview().project_root.borrow() != root {
+        session.primary_preview().project_root.replace(root);
+        session.send_state_to_preview(0);
+    }
 }
 
 fn populate_command_range(
@@ -2117,6 +2156,85 @@ enum {}
             LspToPreviewMessage::SetConfiguration { config } if config == &ctx.session.preview_config
         )));
         assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_follows_discovery_and_replays_state_after_deletion() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer_root = directory.path();
+        let nested_root = outer_root.join("ui");
+        std::fs::create_dir(&nested_root).unwrap();
+        let outer_manifest = outer_root.join("slint-project.json");
+        let nested_manifest = nested_root.join("slint-project.json");
+        std::fs::write(&outer_manifest, "{}").unwrap();
+        std::fs::write(&nested_manifest, "{}").unwrap();
+        let source_path = nested_root.join("main.slint");
+        let source = "export component Main inherits Window {}";
+        std::fs::write(&source_path, source).unwrap();
+        let source_url = Url::from_file_path(&source_path).unwrap();
+        let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
+            .unwrap();
+        messages.borrow_mut().clear();
+
+        show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
+        let nested_root_url = Url::from_directory_path(&nested_root).unwrap();
+        let replay = messages.borrow();
+        assert!(
+            matches!(replay.first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &nested_root_url)
+        );
+        let configuration_index = replay
+            .iter()
+            .position(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+            .unwrap();
+        for url in [&source_url, &nested_manifest_url] {
+            let contents_index = replay
+                .iter()
+                .position(|message| {
+                    matches!(message, LspToPreviewMessage::SetContents { url: sent, .. }
+                        if sent.url() == url)
+                })
+                .unwrap();
+            assert!(contents_index < configuration_index);
+        }
+        let component_index = replay
+            .iter()
+            .position(|message| {
+                matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+            })
+            .unwrap();
+        assert!(configuration_index < component_index);
+        drop(replay);
+
+        std::fs::remove_file(&nested_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            nested_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session);
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: None })
+        ));
+        assert!(messages.borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+        }));
+
+        spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session);
+        let outer_root_url = Url::from_directory_path(outer_root).unwrap();
+        assert!(
+            matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &outer_root_url)
+        );
     }
 
     #[test]

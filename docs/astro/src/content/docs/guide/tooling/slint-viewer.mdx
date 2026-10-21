@@ -137,7 +137,12 @@ The editor compiles the `.slint` file and sends the result to the remote viewer,
 
 ## Project File
 
-The viewer reads the [project file](../project-file/) `slint-project.json`, like the other Slint tools.
+Pass a project directory to load the [project file](../project-file/) (`slint-project.json`) inside it.
+The project file must contain a `main` entry, which specifies the `.slint` file the viewer loads.
+To view a specific `.slint` file with a project root, pass `--project-root <directory>`.
+The viewer loads that directory's project file if it exists and uses the specified `.slint` file, even when the project file sets `main`.
+A `.slint` file without `--project-root` doesn't load a project file.
+Don't combine a project directory input with `--project-root`.
 `-I`, `-L`, and `--style` win over its settings:
 any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
 Pass `-I ""` or `-L ""` to use no include or library paths at all.
@@ -148,7 +153,8 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 
 | Option | Description |
 |---|---|
-| `<path>` | The `.slint` file to load. Required unless `--remote` is given. |
+| `<path>` | The `.slint` file or project directory to load. Required unless `--remote` is given. |
+| `-p, --project-root <directory>` | Load settings from `slint-project.json` inside this directory when viewing a `.slint` file. |
 | `--auto-reload` | Watch the file system and reload when the file changes. |
 | `--load-data <file>` | Load the values of public properties from a JSON file. |
 | `--save-data <file>` | On exit, write the values of public properties to a JSON file. Incompatible with `--auto-reload`. |
