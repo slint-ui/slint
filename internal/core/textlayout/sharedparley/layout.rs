@@ -171,7 +171,8 @@ pub(super) fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
+        para.layout
+            .break_all_lines(max_physical_width.map(|width| (width - para.x()).get().max(0.0)));
         para.layout.align(inputs.alignment, parley::AlignmentOptions::default());
 
         para.y = PhysicalLength::new(para_y);
@@ -192,7 +193,7 @@ pub(super) fn layout(
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
             // and as such we must also accept the full width here including trailing whitespace, otherwise text with
             // trailing whitespace will assigned a smaller width for rendering and thus the ellipsis will be placed.
-            match line_limit_cut {
+            let width = match line_limit_cut {
                 // In the paragraph where the line limit lands, only the kept lines count towards
                 // the width; `full_width()` would also span the dropped lines below the cut. Per
                 // line, mirror parley's `full_width` formula (Slint doesn't use indentation).
@@ -206,7 +207,8 @@ pub(super) fn layout(
                     })
                     .fold(PhysicalLength::zero(), PhysicalLength::max),
                 _ => PhysicalLength::new(p.layout.full_width()),
-            }
+            };
+            p.x() + width
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
     // With an active line limit, the height only extends to the bottom of the last kept line, so
@@ -534,6 +536,7 @@ impl Layout {
         // the width anchors the appended ellipsis after the last non-whitespace glyph, so trailing
         // spaces (e.g. left at a word-wrap break) don't push it away from the text.
         trailing_whitespace: f32,
+        paragraph_x: PhysicalLength,
     ) -> (
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
@@ -543,7 +546,7 @@ impl Layout {
         let max_width = self
             .elision_info
             .as_ref()
-            .map(|info| info.max_physical_width)
+            .map(|info| info.max_physical_width - paragraph_x)
             .unwrap_or(PhysicalLength::new(f32::MAX));
 
         let run_start = PhysicalLength::new(glyph_run.offset());
@@ -567,7 +570,7 @@ impl Layout {
                     .positioned_glyphs()
                     .find(|glyph| {
                         PhysicalLength::new(glyph.x + glyph.advance + info.ellipsis_glyph.advance)
-                            > info.max_physical_width
+                            > max_width
                     })
                     .map(|g| g.x)
                     // Nothing overflows horizontally (force_elision): put the ellipsis right after
