@@ -85,6 +85,7 @@ fn builtin_function_is_const(
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => false,
         BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::FocusScopeUpdateIme
         | BuiltinFunction::TextInputSelectAll
         | BuiltinFunction::TextInputClearSelection
         | BuiltinFunction::TextInputCut
