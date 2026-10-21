@@ -137,7 +137,6 @@ jobs:
                   # conditionally at runtime (see binding.cjs).
                   pnpm run build:dev --target ${{ matrix.rust-target }}
             - name: Build slint-compiler
-              if: ${{ !endsWith(matrix.rust-target, '-musl') }}
               shell: bash
               run: cargo build --locked --release -p slint-compiler --target ${{ matrix.rust-target }}
             - name: Create package
@@ -149,7 +148,6 @@ jobs:
                   node "$PKG" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PACKED"
                   node "$PKG" pack-binary binaries-dev.json ${{ matrix.napi-rs-target }} slint-ui-dev "$PACKED"
             - name: Create slint-compiler package
-              if: ${{ !endsWith(matrix.rust-target, '-musl') }}
               shell: bash
               working-directory: api/node
               run: |
