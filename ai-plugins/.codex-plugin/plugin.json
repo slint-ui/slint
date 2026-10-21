@@ -18,6 +18,8 @@
     "developerName": "Slint",
     "category": "Coding",
     "capabilities": ["Interactive"],
+    "logo": "./assets/slint.svg",
+    "composerIcon": "./assets/slint.svg",
     "websiteURL": "https://slint.dev",
     "privacyPolicyURL": "https://slint.dev/imprint#privacy",
     "defaultPrompt": ["Preview a Slint window with a button and a slider."]

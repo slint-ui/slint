@@ -40,10 +40,23 @@ const pluginVersion = JSON.parse(
     ),
 ).version;
 
+const icons = [
+    {
+        src:
+            "data:image/svg+xml;base64," +
+            readFileSync(new URL("../../icon.svg", import.meta.url)).toString(
+                "base64",
+            ),
+        mimeType: "image/svg+xml",
+        sizes: ["any"],
+    },
+];
+
 const tools = [
     {
         name: "preview_slint",
         title: "Preview Slint",
+        icons,
         description:
             "Render .slint code as a live, interactive preview in the conversation. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
@@ -101,6 +114,7 @@ const tools = [
     {
         name: "get_preview_screenshot",
         title: "Get Slint Preview Screenshot",
+        icons,
         description:
             "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
             "Waits until the preview has rendered. Check it before you judge how the UI looks.",
@@ -307,7 +321,7 @@ const handlers = {
     initialize: (params) => ({
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "slint-preview", version: pluginVersion },
+        serverInfo: { name: "slint-preview", version: pluginVersion, icons },
     }),
     ping: () => ({}),
     "tools/list": () => ({ tools }),
