@@ -198,6 +198,7 @@ pub fn initialize_editor(
     });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_highlight_positions(super::element_selection::highlight_positions);
+    super::snapping::setup(editor_ui);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_new_component_data(super::new_component_data);

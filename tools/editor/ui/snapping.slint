@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CanvasView } from "components/canvas-view.slint";
+
+export struct SnapGuide {
+    start-x: length,
+    start-y: length,
+    end-x: length,
+    end-y: length,
+    label: string,
+}
+
+export global Snapping {
+    pure callback guides(source-uri: string, offset: int, instance-index: int) -> [SnapGuide];
+}
+
+export component SnapGuideLine inherits Path {
+    in property <SnapGuide> guide;
+    fit: preserve;
+    stroke: #e649a0;
+    stroke-width: 1phx;
+    accessible-role: AccessibleRole.region;
+    accessible-label: root.guide.label;
+    MoveTo {
+        x: root.guide.start-x * CanvasView.zoom / 1px;
+        y: root.guide.start-y * CanvasView.zoom / 1px;
+    }
+    LineTo {
+        x: root.guide.end-x * CanvasView.zoom / 1px;
+        y: root.guide.end-y * CanvasView.zoom / 1px;
+    }
+}

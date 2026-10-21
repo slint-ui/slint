@@ -120,6 +120,7 @@ mod eval_layout;
 pub mod ffi;
 mod globals;
 #[cfg(feature = "internal-highlight")]
+#[doc(hidden)]
 pub mod highlight;
 mod instance;
 mod item_holder;
@@ -129,6 +130,9 @@ mod item_tree_vtable;
 pub mod json;
 mod popup;
 mod public_api;
+#[cfg(all(feature = "internal", feature = "internal-highlight"))]
+#[doc(hidden)]
+pub mod snapping;
 #[cfg(feature = "internal-mcu-interpreter")]
 mod static_resources;
 mod value_model;

@@ -6,6 +6,7 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
+import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
@@ -30,7 +31,7 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 
 export {
     Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
 }
 
 export component EditorUi inherits Window {

@@ -3,6 +3,7 @@
 
 import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
 import { CanvasView } from "canvas-view.slint";
+import { Snapping, SnapGuideLine } from "../snapping.slint";
 import { Style } from "../style.slint";
 import { FillSession, ShadowSession } from "inspector/index.slint";
 import { Api, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
@@ -499,6 +500,13 @@ export component CanvasInteractionLayer inherits TouchArea {
                 border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius * CanvasView.zoom + self.border-width : 0px;
                 border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius * CanvasView.zoom + self.border-width : 0px;
             }
+        }
+
+        for guide in Snapping.guides(Api.current-element.source-uri, Api.current-element.offset, Api.selection.highlight-index): SnapGuideLine {
+            visible: root.selections.length > 0 && !root.text-editing;
+            width: parent.width;
+            height: parent.height;
+            guide: guide;
         }
 
         for selection[idx] in root.selections: SelectedCanvasFrame {
