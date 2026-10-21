@@ -13,7 +13,7 @@
 # the rarer thing to want.
 #
 # Needs flatpak and flatpak-builder. The runtime, the SDK and the
-# rust-stable/llvm20 SDK extensions come from flathub; the remote is added to
+# rust-stable/llvm22 SDK extensions come from flathub; the remote is added to
 # the user installation here if it is not there yet.
 #
 # Compiling Skia takes a long time and tens of gigabytes under
