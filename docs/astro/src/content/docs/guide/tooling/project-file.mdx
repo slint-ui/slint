@@ -159,6 +159,7 @@ ui = slint.load_file("ui")
 
 ## Editor Support
 
-The Slint language server and the live preview read the project file too,
-so your editor resolves imports the same way your build does.
-They reload it when it changes.
+The Slint language server discovers project files for open documents and combines settings when you edit multiple projects.
+The live preview uses the project root selected for its source file.
+The Visual Editor uses a `.slint` file's parent as its project root when you open that file without `--project-root`.
+Pass `--project-root <directory>` to the Visual Editor or viewer to select another root while keeping the specified `.slint` file as the entry point.

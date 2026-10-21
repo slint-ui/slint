@@ -622,6 +622,8 @@ async fn run_main_loop(
             }
         }
 
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        language::sync_preview_project_root(&ctx.session);
         sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
 }

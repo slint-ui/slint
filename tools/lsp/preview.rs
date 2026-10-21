@@ -126,7 +126,19 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             let _ = slint::quit_event_loop();
         }
         Message::Ping => {}
-        Message::OpenProject { .. } => {}
+        Message::OpenProject { root } => {
+            let current = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                let root = root.as_ref().map(SourcePath::from_url);
+                if preview_state.project_root == root {
+                    return None;
+                }
+                preview_state.project_root = root;
+                preview_state.current_component()
+            });
+            if let Some(current) = current {
+                load_preview(current, LoadBehavior::Reload);
+            }
+        }
         // Part of the remote pairing handshake, which the LSP's WebSocket
         // connector completes before a session exists. A local preview is
         // never on the receiving end of one.
@@ -206,12 +218,11 @@ pub struct PreviewState {
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
     pub config: PreviewConfig,
+    project_root: Option<SourcePath>,
     /// The most recent user settings synced with the LSP, used to suppress
     /// redundant updates when the UI re-reports settings we just applied.
     last_user_settings: PreviewUserSettings,
     current_previewed_component: Option<PreviewComponent>,
-    // TODO: Rework source resolution so preview state does not store a separate source URL.
-    resolved_source_url: Option<Url>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
 
@@ -230,39 +241,13 @@ impl PreviewState {
         self.current_previewed_component.clone()
     }
 
-    pub(super) fn current_source_component(&self) -> Option<PreviewComponent> {
-        let mut component = self.current_component()?;
-        component.url = self.resolved_source_url.clone().unwrap_or(component.url);
-        Some(component)
-    }
-
-    fn apply_resolved_source(
-        &mut self,
-        target: &PreviewComponent,
-        source: Option<&SourcePath>,
-    ) -> bool {
-        if self.current_previewed_component.as_ref() != Some(target) {
-            return false;
-        }
-        self.resolved_source_url = source.and_then(SourcePath::to_url);
-        true
-    }
-
     pub fn set_current_component(&mut self, component: PreviewComponent) {
-        if self
-            .current_previewed_component
-            .as_ref()
-            .is_none_or(|current| current.url != component.url)
-        {
-            self.resolved_source_url = None;
-        }
         self.current_previewed_component = Some(component);
     }
 
     pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
-        let source_matches = self.resolved_source_url.as_ref() == Some(url);
         if let Some(pc) = &mut self.current_previewed_component
-            && (pc.url == *url || source_matches)
+            && pc.url == *url
             && pc.component.as_deref() == Some(old_name)
         {
             pc.component = Some(new_name.to_string());
@@ -463,7 +448,7 @@ fn add_new_component() {
     };
 
     let preview_component =
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_source_component());
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component());
 
     let Some(preview_component) = preview_component else {
         return;
@@ -1256,7 +1241,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
 
 fn update_previewed_component(preview_url: &Url, previewed_component: Option<String>) {
     let (previewed_url, component, source_code) = PREVIEW_STATE.with_borrow(|preview_state| {
-        let pc = preview_state.current_source_component();
+        let pc = preview_state.current_component();
         (
             pc.as_ref().map(|pc| pc.url.clone()),
             pc.as_ref().and_then(|pc| pc.component.clone()),
@@ -1587,7 +1572,6 @@ async fn parse_source(
     Option<ComponentDefinition>,
     Option<editor_preview::document_cache::OpenImportCallback>,
     Rc<RefCell<editor_preview::document_cache::SourceFileVersionMap>>,
-    Option<SourcePath>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
 
@@ -1616,6 +1600,10 @@ async fn parse_source(
         overrides.style = Some(style);
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
+    builder.set_project_root(
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
+        i_slint_core::InternalToken,
+    );
     let project_loader = open_file_fallback.clone();
     let project_versions = source_file_versions.clone();
     builder.set_project_file_loader(
@@ -1637,23 +1625,11 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let resolved_source = match &source_code {
-        Some(source_code) => {
-            i_slint_live_preview::protocol::preview_source_path(&path, source_code).await
-        }
-        None => None,
-    };
     let result =
         builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
 
     let compiled = result.components().next();
-    (
-        result.diagnostics().collect(),
-        compiled,
-        open_file_fallback,
-        source_file_versions,
-        resolved_source,
-    )
+    (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
 }
 
 // Must be inside the thread running the slint event loop
@@ -1693,26 +1669,25 @@ async fn reload_preview_impl(
         editor_preview::ByteFormat::Utf16
     };
 
-    let (diagnostics, compiled, open_import_callback, source_file_versions, resolved_source) =
-        parse_source(
-            config,
-            path,
-            version,
-            source,
-            style,
-            component.component.clone(),
-            move |path| {
-                Box::pin(async move {
-                    // Always return Some to stop the compiler from trying to load itself...
-                    // All loading is done by the LSP for us!
-                    Some(get_path_from_cache(&path))
-                })
-            },
-        )
-        .await;
+    let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
+        config,
+        path,
+        version,
+        source,
+        style,
+        component.component.clone(),
+        move |path| {
+            Box::pin(async move {
+                // Always return Some to stop the compiler from trying to load itself...
+                // All loading is done by the LSP for us!
+                Some(get_path_from_cache(&path))
+            })
+        },
+    )
+    .await;
 
     if !PREVIEW_STATE
-        .with_borrow_mut(|state| state.apply_resolved_source(&component, resolved_source.as_ref()))
+        .with_borrow(|state| state.current_previewed_component.as_ref() == Some(&component))
     {
         return Ok(());
     }
@@ -2004,7 +1979,7 @@ fn set_selected_element(
                 && let Some((uri, version, selection)) = selection
                     .clone()
                     .or_else(|| {
-                        let current = preview_state.current_source_component()?;
+                        let current = preview_state.current_component()?;
 
                         let document = document_cache.get_document(&current.url)?;
                         let document = document.node.as_ref()?;
@@ -2237,7 +2212,7 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _, _) = spin_on::spin_on(super::parse_source(
+        let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
             Default::default(),
             path,
             Some(24),
@@ -2298,31 +2273,23 @@ mod tests {
     }
 
     #[test]
-    fn a_manifest_entry_with_widgets_updates_the_live_preview_ui() {
+    fn a_source_with_widgets_updates_the_live_preview_ui() {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
         let target = PreviewComponent {
-            url: Url::parse("file:///project/slint-project.json").unwrap(),
+            url: Url::parse("file:///project/main.slint").unwrap(),
             component: None,
         };
-        let source = SourcePath::new("file:///project/main.slint");
-        let (diagnostics, compiled, imports, versions, resolved) = spin_on::spin_on(parse_source(
+        let source = r#"import { Button } from "std-widgets.slint";
+            export component Main inherits Window { Button {} }"#;
+        let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
             Default::default(),
             SourcePath::from_url(&target.url),
             None,
-            Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#.into()),
+            Some(source.into()),
             "fluent".into(),
             None,
-            move |path| {
-                let found = path == source;
-                Box::pin(async move {
-                    Some(if found {
-                        Ok((None, r#"import { Button } from "std-widgets.slint"; export component Main inherits Window { Button {} }"#.into()))
-                    } else {
-                        Err(std::io::ErrorKind::NotFound.into())
-                    })
-                })
-            },
+            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
         ));
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         let compiled = compiled.unwrap();
@@ -2335,7 +2302,6 @@ mod tests {
         let window = ui::AppWindow::Preview(ui::PreviewUi::new().unwrap());
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.set_current_component(target.clone());
-            assert!(state.apply_resolved_source(&target, resolved.as_ref()));
             state.document_cache.replace(Some(Rc::new(document_cache)));
             state.api = window.api_weak();
             state.app_window = Some(window.clone_strong());
@@ -2346,7 +2312,7 @@ mod tests {
     }
 
     #[test]
-    fn a_target_changed_during_compilation_rejects_the_old_resolved_source() {
+    fn a_target_changed_during_compilation_rejects_the_old_result() {
         i_slint_backend_testing::init_no_event_loop();
         let original =
             PreviewComponent { url: Url::parse("file:///old.slint").unwrap(), component: None };
@@ -2359,7 +2325,7 @@ mod tests {
                 state.set_current_component(original.clone());
             });
             let switched_target = replacement.clone();
-            let (diagnostics, _, _, _, resolved) = spin_on::spin_on(parse_source(
+            let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
                 Default::default(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
@@ -2373,64 +2339,63 @@ mod tests {
             ));
             assert!(diagnostics.is_empty(), "{diagnostics:?}");
             PREVIEW_STATE.with_borrow_mut(|state| {
-                assert!(!state.apply_resolved_source(&original, resolved.as_ref()));
-                assert_eq!(state.current_source_component(), Some(replacement.clone()));
+                assert_ne!(state.current_component(), Some(original.clone()));
+                assert_eq!(state.current_component(), Some(replacement.clone()));
             });
         }
     }
 
     #[test]
-    fn cached_manifest_pipeline_resolves_entry_and_reports_missing_entry() {
+    fn explicit_root_uses_cached_project_file_without_main() {
         i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
         let directory = tempfile::tempdir().unwrap();
-        let manifest = SourcePath::new(directory.path().join("slint-project.json"));
-        let entry = manifest.parent().join("main.slint").unwrap();
+        let root = Url::from_directory_path(directory.path()).unwrap();
+        let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
-            directory.path().join("slint-project.json"),
-            r#"{"style":"wrong-disk-style"}"#,
+            &manifest_path,
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
         )
         .unwrap();
-        for has_entry in [true, false] {
-            let source = if has_entry {
-                r#"{"slint-edition":"1.19","main":"main.slint"}"#
-            } else {
-                r#"{"slint-edition":"1.19"}"#
-            };
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let source = SourcePath::new(directory.path().join("main.slint"));
+        let code = "export component Main inherits Window { ComponentContainer {} }";
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.project_root = Some(SourcePath::from_url(&root));
+        });
+        for (contents, has_errors) in [
+            (None, true),
+            (
+                Some(
+                    r#"{"slint-edition":"1.19","main":"other.slint","enable-experimental-features":true}"#,
+                ),
+                false,
+            ),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+        ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
-                state.source_code.insert(
-                    manifest.to_url().unwrap(),
-                    SourceCodeCacheEntry { version: Some(1), code: source.into() },
-                );
-                state.source_code.insert(
-                    entry.to_url().unwrap(),
-                    SourceCodeCacheEntry {
-                        version: Some(2),
-                        code: "export component CachedEntry inherits Window {}".into(),
-                    },
-                );
+                if let Some(contents) = contents {
+                    state.source_code.insert(
+                        manifest.clone(),
+                        SourceCodeCacheEntry { version: Some(1), code: contents.into() },
+                    );
+                } else {
+                    state.source_code.remove(&manifest);
+                }
             });
-            let (diagnostics, compiled, _, _, resolved) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
                 Default::default(),
-                manifest.clone(),
-                Some(1),
-                Some(source.into()),
+                source.clone(),
+                Some(2),
+                Some(code.into()),
                 String::new(),
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
             ));
-            if has_entry {
-                assert!(diagnostics.is_empty(), "{diagnostics:?}");
-            } else {
-                assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-                assert!(diagnostics[0].message().contains("has no 'main' to compile"));
-                assert_eq!(diagnostics[0].source_url(), manifest.to_url().map(String::from));
-            }
-            assert_eq!(
-                compiled.as_ref().map(|component| component.name()),
-                has_entry.then_some("CachedEntry")
-            );
-            assert_eq!(resolved, has_entry.then_some(entry.clone()));
+            assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
+            assert_eq!(compiled.is_some(), !has_errors);
         }
+        reset_preview_state(Default::default());
     }
 
     #[test]
@@ -2438,9 +2403,9 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
         let directory = tempfile::tempdir().unwrap();
-        for file_name in ["slint-project.json", "main.slint"] {
+        for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
-            let (diagnostics, compiled, _, versions, _) = spin_on::spin_on(parse_source(
+            let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
                 Default::default(),
                 path.clone(),
                 None,

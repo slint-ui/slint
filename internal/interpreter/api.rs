@@ -740,6 +740,7 @@ impl ComponentCompiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         };
         let r = compiler.build_from_path(path).await;
@@ -772,6 +773,7 @@ impl ComponentCompiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         };
         let r = compiler.build_from_source(source_code, path).await;
@@ -801,6 +803,7 @@ pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,
     project_file_loader: Option<i_slint_compiler::OpenImportCallback>,
+    project_root: Option<SourcePath>,
     resource_loader: Option<crate::component::ResourceLoader>,
 }
 
@@ -813,6 +816,7 @@ impl Default for Compiler {
             config,
             overrides: Default::default(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         }
     }
@@ -832,6 +836,12 @@ impl Compiler {
         _: i_slint_core::InternalToken,
     ) {
         self.project_file_loader = Some(file_loader);
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_project_root(&mut self, root: Option<SourcePath>, _: i_slint_core::InternalToken) {
+        self.project_root = root;
     }
 
     #[doc(hidden)]
@@ -996,7 +1006,13 @@ impl Compiler {
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
         let input_path = i_slint_compiler::source_path::clean_path(path.as_ref());
-        self.build(None, SourcePath::File(input_path), AnimationMode::Running, false).await
+        self.build(
+            None,
+            SourcePath::File(input_path),
+            AnimationMode::Running,
+            self.project_root.clone(),
+        )
+        .await
     }
 
     /// Compile some .slint code
@@ -1012,7 +1028,13 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        self.build(Some(source_code), SourcePath::new(path), AnimationMode::Running, false).await
+        self.build(
+            Some(source_code),
+            SourcePath::new(path),
+            AnimationMode::Running,
+            self.project_root.clone(),
+        )
+        .await
     }
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
@@ -1029,7 +1051,7 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Running, true).await
+        self.build(source_code, path, AnimationMode::Running, self.project_root.clone()).await
     }
 
     /// [`Self::build_from_source_path`] without timers or animations.
@@ -1041,7 +1063,7 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(source_code, path, AnimationMode::Static, true).await
+        self.build(source_code, path, AnimationMode::Static, self.project_root.clone()).await
     }
 
     async fn build(
@@ -1049,21 +1071,12 @@ impl Compiler {
         source_code: Option<String>,
         input: SourcePath,
         animation_mode: AnimationMode,
-        preview_discovery: bool,
+        project_root: Option<SourcePath>,
     ) -> CompilationResult {
         let attempted_paths = Rc::new(std::cell::RefCell::new(Vec::new()));
         let file_loader = {
             let attempted_paths = attempted_paths.clone();
             let fallback = self.project_file_loader.clone();
-            let supplied_manifest = source_code
-                .as_ref()
-                .filter(|_| input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME))
-                .map(|source| {
-                    (
-                        i_slint_compiler::project_file::normalize_project_file_path(input.clone()),
-                        source.clone(),
-                    )
-                });
             let record_missing_paths = self.project_file_loader.is_some();
             Rc::new(
                 move |path: SourcePath| -> core::pin::Pin<
@@ -1072,12 +1085,6 @@ impl Compiler {
                     if record_missing_paths || path.exists() {
                         attempted_paths.borrow_mut().push(path.clone());
                     }
-                    if let Some((manifest, source)) = &supplied_manifest
-                        && path == *manifest
-                    {
-                        let source = source.clone();
-                        return Box::pin(async move { Some(Ok(source)) });
-                    }
                     match &fallback {
                         Some(fallback) => fallback(path),
                         None => Box::pin(async { None }),
@@ -1085,46 +1092,43 @@ impl Compiler {
                 },
             ) as i_slint_compiler::OpenImportCallback
         };
-        let resolved = if preview_discovery {
-            i_slint_compiler::project_file::resolve_input_with_file_loader(
-                input.clone(),
+        let resolved = if input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
+            Err(i_slint_compiler::project_file::project_file_input_error(&input))
+        } else if let Some(root) = project_root {
+            i_slint_compiler::project_file::load_from_root_with_file_loader(
+                root,
                 Some(&file_loader),
             )
             .await
+            .map(|project_file| i_slint_compiler::project_file::ResolvedInput {
+                source: input.clone(),
+                project_file,
+            })
         } else if source_code.is_none() {
             match input.as_native_path() {
                 Some(path) => i_slint_compiler::project_file::resolve_input(path).map(
-                    |(source, project_file)| {
-                        Some(i_slint_compiler::project_file::ResolvedInput {
-                            source: SourcePath::new(source),
-                            project_file,
-                        })
+                    |(source, project_file)| i_slint_compiler::project_file::ResolvedInput {
+                        source: SourcePath::new(source),
+                        project_file,
                     },
                 ),
-                None => Ok(Some(i_slint_compiler::project_file::ResolvedInput {
+                None => Ok(i_slint_compiler::project_file::ResolvedInput {
                     source: input.clone(),
                     project_file: None,
-                })),
+                }),
             }
-        } else if input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
-            Err(i_slint_compiler::project_file::project_file_input_error(&input))
         } else {
-            Ok(Some(i_slint_compiler::project_file::ResolvedInput {
+            Ok(i_slint_compiler::project_file::ResolvedInput {
                 source: input.clone(),
                 project_file: None,
-            }))
+            })
         };
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
         let mut result = match resolved {
             Err(message) => {
                 compilation_error(message, &input, i_slint_compiler::diagnostics::Span::new(0, 0))
             }
-            Ok(None) => compilation_error(
-                std::format!("{input} has no 'main' to compile"),
-                &input,
-                i_slint_compiler::diagnostics::Span::new(0, 0),
-            ),
-            Ok(Some(resolved)) => {
+            Ok(resolved) => {
                 if let Some(project_file) = &resolved.project_file {
                     attempted_paths.borrow_mut().push(project_file.source_path().clone());
                 }
@@ -3166,6 +3170,7 @@ mod project_file_tests {
                 let manifest = path.parent().join(FILE_NAME).unwrap();
                 let current_experimental = std::rc::Rc::new(std::cell::RefCell::new(false));
                 let mut compiler = Compiler::default();
+                compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 let loader_experimental = current_experimental.clone();
                 let loader_manifest = manifest.clone();
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
@@ -3229,6 +3234,7 @@ mod project_file_tests {
         for invalid in [false, true] {
             for static_compilation in [false, true] {
                 let mut compiler = Compiler::default();
+                compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |_| {
                     Box::pin(async move {
                         Some(if invalid {
@@ -3270,64 +3276,6 @@ mod project_file_tests {
                 assert!(result.watch_paths.contains(&path));
             }
         }
-    }
-
-    #[cfg(feature = "internal")]
-    #[test]
-    fn an_internal_loader_can_supply_a_rust_manifest_entry() {
-        let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
-        let entry = manifest.parent().join("main.rs").unwrap();
-        for has_macro in [false, true] {
-            let mut compiler = Compiler::default();
-            let loader_entry = entry.clone();
-            compiler.set_project_file_loader(
-                std::rc::Rc::new(move |path| {
-                    let contents = if path == loader_entry {
-                        Ok(if has_macro {
-                            "slint::slint! { export component Main inherits Window {} }"
-                        } else {
-                            "fn main() {}"
-                        }
-                        .into())
-                    } else {
-                        Err(std::io::ErrorKind::NotFound.into())
-                    };
-                    Box::pin(async move { Some(contents) })
-                }),
-                i_slint_core::InternalToken,
-            );
-            let result = spin_on::spin_on(compiler.build_from_source_path(
-                Some(r#"{"slint-edition":"1.19","main":"main.rs"}"#.into()),
-                manifest.clone(),
-                i_slint_core::InternalToken,
-            ));
-            assert_eq!(result.has_errors(), !has_macro, "{result:?}");
-            assert_eq!(result.component("Main").is_some(), has_macro);
-            if !has_macro {
-                assert!(
-                    result
-                        .diagnostics()
-                        .any(|diagnostic| diagnostic.message().contains("No `slint!` macro"))
-                );
-            }
-            assert!(result.watch_paths.contains(&entry));
-        }
-    }
-
-    #[cfg(feature = "internal")]
-    #[test]
-    fn a_foreign_manifest_entry_without_an_internal_loader_reports_the_entry_path() {
-        let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
-        let entry = manifest.parent().join("main.slint").unwrap();
-        let result = spin_on::spin_on(Compiler::default().build_from_source_path(
-            Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#.into()),
-            manifest,
-            i_slint_core::InternalToken,
-        ));
-        assert!(result.has_errors());
-        assert!(result.diagnostics().any(
-            |diagnostic| diagnostic.source_url().as_deref() == Some(entry.to_string().as_str())
-        ));
     }
 
     #[cfg(windows)]
@@ -3376,72 +3324,73 @@ mod project_file_tests {
 
     #[cfg(feature = "internal")]
     #[test]
-    fn internal_source_compilers_resolve_manifest_entries_and_reject_missing_entries() {
+    fn internal_source_compilers_load_only_the_explicit_root() {
         use super::SourcePath;
-        let directory = tempfile::TempDir::new().unwrap();
-        std::fs::write(directory.path().join(FILE_NAME), r#"{"style":"wrong-disk-style"}"#)
-            .unwrap();
-        for manifest in [
-            SourcePath::new(directory.path().join(FILE_NAME)),
-            SourcePath::new("https://example.invalid/ui/slint-project.json"),
+        let source = "export component Main inherits Window {}";
+        for root in [
+            SourcePath::new("/virtual/project"),
+            SourcePath::new("https://example.invalid/project/"),
         ] {
-            let entry = manifest.parent().join("main.slint").unwrap();
-            for has_entry in [false, true] {
+            let main = root.join("ui/main.slint").unwrap();
+            let manifest = root.join(FILE_NAME).unwrap();
+            for manifest_contents in
+                [r#"{"slint-edition":"1.19"}"#, r#"{"slint-edition":"1.19","main":"other.slint"}"#]
+            {
                 for static_compilation in [false, true] {
-                    let mut compiler = Compiler::default();
+                    let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+                    let loader_requested = requested.clone();
                     let loader_manifest = manifest.clone();
-                    let loader_entry = entry.clone();
-                    compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
-                        let contents = if path == loader_manifest {
-                            Ok(r#"{"slint-edition":"1.19","main":"wrong.slint","style":"no-such-style"}"#.into())
-                        } else if path == loader_entry {
-                            Ok("export component Entry inherits Window {}".into())
-                        } else {
-                            Err(std::io::ErrorKind::NotFound.into())
-                        };
-                        Box::pin(async move { Some(contents) })
-                    }));
-                    let source = if has_entry {
-                        r#"{"slint-edition":"1.19","main":"main.slint"}"#
-                    } else {
-                        r#"{"slint-edition":"1.19"}"#
-                    }
-                    .to_string();
-                    let result = if static_compilation {
-                        spin_on::spin_on(compiler.build_static_from_source(
-                            Some(source),
-                            manifest.clone(),
-                            i_slint_core::InternalToken,
-                        ))
-                    } else {
-                        spin_on::spin_on(compiler.build_from_source_path(
-                            Some(source),
-                            manifest.clone(),
-                            i_slint_core::InternalToken,
-                        ))
-                    };
-                    assert_eq!(result.has_errors(), !has_entry, "{result:?}");
-                    if !has_entry {
-                        let diagnostics = result.diagnostics().collect::<Vec<_>>();
-                        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-                        assert_eq!(
-                            diagnostics[0].message(),
-                            format!("{manifest} has no 'main' to compile")
-                        );
-                        assert_eq!(
-                            diagnostics[0].source_url(),
-                            manifest.to_url().map(String::from)
-                        );
-                        assert_eq!(diagnostics[0].line_column(), (1, 1));
-                    }
-                    assert_eq!(result.component("Entry").is_some(), has_entry);
-                    assert_eq!(result.components().count(), usize::from(has_entry));
+                    let mut compiler = Compiler::default();
+                    compiler.set_project_root(Some(root.clone()), i_slint_core::InternalToken);
+                    compiler.set_project_file_loader(
+                        std::rc::Rc::new(move |path| {
+                            loader_requested.borrow_mut().push(path.clone());
+                            let contents = if path == loader_manifest {
+                                Ok(manifest_contents.into())
+                            } else {
+                                Ok("{".into())
+                            };
+                            Box::pin(async move { Some(contents) })
+                        }),
+                        i_slint_core::InternalToken,
+                    );
+                    let result =
+                        compile_source(&compiler, main.clone(), static_compilation, source);
+                    assert!(!result.has_errors(), "{result:?}");
+                    assert!(result.component("Main").is_some());
                     assert!(result.watch_paths.contains(&manifest));
-                    if has_entry {
-                        assert!(result.watch_paths.contains(&entry));
-                    }
+                    assert_eq!(*requested.borrow(), vec![manifest.clone()]);
                 }
             }
+        }
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
+    fn explicit_root_switch_and_clear_replace_project_settings() {
+        let source = "export component Main inherits Window { ComponentContainer {} }";
+        let main = super::SourcePath::new("https://example.invalid/ui/main.slint");
+        let disabled_root = super::SourcePath::new("https://example.invalid/disabled/");
+        let enabled_root = super::SourcePath::new("https://example.invalid/enabled/");
+        let enabled_manifest = enabled_root.join(FILE_NAME).unwrap();
+        let mut compiler = Compiler::default();
+        compiler.set_project_file_loader(
+            std::rc::Rc::new(move |path| {
+                let contents = if path == enabled_manifest {
+                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into())
+                } else {
+                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into())
+                };
+                Box::pin(async move { Some(contents) })
+            }),
+            i_slint_core::InternalToken,
+        );
+        for (root, has_errors) in
+            [(Some(disabled_root), true), (Some(enabled_root), false), (None, true)]
+        {
+            compiler.set_project_root(root, i_slint_core::InternalToken);
+            let result = compile_source(&compiler, main.clone(), false, source);
+            assert_eq!(result.has_errors(), has_errors, "{result:?}");
         }
     }
 

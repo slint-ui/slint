@@ -152,18 +152,23 @@ pub struct ResolvedInput {
     pub project_file: Option<ProjectFile>,
 }
 
-pub async fn resolve_input_with_file_loader(
-    input: SourcePath,
+pub async fn load_from_root_with_file_loader(
+    root: SourcePath,
     file_loader: Option<&crate::OpenImportCallback>,
-) -> Result<Option<ResolvedInput>, String> {
-    if input.file_name() != Some(FILE_NAME) {
-        let project_file = ProjectFile::find_with_file_loader(input.parent(), file_loader).await?;
-        return Ok(Some(ResolvedInput { source: input, project_file }));
+) -> Result<Option<ProjectFile>, String> {
+    let path =
+        root.join(FILE_NAME).ok_or_else(|| format!("Cannot resolve {FILE_NAME} under {root}"))?;
+    match ProjectFile::load_with_file_loader(path.clone(), file_loader).await {
+        Ok(project_file) => Ok(Some(project_file)),
+        Err(error)
+            if error
+                .downcast_ref::<std::io::Error>()
+                .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(format!("Cannot load {path}: {error}")),
     }
-    let project_file = ProjectFile::load_with_file_loader(input.clone(), file_loader)
-        .await
-        .map_err(|error| format!("Cannot load {input}: {error}"))?;
-    Ok(project_file.main().map(|source| ResolvedInput { source, project_file: Some(project_file) }))
 }
 
 /// Searches `directory` and its ancestors for a project file,
@@ -245,37 +250,6 @@ impl ProjectFile {
             path.read()?.into_owned()
         };
         Self::parse(path, source)
-    }
-
-    pub async fn find_with_file_loader(
-        mut directory: SourcePath,
-        file_loader: Option<&crate::OpenImportCallback>,
-    ) -> Result<Option<Self>, String> {
-        directory = normalize_project_file_path(directory);
-        directory = directory.join(".").unwrap_or(directory);
-        loop {
-            let Some(candidate) = directory.join(FILE_NAME) else { return Ok(None) };
-            match Self::load_with_file_loader(candidate.clone(), file_loader).await {
-                Ok(project_file) => return Ok(Some(project_file)),
-                Err(error)
-                    if error
-                        .downcast_ref::<std::io::Error>()
-                        .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) => {}
-                Err(error) => return Err(format!("Cannot load {candidate}: {error}")),
-            }
-            let parent = match &directory {
-                SourcePath::File(_) => directory.parent(),
-                _ => directory
-                    .to_url()
-                    .and_then(|url| url.join("..").ok())
-                    .map(SourcePath::from)
-                    .unwrap_or_else(|| directory.clone()),
-            };
-            if parent == directory {
-                return Ok(None);
-            }
-            directory = parent;
-        }
     }
 
     pub fn source_path(&self) -> &SourcePath {
@@ -1277,71 +1251,62 @@ mod tests {
     }
 
     #[test]
-    fn callback_discovery_checks_nearest_ancestor_and_stops_at_roots() {
+    fn callback_root_loads_only_its_direct_project_file() {
         for base in [
             "/virtual/project/",
             "https://example.com/project/",
             "vscode-remote://host/project/",
             "file:///C:/project/",
         ] {
-            let directory = SourcePath::new(base);
-            let manifest = directory.join(FILE_NAME).unwrap();
-            let nested = directory.join("ui/nested").unwrap();
+            let root = SourcePath::new(base);
+            let manifest = root.join(FILE_NAME).unwrap();
             let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader = callback_loader(
                 HashMap::from([
                     (manifest.clone(), r#"{"slint-edition":"1.19"}"#.into()),
-                    (
-                        directory.join("../slint-project.json").unwrap(),
-                        r#"{"slint-edition":"1.19","main":"outer"}"#.into(),
-                    ),
+                    (root.join("ui/slint-project.json").unwrap(), "broken".into()),
+                    (root.join("../slint-project.json").unwrap(), "broken".into()),
                 ]),
                 requested.clone(),
             );
-            let project =
-                spin_on::spin_on(ProjectFile::find_with_file_loader(nested.clone(), Some(&loader)))
-                    .unwrap()
-                    .unwrap();
+            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+                root.clone(),
+                Some(&loader),
+            ))
+            .unwrap()
+            .unwrap();
             assert_eq!(project.source_path(), &manifest);
-            assert_eq!(requested.borrow().len(), 3);
-            let loader = callback_loader(HashMap::new(), requested.clone());
+            assert_eq!(*requested.borrow(), vec![manifest.clone()]);
+
             requested.borrow_mut().clear();
+            let loader = callback_loader(HashMap::new(), requested.clone());
             assert!(
-                spin_on::spin_on(ProjectFile::find_with_file_loader(nested, Some(&loader)))
+                spin_on::spin_on(super::load_from_root_with_file_loader(root, Some(&loader)))
                     .unwrap()
                     .is_none()
             );
-            let requested = requested.borrow();
-            let distinct = requested.iter().collect::<std::collections::HashSet<_>>();
-            assert_eq!(requested.len(), distinct.len());
-            assert!(requested.len() < 8);
+            assert_eq!(*requested.borrow(), vec![manifest]);
         }
     }
 
     #[cfg(target_arch = "wasm32")]
     #[test]
-    fn wasm_discovery_without_a_filesystem_loader_finds_no_project() {
+    fn wasm_root_without_a_filesystem_loader_finds_no_project() {
         let declined_loader: crate::OpenImportCallback =
             std::rc::Rc::new(|_| Box::pin(async { None }));
         for loader in [None, Some(&declined_loader)] {
-            let source = SourcePath::new("/project/ui/main.slint");
+            let root = SourcePath::new("/project/ui");
             assert!(
-                spin_on::spin_on(ProjectFile::find_with_file_loader(source.parent(), loader))
+                spin_on::spin_on(super::load_from_root_with_file_loader(root, loader))
                     .unwrap()
                     .is_none()
             );
-            let resolved =
-                spin_on::spin_on(super::resolve_input_with_file_loader(source.clone(), loader))
-                    .unwrap()
-                    .unwrap();
-            assert_eq!(resolved.source, source);
-            assert!(resolved.project_file.is_none());
         }
     }
 
     #[test]
-    fn callback_discovery_only_continues_after_not_found() {
-        for directory in ["https://example.com/a/b/", "/virtual/project/ui"] {
+    fn callback_root_reports_errors_other_than_not_found() {
+        for root in ["https://example.com/a/b/", "/virtual/project/ui"] {
             for contents in [
                 Ok("not json"),
                 Err(std::io::ErrorKind::PermissionDenied),
@@ -1355,8 +1320,8 @@ mod tests {
                     Box::pin(async move { Some(contents.map(str::to_owned).map_err(Into::into)) })
                 });
                 assert!(
-                    spin_on::spin_on(ProjectFile::find_with_file_loader(
-                        SourcePath::new(directory),
+                    spin_on::spin_on(super::load_from_root_with_file_loader(
+                        SourcePath::new(root),
                         Some(&loader)
                     ))
                     .is_err()
@@ -1367,52 +1332,31 @@ mod tests {
     }
 
     #[test]
-    fn callback_input_resolution_preserves_source_and_explicit_manifest() {
+    fn callback_root_does_not_require_main() {
         let root = SourcePath::new("https://example.com/project/");
         let manifest = root.join(FILE_NAME).unwrap();
-        let source = root.join("ui/main.slint").unwrap();
         for entry in [None, Some("ui/main.slint")] {
             let contents = entry.map_or_else(
                 || r#"{"slint-edition":"1.19"}"#.to_string(),
                 |entry| format!(r#"{{"slint-edition":"1.19","main":"{entry}"}}"#),
             );
+            let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader = callback_loader(
                 HashMap::from([
                     (manifest.clone(), contents),
-                    (
-                        root.join("ui/slint-project.json").unwrap(),
-                        r#"{"slint-edition":"1.19","main":"nested"}"#.into(),
-                    ),
+                    (root.join("ui/slint-project.json").unwrap(), "broken".into()),
                 ]),
-                Default::default(),
+                requested.clone(),
             );
-            let resolved = spin_on::spin_on(super::resolve_input_with_file_loader(
-                manifest.clone(),
-                Some(&loader),
-            ))
-            .unwrap();
-            assert_eq!(resolved.is_some(), entry.is_some());
-            if let Some(resolved) = resolved {
-                assert_eq!(resolved.source, source);
-                assert_eq!(resolved.project_file.unwrap().source_path(), &manifest);
-            }
-            let resolved = spin_on::spin_on(super::resolve_input_with_file_loader(
-                source.clone(),
+            let project = spin_on::spin_on(super::load_from_root_with_file_loader(
+                root.clone(),
                 Some(&loader),
             ))
             .unwrap()
             .unwrap();
-            assert_eq!(resolved.source, source);
-            assert_eq!(resolved.project_file.unwrap().main(), root.join("ui/nested"));
+            assert_eq!(project.main(), entry.and_then(|entry| root.join(entry)));
+            assert_eq!(*requested.borrow(), vec![manifest.clone()]);
         }
-        let loader = callback_loader(
-            HashMap::from([(manifest.clone(), "broken".into())]),
-            Default::default(),
-        );
-        assert!(
-            spin_on::spin_on(super::resolve_input_with_file_loader(manifest, Some(&loader)))
-                .is_err()
-        );
     }
 
     fn load_project_file(source: &str) -> Result<ProjectFile, Box<dyn std::error::Error>> {

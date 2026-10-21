@@ -78,6 +78,14 @@ struct Cli {
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
 
+    #[arg(
+        short = 'p',
+        long,
+        requires = "path",
+        help = "Load project settings from this directory"
+    )]
+    project_root: Option<std::path::PathBuf>,
+
     /// Start in remote viewer mode: listen for WebSocket connections from the LSP
     #[arg(long)]
     remote: bool,
@@ -193,6 +201,11 @@ fn main() -> Result<()> {
     let args = Cli::parse_from(["slint-viewer", "--remote"]);
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
+
+    if args.project_root.is_some() && args.path.as_ref().is_some_and(|path| path.is_dir()) {
+        eprintln!("A project directory cannot be combined with --project-root");
+        std::process::exit(2);
+    }
 
     if args.screenshot.is_some() {
         if args.auto_reload {
@@ -347,6 +360,13 @@ fn install_log_message_handler() -> Result<()> {
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
+    if let Some(root) = &args.project_root {
+        let root = std::path::absolute(root).unwrap_or_else(|_| root.clone());
+        compiler.set_project_root(
+            Some(i_slint_compiler::source_path::SourcePath::new(root)),
+            i_slint_core::InternalToken,
+        );
+    }
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);

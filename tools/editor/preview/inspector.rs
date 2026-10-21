@@ -110,10 +110,7 @@ fn target_with_root(
         (selected, index)
     } else if allow_root {
         let (element, current_url) = PREVIEW_STATE.with_borrow(|state| {
-            Some((
-                state.api.upgrade()?.get_current_element(),
-                state.current_source_component()?.url,
-            ))
+            Some((state.api.upgrade()?.get_current_element(), state.current_component()?.url))
         })?;
         let url = Url::parse(&element.source_uri).ok()?;
         if url != current_url || element.offset < 0 {
