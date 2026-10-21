@@ -2845,12 +2845,13 @@ fn set_selected_element(
 ) {
     inline_text_edit::selection_changed(selection.as_ref(), &editor_notification);
     inspector::cancel();
-    let (layout_kind, parent_layout_kind, type_name) = {
+    let (layout_kind, parent_layout_kind, is_root, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
         let (layout_kind, parent_layout_kind) = selection_node
             .as_ref()
             .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(en)))
             .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
+        let is_root = selection_node.as_ref().is_some_and(|en| en.parent().is_none());
         let type_name = selection_node
             .and_then(|n| {
                 // This is an approximation, I hope it is good enough. The ElementRc was lowered, so there is nothing to see there anymore
@@ -2860,7 +2861,7 @@ fn set_selected_element(
             })
             .unwrap_or_default();
 
-        (layout_kind, parent_layout_kind, type_name)
+        (layout_kind, parent_layout_kind, is_root, type_name)
     };
 
     set_drop_mark(&None);
@@ -2890,7 +2891,7 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: !is_in_layout,
+                is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
             });
 
@@ -3831,6 +3832,29 @@ mod tests {
             element_selection::unselect_element(SelectionNotification::Now);
             assert!(messages.borrow().is_empty());
         }
+    }
+
+    #[test]
+    fn root_element_selection_is_not_moveable() {
+        let editor = availability_test_editor();
+        let source = "export component Main inherits Rectangle {\n    Rectangle { width: 10px; height: 10px; }\n}";
+        apply_availability_test_source(&editor, source, true);
+        for (offset, moveable) in
+            [(source.find("Rectangle {"), false), (source.rfind("Rectangle {"), true)]
+        {
+            set_selected_element(
+                Some(ElementSelection {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: (offset.unwrap() as u32).into(),
+                    instance_index: 0,
+                    editing_text: false,
+                }),
+                SelectionNotification::Never,
+            );
+            assert!(PREVIEW_STATE.with_borrow(|state| state.selected.is_some()));
+            assert_eq!(editor.global::<ui::Api>().get_selection().is_moveable, moveable);
+        }
+        reset_preview_state(Default::default());
     }
 
     #[test]
