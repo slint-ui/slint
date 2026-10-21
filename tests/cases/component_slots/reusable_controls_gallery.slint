@@ -177,5 +177,35 @@ for field in [&field, &decorated_field] {
 find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_page(), 0);
 assert!(instance.get_test());
+
+let examples = ["Default button", "Adjusted button", "Application Save", "Application Publish", "Slot button"];
+content_scroll.scroll(0., -10_000.);
+slint::platform::update_timers_and_animations();
+for label in examples {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(true));
+    assert!(button.absolute_position().y >= content_scroll.absolute_position().y);
+    assert!(button.absolute_position().y + button.size().height
+        <= content_scroll.absolute_position().y + content_scroll.size().height);
+    button.mock_single_click(PointerEventButton::Left);
+}
+let slot_button = find("Slot button", AccessibleRole::Button);
+let outline = || slot_button.query_descendants().match_id("SlotButton::focus-outline").find_first();
+for _ in 0..32 {
+    if outline().is_some() { break; }
+    slint_testing::send_keyboard_char(&instance, slint::platform::Key::Tab.into(), true);
+    slint_testing::send_keyboard_char(&instance, slint::platform::Key::Tab.into(), false);
+}
+assert!(outline().is_some());
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Space.into(), true);
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Space.into(), false);
+find("Activations: 6", AccessibleRole::Text);
+find("Disable preview controls", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+for label in examples {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(false));
+    button.invoke_accessible_default_action();
+}
+find("Activations: 6", AccessibleRole::Text);
 ```
 */

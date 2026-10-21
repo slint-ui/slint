@@ -245,4 +245,6 @@ $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
 
 Each page provides size and disabled settings for previews, and the gallery supports light and dark palettes.
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
-The CheckBox, Switch, Slider, ComboBox, and LineEdit pages demonstrate custom visuals through slots.
+The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
+Its customization examples keep their own dimensions independently of the preview size selector.
+Every control page demonstrates custom visuals through slots.

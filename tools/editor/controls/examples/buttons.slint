@@ -2,26 +2,120 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
+    Button,
     ButtonStyle,
     ButtonStyles,
     BasicTheme,
     ComboBox,
     CheckBox,
 } from "../src/basic.slint";
+import { ButtonBase } from "../src/headless.slint";
 import { PreviewButton } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 
+component AppButton inherits Button {
+    style: ButtonStyles.primary;
+    font-weight: 600;
+    horizontal-padding: 18px;
+    vertical-padding: 8px;
+    border-radius: 8px;
+}
+
+component SlotButton inherits ButtonBase {
+    private property <brush> fill: BasicTheme.accent;
+    private property <brush> foreground: BasicTheme.accent-foreground;
+
+    states [
+        disabled when !root.enabled: {
+            fill: BasicTheme.disabled-background;
+            foreground: BasicTheme.disabled-foreground;
+        }
+        pressed when root.pressed: {
+            fill: BasicTheme.accent-pressed;
+        }
+        hover when root.hovered: {
+            fill: BasicTheme.accent-hover;
+        }
+    ]
+
+    background << Rectangle {
+        background: root.fill;
+        border-radius: self.height / 2;
+        focus-outline := Rectangle {
+            x: -4px;
+            y: -4px;
+            width: parent.width + 8px;
+            height: parent.height + 8px;
+            visible: root.enabled && root.has-focus;
+            border-width: 2px;
+            border-color: BasicTheme.focus;
+            border-radius: self.height / 2;
+        }
+    }
+    content << HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 8px;
+        Text {
+            text: "+";
+            color: root.foreground;
+            font-size: 18px;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.text;
+            color: root.foreground;
+            font-size: 14px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component ButtonExampleRow inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> description;
+
+    spacing: 24px;
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 4px;
+        Text {
+            text: root.title;
+            color: BasicTheme.foreground;
+            font-weight: 600;
+        }
+        Text {
+            text: root.description;
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+    HorizontalLayout {
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
+        spacing: 8px;
+        alignment: end;
+        @children
+    }
+}
+
 export component ButtonExamples inherits Rectangle {
-    vertical-stretch: 0;
     in-out property <int> size-index: 1;
     in-out property <bool> button-disabled;
+
     out property <int> button-activations;
+
     private property <[{ label: string, style: ButtonStyle }]> variants: [
         { label: "Primary", style: ButtonStyles.primary },
         { label: "Danger", style: ButtonStyles.danger },
         { label: "Secondary", style: ButtonStyles.secondary },
         { label: "Invisible", style: ButtonStyles.invisible },
     ];
+
+    vertical-stretch: 0;
 
     VerticalLayout {
         spacing: 20px;
@@ -66,6 +160,61 @@ export component ButtonExamples inherits Rectangle {
                 text: "Activations: \{root.button-activations}";
                 color: BasicTheme.disabled-foreground;
                 font-size: 12px;
+            }
+        }
+
+        ExampleSection {
+            title: "Button customization";
+            description: "Start with defaults, adjust one instance, share application defaults, or replace the visuals. These examples keep their own dimensions.";
+
+            VerticalLayout {
+                spacing: 24px;
+                ButtonExampleRow {
+                    title: "Default button";
+                    description: "Library colors and geometry, with only text and an action supplied.";
+                    Button {
+                        text: "Default button";
+                        enabled: !root.button-disabled;
+                        clicked => { root.button-activations += 1; }
+                    }
+                }
+                ButtonExampleRow {
+                    title: "Direct adjustments";
+                    description: "Square corners, larger text, and extra horizontal padding.";
+                    Button {
+                        text: "Adjusted button";
+                        enabled: !root.button-disabled;
+                        font-size: 16px;
+                        horizontal-padding: 20px;
+                        border-radius: 0px;
+                        clicked => { root.button-activations += 1; }
+                    }
+                }
+                ButtonExampleRow {
+                    title: "Reusable application button";
+                    description: "Two AppButton instances share a style, padding, font weight, and corner radius.";
+                    AppButton {
+                        text: "Save";
+                        accessible-label: "Application Save";
+                        enabled: !root.button-disabled;
+                        clicked => { root.button-activations += 1; }
+                    }
+                    AppButton {
+                        text: "Publish";
+                        accessible-label: "Application Publish";
+                        enabled: !root.button-disabled;
+                        clicked => { root.button-activations += 1; }
+                    }
+                }
+                ButtonExampleRow {
+                    title: "Custom visuals through slots";
+                    description: "SlotButton fills ButtonBase's background and content slots, keeping its input handling and accessibility.";
+                    SlotButton {
+                        text: "Slot button";
+                        enabled: !root.button-disabled;
+                        clicked => { root.button-activations += 1; }
+                    }
+                }
             }
         }
     }
