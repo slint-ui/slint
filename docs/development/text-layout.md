@@ -268,6 +268,7 @@ the markdown and HTML that produce each one are listed below.
 
 A paragraph is its raw text, the `FormattedSpan`s applying a `Style` to a byte range, and the link
 destinations for those ranges.
+`quote_depth` counts the block quotes the paragraph is nested in.
 See `StyledTextParagraph` and `FormattedSpan` in `internal/common/styled_text.rs`.
 
 ### StyledText
@@ -282,11 +283,21 @@ See `StyledText` in `internal/core/styled_text.rs`.
 - `~~strikethrough~~`
 - `[link](url)`
 - Lists (ordered and unordered)
+- Block quotes (`>`, nested)
 - Soft/hard breaks
 
 **Supported HTML:**
 - `<u>underline</u>`
 - `<span style="color:...">colored</span>`
+
+### Block Quotes
+
+A quoted paragraph's lines start at an x offset of `quote_depth` times `QUOTE_INDENT_EM` font sizes.
+See `TextParagraph::x` in `internal/core/textlayout/sharedparley/shaping.rs`.
+Line breaking, the max width, content widths, elision and link hit-testing all account for the offset.
+Drawing translates the renderer by the offset, so glyph runs and decorations stay in paragraph coordinates.
+`draw_quote_bars` in `sharedparley/draw.rs` draws one bar per level beside the drawn lines.
+Renderers without parley show each level as a `> ` prefix; see `get_raw_text` in `internal/core/styled_text.rs`.
 
 ## Common Patterns
 
