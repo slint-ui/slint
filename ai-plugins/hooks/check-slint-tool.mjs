@@ -66,9 +66,7 @@ if (!onPath(tool) && hasSlintFiles(cwd)) {
         JSON.stringify({
             hookSpecificOutput: {
                 hookEventName: "SessionStart",
-                additionalContext:
-                    `${tool} isn't on PATH, so edits to .slint files get no compiler diagnostics. ` +
-                    "Offer to install it as described in the slint skill's tools-install.md.",
+                additionalContext: `${tool} isn't on PATH, so edits to .slint files get no compiler diagnostics.`,
             },
         }),
     );
