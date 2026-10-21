@@ -105,26 +105,38 @@ pub struct ProjectFile {
 
 pub const FILE_NAME: &str = "slint-project.json";
 
-/// Returns whether `path` names a project file, which tools compile by compiling its main file.
+/// Returns whether `path` names a project file.
 pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
+pub fn project_file_input_error(input: &SourcePath) -> String {
+    let project_directory = input.parent();
+    let project_directory =
+        if project_directory.as_native_path().is_some_and(|path| path.as_os_str().is_empty()) {
+            ".".to_string()
+        } else {
+            project_directory.to_string()
+        };
+    format!(
+        "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({project_directory})"
+    )
+}
+
 /// Resolves the file a tool was asked to compile.
 ///
-/// A project file resolves to its main file and applies itself, without a search.
-/// Any other path resolves to itself, with the project file found for its directory.
+/// A directory resolves to the main file specified by its `slint-project.json`.
+/// A source file resolves to itself without loading a project file.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
-    if !is_project_file(input) {
-        return Ok((
-            input.to_path_buf(),
-            ProjectFile::find(
-                &SourcePath::new(input).parent().into_native_path().unwrap_or_default(),
-            )?,
-        ));
+    if is_project_file(input) {
+        return Err(project_file_input_error(&SourcePath::File(input.to_path_buf())));
     }
-    let project_file = ProjectFile::load(input)
-        .map_err(|error| format!("Cannot load {}: {error}", input.display()))?;
+    if !input.is_dir() {
+        return Ok((input.to_path_buf(), None));
+    }
+    let project_file_path = input.join(FILE_NAME);
+    let project_file = ProjectFile::load(&project_file_path)
+        .map_err(|error| format!("Cannot load {}: {error}", project_file_path.display()))?;
     let entry = project_file
         .main()
         .ok_or_else(|| format!("{} has no 'main' to compile", project_file.source_path()))?;
@@ -264,18 +276,6 @@ impl ProjectFile {
             }
             directory = parent;
         }
-    }
-
-    /// Loads the project file that applies to the files in `directory`, if there is one.
-    pub fn find(directory: &Path) -> Result<Option<Self>, String> {
-        let Some(path) = find_project_file_path(directory)
-            .map_err(|error| format!("Cannot look for {FILE_NAME}: {error}"))?
-        else {
-            return Ok(None);
-        };
-        Self::load(&path)
-            .map(Some)
-            .map_err(|error| format!("Cannot load {}: {error}", path.display()))
     }
 
     pub fn source_path(&self) -> &SourcePath {
@@ -1064,11 +1064,11 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_resolves_to_its_main_file() {
+    fn a_project_directory_resolves_to_its_main_file() {
         with_project_file_contents(
             r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
             |path| {
-                let (slint_file, project) = resolve_input(path).unwrap();
+                let (slint_file, project) = resolve_input(path.parent().unwrap()).unwrap();
                 assert_eq!(slint_file, path.parent().unwrap().join("main.slint"));
                 assert_eq!(project.unwrap().include_paths(), Some(&vec![PathBuf::from("include")]));
             },
@@ -1076,20 +1076,31 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_without_a_main_file_is_an_error() {
-        with_project_file_contents(r#"{ "slint-edition": "1.19" }"#, |path| {
-            let error = resolve_input(path).unwrap_err();
+    fn a_project_directory_without_a_main_file_is_an_error() {
+        with_project_file_contents(r#"{"slint-edition":"1.19"}"#, |path| {
+            let error = resolve_input(path.parent().unwrap()).unwrap_err();
             assert!(error.contains("'main'"), "{error}");
         });
     }
 
     #[test]
-    fn a_project_file_input_with_a_non_local_main_file_is_an_error() {
+    fn a_project_directory_does_not_search_its_parent() {
+        with_project_file_contents(r#"{"slint-edition": "1.19", "main":"main.slint"}"#, |path| {
+            let nested_directory = path.parent().unwrap().join("nested");
+            fs::create_dir_all(&nested_directory).unwrap();
+            let error = resolve_input(&nested_directory).unwrap_err();
+            assert!(error.contains(&nested_directory.join(FILE_NAME).display().to_string()));
+            fs::remove_dir_all(&nested_directory).unwrap();
+        });
+    }
+
+    #[test]
+    fn a_project_directory_with_a_non_local_main_file_is_an_error() {
         with_project_file_contents(
             r#"{ "slint-edition": "1.19", "main": "https://example.com/main.slint" }"#,
             |path| {
                 assert_eq!(
-                    resolve_input(path).unwrap_err(),
+                    resolve_input(path.parent().unwrap()).unwrap_err(),
                     format!("{} must specify a local file for 'main'", SourcePath::new(path))
                 );
             },
@@ -1097,38 +1108,52 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_ignores_a_nearer_project_file() {
+    fn a_project_directory_ignores_a_nearer_project_file() {
         with_project_file_contents(
             r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["outer"] }"#,
             |path| {
-                let ui = path.parent().unwrap().join("ui");
-                fs::create_dir_all(&ui).unwrap();
+                let ui_directory = path.parent().unwrap().join("ui");
+                fs::create_dir_all(&ui_directory).unwrap();
                 fs::write(
-                    ui.join(FILE_NAME),
+                    ui_directory.join(FILE_NAME),
                     r#"{ "slint-edition": "1.19", "include-paths": ["inner"] }"#,
                 )
                 .unwrap();
 
-                let (_, project) = resolve_input(path).unwrap();
+                let (_, project) = resolve_input(path.parent().unwrap()).unwrap();
 
-                fs::remove_dir_all(&ui).unwrap();
+                fs::remove_dir_all(&ui_directory).unwrap();
                 assert_eq!(project.unwrap().include_paths(), Some(&vec![PathBuf::from("outer")]));
             },
         );
     }
 
     #[test]
-    fn a_slint_file_input_resolves_to_itself() {
+    fn a_slint_file_input_ignores_project_files() {
+        with_project_file_contents("{", |path| {
+            let main = path.parent().unwrap().join("main.slint");
+            let (slint_file, project) = resolve_input(&main).unwrap();
+            assert_eq!(slint_file, main);
+            assert!(project.is_none());
+        });
+    }
+
+    #[test]
+    fn a_project_file_input_is_an_error() {
         with_project_file_contents(
-            r#"{ "slint-edition": "1.19", "main": "other.slint" }"#,
+            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
             |path| {
-                let main = path.parent().unwrap().join("main.slint");
-                let (slint_file, project) = resolve_input(&main).unwrap();
-                assert_eq!(slint_file, main);
-                assert_eq!(
-                    project.unwrap().source_path(),
-                    &crate::source_path::SourcePath::new(path)
-                );
+                for (input, directory) in [
+                    (path.to_path_buf(), path.parent().unwrap().display().to_string()),
+                    (PathBuf::from(FILE_NAME), ".".into()),
+                ] {
+                    assert_eq!(
+                        resolve_input(&input).unwrap_err(),
+                        format!(
+                            "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({directory})"
+                        )
+                    );
+                }
             },
         );
     }

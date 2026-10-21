@@ -793,9 +793,10 @@ function loadSlint(loadData: LoadData): Object {
  * main.greeting = "Hello friends";
  * ```
  *
- * A `slint-project.json` in the directory of the file, or in a directory above it,
- * provides the settings that `options` leaves open.
- * `filePath` can also be a `slint-project.json`, whose `main` is loaded.
+ * If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+ * The project file provides the settings that `options` does not specify.
+ * It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+ * A `.slint` file path does not load a project file.
  *
  * With the `SLINT_LIVE_PREVIEW` environment variable set, the components reload when one of their files changes.
  * See [Live Preview](https://slint.dev/docs/slint/guide/tooling/live-preview/).

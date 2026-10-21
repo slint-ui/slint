@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-{
-    "slint-edition": "1.19",
-    "include-paths": ["shared"]
+slint::slint! {
+    export component Inline inherits Window {}
 }
