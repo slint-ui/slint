@@ -530,10 +530,10 @@ The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-
 </component>
 ```
 
-Validate the file before you build, with `appstreamcli` from the Freedesktop SDK:
+Validate the file before you build, with `appstreamcli` from the `org.flatpak.Builder` flatpak on Flathub:
 
 ```bash
-flatpak run --command=appstreamcli org.freedesktop.Sdk//26.08 validate --no-net com.yourorganization.YourApp.metainfo.xml
+flatpak run --command=appstreamcli org.flatpak.Builder validate --no-net com.yourorganization.YourApp.metainfo.xml
 ```
 
 Install it from `build-commands`, like the desktop entry and the icon:

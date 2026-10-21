@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore appstreamcli metainfo
+# cspell:ignore metainfo
 
 # Flatpak manifest for the Slint Visual Editor, with Skia built from source
 # inside the sandbox. The two generated source lists it references are not
@@ -96,7 +96,6 @@ modules:
         jq -r '.packages[] | select(.name == "slint-editor") | .version')/"
         -e "s/@DATE@/$(git log -1 --format=%cs)/"
         tools/editor/packaging/linux/${FLATPAK_ID}.metainfo.xml.in > ${FLATPAK_ID}.metainfo.xml
-      - appstreamcli validate --no-net ${FLATPAK_ID}.metainfo.xml
       - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
     sources:
       # Without a ref flatpak-builder would build the default branch, not the

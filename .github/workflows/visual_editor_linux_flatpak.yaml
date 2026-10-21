@@ -97,6 +97,10 @@ jobs:
                   # travel together under one predictable artifact name.
                   upload-artifact: false
 
+            # The Freedesktop SDK no longer ships appstreamcli as of 26.08.
+            - name: Validate the metainfo
+              run: appstreamcli validate --no-net flatpak_app/files/share/metainfo/dev.slint.VisualEditor.metainfo.xml
+
             - name: Write the bundle
               run: >
                   scripts/publish_visual_editor_flatpak.bash write-bundle
