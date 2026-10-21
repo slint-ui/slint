@@ -17,6 +17,7 @@ component DeviceAction inherits Rectangle {
     out property <bool> hovered: button.hovered;
     callback activated();
     button := ButtonBase {
+        mouse-cursor: MouseCursor.default;
         width: parent.width; height: parent.height;
         enabled: root.enabled; text: root.label;
         clicked => { root.activated(); }

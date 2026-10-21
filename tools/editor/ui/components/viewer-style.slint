@@ -44,6 +44,7 @@ export global ViewerStyle {
 }
 
 export component ViewerButton inherits ButtonBase {
+    mouse-cursor: MouseCursor.default;
     slot body;
     in property <bool> ghost;
     height: 52px * ViewerStyle.scale;

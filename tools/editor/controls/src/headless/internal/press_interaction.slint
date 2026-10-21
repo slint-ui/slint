@@ -3,6 +3,7 @@
 
 export component PressInteraction {
     in property <bool> enabled: true;
+    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
     out property <bool> has-focus: keys.has-focus;
     out property <bool> focus-visible;
     out property <bool> hovered: root.enabled && pointer.has-hover && root.pointer-inside;
@@ -27,7 +28,7 @@ export component PressInteraction {
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: MouseCursor.pointer;
+        mouse-cursor: root.mouse-cursor;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.pointer-canceled = false;

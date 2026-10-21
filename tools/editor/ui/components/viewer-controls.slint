@@ -26,6 +26,7 @@ export component ViewerControls inherits Rectangle {
         background: ViewerStyle.pill-face;
     }
     launcher := ButtonBase {
+        mouse-cursor: MouseCursor.default;
         width: parent.width; height: parent.height;
         text: @tr("Viewer controls");
         accessible-expanded: popup.is-open;
@@ -47,6 +48,7 @@ export component ViewerControls inherits Rectangle {
         }
     }
     transport := ButtonBase {
+        mouse-cursor: MouseCursor.default;
         x: parent.width - 48px * ViewerStyle.pill-scale; y: 8px * ViewerStyle.pill-scale;
         width: 40px * ViewerStyle.pill-scale; height: 40px * ViewerStyle.pill-scale;
         text: Preview.is-running ? @tr("Stop preview") : @tr("Start preview");
@@ -139,6 +141,7 @@ export component ViewerControls inherits Rectangle {
                     VerticalLayout {
                     width: parent.width;
                     for endpoint[index] in Springboard.endpoints: option := ButtonBase {
+                        mouse-cursor: MouseCursor.default;
                         width: parent.width; height: endpoint.saved ? ViewerStyle.row-height : 0px;
                         visible: endpoint.saved;
                         text: index == 0 ? Preview.local-name : endpoint.name;
