@@ -366,6 +366,7 @@ Read-only fields retain enabled colors, text selection, and copying.
 
 All types below are exported from `basic.slint`.
 Omitted fields in ordinary struct literals use their type defaults, rather than the control's preset colors.
+Use `..base` to retain fields from an existing style; see [Colors and State Styles](README.md#colors-and-state-styles).
 All color fields are `brush`, except LineEdit selection colors, which are `color`.
 
 | Struct | Fields and Types |

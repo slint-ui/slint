@@ -1697,13 +1697,13 @@ fn format_object_literal(
     loop {
         let el = whitespace_to_one_of(
             &mut sub,
-            &[SyntaxKind::ObjectMember, SyntaxKind::RBrace],
+            &[SyntaxKind::ObjectMember, SyntaxKind::ObjectUpdate, SyntaxKind::RBrace],
             writer,
             state,
             "",
         )?;
 
-        if let SyntaxMatch::Found(SyntaxKind::ObjectMember) = el {
+        if let SyntaxMatch::Found(SyntaxKind::ObjectMember | SyntaxKind::ObjectUpdate) = el {
             if indent_with_new_line {
                 state.after_comment = false;
                 state.new_line();
@@ -3179,6 +3179,18 @@ export component MainWindow inherits Window {
     ];
 }
 "#,
+        );
+    }
+
+    #[test]
+    fn struct_update() {
+        assert_formatting(
+            "export component Test { property <Style> style: {pressed: {background: yellow,..base.pressed},..base}; property <Style> copy: {..base}; }",
+            "export component Test {\n    property <Style> style: { pressed: { background: yellow, ..base.pressed }, ..base };\n    property <Style> copy: { ..base };\n}\n",
+        );
+        assert_formatting(
+            "export component Test { property <Style> style: {background: yellow,..base,}; }",
+            "export component Test {\n    property <Style> style: {\n        background: yellow,\n        ..base,\n    };\n}\n",
         );
     }
 

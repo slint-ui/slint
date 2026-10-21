@@ -97,6 +97,46 @@ and when the struct is constructed from native code
 Field default values are only supported in named struct declarations.
 Writing `= expression` in an anonymous struct type is a compile error.
 
+### Updating Struct Values
+
+Use `..base` at the end of a struct literal to retain fields from an existing struct value:
+
+```slint
+export struct StateColors {
+    background: color,
+    foreground: color,
+}
+
+export struct ButtonColors {
+    rest: StateColors,
+    pressed: StateColors,
+}
+
+export component Example {
+    in property <ButtonColors> base: {
+        rest: { background: blue, foreground: white },
+        pressed: { background: navy, foreground: white },
+    };
+    out property <ButtonColors> custom: {
+        pressed: { background: yellow, ..root.base.pressed },
+        ..root.base
+    };
+}
+```
+
+The result has the base's struct type.
+Explicit fields replace the corresponding base fields; other fields retain their values from the base.
+An override must name an existing field and provide a value compatible with its type.
+Each field may be overridden only once.
+
+The base is evaluated once, before the override expressions, and is not modified.
+In a property binding, changes to the base or override dependencies update the result.
+One `..base` expression is allowed, at the end, with an optional trailing comma.
+`{ ..base }` copies the whole value.
+
+Updates are shallow: assigning a nested struct replaces that field's entire value.
+Use a nested `..base.field` expression, as above, to retain its other fields.
+
 ### Anonymous structures
 
 `{ identifier1: type1, identifier2: type2 }` is an anonymous struct type.

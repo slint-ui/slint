@@ -180,10 +180,18 @@ export component ButtonExamples inherits Rectangle {
                 }
                 ButtonExampleRow {
                     title: "Direct adjustments";
-                    description: "Square corners, larger text, and extra horizontal padding.";
+                    description: "Square corners, larger text, extra padding, and a yellow pressed state based on the primary style.";
                     Button {
                         text: "Adjusted button";
                         enabled: !root.button-disabled;
+                        style: {
+                            pressed: {
+                                background-color: yellow,
+                                foreground-color: black,
+                                ..ButtonStyles.primary.pressed
+                            },
+                            ..ButtonStyles.primary
+                        };
                         font-size: 16px;
                         horizontal-padding: 20px;
                         border-radius: 0px;

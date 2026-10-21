@@ -51,7 +51,7 @@ Use the read-only colors on `BasicTheme` for application visuals that should fol
 Host applications can export `BasicTheme` and set its `palette` input directly.
 
 For custom colors, supply an application-owned `BasicPalette` instead of a library preset.
-Supply every field, referencing preset fields for colors you want to keep; omitted fields become transparent.
+Use `{ accent: blue, ..BasicPalettes.dark }` to change selected colors while retaining the rest of a preset.
 Library palettes and style presets are read-only.
 The application selects light or dark mode; standard widgets from `std-widgets.slint` require their own palette configuration.
 
@@ -61,11 +61,27 @@ Use direct properties, such as `foreground-color` or `checked-color`, for simple
 Direct colors override the selected style while enabled, including hover and pressed states.
 Disabled controls use their style's disabled colors.
 
-For different colors in each state, pass a complete style struct through `style`.
-Struct literals don't merge with presets.
-Omitted fields receive their declared defaults or their type's default value.
-Reference preset fields explicitly to retain their values and reactive bindings.
-Custom styles follow the application theme only where their bindings reference it.
+For different colors in each state, pass a style struct through `style`.
+Use `..base` to retain preset fields while overriding selected colors:
+
+```slint
+Button {
+    text: "Save";
+    style: {
+        pressed: {
+            background-color: yellow,
+            foreground-color: black,
+            ..ButtonStyles.primary.pressed
+        },
+        ..ButtonStyles.primary
+    };
+}
+```
+
+Each `..base` must be last in its struct literal.
+Updates are shallow; the nested update retains the pressed state's other fields.
+Retained colors continue to follow the preset and application theme.
+Without `..base`, omitted fields receive their declared defaults or their type's default value.
 See [Style Struct Fields](API.md#style-struct-fields) for the states and colors available on each control.
 
 ## Dimensions and Padding

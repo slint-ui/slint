@@ -449,10 +449,12 @@ declare_syntax! {
         MemberAccess -> [Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
-        /// `{ foo: bar }`
-        ObjectLiteral -> [ *ObjectMember ],
+        /// `{ foo: bar, ..base }`
+        ObjectLiteral -> [ *ObjectMember, ?ObjectUpdate ],
         /// `foo: bar` inside an ObjectLiteral
         ObjectMember -> [ Expression ],
+        /// `..base` inside an ObjectLiteral
+        ObjectUpdate -> [ Expression ],
         /// `states: [...]`
         States -> [*State],
         /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.

@@ -2326,6 +2326,9 @@ impl Expression {
         node: syntax_nodes::ObjectLiteral,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        if let Some(update) = node.ObjectUpdate() {
+            return Self::from_object_update_node(node, update, ctx);
+        }
         let values: BTreeMap<SmolStr, Expression> = node
             .ObjectMember()
             .map(|n| {
@@ -2345,6 +2348,53 @@ impl Expression {
             StructName::None,
         ));
         Expression::Struct { ty, values }
+    }
+
+    fn from_object_update_node(
+        node: syntax_nodes::ObjectLiteral,
+        update: syntax_nodes::ObjectUpdate,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        #[cfg(feature = "slint-sc")]
+        ctx.diag.slint_sc_error("Struct update expressions are", &update);
+
+        let base = Self::from_expression_node(update.Expression(), ctx);
+        let Type::Struct(ty) = base.ty() else {
+            if base.ty() != Type::Invalid {
+                ctx.diag.push_error(
+                    "The '..base' expression must have a struct type".into(),
+                    &update.Expression(),
+                );
+            }
+            return Expression::Invalid;
+        };
+        let name = ctx.symbol_counters.generate_name("struct_update_");
+        let mut values = BTreeMap::new();
+        for member in node.ObjectMember() {
+            let field = identifier_text(&member).unwrap_or_default();
+            let Some(field_ty) = ty.fields.get(&field) else {
+                ctx.diag.push_error(format!("Unknown field '{field}' in struct update"), &member);
+                continue;
+            };
+            let value = Self::from_expression_node_as(member.Expression(), field_ty.clone(), ctx);
+            if values.insert(field.clone(), value).is_some() {
+                ctx.diag
+                    .push_error(format!("Field '{field}' is overridden more than once"), &member);
+            }
+        }
+        for field in ty.fields.keys() {
+            values.entry(field.clone()).or_insert_with(|| Expression::StructFieldAccess {
+                base: Box::new(Expression::ReadLocalVariable {
+                    name: name.clone(),
+                    ty: Type::Struct(ty.clone()),
+                }),
+                name: field.clone(),
+            });
+        }
+        Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable { name, value: Box::new(base) },
+            Expression::Struct { ty, values },
+        ])
     }
 
     fn from_array_node(node: syntax_nodes::Array, ctx: &mut LookupCtx) -> Expression {

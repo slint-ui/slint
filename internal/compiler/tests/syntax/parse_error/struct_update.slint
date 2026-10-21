@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    property <{ number: int }> base: { number: 1 };
+    property <{ number: int }> not-last: { ..root.base, number: 2 };
+//                                                      >    <error{The '..base' expression must be the last entry in a struct literal}
+    property <{ number: int }> multiple: { ..root.base, ..root.base };
+//                                                      ^error{The '..base' expression must be the last entry in a struct literal}
+}

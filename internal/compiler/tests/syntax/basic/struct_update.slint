@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data { number: int, label: string }
+
+export component Test {
+    in property <Data> base: { number: 1, label: "base" };
+    property <Data> not-struct: { number: 2, ..42 };
+//                                             > <error{The '..base' expression must have a struct type}
+    property <Data> unknown: { missing: 2, ..root.base };
+//                             >         <error{Unknown field 'missing' in struct update}
+    property <Data> duplicate: { number: 2, number: 3, ..root.base };
+//                                          >        <error{Field 'number' is overridden more than once}
+    property <Data> wrong-type: { number: false, ..root.base };
+//                                        >   <error{Cannot convert bool to int}
+}
