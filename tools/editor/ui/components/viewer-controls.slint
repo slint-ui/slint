@@ -1,165 +1,117 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, VerticalBox } from "std-widgets.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
-import { LightTheme, Metrics, Typography } from "../style.slint";
+import { Metrics, Typography } from "../style.slint";
 import { Preview } from "../preview.slint";
-import { Springboard, SpringboardView, ConnectionState } from "@springboard";
+import { Springboard, ConnectionState } from "@springboard";
 import { EditorScrollView } from "editor-scroll-view.slint";
-
-global ViewerStyle {
-    // The approved preview's geometry is scaled uniformly to fit the editor toolbar.
-    out property <float> scale: 2 / 3;
-    out property <length> radius: 17px * root.scale;
-    out property <length> inset: 12px * root.scale;
-    out property <length> row-height: 47px * root.scale;
-    out property <color> ink: #172031;
-    out property <color> muted: #768398;
-    out property <color> accent: LightTheme.selection-accent;
-    out property <color> border: LightTheme.rotation-dial.ring-border;
-    out property <color> selected: #e8f3ff;
-    out property <color> hovered: #dfedff;
-    out property <brush> face: @linear-gradient(155deg, #ffffff, #f5f7f9 65%, #edf0f4);
-    out property <brush> panel: @linear-gradient(135deg, #fcfdfe, #f4f6f8);
-    out property <brush> menu: @linear-gradient(140deg, #ffffff, #fafbfd);
-}
-
-component ViewerButton inherits ButtonBase {
-    slot body;
-    in property <bool> bordered: true;
-    in property <brush> face: root.bordered ? @linear-gradient(180deg, #ffffff, #f3f5f7) : transparent;
-    in property <brush> hover-face: root.bordered ? @linear-gradient(180deg, #ffffff, #edf3f9) : ViewerStyle.hovered;
-    height: 52px * ViewerStyle.scale;
-    background << Rectangle {
-        border-radius: 10px * ViewerStyle.scale;
-        border-width: root.bordered || root.has-focus ? Metrics.border-width : 0px;
-        border-color: root.has-focus ? ViewerStyle.accent : #c6cfd9;
-        background: root.hovered ? root.hover-face : root.face;
-    }
-    content << Rectangle {
-        body { }
-    }
-}
-
-component Chevron inherits Image {
-    width: 20px * ViewerStyle.scale;
-    height: 20px * ViewerStyle.scale;
-    source: @image-url("../assets/viewer/chevron.svg");
-    colorize: #647187;
-}
-
-component Checkmark inherits Image {
-    width: 20px * ViewerStyle.scale;
-    height: 20px * ViewerStyle.scale;
-    source: @image-url("../assets/viewer/check.svg");
-}
-
-component ViewerIcon inherits Image {
-    width: 26px * ViewerStyle.scale;
-    height: (root.remote ? 28px : 26px) * ViewerStyle.scale;
-    in property <bool> remote;
-    in property <color> ink: #475569;
-    source: root.remote ? @image-url("../assets/viewer/phone.svg") : @image-url("../assets/viewer/monitor.svg");
-    colorize: root.ink;
-}
+import { ViewerStyle, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
+import { DeviceManager, DeviceManagerSession } from "device-manager.slint";
 
 export component ViewerControls inherits Rectangle {
+    private property <bool> manager-open: manager.is-open;
+    changed manager-open => { DeviceManagerSession.open = root.manager-open; }
     in property <bool> can-start;
     in property <bool> busy;
-    width: 302px * ViewerStyle.scale;
-    height: 64px * ViewerStyle.scale;
+    width: 378px * ViewerStyle.scale;
+    height: 56px * ViewerStyle.scale;
     border-radius: ViewerStyle.radius;
-    border-width: Metrics.border-width;
-    border-color: ViewerStyle.border;
-    background: ViewerStyle.face;
-    drop-shadow-color: #34445c25;
-    drop-shadow-blur: 8px * ViewerStyle.scale;
-    drop-shadow-offset-y: 3px * ViewerStyle.scale;
+    background: ViewerStyle.pill-rim;
 
+    Rectangle {
+        x: 1px * ViewerStyle.scale; y: 1px * ViewerStyle.scale;
+        width: parent.width - 2px * ViewerStyle.scale; height: parent.height - 2px * ViewerStyle.scale;
+        border-radius: ViewerStyle.radius - 1px * ViewerStyle.scale;
+        background: ViewerStyle.pill-face;
+    }
+    launcher := ButtonBase {
+        width: parent.width; height: parent.height;
+        text: @tr("Viewer controls");
+        accessible-expanded: popup.is-open;
+        enabled: root.can-start || Preview.is-running;
+        clicked => { if popup.is-open { popup.close(); } else { popup.show(); } }
+        background << Rectangle {
+            x: 2px * ViewerStyle.scale; y: 2px * ViewerStyle.scale;
+            width: parent.width - 4px * ViewerStyle.scale; height: parent.height - 4px * ViewerStyle.scale;
+            background: launcher.hovered && !transport.hovered ? ViewerStyle.pill-hover : transparent;
+            animate background { duration: 100ms; }
+            border-radius: ViewerStyle.radius - 2px * ViewerStyle.scale;
+            border-width: launcher.has-focus ? Metrics.border-width : 0px;
+            border-color: ViewerStyle.accent;
+        }
+        content << Rectangle {
+            ViewerIcon { x: 17px * ViewerStyle.scale; width: 24px * ViewerStyle.scale; height: 24px * ViewerStyle.scale; remote: !Preview.local; ink: ViewerStyle.icon; }
+            Text { x: 53px * ViewerStyle.scale; y: 9px * ViewerStyle.scale; width: parent.width - 109px * ViewerStyle.scale; text: Preview.endpoint-name; color: ViewerStyle.pill-text; font-size: 17px * ViewerStyle.scale; font-weight: 500; overflow: elide; }
+            Text { x: 53px * ViewerStyle.scale; y: 32px * ViewerStyle.scale; width: parent.width - 109px * ViewerStyle.scale; text: Preview.status; color: ViewerStyle.muted; font-size: 12px * ViewerStyle.scale; overflow: elide; }
+        }
+    }
     transport := ButtonBase {
-        x: 8px * ViewerStyle.scale; y: 8px * ViewerStyle.scale;
-        width: 48px * ViewerStyle.scale; height: 48px * ViewerStyle.scale;
+        x: parent.width - 48px * ViewerStyle.scale; y: 8px * ViewerStyle.scale;
+        width: 40px * ViewerStyle.scale; height: 40px * ViewerStyle.scale;
         text: Preview.is-running ? @tr("Stop preview") : @tr("Start preview");
         enabled: Preview.is-running || (root.can-start && !root.busy);
         opacity: Preview.is-running || root.can-start ? 1 : Metrics.disabled-opacity;
         clicked => { if Preview.is-running { Springboard.close(); } else { Preview.run(); } }
         background << Rectangle {
             border-radius: self.height / 2;
-            background: LightTheme.rotation-dial.ring;
-            border-width: Metrics.border-width;
-            border-color: transport.has-focus ? ViewerStyle.accent : Preview.connected ? #78b58e : LightTheme.rotation-dial.ring-border;
-            drop-shadow-color: Preview.connected ? #42a36a30 : transparent;
-            drop-shadow-blur: 5px * ViewerStyle.scale;
+            background: ViewerStyle.dial-ring;
+            border-width: 1px * ViewerStyle.scale;
+            border-color: transport.has-focus ? ViewerStyle.accent : Preview.connected ? ViewerStyle.connected : ViewerStyle.border;
             Rectangle {
-                x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px;
+                x: 2px * ViewerStyle.scale; y: 2px * ViewerStyle.scale;
+                width: parent.width - 4px * ViewerStyle.scale; height: parent.height - 4px * ViewerStyle.scale;
                 border-radius: self.height / 2;
-                background: transport.hovered ? @linear-gradient(150deg, #ffffff, #dce8f5) : LightTheme.rotation-dial.face;
-                border-width: Metrics.border-width; border-color: LightTheme.rotation-dial.face-border;
+                background: transport.hovered ? ViewerStyle.dial-hover : ViewerStyle.dial-face;
+                border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.dial-border;
             }
         }
         content << Rectangle {
-            if Preview.is-running: Rectangle { width: 13px * ViewerStyle.scale; height: 13px * ViewerStyle.scale; border-radius: 2px * ViewerStyle.scale; background: ViewerStyle.accent; }
+            if Preview.is-running: Rectangle { width: 11px * ViewerStyle.scale; height: 11px * ViewerStyle.scale; border-radius: 2px * ViewerStyle.scale; background: ViewerStyle.accent; }
             if !Preview.is-running: Path {
-                x: 2px + 16px * ViewerStyle.scale; y: 2px + 13px * ViewerStyle.scale;
-                width: 13px * ViewerStyle.scale; height: 16px * ViewerStyle.scale;
+                x: 16px * ViewerStyle.scale; y: 13px * ViewerStyle.scale;
+                width: 11px * ViewerStyle.scale; height: 14px * ViewerStyle.scale;
                 commands: "M 0 0 L 13 8 L 0 16 Z"; fill: ViewerStyle.accent;
             }
-        }
-    }
-    launcher := ButtonBase {
-        x: 62px * ViewerStyle.scale; width: parent.width - self.x; height: parent.height;
-        text: @tr("Viewer controls");
-        accessible-expanded: popup.is-open;
-        enabled: root.can-start || Preview.is-running;
-        clicked => { if popup.is-open { popup.close(); } else { popup.show(); } }
-        background << Rectangle {
-            background: transparent;
-            border-radius: ViewerStyle.radius;
-            border-width: launcher.has-focus ? Metrics.border-width : 0px;
-            border-color: ViewerStyle.accent;
-        }
-        content << Rectangle {
-            Text { x: 10px * ViewerStyle.scale; y: 11px * ViewerStyle.scale; width: parent.width - 46px * ViewerStyle.scale; text: Preview.endpoint-name; color: ViewerStyle.ink; font-size: 19px * ViewerStyle.scale; font-weight: 600; overflow: elide; }
-            Text { x: 10px * ViewerStyle.scale; y: 37px * ViewerStyle.scale; width: parent.width - 46px * ViewerStyle.scale; text: Preview.status; color: ViewerStyle.muted; font-size: 13px * ViewerStyle.scale; overflow: elide; }
-            Chevron { x: 204px * ViewerStyle.scale; width: 22px * ViewerStyle.scale; height: 22px * ViewerStyle.scale; transform-rotation: popup.is-open ? 180deg : 0deg; }
         }
     }
 
     popup := PopupWindow {
         close-policy: close-on-click-outside;
-        x: root.width - self.width + 8px; y: root.height + 2px;
-        width: 461px * ViewerStyle.scale + 16px;
-        height: device-manager.y + device-manager.height + ViewerStyle.inset + Metrics.space-regular
-            + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
+        x: root.width - self.width + 16px; y: root.height + 5px * ViewerStyle.scale;
+        width: 461px * ViewerStyle.scale + 32px;
+        height: panel.y + panel.height + 20px * ViewerStyle.scale;
+        Rectangle {
+            x: panel.x; y: panel.y; width: panel.width; height: panel.height;
+            border-radius: ViewerStyle.radius;
+            background: ViewerStyle.popup;
+            drop-shadow-color: ViewerStyle.popup-ambient-shadow;
+            drop-shadow-blur: 20px * ViewerStyle.scale;
+            drop-shadow-offset-y: 8px * ViewerStyle.scale;
+        }
         panel := Rectangle {
-            x: 8px; y: 9px * ViewerStyle.scale;
-            width: parent.width - 16px; height: parent.height - self.y - Metrics.space-regular;
+            x: 16px; y: 9px * ViewerStyle.scale;
+            width: 461px * ViewerStyle.scale;
+            height: 132px * ViewerStyle.scale
+                + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
             accessible-role: groupbox; accessible-label: @tr("Viewer options");
             border-radius: ViewerStyle.radius;
-            background: ViewerStyle.panel;
-            border-width: Metrics.border-width; border-color: ViewerStyle.border;
-            drop-shadow-color: #34445c30;
-            drop-shadow-blur: 17px * ViewerStyle.scale;
-            drop-shadow-offset-y: 7px * ViewerStyle.scale;
+            background: ViewerStyle.popup;
+            border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
+            drop-shadow-color: ViewerStyle.popup-key-shadow;
+            drop-shadow-blur: 3px * ViewerStyle.scale;
+            drop-shadow-offset-y: 1px * ViewerStyle.scale;
         }
         Path {
-            x: popup.width - root.width / 2 - 8px - self.width / 2; y: 0px;
+            x: panel.x + 298px * ViewerStyle.scale; y: 0px;
             width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
             commands: "M 0 10 L 14 -4 L 28 10";
-            fill: #fcfdfe; stroke: ViewerStyle.border; stroke-width: Metrics.border-width;
-        }
-        viewer-label := Text {
-            x: selector.x; y: panel.y + 25px * ViewerStyle.scale;
-            height: 22px * ViewerStyle.scale;
-            text: @tr("Viewer"); color: ViewerStyle.muted; font-size: 17px * ViewerStyle.scale;
-            vertical-alignment: center;
+            fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
         }
         selector := ViewerButton {
             x: panel.x + ViewerStyle.inset;
-            y: viewer-label.y + viewer-label.height + 8px * ViewerStyle.scale;
+            y: panel.y + ViewerStyle.inset;
             width: panel.width - 2 * ViewerStyle.inset;
-            height: 52px * ViewerStyle.scale;
             text: @tr("Choose viewer");
             accessible-role: combobox; accessible-value: Preview.endpoint-name; accessible-expanded: viewers.is-open;
             clicked => { viewers.show(); }
@@ -171,22 +123,25 @@ export component ViewerControls inherits Rectangle {
             viewers := PopupWindow {
                 close-policy: close-on-click-outside;
                 y: selector.height + 2px * ViewerStyle.scale; width: selector.width;
-                height: min(224px, Springboard.endpoints.length * ViewerStyle.row-height + 8px * ViewerStyle.scale);
+                height: min(224px, Springboard.saved-count * ViewerStyle.row-height + 8px * ViewerStyle.scale);
                 Rectangle {
                     background: ViewerStyle.menu;
-                    border-width: Metrics.border-width; border-color: ViewerStyle.border;
+                    border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
                     border-radius: 10px * ViewerStyle.scale;
-                    drop-shadow-color: #34445c25; drop-shadow-blur: 12px * ViewerStyle.scale;
+                    drop-shadow-color: ViewerStyle.shadow; drop-shadow-blur: 12px * ViewerStyle.scale;
                     drop-shadow-offset-y: 5px * ViewerStyle.scale;
                 }
                 EditorScrollView {
                     x: 5px * ViewerStyle.scale; y: 4px * ViewerStyle.scale;
                     width: parent.width - 10px * ViewerStyle.scale; height: parent.height - 8px * ViewerStyle.scale;
-                    content-width: self.width; content-height: Springboard.endpoints.length * ViewerStyle.row-height;
+                    content-width: self.width; content-height: Springboard.saved-count * ViewerStyle.row-height;
                     horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                    VerticalLayout {
+                    width: parent.width;
                     for endpoint[index] in Springboard.endpoints: option := ButtonBase {
-                        x: 0px; y: index * ViewerStyle.row-height; width: parent.width; height: ViewerStyle.row-height;
-                        text: index == 0 ? @tr("Local viewer") : endpoint.name;
+                        width: parent.width; height: endpoint.saved ? ViewerStyle.row-height : 0px;
+                        visible: endpoint.saved;
+                        text: index == 0 ? Preview.local-name : endpoint.name;
                         enabled: endpoint.unavailable-reason == "";
                         accessible-description: endpoint.unavailable-reason;
                         clicked => {
@@ -198,72 +153,27 @@ export component ViewerControls inherits Rectangle {
                             border-radius: 9px * ViewerStyle.scale;
                             border-width: option.has-focus ? Metrics.border-width : 0px;
                             border-color: ViewerStyle.accent;
-                            background: option.hovered ? ViewerStyle.hovered : Springboard.selected-endpoint-index == index ? ViewerStyle.selected : transparent;
+                            background: option.hovered ? ViewerStyle.selected-hover : Springboard.selected-endpoint-index == index ? ViewerStyle.selected : transparent;
                         }
                         content << Rectangle {
-                            ViewerIcon { x: 15px * ViewerStyle.scale; remote: index > 0; ink: option.enabled ? #475569 : #8f9caf; }
-                            Text { x: 57px * ViewerStyle.scale; width: parent.width - (option.enabled ? 100px : 182px) * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: option.text; color: option.enabled ? ViewerStyle.ink : #8b98ad; font-size: 18px * ViewerStyle.scale; overflow: elide; }
-                            if !option.enabled: Text { x: parent.width - 120px * ViewerStyle.scale; width: 100px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: @tr("Unavailable"); color: #8997aa; font-size: 14px * ViewerStyle.scale; }
+                            ViewerIcon { x: 15px * ViewerStyle.scale; remote: index > 0; ink: option.enabled ? ViewerStyle.strong-icon : ViewerStyle.unavailable; }
+                            Text { x: 57px * ViewerStyle.scale; width: parent.width - (option.enabled ? 100px : 182px) * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: option.text; color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: 18px * ViewerStyle.scale; overflow: elide; }
+                            if !option.enabled: Text { x: parent.width - 120px * ViewerStyle.scale; width: 100px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: @tr("Unavailable"); color: ViewerStyle.unavailable; font-size: 14px * ViewerStyle.scale; }
                             if option.enabled && Springboard.selected-endpoint-index == index: Checkmark { x: parent.width - 35px * ViewerStyle.scale; }
                         }
                     }
-                }
-            }
-        }
-        Text { x: selector.x; y: speed.y; height: speed.height; vertical-alignment: center; text: @tr("Animations"); color: ViewerStyle.muted; font-size: 17px * ViewerStyle.scale; }
-        speed := ViewerButton {
-            x: selector.x + selector.width - 10px * ViewerStyle.scale - self.width;
-            y: selector.y + selector.height + 17px * ViewerStyle.scale;
-            width: 116px * ViewerStyle.scale; height: 38px * ViewerStyle.scale;
-            hover-face: #e7edf4;
-            bordered: false;
-            enabled: Preview.local && Preview.connected;
-            text: @tr("Animation speed");
-            accessible-description: @tr("Changing speed restarts the local viewer. Remote viewers do not support speed control.");
-            clicked => { speeds.show(); }
-            body << Rectangle {
-                Text { x: 0px; width: parent.width - 34px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: !Preview.local ? "—" : Springboard.animation-slowdown == 1 ? @tr("Normal") : Springboard.animation-slowdown == 2 ? "0.5×" : "0.25×"; color: #435169; font-size: 17px * ViewerStyle.scale; }
-                Chevron { x: parent.width - 30px * ViewerStyle.scale; opacity: speed.enabled ? 1 : Metrics.disabled-opacity; }
-            }
-            speeds := PopupWindow {
-                close-policy: close-on-click-outside;
-                y: speed.height + 2px * ViewerStyle.scale;
-                x: speed.width - self.width - 4px * ViewerStyle.scale;
-                width: 189px * ViewerStyle.scale; height: 126px * ViewerStyle.scale;
-                Rectangle {
-                    background: #fbfcfe; border-radius: 14px * ViewerStyle.scale;
-                    border-width: Metrics.border-width; border-color: ViewerStyle.border;
-                    drop-shadow-color: #34445c25; drop-shadow-blur: 12px * ViewerStyle.scale;
-                    drop-shadow-offset-y: 5px * ViewerStyle.scale;
-                }
-                for factor[index] in [1, 2, 4]: speed-option := ViewerButton {
-                    x: 5px * ViewerStyle.scale; y: (5px + index * 39px) * ViewerStyle.scale;
-                    width: parent.width - 10px * ViewerStyle.scale; height: 38px * ViewerStyle.scale;
-                    bordered: false;
-                    face: Springboard.animation-slowdown == factor ? ViewerStyle.selected : transparent;
-                    text: index == 0 ? @tr("Normal") : index == 1 ? "0.5×" : "0.25×";
-                    body << Rectangle {
-                        Text {
-                            x: 14px * ViewerStyle.scale; height: parent.height;
-                            text: speed-option.text; color: ViewerStyle.ink;
-                            font-size: 17px * ViewerStyle.scale; vertical-alignment: center;
-                        }
-                        if Springboard.animation-slowdown == factor: Checkmark { x: 146px * ViewerStyle.scale; }
                     }
-                    clicked => { Springboard.set-animation-slowdown(factor); speeds.close(); }
                 }
             }
-            Tooltip { text: @markdown("\{@tr("Changing speed restarts the local viewer")}"); }
         }
         device-manager := ViewerButton {
-            x: selector.x; y: speed.y + speed.height + 18px * ViewerStyle.scale;
-            width: selector.width; height: selector.height;
-            face: @linear-gradient(180deg, #ffffff60, #f4f6f820);
-            text: @tr("Device manager");
+            x: selector.x; y: selector.y + selector.height + 8px * ViewerStyle.scale;
+            width: selector.width; height: 48px * ViewerStyle.scale;
+            ghost: true;
+            text: @tr("Manage devices...");
             clicked => { popup.close(); manager.show(); }
             body << Rectangle {
-                Text { x: 20px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: @tr("Device manager"); color: ViewerStyle.ink; font-size: 18px * ViewerStyle.scale; }
-                Chevron { x: parent.width - 40px * ViewerStyle.scale; transform-rotation: -90deg; }
+                Text { x: 20px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: device-manager.text; color: ViewerStyle.action-text; font-size: 17px * ViewerStyle.scale; }
             }
         }
         if Springboard.error-message != "": Text {
@@ -275,12 +185,19 @@ export component ViewerControls inherits Rectangle {
     }
     manager := PopupWindow {
         close-policy: close-on-click-outside;
-        x: root.width - self.width; y: root.height + 2px;
-        width: 340px; height: 380px;
-        VerticalBox {
-            padding: 8px;
-            SpringboardView { title: @tr("Device manager"); }
-            Button { text: @tr("Done"); clicked => { manager.close(); } }
+        x: root.width - self.width + 16px; y: root.height + 5px * ViewerStyle.scale;
+        width: 461px * ViewerStyle.scale + 32px;
+        height: (414px + 29px) * ViewerStyle.scale;
+        DeviceManager {
+            x: 16px; y: 9px * ViewerStyle.scale;
+            width: 461px * ViewerStyle.scale; height: 414px * ViewerStyle.scale;
+            closed => { manager.close(); }
+        }
+        Path {
+            x: 16px + 298px * ViewerStyle.scale; y: 0px;
+            width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
+            commands: "M 0 10 L 14 -4 L 28 10";
+            fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
         }
     }
     private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired

@@ -110,6 +110,15 @@ async fn run(
     result
 }
 
+pub(super) async fn probe(viewer: DiscoveredViewer) -> Result<DiscoveredViewer, String> {
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let mut socket = dial(&viewer).await?;
+    let ready = remote_authentication::await_pairing_ready(&mut socket).await;
+    remote_client::close(&mut socket).await;
+    ready.map_err(|error| error.to_string())?;
+    Ok(viewer)
+}
+
 async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
     let mut last_error = "Viewer has no usable address".to_string();
     let mut mismatch = None;

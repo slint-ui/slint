@@ -64,6 +64,20 @@ enum ExchangeVerdict {
     Rejected(PairingRejection),
 }
 
+pub(crate) async fn await_pairing_ready(
+    socket: &mut WebSocketStream,
+) -> Result<(), AuthenticationError> {
+    if !matches!(
+        next_handshake_message(socket, handshake_deadline()).await?,
+        PreviewToLspMessage::PairingReady
+    ) {
+        return Err(AuthenticationError::Failed(
+            "The viewer did not start the pairing handshake".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub async fn authenticate(
     socket: &mut WebSocketStream,
     mut credentials: Option<PairingCredentials>,
@@ -72,12 +86,7 @@ pub async fn authenticate(
 ) -> Result<AuthenticatedSession, AuthenticationError> {
     let announced_token = credentials.is_some();
     let mut deadline = handshake_deadline();
-    if !matches!(next_handshake_message(socket, deadline).await?, PreviewToLspMessage::PairingReady)
-    {
-        return Err(AuthenticationError::Failed(
-            "The viewer did not start the pairing handshake".into(),
-        ));
-    }
+    await_pairing_ready(socket).await?;
     send_message(
         socket,
         &LspToPreviewMessage::PairingHello {

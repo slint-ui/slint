@@ -12,9 +12,10 @@ export global Preview {
     out property <bool> local: Springboard.selected-endpoint-index >= 0
         ? Springboard.selected-endpoint.kind == PreviewEndpointKind.Local
         : Springboard.last-selected-endpoint-name == "";
-    out property <string> endpoint-name: Springboard.selected-endpoint-index >= 0
-        ? (root.local ? @tr("Local viewer") : Springboard.selected-endpoint.name)
-        : Springboard.last-selected-endpoint-name != "" ? Springboard.last-selected-endpoint-name : @tr("Local viewer");
+    out property <string> local-name: @tr("Slint Viewer (local)");
+    out property <string> endpoint-name: root.local ? root.local-name
+        : Springboard.selected-endpoint-index >= 0 ? Springboard.selected-endpoint.name
+        : Springboard.last-selected-endpoint-name;
     out property <string> status: !root.is-running ? @tr("Off")
         : root.connected ? @tr("Connected")
         : Springboard.connection-state == ConnectionState.PairingRequired ? @tr("Pairing required")

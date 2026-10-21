@@ -543,14 +543,12 @@ async fn handle_preview_message(
                 session.send_files_to_preview(preview_index, files, &[project_root.to_path_buf()]);
             }
             for name in settings {
-                if let Some(contents) =
-                    i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
-                {
-                    session.send_to_preview(
-                        preview_index,
-                        &LspToPreviewMessage::SetUserSettings { name: name.clone(), contents },
-                    );
-                }
+                let contents = i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
+                    .unwrap_or_default();
+                session.send_to_preview(
+                    preview_index,
+                    &LspToPreviewMessage::SetUserSettings { name: name.clone(), contents },
+                );
             }
         }
         RequestPreview { component } => {

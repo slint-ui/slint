@@ -43,11 +43,22 @@ pub(super) struct SpringboardSettings {
     version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) last_selected: Option<NamedEndpointIdentity>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) devices: Vec<SavedDevice>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(super) struct SavedDevice {
+    pub id: String,
+    pub name: String,
+    pub addresses: Vec<String>,
+    pub port: u16,
+    pub manual: bool,
 }
 
 impl SpringboardSettings {
     pub(super) fn new(last_selected: Option<NamedEndpointIdentity>) -> Self {
-        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected }
+        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected, devices: Vec::new() }
     }
 
     pub(super) fn serialize(&self) -> String {

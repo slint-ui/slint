@@ -9,10 +9,10 @@ Opening a project starts its local viewer automatically.
 The control in the upper-right corner shows the selected viewer and connection status.
 Use its circular stop or play button to stop or resume the preview.
 
-Click the viewer name to choose a discovered device or return to the local viewer.
+Click the viewer name to choose a saved device or return to the local viewer.
 Unavailable devices are disabled.
-Device manager opens the existing connection and pairing controls.
-
-The Animations menu offers normal, half, and quarter speed for the local viewer.
-Changing speed restarts that viewer and resets its runtime state.
-Remote viewers do not support this speed control.
+Manage devices... opens the saved-device list, nearby discovery, and manual address search.
+Remote devices are saved after connecting successfully.
+Click a device's trash icon, then Confirm, to remove it; clicking elsewhere cancels removal.
+The local viewer cannot be removed.
+Pairing uses the existing live-preview authentication flow; restarting either side may require a new code.
