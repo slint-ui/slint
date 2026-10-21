@@ -320,6 +320,10 @@ async fn lsp_main(
     )
     .await;
 
+    if run_preview(&mut session) {
+        springboard.start_local();
+    }
+
     const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
     let mut recompile_deadline = None;
     loop {
@@ -370,6 +374,9 @@ async fn lsp_main(
                             &mut project_root,
                             project,
                         ).await;
+                        if run_preview(&mut session) {
+                            springboard.start_local();
+                        }
                     }
                     Some(EditorToSessionMessage::CloseProject) => {
                         stop_run_preview(&mut session).await;

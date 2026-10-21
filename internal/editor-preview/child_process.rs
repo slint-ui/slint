@@ -22,6 +22,7 @@ pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
     executable: PathBuf,
     arguments: Vec<OsString>,
+    environment: Vec<(OsString, OsString)>,
     preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
@@ -31,7 +32,22 @@ impl ChildProcessLspToPreview {
         arguments: Vec<OsString>,
         preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
     ) -> Self {
-        Self { inner: RefCell::new(None), executable, arguments, preview_to_lsp_channel }
+        Self {
+            inner: RefCell::new(None),
+            executable,
+            arguments,
+            environment: Vec::new(),
+            preview_to_lsp_channel,
+        }
+    }
+
+    pub fn with_environment(
+        mut self,
+        key: impl Into<OsString>,
+        value: impl Into<OsString>,
+    ) -> Self {
+        self.environment.push((key.into(), value.into()));
+        self
     }
 
     fn preview_is_running(&self) -> bool {
@@ -46,6 +62,7 @@ impl ChildProcessLspToPreview {
 
         let mut child = tokio::process::Command::new(&self.executable)
             .args(&self.arguments)
+            .envs(self.environment.iter().cloned())
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
@@ -302,6 +319,28 @@ pub(crate) mod tests {
                 .unwrap()
             );
             std::io::stdout().flush().unwrap();
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn animation_child() {
+        if !fixture_started() {
+            return;
+        }
+        println!(
+            "{}",
+            serde_json::to_string(&PreviewToLspMessage::DebugMessage {
+                location: None,
+                message: std::env::var("SLINT_SLOW_ANIMATIONS").unwrap(),
+            })
+            .unwrap()
+        );
+        std::io::stdout().flush().unwrap();
+        for line in std::io::stdin().lock().lines() {
+            if matches!(serde_json::from_str(&line.unwrap()), Ok(LspToPreviewMessage::Quit)) {
+                return;
+            }
         }
     }
 

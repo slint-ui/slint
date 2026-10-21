@@ -39,17 +39,20 @@ export global Springboard {
     in property <ConnectionState> connection-state;
     in property <int> pairing-code-digits;
     in property <string> error-message;
+    in property <int> animation-slowdown: 1;
 
     callback close();
     callback select-endpoint(endpoint-index: int);
     callback select-remote-address(address: string);
     callback submit-pairing-code(code: string);
     callback accept-unpaired-connection();
+    callback set-animation-slowdown(factor: int);
 }
 
 import { Button, VerticalBox, HorizontalBox, LineEdit, ListView } from "std-widgets.slint";
 
 export component SpringboardView inherits Rectangle {
+    in property <string> title: "Springboard";
     background: #f5f5f5;
     border-width: 1px;
     border-color: #888;
@@ -61,7 +64,7 @@ export component SpringboardView inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: "Springboard";
+            text: root.title;
             font-weight: 700;
         }
 

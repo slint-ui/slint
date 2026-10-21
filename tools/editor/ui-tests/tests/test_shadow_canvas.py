@@ -624,7 +624,10 @@ def test_shadow_toggle_keeps_unrelated_controls_visually_stable(
             f"Enable {shadow_family.other} shadow",
             slint_testing.AccessibleRole.Switch,
         )
-        run = element(window, "Run", role=slint_testing.AccessibleRole.Button)
+        element(window, "Stop preview").single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        run = element(window, "Start preview", role=slint_testing.AccessibleRole.Button)
         before = screenshot(window)
         scale = before.width / window.root_element.size.width
         selection = element(

@@ -73,6 +73,7 @@ struct SpringboardTask {
     connection_state: ui::ConnectionState,
     pairing_code_digits: u8,
     error: String,
+    animation_slowdown: u32,
     preview: Option<Endpoint>,
     highlight: Option<LspToPreviewMessage>,
     discovery: Option<Discovery>,
@@ -101,9 +102,15 @@ impl Springboard {
         let select_handle = handle.clone();
         let code_handle = handle.clone();
         let consent_handle = handle.clone();
+        let animation_handle = handle.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
             global.on_close(move || close_handle.close());
             global.on_select_endpoint(move |index| select_handle.select_displayed(index));
+            global.on_set_animation_slowdown(move |factor| {
+                let _ = animation_handle
+                    .task_sender
+                    .send(Box::new(move |task| task.set_animation_slowdown(factor)));
+            });
             global.on_submit_pairing_code(move |code| {
                 let code = code.trim().to_owned();
                 let _ = code_handle
@@ -125,6 +132,7 @@ impl Springboard {
             connection_state: ui::ConnectionState::None,
             pairing_code_digits: 0,
             error: String::new(),
+            animation_slowdown: 1,
             preview: None,
             highlight: None,
             discovery: None,
@@ -146,12 +154,22 @@ impl Springboard {
             .ok()
             .and_then(|index| self.displayed_endpoints.lock().unwrap().get(index).cloned());
         if let Some(endpoint) = endpoint {
-            let _ = self.task_sender.send(Box::new(move |task| task.select_endpoint(endpoint)));
+            let _ = self.task_sender.send(Box::new(move |task| {
+                task.start();
+                task.select_endpoint(endpoint);
+            }));
         }
     }
 
     pub fn start(&self) {
         let _ = self.task_sender.send(Box::new(|task| task.start()));
+    }
+
+    pub fn start_local(&self) {
+        let _ = self.task_sender.send(Box::new(|task| {
+            task.start();
+            task.select_endpoint(EndpointIdentity::Local);
+        }));
     }
 
     pub fn close(&self) {
@@ -347,7 +365,8 @@ impl SpringboardTask {
                 self.local_preview.executable.clone(),
                 self.local_preview.arguments.clone(),
                 sender,
-            );
+            )
+            .with_environment("SLINT_SLOW_ANIMATIONS", self.animation_slowdown.to_string());
             match preview.start_preview() {
                 Ok(()) => {
                     self.preview = Some(Endpoint::Local { preview, receiver });
@@ -481,16 +500,41 @@ impl SpringboardTask {
     }
 
     fn close(&mut self) {
+        let remembered = match &self.selected {
+            Some(EndpointIdentity::Local) => Some(NamedEndpointIdentity::Local),
+            Some(EndpointIdentity::Remote(fullname)) => {
+                self.viewers.iter().find(|viewer| &viewer.fullname == fullname).map(|viewer| {
+                    NamedEndpointIdentity::Remote {
+                        fullname: fullname.clone(),
+                        name: viewer.name.clone(),
+                    }
+                })
+            }
+            None => self.last_selected.clone(),
+        };
         self.error.clear();
         self.preview = None;
         self.discovery = None;
         self.viewers.clear();
         self.advertised.clear();
         self.selected = None;
-        self.last_selected = None;
+        self.last_selected = remembered;
         self.state = ui::SpringboardState::Stopped;
         self.connection_state = ui::ConnectionState::None;
         self.update_ui();
+    }
+
+    fn set_animation_slowdown(&mut self, factor: i32) {
+        if ![1, 2, 4].contains(&factor)
+            || self.selected != Some(EndpointIdentity::Local)
+            || self.animation_slowdown == factor as u32
+        {
+            return;
+        }
+        self.animation_slowdown = factor as u32;
+        self.preview = None;
+        self.selected = None;
+        self.select_endpoint(EndpointIdentity::Local);
     }
 
     /// Ask the editor for the blob holding the last selection, which it answers
@@ -603,6 +647,7 @@ impl SpringboardTask {
         let connection = self.connection_state;
         let pairing_code_digits = self.pairing_code_digits;
         let error = self.error.clone();
+        let animation_slowdown = self.animation_slowdown;
         // Only a remembered viewer has a name to show. Local is started on
         // demand and has no discovery report to name it.
         let last_selected_name = match &self.last_selected {
@@ -610,6 +655,7 @@ impl SpringboardTask {
             _ => String::new(),
         };
         let _ = self.global.upgrade_in_event_loop(move |global| {
+            global.set_animation_slowdown(animation_slowdown as i32);
             global.set_last_selected_endpoint_name(last_selected_name.into());
             let mut identities = vec![EndpointIdentity::Local];
             identities.extend(
@@ -739,6 +785,52 @@ mod tests {
             panic!("Expected protocol echo");
         };
         serde_json::from_str(&message).unwrap()
+    }
+
+    #[tokio::test]
+    async fn local_autostart_animation_restart_and_resume() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, _discovery) = controller("animation_child");
+                controller.start_local();
+                assert_user_setting_request(&mut receiver).await;
+                assert_user_setting_set(&mut receiver).await;
+                let first_process = started(&mut receiver).await;
+                assert!(matches!(receive(&mut receiver).await,
+                PreviewToLspMessage::DebugMessage { message, .. } if message == "1"));
+                controller
+                    .task_sender
+                    .send(Box::new(|task| task.set_animation_slowdown(4)))
+                    .unwrap();
+                assert_user_setting_set(&mut receiver).await;
+                assert_ne!(first_process, started(&mut receiver).await);
+                assert!(matches!(receive(&mut receiver).await,
+                PreviewToLspMessage::DebugMessage { message, .. } if message == "4"));
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.set_animation_slowdown(4);
+                        task.set_animation_slowdown(0);
+                        task.set_animation_slowdown(-1);
+                    }))
+                    .unwrap();
+                assert_eq!(inspect(&controller, |task| task.animation_slowdown).await, 4);
+                assert!(receiver.try_recv().is_err());
+                controller.shutdown().await;
+                assert!(matches!(
+                    inspect(&controller, |task| task.last_selected.clone()).await,
+                    Some(NamedEndpointIdentity::Local)
+                ));
+                controller.start();
+                assert_user_setting_request(&mut receiver).await;
+                reply_last_selection(&controller, NamedEndpointIdentity::Local);
+                assert_user_setting_set(&mut receiver).await;
+                started(&mut receiver).await;
+                assert!(matches!(receive(&mut receiver).await,
+                PreviewToLspMessage::DebugMessage { message, .. } if message == "4"));
+                controller.shutdown().await;
+            })
+            .await;
     }
 
     #[tokio::test]
