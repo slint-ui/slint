@@ -227,10 +227,9 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
-    /// The project file that a tool was given as input, whose main file is being compiled.
-    /// Generated Python code loads it at run time instead of the entry,
-    /// so that run time applies the same project file.
-    pub input_project_file: Option<std::path::PathBuf>,
+    /// The project directory that a tool was given as input.
+    /// Generated Python code loads it at run time so that run time applies the same project file.
+    pub input_project_directory: Option<std::path::PathBuf>,
 
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
@@ -373,7 +372,7 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
-            input_project_file: None,
+            input_project_directory: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,

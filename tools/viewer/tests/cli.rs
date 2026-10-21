@@ -317,7 +317,7 @@ fn project_with_shared_component(project_file: &str) -> tempfile::TempDir {
 #[test]
 fn project_file_include_paths_are_used() {
     let project = project_with_shared_component(
-        r#"{ "slint-edition": "1.19", "include-paths": ["shared"] }"#,
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
     );
     let main = project.path().join("main.slint");
     std::fs::write(
@@ -325,26 +325,26 @@ fn project_file_include_paths_are_used() {
         "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
     )
     .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", main.to_str().unwrap()]);
+    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
     assert_eq!(code, 0, "stderr was:\n{stderr}");
 }
 
 #[test]
 fn project_file_library_paths_are_used() {
     let project = project_with_shared_component(
-        r#"{ "slint-edition": "1.19", "library-paths": { "lib": "shared/shared.slint" } }"#,
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
     );
     let main = project.path().join("main.slint");
     std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
         .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", main.to_str().unwrap()]);
+    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
     assert_eq!(code, 0, "stderr was:\n{stderr}");
 }
 
 #[test]
 fn an_empty_include_path_wins_over_the_project_file() {
     let project = project_with_shared_component(
-        r#"{ "slint-edition": "1.19", "include-paths": ["shared"] }"#,
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
     );
     let main = project.path().join("main.slint");
     std::fs::write(
@@ -352,7 +352,7 @@ fn an_empty_include_path_wins_over_the_project_file() {
         "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
     )
     .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", "-I", "", main.to_str().unwrap()]);
+    let (code, _stdout, stderr) = run(&["--check", "-I", "", project.path().to_str().unwrap()]);
     assert_eq!(code, 1, "stderr was:\n{stderr}");
     assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
 }
@@ -360,12 +360,12 @@ fn an_empty_include_path_wins_over_the_project_file() {
 #[test]
 fn an_empty_library_path_wins_over_the_project_file() {
     let project = project_with_shared_component(
-        r#"{ "slint-edition": "1.19", "library-paths": { "lib": "shared/shared.slint" } }"#,
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
     );
     let main = project.path().join("main.slint");
     std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
         .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", "-L", "", main.to_str().unwrap()]);
+    let (code, _stdout, stderr) = run(&["--check", "-L", "", project.path().to_str().unwrap()]);
     assert_eq!(code, 1, "stderr was:\n{stderr}");
     assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
 }
