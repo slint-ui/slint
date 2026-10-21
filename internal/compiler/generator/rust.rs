@@ -1760,9 +1760,35 @@ fn generate_sub_component_body(
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
-    for prop in &component.const_properties {
-        let rust_property = access_local_member(prop, &ctx);
-        init.push(quote!(#rust_property.set_constant();))
+    if !component.const_properties.is_empty() {
+        let offsets = component.const_properties.iter().map(|prop| {
+            let offset = const_path_offset(root, component, &prop.sub_component_path, |sc| {
+                match &prop.reference {
+                    llr::LocalMemberIndex::Property(index) => access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.properties[*index].name),
+                    ),
+                    llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
+                        let item = &sc.items[*item_index];
+                        let item_field = access_component_field_offset(
+                            &self::inner_component_id(sc),
+                            &ident(&item.name),
+                        );
+                        let item_ty = ident(&item.ty.class_name);
+                        let prop = ident(prop_name);
+                        quote!(sp::compose_field_offsets(#item_field, sp::#item_ty::FIELD_OFFSETS.#prop()))
+                    }
+                    _ => unreachable!("only properties can be constant"),
+                }
+            });
+            quote!(sp::ErasedPropertyOffset::new(#offset))
+        });
+        let count = component.const_properties.len();
+        init.push(quote!(sp::set_constant_properties(_self, {
+            const CONSTANT_PROPERTIES: [sp::ErasedPropertyOffset<#inner_component_id>; #count] =
+                [#(#offsets),*];
+            &CONSTANT_PROPERTIES
+        });));
     }
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
@@ -2486,23 +2512,16 @@ fn generate_item_tree_body(
                     }
                 ));
 
-                // The array is const, so nested offsets are composed with the
-                // const compose_field_offsets rather than the non-const `+`.
-                let mut sc = &root.sub_components[sub_tree.root];
-                let mut offsets = Vec::new();
-                for i in &node.sub_component_path {
-                    offsets.push(access_component_field_offset(
-                        &self::inner_component_id(sc),
-                        &ident(&sc.sub_components[*i].name),
-                    ));
-                    sc = &root.sub_components[sc.sub_components[*i].ty];
-                }
-                let offset = offsets.into_iter().rfold(
-                    access_component_field_offset(
-                        &self::inner_component_id(component),
-                        &ident(&item.name),
-                    ),
-                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                let offset = const_path_offset(
+                    root,
+                    &root.sub_components[sub_tree.root],
+                    &node.sub_component_path,
+                    |sc| {
+                        access_component_field_offset(
+                            &self::inner_component_id(sc),
+                            &ident(&item.name),
+                        )
+                    },
                 );
                 item_array.push(quote!(sp::VOffset::new(#offset)));
             }
@@ -5952,6 +5971,26 @@ fn generate_flexbox_measure_closure(
             (w, h)
         };
     }
+}
+
+/// The field offset of the member `leaf` gives on the sub-component at the end of `path`,
+/// starting from `component`. It is usable in a constant, unlike the `+` of field offsets.
+fn const_path_offset(
+    root: &llr::CompilationUnit,
+    component: &llr::SubComponent,
+    path: &[llr::SubComponentInstanceIdx],
+    leaf: impl FnOnce(&llr::SubComponent) -> TokenStream,
+) -> TokenStream {
+    let mut sc = component;
+    let mut offsets = Vec::new();
+    for i in path {
+        offsets.push(access_component_field_offset(
+            &inner_component_id(sc),
+            &ident(&sc.sub_components[*i].name),
+        ));
+        sc = &root.sub_components[sc.sub_components[*i].ty];
+    }
+    offsets.into_iter().rfold(leaf(sc), |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)))
 }
 
 /// Access a field offset via `FIELD_OFFSETS.field()`. The `FIELD_OFFSETS`
