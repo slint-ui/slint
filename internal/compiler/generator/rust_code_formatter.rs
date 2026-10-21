@@ -6,14 +6,25 @@ use proc_macro2::TokenStream;
 /// Writes `code`, as returned by [`super::rust::generate`], to `sink` as Rust source code.
 ///
 /// rustc is slow on very long lines: it computes the column of every panic location from the
-/// start of its line. So the code gets a line break after each `{`, `}`, and `;`.
+/// start of its line. So the code gets a line break after each `{`, `}`, and `;`,
+/// and at the first space between tokens once a line is longer than `MAX_LINE_LENGTH`.
 pub fn write_formatted(code: &TokenStream, sink: impl std::io::Write) -> std::io::Result<()> {
     use std::io::Write;
     CodeFormatter::new(sink).write_all(code.to_string().as_bytes())
 }
 
+const MAX_LINE_LENGTH: usize = 200;
+
+/// A line break followed by the indentation of 32 levels, the most that is written.
+const LINE_BREAK_AND_INDENTATION: [u8; 129] = {
+    let mut bytes = [b' '; 129];
+    bytes[0] = b'\n';
+    bytes
+};
+
 struct CodeFormatter<Sink> {
     indentation: usize,
+    column: usize,
     /// We are currently in a string
     in_string: bool,
     /// number of bytes after the last `'`, 0 if there was none
@@ -25,14 +36,13 @@ struct CodeFormatter<Sink> {
 
 impl<Sink> CodeFormatter<Sink> {
     fn new(sink: Sink) -> Self {
-        Self { indentation: 0, in_string: false, in_char: 0, escaped: false, sink }
+        Self { indentation: 0, column: 0, in_string: false, in_char: 0, escaped: false, sink }
     }
-}
 
-impl<Sink: std::io::Write> std::io::Write for CodeFormatter<Sink> {
-    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
-        let len = s.len();
-        while let Some(idx) = s.iter().position(|c| match c {
+    /// Whether to break the line after the byte `c`, keeping track of strings and chars.
+    fn break_after(&mut self, c: u8) -> bool {
+        self.column += 1;
+        match c {
             b'{' if !self.in_string && self.in_char == 0 => {
                 self.indentation += 1;
                 true
@@ -75,17 +85,24 @@ impl<Sink: std::io::Write> std::io::Write for CodeFormatter<Sink> {
                 self.escaped = false;
                 false
             }
+            b' ' if !self.in_string && self.column > MAX_LINE_LENGTH => true,
             _ => {
                 self.escaped = false;
                 false
             }
-        }) {
+        }
+    }
+}
+
+impl<Sink: std::io::Write> std::io::Write for CodeFormatter<Sink> {
+    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
+        let len = s.len();
+        while let Some(idx) = s.iter().position(|c| self.break_after(*c)) {
             let idx = idx + 1;
             self.sink.write_all(&s[..idx])?;
-            self.sink.write_all(b"\n")?;
-            for _ in 0..self.indentation {
-                self.sink.write_all(b"    ")?;
-            }
+            let indentation = (4 * self.indentation).min(LINE_BREAK_AND_INDENTATION.len() - 1);
+            self.sink.write_all(&LINE_BREAK_AND_INDENTATION[..1 + indentation])?;
+            self.column = 0;
             s = &s[idx..];
         }
         self.sink.write_all(s)?;
@@ -150,5 +167,20 @@ fn formatter_test() {
      '\\';
      }
 "#
+    );
+
+    let input = format!(
+        "fn main() {{ let s = \"{}\"; {} }}",
+        "a b ".repeat(100),
+        (0..100).map(|i| format!("x{i}")).collect::<Vec<_>>().join(" + ")
+    );
+    let formatted = format_code(&input);
+    assert!(formatted.split_whitespace().eq(input.split_whitespace()));
+    assert!(formatted.contains(&"a b ".repeat(100)));
+    assert!(
+        formatted
+            .lines()
+            .filter(|line| !line.contains('"'))
+            .all(|line| line.trim_start().len() <= MAX_LINE_LENGTH + "x99 +".len())
     );
 }
