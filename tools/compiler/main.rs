@@ -357,7 +357,9 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
+        let mut stdout = std::io::BufWriter::new(std::io::stdout());
+        generator::generate(format, &mut stdout, None, &doc, &loader.compiler_config)?;
+        std::io::Write::flush(&mut stdout)?;
     } else {
         let mut cursor = Cursor::new(Vec::new());
         generator::generate(
