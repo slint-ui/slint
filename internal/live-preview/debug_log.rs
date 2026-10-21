@@ -3,7 +3,8 @@
 
 use std::path::PathBuf;
 
-pub fn log_message_handler(
+/// Logs the output of a `debug()` call with `tracing::info!`, and returns its location.
+pub fn trace_debug_message(
     message: &i_slint_core::debug_log::LogMessage<'_>,
 ) -> Option<(PathBuf, usize, usize)> {
     let arguments = message.message_arguments();
