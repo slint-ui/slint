@@ -57,11 +57,12 @@ export component Light {
             opacity: 0.1;
         }
 
-        dialLed := Image {
+        dialLed := Rectangle {
             opacity: root.frozen ? root.frozen-opacity : root.live-opacity;
-            source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
-            width: self.source.width * 0.5 * 1px;
-            height: self.source.height * 0.5 * 1px;
+            background: #60a1d5;
+            border-radius: self.width / 2;
+            width: 4px;
+            height: 4px;
         }
     }
 }
