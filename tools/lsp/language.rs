@@ -107,8 +107,11 @@ pub fn send_requested_state_to_preview(
     }
 
     for name in settings {
+        #[cfg(not(target_arch = "wasm32"))]
         let contents =
             i_slint_editor_preview::settings_store::load("lsp", name).unwrap_or_default();
+        #[cfg(target_arch = "wasm32")]
+        let contents = String::new();
         ctx.session
             .primary_preview()
             .to_preview
