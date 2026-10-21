@@ -147,6 +147,13 @@ class SlintInputView extends View {
     private Integer mHandleColor;
     private final Rect mSelectionRect = new Rect();
     private ActionMode mCurrentActionMode;
+    private boolean mActionMenuDeferred = false;
+
+    // The ids that callback_popup_menu_action in javahelper.rs expects.
+    private static final int MENU_CUT = 0;
+    private static final int MENU_COPY = 1;
+    private static final int MENU_PASTE = 2;
+    private static final int MENU_SELECT_ALL = 3;
 
     private class SlintEditable extends SpannableStringBuilder {
         public SlintEditable() {
@@ -341,7 +348,9 @@ class SlintInputView extends View {
             if (rightX != -1) {
                 handleHeight = mRightHandle.getHeight();
             }
-            showActionMenu();
+            if (!mActionMenuDeferred) {
+                showActionMenu();
+            }
         } else {
             if (mCursorHandle != null) {
                 handleHeight = mCursorHandle.getHeight();
@@ -370,6 +379,7 @@ class SlintInputView extends View {
 
     public void showActionMenu() {
         if (mCurrentActionMode != null) {
+            mCurrentActionMode.invalidate();
             mCurrentActionMode.hide(0);
             return;
         }
@@ -390,17 +400,16 @@ class SlintInputView extends View {
                         android.R.attr.actionModeSelectAllDrawable,
                 });
 
-                // The ids are the ones callback_popup_menu_action in javahelper.rs expects.
-                menu.add(Menu.FIRST, 0, 0, android.R.string.cut)
+                menu.add(Menu.FIRST, MENU_CUT, 0, android.R.string.cut)
                         .setAlphabeticShortcut('x')
                         .setIcon(a.getDrawable(0));
-                menu.add(Menu.FIRST, 1, 1, android.R.string.copy)
+                menu.add(Menu.FIRST, MENU_COPY, 1, android.R.string.copy)
                         .setAlphabeticShortcut('c')
                         .setIcon(a.getDrawable(1));
-                menu.add(Menu.FIRST, 2, 2, android.R.string.paste)
+                menu.add(Menu.FIRST, MENU_PASTE, 2, android.R.string.paste)
                         .setAlphabeticShortcut('v')
                         .setIcon(a.getDrawable(2));
-                menu.add(Menu.FIRST, 3, 3, android.R.string.selectAll)
+                menu.add(Menu.FIRST, MENU_SELECT_ALL, 3, android.R.string.selectAll)
                         .setAlphabeticShortcut('a')
                         .setIcon(a.getDrawable(3));
 
@@ -411,6 +420,19 @@ class SlintInputView extends View {
 
             @Override
             public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                int selectionStart = Selection.getSelectionStart(mEditable);
+                int selectionEnd = Selection.getSelectionEnd(mEditable);
+                int start = Math.min(selectionStart, selectionEnd);
+                int end = Math.max(selectionStart, selectionEnd);
+                boolean hasSelection = start >= 0 && start != end;
+                boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
+                boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
+                        == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
+                ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
+                menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
+                menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
+                menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
+                menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
                 return true;
             }
 
@@ -438,6 +460,13 @@ class SlintInputView extends View {
             }
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
+    }
+
+    void deferActionMenu(boolean deferred) {
+        mActionMenuDeferred = deferred;
+        if (deferred) {
+            finishActionMenu();
+        }
     }
 
     void finishActionMenu() {
@@ -677,6 +706,14 @@ public class SlintAndroidJavaHelper {
 
     public void show_action_menu() {
         mActivity.runOnUiThread(mInputView::showActionMenu);
+    }
+
+    public void defer_action_menu(boolean deferred) {
+        mActivity.runOnUiThread(() -> mInputView.deferActionMenu(deferred));
+    }
+
+    public void hide_action_menu() {
+        mActivity.runOnUiThread(mInputView::finishActionMenu);
     }
 
     public String get_clipboard() {
