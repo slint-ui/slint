@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    quotes := StyledText {
+        x: 0;
+        y: 0;
+        width: 300px;
+        default-font-size: 20px;
+        text: @markdown("> [one](https://one)\n>> [two](https://two)");
+        link-clicked(url) => {
+            clicked-link-url = url;
+        }
+    }
+    single := StyledText {
+        default-font-size: 20px;
+        text: @markdown("x");
+    }
+    quoted-word := StyledText {
+        default-font-size: 20px;
+        text: @markdown("> word");
+    }
+    plain-word := StyledText {
+        default-font-size: 20px;
+        text: @markdown("word");
+    }
+    fixed-quoted := StyledText {
+        default-font-family: "FixedTestFont";
+        default-font-size: 10px;
+        text: @markdown("> a");
+    }
+
+    out property <length> line-height: single.preferred-height;
+    out property <length> fixed-quoted-width: fixed-quoted.preferred-width;
+    in-out property <string> clicked-link-url;
+    out property <bool> test: abs((quoted-word.preferred-width - plain-word.preferred-width) / 1px - 25) < 1;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let line_height = instance.get_line_height();
+
+slint_testing::send_mouse_click(&instance, 5.0, line_height / 2.0);
+assert_eq!(instance.get_clicked_link_url(), "");
+slint_testing::send_mouse_click(&instance, 30.0, line_height / 2.0);
+assert_eq!(instance.get_clicked_link_url(), "https://one");
+slint_testing::send_mouse_click(&instance, 55.0, line_height * 1.5);
+assert_eq!(instance.get_clicked_link_url(), "https://two");
+
+assert_eq!(instance.get_fixed_quoted_width(), 30.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+float line_height = instance.get_line_height();
+
+slint_testing::send_mouse_click(&instance, 5., line_height / 2.f);
+assert_eq(instance.get_clicked_link_url(), "");
+slint_testing::send_mouse_click(&instance, 30., line_height / 2.f);
+assert_eq(instance.get_clicked_link_url(), "https://one");
+slint_testing::send_mouse_click(&instance, 55., line_height * 1.5f);
+assert_eq(instance.get_clicked_link_url(), "https://two");
+
+assert(instance.get_fixed_quoted_width() == 30.f);
+```
+
+```js
+let instance = new slint.TestCase();
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/

@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Skia font rendering is not consistent across platforms.
+//ignore: skia
+//SIZE=320x340
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 340px;
+    default-font-family: "Noto Sans";
+    default-font-size: 14px;
+    background: white;
+
+    StyledText {
+        x: 5px;
+        y: 5px;
+        width: 150px;
+        default-color: black;
+        text: @markdown("Before\n\n> Quoted text that wraps onto more lines\n>> Nested `code` and a [link](x)\n>\n> - list in a quote\n\nAfter");
+    }
+    StyledText {
+        x: 165px;
+        y: 5px;
+        width: 150px;
+        default-color: black;
+        horizontal-alignment: center;
+        text: @markdown("Centered\n\n> Quoted and centered text");
+    }
+    Rectangle {
+        x: 0;
+        y: 180px;
+        width: 320px;
+        height: 160px;
+        background: #1e1e1e;
+
+        StyledText {
+            x: 5px;
+            y: 5px;
+            width: 150px;
+            default-color: #ededed;
+            text: @markdown("Before\n\n> Quoted text that wraps onto more lines\n>> Nested `code` and a [link](x)\n\nAfter");
+        }
+    }
+}
