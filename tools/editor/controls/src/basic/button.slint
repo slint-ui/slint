@@ -5,36 +5,41 @@ import { ButtonBase } from "../headless.slint";
 import {
     ButtonStateStyle,
     ButtonStyle,
-    ButtonMetrics,
 } from "button_style.slint";
-import { ButtonStyles, ButtonSizes } from "button_styles.slint";
+import { ButtonStyles } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
     in property <image> icon;
     in property <ButtonStyle> style: ButtonStyles.secondary;
-    in property <ButtonMetrics> size: ButtonSizes.medium;
-    private property <ButtonStateStyle> state-style: root.style.rest;
+
     in property <brush> background-color: root.state-style.background-color;
     in property <brush> foreground-color: root.state-style.foreground-color;
     in property <brush> icon-color: root.foreground-color;
-    in property <length> border-width: root.size.border-width;
-    in property <length> border-radius: root.size.border-radius;
 
     in property <string> font-family;
-    in property <length> font-size: root.size.font-size;
+    in property <length> font-size: 14px;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
-    in property <length> spacing: root.size.spacing;
 
-    in property <length> icon-size: root.size.icon-size;
-    in property <length> horizontal-padding: root.size.padding-horizontal;
-    in property <length> vertical-padding: root.size.padding-vertical;
+    in property <length> spacing: 6px;
+    in property <length> icon-size: 20px;
+    in property <length> horizontal-padding: 12px;
+    in property <length> vertical-padding: 6px;
     in property <length> left-padding: root.horizontal-padding;
     in property <length> right-padding: root.horizontal-padding;
     in property <length> top-padding: root.vertical-padding;
     in property <length> bottom-padding: root.vertical-padding;
-    min-width: root.size.min-width;
-    min-height: root.size.min-height;
+
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <ButtonStateStyle> state-style: root.style.rest;
+
+    min-width: 64px;
+    min-height: 32px;
 
     states [
         disabled when !root.enabled: {
@@ -55,15 +60,15 @@ export component Button inherits ButtonBase {
         border-radius: root.border-radius;
 
         focus-outline := Rectangle {
-            private property <length> outset: root.size.focus-offset + root.size.focus-width;
+            private property <length> outset: root.focus-offset + root.focus-width;
             x: -self.outset;
             y: -self.outset;
             width: parent.width + 2 * self.outset;
             height: parent.height + 2 * self.outset;
-            visible: root.enabled && root.has-focus && root.size.focus-width > 0px;
+            visible: root.enabled && root.has-focus && root.focus-width > 0px;
             background: transparent;
             border-color: root.style.focus-color;
-            border-width: root.size.focus-width;
+            border-width: root.focus-width;
             border-radius: root.border-radius + self.outset;
         }
     }

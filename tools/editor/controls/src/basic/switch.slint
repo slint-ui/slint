@@ -6,30 +6,43 @@ import {
     SwitchStyle,
     SwitchStateStyle,
     SwitchStateStyles,
-    SwitchMetrics,
 } from "switch_style.slint";
-import { SwitchStyles, SwitchSizes } from "switch_styles.slint";
+import { SwitchStyles } from "switch_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component Switch inherits SwitchBase {
     in property <SwitchStyle> style: SwitchStyles.standard;
-    in property <SwitchMetrics> size: SwitchSizes.medium;
-    private property <SwitchStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
-    private property <SwitchStateStyle> state-style: root.selected-styles.rest;
+
     in property <brush> checked-color: root.state-style.track-color;
     in property <brush> foreground-color: root.state-style.foreground-color;
+
     in property <string> font-family;
-    in property <length> font-size: root.size.font-size;
+    in property <length> font-size: 14px;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
-    private property <length> effective-track-radius: root.size.track-radius < 0px ? root.size.track-height / 2 : root.size.track-radius;
-    private property <length> effective-thumb-radius: root.size.thumb-radius < 0px ? root.size.thumb-size / 2 : root.size.thumb-radius;
+    spacing: root.text == "" ? 0px : 6px;
+    horizontal-padding: 6px;
+    vertical-padding: 5px;
 
-    spacing: root.text == "" ? 0px : root.size.spacing;
-    horizontal-padding: root.size.padding-horizontal;
-    vertical-padding: root.size.padding-vertical;
-    min-height: root.size.min-height;
+    in property <length> track-width: 40px;
+    in property <length> track-height: 22px;
+    in property <length> track-border-width: 1px;
+    in property <length> track-radius: -1px;
+
+    in property <length> thumb-size: max(0px, root.track-height - 2 * root.thumb-padding);
+    in property <length> thumb-padding: 3px;
+    in property <length> thumb-radius: -1px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <SwitchStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
+    private property <SwitchStateStyle> state-style: root.selected-styles.rest;
+    private property <length> effective-track-radius: root.track-radius < 0px ? root.track-height / 2 : root.track-radius;
+    private property <length> effective-thumb-radius: root.thumb-radius < 0px ? root.thumb-size / 2 : root.thumb-radius;
+
+    min-height: 32px;
 
     states [
         disabled when !root.enabled: {
@@ -44,18 +57,18 @@ export component Switch inherits SwitchBase {
     ]
 
     indicator << Rectangle {
-        width: root.size.track-width;
-        height: root.size.track-height;
+        width: root.track-width;
+        height: root.track-height;
         vertical-stretch: 0;
         background: root.enabled && root.checked ? root.checked-color : root.state-style.track-color;
         border-color: root.state-style.track-border-color;
-        border-width: root.size.track-border-width;
+        border-width: root.track-border-width;
         border-radius: root.effective-track-radius;
 
-        Rectangle {
-            width: min(root.size.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.size.thumb-padding));
+        thumb := Rectangle {
+            width: min(root.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.thumb-padding));
             height: self.width;
-            x: root.checked ? max(0px, parent.width - self.width - root.size.thumb-padding) : root.size.thumb-padding;
+            x: root.checked ? max(0px, parent.width - self.width - root.thumb-padding) : root.thumb-padding;
             y: (parent.height - self.height) / 2;
             background: root.state-style.thumb-color;
             border-radius: root.effective-thumb-radius;
@@ -66,8 +79,8 @@ export component Switch inherits SwitchBase {
             outline-color: root.style.focus-color;
             target-width: parent.width;
             target-height: parent.height;
-            line-width: root.size.focus-width;
-            offset: root.size.focus-offset;
+            line-width: root.focus-width;
+            offset: root.focus-offset;
             radius: root.effective-track-radius;
         }
     }

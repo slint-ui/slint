@@ -28,8 +28,8 @@ export component TestCase inherits Window {
     out property <Padding> switch-padding: { left: toggle.left-padding, right: toggle.right-padding, top: toggle.top-padding, bottom: toggle.bottom-padding };
     out property <Padding> combo-padding: { left: combo.left-padding, right: combo.right-padding, top: combo.top-padding, bottom: combo.bottom-padding };
     out property <Padding> field-padding: { left: field.left-padding, right: field.right-padding, top: field.top-padding, bottom: field.bottom-padding };
-    out property <length> checkbox-indicator-width: choice.size.indicator-size;
-    out property <length> switch-indicator-width: toggle.size.track-width;
+    out property <length> checkbox-indicator-width: choice.indicator-size;
+    out property <length> switch-indicator-width: toggle.track-width;
     out property <bool> test: root.button-padding == root.expected && root.checkbox-padding == root.expected
         && root.switch-padding == root.expected && root.combo-padding == root.expected && root.field-padding == root.expected
         && button.font-weight == 400 && choice.font-weight == 400 && toggle.font-weight == 400

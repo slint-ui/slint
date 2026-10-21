@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    Switch,
-    SwitchSizes,
-    SwitchMetrics,
     SwitchStyle,
     SwitchStyles,
     BasicTheme,
 } from "../src/basic.slint";
 import { SwitchBase } from "../src/headless.slint";
+import { PreviewSwitch } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
@@ -18,7 +16,6 @@ export component SwitchExamples inherits Rectangle {
     in property <SwitchStyle> preview-style: SwitchStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <SwitchMetrics> preview-size: [SwitchSizes.small, SwitchSizes.medium, SwitchSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <int> toggles;
     in-out property <int> custom-toggles;
@@ -36,34 +33,34 @@ export component SwitchExamples inherits Rectangle {
             description: "Off, on, and disabled switches using BasicTheme.";
             HorizontalLayout {
                 spacing: 12px;
-                standard := Switch {
+                standard := PreviewSwitch {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Notifications";
                     toggled => { root.toggles += 1; }
                 }
 
-                Switch {
+                PreviewSwitch {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Autosave";
                     checked: true;
                     toggled => { root.toggles += 1; }
                 }
 
-                Switch {
+                PreviewSwitch {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: false;
                     text: "Disabled";
                 }
             }
 
-            Switch {
+            PreviewSwitch {
                 style: root.preview-style;
-                size: root.preview-size;
+                size-index: root.size-index;
                 enabled: false;
                 text: "Disabled on";
                 checked: true;
@@ -89,10 +86,10 @@ export component SwitchExamples inherits Rectangle {
             description: "Set a checked color, supply headless visuals, or bind the label to the checked state.";
             VerticalLayout {
                 spacing: 12px;
-                Switch {
+                PreviewSwitch {
                     style: root.preview-style;
                     checked-color: #0f766e;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Custom checked color";
                     checked: true;
@@ -131,9 +128,9 @@ export component SwitchExamples inherits Rectangle {
                     toggled => { root.custom-toggles += 1; }
                 }
 
-                custom := Switch {
+                custom := PreviewSwitch {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Custom switch content";
                     text: "Cloud sync · " + (self.checked ? "On" : "Off");

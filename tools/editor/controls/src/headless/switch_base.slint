@@ -8,8 +8,8 @@ export component SwitchBase {
     implement SwitchInterface <=> self;
 
     in property <bool> enabled: true;
-    in-out property <bool> checked;
     in property <string> text;
+
     in property <length> spacing;
     in property <length> horizontal-padding;
     in property <length> vertical-padding;
@@ -17,15 +17,25 @@ export component SwitchBase {
     in property <length> right-padding: root.horizontal-padding;
     in property <length> top-padding: root.vertical-padding;
     in property <length> bottom-padding: root.vertical-padding;
+
+    in-out property <bool> checked;
+
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> focus-visible: interaction.focus-visible;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
-    callback toggled();
 
     slot background;
     slot indicator;
     slot content;
+
+    callback toggled();
+
+    public function activate() {
+        if !root.enabled { return; }
+        root.checked = !root.checked;
+        root.toggled();
+    }
 
     forward-focus: interaction;
     accessible-role: switch;
@@ -34,12 +44,6 @@ export component SwitchBase {
     accessible-checkable: true;
     accessible-checked: root.checked;
     accessible-action-default => { root.activate(); }
-
-    public function activate() {
-        if !root.enabled { return; }
-        root.checked = !root.checked;
-        root.toggled();
-    }
 
     background { }
 

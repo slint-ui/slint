@@ -29,6 +29,10 @@ export component TestCase inherits Window {
     height: 280px;
     in-out property <bool> enabled <=> basic.enabled;
     in-out property <bool> checked <=> basic.checked;
+    in-out property <length> track-height <=> basic.track-height;
+    in-out property <length> track-width <=> basic.track-width;
+    in-out property <length> thumb-padding <=> basic.thumb-padding;
+    in-out property <length> thumb-size <=> basic.thumb-size;
     out property <bool> pressed: basic.pressed;
     out property <bool> hovered: basic.hovered;
     out property <bool> focused: basic.has-focus;
@@ -117,6 +121,30 @@ export component TestCase inherits Window {
 }
 
 /*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Basic switch").next().unwrap();
+let thumb = control.query_descendants().match_id("Switch::thumb").find_first().unwrap();
+for (height, padding) in [(18., 3.), (26., 4.), (22., 3.)] {
+    instance.set_track_height(height);
+    instance.set_thumb_padding(padding);
+    let expected = height - 2. * padding;
+    assert_eq!(instance.get_thumb_size(), expected);
+    assert_eq!(thumb.size().width, expected);
+    assert_eq!(thumb.size().height, expected);
+    instance.set_checked(false);
+    let start = thumb.absolute_position().x;
+    instance.set_checked(true);
+    assert_eq!(thumb.absolute_position().x - start, instance.get_track_width() - expected - 2. * padding);
+}
+instance.set_thumb_size(17.);
+instance.set_track_height(28.);
+assert_eq!(thumb.size().width, 17.);
+instance.set_track_width(20.);
+assert_eq!(thumb.size().width, 14.);
+```
+
 ```rust
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint_testing::AccessibleRole;

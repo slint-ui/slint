@@ -1,15 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Button, ComboBox, LineEdit, LineEditStyle, LineEditMetrics, LineEditStyles, LineEditSizes, BasicTheme }
+import { Button, ComboBox, LineEdit, LineEditStyle, LineEditStyles, BasicTheme }
     from "../../../tools/editor/controls/src/basic.slint";
-export { LineEditStyles, LineEditSizes, BasicTheme }
+export { LineEditStyles, BasicTheme }
 
 export component TestCase inherits Window {
     width: 500px;
     height: 220px;
     in-out property <LineEditStyle> field-style: LineEditStyles.standard;
-    in-out property <LineEditMetrics> field-size: LineEditSizes.medium;
+    in-out property <length> field-min-height: 34px;
+    in-out property <length> horizontal-padding <=> subject.horizontal-padding;
+    in-out property <length> vertical-padding <=> subject.vertical-padding;
+    in-out property <length> focus-width <=> subject.focus-width;
+    in-out property <length> focus-offset <=> subject.focus-offset;
     in-out property <bool> enabled: true;
     in-out property <length> override-border-width: 3px;
     in-out property <length> override-border-radius: 9px;
@@ -18,8 +22,8 @@ export component TestCase inherits Window {
     out property <color> field-selection-background: subject.selection-background-color;
     out property <color> field-selection-foreground: subject.selection-foreground-color;
     out property <length> field-height: subject.height;
-    out property <length> field-font-size: subject.font-size;
-    out property <length> field-border-width: subject.border-width;
+    in-out property <length> field-font-size <=> subject.font-size;
+    in-out property <length> field-border-width <=> subject.border-width;
     out property <brush> default-background: defaults.background-color;
     out property <bool> test: prefix.width > 0px && suffix.width > 0px
         && custom.background-color == #123456 && custom.foreground-color == #abcdef
@@ -38,7 +42,7 @@ export component TestCase inherits Window {
             accessible-label: "Styled field";
             placeholder-text: "Amount";
             style: root.field-style;
-            size: root.field-size;
+            min-height: root.field-min-height;
             enabled: root.enabled;
             leading << prefix := Text { text: "$"; vertical-alignment: center; }
             trailing << suffix := Text { text: "USD"; vertical-alignment: center; }
@@ -57,7 +61,6 @@ export component TestCase inherits Window {
         y: 110px;
         width: 220px;
         style: root.field-style;
-        size: root.field-size;
         background-color: #123456;
         foreground-color: #abcdef;
         selection-background-color: #123456;
@@ -175,23 +178,22 @@ assert!(field.query_descendants().match_id("LineEdit::focus-outline").find_first
 instance.set_enabled(true);
 assert_eq!(input.as_pin_ref().color(), brush(0xab, 0xcd, 0xef));
 instance.invoke_focus_other();
-let presets = instance.global::<LineEditSizes<'_>>();
 let mut previous_height = 0.;
-for size in [presets.get_small(), presets.get_medium(), presets.get_large()] {
-    instance.set_field_size(size.clone());
-    assert_eq!(instance.get_field_height(), size.min_height);
-    assert_eq!(instance.get_field_font_size(), size.font_size);
+for (minimum, font, padding) in [(26., 12., 4.), (34., 14., 6.), (42., 16., 8.)] {
+    instance.set_field_min_height(minimum);
+    instance.set_field_font_size(font);
+    instance.set_vertical_padding(padding);
+    assert_eq!(instance.get_field_height(), minimum);
+    assert_eq!(instance.get_field_font_size(), font);
     assert!(instance.get_field_height() > previous_height);
     previous_height = instance.get_field_height();
     assert!(instance.get_test());
 }
-let mut size = presets.get_medium();
-size.min_height = 52.;
-size.padding_horizontal = 20.;
-size.border_width = 3.;
-size.focus_width = 3.;
-size.focus_offset = 2.;
-instance.set_field_size(size);
+instance.set_field_min_height(52.);
+instance.set_horizontal_padding(20.);
+instance.set_field_border_width(3.);
+instance.set_focus_width(3.);
+instance.set_focus_offset(2.);
 assert_eq!(instance.get_field_height(), 52.);
 assert_eq!(instance.get_field_border_width(), 3.);
 instance.invoke_focus_field();

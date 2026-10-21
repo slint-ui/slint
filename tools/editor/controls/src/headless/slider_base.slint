@@ -10,7 +10,9 @@ export interface SliderSurface {
     in property <bool> pressed;
     in property <Orientation> orientation;
     in property <bool> inverted;
+
     out property <bool> hovered;
+
     callback started();
     callback seek(position: float);
     callback finished();
@@ -19,46 +21,28 @@ export interface SliderSurface {
 
 export component SliderBase {
     implement SliderInterface <=> self;
+
     in property <bool> enabled: true;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <float> step: 1;
     in property <float> page-step: root.keyboard-step * 10;
-    in-out property <float> value: root.minimum;
     in property <Orientation> orientation: horizontal;
     in property <bool> inverted: false;
+
+    in-out property <float> value: root.minimum;
+
     out property <bool> has-focus: root.enabled && keys.has-focus;
     out property <bool> hovered: surface.hovered;
     out property <bool> pressed: root.enabled && root.interaction-active;
     out property <float> position: root.upper > root.lower
         ? clamp((root.value - root.lower) / (root.upper - root.lower), 0, 1) : 0;
     out property <float> visual-position: root.reversed ? 1 - root.position : root.position;
+
     slot <SliderSurface> surface;
+
     callback changed(value: float);
     callback released(value: float);
-
-    private property <float> lower: min(root.minimum, root.maximum);
-    private property <float> upper: max(root.minimum, root.maximum);
-    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
-    private property <bool> vertical: root.orientation == Orientation.vertical;
-    private property <bool> reversed: root.vertical != root.inverted;
-    private property <bool> interaction-active;
-    private property <string> active-key;
-
-    forward-focus: keys;
-    accessible-role: slider;
-    accessible-label: "";
-    accessible-enabled: root.enabled;
-    accessible-orientation: root.orientation;
-    accessible-value: clamp(root.value, root.lower, root.upper);
-    accessible-value-minimum: root.lower;
-    accessible-value-maximum: root.upper;
-    accessible-value-step: root.keyboard-step;
-    accessible-action-increment => { root.set-value(root.value + root.keyboard-step); root.emit-released(); }
-    accessible-action-decrement => { root.set-value(root.value - root.keyboard-step); root.emit-released(); }
-    accessible-action-set-value(value) => {
-        if value.is-float() { root.set-value(value.to-float()); root.emit-released(); }
-    }
 
     public function set-value(requested: float) {
         if !root.enabled { return; }
@@ -80,6 +64,14 @@ export component SliderBase {
         if root.enabled { root.released(root.value); }
     }
 
+    private property <float> lower: min(root.minimum, root.maximum);
+    private property <float> upper: max(root.minimum, root.maximum);
+    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
+    private property <bool> vertical: root.orientation == Orientation.vertical;
+    private property <bool> reversed: root.vertical != root.inverted;
+    private property <bool> interaction-active;
+    private property <string> active-key;
+
     function begin-interaction() {
         if !root.enabled { return; }
         root.interaction-active = true;
@@ -93,6 +85,21 @@ export component SliderBase {
     }
 
     function cancel-interaction() { root.interaction-active = false; }
+
+    forward-focus: keys;
+    accessible-role: slider;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-orientation: root.orientation;
+    accessible-value: clamp(root.value, root.lower, root.upper);
+    accessible-value-minimum: root.lower;
+    accessible-value-maximum: root.upper;
+    accessible-value-step: root.keyboard-step;
+    accessible-action-increment => { root.set-value(root.value + root.keyboard-step); root.emit-released(); }
+    accessible-action-decrement => { root.set-value(root.value - root.keyboard-step); root.emit-released(); }
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.set-value(value.to-float()); root.emit-released(); }
+    }
 
     changed enabled => {
         if !root.enabled {

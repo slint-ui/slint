@@ -9,24 +9,26 @@ export component ButtonBase {
 
     in property <bool> enabled: true;
     in property <string> text;
+
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
-    callback clicked();
 
     slot background;
     slot content;
+
+    callback clicked();
+
+    public function activate() {
+        if !root.enabled { return; }
+        root.clicked();
+    }
 
     forward-focus: interaction;
     accessible-role: button;
     accessible-label: root.text;
     accessible-enabled: root.enabled;
     accessible-action-default => { root.activate(); }
-
-    public function activate() {
-        if !root.enabled { return; }
-        root.clicked();
-    }
 
     background { }
 

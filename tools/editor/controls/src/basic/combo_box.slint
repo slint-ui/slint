@@ -12,17 +12,20 @@ import {
     ComboBoxStateStyle,
     ComboBoxPopupStyle,
     ComboBoxItemStyle,
-    ComboBoxMetrics,
 } from "combo_box_style.slint";
-import { ComboBoxStyles, ComboBoxSizes } from "combo_box_styles.slint";
+import { ComboBoxStyles } from "combo_box_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
-component ComboBoxRowMetrics inherits Text {
-    in property <ComboBoxMetrics> size;
-    out property <length> row-height: max(root.size.item-height,
+component ComboBoxRowSizing inherits Text {
+    in property <length> min-item-height: 32px;
+    in property <length> item-vertical-padding: 6px;
+    in property <int> selected-item-font-weight: 600;
+
+    out property <length> row-height: max(root.min-item-height,
         max(self.font-metrics.ascent - self.font-metrics.descent,
             selected.font-metrics.ascent - selected.font-metrics.descent)
-        + 2 * root.size.padding-vertical);
+        + 2 * root.item-vertical-padding);
+
     width: 0px;
     height: 0px;
     visible: false;
@@ -30,7 +33,7 @@ component ComboBoxRowMetrics inherits Text {
     selected := Text {
         font-family: root.font-family;
         font-size: root.font-size;
-        font-weight: root.size.selected-item-font-weight;
+        font-weight: root.selected-item-font-weight;
         font-italic: root.font-italic;
         accessible-role: none;
     }
@@ -38,19 +41,32 @@ component ComboBoxRowMetrics inherits Text {
 
 export component ComboBoxPopup {
     implement ComboBoxPopupSurface <=> popup;
-    out property <int> count: root.model.length;
-    in property <length> popup-offset: root.size.popup-offset;
+
     in property <ComboBoxPopupStyle> style: ComboBoxStyles.standard.popup;
-    in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
+
     in property <string> font-family;
-    in property <length> font-size: root.size.font-size;
+    in property <length> font-size: 14px;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
+
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+    in property <length> popup-offset: 2px;
+
+    in property <length> min-item-height: 32px;
+    in property <length> item-horizontal-padding: 12px;
+    in property <length> item-vertical-padding: 6px;
+    in property <int> selected-item-font-weight: 600;
+
+    out property <int> count: root.model.length;
+
     width: 0px;
     height: 0px;
 
-    row-metrics := ComboBoxRowMetrics {
-        size: root.size;
+    row-metrics := ComboBoxRowSizing {
+        min-item-height: root.min-item-height;
+        item-vertical-padding: root.item-vertical-padding;
+        selected-item-font-weight: root.selected-item-font-weight;
         font-family: root.font-family;
         font-size: root.font-size;
         font-weight: root.font-weight;
@@ -60,22 +76,15 @@ export component ComboBoxPopup {
     popup := ComboBoxPopupBase {
         popup-offset: root.popup-offset;
         item-height: row-metrics.row-height;
-        popup-padding: root.size.popup-padding;
+        popup-padding: 4px;
         Rectangle {
             background: root.style.background-color;
             border-color: root.style.border-color;
-            border-width: root.size.popup-border-width;
-            border-radius: root.size.popup-border-radius;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
         }
 
         items := Flickable {
-            x: root.popup-padding;
-            y: root.popup-padding;
-            width: root.popup-width - 2 * root.popup-padding;
-            height: root.popup-height - 2 * root.popup-padding;
-            content-width: self.width;
-            content-height: root.count * root.item-height;
-            content-y: -max(0, clamp(root.current-index, 0, root.count - 1) - max(1, root.maximum-visible-items) + 1) * root.item-height;
             private property <int> highlight-index: root.highlighted-index;
             private property <bool> opened: root.opened;
 
@@ -91,18 +100,28 @@ export component ComboBoxPopup {
                     self.content-y = -offset;
                 }
             }
+
+            x: root.popup-padding;
+            y: root.popup-padding;
+            width: root.popup-width - 2 * root.popup-padding;
+            height: root.popup-height - 2 * root.popup-padding;
+            content-width: self.width;
+            content-height: root.count * root.item-height;
+            content-y: -max(0, clamp(root.current-index, 0, root.count - 1) - max(1, root.maximum-visible-items) + 1) * root.item-height;
+
             changed highlight-index => { self.ensure-highlight-visible(); }
             changed height => { self.ensure-highlight-visible(); }
             changed content-height => { self.ensure-highlight-visible(); }
             changed opened => { if self.opened { self.ensure-highlight-visible(); } }
 
             for value[index] in root.model: item := ButtonBase {
+                private property <ComboBoxItemStyle> current-style: root.style.rest;
+                private property <int> item-font-weight: root.font-weight;
+
                 y: index * root.item-height;
                 width: items.width;
                 height: root.item-height;
                 enabled: root.enabled;
-                private property <ComboBoxItemStyle> current-style: root.style.rest;
-                private property <int> item-font-weight: root.font-weight;
                 states [
                     disabled when !root.enabled: {
                         current-style: root.style.disabled;
@@ -112,7 +131,7 @@ export component ComboBoxPopup {
                     }
                     selected when index == root.current-index: {
                         current-style: root.style.selected;
-                        item-font-weight: root.size.selected-item-font-weight;
+                        item-font-weight: root.selected-item-font-weight;
                     }
                 ]
                 text: value;
@@ -122,11 +141,11 @@ export component ComboBoxPopup {
                 changed hovered => { if self.hovered { root.highlight(index); } }
                 background << Rectangle {
                     background: item.current-style.background-color;
-                    border-radius: root.size.popup-border-radius;
+                    border-radius: root.border-radius;
                 }
                 content << HorizontalLayout {
-                    padding-left: root.size.item-padding-inline;
-                    padding-right: root.size.item-padding-inline;
+                    padding-left: root.item-horizontal-padding;
+                    padding-right: root.item-horizontal-padding;
                     Text {
                         text: value;
                         color: item.current-style.foreground-color;
@@ -149,25 +168,45 @@ export component ComboBox inherits ComboBoxBase {
     in property <string> display-text: root.current-index >= 0 && root.current-index < root.count
         ? root.current-value : root.placeholder-text;
     in property <ComboBoxStyle> style: ComboBoxStyles.standard;
-    in property <ComboBoxMetrics> size: ComboBoxSizes.medium;
-    private property <ComboBoxStateStyle> state-style: root.style.rest;
+
     in property <brush> background-color: root.state-style.background-color;
     in property <brush> foreground-color: root.state-style.foreground-color;
-    in property <length> border-width: root.size.border-width;
-    in property <length> border-radius: root.size.border-radius;
-    horizontal-stretch: 1;
-    min-width: root.size.min-width;
-    min-height: root.size.min-height;
-    preferred-width: root.size.preferred-width;
-    horizontal-padding: root.size.padding-horizontal;
-    vertical-padding: root.size.padding-vertical;
-    spacing: root.size.spacing;
-    item-height: row-metrics.row-height;
-    popup-padding: root.size.popup-padding;
+
     in property <string> font-family;
-    in property <length> font-size: root.size.font-size;
+    in property <length> font-size: 14px;
     in property <int> font-weight: 400;
     in property <bool> font-italic;
+
+    horizontal-padding: 12px;
+    vertical-padding: 6px;
+    spacing: 6px;
+
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+
+    in property <length> indicator-width: 16px;
+    in property <length> indicator-stroke-width: 2px;
+
+    in property <length> popup-border-width: 1px;
+    in property <length> popup-border-radius: 4px;
+    in property <length> popup-offset: 2px;
+    popup-padding: 4px;
+
+    in property <length> min-item-height: 32px;
+    in property <length> item-horizontal-padding: 12px;
+    in property <length> item-vertical-padding: 6px;
+    in property <int> selected-item-font-weight: 600;
+    item-height: row-metrics.row-height;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <ComboBoxStateStyle> state-style: root.style.rest;
+
+    horizontal-stretch: 1;
+    min-width: 120px;
+    min-height: 32px;
+    preferred-width: 200px;
 
     states [
         disabled when !root.enabled: {
@@ -185,8 +224,10 @@ export component ComboBox inherits ComboBoxBase {
         border-color: root.state-style.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
-        row-metrics := ComboBoxRowMetrics {
-            size: root.size;
+        row-metrics := ComboBoxRowSizing {
+            min-item-height: root.min-item-height;
+            item-vertical-padding: root.item-vertical-padding;
+            selected-item-font-weight: root.selected-item-font-weight;
             font-family: root.font-family;
             font-size: root.font-size;
             font-weight: root.font-weight;
@@ -198,8 +239,8 @@ export component ComboBox inherits ComboBoxBase {
             outline-color: root.style.focus-color;
             target-width: parent.width;
             target-height: parent.height;
-            line-width: root.size.focus-width;
-            offset: root.size.focus-offset;
+            line-width: root.focus-width;
+            offset: root.focus-offset;
             radius: root.border-radius;
         }
     }
@@ -217,12 +258,12 @@ export component ComboBox inherits ComboBoxBase {
     }
 
     indicator << Path {
-        width: root.size.indicator-width;
+        width: root.indicator-width;
         height: 100%;
         viewbox-width: 16;
         viewbox-height: 20;
         stroke: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-        stroke-width: root.size.indicator-stroke-width;
+        stroke-width: root.indicator-stroke-width;
         MoveTo {
             x: 3;
             y: 8;
@@ -241,7 +282,13 @@ export component ComboBox inherits ComboBoxBase {
 
     popup << ComboBoxPopup {
         style: root.style.popup;
-        size: root.size;
+        border-width: root.popup-border-width;
+        border-radius: root.popup-border-radius;
+        popup-offset: root.popup-offset;
+        min-item-height: root.min-item-height;
+        item-horizontal-padding: root.item-horizontal-padding;
+        item-vertical-padding: root.item-vertical-padding;
+        selected-item-font-weight: root.selected-item-font-weight;
         font-size: root.font-size;
         font-weight: root.font-weight;
         font-family: root.font-family;

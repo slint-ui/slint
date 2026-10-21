@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    Button,
     ButtonStyle,
-    ButtonSizes,
     ButtonStyles,
     BasicTheme,
     ComboBox,
     CheckBox,
 } from "../src/basic.slint";
+import { PreviewButton } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 
 export component ButtonExamples inherits Rectangle {
@@ -54,10 +53,10 @@ export component ButtonExamples inherits Rectangle {
 
             HorizontalLayout {
                 spacing: 12px;
-                for variant in root.variants: Button {
+                for variant in root.variants: PreviewButton {
                     text: variant.label;
                     style: variant.style;
-                    size: [ButtonSizes.small, ButtonSizes.medium, ButtonSizes.large][clamp(root.size-index, 0, 2)];
+                    size-index: root.size-index;
                     enabled: !root.button-disabled;
                     clicked => { root.button-activations += 1; }
                 }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditStyle, LineEditMetrics } from "line_edit_style.slint";
+import { LineEditStyle } from "line_edit_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global LineEditStyles {
@@ -27,32 +27,5 @@ export global LineEditStyles {
         selection-background-color: BasicTheme.accent,
         selection-foreground-color: BasicTheme.accent-foreground,
         focus-color: BasicTheme.focus,
-    };
-}
-
-export global LineEditSizes {
-    out property <LineEditMetrics> small: {
-        min-height: 26px,
-        min-width: 120px,
-        padding-horizontal: 8px,
-        padding-vertical: 4px,
-        font-size: 12px,
-        spacing: 4px,
-    };
-    out property <LineEditMetrics> medium: {
-        min-height: 34px,
-        min-width: 160px,
-        padding-horizontal: 12px,
-        padding-vertical: 6px,
-        font-size: 14px,
-        spacing: 8px,
-    };
-    out property <LineEditMetrics> large: {
-        min-height: 42px,
-        min-width: 200px,
-        padding-horizontal: 16px,
-        padding-vertical: 8px,
-        font-size: 16px,
-        spacing: 12px,
     };
 }

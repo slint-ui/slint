@@ -5,34 +5,22 @@ import {
     Switch,
     SwitchStyle,
     SwitchStyles,
-    SwitchMetrics,
-    SwitchSizes,
     CheckBox,
     CheckBoxStyle,
     CheckBoxStyles,
-    CheckBoxMetrics,
-    CheckBoxSizes,
     Slider,
     SliderStyle,
     SliderStyles,
-    SliderMetrics,
-    SliderSizes,
     ComboBox,
     ComboBoxStyle,
     ComboBoxStyles,
-    ComboBoxMetrics,
-    ComboBoxSizes,
     BasicTheme,
 } from "../../../tools/editor/controls/src/basic.slint";
 export {
     SwitchStyles,
-    SwitchSizes,
     CheckBoxStyles,
-    CheckBoxSizes,
     SliderStyles,
-    SliderSizes,
     ComboBoxStyles,
-    ComboBoxSizes,
     BasicTheme,
 }
 export component TestCase inherits Window {
@@ -41,25 +29,27 @@ export component TestCase inherits Window {
     in-out property <bool> enabled: true;
     in-out property <bool> checked;
     out property <int> activations;
+    in-out property <length> focus-width: 2px;
+    in-out property <length> focus-offset: 2px;
     in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
-    in-out property <SwitchMetrics> switch-size: SwitchSizes.medium;
+    in-out property <length> switch-extent: 40px;
     out property <brush> switch-color: switch.checked-color;
-    out property <length> switch-dimension: switch.size.track-width;
+    out property <length> switch-dimension: switch.track-width;
     in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
-    in-out property <CheckBoxMetrics> check-box-size: CheckBoxSizes.medium;
+    in-out property <length> check-box-extent: 20px;
     out property <brush> check-box-color: check-box.checked-color;
-    out property <length> check-box-dimension: check-box.size.indicator-size;
+    out property <length> check-box-dimension: check-box.indicator-size;
     in-out property <SliderStyle> slider-style: SliderStyles.standard;
-    in-out property <SliderMetrics> slider-size: SliderSizes.medium;
+    in-out property <length> slider-extent: 20px;
     out property <brush> slider-color: slider.handle-color;
-    out property <length> slider-dimension: slider.size.handle-width;
+    out property <length> slider-dimension: slider.handle-width;
     in-out property <ComboBoxStyle> combo-box-style: ComboBoxStyles.standard;
-    in-out property <ComboBoxMetrics> combo-box-size: ComboBoxSizes.medium;
+    in-out property <length> combo-box-extent: 32px;
     out property <brush> combo-box-color: combo-box.background-color;
     out property <length> combo-box-dimension: combo-box.item-height;
     out property <bool> test: switch-override.checked-color == #123456 && switch-override.font-size == 13px
         && check-box-override.checked-color == #123456 && check-box-override.font-size == 13px
-        && slider-override.handle-color == #123456 && slider-override.size.handle-width == 17px
+        && slider-override.handle-color == #123456 && slider-override.handle-width == 17px
         && combo-box-override.background-color == #123456 && combo-box-override.font-size == 13px;
 
     public function focus-control(index: int) {
@@ -76,7 +66,9 @@ export component TestCase inherits Window {
         width: 240px;
         height: 50px;
         style: root.switch-style;
-        size: root.switch-size;
+        track-width: root.switch-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         text: "Styled switch";
         checked <=> root.checked;
@@ -90,7 +82,9 @@ export component TestCase inherits Window {
         height: 40px;
         style: root.switch-style;
         checked-color: #123456;
-        size: root.switch-size;
+        track-width: root.switch-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         font-size: 13px;
     }
@@ -101,7 +95,9 @@ export component TestCase inherits Window {
         width: 240px;
         height: 50px;
         style: root.check-box-style;
-        size: root.check-box-size;
+        indicator-size: root.check-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         text: "Styled checkbox";
         checked <=> root.checked;
@@ -115,7 +111,9 @@ export component TestCase inherits Window {
         height: 40px;
         style: root.check-box-style;
         checked-color: #123456;
-        size: root.check-box-size;
+        indicator-size: root.check-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         font-size: 13px;
     }
@@ -126,7 +124,9 @@ export component TestCase inherits Window {
         width: 240px;
         height: 50px;
         style: root.slider-style;
-        size: root.slider-size;
+        handle-width: root.slider-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         accessible-label: "Styled slider";
         value: 40;
@@ -140,18 +140,7 @@ export component TestCase inherits Window {
         height: 40px;
         style: root.slider-style;
         handle-color: #123456;
-        size: {
-            preferred-length: root.slider-size.preferred-length,
-            min-thickness: root.slider-size.min-thickness,
-            handle-width: 17px,
-            handle-height: root.slider-size.handle-height,
-            track-thickness: root.slider-size.track-thickness,
-            handle-border-width: root.slider-size.handle-border-width,
-            handle-radius: root.slider-size.handle-radius,
-            track-radius: root.slider-size.track-radius,
-            focus-width: root.slider-size.focus-width,
-            focus-offset: root.slider-size.focus-offset,
-        };
+        handle-width: 17px;
         enabled: root.enabled;
     }
 
@@ -161,7 +150,9 @@ export component TestCase inherits Window {
         width: 240px;
         height: 50px;
         style: root.combo-box-style;
-        size: root.combo-box-size;
+        min-item-height: root.combo-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         accessible-label: "Styled combo";
         model: ["Zero", "One"];
@@ -176,7 +167,9 @@ export component TestCase inherits Window {
         style: root.combo-box-style;
         background-color: #123456;
         foreground-color: #ffffff;
-        size: root.combo-box-size;
+        min-item-height: root.combo-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
         enabled: root.enabled;
         font-size: 13px;
     }
@@ -254,38 +247,23 @@ macro_rules! control_states {
 control_states!(instance.global::<SliderStyles<'_>>().get_standard(), set_slider_style, get_slider_color, handle_color, 100.);
 control_states!(instance.global::<ComboBoxStyles<'_>>().get_standard(), set_combo_box_style, get_combo_box_color, background_color, 400.);
 
-macro_rules! sizes {
-    ($global:ty, $set:ident, $get:ident, $field:ident) => {{
-        let presets = instance.global::<$global>();
-        for metrics in [presets.get_small(), presets.get_medium(), presets.get_large()] {
-            instance.$set(metrics.clone());
-            assert_eq!(instance.$get(), metrics.$field);
-            assert!(instance.get_test());
-        }
-        let mut custom = presets.get_medium();
-        custom.$field = 37.;
-        custom.focus_width = 3.;
-        custom.focus_offset = 4.;
-        instance.$set(custom);
-        assert_eq!(instance.$get(), 37.);
-    }};
-}
-sizes!(SwitchSizes<'_>, set_switch_size, get_switch_dimension, track_width);
-sizes!(CheckBoxSizes<'_>, set_check_box_size, get_check_box_dimension, indicator_size);
-sizes!(SliderSizes<'_>, set_slider_size, get_slider_dimension, handle_width);
-let combo_sizes = instance.global::<ComboBoxSizes<'_>>();
-for metrics in [combo_sizes.get_small(), combo_sizes.get_medium(), combo_sizes.get_large()] {
-    instance.set_combo_box_size(metrics.clone());
-    assert_eq!(instance.get_combo_box_size(), metrics);
-    assert!(instance.get_combo_box_dimension() >= metrics.item_height);
+for extent in [16., 24., 37.] {
+    instance.set_switch_extent(extent);
+    instance.set_check_box_extent(extent);
+    instance.set_slider_extent(extent);
+    assert_eq!(instance.get_switch_dimension(), extent);
+    assert_eq!(instance.get_check_box_dimension(), extent);
+    assert_eq!(instance.get_slider_dimension(), extent);
     assert!(instance.get_test());
 }
-let mut custom = combo_sizes.get_medium();
-custom.item_height = 37.;
-custom.focus_width = 3.;
-custom.focus_offset = 4.;
-instance.set_combo_box_size(custom);
+for height in [24., 40., 37.] {
+    instance.set_combo_box_extent(height);
+    assert!(instance.get_combo_box_dimension() >= height);
+    assert!(instance.get_test());
+}
 assert_eq!(instance.get_combo_box_dimension(), 37.);
+instance.set_focus_width(3.);
+instance.set_focus_offset(4.);
 
 move_to(590., 310.);
 for (index, label, id, width, height) in [

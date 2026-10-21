@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    Slider,
-    SliderSizes,
-    SliderMetrics,
     SliderStyle,
     SliderStyles,
     BasicTheme,
 } from "../src/basic.slint";
 import { SliderBase, LinearSliderSurface } from "../src/headless.slint";
+import { PreviewSlider } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 import { CircularSurface } from "circular_surface.slint";
@@ -19,7 +17,6 @@ export component SliderExamples inherits Rectangle {
     in property <SliderStyle> preview-style: SliderStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <SliderMetrics> preview-size: [SliderSizes.small, SliderSizes.medium, SliderSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <float> value: 40;
     in-out property <float> stepped-value: 50;
@@ -54,9 +51,9 @@ export component SliderExamples inherits Rectangle {
                                 font-size: 12px;
                             }
 
-                            Slider {
+                            PreviewSlider {
                                 style: root.preview-style;
-                                size: root.preview-size;
+                                size-index: root.size-index;
                                 enabled: !root.preview-disabled;
                                 accessible-label: "Default slider";
                                 value <=> root.value;
@@ -73,9 +70,9 @@ export component SliderExamples inherits Rectangle {
                                 font-size: 12px;
                             }
 
-                            Slider {
+                            PreviewSlider {
                                 style: root.preview-style;
-                                size: root.preview-size;
+                                size-index: root.size-index;
                                 enabled: false;
                                 accessible-label: "Disabled slider";
 
@@ -90,9 +87,9 @@ export component SliderExamples inherits Rectangle {
                         font-size: 12px;
                     }
 
-                    Slider {
+                    PreviewSlider {
                         style: root.preview-style;
-                        size: root.preview-size;
+                        size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Stepped slider";
                         step: 10;
@@ -112,9 +109,9 @@ export component SliderExamples inherits Rectangle {
                         horizontal-alignment: center;
                     }
 
-                    Slider {
+                    PreviewSlider {
                         style: root.preview-style;
-                        size: root.preview-size;
+                        size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Vertical slider";
                         orientation: vertical;
@@ -154,11 +151,11 @@ export component SliderExamples inherits Rectangle {
                         font-size: 12px;
                     }
 
-                    Slider {
+                    PreviewSlider {
                         style: root.preview-style;
                         fill-color: #0f766e;
                         handle-color: #0f766e;
-                        size: root.preview-size;
+                        size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Styled custom slider";
                         value <=> root.custom-value;

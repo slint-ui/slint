@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    CheckBox,
-    CheckBoxSizes,
-    CheckBoxMetrics,
     CheckBoxStyle,
     CheckBoxStyles,
     BasicTheme,
 } from "../src/basic.slint";
 import { CheckBoxBase } from "../src/headless.slint";
+import { PreviewCheckBox } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
-component CustomCheckBox inherits CheckBox {
+component CustomCheckBox inherits PreviewCheckBox {
     checked-color: #0f766e;
 }
 
@@ -22,7 +20,6 @@ export component CheckBoxExamples inherits Rectangle {
     in property <CheckBoxStyle> preview-style: CheckBoxStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <CheckBoxMetrics> preview-size: [CheckBoxSizes.small, CheckBoxSizes.medium, CheckBoxSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <int> toggles;
     in-out property <int> custom-toggles;
@@ -40,34 +37,34 @@ export component CheckBoxExamples inherits Rectangle {
             description: "Unchecked, checked, and disabled checkboxes using BasicTheme.";
             HorizontalLayout {
                 spacing: 12px;
-                standard := CheckBox {
+                standard := PreviewCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Show guides";
                     toggled => { root.toggles += 1; }
                 }
 
-                CheckBox {
+                PreviewCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Snap to grid";
                     checked: true;
                     toggled => { root.toggles += 1; }
                 }
 
-                CheckBox {
+                PreviewCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: false;
                     text: "Disabled";
                 }
             }
 
-            CheckBox {
+            PreviewCheckBox {
                 style: root.preview-style;
-                size: root.preview-size;
+                size-index: root.size-index;
                 enabled: false;
                 text: "Disabled checked";
                 checked: true;
@@ -95,7 +92,7 @@ export component CheckBoxExamples inherits Rectangle {
                 spacing: 12px;
                 CustomCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Custom checked color";
                     checked: true;
@@ -104,7 +101,7 @@ export component CheckBoxExamples inherits Rectangle {
 
                 CustomCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Same shared defaults";
                     toggled => { root.custom-toggles += 1; }
@@ -143,9 +140,9 @@ export component CheckBoxExamples inherits Rectangle {
                     toggled => { root.custom-toggles += 1; }
                 }
 
-                custom := CheckBox {
+                custom := PreviewCheckBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Custom checkbox content";
                     text: "Autosave · " + (self.checked ? "On" : "Off");

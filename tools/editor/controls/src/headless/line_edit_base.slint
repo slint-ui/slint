@@ -7,19 +7,21 @@ export component LineEditBase {
     implement LineEditInterface <=> self;
 
     in property <bool> enabled: true;
-    in-out property <string> text <=> input.text;
     in property <bool> read-only;
     in property <string> placeholder-text;
     in property <InputType> input-type;
     in property <InputMethodHints> input-method-hints;
     in property <TextHorizontalAlignment> horizontal-alignment: left;
+
     in property <string> font-family <=> input.font-family;
     in property <length> font-size <=> input.font-size;
     in property <bool> font-italic <=> input.font-italic;
     in property <int> font-weight <=> input.font-weight;
+
     in property <brush> foreground-color <=> input.color;
     in property <color> selection-background-color <=> input.selection-background-color;
     in property <color> selection-foreground-color <=> input.selection-foreground-color;
+
     in property <length> horizontal-padding;
     in property <length> vertical-padding;
     in property <length> left-padding: root.horizontal-padding;
@@ -27,18 +29,31 @@ export component LineEditBase {
     in property <length> top-padding: root.vertical-padding;
     in property <length> bottom-padding: root.vertical-padding;
     in property <length> spacing;
+
+    in-out property <string> text <=> input.text;
+
     out property <bool> has-focus: input.has-focus;
     @shadowable out property <bool> has-selection: input.has-selection;
     out property <bool> hovered: root.enabled && pointer.has-hover;
-    callback accepted(text: string);
-    callback edited(text: string);
-    callback key-pressed(event: KeyEvent) -> EventResult;
-    callback key-released(event: KeyEvent) -> EventResult;
 
     slot background;
     slot placeholder;
     slot leading;
     slot trailing;
+
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
+
+    public function set-selection-offsets(anchor: int, focus: int) { input.set-selection-offsets(anchor, focus); }
+    public function select-all() { input.select-all(); }
+    public function clear-selection() { input.clear-selection(); }
+    public function copy() { if root.enabled { input.copy(); } }
+    public function cut() { if root.enabled && !root.read-only { input.cut(); } }
+    public function paste() { if root.enabled && !root.read-only { input.paste(); } }
+    public function undo() { if root.enabled && !root.read-only { input.undo(); } }
+    public function redo() { if root.enabled && !root.read-only { input.redo(); } }
 
     forward-focus: input;
     accessible-role: text-input;
@@ -55,15 +70,6 @@ export component LineEditBase {
         }
     }
     accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
-
-    public function set-selection-offsets(anchor: int, focus: int) { input.set-selection-offsets(anchor, focus); }
-    public function select-all() { input.select-all(); }
-    public function clear-selection() { input.clear-selection(); }
-    public function copy() { if root.enabled { input.copy(); } }
-    public function cut() { if root.enabled && !root.read-only { input.cut(); } }
-    public function paste() { if root.enabled && !root.read-only { input.paste(); } }
-    public function undo() { if root.enabled && !root.read-only { input.undo(); } }
-    public function redo() { if root.enabled && !root.read-only { input.redo(); } }
 
     background { }
 

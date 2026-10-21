@@ -69,9 +69,9 @@ export global BasicPalettes {
 }
 
 export global BasicTheme {
-    out property <BasicPalette> default-palette: BasicPalettes.light;
     in property <BasicPalette> palette: root.default-palette;
 
+    out property <BasicPalette> default-palette: BasicPalettes.light;
     out property <brush> foreground: root.palette.foreground;
     out property <brush> background: root.palette.background;
     out property <brush> hover-background: root.palette.hover-background;

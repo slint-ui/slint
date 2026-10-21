@@ -4,16 +4,20 @@
 export interface ComboBoxInterface {
     in property <bool> enabled;
     in property <[string]> model;
+
     in-out property <int> current-index;
     in-out property <string> current-value;
+
     out property <int> count;
     out property <int> highlighted-index;
     out property <bool> expanded;
     out property <bool> has-focus;
     out property <bool> hovered;
     out property <bool> pressed;
+
     callback selected(current-value: string);
     callback highlighted(index: int);
+
     public function open();
     public function close();
     public function highlight(index: int);

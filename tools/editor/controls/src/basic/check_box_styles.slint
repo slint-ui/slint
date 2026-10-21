@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CheckBoxStyle, CheckBoxMetrics } from "check_box_style.slint";
+import { CheckBoxStyle } from "check_box_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global CheckBoxStyles {
@@ -59,38 +59,5 @@ export global CheckBoxStyles {
             },
         },
         focus-color: BasicTheme.focus,
-    };
-}
-
-export global CheckBoxSizes {
-    out property <CheckBoxMetrics> small: {
-        min-height: 24px,
-        indicator-size: 16px,
-        checkmark-padding: 2px,
-        checkmark-width: 1.5px,
-        padding-horizontal: 4px,
-        padding-vertical: 4px,
-        font-size: 12px,
-        spacing: 4px,
-    };
-    out property <CheckBoxMetrics> medium: {
-        min-height: 32px,
-        indicator-size: 20px,
-        checkmark-padding: 3px,
-        checkmark-width: 2px,
-        padding-horizontal: 6px,
-        padding-vertical: 6px,
-        font-size: 14px,
-        spacing: 6px,
-    };
-    out property <CheckBoxMetrics> large: {
-        min-height: 40px,
-        indicator-size: 24px,
-        checkmark-padding: 4px,
-        checkmark-width: 2.5px,
-        padding-horizontal: 8px,
-        padding-vertical: 8px,
-        font-size: 16px,
-        spacing: 8px,
     };
 }

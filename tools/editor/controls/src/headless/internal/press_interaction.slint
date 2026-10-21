@@ -3,12 +3,14 @@
 
 export component PressInteraction {
     in property <bool> enabled: true;
+
     out property <bool> has-focus: keys.has-focus;
     out property <bool> focus-visible;
     out property <bool> hovered: root.enabled && pointer.has-hover && root.pointer-inside;
     out property <bool> pressed: root.enabled && (
         (pointer.pressed && root.pointer-inside && !root.pointer-canceled)
         || (root.has-focus && root.pressed-key != ""));
+
     callback activated();
 
     private property <string> pressed-key;

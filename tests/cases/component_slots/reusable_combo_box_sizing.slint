@@ -3,16 +3,12 @@
 
 import {
     ComboBox,
-    ComboBoxMetrics,
-    ComboBoxSizes,
 } from "../../../tools/editor/controls/src/basic.slint";
-export { ComboBoxSizes }
 export component TestCase inherits Window {
     width: 400px;
     height: 400px;
-    in-out property <ComboBoxMetrics> size: ComboBoxSizes.medium;
     in-out property <int> visible-items: 3;
-    in-out property <length> row-height: root.size.item-height;
+    in-out property <length> row-height: 32px;
     in-out property <[string]> model: ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
     out property <bool> test: combo.current-index == 0;
     out property <int> highlighted-index: combo.highlighted-index;
@@ -25,7 +21,6 @@ export component TestCase inherits Window {
         width: 240px;
         accessible-label: "Sized combo";
         model: root.model;
-        size: root.size;
         maximum-visible-items: root.visible-items;
         item-height: root.row-height;
     }
@@ -37,7 +32,6 @@ use slint::platform::Key;
 let instance = TestCase::new().unwrap();
 instance.show().unwrap();
 assert!(instance.get_test());
-let sizes = instance.global::<ComboBoxSizes<'_>>();
 let key = |key: Key| {
     slint_testing::send_keyboard_char(&instance, key.into(), true);
     slint_testing::send_keyboard_char(&instance, key.into(), false);
@@ -57,8 +51,8 @@ instance.invoke_open_combo();
 key(Key::End);
 assert_eq!(instance.get_highlighted_index(), 7);
 assert_visible("Seven");
-for metrics in [sizes.get_large(), sizes.get_small(), sizes.get_medium()] {
-    instance.set_size(metrics);
+for height in [40., 24., 32.] {
+    instance.set_row_height(height);
     slint::platform::update_timers_and_animations();
     assert_eq!(instance.get_highlighted_index(), 7);
     assert_visible("Seven");

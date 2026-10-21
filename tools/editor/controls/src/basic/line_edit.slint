@@ -2,37 +2,47 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { LineEditBase, LineEditInterface } from "../headless.slint";
-import { LineEditStyle, LineEditStateStyle, LineEditMetrics } from "line_edit_style.slint";
-import { LineEditStyles, LineEditSizes } from "line_edit_styles.slint";
+import { LineEditStyle, LineEditStateStyle } from "line_edit_style.slint";
+import { LineEditStyles } from "line_edit_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
 
 export component LineEdit {
     implement LineEditInterface <=> field;
 
     in property <LineEditStyle> style: LineEditStyles.standard;
-    in property <LineEditMetrics> size: LineEditSizes.medium;
-    private property <LineEditStateStyle> state-style: root.style.rest;
+
     in property <brush> background-color: root.state-style.background-color;
-    in property <length> border-width: root.size.border-width;
-    in property <length> border-radius: root.size.border-radius;
     in property <brush> foreground-color: root.state-style.foreground-color;
     in property <color> selection-background-color: root.style.selection-background-color;
     in property <color> selection-foreground-color: root.style.selection-foreground-color;
+
     in property <string> font-family <=> field.font-family;
     in property <length> font-size <=> field.font-size;
     in property <bool> font-italic <=> field.font-italic;
     in property <int> font-weight <=> field.font-weight;
     in property <TextHorizontalAlignment> horizontal-alignment <=> field.horizontal-alignment;
-    in property <length> horizontal-padding: root.size.padding-horizontal;
-    in property <length> vertical-padding: root.size.padding-vertical;
+
+    in property <length> horizontal-padding: 12px;
+    in property <length> vertical-padding: 6px;
     in property <length> left-padding: root.horizontal-padding;
     in property <length> right-padding: root.horizontal-padding;
     in property <length> top-padding: root.vertical-padding;
     in property <length> bottom-padding: root.vertical-padding;
-    in property <length> spacing: root.size.spacing;
+    in property <length> spacing: 8px;
 
-    min-width: max(root.size.min-width, field.min-width);
-    min-height: max(root.size.min-height, field.min-height);
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    slot leading;
+    slot trailing;
+
+    private property <LineEditStateStyle> state-style: root.style.rest;
+
+    min-width: max(160px, field.min-width);
+    min-height: max(34px, field.min-height);
     preferred-width: field.preferred-width;
     preferred-height: field.preferred-height;
     horizontal-stretch: 1;
@@ -53,9 +63,6 @@ export component LineEdit {
     }
     accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
 
-    slot leading;
-    slot trailing;
-
     states [
         disabled when !root.enabled: {
             state-style: root.style.disabled;
@@ -70,7 +77,7 @@ export component LineEdit {
         height: 100%;
         accessible-role: none;
         foreground-color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-        font-size: root.size.font-size;
+        font-size: 14px;
         font-weight: 400;
         selection-background-color: root.enabled ? root.selection-background-color : root.style.selection-background-color;
         selection-foreground-color: root.enabled ? root.selection-foreground-color : root.style.selection-foreground-color;
@@ -94,8 +101,8 @@ export component LineEdit {
                 outline-color: root.style.focus-color;
                 target-width: parent.width;
                 target-height: parent.height;
-                line-width: root.size.focus-width;
-                offset: root.size.focus-offset;
+                line-width: root.focus-width;
+                offset: root.focus-offset;
                 radius: root.border-radius;
             }
         }

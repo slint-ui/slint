@@ -4,10 +4,14 @@
 export interface SwitchInterface {
     in property <bool> enabled;
     in property <string> text;
+
     in-out property <bool> checked;
+
     out property <bool> has-focus;
     out property <bool> hovered;
     out property <bool> pressed;
+
     callback toggled();
+
     public function activate();
 }

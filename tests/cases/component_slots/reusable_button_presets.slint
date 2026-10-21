@@ -4,29 +4,27 @@
 import {
     Button,
     ButtonStyle,
-    ButtonMetrics,
-    ButtonSizes,
     ButtonStyles,
     BasicTheme,
 } from "../../../tools/editor/controls/src/basic.slint";
-export { ButtonSizes, ButtonStyles, BasicTheme }
+export { ButtonStyles, BasicTheme }
 export component TestCase inherits Window {
     width: 400px;
     height: 120px;
     in-out property <ButtonStyle> style: ButtonStyles.primary;
-    in-out property <ButtonMetrics> size: ButtonSizes.medium;
-    in-out property <ButtonMetrics> overridden-size: ButtonSizes.large;
     in-out property <bool> enabled: true;
+    in-out property <length> focus-width <=> subject.focus-width;
+    in-out property <length> focus-offset <=> subject.focus-offset;
     out property <int> activations;
     out property <brush> subject-background: subject.background-color;
     out property <brush> foreground-color: subject.foreground-color;
     out property <bool> focused: subject.has-focus;
     out property <bool> pressed: subject.pressed;
-    out property <length> font-size: subject.font-size;
-    out property <length> icon-size: subject.icon-size;
-    out property <length> spacing: subject.spacing;
-    out property <length> subject-padding: subject.left-padding;
-    out property <length> preset-font-size: overridden.font-size;
+    in-out property <length> font-size <=> subject.font-size;
+    in-out property <length> icon-size <=> subject.icon-size;
+    in-out property <length> spacing <=> subject.spacing;
+    in-out property <length> subject-padding <=> subject.horizontal-padding;
+    in-out property <length> preset-font-size <=> overridden.font-size;
     out property <bool> test: overridden.background-color == #123456
         && overridden.foreground-color == #abcdef
         && subject.style == root.style;
@@ -41,7 +39,6 @@ export component TestCase inherits Window {
         height: 50px;
         text: "Subject";
         style: root.style;
-        size: root.size;
         enabled: root.enabled;
         clicked => { root.activations += 1; }
     }
@@ -52,7 +49,7 @@ export component TestCase inherits Window {
         width: 160px;
         height: 50px;
         text: "Override";
-        size: root.overridden-size;
+        font-size: 16px;
         style: root.style;
         background-color: #123456;
         foreground-color: #abcdef;
@@ -88,8 +85,7 @@ for style in [presets.get_secondary(), presets.get_primary(), presets.get_danger
     instance.invoke_focus_subject();
     assert!(instance.get_focused());
     let ring = outline().expect("Focused button has no outline");
-    let metrics = instance.get_size();
-    let outset = metrics.focus_width + metrics.focus_offset;
+    let outset = instance.get_focus_width() + instance.get_focus_offset();
     assert_eq!(ring.absolute_position().x, subject.absolute_position().x - outset);
     assert_eq!(ring.absolute_position().y, subject.absolute_position().y - outset);
     assert_eq!(ring.size().width, subject.size().width + 2. * outset);
@@ -130,44 +126,33 @@ assert_eq!(instance.get_activations(), before + 2);
 let mut custom = presets.get_primary();
 custom.rest.background_color = slint::Color::from_rgb_u8(0x68, 0x21, 0xa8).into();
 custom.hover.background_color = slint::Color::from_rgb_u8(0x58, 0x1c, 0x87).into();
-let mut custom_metrics = instance.get_size();
-custom_metrics.focus_width = 3.;
-custom_metrics.focus_offset = 6.;
-instance.set_size(custom_metrics.clone());
+instance.set_focus_width(3.);
+instance.set_focus_offset(6.);
 instance.set_style(custom.clone());
 assert_eq!(instance.get_subject_background(), custom.rest.background_color);
 assert_eq!(outline().unwrap().size().width, subject.size().width + 18.);
 move_to(inside);
 assert_eq!(instance.get_subject_background(), custom.hover.background_color);
 assert!(instance.get_test());
-let mut no_outline = custom_metrics.clone();
-no_outline.focus_width = 0.;
-instance.set_size(no_outline);
+instance.set_focus_width(0.);
 assert!(outline().is_none());
-instance.set_size(custom_metrics);
+instance.set_focus_width(3.);
 
-let sizes = instance.global::<ButtonSizes<'_>>();
-for metrics in [sizes.get_small(), sizes.get_medium(), sizes.get_large()] {
-    instance.set_size(metrics.clone());
-    assert_eq!(instance.get_font_size(), metrics.font_size);
-    assert_eq!(instance.get_icon_size(), metrics.icon_size);
-    assert_eq!(instance.get_spacing(), metrics.spacing);
-    assert_eq!(instance.get_subject_padding(), metrics.padding_horizontal);
+instance.set_preset_font_size(22.);
+assert_eq!(instance.get_preset_font_size(), 22.);
+assert_eq!(instance.get_font_size(), 14.);
+for (font, icon, padding, spacing) in [(12., 16., 8., 4.), (16., 24., 16., 8.), (21., 28., 18., 7.)] {
+    instance.set_font_size(font);
+    instance.set_icon_size(icon);
+    instance.set_subject_padding(padding);
+    instance.set_spacing(spacing);
+    assert_eq!(instance.get_font_size(), font);
+    assert_eq!(instance.get_icon_size(), icon);
+    assert_eq!(instance.get_subject_padding(), padding);
+    assert_eq!(instance.get_spacing(), spacing);
+    assert_eq!(instance.get_preset_font_size(), 22.);
     assert_eq!(instance.get_style(), custom);
 }
-let mut metrics = sizes.get_large();
-metrics.font_size = 22.;
-instance.set_overridden_size(metrics.clone());
-assert_eq!(instance.get_preset_font_size(), 22.);
-assert_eq!(sizes.get_large().font_size, 16.);
-metrics.font_size = 21.;
-metrics.icon_size = 28.;
-metrics.padding_horizontal = 18.;
-instance.set_size(metrics);
-assert_eq!(instance.get_font_size(), 21.);
-assert_eq!(instance.get_icon_size(), 28.);
-assert_eq!(instance.get_subject_padding(), 18.);
-assert_eq!(instance.get_style(), custom);
 
 let theme = instance.global::<BasicTheme<'_>>();
 let styles = instance.global::<ButtonStyles<'_>>();

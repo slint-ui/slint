@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { SliderStyle, SliderMetrics } from "slider_style.slint";
+import { SliderStyle } from "slider_style.slint";
 import { BasicTheme } from "theme.slint";
 
 export global SliderStyles {
@@ -31,29 +31,5 @@ export global SliderStyles {
             handle-border-color: BasicTheme.border,
         },
         focus-color: BasicTheme.focus,
-    };
-}
-
-export global SliderSizes {
-    out property <SliderMetrics> small: {
-        preferred-length: 160px,
-        min-thickness: 24px,
-        handle-width: 16px,
-        handle-height: 16px,
-        track-thickness: 3px,
-    };
-    out property <SliderMetrics> medium: {
-        preferred-length: 200px,
-        min-thickness: 32px,
-        handle-width: 20px,
-        handle-height: 20px,
-        track-thickness: 4px,
-    };
-    out property <SliderMetrics> large: {
-        preferred-length: 240px,
-        min-thickness: 40px,
-        handle-width: 24px,
-        handle-height: 24px,
-        track-thickness: 6px,
     };
 }

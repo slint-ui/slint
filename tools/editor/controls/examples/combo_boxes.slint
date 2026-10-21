@@ -2,9 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    ComboBox,
-    ComboBoxSizes,
-    ComboBoxMetrics,
     ComboBoxStyle,
     ComboBoxStyles,
     BasicTheme,
@@ -14,6 +11,7 @@ import {
     ComboBoxPopupBase,
     ButtonBase,
 } from "../src/headless.slint";
+import { PreviewComboBox } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
@@ -22,7 +20,6 @@ export component ComboBoxExamples inherits Rectangle {
     in property <ComboBoxStyle> preview-style: ComboBoxStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <ComboBoxMetrics> preview-size: [ComboBoxSizes.small, ComboBoxSizes.medium, ComboBoxSizes.large][clamp(root.size-index, 0, 2)];
 
     in-out property <int> selections;
     in-out property <int> custom-selections;
@@ -42,18 +39,18 @@ export component ComboBoxExamples inherits Rectangle {
             description: "Default, disabled, placeholder, and scrollable combo boxes using BasicTheme.";
             HorizontalLayout {
                 spacing: 16px;
-                ComboBox {
+                PreviewComboBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Image fit";
                     model: ["Contain", "Cover", "Fill", "None"];
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
 
-                ComboBox {
+                PreviewComboBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: false;
                     accessible-label: "Disabled combo box";
                     model: ["Disabled"];
@@ -62,9 +59,9 @@ export component ComboBoxExamples inherits Rectangle {
 
             HorizontalLayout {
                 spacing: 16px;
-                ComboBox {
+                PreviewComboBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Choose a size";
                     model: ["Small", "Medium", "Large", "Extra large"];
@@ -73,9 +70,9 @@ export component ComboBoxExamples inherits Rectangle {
                     selected(value) => { root.selections += 1; root.selected-value = value; }
                 }
 
-                ComboBox {
+                PreviewComboBox {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Scrollable options";
                     model: [
@@ -123,11 +120,11 @@ export component ComboBoxExamples inherits Rectangle {
                         font-size: 12px;
                     }
 
-                    ComboBox {
+                    PreviewComboBox {
                         style: root.preview-style;
                         background-color: #f0fdfa;
                         foreground-color: #115e59;
-                        size: root.preview-size;
+                        size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Tinted combo box";
                         model: ["Small", "Medium", "Large"];

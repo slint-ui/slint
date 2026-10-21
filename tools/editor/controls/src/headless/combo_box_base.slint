@@ -14,27 +14,23 @@ export interface ComboBoxPopupSurface {
     in property <length> popup-padding;
     in property <length> item-height;
     in property <int> maximum-visible-items;
+
     out property <bool> opened;
     out property <bool> focused;
+
     callback highlight(index: int);
     callback selected(index: int);
     callback key-event(event: KeyEvent) -> EventResult;
+
     public function open();
     public function close();
 }
 
 export component ComboBoxBase {
     implement ComboBoxInterface <=> self;
+
     in property <bool> enabled: true;
     in property <[string]> model;
-    in-out property <int> current-index: root.count > 0 ? 0 : -1;
-    in-out property <string> current-value: root.indexed-value;
-    out property <int> count: root.model.length;
-    out property <int> highlighted-index: root.highlight-index;
-    out property <bool> expanded: popup.opened;
-    out property <bool> has-focus: root.enabled && (keys.has-focus || popup.focused);
-    out property <bool> hovered: root.enabled && pointer.has-hover;
-    out property <bool> pressed: root.enabled && pointer.pressed;
     in property <length> horizontal-padding;
     in property <length> vertical-padding;
     in property <length> left-padding: root.horizontal-padding;
@@ -48,28 +44,24 @@ export component ComboBoxBase {
     in property <length> popup-width: root.width;
     in property <length> popup-height: min(root.count, max(1, root.maximum-visible-items)) * root.item-height
         + 2 * root.popup-padding;
-    callback selected(current-value: string);
-    callback highlighted(index: int);
+
+    in-out property <int> current-index: root.count > 0 ? 0 : -1;
+    in-out property <string> current-value: root.indexed-value;
+
+    out property <int> count: root.model.length;
+    out property <int> highlighted-index: root.highlight-index;
+    out property <bool> expanded: popup.opened;
+    out property <bool> has-focus: root.enabled && (keys.has-focus || popup.focused);
+    out property <bool> hovered: root.enabled && pointer.has-hover;
+    out property <bool> pressed: root.enabled && pointer.pressed;
 
     slot background;
     slot content;
     slot indicator;
     slot <ComboBoxPopupSurface> popup;
 
-    private property <int> highlight-index: -1;
-    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
-        ? root.model[root.current-index] : "";
-
-    forward-focus: keys;
-    accessible-role: combobox;
-    accessible-label: "";
-    accessible-enabled: root.enabled;
-    accessible-value: root.current-value;
-    accessible-expandable: root.enabled && root.count > 0;
-    accessible-expanded: root.expanded;
-    accessible-action-default => { root.open(); }
-    accessible-action-expand => { root.open(); }
-    accessible-action-set-value(value) => { root.select(root.model.index-of(value)); }
+    callback selected(current-value: string);
+    callback highlighted(index: int);
 
     public function open() {
         if !root.enabled || root.count == 0 || root.expanded { return; }
@@ -102,6 +94,10 @@ export component ComboBoxBase {
         root.selected(root.current-value);
     }
 
+    private property <int> highlight-index: -1;
+    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
+        ? root.model[root.current-index] : "";
+
     function update-current-value() {
         root.current-value = root.indexed-value;
     }
@@ -112,13 +108,6 @@ export component ComboBoxBase {
             root.update-current-value();
         }
     }
-
-    init => {
-        root.synchronize-value();
-        if root.current-index < -1 || root.current-index >= root.count { root.synchronize-model(); }
-    }
-    changed current-index => { root.synchronize-model(); }
-    changed current-value => { root.synchronize-value(); }
 
     function synchronize-model() {
         if root.count == 0 {
@@ -133,11 +122,6 @@ export component ComboBoxBase {
         }
         root.update-current-value();
     }
-    changed model => { root.synchronize-model(); }
-    changed count => { root.synchronize-model(); }
-    changed indexed-value => { root.synchronize-model(); }
-    changed enabled => { if !root.enabled { popup.close(); } }
-    changed has-focus => { if !root.has-focus && root.expanded { popup.close(); } }
 
     function handle-key(event: KeyEvent) -> EventResult {
         if !root.enabled || root.count == 0 || event.modifiers.control { return reject; }
@@ -178,6 +162,30 @@ export component ComboBoxBase {
         else if next != root.current-index { root.select(next); }
         return accept;
     }
+
+    forward-focus: keys;
+    accessible-role: combobox;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-value: root.current-value;
+    accessible-expandable: root.enabled && root.count > 0;
+    accessible-expanded: root.expanded;
+    accessible-action-default => { root.open(); }
+    accessible-action-expand => { root.open(); }
+    accessible-action-set-value(value) => { root.select(root.model.index-of(value)); }
+
+    init => {
+        root.synchronize-value();
+        if root.current-index < -1 || root.current-index >= root.count { root.synchronize-model(); }
+    }
+    changed current-index => { root.synchronize-model(); }
+    changed current-value => { root.synchronize-value(); }
+
+    changed model => { root.synchronize-model(); }
+    changed count => { root.synchronize-model(); }
+    changed indexed-value => { root.synchronize-model(); }
+    changed enabled => { if !root.enabled { popup.close(); } }
+    changed has-focus => { if !root.has-focus && root.expanded { popup.close(); } }
 
     background { }
 

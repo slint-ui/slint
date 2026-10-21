@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    LineEdit,
     LineEditStyle,
     LineEditStateStyle,
     LineEditStyles,
-    LineEditMetrics,
-    LineEditSizes,
     BasicTheme,
 } from "../src/basic.slint";
 import { LineEditBase } from "../src/headless.slint";
+import { PreviewLineEdit } from "preview_controls.slint";
 import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
@@ -19,7 +17,6 @@ export component LineEditExamples inherits Rectangle {
     in property <LineEditStyle> preview-style: LineEditStyles.standard;
     in-out property <int> size-index: 1;
     in-out property <bool> preview-disabled;
-    private property <LineEditMetrics> preview-size: [LineEditSizes.small, LineEditSizes.medium, LineEditSizes.large][clamp(root.size-index, 0, 2)];
     private property <LineEditStateStyle> green-field-colors: {
         background-color: #f0fdfa,
         foreground-color: #0f766e,
@@ -43,9 +40,9 @@ export component LineEditExamples inherits Rectangle {
             description: "Editable, disabled, read-only, and password fields using BasicTheme.";
             HorizontalLayout {
                 spacing: 16px;
-                name-field := LineEdit {
+                name-field := PreviewLineEdit {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Name";
                     placeholder-text: "Enter a name";
@@ -65,9 +62,9 @@ export component LineEditExamples inherits Rectangle {
                     accepted(value) => { root.submissions += 1; root.last-value = value; }
                 }
 
-                LineEdit {
+                PreviewLineEdit {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     accessible-label: "Disabled field";
                     text: "Disabled";
                     enabled: false;
@@ -76,18 +73,18 @@ export component LineEditExamples inherits Rectangle {
 
             HorizontalLayout {
                 spacing: 16px;
-                LineEdit {
+                PreviewLineEdit {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Read-only field";
                     text: "Read-only text";
                     read-only: true;
                 }
 
-                LineEdit {
+                PreviewLineEdit {
                     style: root.preview-style;
-                    size: root.preview-size;
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Password";
                     placeholder-text: "Enter a password";
@@ -117,8 +114,8 @@ export component LineEditExamples inherits Rectangle {
             description: "Override style properties, supply headless visuals, or add leading and trailing content.";
             HorizontalLayout {
                 spacing: 16px;
-                LineEdit {
-                    size: root.preview-size;
+                PreviewLineEdit {
+                    size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     accessible-label: "Color override field";
                     placeholder-text: "Green field";
@@ -163,22 +160,22 @@ export component LineEditExamples inherits Rectangle {
                 }
             }
 
-            LineEdit {
+            file-name := PreviewLineEdit {
                 style: root.preview-style;
-                size: root.preview-size;
+                size-index: root.size-index;
                 enabled: !root.preview-disabled;
                 accessible-label: "File name";
                 placeholder-text: "my-component";
                 leading << Text {
                     text: "File:";
                     color: BasicTheme.disabled-foreground;
-                    font-size: root.preview-size.font-size;
+                    font-size: file-name.font-size;
                     vertical-alignment: center;
                 }
                 trailing << Text {
                     text: ".slint";
                     color: BasicTheme.disabled-foreground;
-                    font-size: root.preview-size.font-size;
+                    font-size: file-name.font-size;
                     vertical-alignment: center;
                 }
             }

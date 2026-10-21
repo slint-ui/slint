@@ -12,7 +12,9 @@ export component TestCase inherits Window {
     in-out property <int> weight: 400;
     in-out property <bool> italic;
     in-out property <bool> controls-enabled: true;
-    out property <int> selected-weight: combo.size.selected-item-font-weight;
+    in-out property <length> field-padding <=> combo.vertical-padding;
+    in-out property <length> row-padding <=> combo.item-vertical-padding;
+    out property <int> selected-weight: combo.selected-item-font-weight;
     out property <length> row-height: combo.item-height;
     out property <bool> test: combo.current-index == 0 && field.text == "";
     public function open-popup() { combo.open(); }
@@ -134,6 +136,16 @@ for (family, size, weight, italic) in [("serif", 20., 700, true), ("monospace", 
         assert_eq!(row.size().height, instance.get_row_height());
         assert!(row.size().height >= size);
     }
+}
+let row_height = instance.get_row_height();
+instance.set_field_padding(12.);
+assert_eq!(instance.get_row_height(), row_height);
+instance.set_row_padding(10.);
+assert_eq!(instance.get_row_height(), row_height + 8.);
+for label in ["Combo one", "Combo two"] {
+    let row = slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|item| item.accessible_role() == Some(slint_testing::AccessibleRole::ListItem)).unwrap();
+    assert_eq!(row.size().height, row_height + 8.);
 }
 instance.invoke_close_popup();
 ```
