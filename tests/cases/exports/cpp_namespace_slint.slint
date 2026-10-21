@@ -1,0 +1,26 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//cpp-namespace: my::slint::ui
+//ignore: rust,js,pyi
+struct TestStruct {
+    condition: bool,
+}
+
+export component TestCase inherits Rectangle {
+    in-out property <TestStruct> test_struct;
+    in-out property <string> text;
+}
+
+/*
+```cpp
+auto handle = my::slint::ui::TestCase::create();
+const my::slint::ui::TestCase &instance = *handle;
+my::slint::ui::TestStruct test_struct {.condition = true};
+instance.set_test_struct(test_struct);
+assert(instance.get_test_struct() == test_struct);
+instance.set_text("hello");
+assert(instance.get_text() == "hello");
+```
+
+*/
