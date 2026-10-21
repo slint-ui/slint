@@ -803,6 +803,18 @@ pub fn generate(
     config: Config,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<impl std::fmt::Display> {
+    if let Some(namespace) = &config.namespace
+        && namespace.trim_start_matches("::").split("::").next() == Some("slint")
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "The C++ namespace '{namespace}' is reserved for the Slint library; \
+                 use a different top-level namespace"
+            ),
+        ));
+    }
+
     if std::env::var("SLINT_LIVE_PREVIEW").is_ok() {
         return super::cpp_live_preview::generate(doc, config, compiler_config);
     }
