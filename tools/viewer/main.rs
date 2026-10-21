@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 
+mod debug;
 mod screenshot;
 
 #[cfg(feature = "remote")]
@@ -338,7 +339,7 @@ fn select_backend(backend: Option<&str>) -> Result<()> {
 fn install_log_message_handler() -> Result<()> {
     let _ = i_slint_backend_selector::with_global_context(|ctx| {
         ctx.set_log_message_handler(Some(Box::new(move |message| {
-            i_slint_live_preview::debug_log::trace_debug_message(&message);
+            debug::log_message_handler(&message);
         })))
     })?;
     Ok(())

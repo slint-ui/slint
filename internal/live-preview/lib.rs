@@ -17,9 +17,6 @@ pub mod file_watcher;
 #[cfg(feature = "live-component")]
 pub mod live_component;
 
-#[cfg(any(feature = "live-component", feature = "preview-session"))]
-pub mod debug_log;
-
 #[cfg(feature = "preview-session")]
 pub mod preview_sessions;
 

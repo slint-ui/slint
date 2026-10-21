@@ -2339,7 +2339,6 @@ dependencies = [
  "i-slint-core",
  "notify",
  "slint-interpreter",
- "tracing",
 ]
 
 [[package]]

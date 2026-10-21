@@ -1,13 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{collections::HashSet, rc::Weak, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, rc::Weak, sync::Arc};
 
 use i_slint_core::textlayout::sharedparley::fontique;
 use lsp_types::Url;
 use slint_interpreter::ComponentInstance;
 
-use crate::debug_log::trace_debug_message;
 use crate::inspector::InspectorOverlay;
 use crate::preview_sessions::PreviewSessionEvent;
 use crate::protocol::{PreviewComponent, PreviewToLsp, PreviewToLspMessage};
@@ -41,12 +40,23 @@ impl DebugAgent {
     ) -> Result<Self, slint_interpreter::PlatformError> {
         i_slint_backend_selector::with_global_context(|context| {
             context.set_log_message_handler(Some(Box::new(move |message| {
-                let location = trace_debug_message(&message);
+                let arguments = message.message_arguments();
+                let location = message
+                    .location()
+                    .map(|location| (PathBuf::from(location.path), location.line, location.column));
+                if let Some((file, line, column)) = &location {
+                    tracing::info!(
+                        "DEBUG {file}:{line}:{column}> {arguments}",
+                        file = file.display()
+                    );
+                } else {
+                    tracing::info!("DEBUG> {arguments}");
+                }
                 let Some(to_editor) = to_editor.upgrade() else { return };
                 to_editor
                     .send(&PreviewToLspMessage::DebugMessage {
                         location,
-                        message: message.message_arguments().to_string(),
+                        message: arguments.to_string(),
                     })
                     .ok();
             })))
