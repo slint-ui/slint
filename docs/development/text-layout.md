@@ -144,15 +144,25 @@ Configure Fontconfig before Slint creates the backend.
 
 `Style`, `FormattedSpan`, and `StyledTextParagraph` live in `internal/common/styled_text.rs` and are available without parsing support.
 A paragraph contains text, styles applied to byte ranges, and link destinations.
+`quote_depth` counts the block quotes the paragraph is nested in.
 `internal/core/styled_text.rs` provides the public `StyledText` API and FFI.
 
 `StyledText::from_plain_text()` creates a paragraph without parsing.
 `StyledText::from_markdown()` parses formatting and reports failures as `StyledTextFromMarkdownError`.
-The parser supports emphasis, strong text, strikethrough, inline code, links, lists, and line breaks.
+The parser supports emphasis, strong text, strikethrough, inline code, links, lists, nested block quotes, and line breaks.
 It also supports HTML underline and span colors.
 
 The common crate's `markdown` feature enables Markdown/HTML parsing; `i-slint-core/std` enables that feature.
 In the Parley path, `sharedparley/shaping.rs` maps spans to Parley styles, and `draw.rs` renders decorations and selections.
+
+### Block Quotes
+
+A quoted paragraph's lines start at an x offset of `quote_depth` times `QUOTE_INDENT_EM` font sizes.
+See `TextParagraph::x` in `internal/core/textlayout/sharedparley/shaping.rs`.
+Line breaking, the max width, content widths, elision and link hit-testing all account for the offset.
+Drawing translates the renderer by the offset, so glyph runs and decorations stay in paragraph coordinates.
+`draw_quote_bars` in `sharedparley/draw.rs` draws one bar per level beside the drawn lines.
+Renderers without parley show each level as a `> ` prefix; see `get_raw_text` in `internal/core/styled_text.rs`.
 
 ## Legacy Software Text Layout
 
