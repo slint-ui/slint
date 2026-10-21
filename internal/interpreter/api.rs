@@ -1993,6 +1993,18 @@ impl ComponentInstance {
 
     #[doc(hidden)]
     #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub fn snapping_geometry(
+        &self,
+        path: &SourcePath,
+        offset: u32,
+        instance_index: usize,
+        _: i_slint_core::InternalToken,
+    ) -> Option<crate::snapping::SnappingGeometry> {
+        crate::snapping::snapping_geometry(self.inner.vrc(), path, offset, instance_index)
+    }
+
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
     pub fn component_item(
         &self,
         path: &SourcePath,

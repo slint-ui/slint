@@ -57,6 +57,7 @@ mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub(crate) mod settings;
+mod snapping;
 #[cfg(feature = "system-testing")]
 mod test_sync;
 pub mod ui;
