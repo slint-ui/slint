@@ -340,7 +340,8 @@ pub fn link_under_cursor(
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
-        let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
+        // Where the paragraph is drawn: `y_offset` carries the vertical alignment.
+        let paragraph_y: f64 = (layout.y_offset + paragraph.y).cast::<f64>().get();
 
         paragraph
             .links
