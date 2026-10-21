@@ -6,12 +6,13 @@ import { Api, Hover, DropLocation, EditorSurfaceMode, ElementKind, OutlineTreeNo
 import { DragPreview } from "drag-preview.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
-import { AppState, SectionTitle } from "index.slint";
+import { AppState, PrimerTextInput, SectionTitle } from "index.slint";
 
 export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    property <bool> has-outline: root.outline-data.length > 0 || Api.outline-filter != "";
     private property <Point> palette-pointer: AppState.palette-drag-pointer-position;
     out property <bool> palette-drag-in-outline: !root.image-mode && root.outline-data.length > 0
         && AppState.palette-drag-kind != ElementKind.none
@@ -39,13 +40,29 @@ export component OutlinePane inherits Rectangle {
             }
         }
 
+        if !root.image-mode && root.has-outline: HorizontalLayout {
+            padding-left: Metrics.space-medium;
+
+            PrimerTextInput {
+                text <=> Api.outline-filter;
+                placeholder: @tr("Search outline…");
+                accessible-name: @tr("Search outline");
+                background: Colors.subtle;
+                changed text => {
+                    Api.outline-filter-changed();
+                }
+            }
+        }
+
         if root.image-mode || root.outline-data.length == 0: Rectangle {
             vertical-stretch: 1;
 
             Text {
                 x: Metrics.space-large;
                 width: parent.width - 2 * Metrics.space-large;
-                text: root.image-mode ? @tr("Nothing to Outline") : @tr("No outline available");
+                text: root.image-mode ? @tr("Nothing to Outline")
+                    : root.has-outline ? @tr("No Results")
+                    : @tr("No outline available");
                 color: Colors.muted;
                 font-size: Typography.control.size;
                 horizontal-alignment: center;

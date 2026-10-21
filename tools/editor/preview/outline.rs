@@ -130,12 +130,50 @@ impl<T: Tree> Model for TreeAdapterModel<T> {
 
 struct OutlineModel {
     root_component: Rc<object_tree::Component>,
+    filter: String,
 }
 
 impl OutlineModel {
-    pub fn new(root_component: Rc<object_tree::Component>) -> Self {
-        Self { root_component }
+    pub fn new(root_component: Rc<object_tree::Component>, filter: &str) -> Self {
+        Self { root_component, filter: filter.trim().to_lowercase() }
     }
+
+    fn matches(&self, text: &str) -> bool {
+        text.to_lowercase().contains(&self.filter)
+    }
+
+    fn subtree_matches(&self, elem: &syntax_nodes::Element) -> bool {
+        child_elements(elem).any(|(elem, id)| {
+            let base = elem.QualifiedName().map(|x| x.text().to_string()).unwrap_or_default();
+            self.matches(&base) || self.matches(&id) || self.subtree_matches(&elem)
+        })
+    }
+}
+
+fn child_elements(
+    elem: &syntax_nodes::Element,
+) -> impl Iterator<Item = (syntax_nodes::Element, SharedString)> {
+    elem.children().filter_map(|n| {
+        let se = match n.kind() {
+            parser::SyntaxKind::SubElement => syntax_nodes::SubElement::from(n),
+            parser::SyntaxKind::RepeatedElement => {
+                syntax_nodes::RepeatedElement::from(n).SubElement()
+            }
+            parser::SyntaxKind::ConditionalElement => {
+                syntax_nodes::ConditionalElement::from(n).SubElement()
+            }
+            _ => return None,
+        };
+        let elem = se.Element();
+        if i_slint_editor_preview::is_element_node_ignored(&elem) {
+            return None;
+        }
+        let id = se
+            .child_text(parser::SyntaxKind::Identifier)
+            .map(|x| x.to_shared_string())
+            .unwrap_or_default();
+        Some((elem, id))
+    })
 }
 
 impl Tree for OutlineModel {
@@ -149,8 +187,14 @@ impl Tree for OutlineModel {
     fn children(&self, parent: Option<&Self::Id>) -> impl Iterator<Item = Self::Id> {
         match parent {
             None => {
-                let root = self.root_component.node.as_ref().map(|n| {
+                let root = self.root_component.node.as_ref().and_then(|n| {
                     let elem = n.Element();
+                    if !self.filter.is_empty()
+                        && !self.matches(&n.DeclaredIdentifier().text().to_string())
+                        && !self.subtree_matches(&elem)
+                    {
+                        return None;
+                    }
                     let base_type = elem.QualifiedName().map(|base| base.text().to_shared_string());
                     let name = match elem.QualifiedName() {
                         None => n.DeclaredIdentifier().text().to_shared_string(),
@@ -164,40 +208,30 @@ impl Tree for OutlineModel {
                         base_type.as_deref().unwrap_or_default(),
                     );
                     let data = create_node(&elem, 0, name, Default::default(), icon_kind);
-                    (elem, data)
+                    Some((elem, data))
                 });
                 itertools::Either::Left(root.into_iter())
             }
             Some(parent) => {
                 let indent_level = parent.1.indent_level + 1;
-                let mut iter = parent
-                    .0
-                    .children()
-                    .filter_map(move |n| {
-                        let se = match n.kind() {
-                            parser::SyntaxKind::SubElement => syntax_nodes::SubElement::from(n),
-                            parser::SyntaxKind::RepeatedElement => {
-                                syntax_nodes::RepeatedElement::from(n).SubElement()
-                            }
-                            parser::SyntaxKind::ConditionalElement => {
-                                syntax_nodes::ConditionalElement::from(n).SubElement()
-                            }
-                            _ => return None,
-                        };
-                        let elem = se.Element();
-                        if i_slint_editor_preview::is_element_node_ignored(&elem) {
-                            return None;
-                        }
+                let mut iter = child_elements(&parent.0)
+                    .filter_map(move |(elem, id)| {
                         let base = elem
                             .QualifiedName()
                             .map(|x| SharedString::from(x.text().to_string().trim()))
                             .unwrap_or_default();
-                        let id = se
-                            .child_text(parser::SyntaxKind::Identifier)
-                            .map(|x| x.to_shared_string())
-                            .unwrap_or_default();
+                        if !self.filter.is_empty()
+                            && !self.matches(&base)
+                            && !self.matches(&id)
+                            && !self.subtree_matches(&elem)
+                        {
+                            return None;
+                        }
                         let icon_kind = super::element_catalog::kind_for_type(base.as_str());
-                        let node = create_node(&elem, indent_level, base, id, icon_kind);
+                        let mut node = create_node(&elem, indent_level, base, id, icon_kind);
+                        if !self.filter.is_empty() {
+                            node.has_children = self.subtree_matches(&elem);
+                        }
                         Some((elem, node))
                     })
                     .peekable();
@@ -256,9 +290,19 @@ fn create_node(
     }
 }
 
+thread_local!(static OUTLINE_ROOT: RefCell<Option<Rc<object_tree::Component>>> = const { RefCell::new(None) });
+
 pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::Component>>) {
-    match root_component {
-        Some(root) => api.set_outline(ModelRc::new(TreeAdapterModel::new(OutlineModel::new(root)))),
+    OUTLINE_ROOT.set(root_component);
+    apply_outline_filter(api);
+}
+
+fn apply_outline_filter(api: &ui::Api<'_>) {
+    match OUTLINE_ROOT.with_borrow(Clone::clone) {
+        Some(root) => api.set_outline(ModelRc::new(TreeAdapterModel::new(OutlineModel::new(
+            root,
+            &api.get_outline_filter(),
+        )))),
         None => api.set_outline(Default::default()),
     }
 }
@@ -275,6 +319,12 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
                 super::SelectionNotification::Never
             },
         );
+    });
+    let api_weak_filter = api_weak.clone();
+    api.on_outline_filter_changed(move || {
+        if let Some(api) = api_weak_filter.upgrade() {
+            apply_outline_filter(&api);
+        }
     });
     api.on_outline_set_expanded(move |row, expanded| {
         let Some(api) = api_weak.upgrade() else {
@@ -472,4 +522,58 @@ fn can_drop(
             does_compile
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_editor_preview::test;
+
+    fn outline(filter: &str) -> Vec<(i32, String, String)> {
+        let (document_cache, url, _) = test::loaded_document_cache(
+            r#"
+export component Main {
+    VerticalLayout {
+        title := Text { }
+        HorizontalLayout {
+            ok-button := Rectangle { }
+            Text { }
+        }
+    }
+    Image { }
+}
+"#
+            .into(),
+        );
+        let root = document_cache.get_document(&url).unwrap().inner_components.last().unwrap();
+        TreeAdapterModel::new(OutlineModel::new(root.clone(), filter))
+            .iter()
+            .map(|n| (n.indent_level, n.element_type.to_string(), n.element_id.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn filter_keeps_matches_and_ancestors() {
+        assert_eq!(outline("").len(), 7);
+        assert_eq!(
+            outline(" BUTTON "),
+            [
+                (0, "Main".into(), "".into()),
+                (1, "VerticalLayout".into(), "".into()),
+                (2, "HorizontalLayout".into(), "".into()),
+                (3, "Rectangle".into(), "ok-button".into()),
+            ]
+        );
+        assert_eq!(
+            outline("text"),
+            [
+                (0, "Main".into(), "".into()),
+                (1, "VerticalLayout".into(), "".into()),
+                (2, "Text".into(), "title".into()),
+                (2, "HorizontalLayout".into(), "".into()),
+                (3, "Text".into(), "".into()),
+            ]
+        );
+        assert!(outline("nothing").is_empty());
+    }
 }

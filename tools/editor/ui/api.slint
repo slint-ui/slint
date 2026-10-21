@@ -561,6 +561,8 @@ export global Api {
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
+    in-out property <string> outline-filter;
+    callback outline-filter-changed();
     callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     callback outline-set-expanded(row: int, expanded: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
