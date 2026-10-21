@@ -710,7 +710,7 @@ fn compile_resolved(
                     .unwrap_or_default(),
             )
         },
-        |project_file| project_file.source_path().to_owned(),
+        |project_file| project_file.source_path().as_native_path().unwrap().to_owned(),
     ));
 
     for er in doc.embedded_file_resources.borrow().iter() {
@@ -872,7 +872,10 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
             config.library_paths,
             HashMap::from([("widgets".to_string(), test_root.join("project-lib.slint"))])
         );
-        assert_eq!(project_file.unwrap().source_path(), project_file_path_in(&test_root));
+        assert_eq!(
+            project_file.unwrap().source_path().as_native_path().unwrap(),
+            project_file_path_in(&test_root)
+        );
     });
 }
 

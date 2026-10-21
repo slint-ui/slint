@@ -7,9 +7,10 @@
 //! layout info expressions and `init_code` blocks.
 //! Resolves `MemberReference`s by walking the sub-component parent chain.
 
-use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
 use crate::instance::{RepeaterOrConditional, SubComponentInstance};
+use crate::prelude::*;
+use alloc::rc::Weak;
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_types::MinMaxOp;
@@ -24,11 +25,7 @@ use i_slint_core::graphics::{
 use i_slint_core::item_tree::ItemRc;
 use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
-use i_slint_core::{Color, SharedString, SharedVector, SlintContext};
-use smol_str::SmolStr;
-use std::collections::HashMap;
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
+use i_slint_core::{Color, SharedString, SharedVector};
 
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
@@ -94,9 +91,7 @@ impl EvalContext {
 
 /// The root instance, for builtins that need the window.
 /// In a global context, reach it through the global storage.
-fn root_instance(
-    ctx: &EvalContext,
-) -> Option<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>> {
+fn root_instance(ctx: &EvalContext) -> Option<VRc<ItemTreeVTable, Instance>> {
     match ctx.current.as_ref() {
         Some(c) => c.root.get()?.upgrade(),
         None => ctx.globals.upgrade()?.root.get()?.upgrade(),
@@ -267,7 +262,7 @@ fn eval_array_row_predicate(
 
 /// Set `value` on `prop`, interpolating through `animation` when present.
 fn set_maybe_animated(
-    prop: Pin<&i_slint_core::Property<Value>>,
+    prop: Pin<&Property<Value>>,
     ty: &Type,
     value: Value,
     animation: Option<i_slint_core::items::PropertyAnimation>,
@@ -903,11 +898,11 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                         .iter_enumerated()
                         .find(|(_, p)| p.name.as_str() == "model_index")
                         .map(|(idx, _)| {
-                            let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
+                            let v = Pin::as_ref(&walker.properties[idx]).get();
                             f64::try_from(v).unwrap_or(0.) as usize
                         })
                         .unwrap_or(0);
-                    let parent_pinned = std::pin::Pin::new(parent);
+                    let parent_pinned = Pin::new(parent);
                     let repeater = &parent_pinned.repeaters[*repeater_idx];
                     repeater.model_set_row_data(row, new_value);
                 }
@@ -1165,7 +1160,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
 fn with_layout_item_info(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
+    elements: &[either::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
     orientation: i_slint_compiler::expression_types::Orientation,
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
@@ -1181,8 +1176,8 @@ fn with_layout_item_info(
     let mut repeater_steps: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 let offset = cells.len() as u32;
                 let (instances, step) = push_repeater_layout_items(
                     ctx,
@@ -1332,7 +1327,7 @@ fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usiz
 }
 
 fn total_row_child_count(
-    sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
+    sub: &Pin<Rc<crate::instance::SubComponentInstance>>,
     templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
 ) -> usize {
     use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
@@ -1365,7 +1360,7 @@ fn with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
     flex_props_variable: Option<&str>,
-    elements: &[itertools::Either<
+    elements: &[either::Either<
         (Expression, Expression, Expression),
         i_slint_compiler::llr::LayoutRepeatedElement,
     >],
@@ -1382,7 +1377,7 @@ fn with_flexbox_layout_item_info(
     let mut repeated_indices: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left((h, v, props)) => {
+            either::Either::Left((h, v, props)) => {
                 cells_h.push(eval_expression(ctx, h));
                 cells_v.push(eval_expression(ctx, v));
                 // With no flex-props variable the sub-expression only reads the
@@ -1392,7 +1387,7 @@ fn with_flexbox_layout_item_info(
                     flex_props.push(eval_expression(ctx, props));
                 }
             }
-            itertools::Either::Right(repeater) => {
+            either::Either::Right(repeater) => {
                 let offset = cells_h.len() as u32;
                 let instances = push_repeater_flexbox_items(
                     ctx,
@@ -1497,7 +1492,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
 fn with_grid_input_data(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
+    elements: &[either::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
     sub_expression: &Expression,
 ) -> Value {
     // `repeated_indices` holds `(offset, len)` pairs into `cells`,
@@ -1513,8 +1508,8 @@ fn with_grid_input_data(
 
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(repeater.new_row));
                 let offset = cells.len() as u32;
                 let is_row_repeater = repeater.row_child_templates.is_some();
@@ -1574,9 +1569,9 @@ fn push_repeater_grid_input_data(
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
+    use Rc;
     use i_slint_compiler::llr::RowChildTemplateInfo;
     use i_slint_core::model::VecModel;
-    use std::rc::Rc;
     let Some(current) = ctx.current.as_ref() else { return (0, 0) };
     let repeater = &current.repeaters[repeater_idx];
     repeater.track_instance_changes();
@@ -1936,7 +1931,7 @@ fn grid_repeater_cache_access(
 /// The location of a builtin function call in the .slint source, which the log
 /// messages it emits borrow through [`LogLocation::get`].
 struct LogLocation<'a> {
-    path: std::borrow::Cow<'a, str>,
+    path: alloc::borrow::Cow<'a, str>,
     line: usize,
     column: usize,
 }
@@ -2117,7 +2112,7 @@ fn call_builtin_function(
                     let Some((instance, index)) = resolve_item_rc_from_ref(ctx, element) else {
                         return default_value_for_type(&f.ty().return_type);
                     };
-                    Some(ItemRc::new(vtable::VRc::into_dyn(instance), index as u32))
+                    Some(ItemRc::new(VRc::into_dyn(instance), index as u32))
                 }
                 None => None,
             };
@@ -2228,16 +2223,14 @@ fn call_builtin_function(
             // window that the window adapter points at.
             let size = root_instance(ctx)
                 .map(|inst| {
-                    i_slint_core::items::WindowItem::resolved_default_font_size(
-                        vtable::VRc::into_dyn(inst),
-                    )
-                    .get() as f64
+                    i_slint_core::items::WindowItem::resolved_default_font_size(VRc::into_dyn(inst))
+                        .get() as f64
                 })
                 .unwrap_or(12.0);
             Value::Number(size)
         })(),
         BuiltinFunction::ColorScheme => (|| {
-            let root = root_instance(ctx).map(vtable::VRc::into_dyn);
+            let root = root_instance(ctx).map(VRc::into_dyn);
             component_context(ctx).color_scheme(root.as_ref()).into()
         })(),
         BuiltinFunction::SupportsNativeMenuBar => (|| {
@@ -2372,7 +2365,7 @@ fn call_builtin_function(
                 && let Some(adapter) = inst.window_adapter_or_default()
             {
                 let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
+                    i_slint_core::items::ItemRc::new(VRc::into_dyn(inst), flat_idx as u32);
                 return item_rc
                     .borrow()
                     .as_ref()
@@ -2460,7 +2453,7 @@ fn call_builtin_function(
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
             {
-                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let dyn_rc = VRc::into_dyn(inst);
                 let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
                 i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
                     &item_rc,
@@ -2475,7 +2468,7 @@ fn call_builtin_function(
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
             {
-                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let dyn_rc = VRc::into_dyn(inst);
                 let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
                 i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
                     &item_rc,
@@ -2534,7 +2527,7 @@ fn call_builtin_function(
                 let behavior: ScrollBehavior =
                     eval_expression(ctx, behavior).try_into().unwrap_or_default();
                 let flickable_rc = i_slint_core::items::ItemRc::new(
-                    vtable::VRc::into_dyn(flickable_instance),
+                    VRc::into_dyn(flickable_instance),
                     flat_idx as u32,
                 );
                 repeater.as_ref().listview_ensure_row_visible(row, behavior, &flickable_rc);
@@ -2552,8 +2545,7 @@ fn call_builtin_function(
 pub(crate) fn resolve_item_rc_from_ref(
     ctx: &EvalContext,
     mr: &MemberReference,
-) -> Option<(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>, usize)>
-{
+) -> Option<(VRc<ItemTreeVTable, Instance>, usize)> {
     let MemberReference::Relative { parent_level, local_reference } = mr else { return None };
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
@@ -2568,9 +2560,7 @@ pub(crate) fn resolve_item_rc_from_ref(
 /// Walk up the parent chain from the current context to find the root
 /// `Instance` of the public component. A repeated or conditional sub-tree
 /// doesn't have its own window adapter or public component index.
-pub(crate) fn find_root_instance(
-    ctx: &EvalContext,
-) -> Option<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>> {
+pub(crate) fn find_root_instance(ctx: &EvalContext) -> Option<VRc<ItemTreeVTable, Instance>> {
     let current = ctx.current.as_ref()?;
     let mut sub = current.clone();
     loop {
@@ -2592,10 +2582,10 @@ pub(crate) fn find_window_adapter(
     find_root_instance(ctx)?.window_adapter_or_default()
 }
 
-pub(crate) fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext {
+pub(crate) fn component_context(ctx: &EvalContext) -> SlintContext {
     match ctx.globals.upgrade() {
         Some(globals) => globals.context.clone(),
-        None => i_slint_core::SlintContext::current()
+        None => SlintContext::current()
             .expect("a component is being evaluated, so there is a current context"),
     }
 }

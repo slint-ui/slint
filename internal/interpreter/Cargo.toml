@@ -180,12 +180,12 @@ i-slint-backend-selector = { workspace = true, features = ["rtti"] }
 vtable = { workspace = true }
 
 derive_more = { workspace = true, features = ["std", "error"] }
+either = { version = "1.13", default-features = false }
 lyon_path = { workspace = true }
 serde_json = { workspace = true, optional = true }
 document-features = { version = "0.2.0", optional = true }
 spin_on = { workspace = true, optional = true }
 raw-window-handle-06 = { workspace = true, optional = true }
-itertools = { workspace = true }
 smol_str = { workspace = true }
 typed-index-collections = { workspace = true }
 

@@ -9,20 +9,15 @@
 //! (including nested ones) and copying its LLR entries onto the runtime
 //! allocations.
 
-use crate::Value;
 use crate::eval::{EvalContext, eval_expression};
-use crate::instance::{Instance, SubComponentInstance};
+use crate::instance::SubComponentInstance;
+use crate::prelude::*;
+use alloc::rc::Weak;
 use i_slint_compiler::llr::{
     self, Animation, Expression, LocalMemberIndex, MemberReference, MutExpression, SubComponent,
 };
-use i_slint_core::Property;
 use i_slint_core::items::PropertyAnimation;
 use i_slint_core::rtti::AnimatedBindingKind;
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
-use vtable::VRc;
-
-use i_slint_core::item_tree::ItemTreeVTable;
 
 /// Install every binding declared by the LLR on `instance`, skipping
 /// `init_code`; call [`run_init_code_for_instance`] separately.
@@ -126,7 +121,7 @@ fn install_timers(sub: &Pin<Rc<SubComponentInstance>>, weak_sub: &Weak<SubCompon
                     }
                     continue;
                 }
-                let interval = std::time::Duration::from_millis(interval_ms as u64);
+                let interval = core::time::Duration::from_millis(interval_ms as u64);
                 let Some(timer) = owner.timers.get(idx) else { continue };
                 if timer.running() && timer.interval() == interval {
                     continue;
@@ -529,7 +524,7 @@ fn install_two_way_binding(
     sub: &Pin<Rc<SubComponentInstance>>,
 ) {
     let a: MemberReference = twb.prop1.clone().into();
-    let field_path: &[smol_str::SmolStr] = &twb.field_access;
+    let field_path: &[SmolStr] = &twb.field_access;
     let Some(pa) = prepare_two_way(&a, sub) else { return };
 
     if let Some(index_prop) = twb.is_model {
@@ -545,11 +540,11 @@ fn install_two_way_binding(
         };
         let body = walk_parent(sub, *parent_level);
         let body_weak = Rc::downgrade(&Pin::into_inner(body));
-        let path_get: Vec<smol_str::SmolStr> = field_path.to_vec();
+        let path_get: Vec<SmolStr> = field_path.to_vec();
         let path_set = path_get.clone();
         pa.as_ref().link_two_way_to_model_data(
             body_weak,
-            move |body_weak: &std::rc::Weak<SubComponentInstance>| {
+            move |body_weak: &Weak<SubComponentInstance>| {
                 let body = Pin::new(body_weak.upgrade()?);
                 let data = Pin::as_ref(&body.properties[data_prop]).get();
                 if path_get.is_empty() {
@@ -558,7 +553,7 @@ fn install_two_way_binding(
                     extract_field(data, &path_get).filter(|v| !matches!(v, Value::Void))
                 }
             },
-            move |body_weak: &std::rc::Weak<SubComponentInstance>, value: &Value| {
+            move |body_weak: &Weak<SubComponentInstance>, value: &Value| {
                 let Some(body) = body_weak.upgrade().map(Pin::new) else { return };
                 let Some((parent_weak, rep_idx)) = body.repeated_in.get() else { return };
                 let Some(parent) = parent_weak.upgrade().map(Pin::new) else { return };
@@ -598,7 +593,7 @@ fn install_two_way_binding(
     // `pa` is the leaf property; `pb` is the struct that contains it.
     // Map the struct value through `field_path` when reading and write
     // back into the same field path when the leaf changes.
-    let path: Vec<smol_str::SmolStr> = field_path.to_vec();
+    let path: Vec<SmolStr> = field_path.to_vec();
     let path_get = path.clone();
     let path_set = path.clone();
     // A struct value read before its binding ran (or set with missing
@@ -622,7 +617,7 @@ fn install_two_way_binding(
 }
 
 /// Walk `s.path[0].path[1]...` and return the leaf field.
-fn extract_field(value: Value, path: &[smol_str::SmolStr]) -> Option<Value> {
+fn extract_field(value: Value, path: &[SmolStr]) -> Option<Value> {
     let mut current = value;
     for p in path {
         let Value::Struct(s) = current else { return None };
@@ -632,7 +627,7 @@ fn extract_field(value: Value, path: &[smol_str::SmolStr]) -> Option<Value> {
 }
 
 /// Walk `s.path[0].path[1]...` and write `new_leaf` into the leaf field.
-fn replace_field(s: &mut Value, path: &[smol_str::SmolStr], new_leaf: Value) {
+fn replace_field(s: &mut Value, path: &[SmolStr], new_leaf: Value) {
     if path.is_empty() {
         *s = new_leaf;
         return;
@@ -679,7 +674,7 @@ fn member_property_ty(
 /// Descend `path` through struct field types, starting at `ty`.
 fn field_leaf_ty(
     mut ty: i_slint_compiler::langtype::Type,
-    path: &[smol_str::SmolStr],
+    path: &[SmolStr],
 ) -> i_slint_compiler::langtype::Type {
     for f in path {
         let i_slint_compiler::langtype::Type::Struct(s) = &ty else { break };

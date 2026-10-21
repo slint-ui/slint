@@ -129,7 +129,7 @@ impl<T> Drop for ReentryGuardLock<'_, T> {
 
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<string>;
+type ImportCallbackFunction = (url: string) => Promise<string | null>;
 type SendRequestFunction = (method: string, r: any) => Promise<any>;
 type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;
@@ -436,7 +436,12 @@ impl SlintServer {
     pub async fn close_document(&self, uri: JsValue) -> JsResult<JsValue> {
         let mut ctx = self.ctx.lock().await;
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
-        ctx.session.close_document(uri).await.map_err(|e| JsError::new(&e.to_string()))?;
+        let diagnostics = ctx
+            .session
+            .close_document(uri)
+            .await
+            .map_err(|error| JsError::new(&error.to_string()))?;
+        crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
         Ok(JsValue::UNDEFINED)
     }
 
@@ -469,6 +474,9 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
     let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
     let js_value =
         string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+    if js_value.is_null() {
+        return Err(std::io::Error::new(ErrorKind::NotFound, "File not found"));
+    }
     return Ok(js_value.as_string().unwrap_or_default());
 }
 

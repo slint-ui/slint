@@ -55,7 +55,7 @@ use crate::generator::OutputFormat;
 use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
@@ -81,7 +81,7 @@ pub enum EmbedResourcesKind {
 
 /// This enum specifies the default translation context when no context is explicitly
 /// specified in the `@tr("context" => ...)` macro.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum DefaultTranslationContext {
     /// The default translation context is the component name in which the `@tr` is written.

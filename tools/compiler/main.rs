@@ -302,7 +302,8 @@ fn main() -> std::io::Result<()> {
     if let Some(project_file) = &project_file {
         project_file.apply_to(&mut compiler_config);
         if input_is_project_file {
-            compiler_config.input_project_file = Some(project_file.source_path().to_path_buf());
+            compiler_config.input_project_file =
+                Some(project_file.source_path().as_native_path().unwrap().to_path_buf());
         }
     }
 
@@ -375,7 +376,7 @@ fn main() -> std::io::Result<()> {
         let mut cursor = Cursor::new(Vec::new());
         write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
         if let Some(project_file) = &project_file {
-            write!(cursor, " {}", project_file.source_path().display())?;
+            write!(cursor, " {}", project_file.source_path())?;
         }
         for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
             if x.is_absolute() {

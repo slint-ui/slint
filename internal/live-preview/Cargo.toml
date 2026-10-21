@@ -71,6 +71,7 @@ path = "lib.rs"
 
 [features]
 protocol = [
+  "dep:i-slint-compiler",
   "dep:lsp-types",
   "dep:serde",
   "dep:serde_json",
