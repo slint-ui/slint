@@ -172,7 +172,8 @@ pub(super) fn layout(
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
         para.layout.set_alignment(inputs.alignment, parley::AlignmentOptions::default());
-        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
+        para.layout
+            .break_all_lines(max_physical_width.map(|width| (width - para.x()).get().max(0.0)));
 
         para.y = PhysicalLength::new(para_y);
         para_y += para.layout.height();
@@ -192,7 +193,7 @@ pub(super) fn layout(
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
             // and as such we must also accept the full width here including trailing whitespace, otherwise text with
             // trailing whitespace will assigned a smaller width for rendering and thus the ellipsis will be placed.
-            match line_limit_cut {
+            let width = match line_limit_cut {
                 // In the paragraph where the line limit lands, only the kept lines count towards
                 // the width; `full_width()` would also span the dropped lines below the cut. Per
                 // line, mirror parley's `full_width` formula (Slint doesn't use indentation).
@@ -206,7 +207,8 @@ pub(super) fn layout(
                     })
                     .fold(PhysicalLength::zero(), PhysicalLength::max),
                 _ => PhysicalLength::new(p.layout.full_width()),
-            }
+            };
+            p.x() + width
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
     // With an active line limit, the height only extends to the bottom of the last kept line, so
@@ -539,10 +541,11 @@ impl Layout {
         // When set, place an ellipsis even if the line fits the width. Used when lines below were
         // dropped for the height, so the last visible line signals the vertical truncation.
         force_elision: bool,
+        paragraph_x: PhysicalLength,
     ) -> Option<LineElision> {
         let info = self.elision_info.as_ref()?;
         let ellipsis_advance = info.ellipsis_glyph.advance;
-        let max_width = info.max_physical_width.get();
+        let max_width = (info.max_physical_width - paragraph_x).get();
 
         // parley hangs the trailing whitespace past the line's end edge, which is the left one for
         // right-to-left text. Trailing spaces (e.g. left at a word-wrap break) neither overflow
