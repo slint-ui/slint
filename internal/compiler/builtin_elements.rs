@@ -1288,18 +1288,18 @@ fn build(l: &mut Loader) {
         /// Whether the text can be selected with the mouse.
         /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
         /// A click that doesn't drag still follows a link.
-        /// A change of `text` clears the selection.
-        in property <bool> text-selectable;
+        /// The press takes the focus, and the selection goes when the focus does, as in a `TextInput`,
+        /// so at most one element shows a mouse selection at a time.
+        /// A change of `text` keeps the selection's offsets, clamped to the new text.
+        @shadowable in property <bool> selectable;
         /// The background color of the selection.
-        in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
+        /// \default depends on the style
+        @shadowable in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
         /// The foreground color of the selection.
-        in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
+        /// \default depends on the style
+        @shadowable in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
         /// `true` when text is selected.
-        out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
-        // Private: the byte offsets of the selection. `has-selection` and the
-        // `set-selection-offsets` / `select-all` / `clear-selection` functions work on them.
-        private property <int> anchor-position-byte-offset;
-        private property <int> cursor-position-byte-offset;
+        @shadowable out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
 
         /// Selects the text between two UTF-8 byte offsets.
         /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,

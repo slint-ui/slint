@@ -116,13 +116,13 @@ macro_rules! for_each_builtin_function {
                 text_input.item.has_selection()
             }
             StyledTextSetSelectionOffsets: impure fn styled_text_set_selection_offsets(styled_text: ItemArg<StyledTextItem> => ElementReference, anchor: i32, focus: i32) -> () {
-                with_window_adapter(&styled_text.rc, |w| styled_text.item.set_selection_offsets(w, &styled_text.rc, anchor, focus))
+                styled_text.item.set_selection_offsets(anchor, focus)
             }
             StyledTextSelectAll: impure fn styled_text_select_all(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
-                with_window_adapter(&styled_text.rc, |w| styled_text.item.select_all(w, &styled_text.rc))
+                styled_text.item.select_all()
             }
             StyledTextClearSelection: impure fn styled_text_clear_selection(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
-                with_window_adapter(&styled_text.rc, |w| styled_text.item.clear_selection(w, &styled_text.rc))
+                styled_text.item.clear_selection()
             }
             StyledTextCopy: impure fn styled_text_copy(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
                 with_window_adapter(&styled_text.rc, |w| styled_text.item.copy(w, &styled_text.rc))

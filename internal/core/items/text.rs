@@ -248,60 +248,71 @@ pub struct StyledTextItem {
     pub max_lines: Property<i32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
-    pub text_selectable: Property<bool>,
+    pub selectable: Property<bool>,
     pub selection_background_color: Property<Color>,
     pub selection_foreground_color: Property<Color>,
-    /// Byte offsets into the text as `styled_text::get_raw_text` joins it.
-    pub anchor_position_byte_offset: Property<i32>,
-    pub cursor_position_byte_offset: Property<i32>,
+    /// The selection's ends, as byte offsets into the text as `styled_text::get_raw_text`
+    /// joins it. They aren't in the `.slint` interface: `has-selection` and the selection
+    /// functions work on them. They are clamped to the text wherever they are read, so a
+    /// change of `text` leaves them as they are.
+    anchor_position_byte_offset: Property<i32>,
+    cursor_position_byte_offset: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
-    /// The mouse selection under way, if any.
+    /// The unit of the mouse selection under way, if any.
     #[cfg_attr(not(feature = "shared-parley"), allow(dead_code))]
     mouse_selection: Cell<MouseSelection>,
-    /// `text` as of the last change seen, to tell a changed text from the first evaluation.
-    tracked_text: Cell<crate::styled_text::StyledText>,
-    /// Drops the selection when `text` changes: its offsets would land on the new text.
-    text_change_tracker: crate::properties::ChangeTracker,
 }
 
-/// A mouse selection in a `StyledText` from the press to the release.
-#[repr(C)]
+/// What a mouse selection in a `StyledText` grows by: a press selects by character, a double
+/// click by word and a triple click by paragraph.
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(not(feature = "shared-parley"), allow(dead_code))]
+enum SelectionUnit {
+    Character = 1,
+    Word,
+    Paragraph,
+}
+
+impl SelectionUnit {
+    /// `click_count` counts the clicks before this one at the same spot.
+    #[cfg(feature = "shared-parley")]
+    fn for_click_count(click_count: u8) -> Self {
+        match click_count % 3 {
+            0 => Self::Character,
+            1 => Self::Word,
+            _ => Self::Paragraph,
+        }
+    }
+}
+
+/// An `Option<SelectionUnit>` as a field of the item: cbindgen can't lay an `Option` of an
+/// enum out for the C++ struct, so it is the unit's discriminant, 0 for `None`.
+#[repr(transparent)]
 #[derive(Clone, Copy, Default)]
-struct MouseSelection {
-    /// 0 when none is under way, 1 by character, 2 by word, 3 by paragraph.
-    unit: u8,
-    /// The byte offset pressed on.
-    origin: usize,
-    /// Whether the pointer reached another offset since.
-    moved: bool,
+struct MouseSelection(u8);
+
+#[cfg(feature = "shared-parley")]
+impl MouseSelection {
+    fn get(self) -> Option<SelectionUnit> {
+        match self.0 {
+            1 => Some(SelectionUnit::Character),
+            2 => Some(SelectionUnit::Word),
+            3 => Some(SelectionUnit::Paragraph),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(feature = "shared-parley")]
+impl From<Option<SelectionUnit>> for MouseSelection {
+    fn from(unit: Option<SelectionUnit>) -> Self {
+        Self(unit.map_or(0, |unit| unit as u8))
+    }
 }
 
 impl Item for StyledTextItem {
-    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        // Seeded so that the tracker's first evaluation doesn't count as a change.
-        self.tracked_text.set(self.text());
-        self.text_change_tracker.init_delayed(
-            self_rc.downgrade(),
-            |self_weak| {
-                self_weak
-                    .upgrade()
-                    .and_then(|rc| rc.downcast::<StyledTextItem>())
-                    .map(|item| item.as_pin_ref().text())
-                    .unwrap_or_default()
-            },
-            |self_weak, new_text| {
-                let Some(item) = self_weak.upgrade().and_then(|rc| rc.downcast::<StyledTextItem>())
-                else {
-                    return;
-                };
-                let item = item.as_pin_ref();
-                if item.tracked_text.replace(new_text.clone()) != *new_text {
-                    item.anchor_position_byte_offset.set(0);
-                    item.cursor_position_byte_offset.set(0);
-                }
-            },
-        );
-    }
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
@@ -361,7 +372,7 @@ impl Item for StyledTextItem {
         #[cfg(feature = "shared-parley")]
         // The offsets come from the parley layout, so a renderer drawing another one (the
         // software renderer with a bitmap font) gets no mouse selection.
-        if self.text_selectable() && renderer.text_has_parley_layout(self, self_rc) {
+        if self.selectable() && renderer.text_has_parley_layout(self, self_rc) {
             let offset_at = |position: &LogicalPoint| {
                 crate::textlayout::sharedparley::byte_offset_under_cursor(
                     scale_factor,
@@ -373,13 +384,18 @@ impl Item for StyledTextItem {
                     renderer.text_layout_cache(),
                 )
             };
-            if let Some(result) =
-                self.selection_mouse_event(event, &find_link, &offset_at, cursor, window_adapter)
-            {
+            if let Some(result) = self.selection_mouse_event(
+                event,
+                &find_link,
+                &offset_at,
+                cursor,
+                window_adapter,
+                self_rc,
+            ) {
                 return result;
             }
         } else {
-            // A selection under way ends when `text-selectable` goes.
+            // A selection under way ends when `selectable` goes.
             self.mouse_selection.take();
         }
         match event {
@@ -424,11 +440,27 @@ impl Item for StyledTextItem {
 
     fn focus_event(
         self: Pin<&Self>,
-        _: &FocusEvent,
+        event: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        FocusEventResult::FocusIgnored
+        match event {
+            // A selecting press takes the focus, as in a `TextInput`, so that at most one item
+            // shows a mouse selection. Tabbing skips the text: there is nothing to type into.
+            FocusEvent::FocusIn(reason) => {
+                if self.selectable() && *reason != FocusReason::TabNavigation {
+                    FocusEventResult::FocusAccepted
+                } else {
+                    FocusEventResult::FocusIgnored
+                }
+            }
+            FocusEvent::FocusOut(reason) => {
+                if !matches!(reason, FocusReason::WindowActivation | FocusReason::PopupActivation) {
+                    self.clear_selection();
+                }
+                FocusEventResult::FocusAccepted
+            }
+        }
     }
 
     fn render(
@@ -518,16 +550,8 @@ impl RenderText for StyledTextItem {
     }
 
     fn selection(self: Pin<&Self>) -> Option<crate::item_rendering::TextSelection> {
-        let (anchor, cursor) =
-            (self.anchor_position_byte_offset(), self.cursor_position_byte_offset());
-        if anchor == cursor {
-            return None;
-        }
-        let styled = self.text();
-        let text = crate::styled_text::get_raw_text(&styled);
-        let (start, end) = ordered_selection(&text, anchor, cursor);
-        (start < end).then(|| crate::item_rendering::TextSelection {
-            range: start..end,
+        Some(crate::item_rendering::TextSelection {
+            range: self.selection_range()?,
             background: self.selection_background_color(),
             foreground: self.selection_foreground_color(),
         })
@@ -549,62 +573,55 @@ impl StyledTextItem {
         self.anchor_position_byte_offset() != self.cursor_position_byte_offset()
     }
 
-    /// Copies the selected text to the clipboard, without markup.
-    pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _self_rc: &ItemRc) {
+    /// The selection as a byte range into the raw text, ordered and clamped to the text;
+    /// `None` when nothing is selected.
+    fn selection_range(self: Pin<&Self>) -> Option<core::ops::Range<usize>> {
         let (anchor, cursor) =
             (self.anchor_position_byte_offset(), self.cursor_position_byte_offset());
         if anchor == cursor {
-            return;
+            return None;
         }
         let styled = self.text();
+        let (start, end) = ordered_raw_offsets(&styled, anchor, cursor);
+        (start < end).then_some(start..end)
+    }
+
+    /// Copies the selected text to the clipboard, without markup.
+    pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _self_rc: &ItemRc) {
+        let Some(range) = self.selection_range() else {
+            return;
+        };
+        let styled = self.text();
         let text = crate::styled_text::get_raw_text(&styled);
-        let (start, end) = ordered_selection(&text, anchor, cursor);
-        if start < end {
-            WindowInner::from_pub(window_adapter.window())
-                .context()
-                .platform()
-                .set_clipboard_text(&text[start..end], Clipboard::DefaultClipboard);
-        }
+        WindowInner::from_pub(window_adapter.window())
+            .context()
+            .platform()
+            .set_clipboard_text(&text[range], Clipboard::DefaultClipboard);
     }
 
     /// Selects the text between two byte offsets, clamped to the raw text.
-    pub fn set_selection_offsets(
-        self: Pin<&Self>,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
-        anchor: i32,
-        focus: i32,
-    ) {
+    pub fn set_selection_offsets(self: Pin<&Self>, anchor: i32, focus: i32) {
         let styled = self.text();
-        let text = crate::styled_text::get_raw_text(&styled);
-        self.anchor_position_byte_offset.set(safe_byte_offset(anchor, &text) as i32);
-        self.cursor_position_byte_offset.set(safe_byte_offset(focus, &text) as i32);
+        self.anchor_position_byte_offset
+            .set(crate::styled_text::clamp_byte_offset(&styled, anchor) as i32);
+        self.cursor_position_byte_offset
+            .set(crate::styled_text::clamp_byte_offset(&styled, focus) as i32);
     }
 
     /// Selects all the text.
-    pub fn select_all(
-        self: Pin<&Self>,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
-    ) {
-        let styled = self.text();
-        let text = crate::styled_text::get_raw_text(&styled);
+    pub fn select_all(self: Pin<&Self>) {
         self.anchor_position_byte_offset.set(0);
-        self.cursor_position_byte_offset.set(text.len() as i32);
+        self.cursor_position_byte_offset.set(crate::styled_text::raw_text_len(&self.text()) as i32);
     }
 
     /// Clears the selection, leaving the cursor where it is.
-    pub fn clear_selection(
-        self: Pin<&Self>,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
-    ) {
+    pub fn clear_selection(self: Pin<&Self>) {
         self.anchor_position_byte_offset.set(self.cursor_position_byte_offset());
     }
 
     /// Pressing and dragging selects; a double click selects a word, a triple click a paragraph.
-    /// A click that doesn't drag follows a link under it, as without `text-selectable`.
-    /// `None` for the events the selection doesn't handle.
+    /// `None` for the events the selection doesn't handle, a click without a drag among them:
+    /// `input_event` then follows a link under it, as without `selectable`.
     #[cfg(feature = "shared-parley")]
     fn selection_mouse_event(
         self: Pin<&Self>,
@@ -613,6 +630,7 @@ impl StyledTextItem {
         offset_at: &dyn Fn(&LogicalPoint) -> Option<usize>,
         cursor: &mut super::MouseCursorInner,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> Option<InputEventResult> {
         let set = |anchor: usize, focus: usize| {
             self.anchor_position_byte_offset.set(anchor as i32);
@@ -624,60 +642,52 @@ impl StyledTextItem {
             } => {
                 let offset = offset_at(position)?;
                 let styled = self.text();
-                let text = crate::styled_text::get_raw_text(&styled);
-                let offset = safe_byte_offset(offset as i32, &text);
-                let unit = (click_count % 3) as u8 + 1;
-                self.mouse_selection.set(MouseSelection { unit, origin: offset, moved: false });
-                *cursor = super::MouseCursorInner::BuiltIn(if find_link(position).is_some() {
-                    super::BuiltInMouseCursor::Pointer
-                } else {
-                    super::BuiltInMouseCursor::Text
-                });
+                let offset = crate::styled_text::clamp_byte_offset(&styled, offset as i32);
+                let unit = SelectionUnit::for_click_count(*click_count);
+                self.mouse_selection.set(Some(unit).into());
+                *cursor = selectable_text_cursor(find_link(position).is_some());
+                // As in a `TextInput`, the press takes the focus, which clears the selection
+                // of the item that had it. A no-op when this item has it already.
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                    self_rc,
+                    true,
+                    FocusReason::PointerClick,
+                );
                 let anchor = if window_adapter.window().0.context().modifiers().get().shift() {
-                    safe_byte_offset(self.anchor_position_byte_offset(), &text)
+                    crate::styled_text::clamp_byte_offset(
+                        &styled,
+                        self.anchor_position_byte_offset(),
+                    )
                 } else {
                     offset
                 };
-                let (anchor, focus) = selection_by_unit(&text, anchor, offset, unit);
+                let (anchor, focus) = selection_by_unit(&styled, anchor, offset, unit);
                 set(anchor, focus);
                 Some(InputEventResult::GrabMouse)
             }
             MouseEvent::Moved { position, .. } => {
-                let mut drag = self.mouse_selection.get();
-                if drag.unit == 0 {
-                    *cursor = super::MouseCursorInner::BuiltIn(if find_link(position).is_some() {
-                        super::BuiltInMouseCursor::Pointer
-                    } else {
-                        super::BuiltInMouseCursor::Text
-                    });
+                let Some(unit) = self.mouse_selection.get().get() else {
+                    *cursor = selectable_text_cursor(find_link(position).is_some());
                     return Some(InputEventResult::EventAccepted);
-                }
+                };
                 if let Some(offset) = offset_at(position) {
                     let styled = self.text();
-                    let text = crate::styled_text::get_raw_text(&styled);
-                    let offset = safe_byte_offset(offset as i32, &text);
-                    if offset != drag.origin && !drag.moved {
-                        drag.moved = true;
-                        self.mouse_selection.set(drag);
-                    }
-                    let anchor = safe_byte_offset(self.anchor_position_byte_offset(), &text);
-                    let (anchor, focus) = selection_by_unit(&text, anchor, offset, drag.unit);
+                    let offset = crate::styled_text::clamp_byte_offset(&styled, offset as i32);
+                    let anchor = crate::styled_text::clamp_byte_offset(
+                        &styled,
+                        self.anchor_position_byte_offset(),
+                    );
+                    let (anchor, focus) = selection_by_unit(&styled, anchor, offset, unit);
                     set(anchor, focus);
                 }
                 Some(InputEventResult::GrabMouse)
             }
-            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                // A single press released where it was, with nothing selected (a Shift-click
-                // extends the selection without moving).
-                let drag = self.mouse_selection.take();
-                let clicked = drag.unit == 1
-                    && !drag.moved
-                    && self.anchor_position_byte_offset() == self.cursor_position_byte_offset();
-                if clicked && let Some(link) = find_link(position) {
-                    *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
-                    Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
-                }
-                Some(InputEventResult::EventAccepted)
+            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                // A press released with nothing selected is a click, left to the link handling
+                // in `input_event`. (A Shift-click extends the selection without moving.)
+                let clicked = self.mouse_selection.take().get() == Some(SelectionUnit::Character)
+                    && !self.has_selection();
+                (!clicked).then_some(InputEventResult::EventAccepted)
             }
             MouseEvent::Exit => {
                 self.mouse_selection.take();
@@ -688,6 +698,16 @@ impl StyledTextItem {
     }
 }
 
+/// The pointer over a link, an I-beam over the rest of selectable text.
+#[cfg(feature = "shared-parley")]
+fn selectable_text_cursor(over_link: bool) -> super::MouseCursorInner {
+    super::MouseCursorInner::BuiltIn(if over_link {
+        super::BuiltInMouseCursor::Pointer
+    } else {
+        super::BuiltInMouseCursor::Text
+    })
+}
+
 /// `anchor` and `cursor` clamped into `text`, the smaller first.
 fn ordered_selection(text: &str, anchor: i32, cursor: i32) -> (usize, usize) {
     let anchor = safe_byte_offset(anchor, text);
@@ -695,14 +715,44 @@ fn ordered_selection(text: &str, anchor: i32, cursor: i32) -> (usize, usize) {
     (anchor.min(cursor), anchor.max(cursor))
 }
 
-/// `anchor..focus` (either way round) widened to whole words for `unit` 2,
-/// to whole paragraphs for 3, and as it is otherwise.
+/// `anchor` and `cursor` clamped into the raw text of `styled`, the smaller first.
+fn ordered_raw_offsets(
+    styled: &crate::styled_text::StyledText,
+    anchor: i32,
+    cursor: i32,
+) -> (usize, usize) {
+    let anchor = crate::styled_text::clamp_byte_offset(styled, anchor);
+    let cursor = crate::styled_text::clamp_byte_offset(styled, cursor);
+    (anchor.min(cursor), anchor.max(cursor))
+}
+
+/// `anchor..focus` (either way round), widened to whole words or paragraphs as `unit` says.
+/// A word or a paragraph lies within one paragraph of `styled`, so the text isn't joined.
 #[cfg(feature = "shared-parley")]
-fn selection_by_unit(text: &str, anchor: usize, focus: usize, unit: u8) -> (usize, usize) {
-    match unit {
-        2 => word_selection(text, anchor, focus),
-        3 => paragraph_selection(text, anchor, focus),
-        _ => (anchor, focus),
+fn selection_by_unit(
+    styled: &crate::styled_text::StyledText,
+    anchor: usize,
+    focus: usize,
+    unit: SelectionUnit,
+) -> (usize, usize) {
+    let unit_at = |offset: usize| -> core::ops::Range<usize> {
+        let Some((paragraph, range)) = crate::styled_text::paragraph_at(styled, offset) else {
+            return offset..offset;
+        };
+        match unit {
+            SelectionUnit::Character => offset..offset,
+            SelectionUnit::Word => {
+                let word = word_at(&paragraph.text, offset - range.start);
+                range.start + word.start..range.start + word.end
+            }
+            SelectionUnit::Paragraph => range,
+        }
+    };
+    let (anchor_unit, focus_unit) = (unit_at(anchor), unit_at(focus));
+    if anchor <= focus {
+        (anchor_unit.start, focus_unit.end)
+    } else {
+        (anchor_unit.end, focus_unit.start)
     }
 }
 
