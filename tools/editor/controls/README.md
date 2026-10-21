@@ -153,9 +153,10 @@ LineEdit {
 
 Derived components must explicitly forward these slots to expose them; see `PreviewLineEdit` in `examples/preview_controls.slint`.
 
-Each control and its base share a behavior interface exported from both entry points, such as `ButtonInterface` or `ComboBoxInterface`.
+Each control and its base implement the corresponding existing standard widget interface, such as `ButtonInterface` or `ComboBoxInterface`.
+Import these directly from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint); the control entry points don't re-export them.
 Use these interfaces for typed slots accepting styled controls or custom implementations.
-Interface definitions live in `src/interfaces/`; style definitions live in `src/basic/<control>_style.slint`.
+Style definitions live in `src/basic/<control>_style.slint`.
 
 ## Gallery
 

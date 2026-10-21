@@ -22,6 +22,8 @@ export component ComboBoxPopupBase {
     out property <bool> opened: window.is-open;
     out property <bool> focused: root.opened && root.popup-focused;
 
+    private property <bool> popup-focused;
+
     callback highlight(index: int);
     callback selected(index: int);
     callback key-event(event: KeyEvent) -> EventResult;
@@ -31,8 +33,6 @@ export component ComboBoxPopupBase {
     }
 
     public function close() { window.close(); }
-
-    private property <bool> popup-focused;
 
     x: 0px;
     y: 0px;

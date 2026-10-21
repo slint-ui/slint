@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ButtonInterface } from "../interfaces/button.slint";
+import { ButtonInterface } from "../../../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 import { PressInteraction } from "internal/press_interaction.slint";
 
 export component ButtonBase {
@@ -9,6 +9,13 @@ export component ButtonBase {
 
     in property <bool> enabled: true;
     in property <string> text;
+    in property <bool> checkable;
+    in property <image> icon;
+    in property <length> icon-size: 20px;
+    in property <bool> primary;
+    in property <bool> colorize-icon;
+
+    in-out property <bool> checked;
 
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> hovered: interaction.hovered;
@@ -21,6 +28,7 @@ export component ButtonBase {
 
     public function activate() {
         if !root.enabled { return; }
+        if root.checkable { root.checked = !root.checked; }
         root.clicked();
     }
 
@@ -28,6 +36,8 @@ export component ButtonBase {
     accessible-role: button;
     accessible-label: root.text;
     accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
     accessible-action-default => { root.activate(); }
 
     background { }

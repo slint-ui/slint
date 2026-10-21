@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button } from "../../../tools/editor/controls/src/basic.slint";
-import {
-    ButtonBase,
-    ButtonInterface,
-} from "../../../tools/editor/controls/src/headless.slint";
+import { ButtonBase } from "../../../tools/editor/controls/src/headless.slint";
+import { ButtonInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 
 component CustomButton inherits ButtonBase {
     slot forwarded-background;
@@ -24,9 +22,7 @@ component ButtonHost {
     slot <ButtonInterface> action;
     callback activated();
     out property <bool> has-focus: action.has-focus;
-    out property <bool> hovered: action.hovered;
     out property <bool> pressed: action.pressed;
-    public function activate() { action.activate(); }
     action {
         enabled: true;
         text: root.text;
@@ -51,7 +47,7 @@ export component TestCase inherits Window {
     out property <bool> basic-hovered: basic.hovered;
     out property <bool> basic-focused: basic.has-focus;
     out property <bool> contract-focused: contract-host.has-focus;
-    out property <bool> contract-hovered: contract-host.hovered;
+    out property <bool> contract-hovered: contract-button.hovered;
     out property <bool> contract-pressed: contract-host.pressed;
     private property <int> probe-clicks;
     out property <bool> test: root.probe-clicks == 1 && root.disabled-clicks == 0
@@ -60,7 +56,7 @@ export component TestCase inherits Window {
     public function focus-basic() { basic.focus(); }
     public function focus-other() { other-focus.focus(); }
     public function focus-contract() { contract-button.focus(); }
-    init => { probe.activate(); disabled.activate(); headless-host.activate(); }
+    init => { probe.activate(); disabled.activate(); headless-action.activate(); }
 
     basic := Button {
         x: 20px;
@@ -232,8 +228,8 @@ assert_eq!(instance.get_basic_clicks(), 2);
 instance.set_basic_enabled(true);
 basic.invoke_accessible_default_action();
 assert_eq!(instance.get_basic_clicks(), 3);
-assert_eq!(basic.accessible_checked(), None);
-assert_eq!(basic.accessible_checkable(), None);
+assert_eq!(basic.accessible_checked(), Some(false));
+assert_eq!(basic.accessible_checkable(), Some(false));
 
 instance.invoke_focus_other();
 click(&basic);

@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { LineEditBase, LineEditInterface } from "../headless.slint";
+import { LineEditBase } from "../headless.slint";
+import { LineEditInterface } from "../../../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 import { LineEditStyle, LineEditStateStyle } from "line_edit_style.slint";
 import { LineEditStyles } from "line_edit_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
@@ -16,11 +17,7 @@ export component LineEdit {
     in property <color> selection-background-color: root.style.selection-background-color;
     in property <color> selection-foreground-color: root.style.selection-foreground-color;
 
-    in property <string> font-family <=> field.font-family;
-    in property <length> font-size <=> field.font-size;
-    in property <bool> font-italic <=> field.font-italic;
     in property <int> font-weight <=> field.font-weight;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> field.horizontal-alignment;
 
     in property <length> horizontal-padding: 12px;
     in property <length> vertical-padding: 6px;
@@ -36,10 +33,12 @@ export component LineEdit {
     in property <length> focus-width: 2px;
     in property <length> focus-offset: 2px;
 
-    slot leading;
-    slot trailing;
+    out property <bool> hovered: field.hovered;
 
     private property <LineEditStateStyle> state-style: root.style.rest;
+
+    slot leading;
+    slot trailing;
 
     min-width: max(160px, field.min-width);
     min-height: max(34px, field.min-height);

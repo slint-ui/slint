@@ -179,10 +179,6 @@ export component ComboBox inherits ComboBoxBase {
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
-    horizontal-padding: 12px;
-    vertical-padding: 6px;
-    spacing: 6px;
-
     in property <length> border-width: 1px;
     in property <length> border-radius: 4px;
 
@@ -192,18 +188,22 @@ export component ComboBox inherits ComboBoxBase {
     in property <length> popup-border-width: 1px;
     in property <length> popup-border-radius: 4px;
     in property <length> popup-offset: 2px;
-    popup-padding: 4px;
 
     in property <length> min-item-height: 32px;
     in property <length> item-horizontal-padding: 12px;
     in property <length> item-vertical-padding: 6px;
     in property <int> selected-item-font-weight: 600;
-    item-height: row-metrics.row-height;
 
     in property <length> focus-width: 2px;
     in property <length> focus-offset: 2px;
 
     private property <ComboBoxStateStyle> state-style: root.style.rest;
+
+    horizontal-padding: 12px;
+    vertical-padding: 6px;
+    spacing: 6px;
+    popup-padding: 4px;
+    item-height: row-metrics.row-height;
 
     horizontal-stretch: 1;
     min-width: 120px;

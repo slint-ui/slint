@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { SliderInterface } from "../interfaces/slider.slint";
+import { SliderInterface } from "../../../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 
 export interface SliderSurface {
     in property <bool> enabled;
@@ -39,6 +39,14 @@ export component SliderBase {
         ? clamp((root.value - root.lower) / (root.upper - root.lower), 0, 1) : 0;
     out property <float> visual-position: root.reversed ? 1 - root.position : root.position;
 
+    private property <float> lower: min(root.minimum, root.maximum);
+    private property <float> upper: max(root.minimum, root.maximum);
+    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
+    private property <bool> vertical: root.orientation == Orientation.vertical;
+    private property <bool> reversed: root.vertical != root.inverted;
+    private property <bool> interaction-active;
+    private property <string> active-key;
+
     slot <SliderSurface> surface;
 
     callback changed(value: float);
@@ -63,14 +71,6 @@ export component SliderBase {
     public function emit-released() {
         if root.enabled { root.released(root.value); }
     }
-
-    private property <float> lower: min(root.minimum, root.maximum);
-    private property <float> upper: max(root.minimum, root.maximum);
-    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
-    private property <bool> vertical: root.orientation == Orientation.vertical;
-    private property <bool> reversed: root.vertical != root.inverted;
-    private property <bool> interaction-active;
-    private property <string> active-key;
 
     function begin-interaction() {
         if !root.enabled { return; }

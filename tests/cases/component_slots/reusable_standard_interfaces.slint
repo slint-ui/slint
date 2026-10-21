@@ -1,0 +1,163 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, Slider, ComboBox, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+import {
+    ButtonBase, CheckBoxBase, SwitchBase, SliderBase, ComboBoxBase, LineEditBase,
+    LinearSliderSurface, ComboBoxPopupBase,
+} from "../../../tools/editor/controls/src/headless.slint";
+import {
+    Button as StandardButton, CheckBox as StandardCheckBox, Switch as StandardSwitch,
+    Slider as StandardSlider, ComboBox as StandardComboBox, LineEdit as StandardLineEdit,
+} from "std-widgets.slint";
+import {
+    ButtonInterface, CheckBoxInterface, SwitchInterface,
+    SliderInterface, ComboBoxInterface, LineEditInterface,
+} from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
+
+component ButtonHost {
+    slot <ButtonInterface> control;
+    callback clicked();
+    control {
+        text: "Button";
+        checkable: true;
+        checked: true;
+        primary: true;
+        colorize-icon: true;
+        icon-size: 24px;
+        clicked => { root.clicked(); }
+    }
+    out property <bool> test: control.checked && control.colorize-icon && control.primary
+        && control.icon-size == 24px && control.text == "Button";
+}
+
+component CheckBoxHost {
+    slot <CheckBoxInterface> control;
+    control {
+        text: "CheckBox";
+        checked: true;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    out property <bool> test: control.checked && control.font-size == 18px
+        && control.font-weight == 600 && control.text == "CheckBox";
+}
+
+component SwitchHost {
+    slot <SwitchInterface> control;
+    control { text: "Switch"; checked: true; }
+    out property <bool> test: control.checked && control.text == "Switch";
+}
+
+component SliderHost {
+    slot <SliderInterface> control;
+    control { minimum: 10; maximum: 90; value: 50; step: 5; orientation: vertical; }
+    out property <bool> test: control.minimum == 10 && control.maximum == 90
+        && control.value == 50 && control.step == 5 && control.orientation == Orientation.vertical;
+}
+
+component ComboBoxHost {
+    slot <ComboBoxInterface> control;
+    control { model: ["Alpha", "Beta"]; current-index: 1; }
+    out property <bool> test: control.current-index == 1 && control.current-value == "Beta";
+}
+
+component LineEditHost {
+    slot <LineEditInterface> control;
+    control {
+        text: "LineEdit";
+        placeholder-text: "Placeholder";
+        read-only: true;
+        font-family: "DejaVu Sans";
+        font-size: 18px;
+        font-italic: true;
+        horizontal-alignment: right;
+    }
+    out property <bool> test: control.text == "LineEdit" && control.read-only
+        && control.placeholder-text == "Placeholder" && control.font-family == "DejaVu Sans"
+        && control.font-size == 18px && control.font-italic
+        && control.horizontal-alignment == TextHorizontalAlignment.right;
+}
+
+component HeadlessSlider inherits SliderBase {
+    surface << LinearSliderSurface { }
+}
+
+component HeadlessComboBox inherits ComboBoxBase {
+    popup << ComboBoxPopupBase { }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+    headless-button := ButtonHost {
+        control << button := ButtonBase { }
+        clicked => {
+            root.checked-on-click = button.checked;
+            root.clicks += 1;
+        }
+    }
+    basic-button := ButtonHost { control << Button { } }
+    standard-button := ButtonHost { control << StandardButton { } }
+    headless-checkbox := CheckBoxHost { control << CheckBoxBase { } }
+    basic-checkbox := CheckBoxHost { control << CheckBox { } }
+    standard-checkbox := CheckBoxHost { control << StandardCheckBox { } }
+    headless-switch := SwitchHost { control << SwitchBase { } }
+    basic-switch := SwitchHost { control << Switch { } }
+    standard-switch := SwitchHost { control << StandardSwitch { } }
+    headless-slider := SliderHost {
+        control << HeadlessSlider { }
+    }
+    basic-slider := SliderHost { control << Slider { } }
+    standard-slider := SliderHost { control << StandardSlider { } }
+    headless-combo := ComboBoxHost {
+        control << HeadlessComboBox { }
+    }
+    basic-combo := ComboBoxHost { control << ComboBox { } }
+    standard-combo := ComboBoxHost { control << StandardComboBox { } }
+    headless-lineedit := LineEditHost { control << LineEditBase { } }
+    basic-lineedit := LineEditHost { control << LineEdit { } }
+    standard-lineedit := LineEditHost { control << StandardLineEdit { } }
+
+    plain := Button { }
+    out property <bool> checked-on-click;
+    out property <int> clicks;
+    out property <bool> behavior-test;
+    init => {
+        button.activate();
+        root.behavior-test = !button.checked && !root.checked-on-click && root.clicks == 1;
+        button.enabled = false;
+        button.activate();
+        root.behavior-test = root.behavior-test && !button.checked && root.clicks == 1;
+        button.enabled = true;
+        button.activate();
+        root.behavior-test = root.behavior-test && button.checked && root.checked-on-click && root.clicks == 2;
+    }
+
+    out property <bool> test: headless-button.test && basic-button.test && standard-button.test
+        && headless-checkbox.test && basic-checkbox.test && standard-checkbox.test
+        && headless-switch.test && basic-switch.test && standard-switch.test
+        && headless-slider.test && basic-slider.test && standard-slider.test
+        && headless-combo.test && basic-combo.test && standard-combo.test
+        && headless-lineedit.test && basic-lineedit.test && standard-lineedit.test
+        && !plain.colorize-icon && root.behavior-test;
+
+    out property <[bool]> results: [
+        headless-button.test, basic-button.test, standard-button.test,
+        headless-checkbox.test, basic-checkbox.test, standard-checkbox.test,
+        headless-switch.test, basic-switch.test, standard-switch.test,
+        headless-slider.test, basic-slider.test, standard-slider.test,
+        headless-combo.test, basic-combo.test, standard-combo.test,
+        headless-lineedit.test, basic-lineedit.test, standard-lineedit.test,
+        root.behavior-test,
+    ];
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+let results = instance.get_results();
+assert!(instance.get_test(), "{:?}", results.iter().collect::<Vec<_>>());
+```
+*/

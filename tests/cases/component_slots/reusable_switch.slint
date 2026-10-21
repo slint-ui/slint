@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Switch } from "../../../tools/editor/controls/src/basic.slint";
-import { SwitchBase, SwitchInterface } from "../../../tools/editor/controls/src/headless.slint";
+import { SwitchBase } from "../../../tools/editor/controls/src/headless.slint";
+import { SwitchInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 
 component SwitchHost {
     slot <SwitchInterface> choice;
     callback toggled();
-    public function activate() { choice.activate(); }
     choice {
         enabled: true;
         toggled => { root.toggled(); }
@@ -47,7 +47,7 @@ export component TestCase inherits Window {
     public function focus-other() { other.focus(); }
     public function activate-basic() { basic.activate(); }
     public function activate-disabled() { disabled.activate(); }
-    public function activate-contracts() { headless-host.activate(); styled-host.activate(); }
+    public function activate-contracts() { headless-choice.activate(); styled-choice.activate(); }
 
     basic := Switch {
         x: 20px;
@@ -93,7 +93,7 @@ export component TestCase inherits Window {
         y: 20px;
         width: 180px;
         height: 40px;
-        choice << SwitchBase {
+        choice << headless-choice := SwitchBase {
             width: 100%;
             height: 100%;
             text: "Headless contract";
@@ -106,7 +106,7 @@ export component TestCase inherits Window {
         y: 80px;
         width: 180px;
         height: 40px;
-        choice << Switch {
+        choice << styled-choice := Switch {
             text: "Styled contract";
         }
         toggled => { root.contract-toggles += 1; }

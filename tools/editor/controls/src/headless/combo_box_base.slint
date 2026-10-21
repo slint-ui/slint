@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ComboBoxInterface } from "../interfaces/combo_box.slint";
+import { ComboBoxInterface } from "../../../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 
 export interface ComboBoxPopupSurface {
     in property <bool> enabled;
@@ -55,6 +55,10 @@ export component ComboBoxBase {
     out property <bool> hovered: root.enabled && pointer.has-hover;
     out property <bool> pressed: root.enabled && pointer.pressed;
 
+    private property <int> highlight-index: -1;
+    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
+        ? root.model[root.current-index] : "";
+
     slot background;
     slot content;
     slot indicator;
@@ -93,10 +97,6 @@ export component ComboBoxBase {
         root.close();
         root.selected(root.current-value);
     }
-
-    private property <int> highlight-index: -1;
-    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
-        ? root.model[root.current-index] : "";
 
     function update-current-value() {
         root.current-value = root.indexed-value;

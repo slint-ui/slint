@@ -21,10 +21,6 @@ export component Switch inherits SwitchBase {
     in property <int> font-weight: 400;
     in property <bool> font-italic;
 
-    spacing: root.text == "" ? 0px : 6px;
-    horizontal-padding: 6px;
-    vertical-padding: 5px;
-
     in property <length> track-width: 40px;
     in property <length> track-height: 22px;
     in property <length> track-border-width: 1px;
@@ -41,6 +37,10 @@ export component Switch inherits SwitchBase {
     private property <SwitchStateStyle> state-style: root.selected-styles.rest;
     private property <length> effective-track-radius: root.track-radius < 0px ? root.track-height / 2 : root.track-radius;
     private property <length> effective-thumb-radius: root.thumb-radius < 0px ? root.thumb-size / 2 : root.thumb-radius;
+
+    spacing: root.text == "" ? 0px : 6px;
+    horizontal-padding: 6px;
+    vertical-padding: 5px;
 
     min-height: 32px;
 

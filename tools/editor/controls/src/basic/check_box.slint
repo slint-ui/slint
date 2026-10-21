@@ -17,13 +17,7 @@ export component CheckBox inherits CheckBoxBase {
     in property <brush> foreground-color: root.state-style.foreground-color;
 
     in property <string> font-family;
-    in property <length> font-size: 14px;
-    in property <int> font-weight: 400;
     in property <bool> font-italic;
-
-    spacing: root.text == "" ? 0px : 6px;
-    horizontal-padding: 6px;
-    vertical-padding: 6px;
 
     in property <length> indicator-size: 20px;
     in property <length> indicator-border-width: 1px;
@@ -37,6 +31,12 @@ export component CheckBox inherits CheckBoxBase {
 
     private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
     private property <CheckBoxStateStyle> state-style: root.selected-styles.rest;
+
+    font-size: 14px;
+    font-weight: 400;
+    spacing: root.text == "" ? 0px : 6px;
+    horizontal-padding: 6px;
+    vertical-padding: 6px;
 
     min-height: 32px;
 

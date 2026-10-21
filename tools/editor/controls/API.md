@@ -2,7 +2,8 @@
 
 Import styled controls and theme types from [`src/basic.slint`](src/basic.slint).
 Import headless controls and surface interfaces from [`src/headless.slint`](src/headless.slint).
-Both entry points export the six control behavior interfaces.
+The controls implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
+Import those interfaces directly; neither entry point re-exports them.
 Enable experimental Slint features to use interfaces and typed slots.
 
 This reference lists the controls' public declarations, including inherited and delegated members.
@@ -44,7 +45,7 @@ Focus outlines don't change layout dimensions.
 
 ## Button
 
-Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.slint), [interface](src/interfaces/button.slint).
+Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/button.slint).
 
 ### Behavior: Button and ButtonBase
 
@@ -52,10 +53,16 @@ Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.s
 | --- | --- | --- | --- |
 | `in` | `enabled` | `bool` | `true` |
 | `in` | `text` | `string` | Empty; also supplies the default accessible label |
+| `in` | `checkable` | `bool` | `false`; enables toggling on activation |
+| `in-out` | `checked` | `bool` | `false` |
+| `in` | `icon` | `image` | Empty |
+| `in` | `icon-size` | `length` | `20px` |
+| `in` | `primary` | `bool` | `false`; selects the primary style in Button |
+| `in` | `colorize-icon` | `bool` | `false`; enables icon tinting in Button |
 | `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
 
 Callback: `clicked()`.
-Public function: `activate()` emits `clicked()` when enabled.
+Public function: `activate()` toggles `checked` when checkable, then emits `clicked()` when enabled.
 ButtonBase slots: `background`, `content`.
 Button supplies both visuals; use ButtonBase to replace them.
 
@@ -65,22 +72,22 @@ Button includes the shared styled inputs above.
 
 | Input | Type | Default |
 | --- | --- | --- |
-| `icon` | `image` | Empty |
-| `style` | `ButtonStyle` | `ButtonStyles.secondary` |
+| `style` | `ButtonStyle` | `ButtonStyles.primary` when primary or checked; otherwise `ButtonStyles.secondary` |
 | `background-color`, `foreground-color` | `brush` | State style |
 | `icon-color` | `brush` | `foreground-color` |
-| `icon-size` | `length` | `20px` |
 | `spacing` | `length` | `6px` |
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 
 Default minimum size: `64px` wide, `32px` high.
 Missing icons and empty text don't create spacing gaps.
+Icons retain their original colors unless `colorize-icon` is true, including while disabled.
+When tinting is enabled, `icon-color` applies while enabled; disabled icons use the style's disabled foreground color.
 Set `icon-color: transparent` to retain original image colors while enabled.
 
 ## CheckBox
 
-Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_base.slint), [interface](src/interfaces/check_box.slint).
+Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/checkbox.slint).
 
 ### Behavior: CheckBox and CheckBoxBase
 
@@ -94,6 +101,7 @@ Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_
 Callback: `toggled()`.
 Public function: `activate()` changes `checked` and emits `toggled()` when enabled.
 Assigning `checked` directly doesn't emit `toggled()`.
+CheckBoxBase also accepts `font-size: length` and `font-weight: int`, both defaulting to zero.
 CheckBoxBase also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
 Its slots are `background`, `indicator`, and `content`.
 
@@ -117,11 +125,11 @@ Default minimum height: `32px`.
 
 ## Switch
 
-Sources: [styled](src/basic/switch.slint), [headless](src/headless/switch_base.slint), [interface](src/interfaces/switch.slint).
+Sources: [styled](src/basic/switch.slint), [headless](src/headless/switch_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/switch.slint).
 
 ### Behavior: Switch and SwitchBase
 
-Switch and SwitchBase expose the same properties, callback, function, padding inputs, and slots as CheckBox and CheckBoxBase.
+Switch and SwitchBase expose the same interaction properties, callback, function, padding inputs, and slots as CheckBox and CheckBoxBase.
 They implement `SwitchInterface` and expose an additional `out property <bool> focus-visible` for keyboard focus indication.
 `focus-visible` isn't part of `SwitchInterface`.
 
@@ -148,7 +156,7 @@ The thumb's rendered size is bounded by the track's inner dimensions.
 
 ## Slider
 
-Sources: [styled](src/basic/slider.slint), [headless](src/headless/slider_base.slint), [interface](src/interfaces/slider.slint).
+Sources: [styled](src/basic/slider.slint), [headless](src/headless/slider_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/slider.slint).
 
 ### Behavior: Slider and SliderBase
 
@@ -213,7 +221,7 @@ Its geometry inputs determine both visual placement and pointer mapping.
 
 ## ComboBox
 
-Sources: [styled](src/basic/combo_box.slint), [headless](src/headless/combo_box_base.slint), [interface](src/interfaces/combo_box.slint).
+Sources: [styled](src/basic/combo_box.slint), [headless](src/headless/combo_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/combobox.slint).
 
 ### Behavior: ComboBox and ComboBoxBase
 
@@ -313,7 +321,7 @@ Standalone popup usage must supply popup dimensions and connect its selection an
 
 ## LineEdit
 
-Sources: [styled](src/basic/line_edit.slint), [headless](src/headless/line_edit_base.slint), [interface](src/interfaces/line_edit.slint).
+Sources: [styled](src/basic/line_edit.slint), [headless](src/headless/line_edit_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/lineedit.slint).
 
 ### Behavior: LineEdit and LineEditBase
 

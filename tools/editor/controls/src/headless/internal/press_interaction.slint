@@ -11,12 +11,12 @@ export component PressInteraction {
         (pointer.pressed && root.pointer-inside && !root.pointer-canceled)
         || (root.has-focus && root.pressed-key != ""));
 
-    callback activated();
-
     private property <string> pressed-key;
     private property <bool> pointer-canceled;
     private property <bool> pointer-inside: pointer.mouse-x >= 0px && pointer.mouse-x < pointer.width
         && pointer.mouse-y >= 0px && pointer.mouse-y < pointer.height;
+
+    callback activated();
 
     forward-focus: keys;
 

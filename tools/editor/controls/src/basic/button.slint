@@ -9,8 +9,7 @@ import {
 import { ButtonStyles } from "button_styles.slint";
 
 export component Button inherits ButtonBase {
-    in property <image> icon;
-    in property <ButtonStyle> style: ButtonStyles.secondary;
+    in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;
 
     in property <brush> background-color: root.state-style.background-color;
     in property <brush> foreground-color: root.state-style.foreground-color;
@@ -22,7 +21,6 @@ export component Button inherits ButtonBase {
     in property <bool> font-italic;
 
     in property <length> spacing: 6px;
-    in property <length> icon-size: 20px;
     in property <length> horizontal-padding: 12px;
     in property <length> vertical-padding: 6px;
     in property <length> left-padding: root.horizontal-padding;
@@ -83,7 +81,7 @@ export component Button inherits ButtonBase {
             width: root.icon-size;
             height: root.icon-size;
             source: root.icon;
-            colorize: root.enabled ? root.icon-color : root.state-style.foreground-color;
+            colorize: !root.colorize-icon ? transparent : root.enabled ? root.icon-color : root.state-style.foreground-color;
         }
         if root.text != "": Text {
             text: root.text;
