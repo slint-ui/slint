@@ -16,7 +16,6 @@ export component X {
     property <styled-text> t11: @markdown("{abc}");
     property <styled-text> t12: @markdown("{0");
     property <styled-text> t13: @markdown("> quote");
-//                                         >     <error{Markdown block quotes are not supported}
     property <styled-text> t14: @markdown("![alt](image.png)");
 //                                         >               <error{Markdown images are not supported}
     property <styled-text> t15: @markdown("---");
@@ -67,10 +66,10 @@ export component X {
     property <styled-text> m5: @markdown("**bold** " "<xyz>bad</xyz>" " *italic*");
 //                                                    >  <error{HTML tag <xyz> is not supported}
 
-    // Block quote error in a multi-line expression
+    // Heading error in a multi-line expression
     property <styled-text> m6: @markdown("text"
-                                         "\n> block quote");
-//                                          >           <error{Markdown block quotes are not supported}
+                                         "\n# heading");
+//                                          >       <error{Markdown headings are not supported}
 
     // Multiple errors on different lines
     property <styled-text> m7: @markdown("--- "
@@ -190,6 +189,5 @@ export component X {
     // Combined errors from different markdown features in a single string with escape sequences
     property <styled-text> t25: @markdown("---\n\n> quote\n\n<span>text</span>");
 //                                         >  <error{Markdown horizontal rules are not supported}
-//                                                >      <^error{Markdown block quotes are not supported}
-//                                                           >   <^^error{HTML tag <span> is not supported}
+//                                                           >   <^error{HTML tag <span> is not supported}
 }
