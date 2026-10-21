@@ -27,6 +27,23 @@ def test_viewer_autostart_transport_and_popup(
         )
         assert selector.size.width == manager.size.width
         assert selector.absolute_position.x == manager.absolute_position.x
+        assert (
+            element(window, "Viewer").absolute_position.x
+            == selector.absolute_position.x
+        )
+        animations = element(window, "Animations")
+        speed = element(window, "Animation speed")
+        assert animations.absolute_position.x == selector.absolute_position.x
+        assert animations.absolute_position.y == speed.absolute_position.y
+        assert animations.size.height == speed.size.height
+        inset = selector.absolute_position.x - popup.absolute_position.x
+        bottom_gap = (
+            popup.absolute_position.y
+            + popup.size.height
+            - manager.absolute_position.y
+            - manager.size.height
+        )
+        assert bottom_gap == inset
         selector.single_click(left)
         expect(
             query(window, "Local viewer", role=slint_testing.AccessibleRole.Button)

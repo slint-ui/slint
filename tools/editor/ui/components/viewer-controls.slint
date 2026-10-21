@@ -21,7 +21,7 @@ component ViewerButton inherits ButtonBase {
         border-radius: Metrics.radius-medium;
         border-width: root.bordered || root.has-focus ? Metrics.border-width : 0px;
         border-color: root.has-focus ? Colors.focus : Style.rotation-dial.ring-border;
-        background: root.hovered ? Style.inspector-field.appearance.hover.background : ViewerStyle.face;
+        background: root.hovered ? Style.inspector-field.appearance.hover.background : root.bordered ? ViewerStyle.face : transparent;
     }
     content << Rectangle {
         body { }
@@ -110,8 +110,10 @@ export component ViewerControls inherits Rectangle {
     popup := PopupWindow {
         close-policy: close-on-click-outside;
         x: root.width - self.width + 8px; y: root.height + 2px;
-        width: 324px; height: 216px;
-        Rectangle {
+        width: 324px;
+        height: device-manager.y + device-manager.height + Metrics.space-medium + Metrics.space-regular
+            + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
+        panel := Rectangle {
             x: 8px; y: 10px; width: parent.width - 16px; height: parent.height - 18px;
             accessible-role: groupbox; accessible-label: @tr("Viewer options");
             border-radius: ViewerStyle.radius;
@@ -126,15 +128,23 @@ export component ViewerControls inherits Rectangle {
             commands: "M 0 10 L 10 0 L 20 10";
             fill: Colors.surface; stroke: Style.rotation-dial.ring-border; stroke-width: Metrics.border-width;
         }
-        Text { x: 32px; y: 24px; text: @tr("Viewer"); color: Colors.muted; font-size: Typography.body.size; }
+        viewer-label := Text {
+            x: selector.x; y: panel.y + Metrics.space-medium;
+            height: Metrics.space-large;
+            text: @tr("Viewer"); color: Colors.muted; font-size: Typography.control.size;
+            vertical-alignment: center;
+        }
         selector := ViewerButton {
-            x: 20px; y: 48px; width: 284px;
+            x: panel.x + Style.inspector-layout.padding;
+            y: viewer-label.y + viewer-label.height + Metrics.space-compact;
+            width: panel.width - 2 * Style.inspector-layout.padding;
+            height: Metrics.control-medium;
             text: @tr("Choose viewer");
             accessible-role: combobox; accessible-value: Preview.endpoint-name; accessible-expanded: viewers.is-open;
             clicked => { viewers.show(); }
             body << Rectangle {
                 ViewerIcon { x: 12px; remote: !Preview.local; }
-                Text { x: 44px; width: parent.width - 78px; height: parent.height; vertical-alignment: center; text: Preview.endpoint-name; color: Colors.foreground; font-size: Typography.body.size; overflow: elide; }
+                Text { x: 44px; width: parent.width - 78px; height: parent.height; vertical-alignment: center; text: Preview.endpoint-name; color: Colors.foreground; font-size: Typography.control.size; overflow: elide; }
                 Chevron { x: parent.width - 28px; transform-rotation: viewers.is-open ? 180deg : 0deg; }
             }
             viewers := PopupWindow {
@@ -168,7 +178,7 @@ export component ViewerControls inherits Rectangle {
                         content << Rectangle {
                             opacity: option.enabled ? 1 : Metrics.disabled-opacity;
                             ViewerIcon { x: 8px; remote: index > 0; }
-                            Text { x: 40px; width: parent.width - (option.enabled ? 72px : 120px); height: parent.height; vertical-alignment: center; text: option.text; color: Colors.foreground; font-size: Typography.body.size; overflow: elide; }
+                            Text { x: 40px; width: parent.width - (option.enabled ? 72px : 120px); height: parent.height; vertical-alignment: center; text: option.text; color: Colors.foreground; font-size: Typography.control.size; overflow: elide; }
                             if !option.enabled: Text { x: parent.width - 78px; width: 70px; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: @tr("Unavailable"); color: Colors.muted; font-size: 10px; }
                             if option.enabled && Springboard.selected-endpoint-index == index: Text { x: parent.width - 25px; text: "✓"; color: Colors.accent; }
                         }
@@ -176,16 +186,18 @@ export component ViewerControls inherits Rectangle {
                 }
             }
         }
-        Text { x: 32px; y: 96px; height: 28px; vertical-alignment: center; text: @tr("Animations"); color: Colors.muted; font-size: Typography.body.size; }
+        Text { x: selector.x; y: speed.y; height: speed.height; vertical-alignment: center; text: @tr("Animations"); color: Colors.muted; font-size: Typography.control.size; }
         speed := ViewerButton {
-            x: 216px; y: 96px; width: 88px; height: 28px;
+            x: selector.x + selector.width - self.width;
+            y: selector.y + selector.height + Metrics.space-regular;
+            width: 88px; height: Metrics.control-small;
             bordered: false;
             enabled: Preview.local && Preview.connected;
             text: @tr("Animation speed");
             accessible-description: @tr("Changing speed restarts the local viewer. Remote viewers do not support speed control.");
             clicked => { speeds.show(); }
             body << Rectangle {
-                Text { x: 0px; width: parent.width - 30px; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: !Preview.local ? "—" : Springboard.animation-slowdown == 1 ? @tr("Normal") : Springboard.animation-slowdown == 2 ? "0.5×" : "0.25×"; color: Colors.muted; font-size: Typography.body.size; }
+                Text { x: 0px; width: parent.width - 30px; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: !Preview.local ? "—" : Springboard.animation-slowdown == 1 ? @tr("Normal") : Springboard.animation-slowdown == 2 ? "0.5×" : "0.25×"; color: Colors.muted; font-size: Typography.control.size; }
                 Chevron { x: parent.width - 28px; opacity: speed.enabled ? 1 : Metrics.disabled-opacity; }
             }
             speeds := PopupWindow {
@@ -202,27 +214,30 @@ export component ViewerControls inherits Rectangle {
                         body << Text {
                             text: speed-option.text;
                             color: Colors.foreground;
-                            font-size: Typography.body.size;
+                            font-size: Typography.control.size;
                             vertical-alignment: center;
                         }
                         clicked => { Springboard.set-animation-slowdown(factor); speeds.close(); }
                     }
                 }
             }
+            Tooltip { text: @markdown("\{@tr("Changing speed restarts the local viewer")}"); }
         }
-        ViewerButton {
-            x: 20px; y: 140px; width: 284px;
+        device-manager := ViewerButton {
+            x: selector.x; y: speed.y + speed.height + Metrics.space-regular;
+            width: selector.width; height: selector.height;
             text: @tr("Device manager");
             clicked => { popup.close(); manager.show(); }
             body << Rectangle {
-                Text { x: 12px; height: parent.height; vertical-alignment: center; text: @tr("Device manager"); color: Colors.foreground; font-size: Typography.body.size; }
+                Text { x: 12px; height: parent.height; vertical-alignment: center; text: @tr("Device manager"); color: Colors.foreground; font-size: Typography.control.size; }
                 Chevron { x: parent.width - 28px; transform-rotation: -90deg; }
             }
         }
-        Text {
-            x: 20px; y: 182px; width: 284px;
-            text: speed.hovered ? @tr("Changing speed restarts the local viewer") : Springboard.error-message;
-            color: Colors.muted; font-size: 10px; overflow: elide;
+        if Springboard.error-message != "": Text {
+            x: selector.x; y: device-manager.y + device-manager.height + Metrics.space-compact;
+            width: selector.width; height: Typography.caption.size;
+            text: Springboard.error-message;
+            color: Colors.muted; font-size: Typography.caption.size; overflow: elide;
         }
     }
     manager := PopupWindow {
