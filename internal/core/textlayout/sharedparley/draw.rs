@@ -6,7 +6,7 @@
 
 use super::layout::ElisionCut;
 use super::selection::{RunCoverage, SelectionSpan, run_coverage};
-use super::shaping::{Brush, TextParagraph};
+use super::shaping::{Brush, QUOTE_BAR_WIDTH_EM, QUOTE_INDENT_EM, TextParagraph};
 use super::*;
 
 /// Outline drawn around a rectangle filled via [`GlyphRenderer::fill_rectangle`].
@@ -104,7 +104,63 @@ pub(super) fn visible_x_range(item_renderer: &impl GlyphRenderer) -> Range<Physi
     (x_range.start * scale_factor)..(x_range.end * scale_factor)
 }
 
+/// Uses the text's luminance, so the window background isn't needed.
+fn is_on_dark_background(default_text_color: Color) -> bool {
+    let luminance = 0.299 * default_text_color.red() as f32
+        + 0.587 * default_text_color.green() as f32
+        + 0.114 * default_text_color.blue() as f32;
+    luminance > 140.0
+}
+
+enum LineVisibility {
+    Draw,
+    Skip,
+    Stop,
+}
+
 impl TextParagraph {
+    fn line_visibility(
+        &self,
+        layout: &Layout,
+        index: usize,
+        metrics: &parley::LineMetrics,
+        para_y: PhysicalLength,
+        visible_band: &Range<PhysicalLength>,
+        last_drawn: usize,
+    ) -> LineVisibility {
+        // Stop once we are past the last kept line of the last kept paragraph.
+        if index > last_drawn {
+            return LineVisibility::Stop;
+        }
+
+        // Skip lines that can't reach the visible band. Ink may overhang the line's metrics
+        // box (stacked diacritics, swashes), so pad by one line height on each side before
+        // excluding -- the pad scales with the line itself. Lines are in block order, so the
+        // first line past the band ends the walk.
+        let line_height = PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
+        if para_y + PhysicalLength::new(metrics.block_max_coord) + line_height < visible_band.start
+        {
+            return LineVisibility::Skip;
+        }
+        if para_y + PhysicalLength::new(metrics.block_min_coord) - line_height > visible_band.end {
+            return LineVisibility::Stop;
+        }
+
+        // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
+        // lines are kept only while they fall within the box, taking vertical alignment into
+        // account (bottom/center alignment clips lines off the top, not the bottom).
+        if index != last_drawn
+            && !layout.paragraph_line_within_box(
+                self,
+                metrics.block_min_coord,
+                metrics.block_max_coord,
+            )
+        {
+            return LineVisibility::Skip;
+        }
+        LineVisibility::Draw
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw<R: GlyphRenderer>(
         &self,
@@ -144,45 +200,40 @@ impl TextParagraph {
             _ => (line_count.saturating_sub(1), false),
         };
 
+        let x = self.x();
+        let indented = self.quote_depth > 0;
+        let shifted_x_range;
+        let mut visible_x_range = visible_x_range;
+        if indented {
+            self.draw_quote_bars(
+                layout,
+                item_renderer,
+                para_y,
+                visible_band,
+                last_drawn,
+                default_text_color,
+            );
+            shifted_x_range = visible_x_range.map(|range| (range.start - x)..(range.end - x));
+            visible_x_range = shifted_x_range.as_ref();
+            item_renderer.save_state();
+            item_renderer.translate(crate::lengths::LogicalVector::from_lengths(
+                x / item_renderer.scale_factor(),
+                LogicalLength::zero(),
+            ));
+        }
+
         self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
 
         for (index, line) in self.layout.lines().enumerate() {
-            // Stop once we are past the last kept line of the last kept paragraph.
-            if index > last_drawn {
-                break;
-            }
             let metrics = line.metrics();
-
-            // Skip lines that can't reach the visible band. Ink may overhang the line's metrics
-            // box (stacked diacritics, swashes), so pad by one line height on each side before
-            // excluding -- the pad scales with the line itself. Lines are in block order, so the
-            // first line past the band ends the walk.
+            match self.line_visibility(layout, index, metrics, para_y, visible_band, last_drawn) {
+                LineVisibility::Draw => {}
+                LineVisibility::Skip => continue,
+                LineVisibility::Stop => break,
+            }
             let line_height =
                 PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
-            if para_y + PhysicalLength::new(metrics.block_max_coord) + line_height
-                < visible_band.start
-            {
-                continue;
-            }
-            if para_y + PhysicalLength::new(metrics.block_min_coord) - line_height
-                > visible_band.end
-            {
-                break;
-            }
-
-            // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
-            // lines are kept only while they fall within the box, taking vertical alignment into
-            // account (bottom/center alignment clips lines off the top, not the bottom).
             let last_line = index == last_drawn;
-            if !last_line
-                && !layout.paragraph_line_within_box(
-                    self,
-                    metrics.block_min_coord,
-                    metrics.block_max_coord,
-                )
-            {
-                continue;
-            }
             // The last drawn line should show an ellipsis if real lines below it were dropped for
             // the height, even when it fits the width.
             let vertically_truncated = last_line && vertical_truncation;
@@ -211,6 +262,7 @@ impl TextParagraph {
                                 &glyph_run,
                                 vertically_truncated,
                                 metrics.hanging_advance,
+                                x,
                             );
 
                             Self::draw_glyph_run_with_selection(
@@ -263,6 +315,63 @@ impl TextParagraph {
                 };
             }
         }
+
+        if indented {
+            item_renderer.restore_state();
+        }
+    }
+
+    /// The rounded physical y range, in item coordinates, of the lines that `draw` draws.
+    pub(super) fn quote_bar_extent(
+        &self,
+        layout: &Layout,
+        para_y: PhysicalLength,
+        visible_band: &Range<PhysicalLength>,
+        last_drawn: usize,
+    ) -> Option<Range<f32>> {
+        let mut extent: Option<Range<f32>> = None;
+        for (index, line) in self.layout.lines().enumerate() {
+            let metrics = line.metrics();
+            match self.line_visibility(layout, index, metrics, para_y, visible_band, last_drawn) {
+                LineVisibility::Draw => {
+                    let top = extent.map_or(metrics.block_min_coord, |extent| extent.start);
+                    extent = Some(top..metrics.block_max_coord);
+                }
+                LineVisibility::Skip => {}
+                LineVisibility::Stop => break,
+            }
+        }
+        // Rounded, so the bars of adjacent paragraphs meet without a seam.
+        extent.map(|extent| {
+            (para_y.get() + extent.start).round()..(para_y.get() + extent.end).round()
+        })
+    }
+
+    fn draw_quote_bars<R: GlyphRenderer>(
+        &self,
+        layout: &Layout,
+        item_renderer: &mut R,
+        para_y: PhysicalLength,
+        visible_band: &Range<PhysicalLength>,
+        last_drawn: usize,
+        default_text_color: Color,
+    ) {
+        let Some(extent) = self.quote_bar_extent(layout, para_y, visible_band, last_drawn) else {
+            return;
+        };
+        let color = if is_on_dark_background(default_text_color) {
+            Color::from_argb_u8(112, 170, 170, 170)
+        } else {
+            Color::from_argb_u8(96, 128, 128, 128)
+        };
+        let width = (self.quote_step.get() * QUOTE_BAR_WIDTH_EM / QUOTE_INDENT_EM).round().max(1.0);
+        for level in 0..self.quote_depth {
+            let rect = PhysicalRect::new(
+                PhysicalPoint::new(self.quote_step.get() * level as f32, extent.start),
+                PhysicalSize::new(width, extent.end - extent.start),
+            );
+            item_renderer.fill_rectangle_with_color(rect, color);
+        }
     }
 
     /// Paints a translucent rounded capsule under every glyph run that lies inside one of
@@ -283,13 +392,9 @@ impl TextParagraph {
         // Neutral gray fill (low alpha) on both themes — contrast against the page
         // background carries the "this is code" cue. The border picks up the same hue
         // but a higher alpha so the rounded outline stays visible against the fill.
-        // Pick brighter values on dark backgrounds (luminance of the text gives us
-        // that signal without poking at the window background).
-        let fg_luminance = 0.299 * default_text_color.red() as f32
-            + 0.587 * default_text_color.green() as f32
-            + 0.114 * default_text_color.blue() as f32;
+        // Pick brighter values on dark backgrounds.
         let fill = Color::from_argb_u8(28, 128, 128, 128);
-        let border = if fg_luminance > 140.0 {
+        let border = if is_on_dark_background(default_text_color) {
             Color::from_argb_u8(88, 170, 170, 170)
         } else {
             Color::from_argb_u8(56, 128, 128, 128)

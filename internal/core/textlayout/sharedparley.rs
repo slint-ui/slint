@@ -340,6 +340,7 @@ pub fn link_under_cursor(
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
+        let paragraph_x: f64 = paragraph.x().cast::<f64>().get();
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
         paragraph
@@ -359,6 +360,8 @@ fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string:
                 let mut clicked = false;
                 let link_range = parley::Selection::new(start, end);
                 link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
+                    bounding_box.x0 += paragraph_x;
+                    bounding_box.x1 += paragraph_x;
                     bounding_box.y0 += paragraph_y;
                     bounding_box.y1 += paragraph_y;
                     clicked |= bounding_box.union(parley::BoundingBox::new(
@@ -613,7 +616,8 @@ fn text_content_widths_impl(
             .take(text_item.line_limit().unwrap_or(usize::MAX))
             .fold((0., 0.), |(min, max), p| {
                 let w = p.layout.calculate_content_widths();
-                (f32::max(min, w.min), f32::max(max, w.max))
+                let x = p.x().get();
+                (f32::max(min, x + w.min), f32::max(max, x + w.max))
             });
         crate::renderer::ContentWidths {
             min: PhysicalLength::new(min) / scale_factor,
