@@ -65,7 +65,6 @@ path = [
   "logo/README.md",
   "**/public/favicon.svg",
   "ai-plugins/icon.svg",
-  "ai-plugins/assets/slint.svg",
   "logo/documentation-site-favicons/**",
   "**/public/slint-logo-small-light.svg",
   "**/public/slint-logo.woff",
