@@ -280,6 +280,9 @@ impl Scene {
                     SharedBufferData::SharedImage(SharedImageBuffer::RGB565(_)) => true,
                     #[cfg(feature = "image-pixel-format-gray8")]
                     SharedBufferData::SharedImage(SharedImageBuffer::Gray8(_)) => true,
+                    SharedBufferData::SharedImage(
+                        SharedImageBuffer::RGBA8(_) | SharedImageBuffer::RGBA8Premultiplied(_),
+                    ) => false,
                     _ => false,
                 };
                 opaque_format && buffer.extra.alpha == 255
