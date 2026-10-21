@@ -47,11 +47,6 @@ export const DEV_BINARY_PACKAGE = "@slint-ui/slint-ui-dev-binary";
 /** Base npm package name for the platform slint-compiler binaries. */
 export const COMPILER_BINARY_PACKAGE = "@slint-ui/slint-compiler";
 
-/** The napi-rs platform suffixes for the slint-compiler binary packages. */
-export const COMPILER_TARGETS = NAPI_TARGETS.filter(
-    (target) => !target.endsWith("-musl"),
-);
-
 /** Full npm package names for a binary base name, e.g. `@slint-ui/slint-ui-binary`. */
 export function binaryPackageNames(
     base: string,
@@ -263,7 +258,7 @@ export async function packCompilerMeta(opts: {
         manifest.optionalDependencies ??= {};
         for (const pkg of binaryPackageNames(
             COMPILER_BINARY_PACKAGE,
-            targets ?? COMPILER_TARGETS,
+            targets,
         )) {
             manifest.optionalDependencies[pkg] = version;
         }
