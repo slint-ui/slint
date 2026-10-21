@@ -5,9 +5,10 @@ import { ButtonBase } from "../../controls/src/headless.slint";
 import { LightTheme, DarkTheme, Theme, ThemeKind } from "../style.slint";
 
 export global ViewerStyle {
-    // The approved preview's geometry is scaled uniformly to fit the editor toolbar.
-    out property <float> scale: 2 / 3;
-    out property <length> radius: 17px * root.scale;
+    // Keep toolbar dimensions independent of the larger popup geometry.
+    out property <float> pill-scale: 2 / 3;
+    out property <float> scale: 0.8;
+    out property <length> radius: 17px * root.pill-scale;
     out property <length> inset: 12px * root.scale;
     out property <length> row-height: 47px * root.scale;
     out property <bool> dark: Theme.current == ThemeKind.dark;

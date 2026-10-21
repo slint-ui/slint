@@ -22,6 +22,8 @@ def test_viewer_autostart_transport_and_popup(
         expect(query(window, "Connected")).to_be_visible()
 
         launcher = element(window, "Viewer controls")
+        assert launcher.size.width == pytest.approx(252)
+        assert launcher.size.height == pytest.approx(112 / 3)
         transport = element(window, "Stop preview")
         assert transport.absolute_position.x > center(launcher).x
         window.dispatch_event(
@@ -50,6 +52,8 @@ def test_viewer_autostart_transport_and_popup(
 
         element(window, "Viewer controls").single_click(left)
         popup = element(window, "Viewer options")
+        assert popup.size.width == pytest.approx(368.8)
+        assert popup.size.height == pytest.approx(105.6)
         bounds = popup.absolute_rect
         selector = element(window, "Choose viewer")
         manager = element(
