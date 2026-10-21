@@ -1342,8 +1342,12 @@ fn build(l: &mut Loader) {
         /// Inline code    | Builtin
         /// Links          | Builtin
         /// Ordered and unordered lists | Builtin
+        /// Block quotes   | Builtin
         /// Underlines     | `<u>` HTML tag
         /// Text Colors    |`<font color="...">` HTML tags
+        ///
+        /// Block quotes are indented, with a bar for each nesting level.
+        /// When fonts are embedded as bitmaps for the software renderer, a quote shows as a `> ` prefix instead.
         ///
         /// ### Currently Unsupported
         ///
@@ -1352,7 +1356,6 @@ fn build(l: &mut Loader) {
         /// Headings         |
         /// Images           |
         /// Tables           |
-        /// Block Quotes     |
         /// Subscripts       |
         /// Superscripts     |
         /// Horizontal Rules |
