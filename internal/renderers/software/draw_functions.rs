@@ -1027,11 +1027,12 @@ fn draw_radial_gradient(
     let dy_norm_squared = dy_norm * dy_norm;
     let mut noise = GradientNoise::new(start_x as i32, line.get() as i32);
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let x = start_x + i as i16;
-        let dx_norm = (x as f32 - center_x) * inv_radius_x;
+    let mut dx = start_x as f32 - center_x;
+    for pixel in buffer {
+        let dx_norm = dx * inv_radius_x;
         let distance = (dx_norm * dx_norm + dy_norm_squared).sqrt();
         blend_stops(&g.stops, pixel, distance, &mut noise);
+        dx += 1.;
     }
 }
 
@@ -1063,8 +1064,8 @@ fn draw_conic_gradient(
         offset += 1.;
     }
 
-    for (i, pixel) in buffer.iter_mut().enumerate() {
-        let dx = (start_x + i as i16) as f32 - center_x;
+    let mut dx = start_x as f32 - center_x;
+    for pixel in buffer {
         // position is in the range [-0.5, 1.5]
         let position = atan2_turns(dy, dx) + offset;
         // bits for integer compares
@@ -1080,6 +1081,7 @@ fn draw_conic_gradient(
         };
         // position is in [0, 1]
         blend_stops(&g.stops, pixel, position, &mut noise);
+        dx += 1.;
     }
 }
 
