@@ -2473,6 +2473,136 @@ mod tests {
     }
 
     #[test]
+    fn read_only_switch_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("LineEdit", true),
+            ("SpinBox", true),
+            ("TextEdit", true),
+            ("TextInput", true),
+            ("Button", false),
+            ("CheckBox", false),
+            ("TouchArea", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(true), None, true),
+            (Some(false), None, false),
+            (Some(true), Some(false), false),
+            (None, Some(true), true),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "read-only" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "read-only" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "TextEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let switch =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Read-only")
+                .find(|element| element.accessible_checked().is_some())
+                .unwrap();
+        switch.invoke_accessible_default_action();
+        assert_eq!(*commits.borrow(), [("read-only".to_string(), "true".to_string())]);
+        assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
     fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
         use slint::platform::{Key, WindowEvent};
 

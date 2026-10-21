@@ -83,6 +83,14 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "WindowMoveArea");
     }
 
+    public pure function is-read-only-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "SpinBox"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "TextInput");
+    }
+
     public pure function is-layout-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "GridLayout"
