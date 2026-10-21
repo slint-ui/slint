@@ -4,6 +4,8 @@
 # cspell:ignore getcolors
 
 import json
+import socketserver
+import threading
 from pathlib import Path
 
 import pytest
@@ -67,6 +69,7 @@ def test_viewer_autostart_transport_and_popup(
         expect(query(window, "Animations")).to_be_hidden()
         expect(query(window, "Animation speed")).to_be_hidden()
         inset = selector.absolute_position.x - popup.absolute_position.x
+        assert selector.size.width == pytest.approx(popup.size.width - 2 * inset)
         assert (
             selector.absolute_position.y - popup.absolute_position.y
             == pytest.approx(inset, abs=0.01)
@@ -115,6 +118,19 @@ def test_viewer_autostart_transport_and_popup(
                 window, "Close device manager", role=slint_testing.AccessibleRole.Button
             )
         ).to_be_visible()
+        devices_panel = element(window, "Device manager")
+        assert devices_panel.size.width == pytest.approx(368.8)
+        assert devices_panel.size.height == pytest.approx(331.2)
+        assert devices_panel.absolute_position.x == pytest.approx(bounds.x)
+        heading = element(window, "Devices", role=slint_testing.AccessibleRole.Text)
+        assert (
+            heading.absolute_position.x - devices_panel.absolute_position.x
+            == pytest.approx(19.2)
+        )
+        assert (
+            heading.absolute_position.y - devices_panel.absolute_position.y
+            == pytest.approx(18.4)
+        )
         screenshot(window).save(tmp_path / "device-manager-saved.png")
         element(
             window, "Pair nearby device", role=slint_testing.AccessibleRole.Button
@@ -204,3 +220,72 @@ def test_saved_device_removal_requires_confirmation(
         slint_testing.wait_until(
             lambda: len(json.loads(settings.read_text())["devices"]) == 4
         )
+
+
+@pytest.mark.parametrize("dismiss", ["close", "outside"])
+def test_closing_device_manager_cancels_pending_search(
+    editor_binary, editor_environment, radial_scene, dismiss
+):
+    requested = threading.Event()
+    disconnected = threading.Event()
+
+    class PendingViewer(socketserver.BaseRequestHandler):
+        def handle(self):
+            self.request.settimeout(10)
+            headers = b""
+            while b"\r\n\r\n" not in headers:
+                data = self.request.recv(4096)
+                if not data:
+                    return
+                headers += data
+            requested.set()
+            # Keep the WebSocket handshake pending until the editor cancels it.
+            while self.request.recv(4096):
+                pass
+            disconnected.set()
+
+    with socketserver.TCPServer(("127.0.0.1", 0), PendingViewer) as server:
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with launch_editor(
+                editor_binary, editor_environment, radial_scene
+            ) as editor:
+                window = first_window(editor)
+                left = slint_testing.PointerEventButton.Left
+                expect(query(window, "Connected")).to_be_visible()
+                element(window, "Viewer controls").single_click(left)
+                element(
+                    window,
+                    "Manage devices...",
+                    role=slint_testing.AccessibleRole.Button,
+                ).single_click(left)
+                element(
+                    window,
+                    "Pair nearby device",
+                    role=slint_testing.AccessibleRole.Button,
+                ).single_click(left)
+                element(
+                    window,
+                    "Enter IP address...",
+                    role=slint_testing.AccessibleRole.Button,
+                ).single_click(left)
+                element(
+                    window, "9000", role=slint_testing.AccessibleRole.TextInput
+                ).accessible_value = str(server.server_address[1])
+                element(
+                    window, "192.168.1.42", role=slint_testing.AccessibleRole.TextInput
+                ).accessible_value = "127.0.0.1"
+                expect.poll(requested.is_set).to_equal(True)
+                if dismiss == "close":
+                    element(window, "Close device manager").single_click(left)
+                else:
+                    element(
+                        window, "Project", role=slint_testing.AccessibleRole.Text
+                    ).single_click(left)
+                expect(query(window, "Close device manager")).to_be_hidden()
+                expect.poll(disconnected.is_set).to_equal(True)
+                expect(query(window, "Connected")).to_be_visible()
+        finally:
+            server.shutdown()
+            worker.join(timeout=10)

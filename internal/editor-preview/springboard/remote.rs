@@ -155,6 +155,10 @@ pub(super) mod tests {
         };
         assert_eq!(viewer.name, "Phone");
         assert_eq!(viewer.addresses, ["127.0.0.1", "[2001:db8::5]"]);
+        let (host, port) = crate::remote_client::parse_host_port("[2001:db8::5]:1234").unwrap();
+        assert!(viewer.addresses.contains(&host));
+        assert_eq!(viewer.port, port);
+        assert_eq!(format!("{}:{}", viewer.addresses[1], viewer.port), "[2001:db8::5]:1234");
         assert!(viewer.unavailable_reason.is_empty());
         sender
             .send(mdns_sd::ServiceEvent::ServiceRemoved(SERVICE_TYPE.into(), fullname.clone()))

@@ -2867,6 +2867,66 @@ mod tests {
     }
 
     #[test]
+    fn device_manager_connections_request_the_current_component_after_stop() {
+        use i_slint_editor_preview::springboard_ui::{
+            PreviewEndpoint, PreviewEndpointKind, Springboard,
+        };
+        i_slint_backend_testing::init_no_event_loop();
+        for manual in [false, true] {
+            let editor = super::create_ui().unwrap();
+            editor.global::<super::Preview>().set_can_run(true);
+            editor
+                .global::<super::Api>()
+                .set_editor_surface_mode(super::EditorSurfaceMode::Component);
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            let springboard = editor.global::<Springboard>();
+            springboard.set_endpoints(
+                std::rc::Rc::new(slint::VecModel::from(vec![
+                    PreviewEndpoint {
+                        name: "Local".into(),
+                        kind: PreviewEndpointKind::Local,
+                        saved: true,
+                        ..Default::default()
+                    },
+                    PreviewEndpoint {
+                        name: "Phone".into(),
+                        kind: PreviewEndpointKind::Remote,
+                        nearby: true,
+                        ..Default::default()
+                    },
+                ]))
+                .into(),
+            );
+            let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+            let recorded = calls.clone();
+            editor.global::<super::Preview>().on_run(move || recorded.borrow_mut().push("run"));
+            let recorded = calls.clone();
+            springboard.on_pair_endpoint(move |index| {
+                assert_eq!(index, 1);
+                recorded.borrow_mut().push("connect");
+            });
+            let recorded = calls.clone();
+            springboard.on_connect_found_device(move || recorded.borrow_mut().push("connect"));
+            editor.show().unwrap();
+            for label in ["Viewer controls", "Manage devices...", "Pair nearby device"] {
+                find_element(&editor, label).invoke_accessible_default_action();
+                slint::platform::update_timers_and_animations();
+            }
+            if manual {
+                find_element(&editor, "Enter IP address...").invoke_accessible_default_action();
+                springboard.set_device_found(true);
+                slint::platform::update_timers_and_animations();
+            }
+            find_element(&editor, if manual { "Connect" } else { "Pair" })
+                .invoke_accessible_default_action();
+            assert_eq!(*calls.borrow(), ["run", "connect"]);
+            editor.hide().unwrap();
+        }
+    }
+
+    #[test]
     fn title_area_requests_window_move_on_first_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

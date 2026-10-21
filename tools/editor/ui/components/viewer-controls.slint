@@ -6,12 +6,12 @@ import { Metrics, Typography } from "../style.slint";
 import { Preview } from "../preview.slint";
 import { Springboard, ConnectionState } from "@springboard";
 import { EditorScrollView } from "editor-scroll-view.slint";
-import { ViewerStyle, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
-import { DeviceManager, DeviceManagerSession } from "device-manager.slint";
+import { ViewerStyle, ViewerPopup, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
+import { DeviceManager } from "device-manager.slint";
 
 export component ViewerControls inherits Rectangle {
     private property <bool> manager-open: manager.is-open;
-    changed manager-open => { DeviceManagerSession.open = root.manager-open; }
+    changed manager-open => { if !root.manager-open { Springboard.cancel-pairing(); } }
     in property <bool> can-start;
     in property <bool> busy;
     width: 378px * ViewerStyle.pill-scale;
@@ -78,42 +78,15 @@ export component ViewerControls inherits Rectangle {
         }
     }
 
-    popup := PopupWindow {
-        close-policy: close-on-click-outside;
-        x: root.width - self.width + 16px; y: root.height + 8px / 3;
-        width: 461px * ViewerStyle.scale + 32px;
-        height: panel.y + panel.height + 20px * ViewerStyle.scale;
-        Rectangle {
-            x: panel.x; y: panel.y; width: panel.width; height: panel.height;
-            border-radius: ViewerStyle.radius;
-            background: ViewerStyle.popup;
-            drop-shadow-color: ViewerStyle.popup-ambient-shadow;
-            drop-shadow-blur: 20px * ViewerStyle.scale;
-            drop-shadow-offset-y: 8px * ViewerStyle.scale;
-        }
-        panel := Rectangle {
-            x: 16px; y: 9px * ViewerStyle.scale;
-            width: 461px * ViewerStyle.scale;
-            height: 132px * ViewerStyle.scale
-                + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
-            accessible-role: groupbox; accessible-label: @tr("Viewer options");
-            border-radius: ViewerStyle.radius;
-            background: ViewerStyle.popup;
-            border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
-            drop-shadow-color: ViewerStyle.popup-key-shadow;
-            drop-shadow-blur: 3px * ViewerStyle.scale;
-            drop-shadow-offset-y: 1px * ViewerStyle.scale;
-        }
-        Path {
-            x: panel.x + 298px * ViewerStyle.scale; y: 0px;
-            width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
-            commands: "M 0 10 L 14 -4 L 28 10";
-            fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
-        }
+    popup := ViewerPopup {
+        anchor-width: root.width; anchor-height: root.height;
+        label: @tr("Viewer options");
+        panel-height: 132px * ViewerStyle.scale
+            + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
         selector := ViewerButton {
-            x: panel.x + ViewerStyle.inset;
-            y: panel.y + ViewerStyle.inset;
-            width: panel.width - 2 * ViewerStyle.inset;
+            x: ViewerStyle.inset;
+            y: ViewerStyle.inset;
+            width: popup.panel-width - 2 * ViewerStyle.inset;
             text: @tr("Choose viewer");
             accessible-role: combobox; accessible-value: Preview.endpoint-name; accessible-expanded: viewers.is-open;
             clicked => { viewers.show(); }
@@ -186,21 +159,13 @@ export component ViewerControls inherits Rectangle {
             color: ViewerStyle.muted; font-size: Typography.caption.size; overflow: elide;
         }
     }
-    manager := PopupWindow {
-        close-policy: close-on-click-outside;
-        x: root.width - self.width + 16px; y: root.height + 8px / 3;
-        width: 461px * ViewerStyle.scale + 32px;
-        height: (414px + 29px) * ViewerStyle.scale;
+    manager := ViewerPopup {
+        anchor-width: root.width; anchor-height: root.height;
+        label: @tr("Device manager");
+        panel-height: 414px * ViewerStyle.scale;
         DeviceManager {
-            x: 16px; y: 9px * ViewerStyle.scale;
-            width: 461px * ViewerStyle.scale; height: 414px * ViewerStyle.scale;
+            width: manager.panel-width; height: manager.panel-height;
             closed => { manager.close(); }
-        }
-        Path {
-            x: 16px + 298px * ViewerStyle.scale; y: 0px;
-            width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
-            commands: "M 0 10 L 14 -4 L 28 10";
-            fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
         }
     }
     private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired

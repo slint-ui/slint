@@ -7,10 +7,6 @@ import { Preview } from "../preview.slint";
 import { ViewerStyle, Chevron, ViewerIcon } from "viewer-style.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
-export global DeviceManagerSession {
-    in-out property <bool> open;
-}
-
 component DeviceAction inherits Rectangle {
     in property <string> label;
     in property <bool> enabled: true;
@@ -63,7 +59,6 @@ component DeviceField inherits Rectangle {
 
 export component DeviceManager inherits Rectangle {
     callback closed();
-    private property <bool> open: DeviceManagerSession.open;
     private property <int> page;
     private property <string> removing;
     private property <length> confirm-x;
@@ -75,12 +70,9 @@ export component DeviceManager inherits Rectangle {
     private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired
         || Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired;
     private property <bool> connected: Springboard.connection-state == ConnectionState.Connected;
-    changed open => {
-        root.removing = "";
-        if root.open {
-            root.page = root.pairing-required ? 3 : 0;
-            Springboard.discover-devices();
-        } else { Springboard.cancel-pairing(); }
+    init => {
+        root.page = root.pairing-required ? 3 : 0;
+        Springboard.discover-devices();
     }
     changed pairing-required => { if root.pairing-required { root.page = 3; } }
     changed connected => {
@@ -97,21 +89,9 @@ export component DeviceManager inherits Rectangle {
     }
     function begin-pairing(index: int) {
         root.code = "";
-        Springboard.select-endpoint(index);
+        if !Preview.is-running { Preview.run(); }
+        Springboard.pair-endpoint(index);
         root.page = 3;
-    }
-    Rectangle {
-        border-radius: ViewerStyle.radius;
-        background: ViewerStyle.popup;
-        drop-shadow-color: ViewerStyle.popup-ambient-shadow;
-        drop-shadow-blur: (20px * ViewerStyle.scale); drop-shadow-offset-y: (8px * ViewerStyle.scale);
-    }
-    Rectangle {
-        border-radius: ViewerStyle.radius;
-        border-width: (1px * ViewerStyle.scale); border-color: ViewerStyle.border;
-        background: ViewerStyle.popup;
-        drop-shadow-color: ViewerStyle.popup-key-shadow;
-        drop-shadow-blur: (3px * ViewerStyle.scale); drop-shadow-offset-y: (1px * ViewerStyle.scale);
     }
     TouchArea { }
     if root.page != 0: back := DeviceAction {
@@ -226,6 +206,7 @@ export component DeviceManager inherits Rectangle {
             enabled: Springboard.device-found || Springboard.search-error != "";
             activated => {
                 if Springboard.device-found {
+                    if !Preview.is-running { Preview.run(); }
                     Springboard.connect-found-device();
                     root.page = 3;
                 } else { root.search(); }

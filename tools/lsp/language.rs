@@ -106,23 +106,14 @@ pub fn send_requested_state_to_preview(
         send_files_to_preview(ctx, files);
     }
 
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        any(feature = "preview-external", feature = "preview-engine")
-    ))]
     for name in settings {
-        if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
-            ctx.session
-                .primary_preview()
-                .to_preview
-                .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
-        }
+        let contents =
+            i_slint_editor_preview::settings_store::load("lsp", name).unwrap_or_default();
+        ctx.session
+            .primary_preview()
+            .to_preview
+            .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
     }
-    #[cfg(not(all(
-        not(target_arch = "wasm32"),
-        any(feature = "preview-external", feature = "preview-engine")
-    )))]
-    let _ = settings;
 }
 
 /// Persist a settings blob received from the preview. The payload is opaque to
@@ -2034,7 +2025,7 @@ enum {}
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
-    fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
+    fn send_requested_state_sends_configuration_and_empty_absent_user_settings() {
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
@@ -2054,8 +2045,6 @@ enum {}
             format_utf8: false,
         };
 
-        // Configuration flows independently of user settings; a settings file
-        // the store does not have must not produce a SetUserSettings message.
         send_requested_state_to_preview(&ctx, &[], &["does-not-exist-xyz.json".to_string()]);
 
         let messages = messages.borrow();
@@ -2063,7 +2052,10 @@ enum {}
             m,
             LspToPreviewMessage::SetConfiguration { config } if config == &ctx.session.preview_config
         )));
-        assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
+        assert!(messages.iter().any(|m| matches!(m,
+            LspToPreviewMessage::SetUserSettings { name, contents }
+                if name == "does-not-exist-xyz.json" && contents.is_empty()
+        )));
     }
 
     #[test]

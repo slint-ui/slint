@@ -43,17 +43,45 @@ pub(super) struct SpringboardSettings {
     version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) last_selected: Option<NamedEndpointIdentity>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_devices",
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub(super) devices: Vec<SavedDevice>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(super) struct SavedDevice {
     pub id: String,
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub addresses: Vec<String>,
+    #[serde(default)]
     pub port: u16,
-    pub manual: bool,
+}
+
+fn deserialize_devices<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<SavedDevice>, D::Error> {
+    use serde::Deserialize;
+    let entries = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(entries
+        .into_iter()
+        .filter_map(|entry| match serde_json::from_value::<SavedDevice>(entry) {
+            Ok(mut device) if !device.id.is_empty() => {
+                if device.name.is_empty() {
+                    device.name = device.id.clone();
+                }
+                Some(device)
+            }
+            _ => {
+                tracing::warn!("Ignoring malformed saved device");
+                None
+            }
+        })
+        .collect())
 }
 
 impl SpringboardSettings {
@@ -73,6 +101,9 @@ impl SpringboardSettings {
     /// A blob written by another version is used as far as it parses, so a
     /// setting that version does not know about is the only thing lost.
     pub(super) fn deserialize(contents: &str) -> Option<Self> {
+        if contents.is_empty() {
+            return Some(Self::new(None));
+        }
         match serde_json::from_str::<Self>(contents) {
             Ok(settings) => {
                 if settings.version != SPRINGBOARD_SETTINGS_VERSION {
@@ -95,6 +126,34 @@ impl SpringboardSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn incomplete_devices_do_not_discard_other_settings() {
+        let settings = SpringboardSettings::deserialize(r#"{
+            "version": 1,
+            "last_selected": {"remote": {"fullname": "phone", "name": "Phone"}},
+            "devices": [
+                {"id": "phone", "name": "Phone", "addresses": ["127.0.0.1"], "port": 9000, "manual": false},
+                {"id": "tablet"},
+                {"name": "No identity"},
+                {"id": "broken", "port": "invalid"}
+            ]
+        }"#).unwrap();
+        assert_eq!(settings.devices.len(), 2);
+        assert_eq!(settings.devices[0].name, "Phone");
+        assert_eq!(settings.devices[1].name, "tablet");
+        let roundtrip = SpringboardSettings::deserialize(&settings.serialize()).unwrap();
+        assert_eq!(roundtrip.devices, settings.devices);
+        assert_eq!(roundtrip.last_selected, settings.last_selected);
+        assert!(!settings.serialize().contains("manual"));
+    }
+
+    #[test]
+    fn absent_settings_use_defaults() {
+        let settings = SpringboardSettings::deserialize("").unwrap();
+        assert!(settings.devices.is_empty());
+        assert!(settings.last_selected.is_none());
+    }
 
     #[test]
     fn settings_of_another_version_are_still_used() {

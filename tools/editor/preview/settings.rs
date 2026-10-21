@@ -40,6 +40,9 @@ impl VisualEditorSettings {
     }
 
     pub(crate) fn deserialize(contents: &str) -> Option<Self> {
+        if contents.is_empty() {
+            return Some(Self::default());
+        }
         serde_json::from_str::<VisualEditorSettings>(contents)
             .map_err(|error| tracing::warn!("Ignoring malformed visual editor settings: {error}"))
             .ok()

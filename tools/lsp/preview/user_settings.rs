@@ -42,6 +42,9 @@ impl PreviewUserSettings {
     /// Parse settings received from the LSP, returning `None` (and warning) if
     /// the stored blob is malformed or of an unsupported version.
     pub fn deserialize(contents: &str) -> Option<Self> {
+        if contents.is_empty() {
+            return Some(Self::default());
+        }
         match serde_json::from_str(contents) {
             Ok(settings) => Some(settings),
             Err(err) => {

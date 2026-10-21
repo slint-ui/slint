@@ -34,6 +34,9 @@ use settings::{
 type ViewerProbe = Pin<Box<dyn std::future::Future<Output = Result<DiscoveredViewer, String>>>>;
 type SavedProbes = Pin<Box<dyn std::future::Future<Output = Vec<(String, bool)>>>>;
 
+const LOCAL_ENDPOINT_ID: &str = "local";
+const UNAVAILABLE: &str = "Unavailable";
+
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
     pub executable: PathBuf,
@@ -77,6 +80,7 @@ struct SpringboardTask {
     state: ui::SpringboardState,
     connection_state: ui::ConnectionState,
     pairing_code_digits: u8,
+    pairing_in_progress: bool,
     error: String,
     preview: Option<Endpoint>,
     highlight: Option<LspToPreviewMessage>,
@@ -115,7 +119,9 @@ impl Springboard {
         let manager_handle = handle.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
             global.on_close(move || close_handle.close());
-            global.on_select_endpoint(move |index| select_handle.select_displayed(index));
+            let pairing_handle = select_handle.clone();
+            global.on_select_endpoint(move |index| select_handle.select_displayed(index, false));
+            global.on_pair_endpoint(move |index| pairing_handle.select_displayed(index, true));
             let handle = manager_handle.clone();
             global.on_search_address(move |address| {
                 let _ = handle
@@ -158,6 +164,7 @@ impl Springboard {
             state: ui::SpringboardState::Stopped,
             connection_state: ui::ConnectionState::None,
             pairing_code_digits: 0,
+            pairing_in_progress: false,
             error: String::new(),
             preview: None,
             highlight: None,
@@ -181,7 +188,7 @@ impl Springboard {
         handle
     }
 
-    fn select_displayed(&self, index: i32) {
+    fn select_displayed(&self, index: i32, pairing: bool) {
         let endpoint = usize::try_from(index)
             .ok()
             .and_then(|index| self.displayed_endpoints.lock().unwrap().get(index).cloned());
@@ -189,6 +196,9 @@ impl Springboard {
             let _ = self.task_sender.send(Box::new(move |task| {
                 task.start();
                 task.select_endpoint(endpoint);
+                if pairing && task.connection_state == ui::ConnectionState::Connecting {
+                    task.pairing_in_progress = true;
+                }
             }));
         }
     }
@@ -269,7 +279,7 @@ impl SpringboardTask {
                         if self.selected == Some(EndpointIdentity::Remote(id.clone()))
                             && self.connection_state == ui::ConnectionState::Connected { continue; }
                         if let Some(viewer) = self.viewers.iter_mut().find(|viewer| viewer.fullname == id) {
-                            viewer.unavailable_reason = if available { String::new() } else { "Unavailable".into() };
+                            viewer.unavailable_reason = if available { String::new() } else { UNAVAILABLE.into() };
                         }
                     }
                     self.apply_last_selected();
@@ -346,7 +356,7 @@ impl SpringboardTask {
                     self.viewers.iter_mut().find(|viewer| viewer.fullname == fullname)
                     && self.saved_devices.iter().any(|saved| saved.id == fullname)
                 {
-                    viewer.unavailable_reason = "Unavailable".into();
+                    viewer.unavailable_reason = UNAVAILABLE.into();
                 } else {
                     self.viewers.retain(|viewer| viewer.fullname != fullname);
                 }
@@ -357,7 +367,10 @@ impl SpringboardTask {
 
     fn mark_unadvertised_selected(&mut self) {
         let Some(EndpointIdentity::Remote(fullname)) = &self.selected else { return };
-        if self.preview.is_some() || self.advertised.contains(fullname) {
+        if self.preview.is_some()
+            || self.advertised.contains(fullname)
+            || fullname.starts_with("manual:")
+        {
             return;
         }
         let Some(viewer) = self.viewers.iter_mut().find(|viewer| &viewer.fullname == fullname)
@@ -412,6 +425,7 @@ impl SpringboardTask {
             }
         };
         self.preview = None;
+        self.pairing_in_progress = false;
         self.selected = Some(identity.clone());
         self.store_last_selected(named);
         self.error.clear();
@@ -458,6 +472,7 @@ impl SpringboardTask {
                     return;
                 };
                 *pairing_answer = Some(answer);
+                self.pairing_in_progress = true;
                 match prompt {
                     PairingPrompt::Code { attempts_left, expires_in_seconds, code_digits } => {
                         self.connection_state = ui::ConnectionState::PairingRequired;
@@ -491,6 +506,7 @@ impl SpringboardTask {
             }
             ConnectionEvent::Connected => {
                 self.connection_state = ui::ConnectionState::Connected;
+                self.pairing_in_progress = false;
                 self.save_selected_device();
                 if let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview {
                     *pairing_answer = None;
@@ -528,6 +544,7 @@ impl SpringboardTask {
 
     fn fail_endpoint(&mut self, error: String) {
         self.preview = None;
+        self.pairing_in_progress = false;
         self.error = error;
         if matches!(self.selected, Some(EndpointIdentity::Remote(_))) {
             self.connection_state = ui::ConnectionState::Failed;
@@ -569,9 +586,16 @@ impl SpringboardTask {
     }
 
     fn close(&mut self) {
-        let remembered = self.named_selection();
+        let mut remembered = self.named_selection();
+        if let Some(NamedEndpointIdentity::Remote { fullname, .. }) = &remembered
+            && !self.saved_devices.iter().any(|saved| &saved.id == fullname)
+        {
+            remembered = Some(NamedEndpointIdentity::Local);
+            self.persist_settings(remembered.clone());
+        }
         self.error.clear();
         self.preview = None;
+        self.pairing_in_progress = false;
         self.discovery = None;
         self.probe = None;
         self.saved_probes = None;
@@ -579,7 +603,7 @@ impl SpringboardTask {
         self.viewers
             .retain(|viewer| self.saved_devices.iter().any(|saved| saved.id == viewer.fullname));
         for viewer in &mut self.viewers {
-            viewer.unavailable_reason = "Unavailable".into();
+            viewer.unavailable_reason = UNAVAILABLE.into();
         }
         self.advertised.clear();
         self.selected = None;
@@ -648,8 +672,9 @@ impl SpringboardTask {
             // run ended, must not take the selection back.
             if !self.settings_loaded || self.state == ui::SpringboardState::Idle {
                 let already_selected = self.selected.is_some();
-                self.settings_loaded = true;
+                self.settings_loaded = false;
                 if let Some(settings) = SpringboardSettings::deserialize(contents) {
+                    self.settings_loaded = true;
                     for saved in settings.devices {
                         if !self.saved_devices.iter().any(|device| device.id == saved.id) {
                             if !self.viewers.iter().any(|viewer| viewer.fullname == saved.id) {
@@ -658,7 +683,7 @@ impl SpringboardTask {
                                     name: saved.name.clone(),
                                     addresses: saved.addresses.clone(),
                                     port: saved.port,
-                                    unavailable_reason: "Unavailable".into(),
+                                    unavailable_reason: UNAVAILABLE.into(),
                                 });
                             }
                             self.saved_devices.push(saved);
@@ -720,7 +745,9 @@ impl SpringboardTask {
             .viewers
             .iter()
             .filter(|viewer| {
-                self.saved_devices.iter().any(|saved| saved.manual && saved.id == viewer.fullname)
+                self.saved_devices
+                    .iter()
+                    .any(|saved| saved.id.starts_with("manual:") && saved.id == viewer.fullname)
                     && !(self.selected == Some(EndpointIdentity::Remote(viewer.fullname.clone()))
                         && self.connection_state == ui::ConnectionState::Connected)
             })
@@ -748,7 +775,6 @@ impl SpringboardTask {
             name: viewer.name.clone(),
             addresses: viewer.addresses.clone(),
             port: viewer.port,
-            manual: id.starts_with("manual:"),
         };
         if let Some(existing) = self.saved_devices.iter_mut().find(|device| &device.id == id) {
             *existing = saved;
@@ -816,16 +842,12 @@ impl SpringboardTask {
         }
         self.start();
         self.select_endpoint(EndpointIdentity::Remote(id));
+        self.pairing_in_progress = self.connection_state == ui::ConnectionState::Connecting;
     }
 
     fn cancel_pairing(&mut self) {
         self.search_address("");
-        if matches!(
-            self.connection_state,
-            ui::ConnectionState::PairingRequired
-                | ui::ConnectionState::UnpairedConfirmationRequired
-                | ui::ConnectionState::Connecting
-        ) {
+        if self.pairing_in_progress {
             self.select_endpoint(EndpointIdentity::Local);
         }
     }
@@ -869,7 +891,7 @@ impl SpringboardTask {
             );
             *mapping.lock().unwrap() = identities;
             let mut endpoints = vec![ui::PreviewEndpoint {
-                id: "local".into(),
+                id: LOCAL_ENDPOINT_ID.into(),
                 saved: true,
                 nearby: false,
                 address: "This computer".into(),
@@ -1498,7 +1520,7 @@ mod tests {
                         task.handle_discovery(DiscoveryEvent::Removed(first_id))
                     }))
                     .unwrap();
-                controller.select_displayed(2);
+                controller.select_displayed(2, false);
                 let expected = second_id.clone();
                 wait_condition(&controller, move |task| {
                     task.selected == Some(EndpointIdentity::Remote(expected.clone()))
@@ -1792,6 +1814,15 @@ mod tests {
                         })
                         .await;
                     assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                    let PreviewToLspMessage::UpdateUserSettings { contents, .. } =
+                        receive(&mut upstream).await
+                    else {
+                        panic!("Expected the fallback selection to be saved");
+                    };
+                    assert_eq!(
+                        SpringboardSettings::deserialize(&contents).unwrap().last_selected,
+                        Some(NamedEndpointIdentity::Local)
+                    );
                     assert!(upstream.try_recv().is_err());
                 }
             })
@@ -2093,6 +2124,192 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn stopping_an_unsaved_manual_viewer_resumes_local() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for fail in [false, true] {
+                    let viewer = Viewer::start(PairingPolicy::Generated, 0).await;
+                    let address = format!("127.0.0.1:{}", viewer.connection.local_port());
+                    let (controller, mut upstream, _discovery) = controller("echo_child");
+                    controller
+                        .task_sender
+                        .send(Box::new(move |task| task.search_address(&address)))
+                        .unwrap();
+                    wait_condition(&controller, |task| task.found_device.is_some()).await;
+                    controller
+                        .task_sender
+                        .send(Box::new(|task| task.connect_found_device()))
+                        .unwrap();
+                    wait_condition(&controller, |task| {
+                        task.connection_state == ui::ConnectionState::PairingRequired
+                    })
+                    .await;
+                    controller
+                        .task_sender
+                        .send(Box::new(move |task| {
+                            if fail {
+                                task.fail_endpoint("Disconnected".into());
+                            }
+                            task.close();
+                        }))
+                        .unwrap();
+                    wait_stopped(&controller).await;
+                    assert!(
+                        inspect(&controller, |task| task.viewers.is_empty()
+                            && task.last_selected == Some(NamedEndpointIdentity::Local))
+                        .await
+                    );
+                    let mut stored = None;
+                    while let Ok(message) = upstream.try_recv() {
+                        if let PreviewToLspMessage::UpdateUserSettings { contents, .. } = message {
+                            stored = Some(contents);
+                        }
+                    }
+                    let stored = stored.unwrap();
+                    assert_eq!(
+                        SpringboardSettings::deserialize(&stored).unwrap().last_selected,
+                        Some(NamedEndpointIdentity::Local)
+                    );
+                    controller.start();
+                    assert_user_setting_request(&mut upstream).await;
+                    controller.send(&LspToPreviewMessage::SetUserSettings {
+                        name: SPRINGBOARD_SETTINGS_FILE.into(),
+                        contents: stored,
+                    });
+                    assert_user_setting_set(&mut upstream).await;
+                    started(&mut upstream).await;
+                    controller.shutdown().await;
+                }
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn failed_manual_viewer_can_be_retried() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                let address = format!("127.0.0.1:{}", viewer.connection.local_port());
+                let (controller, _upstream, _discovery) = controller("echo_child");
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.search_address(&address)))
+                    .unwrap();
+                wait_condition(&controller, |task| task.found_device.is_some()).await;
+                controller.task_sender.send(Box::new(|task| task.connect_found_device())).unwrap();
+                wait_condition(&controller, |task| {
+                    task.connection_state == ui::ConnectionState::UnpairedConfirmationRequired
+                })
+                .await;
+                answer(&controller, PairingAnswer::AcceptUnpaired);
+                wait_condition(&controller, |task| {
+                    task.connection_state == ui::ConnectionState::Connected
+                        && task.saved_devices.len() == 1
+                })
+                .await;
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.fail_endpoint("Disconnected".into());
+                        assert!(task.viewers[0].unavailable_reason.is_empty());
+                    }))
+                    .unwrap();
+                viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+                select(&controller, 1);
+                wait_condition(&controller, |task| {
+                    task.connection_state != ui::ConnectionState::Connecting
+                })
+                .await;
+                let (state, error) =
+                    inspect(&controller, |task| (task.connection_state, task.error.clone())).await;
+                assert_eq!(state, ui::ConnectionState::UnpairedConfirmationRequired, "{error}");
+                answer(&controller, PairingAnswer::AcceptUnpaired);
+                wait_condition(&controller, |task| {
+                    task.connection_state == ui::ConnectionState::Connected
+                })
+                .await;
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn cancel_pairing_preserves_ordinary_connections() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let viewer = Viewer::start(PairingPolicy::Generated, 0).await;
+                let (controller, _upstream, discovered) = controller("echo_child");
+                controller.start();
+                discover(
+                    &controller,
+                    &discovered,
+                    remote::tests::service("Phone", viewer.connection.local_port()),
+                )
+                .await;
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.select(1);
+                        let selected = task.selected.clone();
+                        task.search_address("127.0.0.1:9000");
+                        task.cancel_pairing();
+                        assert!(task.probe.is_none());
+                        assert_eq!(task.selected, selected);
+                        assert_eq!(task.connection_state, ui::ConnectionState::Connecting);
+                    }))
+                    .unwrap();
+                wait_condition(&controller, |task| {
+                    task.connection_state == ui::ConnectionState::PairingRequired
+                })
+                .await;
+                controller.task_sender.send(Box::new(|task| task.cancel_pairing())).unwrap();
+                wait_condition(&controller, |task| task.selected == Some(EndpointIdentity::Local))
+                    .await;
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.found_device = task.viewers.first().cloned();
+                        task.connect_found_device();
+                        assert!(task.pairing_in_progress);
+                        task.cancel_pairing();
+                        assert_eq!(task.selected, Some(EndpointIdentity::Local));
+                    }))
+                    .unwrap();
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn missing_settings_enable_saving_but_malformed_settings_do_not() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, _discovery) = controller("echo_child");
+                controller.task_sender.send(Box::new(|task| task.settings_loaded = false)).unwrap();
+                controller.start_local();
+                assert_user_setting_request(&mut upstream).await;
+                started(&mut upstream).await;
+                controller.send(&LspToPreviewMessage::SetUserSettings {
+                    name: SPRINGBOARD_SETTINGS_FILE.into(),
+                    contents: "not json".into(),
+                });
+                assert!(!inspect(&controller, |task| task.settings_loaded).await);
+                assert!(upstream.try_recv().is_err());
+                controller.send(&LspToPreviewMessage::SetUserSettings {
+                    name: SPRINGBOARD_SETTINGS_FILE.into(),
+                    contents: String::new(),
+                });
+                assert_user_setting_set(&mut upstream).await;
+                assert!(inspect(&controller, |task| task.settings_loaded).await);
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
     async fn manual_search_pairs_saves_and_forgets_through_the_existing_connection() {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new()
@@ -2132,7 +2349,7 @@ mod tests {
                 compile_source(&controller, &mut viewer, 73).await;
                 let id = inspect(&controller, |task| task.saved_devices[0].id.clone()).await;
                 assert!(
-                    inspect(&controller, |task| task.saved_devices[0].manual
+                    inspect(&controller, |task| task.saved_devices[0].id.starts_with("manual:")
                         && task.credentials.len() == 1)
                     .await
                 );
@@ -2163,7 +2380,6 @@ mod tests {
                     name: "Phone".into(),
                     addresses: vec!["192.0.2.1".into()],
                     port: 9000,
-                    manual: false,
                 };
                 let mut settings = SpringboardSettings::new(None);
                 settings.devices.push(saved.clone());
@@ -2174,7 +2390,7 @@ mod tests {
                 wait_condition(&controller, |task| task.saved_devices.len() == 1).await;
                 assert!(
                     inspect(&controller, |task| task.selected == Some(EndpointIdentity::Local)
-                        && task.viewers[0].unavailable_reason == "Unavailable")
+                        && task.viewers[0].unavailable_reason == UNAVAILABLE)
                     .await
                 );
                 let id = saved.id;
@@ -2193,7 +2409,7 @@ mod tests {
                 controller
                     .task_sender
                     .send(Box::new(|task| {
-                        task.forget_device("local");
+                        task.forget_device(LOCAL_ENDPOINT_ID);
                         task.search_address("127.0.0.1:9000");
                         task.search_address("");
                     }))
