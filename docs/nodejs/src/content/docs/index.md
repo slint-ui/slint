@@ -539,16 +539,14 @@ npx slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
 This gives you full IDE autocomplete and type checking for all properties,
 callbacks, structs, and enums exported from the `.slint` file.
 
-To keep the types in sync, add `slint-compiler` to your project:
-
-```sh
-npm install --save-dev slint-compiler
-```
-
-Then call it from a `package.json` script, which runs it without `npx`:
+To keep the types in sync, add `slint-compiler` as a development dependency in `package.json`,
+and call it from a script:
 
 ```json
 {
+  "devDependencies": {
+    "slint-compiler": "^1.19.0"
+  },
   "scripts": {
     "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
     "start": "npm run generate && node --import slint-ui/register app.mjs"
