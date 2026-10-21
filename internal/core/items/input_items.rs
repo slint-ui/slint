@@ -17,7 +17,7 @@ use crate::items::{
 };
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths,
 };
 use crate::once_box::OnceBox;
 use crate::properties::PropertyTracker;
@@ -893,9 +893,7 @@ impl FocusScope {
             preedit_offset: self.ime_preedit_offset().max(0) as usize,
             cursor_rect_origin: LogicalPosition::from_euclid(cursor_rect_origin),
             cursor_rect_size: ApiLogicalSize::from_euclid(cursor_rect_size),
-            anchor_point: LogicalPosition::from_euclid(
-                cursor_rect_origin + LogicalVector::new(0.0, cursor_rect_size.height),
-            ),
+            anchor_point: LogicalPosition::from_euclid(cursor_rect_origin + cursor_rect_size),
             input_type: self.ime_input_type(),
             input_method_hints: self.ime_input_method_hints(),
             clip_rect: None,
