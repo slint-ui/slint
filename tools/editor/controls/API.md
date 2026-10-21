@@ -54,14 +54,18 @@ Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.s
 | `in` | `text` | `string` | Empty; also supplies the default accessible label |
 | `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
 
-Callback: `clicked()`.
-Public function: `activate()` emits `clicked()` when enabled.
+Callbacks: `activating()`, then `clicked()`.
+Public function: `activate()` emits both callbacks when enabled.
+Derived controls use `activating()` to update behavior before the caller's `clicked()` handler runs.
 ButtonBase slots: `background`, `content`.
 Button supplies both visuals; use ButtonBase to replace them.
 
 ### Styled Inputs
 
 Button includes the shared styled inputs above.
+It also exposes `content-min-width: length` and `content-min-height: length` as outputs measuring its content, spacing, and padding.
+The default minimum width is the larger of `64px` and `content-min-width`.
+The default minimum height is the larger of `32px` and `content-min-height`.
 
 | Input | Type | Default |
 | --- | --- | --- |
@@ -74,7 +78,6 @@ Button includes the shared styled inputs above.
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 
-Default minimum size: `64px` wide, `32px` high.
 Missing icons and empty text don't create spacing gaps.
 Set `icon-color: transparent` to retain original image colors while enabled.
 

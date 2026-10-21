@@ -1,16 +1,4 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export struct ButtonStateStyle {
-    background-color: brush,
-    foreground-color: brush,
-    border-color: brush,
-}
-
-export struct ButtonStyle {
-    rest: ButtonStateStyle,
-    hover: ButtonStateStyle,
-    pressed: ButtonStateStyle,
-    disabled: ButtonStateStyle,
-    focus-color: brush,
-}
+export { ButtonStateStyle, ButtonStyle } from "../../../../../internal/compiler/widgets/basic/button_style.slint";

@@ -173,6 +173,9 @@ Each control and its base share a behavior interface exported from both entry po
 Use these interfaces for typed slots accepting styled controls or custom implementations.
 Interface definitions live in `src/interfaces/`; style definitions live in `src/basic/<control>_style.slint`.
 
+The basic button, its styles, and theme are shared with the Fluent prototype from [`internal/compiler/widgets/basic/`](../../../internal/compiler/widgets/basic/).
+Their files under `src/basic/` re-export the shared definitions.
+
 ## Gallery
 
 Run the gallery with the checkout's viewer:

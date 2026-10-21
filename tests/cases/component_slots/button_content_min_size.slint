@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ToggleButton } from "std-widgets.slint";
+import { Button as BasicButton } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 180px;
+    in-out property <length> available-width: 180px;
+    in-out property <length> available-height: 70px;
+    in-out property <length> text-size: 16px;
+    in-out property <length> icon-size: 20px;
+    in-out property <length> vertical-padding: 6px;
+    in-out property <string> label: "A long button label with an icon";
+
+    reference := Text {
+        text: root.label;
+        font-size: root.text-size;
+        width: 0px;
+        height: 0px;
+        accessible-role: none;
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: root.available-width;
+        height: root.available-height;
+        HorizontalLayout {
+            spacing: 8px;
+            fluent := Button {
+                text: root.label;
+                font-size: root.text-size;
+                icon-size: root.icon-size;
+                vertical-padding: root.vertical-padding;
+                icon: @image-url("../../../examples/gallery/thumbsup.png");
+            }
+            toggle := ToggleButton {
+                text: root.label;
+                font-size: root.text-size;
+                vertical-padding: root.vertical-padding;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 90px;
+        width: root.available-width;
+        height: root.available-height;
+        HorizontalLayout {
+            spacing: 8px;
+            basic := BasicButton {
+                text: root.label;
+                font-size: root.text-size;
+                icon-size: root.icon-size;
+                vertical-padding: root.vertical-padding;
+                icon: @image-url("../../../examples/gallery/thumbsup.png");
+            }
+            BasicButton { text: "Other"; }
+        }
+    }
+
+    out property <bool> test: fluent.width >= reference.preferred-width + fluent.left-padding + fluent.right-padding
+            + fluent.icon-size + fluent.spacing
+        && toggle.width >= reference.preferred-width + toggle.left-padding + toggle.right-padding
+        && basic.width >= reference.preferred-width + basic.left-padding + basic.right-padding
+            + basic.icon-size + basic.spacing
+        && fluent.height >= max(reference.preferred-height, root.icon-size) + fluent.top-padding + fluent.bottom-padding
+        && toggle.height >= reference.preferred-height + toggle.top-padding + toggle.bottom-padding
+        && basic.height >= max(reference.preferred-height, root.icon-size) + basic.top-padding + basic.bottom-padding;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+for text_size in [12., 40.] {
+    instance.set_text_size(text_size);
+    for label in ["Label", "A much longer button label with an icon"] {
+        instance.set_label(label.into());
+        for icon_size in [16., 52.] {
+            instance.set_icon_size(icon_size);
+            for padding in [3., 14.] {
+                instance.set_vertical_padding(padding);
+                for (width, height) in [(900., 90.), (260., 40.), (80., 12.)] {
+                    instance.set_available_width(width);
+                    instance.set_available_height(height);
+                    slint::platform::update_timers_and_animations();
+                    assert!(instance.get_test(), "size={width}x{height}, text size={text_size}, icon size={icon_size}, padding={padding}, label={label}");
+                }
+            }
+        }
+    }
+}
+```
+*/

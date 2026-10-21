@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../headless/button-base.slint";
+import {
+    ButtonStateStyle,
+    ButtonStyle,
+} from "button_style.slint";
+import { ButtonStyles } from "button_styles.slint";
+
+export component Button inherits ButtonBase {
+    in property <image> icon;
+    in property <ButtonStyle> style: ButtonStyles.secondary;
+
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <brush> icon-color: root.foreground-color;
+
+    in property <string> font-family;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: 400;
+    in property <bool> font-italic;
+
+    in property <length> spacing: 6px;
+    in property <length> icon-size: 20px;
+    in property <length> horizontal-padding: 12px;
+    in property <length> vertical-padding: 6px;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <ButtonStateStyle> state-style: root.style.rest;
+    out property <length> content-min-width: content-layout.min-width;
+    out property <length> content-min-height: content-layout.min-height;
+
+    min-width: max(64px, root.content-min-width);
+    min-height: max(32px, root.content-min-height);
+
+    states [
+        disabled when !root.enabled: {
+            state-style: root.style.disabled;
+        }
+        pressed when root.pressed: {
+            state-style: root.style.pressed;
+        }
+        hover when root.hovered: {
+            state-style: root.style.hover;
+        }
+    ]
+
+    background << surface := Rectangle {
+        background: root.enabled ? root.background-color : root.state-style.background-color;
+        border-color: root.state-style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+
+        focus-outline := Rectangle {
+            private property <length> outset: root.focus-offset + root.focus-width;
+            x: -self.outset;
+            y: -self.outset;
+            width: parent.width + 2 * self.outset;
+            height: parent.height + 2 * self.outset;
+            visible: root.enabled && root.has-focus && root.focus-width > 0px;
+            border-color: root.style.focus-color;
+            border-width: root.focus-width;
+            border-radius: root.border-radius + self.outset;
+        }
+    }
+
+    content << content-layout := HorizontalLayout {
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
+        spacing: root.spacing;
+        alignment: center;
+        if root.icon.width > 0 && root.icon.height > 0: Image {
+            width: root.icon-size;
+            height: root.icon-size;
+            source: root.icon;
+            colorize: root.enabled ? root.icon-color : root.state-style.foreground-color;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

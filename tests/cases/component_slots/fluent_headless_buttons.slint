@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ToggleButton } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 360px;
+    height: 180px;
+    in-out property <bool> enabled: true;
+    out property <bool> checked: toggle.checked;
+    out property <bool> pressed: toggle.pressed;
+    out property <bool> checked-on-click;
+    out property <int> clicks;
+    out property <int> toggles;
+    out property <int> actions;
+    public function activate-toggle() { toggle.activate(); }
+    public function focus-toggle() { toggle.focus(); }
+
+    VerticalLayout {
+        action := Button {
+            text: "Action";
+            enabled: root.enabled;
+            clicked => { root.actions += 1; }
+        }
+        toggle := ToggleButton {
+            text: "Toggle";
+            enabled: root.enabled;
+            clicked => {
+                root.checked-on-click = self.checked;
+                root.clicks += 1;
+            }
+            toggled => { root.toggles += 1; }
+        }
+    }
+
+    out property <bool> test;
+    init => {
+        action.activate();
+        toggle.activate();
+        root.test = root.actions == 1 && root.clicks == 1 && root.toggles == 1
+            && root.checked && root.checked-on-click;
+        root.enabled = false;
+        action.activate();
+        toggle.activate();
+        root.test = root.test && root.actions == 1 && root.clicks == 1
+            && root.toggles == 1 && root.checked;
+        root.enabled = true;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let toggle = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Toggle").next().unwrap();
+let action = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Action").next().unwrap();
+assert_eq!(action.accessible_checkable(), None);
+assert_eq!(toggle.accessible_checkable(), Some(true));
+assert_eq!(toggle.accessible_checked(), Some(true));
+
+toggle.mock_single_click(PointerEventButton::Left);
+assert!(!instance.get_checked());
+assert!(!instance.get_checked_on_click());
+assert_eq!(instance.get_clicks(), 2);
+assert_eq!(instance.get_toggles(), 2);
+
+instance.invoke_focus_toggle();
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), true);
+assert!(instance.get_pressed());
+assert!(!instance.get_checked());
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), false);
+assert!(!instance.get_pressed());
+assert!(instance.get_checked());
+assert!(instance.get_checked_on_click());
+assert_eq!(instance.get_clicks(), 3);
+
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Space.into(), false);
+assert_eq!(instance.get_clicks(), 3);
+assert!(instance.get_checked());
+
+toggle.invoke_accessible_default_action();
+assert!(!instance.get_checked());
+assert_eq!(instance.get_clicks(), 4);
+assert_eq!(instance.get_toggles(), 4);
+instance.set_enabled(false);
+instance.invoke_activate_toggle();
+toggle.invoke_accessible_default_action();
+assert!(!instance.get_checked());
+assert_eq!(instance.get_clicks(), 4);
+assert_eq!(instance.get_toggles(), 4);
+```
+*/

@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonInterface } from "button-interface.slint";
+import { PressInteraction } from "press-interaction.slint";
+
+export component ButtonBase {
+    implement ButtonInterface <=> self;
+
+    in property <bool> enabled: true;
+    in property <string> text;
+
+    out property <bool> has-focus: interaction.has-focus;
+    out property <bool> hovered: interaction.hovered;
+    out property <bool> pressed: interaction.pressed;
+
+    slot background;
+    slot content;
+
+    callback clicked();
+    callback activating();
+
+    public function activate() {
+        if !root.enabled { return; }
+        root.activating();
+        root.clicked();
+    }
+
+    forward-focus: interaction;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.activate(); }
+
+    background { }
+
+    interaction := PressInteraction {
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        activated => { root.activate(); }
+    }
+
+    content { }
+    @children
+}

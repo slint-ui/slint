@@ -3,6 +3,7 @@
 
 import {
     Button,
+    ToggleButton,
     GroupBox,
     CheckBox,
     VerticalBox,
@@ -39,18 +40,19 @@ export component ControlsPage inherits Page {
                 Button {
                     text: @tr("Primary Button with Icon");
                     icon: @image-url("../../thumbsup.png");
+                    icon-color: transparent;
                     enabled: GallerySettings.widgets-enabled;
                     primary: true;
                 }
 
                 Button {
                     icon: @image-url("../../thumbsup.png");
+                    icon-color: transparent;
                     enabled: GallerySettings.widgets-enabled;
                     primary: true;
                 }
 
-                Button {
-                    checkable: true;
+                ToggleButton {
                     text: self.checked ? @tr("ON") : @tr("OFF");
                     enabled: GallerySettings.widgets-enabled;
                 }
@@ -63,7 +65,14 @@ export component ControlsPage inherits Page {
                     text: @tr("Primary Button with colorized icon");
                     icon: @image-url("../../thumbsup.png");
                     enabled: GallerySettings.widgets-enabled;
-                    colorize-icon: true;
+                    primary: true;
+                }
+
+                Button {
+                    text: @tr("Custom icon color");
+                    icon: @image-url("../../thumbsup.png");
+                    icon-color: #ffd54f;
+                    enabled: GallerySettings.widgets-enabled;
                     primary: true;
                 }
             }
