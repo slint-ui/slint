@@ -16,9 +16,7 @@ use crate::items::{
     CompositionEvent, InputMethodHints, InputType, ItemTreeVTable, MouseCursorInner,
 };
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths,
-};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 use crate::once_box::OnceBox;
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
