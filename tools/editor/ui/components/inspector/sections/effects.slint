@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
-import { InspectorSection, InspectorShadowControl } from "../index.slint";
+import { Api } from "../../../api.slint";
+import { InspectorEffectSlider, InspectorSection, InspectorShadowControl, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
 
 export component InspectorEffectsSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
+    private property <bool> blur-enabled: Api.source-property-value-data("backdrop-blur", {}).code != "";
+    changed blur-enabled => { blur-toggle.checked = root.blur-enabled; }
 
     title: @tr("Effects");
 
@@ -21,6 +25,39 @@ export component InspectorEffectsSection inherits InspectorSection {
         InspectorShadowControl {
             inner: true;
             width: root.field-width;
+        }
+        HorizontalLayout {
+            height: Style.inspector-field.height;
+            spacing: Metrics.space-small;
+            cross-axis-alignment: center;
+            Text {
+                text: @tr("Backdrop blur");
+                color: Style.inspector-field.appearance.normal.foreground;
+                font-size: Style.inspector-field.text.size;
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+            }
+            blur-toggle := InspectorSwitch {
+                accessible-label: @tr("Enable backdrop blur");
+                checked: root.blur-enabled;
+                toggled => {
+                    self.focus();
+                    self.checked = root.blur-enabled;
+                    Api.inspector-cancel();
+                    InspectorContext.commit-codes([{ name: "backdrop-blur", value: root.blur-enabled ? "" : "16px" }]);
+                }
+            }
+        }
+        if root.blur-enabled: InspectorEffectSlider {
+            width: root.field-width;
+            accessible-name: @tr("Backdrop blur");
+            label: @tr("Blur");
+            value: Api.number-property("backdrop-blur", 0);
+            maximum: 128;
+            commit-key: InspectorContext.field-key("backdrop-blur");
+            preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "backdrop-blur", value); }
+            accepted(value) => { return InspectorContext.commit-inspector("backdrop-blur", value); }
+            canceled => { Api.inspector-cancel(); }
         }
     }
 }

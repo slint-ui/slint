@@ -157,7 +157,7 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" | "border-width" => Some(vec![name]),
+        "transform-rotation" | "border-width" | "backdrop-blur" => Some(vec![name]),
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -413,12 +413,11 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
     let edit = property_edit(node, url, version, changes);
     let accepted = edit.is_some_and(|edit| {
         send_workspace_edit(
-            if name == "transform-rotation" {
-                "Rotating element"
-            } else if name == "border-width" {
-                "Changing border width"
-            } else {
-                "Changing border radius"
+            match name.as_str() {
+                "transform-rotation" => "Rotating element",
+                "border-width" => "Changing border width",
+                "backdrop-blur" => "Changing backdrop blur",
+                _ => "Changing border radius",
             }
             .into(),
             edit,

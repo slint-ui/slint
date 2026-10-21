@@ -17,7 +17,7 @@ from inspector_interactions import (
     wait_for_field,
 )
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, replace_once
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     element,
     elements,
@@ -1208,7 +1208,14 @@ SHADOW_EDITS = (
 )
 
 
-def shadow_source(baseline: bytes, family: str) -> bytes:
+def effect_source(baseline: bytes, family: str) -> bytes:
+    if family == "backdrop":
+        return replace_once(
+            replace_once(baseline, b"background: #2563eb;", b"background: #2563eb40;"),
+            b"    inspect-rectangle := Rectangle {",
+            b'    Image { source: @image-url("assets/checker.svg"); width: 220px; height: 160px; image-fit: fill; }\n'
+            b"    inspect-rectangle := Rectangle {\n        backdrop-blur: 16px;",
+        )
     return (
         baseline
         if family == "drop"
@@ -1216,19 +1223,22 @@ def shadow_source(baseline: bytes, family: str) -> bytes:
     )
 
 
-def shadow_expected(source: bytes, family: str, control: str, value: str) -> bytes:
-    prefix = f"        {family}-shadow-".encode()
+def effect_expected(source: bytes, family: str, control: str, value: str) -> bytes:
+    prefix = (
+        b"        backdrop-"
+        if family == "backdrop"
+        else f"        {family}-shadow-".encode()
+    )
     if control == "color":
         return replace_once(
             source,
             prefix + b"color: #00000040;",
             prefix + f"color: {value};".encode(),
         )
-    old_value = {"blur": "16"}[control]
     return replace_once(
         source,
-        prefix + f"{control}: {old_value}px;".encode(),
-        prefix + f"{control}: {value}px;".encode(),
+        prefix + b"blur: 16px;",
+        prefix + f"blur: {value}px;".encode(),
     )
 
 
@@ -1247,15 +1257,61 @@ def artboard_pixels(window: slint_testing.Window) -> bytes:
     ).tobytes()
 
 
+@pytest.mark.parametrize("blur", ["0", "16"])
+def test_backdrop_blur_toggle_preserves_shadows(
+    editor_binary, editor_environment, fixture_project, blur
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        effect_source(source.read_bytes(), "backdrop"),
+        b"        drop-shadow-spread: 0px;",
+        b"        drop-shadow-spread: 0px;\n        inner-shadow-color: #00000030;",
+    )
+    baseline = effect_expected(baseline, "backdrop", "blur", blur)
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        inspector_field(
+            window, "Enable backdrop blur", slint_testing.AccessibleRole.Switch
+        ).invoke_accessible_default_action()
+        disabled = wait_for_source_change(source, baseline)
+        assert disabled == replace_once(
+            baseline, f"        backdrop-blur: {blur}px;\n".encode(), b""
+        )
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(disabled, INSPECTOR_SOURCE)
+        inspector_field(
+            window, "Enable backdrop blur", slint_testing.AccessibleRole.Switch
+        ).invoke_accessible_default_action()
+        enabled = wait_for_source_change(source, disabled)
+        assert b"backdrop-blur: 16px;" in enabled
+        assert replace_once(enabled, b"        backdrop-blur: 16px;\n", b"") == disabled
+
+
 @pytest.mark.parametrize(
     ("family", "control", "label", "value"),
     [
         pytest.param(family, *case.values, id=f"{family}-{case.id}")
         for family in ("drop", "inner")
         for case in SHADOW_EDITS
+    ]
+    + [
+        pytest.param(
+            "backdrop",
+            "blur",
+            "Backdrop blur value",
+            value,
+            id=f"backdrop-blur-{value}",
+        )
+        for value in ("0", "24", "128")
     ],
 )
-def test_shadow_control_writes_exact_source(
+def test_effect_control_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -1265,9 +1321,8 @@ def test_shadow_control_writes_exact_source(
     value: str,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
-    starting_source = shadow_source(source_file.read_bytes(), family)
-    if family == "inner":
-        source_file.write_bytes(starting_source)
+    starting_source = effect_source(source_file.read_bytes(), family)
+    source_file.write_bytes(starting_source)
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -1276,25 +1331,26 @@ def test_shadow_control_writes_exact_source(
         select_element(window, "Rectangle")
         edit_field(window, label, value)
         snapshot.wait_for_applied(
-            shadow_expected(starting_source, family, control, value),
+            effect_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(starting_source, relative_path=INSPECTOR_SOURCE)
         press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(
-            shadow_expected(starting_source, family, control, value),
+            effect_expected(starting_source, family, control, value),
             relative_path=INSPECTOR_SOURCE,
         )
 
 
-@pytest.mark.parametrize("family", ["drop", "inner"])
+@pytest.mark.parametrize("family", ["drop", "inner", "backdrop"])
 @pytest.mark.parametrize("outcome", ["commit", "cancel", "selection", "source"])
-def test_shadow_slider_previews_without_source_writes(
+def test_effect_slider_previews_without_source_writes(
     editor_binary, editor_environment, fixture_project, family, outcome
 ):
     source = fixture_project / INSPECTOR_SOURCE
-    baseline = shadow_source(source.read_bytes(), family)
+    baseline = effect_source(source.read_bytes(), family)
+    label = "Backdrop blur" if family == "backdrop" else "Shadow blur"
     source.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:
@@ -1305,8 +1361,8 @@ def test_shadow_slider_previews_without_source_writes(
             slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
         )
         before = artboard_pixels(window)
-        start = slider_position(window, "Shadow blur", 16 / 128)
-        end = slider_position(window, "Shadow blur", 0.5)
+        start = slider_position(window, label, 16 / 128)
+        end = slider_position(window, label, 0.5)
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
         preview_baseline = artboard_pixels(window)
         window.dispatch_event(
@@ -1315,12 +1371,12 @@ def test_shadow_slider_previews_without_source_writes(
             )
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_field(window, "Shadow blur value", "64")
+        wait_for_field(window, f"{label} value", "64")
         assert artboard_pixels(window) != preview_baseline
         snapshot.assert_unchanged()
         if outcome == "cancel":
             press_keys(window, keys.Escape)
-            wait_for_field(window, "Shadow blur value", "16")
+            wait_for_field(window, f"{label} value", "16")
         elif outcome == "selection":
             select_element(window, "Text")
         elif outcome == "source":
@@ -1342,19 +1398,20 @@ def test_shadow_slider_previews_without_source_writes(
                 snapshot.assert_unchanged()
             if outcome == "selection":
                 select_element(window, "Rectangle")
-            close_buttons = elements(
-                window,
-                f"Close {family.capitalize()} shadow",
-                role=slint_testing.AccessibleRole.Button,
-            )
-            if close_buttons:
-                close_buttons[0].invoke_accessible_default_action()
+            if family != "backdrop":
+                close_buttons = elements(
+                    window,
+                    f"Close {family.capitalize()} shadow",
+                    role=slint_testing.AccessibleRole.Button,
+                )
+                if close_buttons:
+                    close_buttons[0].invoke_accessible_default_action()
             window.dispatch_event(
                 slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
             )
             assert artboard_pixels(window) == before
         else:
-            expected = shadow_expected(baseline, family, "blur", "64")
+            expected = effect_expected(baseline, family, "blur", "64")
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
             press_shortcut(window, keys.Control, "z")
             snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
