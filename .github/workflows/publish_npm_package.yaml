@@ -138,7 +138,14 @@ jobs:
                   pnpm run build:dev --target ${{ matrix.rust-target }}
             - name: Build slint-compiler
               shell: bash
-              run: cargo build --locked --release -p slint-compiler --target ${{ matrix.rust-target }}
+              run: |
+                  features=()
+                  # jemalloc's configure links test programs, which fails against the Alpine sysroot
+                  # of the musl containers (no crtbeginS.o or libgcc).
+                  if [[ "${{ matrix.rust-target }}" == *-musl ]]; then
+                      features=(--no-default-features --features renderer-software,image-default-formats,bundle-translations,cpp,rust,python,typescript)
+                  fi
+                  cargo build --locked --release -p slint-compiler --target ${{ matrix.rust-target }} "${features[@]}"
             - name: Create package
               shell: bash
               working-directory: api/node
