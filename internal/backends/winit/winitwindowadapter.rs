@@ -210,6 +210,7 @@ fn icon_to_winit(
         SharedImageBuffer::Gray8(pixels) => {
             pixels.as_bytes().iter().flat_map(|g| [*g, *g, *g, 255]).collect()
         }
+        _ => return None,
     };
 
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()

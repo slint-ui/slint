@@ -141,6 +141,9 @@ impl DrawTextureArgs {
                         stride,
                         size,
                     ),
+                    SharedBufferData::SharedImage(_) => unreachable!(
+                        "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
+                    ),
                 }
             }
         }

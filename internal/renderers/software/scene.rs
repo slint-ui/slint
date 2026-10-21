@@ -280,6 +280,9 @@ impl Scene {
                     SharedBufferData::SharedImage(SharedImageBuffer::RGB565(_)) => true,
                     #[cfg(feature = "image-pixel-format-gray8")]
                     SharedBufferData::SharedImage(SharedImageBuffer::Gray8(_)) => true,
+                    SharedBufferData::SharedImage(
+                        SharedImageBuffer::RGBA8(_) | SharedImageBuffer::RGBA8Premultiplied(_),
+                    ) => false,
                     _ => false,
                 };
                 opaque_format && buffer.extra.alpha == 255
@@ -554,6 +557,9 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::AlphaMap,
                 extra: self.extra,
             },
+            SharedBufferData::SharedImage(_) => unreachable!(
+                "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
+            ),
         }
     }
 }
