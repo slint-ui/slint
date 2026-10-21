@@ -364,146 +364,6 @@ fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
     manifest_dir.as_ref().join(PROJECT_FILE_NAME)
 }
 
-struct CodeFormatter<Sink> {
-    indentation: usize,
-    /// We are currently in a string
-    in_string: bool,
-    /// number of bytes after the last `'`, 0 if there was none
-    in_char: usize,
-    /// In string or char, and the previous character was `\\`
-    escaped: bool,
-    sink: Sink,
-}
-
-impl<Sink> CodeFormatter<Sink> {
-    pub fn new(sink: Sink) -> Self {
-        Self { indentation: 0, in_string: false, in_char: 0, escaped: false, sink }
-    }
-}
-
-impl<Sink: Write> Write for CodeFormatter<Sink> {
-    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
-        let len = s.len();
-        while let Some(idx) = s.iter().position(|c| match c {
-            b'{' if !self.in_string && self.in_char == 0 => {
-                self.indentation += 1;
-                true
-            }
-            b'}' if !self.in_string && self.in_char == 0 => {
-                self.indentation -= 1;
-                true
-            }
-            b';' if !self.in_string && self.in_char == 0 => true,
-            b'"' if !self.in_string && self.in_char == 0 => {
-                self.in_string = true;
-                self.escaped = false;
-                false
-            }
-            b'"' if self.in_string && !self.escaped => {
-                self.in_string = false;
-                false
-            }
-            b'\'' if !self.in_string && self.in_char == 0 => {
-                self.in_char = 1;
-                self.escaped = false;
-                false
-            }
-            b'\'' if !self.in_string && self.in_char > 0 && !self.escaped => {
-                self.in_char = 0;
-                false
-            }
-            b' ' | b'>' if self.in_char > 2 && !self.escaped => {
-                // probably a lifetime
-                self.in_char = 0;
-                false
-            }
-            b'\\' if (self.in_string || self.in_char > 0) && !self.escaped => {
-                self.escaped = true;
-                // no need to increment in_char since \ isn't a single character
-                false
-            }
-            _ if self.in_char > 0 => {
-                self.in_char += 1;
-                self.escaped = false;
-                false
-            }
-            _ => {
-                self.escaped = false;
-                false
-            }
-        }) {
-            let idx = idx + 1;
-            self.sink.write_all(&s[..idx])?;
-            self.sink.write_all(b"\n")?;
-            for _ in 0..self.indentation {
-                self.sink.write_all(b"    ")?;
-            }
-            s = &s[idx..];
-        }
-        self.sink.write_all(s)?;
-        Ok(len)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.sink.flush()
-    }
-}
-
-#[test]
-fn formatter_test() {
-    fn format_code(code: &str) -> String {
-        let mut res = Vec::new();
-        let mut formatter = CodeFormatter::new(&mut res);
-        formatter.write_all(code.as_bytes()).unwrap();
-        String::from_utf8(res).unwrap()
-    }
-
-    assert_eq!(
-        format_code("fn main() { if ';' == '}' { return \";\"; } else { panic!() } }"),
-        r#"fn main() {
-     if ';' == '}' {
-         return ";";
-         }
-     else {
-         panic!() }
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn xx<'lt>(foo: &'lt str) { println!("{}", '\u{f700}'); return Ok(()); }"#),
-        r#"fn xx<'lt>(foo: &'lt str) {
-     println!("{}", '\u{f700}');
-     return Ok(());
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn main() { ""; "'"; "\""; "{}"; "\\"; "\\\""; }"#),
-        r#"fn main() {
-     "";
-     "'";
-     "\"";
-     "{}";
-     "\\";
-     "\\\"";
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn main() { '"'; '\''; '{'; '}'; '\\'; }"#),
-        r#"fn main() {
-     '"';
-     '\'';
-     '{';
-     '}';
-     '\\';
-     }
-"#
-    );
-}
-
 /// Compile the `.slint` file and generate rust code for it.
 ///
 /// The generated code code will be created in the directory specified by
@@ -679,9 +539,9 @@ fn compile_resolved(
 
     let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
         .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
-    let output_file =
-        std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
+    let mut output_file = BufWriter::new(
+        std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?,
+    );
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
@@ -698,7 +558,8 @@ fn compile_resolved(
         }
     });
 
-    write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
+    i_slint_compiler::generator::rust_code_formatter::write_formatted(&generated, &mut output_file)
+        .map_err(CompileError::SaveError)?;
     dependencies.push(input_slint_file_path.to_path_buf());
 
     dependencies.push(project_file.map_or_else(
@@ -719,7 +580,7 @@ fn compile_resolved(
         }
     }
 
-    code_formatter.sink.flush().map_err(CompileError::SaveError)?;
+    output_file.flush().map_err(CompileError::SaveError)?;
 
     Ok(dependencies)
 }
