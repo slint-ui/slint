@@ -8,22 +8,22 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// This pass make sure that the id of the elements are unique
+/// This pass make sure that the id of the elements are unique within the tree of a component
 ///
-/// It currently does so by adding a number to the existing id
+/// It currently does so by adding a number, counted per component, to the existing id
 pub fn assign_unique_id(doc: &Document) {
-    let mut count = 0;
     doc.visit_all_used_components(|component| {
         if !component.is_global() {
-            assign_unique_id_in_component(component, &mut count)
+            assign_unique_id_in_component(component)
         }
     });
-    rename_globals(doc, count);
+    rename_globals(doc);
 }
 
-fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
+fn assign_unique_id_in_component(component: &Rc<Component>) {
+    let mut count = 0;
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        *count += 1;
+        count += 1;
         let mut elem_mut = elem.borrow_mut();
         let old_id = if !elem_mut.id.is_empty() {
             elem_mut.id.clone()
@@ -35,7 +35,7 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
         let enclosing = elem_mut.enclosing_component.upgrade().unwrap();
         if Rc::ptr_eq(elem, &enclosing.root_element) {
             for o in enclosing.optimized_elements.borrow().iter() {
-                *count += 1;
+                count += 1;
                 let mut elem_mut = o.borrow_mut();
                 elem_mut.id = format_smolstr!("optimized-{}-{}", elem_mut.id, count);
             }
@@ -44,9 +44,8 @@ fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
 }
 
 /// Give globals unique name
-fn rename_globals(doc: &Document, mut count: u32) {
-    for g in &doc.used_types.borrow().globals {
-        count += 1;
+fn rename_globals(doc: &Document) {
+    for (index, g) in doc.used_types.borrow().globals.iter().enumerate() {
         let mut root = g.root_element.borrow_mut();
         if matches!(&root.base_type, ElementType::Builtin(_)) {
             // builtin global keeps its name
@@ -56,7 +55,7 @@ fn rename_globals(doc: &Document, mut count: u32) {
         } else if g.from_library.get() {
             root.id = format_smolstr!("{}", g.id);
         } else {
-            root.id = format_smolstr!("{}-{}", g.id, count);
+            root.id = format_smolstr!("{}-{}", g.id, index + 1);
         }
     }
 }

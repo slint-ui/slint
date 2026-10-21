@@ -1376,11 +1376,7 @@ fn load_image(
                 || {
                     let pixels = match svg.render(Some(render_size)).ok()? {
                         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-                        SharedImageBuffer::RGB8(_) | SharedImageBuffer::RGBA8(_) => unreachable!(),
-                        #[cfg(feature = "image-pixel-format-rgb565")]
-                        SharedImageBuffer::RGB565(_) => unreachable!(),
-                        #[cfg(feature = "image-pixel-format-gray8")]
-                        SharedImageBuffer::Gray8(_) => unreachable!(),
+                        _ => unreachable!(),
                     };
 
                     let width = pixels.width();
@@ -1538,6 +1534,7 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::Alpha,
         ),
+        _ => return None,
     };
 
     Some(peniko::ImageData {

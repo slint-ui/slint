@@ -21,7 +21,7 @@
     font: 13px/1.4 system-ui, sans-serif;
   }
   #stage { overflow: hidden; }
-  canvas { display: block; outline: none; }
+  canvas { display: block; margin-inline: auto; outline: none; }
   canvas[hidden] { display: none; }
   /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
   canvas.fitted {
@@ -375,8 +375,6 @@
         `The Slint preview, with ${runtime}, reported:\n` +
           problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
       );
-    } else {
-      reportToModel(`The Slint preview, with ${runtime}, compiled without errors or warnings.`);
     }
 
     if (!component) {

@@ -300,7 +300,7 @@ fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
 /// images in pixels.
 #[derive(Clone, Debug)]
 #[repr(C)]
-/// TODO: Make this non_exhaustive before making the type public!
+#[non_exhaustive]
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
     /// and blue) and each channel is encoded as unsigned byte.

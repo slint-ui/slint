@@ -12,6 +12,7 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <float> value;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
+    in property <bool> clamp-maximum: true;
     in property <string> commit-key: "";
     callback accepted(float) -> bool;
     callback started();
@@ -37,6 +38,7 @@ export component InspectorEffectSlider inherits Rectangle {
             value: root.value;
             minimum: root.minimum;
             maximum: root.maximum;
+            clamp-maximum: root.clamp-maximum;
             commit-key: root.commit-key;
             started => { root.started(); }
             preview(value) => { return root.preview(value); }
@@ -50,7 +52,8 @@ export component InspectorEffectSlider inherits Rectangle {
             width: root.style.value-width;
             accepted(text) => {
                 if !text.is-float() { return false; }
-                let value = text.to-float().round().clamp(root.minimum, root.maximum);
+                let rounded = text.to-float().round();
+                let value = root.clamp-maximum ? rounded.clamp(root.minimum, root.maximum) : max(root.minimum, rounded);
                 return value != root.value && root.accepted(value);
             }
         }
