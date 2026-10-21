@@ -1076,12 +1076,24 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
+            let window_adapter = WindowInner::from_pub(self.window).window_adapter();
             let mut layer = skia_safe::canvas::SaveLayerRec::default();
+            let bounds;
             let paint = if opacity_item.wraps_backdrop_blur() {
                 // Skia's backdrop filter only reads the layer it's drawn into.
                 layer = layer.flags(skia_safe::canvas::SaveLayerFlags::INIT_WITH_PREVIOUS);
                 Self::backdrop_layer_paint(opacity)
             } else {
+                // Without a bounds hint, Skia sizes the layer to the current clip (#13834).
+                bounds = i_slint_core::properties::evaluate_no_tracking(|| {
+                    to_skia_rect(
+                        &(i_slint_core::item_rendering::item_children_bounding_rect(
+                            item_rc,
+                            &window_adapter,
+                        ) * self.scale_factor),
+                    )
+                });
+                layer = layer.bounds(&bounds);
                 let mut paint = skia_safe::Paint::default();
                 paint.set_alpha_f(opacity);
                 paint
@@ -1089,8 +1101,6 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.canvas.save_layer(&layer.paint(&paint));
             self.state_stack.push(self.current_state);
             self.current_state.alpha = 1.0;
-
-            let window_adapter = WindowInner::from_pub(self.window).window_adapter();
 
             i_slint_core::item_rendering::render_item_children(
                 self,
