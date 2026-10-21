@@ -65,14 +65,16 @@ impl StyledText {
     }
 }
 
+/// The text without its markup: the paragraphs joined by `'\n'`, an empty one included.
+/// [`raw_text_ranges`] gives each paragraph's byte range in it.
 pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     match styled_text.paragraphs.as_slice() {
         [] => "".into(),
         [paragraph] => paragraph.text.as_str().into(),
         _ => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
-                if !result.is_empty() {
+            for (index, paragraph) in styled_text.paragraphs.iter().enumerate() {
+                if index > 0 {
                     result.push('\n');
                 }
                 result.push_str(paragraph.text.as_str());
@@ -80,6 +82,18 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
             result.into()
         }
     }
+}
+
+/// Each paragraph's byte range in [`get_raw_text`], in order.
+pub fn raw_text_ranges(
+    styled_text: &StyledText,
+) -> impl Iterator<Item = core::ops::Range<usize>> + '_ {
+    let mut start = 0;
+    styled_text.paragraphs.iter().map(move |paragraph| {
+        let range = start..start + paragraph.text.len();
+        start = range.end + 1;
+        range
+    })
 }
 
 /// Bindings for cbindgen

@@ -1285,6 +1285,33 @@ fn build(l: &mut Loader) {
         in property <TextVerticalAlignment> vertical-alignment;
         /// A callback that's invoked when a link in the text is clicked. The parameter contains the clicked link as a string.
         callback link-clicked(link: string);
+        /// Whether the text can be selected with the mouse.
+        /// Pressing and dragging selects, a double click selects a word and a triple click a paragraph.
+        /// A click that doesn't drag still follows a link.
+        /// A change of `text` clears the selection.
+        in property <bool> text-selectable;
+        /// The background color of the selection.
+        in property <color> selection-background-color: computed; // Palette.selection-background set in apply_default_properties_from_style
+        /// The foreground color of the selection.
+        in property <color> selection-foreground-color: computed; // Palette.selection-foreground set in apply_default_properties_from_style
+        /// `true` when text is selected.
+        out property <bool> has-selection { BuiltinFunction.StyledTextHasSelection }
+        // Private: the byte offsets of the selection. `has-selection` and the
+        // `set-selection-offsets` / `select-all` / `clear-selection` functions work on them.
+        private property <int> anchor-position-byte-offset;
+        private property <int> cursor-position-byte-offset;
+
+        /// Selects the text between two UTF-8 byte offsets.
+        /// `anchor` is the end of the selection that stays put and `focus` the end the cursor moves to,
+        /// so `focus` may precede `anchor` to select backwards.
+        /// Pass the same value for both to clear the selection.
+        function set-selection-offsets(anchor: int, focus: int) { BuiltinFunction.StyledTextSetSelectionOffsets }
+        /// Selects all text.
+        function select-all() { BuiltinFunction.StyledTextSelectAll }
+        /// Clears the selection.
+        function clear-selection() { BuiltinFunction.StyledTextClearSelection }
+        /// Copies the selected text to the clipboard.
+        function copy() { BuiltinFunction.StyledTextCopy }
     } }
 
     element! {
