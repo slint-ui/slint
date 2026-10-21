@@ -44,9 +44,9 @@ const icons = [
     {
         src:
             "data:image/svg+xml;base64," +
-            readFileSync(new URL("../../icon.svg", import.meta.url)).toString(
-                "base64",
-            ),
+            readFileSync(
+                new URL("../../assets/slint.svg", import.meta.url),
+            ).toString("base64"),
         mimeType: "image/svg+xml",
         sizes: ["any"],
     },
