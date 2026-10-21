@@ -5,6 +5,7 @@ import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 import { Api } from "../../../api.slint";
 import { InspectorEffectSlider, InspectorSection, InspectorShadowControl, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
+import { ShadowSession } from "../shadow-session.slint";
 
 export component InspectorEffectsSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
@@ -43,6 +44,7 @@ export component InspectorEffectsSection inherits InspectorSection {
                 toggled => {
                     self.focus();
                     self.checked = root.blur-enabled;
+                    ShadowSession.close();
                     Api.inspector-cancel();
                     InspectorContext.commit-codes([{ name: "backdrop-blur", value: root.blur-enabled ? "" : "16px" }]);
                 }
@@ -50,10 +52,11 @@ export component InspectorEffectsSection inherits InspectorSection {
         }
         if root.blur-enabled: InspectorEffectSlider {
             width: root.field-width;
-            accessible-name: @tr("Backdrop blur");
+            accessible-name: @tr("Backdrop blur amount");
             label: @tr("Blur");
             value: Api.number-property("backdrop-blur", 0);
             maximum: 128;
+            clamp-maximum: false;
             commit-key: InspectorContext.field-key("backdrop-blur");
             preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "backdrop-blur", value); }
             accepted(value) => { return InspectorContext.commit-inspector("backdrop-blur", value); }

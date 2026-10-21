@@ -18,6 +18,7 @@ from inspector_interactions import (
 )
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
@@ -25,6 +26,7 @@ from ui_driver import (
     launch_editor,
     press_keys,
     press_shortcut,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -1235,11 +1237,13 @@ def effect_expected(source: bytes, family: str, control: str, value: str) -> byt
             prefix + b"color: #00000040;",
             prefix + f"color: {value};".encode(),
         )
-    return replace_once(
-        source,
-        prefix + b"blur: 16px;",
-        prefix + f"blur: {value}px;".encode(),
-    )
+    if control == "blur":
+        return replace_once(
+            source,
+            prefix + b"blur: 16px;",
+            prefix + f"blur: {value}px;".encode(),
+        )
+    raise ValueError(f"Unknown effect control: {control}")
 
 
 def artboard_pixels(window: slint_testing.Window) -> bytes:
@@ -1275,8 +1279,13 @@ def test_backdrop_blur_toggle_preserves_shadows(
         window = first_window(editor)
         select_element(window, "Rectangle")
         inspector_field(
+            window, "Drop shadow", slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        expect(query(window, "Close Drop shadow")).to_be_visible()
+        inspector_field(
             window, "Enable backdrop blur", slint_testing.AccessibleRole.Switch
         ).invoke_accessible_default_action()
+        expect(query(window, "Close Drop shadow")).to_be_hidden()
         disabled = wait_for_source_change(source, baseline)
         assert disabled == replace_once(
             baseline, f"        backdrop-blur: {blur}px;\n".encode(), b""
@@ -1304,11 +1313,11 @@ def test_backdrop_blur_toggle_preserves_shadows(
         pytest.param(
             "backdrop",
             "blur",
-            "Backdrop blur value",
+            "Backdrop blur amount value",
             value,
             id=f"backdrop-blur-{value}",
         )
-        for value in ("0", "24", "128")
+        for value in ("0", "24", "128", "200")
     ],
 )
 def test_effect_control_writes_exact_source(
@@ -1343,6 +1352,62 @@ def test_effect_control_writes_exact_source(
         )
 
 
+@pytest.mark.parametrize(
+    ("binding", "displayed", "key", "value"),
+    [
+        ("128px", "128", keys.RightArrow, "129"),
+        ("200px", "200", keys.RightArrow, "201"),
+        ("200px", "200", keys.LeftArrow, "199"),
+        ("root.glass-blur", "36", keys.RightArrow, "37"),
+    ],
+)
+def test_backdrop_blur_keyboard_uses_resolved_value(
+    editor_binary, editor_environment, fixture_project, binding, displayed, key, value
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        effect_source(source.read_bytes(), "backdrop"),
+        b"    width: 640px;",
+        b"    property <length> glass-blur: 36px;\n    width: 640px;",
+    )
+    baseline = replace_once(
+        baseline, b"backdrop-blur: 16px;", f"backdrop-blur: {binding};".encode()
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        label = "Backdrop blur amount"
+        slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
+        expect(slider).to_have_value(displayed)
+        position = slider_position(window, label, min(float(displayed) / 128, 1))
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        snapshot.assert_unchanged()
+        press_keys(window, key)
+        expected = replace_once(
+            baseline,
+            f"backdrop-blur: {binding};".encode(),
+            f"backdrop-blur: {value}px;".encode(),
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+
+
 @pytest.mark.parametrize("family", ["drop", "inner", "backdrop"])
 @pytest.mark.parametrize("outcome", ["commit", "cancel", "selection", "source"])
 def test_effect_slider_previews_without_source_writes(
@@ -1350,7 +1415,7 @@ def test_effect_slider_previews_without_source_writes(
 ):
     source = fixture_project / INSPECTOR_SOURCE
     baseline = effect_source(source.read_bytes(), family)
-    label = "Backdrop blur" if family == "backdrop" else "Shadow blur"
+    label = "Backdrop blur amount" if family == "backdrop" else "Shadow blur"
     source.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:

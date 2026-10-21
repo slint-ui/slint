@@ -402,6 +402,10 @@ pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::Fill
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
+    if file_edit_pending() {
+        cancel();
+        return false;
+    }
     let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
