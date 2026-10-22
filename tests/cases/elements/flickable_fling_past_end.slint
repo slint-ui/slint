@@ -64,7 +64,7 @@ instance.set_fli_content_height(1779.833);
 wheel(&instance, -96.745, TouchPhase::Moved);
 assert_settles_at_end(&instance);
 
-// With bounce: a swipe overscrolls past the end, and a wheel tick down
+// With bounce: a swipe scrolls beyond the end, and a wheel tick down
 // follows before it has bounced back.
 let instance = with_physics(AutoBool::On);
 instance.set_fli_content_height(1031.588);
