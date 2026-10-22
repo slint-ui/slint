@@ -916,13 +916,14 @@ mod tests {
     }
 
     #[test]
-    fn the_edition_reaches_the_compiler_configuration() {
+    fn the_edition_selects_the_behavior() {
         let config = |source: &str| {
             with_project_file_contents(source, |path| {
                 ProjectFile::load(path).unwrap().into_compiler_configuration(OutputFormat::Llr)
             })
         };
-        assert_eq!(config(r#"{ "slint-edition": "1.19" }"#).edition, Some(SlintEdition::V1_19));
+        assert!(config(r#"{ "slint-edition": "1.19" }"#).repeated_children_constrain_parent());
+        assert!(!config(r#"{ "slint-edition": "1.18" }"#).repeated_children_constrain_parent());
     }
 
     #[test]
