@@ -442,6 +442,19 @@ pub fn base_chain_declares_children(
     }
 }
 
+pub fn error_on_slot_default(element: &ElementRc, container: &str, diag: &mut BuildDiagnostics) {
+    let element = element.borrow();
+    if let Some(slot) = &element.slot_default {
+        diag.push_error(
+            format!(
+                "Declare the '{}' directly in the '{container}'; it can't be the default content of slot '{slot}'",
+                element.base_type
+            ),
+            &*element,
+        );
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),
@@ -483,6 +496,7 @@ pub struct DeclaredSlot {
     pub interface: Option<Rc<Component>>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
+    pub default: Option<syntax_nodes::SubElement>,
     has_rejected_placeholder: bool,
 }
 
@@ -517,10 +531,22 @@ pub struct UsedSubTypes {
     pub collision_renamed_names: std::collections::BTreeSet<SmolStr>,
 }
 
+#[derive(Debug, Clone)]
+pub struct OptimizedElement {
+    pub element: ElementRc,
+    pub former_parent: ElementWeak,
+}
+
+#[derive(Debug, Clone)]
+pub struct InitCodeEntry {
+    pub owner: ElementWeak,
+    pub code: Expression,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct InitCode {
     // Code from init callbacks collected from elements
-    pub constructor_code: Vec<Expression>,
+    pub constructor_code: Vec<InitCodeEntry>,
     /// Code to set the initial focus via forward-focus on the Window
     pub focus_setting_code: Vec<Expression>,
     /// Code to register embedded fonts.
@@ -528,7 +554,7 @@ pub struct InitCode {
 
     /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
     /// we can preserve the order across multiple inlining passes.
-    pub inlined_init_code: BTreeMap<usize, Expression>,
+    pub inlined_init_code: BTreeMap<usize, Vec<InitCodeEntry>>,
 }
 
 impl InitCode {
@@ -539,15 +565,15 @@ impl InitCode {
     pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
         self.focus_setting_code
             .iter()
-            .chain(self.constructor_code.iter())
-            .chain(self.inlined_init_code.values())
+            .chain(self.constructor_code.iter().map(|entry| &entry.code))
+            .chain(self.inlined_init_code.values().flatten().map(|entry| &entry.code))
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
         self.font_registration_code
             .iter_mut()
             .chain(self.focus_setting_code.iter_mut())
-            .chain(self.constructor_code.iter_mut())
-            .chain(self.inlined_init_code.values_mut())
+            .chain(self.constructor_code.iter_mut().map(|entry| &mut entry.code))
+            .chain(self.inlined_init_code.values_mut().flatten().map(|entry| &mut entry.code))
     }
 }
 
@@ -564,7 +590,7 @@ pub struct Component {
 
     /// List of elements that are not attached to the root anymore because they have been
     /// optimized away, but their properties may still be in use
-    pub optimized_elements: RefCell<Vec<ElementRc>>,
+    pub optimized_elements: RefCell<Vec<OptimizedElement>>,
 
     /// The layout constraints of the root item
     pub root_constraints: RefCell<LayoutConstraints>,
@@ -720,6 +746,22 @@ impl Component {
             if !declared_slot_nodes.contains_key(name.as_str()) {
                 diagnostics
                     .push_error(format!("The slot '{name}' is used but not declared"), &cip.node);
+            }
+        }
+        for slot in self.declared_slots.borrow().iter() {
+            if let Some(default) = &slot.default
+                && let Some(cip) = self.child_insertion_points.borrow().get(slot.name.as_str())
+                && matches!(cip.node, ChildInsertionPointNode::SlotForwarding(_))
+                && let Some(forwarding) =
+                    cip.parent.borrow().forwarded_slots.iter().find(|f| f.source == slot.name)
+            {
+                diagnostics.push_error(
+                    format!(
+                        "Remove the default content of the forwarded slot '{}'; set it on the target slot '{}' instead",
+                        slot.name, forwarding.target
+                    ),
+                    default,
+                );
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
@@ -1303,6 +1345,13 @@ pub struct Element {
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
     pub slot_target: Option<SmolStr>,
 
+    /// If this element is the default content of a slot (e.g., `slot name << ...`), which callers can replace.
+    /// Also set on a root-level assignment to an inherited untyped slot (`name << ...`).
+    pub slot_default: Option<SmolStr>,
+
+    /// The untyped slots this element clears with `name << { }`.
+    pub cleared_slots: Vec<SmolStr>,
+
     pub typed_slot_interface: Option<Rc<Component>>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
@@ -1577,6 +1626,7 @@ impl Element {
             return ElementRc::default();
         };
 
+        let is_component_root = is_component_root(&node);
         Self::apply_slots(&node, &r, component_child_insertion_points, declared_slots, diag, tr);
 
         let mut assigned_slots: HashSet<SmolStr> = r
@@ -1603,14 +1653,33 @@ impl Element {
                     ) {
                         continue;
                     }
-                    Self::register_slot_placeholder(
+                    if Self::register_slot_placeholder(
                         &se,
-                        slot_name,
+                        slot_name.clone(),
                         &r,
                         component_child_insertion_points,
                         diag,
                         tr,
-                    );
+                    ) {
+                        Self::place_slot_default(
+                            &slot_name,
+                            &r,
+                            declared_slots,
+                            is_legacy_syntax,
+                            diag,
+                            tr,
+                        );
+                    }
+                    continue;
+                }
+                if let Some((name, name_node, base)) = Self::component_slot_placeholder(&se, &r, tr)
+                {
+                    let message = if is_component_root {
+                        format!("Assign to the inherited slot '{name}' with '{name} << ...'")
+                    } else {
+                        format!("Assign to slot '{name}' of '{}' with '{name} << ...'", base.id)
+                    };
+                    diag.push_error(message, &name_node);
                     continue;
                 }
                 let parent_type = r.borrow().base_type.clone();
@@ -1689,6 +1758,7 @@ impl Element {
                     component_child_insertion_points,
                     declared_slots,
                     is_legacy_syntax,
+                    is_component_root,
                     diag,
                     tr,
                 );
@@ -3220,7 +3290,7 @@ fn animation_element_from_node(
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
-    let anim_type = tr.property_animation_type_for_property(prop_type);
+    let anim_type = tr.property_animation_type_for_property(prop_type.clone());
     if !matches!(anim_type, ElementType::Builtin(..)) {
         diag.push_error(
             format!(
@@ -3231,6 +3301,20 @@ fn animation_element_from_node(
         );
         None
     } else {
+        // The `angle-interpolation` property is only meaningful for angle properties
+        if prop_type != Type::Angle {
+            for binding in anim.Binding() {
+                let Some(ident) = binding.child_token(SyntaxKind::Identifier) else {
+                    continue;
+                };
+                if parser::normalize_identifier(ident.text()) == "angle-interpolation" {
+                    diag.push_error(
+                        "The 'angle-interpolation' property is only allowed when animating angle properties".into(),
+                        &ident,
+                    );
+                }
+            }
+        }
         Some(build_animation_element(anim, anim_type, diag))
     }
 }
@@ -3734,7 +3818,10 @@ pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Componen
 }
 
 pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
-    remove_child_element(elem, parent).optimized_elements.borrow_mut().push(elem.clone());
+    remove_child_element(elem, parent)
+        .optimized_elements
+        .borrow_mut()
+        .push(OptimizedElement { element: elem.clone(), former_parent: Rc::downgrade(parent) });
 }
 
 /// Visit all named reference in this component and sub component
@@ -3768,7 +3855,7 @@ fn visit_all_named_references_dyn(component: &Component, vis: &mut dyn FnMut(&mu
                     vis(&mut t.running);
                 });
                 for o in compo.optimized_elements.borrow().iter() {
-                    visit_element_expressions(o, |expr, _, _| {
+                    visit_element_expressions(&o.element, |expr, _, _| {
                         visit_named_references_in_expression_dyn(expr, vis)
                     });
                 }
@@ -3798,7 +3885,7 @@ fn visit_all_expressions_dyn(
         if !Weak::ptr_eq(parent_compo, &compo) {
             let compo = compo.upgrade().unwrap();
             for o in compo.optimized_elements.borrow().iter() {
-                visit_element_expressions(o, |expr, _, ty| vis(expr, ty));
+                visit_element_expressions(&o.element, |expr, _, ty| vis(expr, ty));
             }
         }
         compo
@@ -4132,7 +4219,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         }
     });
     elements_with_enclosing_component_reference
-        .extend_from_slice(component.optimized_elements.borrow().as_slice());
+        .extend(component.optimized_elements.borrow().iter().map(|o| o.element.clone()));
     elements_with_enclosing_component_reference.push(new_root.clone());
 
     new_root.borrow_mut().child_of_layout =

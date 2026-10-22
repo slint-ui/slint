@@ -124,6 +124,8 @@ mod item_tree_vtable;
 pub mod json;
 mod popup;
 mod public_api;
+#[cfg(feature = "internal-embed-textures")]
+mod static_resources;
 mod value_model;
 
 #[doc(inline)]

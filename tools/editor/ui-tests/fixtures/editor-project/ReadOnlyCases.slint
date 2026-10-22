@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, SpinBox, TextEdit } from "std-widgets.slint";
+
+export component ReadOnlyCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    editable-line-edit := LineEdit {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+        text: "Editable";
+    }
+
+    read-only-text-edit := TextEdit {
+        x: 32px;
+        y: 96px;
+        width: 200px;
+        height: 96px;
+        text: "Read-only";
+        read-only: true;
+    }
+
+    editable-spin-box := SpinBox {
+        x: 32px;
+        y: 224px;
+        width: 200px;
+        value: 3;
+    }
+}

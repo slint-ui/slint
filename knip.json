@@ -15,6 +15,7 @@
     "api/node": {
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
     },
+    "tools/compiler/npm": {},
     "editors/vscode": {
       "project": ["src/**/*.ts"]
     },

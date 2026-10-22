@@ -24,8 +24,8 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
 
             InspectorComboBox {
                 accessible-name: @tr("Horizontal Alignment");
-                value: InspectorEnumOptions.text-horizontal-alignment-label();
-                selected-index: InspectorEnumOptions.text-horizontal-alignment-index();
+                value: InspectorEnumOptions.option-label("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
                 options: InspectorEnumOptions.text-horizontal-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
@@ -45,8 +45,8 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
 
             InspectorComboBox {
                 accessible-name: @tr("Vertical Alignment");
-                value: InspectorEnumOptions.text-vertical-alignment-label();
-                selected-index: InspectorEnumOptions.text-vertical-alignment-index();
+                value: InspectorEnumOptions.option-label("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
                 options: InspectorEnumOptions.text-vertical-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {

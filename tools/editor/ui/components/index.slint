@@ -414,7 +414,7 @@ export global AppState {
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             if self.palette-drag-kind != kind {
-                self.palette-drag-size = kind == ElementKind.text
+                self.palette-drag-size = kind == ElementKind.text || kind == ElementKind.styled-text
                     ? self.palette-text-drag-size
                     : ElementVisuals.for-kind(kind).preview-size;
             }

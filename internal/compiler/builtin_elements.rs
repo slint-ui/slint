@@ -668,7 +668,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! Supported by the Skia, FemtoVG, Vello, and software renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
@@ -2676,9 +2676,11 @@ fn build(l: &mut Loader) {
             /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
             in property <length> spacing;
             //! To target specific axis with different values use the following properties:
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -2690,16 +2692,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
 
             // Additional accepted child
             children: Row;
@@ -2759,16 +2769,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (vertical) axis. Matches the CSS flex box.
@@ -2850,16 +2868,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (horizontal) axis. Matches the CSS flex box.
@@ -3021,8 +3047,12 @@ fn build(l: &mut Loader) {
             in property <length> spacing;
             //! To target specific directions with different values use the following properties:
             /// The horizontal distance between items in the layout. CSS Flexbox calls this "column-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
             /// The vertical distance between items in the layout. CSS Flexbox calls this "row-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -3033,16 +3063,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
@@ -3715,6 +3753,7 @@ fn build(l: &mut Loader) {
             in property <easing> easing;
             in property <float> iteration-count: 1.0;
             in property <bool> enabled: true;
+            in property <AngleInterpolation> angle-interpolation;
         }
     }
 

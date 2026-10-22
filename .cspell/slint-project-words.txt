@@ -55,6 +55,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
@@ -358,6 +359,7 @@ libavformat
 libavutil
 LIBC
 LIBCLANG
+libdlmclient
 libdrm
 libegl
 libfile
