@@ -190,6 +190,10 @@ pub struct CompilerConfiguration {
     /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
     invalid_edition_env: Option<String>,
 
+    /// Where `edition` is set, such as in a project file. A warning about the edition points
+    /// there, and there is no such warning without it.
+    pub edition_location: Option<diagnostics::SourceLocation>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -361,6 +365,7 @@ impl CompilerConfiguration {
             enable_experimental,
             edition,
             invalid_edition_env,
+            edition_location: None,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -418,6 +423,11 @@ fn prepare_for_compile(
     // Not a panic, which would crash the LSP.
     if let Some(message) = &compiler_config.invalid_edition_env {
         diagnostics.push_error_with_span(message.clone(), Default::default());
+    }
+    if let Some(location) = &compiler_config.edition_location
+        && let Some(warning) = compiler_config.edition.and_then(|e| e.behavior_change_warning())
+    {
+        diagnostics.push_warning_with_span(warning, location.clone());
     }
     #[cfg(feature = "slint-sc")]
     {

@@ -37,6 +37,19 @@ pub struct SlintEdition {
 
 impl SlintEdition {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
+    /// The newest edition that a behavior check of `CompilerConfiguration` depends on.
+    pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
+
+    /// The warning for an edition that misses a newer behavior change.
+    pub fn behavior_change_warning(self) -> Option<String> {
+        let newer = Self::LATEST_BEHAVIOR_CHANGE;
+        (self < newer).then(|| {
+            format!(
+                "'slint-edition' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
+                env!("CARGO_PKG_VERSION")
+            )
+        })
+    }
 
     /// The edition of this compiler's release.
     pub fn current() -> Self {
@@ -298,6 +311,17 @@ impl ProjectFile {
         self.edition
     }
 
+    /// The project file itself, for diagnostics about its `slint-edition`.
+    pub fn edition_location(&self) -> crate::diagnostics::SourceLocation {
+        crate::diagnostics::SourceLocation {
+            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                self.source_path.clone(),
+            )),
+            // `slint!` shows a diagnostic at offset 0 on the first token of the macro.
+            span: crate::diagnostics::Span::new(0, 0),
+        }
+    }
+
     /// The `.slint` file to compile when a tool is given this project file.
     pub fn main(&self) -> Option<SourcePath> {
         self.source_path.parent().join(&self.data.main.as_ref()?.to_string_lossy())
@@ -316,6 +340,7 @@ impl ProjectFile {
     /// leaving the settings the project file doesn't specify untouched.
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         self.resolved_data().apply_to(compiler_config);
+        compiler_config.edition_location = Some(self.edition_location());
     }
 
     pub fn resolved_data(&self) -> ProjectFileData {
@@ -360,6 +385,7 @@ impl ProjectFileData {
         }
         if let Some(slint_edition) = slint_edition {
             compiler_config.edition = Some(*slint_edition);
+            compiler_config.edition_location = None;
         }
     }
 }
@@ -588,8 +614,8 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        FILE_NAME, ProjectFile, SlintEdition, find_project_file_path, is_project_file,
-        resolve_input, resolve_relative_path,
+        FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, find_project_file_path,
+        is_project_file, resolve_input, resolve_relative_path,
     };
     use crate::{generator::OutputFormat, source_path::SourcePath};
     use std::{
@@ -913,6 +939,39 @@ mod tests {
         assert!(parse("1.9") < parse("1.10"));
         assert!(parse("1.19") < parse("2.0"));
         assert_eq!(parse("1.0").to_string(), "1.0");
+    }
+
+    #[test]
+    fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
+        let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
+        let warning = parse("1.18").behavior_change_warning().unwrap();
+        assert!(
+            warning
+                .contains("'slint-edition' 1.18 misses the language behavior changes up to 1.19")
+        );
+        assert_eq!(SlintEdition::current().behavior_change_warning(), None);
+    }
+
+    #[test]
+    fn an_edition_override_has_no_warning_location() {
+        with_project_file_contents(r#"{ "slint-edition": "1.18" }"#, |path| {
+            let project = ProjectFile::load(path).unwrap();
+            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
+            Overrides::default().apply(Some(&project), &mut config);
+            assert!(config.edition_location.is_some());
+
+            let overrides = Overrides {
+                project: ProjectFileData {
+                    slint_edition: Some(SlintEdition::V1_19),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
+            overrides.apply(Some(&project), &mut config);
+            assert_eq!(config.edition, Some(SlintEdition::V1_19));
+            assert!(config.edition_location.is_none());
+        });
     }
 
     #[test]
