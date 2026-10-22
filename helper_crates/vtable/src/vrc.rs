@@ -208,6 +208,13 @@ impl<VTable: VTableMetaDropInPlace + 'static> VRc<VTable, Dyn> {
     ) -> VRcMapped<VTable, MappedType> {
         VRcMapped { parent_strong: this.clone(), object: map_fn(Self::borrow_pin(&this)).get_ref() }
     }
+
+    /// Returns a VRc of the given type if the instance is of that type.
+    pub fn downcast<X: HasStaticVTable<VTable>>(this: &Self) -> Option<VRc<VTable, X>> {
+        Self::borrow(this).downcast::<X>()?;
+        // Safety: the instance is an `X`, and both types are a pointer to the same structure.
+        Some(unsafe { core::mem::transmute::<Self, VRc<VTable, X>>(this.clone()) })
+    }
 }
 impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     /// Create a Pinned reference to the inner.
