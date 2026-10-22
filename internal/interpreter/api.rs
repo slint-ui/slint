@@ -1259,7 +1259,9 @@ pub struct SendableCompilationResult {
     compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
-    font_files: HashMap<String, std::sync::Arc<Vec<u8>>>,
+    font_files: crate::component::FontFiles,
+    #[cfg(feature = "internal-embed-textures")]
+    pre_rendered: Vec<Option<crate::static_resources::SendableResource>>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<SourcePath>,
@@ -1278,6 +1280,8 @@ impl From<SendableCompilationResult> for CompilationResult {
             compilation_unit,
             components,
             font_files,
+            #[cfg(feature = "internal-embed-textures")]
+            pre_rendered,
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1285,7 +1289,11 @@ impl From<SendableCompilationResult> for CompilationResult {
             structs_and_enums,
         } = sent;
         let compilation_unit = compilation_unit.map(Rc::new);
-        let font_files = Rc::new(font_files);
+        let resources = Rc::new(crate::component::Resources {
+            font_files,
+            #[cfg(feature = "internal-embed-textures")]
+            pre_rendered: crate::static_resources::PreRendered::from_sendable(pre_rendered),
+        });
         let components = components
             .into_iter()
             .filter_map(|(name, public_index)| {
@@ -1293,7 +1301,7 @@ impl From<SendableCompilationResult> for CompilationResult {
                     compilation_unit: compilation_unit.clone()?,
                     public_index,
                     type_loaders: Default::default(),
-                    font_files: font_files.clone(),
+                    resources: resources.clone(),
                 });
                 Some((name, ComponentDefinition { inner }))
             })
@@ -1374,9 +1382,9 @@ impl CompilationResult {
             structs_and_enums,
         } = self;
 
-        // Every definition of one result was built from the same unit and font files.
+        // Every definition of one result was built from the same unit and resources.
         let mut unit = None::<Rc<i_slint_compiler::llr::CompilationUnit>>;
-        let mut font_files = HashMap::new();
+        let mut resources = None::<Rc<crate::component::Resources>>;
         let components = components
             .into_iter()
             .map(|(name, definition)| {
@@ -1387,20 +1395,23 @@ impl CompilationResult {
                     }
                     None => {
                         unit = Some(definition.inner.compilation_unit.clone());
-                        font_files = (*definition.inner.font_files).clone();
+                        resources = Some(definition.inner.resources.clone());
                     }
                 }
                 (name, public_index)
             })
             .collect();
-        // The definitions are dropped by now, so the unit is only cloned when
+        // The definitions are dropped by now, so the unit and resources are only cloned when
         // the caller kept one of them, or an instance, alive.
         let compilation_unit = unit.map(Rc::unwrap_or_clone);
+        let resources = resources.map(Rc::unwrap_or_clone).unwrap_or_default();
 
         SendableCompilationResult {
             compilation_unit,
             components,
-            font_files,
+            font_files: resources.font_files,
+            #[cfg(feature = "internal-embed-textures")]
+            pre_rendered: resources.pre_rendered.into_sendable(),
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,

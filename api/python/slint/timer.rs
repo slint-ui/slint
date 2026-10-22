@@ -8,7 +8,7 @@ use std::rc::Rc;
 use pyo3::prelude::*;
 use pyo3::{PyTraverseError, gc::PyVisit};
 
-/// The TimerMode specifies what should happen after the timer fired.
+/// The TimerMode specifies what happens after the timer fires.
 ///
 /// Used by the `Timer.start()` function.
 #[derive(Copy, Clone, PartialEq)]
@@ -16,7 +16,7 @@ use pyo3::{PyTraverseError, gc::PyVisit};
 pub enum PyTimerMode {
     /// A SingleShot timer is fired only once.
     SingleShot,
-    /// A Repeated timer is fired repeatedly until it is stopped or dropped.
+    /// A Repeated timer is fired repeatedly until it's stopped or dropped.
     Repeated,
 }
 
@@ -32,14 +32,14 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 /// Timer is a handle to the timer system that triggers a callback after a specified
 /// period of time.
 ///
-/// Use `Timer.start()` to create a timer that that repeatedly triggers a callback, or
+/// Use `Timer.start()` to create a timer that repeatedly triggers a callback, or
 /// `Timer.single_shot()` to trigger a callback only once.
 ///
-/// The timer will automatically stop when garbage collected. You must keep the Timer object
+/// The timer stops automatically when it's garbage collected. You must keep the Timer object
 /// around for as long as you want the timer to keep firing.
 ///
 /// ```python
-/// class AppWindow(...)
+/// class AppWindow(...):
 ///     def __init__(self):
 ///         super().__init__()
 ///         self.my_timer = None
@@ -47,14 +47,14 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 ///     @slint.callback
 ///     def button_clicked(self):
 ///         self.my_timer = slint.Timer()
-///         self.my_timer.start(timedelta(seconds=1), self.do_something)
+///         self.my_timer.start(slint.TimerMode.Repeated, timedelta(seconds=1), self.do_something)
 ///
 ///     def do_something(self):
 ///         pass
 /// ```
 ///
-/// Timers can only be used in the thread that runs the Slint event loop. They don't
-/// fire if used in another thread.
+/// **Note:** Timers only work in the thread that runs the Slint event loop. They don't
+/// fire if you use them in another thread.
 #[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
     timer: i_slint_core::timers::Timer,
@@ -70,12 +70,12 @@ impl PyTimer {
         PyTimer { timer: Default::default(), callback: Default::default() }
     }
 
-    /// Starts the timer with the given mode and interval, in order for the callback to called when the
-    /// timer fires. If the timer has been started previously and not fired yet, then it will be restarted.
+    /// Starts the timer with the given mode and interval, to call the callback when the
+    /// timer fires. If the timer has been started previously and hasn't fired yet, it's restarted.
     ///
     /// Arguments:
-    /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `interval`: The duration from now until when the timer should fire the first time, and subsequently
+    /// * `mode`: The timer mode to apply, that is, whether to fire the timer repeatedly or just once.
+    /// * `interval`: The duration from now until the timer fires the first time, and subsequently
     ///    for `TimerMode.Repeated` timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     fn start(
@@ -115,11 +115,11 @@ impl PyTimer {
         Ok(())
     }
 
-    /// Starts the timer with the duration and the callback to called when the
-    /// timer fires. It is fired only once and then deleted.
+    /// Starts a timer with the duration and the callback to call when the
+    /// timer fires. It fires only once and is then deleted.
     ///
     /// Arguments:
-    /// * `duration`: The duration from now until when the timer should fire.
+    /// * `duration`: The duration from now until the timer fires.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     #[staticmethod]
     fn single_shot(duration: chrono::Duration, callback: Py<PyAny>) -> PyResult<()> {
@@ -146,25 +146,25 @@ impl PyTimer {
     }
 
     /// Restarts the timer. If the timer was previously started by calling `Timer.start()`
-    /// with a duration and callback, then the time when the callback will be next invoked
-    /// is re-calculated to be in the specified duration relative to when this function is called.
+    /// with a duration and callback, then the time when the callback is next invoked
+    /// is recalculated to be in the specified duration relative to when you call this function.
     ///
     /// Does nothing if the timer was never started.
     fn restart(&self) {
         self.timer.restart();
     }
 
-    /// Set to true if the timer is running; false otherwise.
+    /// `True` if the timer is running; `False` otherwise.
     #[getter]
     fn running(&self) -> bool {
         self.timer.running()
     }
 
-    /// The duration of timer.
+    /// The duration of the timer.
     ///
-    /// When setting this property and the timer is running (see `Timer.running`),
-    /// then the time when the callback will be next invoked is re-calculated to be in the
-    /// specified duration relative to when this property is set.
+    /// If you set this property while the timer is running (see `Timer.running`),
+    /// the time when the callback is next invoked is recalculated to be in the
+    /// specified duration relative to when you set the property.
     #[setter]
     fn set_interval(&self, interval: chrono::Duration) -> PyResult<()> {
         let interval = interval

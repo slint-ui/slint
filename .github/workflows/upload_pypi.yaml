@@ -197,8 +197,8 @@ jobs:
             # extension's direct DT_NEEDED libraries; apt pulls the rest.
             - name: Install runtime system libraries
               run: |
-                  sudo timeout 600 apt-get update
-                  sudo timeout 600 apt-get install -y \
+                  bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update
+                  bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y \
                     libxkbcommon-x11-0 libxkbcommon0 \
                     libfontconfig1 libfreetype6
             - uses: actions/download-artifact@v8
@@ -255,4 +255,3 @@ jobs:
             uses: pypa/gh-action-pypi-publish@release/v1
             with:
               verbose: true
-
