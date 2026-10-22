@@ -88,7 +88,6 @@ export component SliderBase {
 
     forward-focus: keys;
     accessible-role: slider;
-    accessible-label: "";
     accessible-enabled: root.enabled;
     accessible-orientation: root.orientation;
     accessible-value: clamp(root.value, root.lower, root.upper);
@@ -109,7 +108,6 @@ export component SliderBase {
     }
 
     VerticalLayout {
-        padding: 0px;
         surface {
             enabled: root.enabled;
             position: root.position;
