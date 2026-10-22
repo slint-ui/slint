@@ -55,7 +55,7 @@ jobs:
                       runner: ubuntu-24.04-arm
         runs-on: ${{ matrix.runner }}
         container:
-            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+            image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
             options: --privileged
         timeout-minutes: 120
         steps:
@@ -96,6 +96,10 @@ jobs:
                   # Uploaded below instead, so the bundle and the repository
                   # travel together under one predictable artifact name.
                   upload-artifact: false
+
+            # The Freedesktop SDK no longer ships appstreamcli as of 26.08.
+            - name: Validate the metainfo
+              run: appstreamcli validate --no-net flatpak_app/files/share/metainfo/dev.slint.VisualEditor.metainfo.xml
 
             - name: Write the bundle
               run: >

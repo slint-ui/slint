@@ -44,9 +44,9 @@ const icons = [
     {
         src:
             "data:image/svg+xml;base64," +
-            readFileSync(new URL("../../icon.svg", import.meta.url)).toString(
-                "base64",
-            ),
+            readFileSync(
+                new URL("../../assets/slint.svg", import.meta.url),
+            ).toString("base64"),
         mimeType: "image/svg+xml",
         sizes: ["any"],
     },
@@ -58,7 +58,7 @@ const tools = [
         title: "Preview Slint",
         icons,
         description:
-            "Render .slint code as a live, interactive preview in the conversation. " +
+            "Preview saved Slint source using the matching Wasm interpreter. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "Compile errors are reported back to you once the preview has loaded. " +
             "Then call get_preview_screenshot to see the preview as the user sees it.",
@@ -87,6 +87,7 @@ const tools = [
                 },
             },
         },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
         _meta: { ui: { resourceUri: VIEW_URI } },
     },
     {

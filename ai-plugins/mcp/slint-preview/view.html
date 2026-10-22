@@ -449,7 +449,7 @@
   }
 
   function reportToModel(text) {
-    request("ui/update-model-context", { content: [{ type: "text", text }] }).catch(() => {});
+    request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
   }
 
   window.addEventListener("message", (event) => {

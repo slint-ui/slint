@@ -46,7 +46,10 @@ pub fn generate(
         .globals
         .iter_enumerated()
         .filter(|(_, glob)| glob.must_generate())
-        .map(|(_, glob)| generate_global(glob, &llr));
+        .map(|(_, glob)| generate_global(glob, &llr, compiler_config.library_name.is_some()));
+
+    let library_imports = import_library_types(doc, &llr);
+
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -64,6 +67,7 @@ pub fn generate(
     Ok(quote! {
         mod #generated_mod {
             #module_header
+            #library_imports
             #inner_module
             #(#globals)*
             #(#public_components)*
@@ -106,7 +110,6 @@ fn generate_public_component(
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke(#prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #component_name, #prop_name))
@@ -114,7 +117,6 @@ fn generate_public_component(
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
                     self.0.borrow().set_callback(#prop_name, sp::Rc::new(move |values| {
@@ -131,7 +133,6 @@ fn generate_public_component(
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke(#prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for function {}::{}", #component_name, #prop_name))
@@ -144,7 +145,6 @@ fn generate_public_component(
 
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #convert_from_value(self.0.borrow().get_property(#prop_name))
                         .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #component_name, #prop_name))
@@ -154,14 +154,13 @@ fn generate_public_component(
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         self.0.borrow().set_property(#prop_name, #convert_to_value(value))
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -271,7 +270,11 @@ fn generate_public_component(
     )
 }
 
-fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -> TokenStream {
+fn generate_global(
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+    is_library: bool,
+) -> TokenStream {
     if !global.exported {
         return quote!();
     }
@@ -288,7 +291,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke_global(#global_name, #prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #global_name, #prop_name))
@@ -296,7 +298,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
                     self.0.borrow().set_global_callback(#global_name, #prop_name, sp::Rc::new(move |values| {
@@ -313,7 +314,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke_global(#global_name, #prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for function {}::{}", #global_name, #prop_name))
@@ -326,7 +326,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #convert_from_value(self.0.borrow().get_global_property(#global_name, #prop_name))
                         .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #global_name, #prop_name))
@@ -336,14 +335,13 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         self.0.borrow().set_global_property(#global_name, #prop_name, #convert_to_value(value))
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -351,6 +349,42 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
 
     let public_component_id = ident(&global.name);
     let aliases = global.aliases.iter().map(|name| ident(name));
+    let global_trait_impls = generate_global_trait_impls(global, root);
+    let public_fields = is_library.then(|| quote!(pub));
+
+    let strong_handle_impl = quote!(
+        impl slint::StrongHandle for #public_component_id<'static> {
+            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+
+            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
+                let rc = inner.upgrade()?;
+                ::core::option::Option::Some(Self(rc, ::core::marker::PhantomData::default()))
+            }
+        }
+    );
+
+    quote!(
+        pub struct #public_component_id<'a>(
+            #public_fields sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
+            #public_fields ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
+
+        );
+
+        impl<'a> #public_component_id<'a> {
+            #(#property_and_callback_accessors)*
+        }
+        #(pub type #aliases<'a> = #public_component_id<'a>;)*
+        #global_trait_impls
+
+        #strong_handle_impl
+    )
+}
+
+fn generate_global_trait_impls(
+    global: &llr::GlobalComponent,
+    root: &llr::CompilationUnit,
+) -> TokenStream {
+    let public_component_id = ident(&global.name);
     let getters = root.public_components.iter().map(|c| {
         let root_component_id = ident(&c.name);
         quote! {
@@ -370,34 +404,38 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::CompilationUnit) -
             }
         }
     });
+    quote!(#(#getters)*)
+}
 
-    let strong_handle_impl = quote!(
-        impl slint::StrongHandle for #public_component_id<'static> {
-            type WeakInner = sp::Weak<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>;
+// returns first the library_imports, then the library_global_trait_impls against the main
+// components
+fn import_library_types(doc: &Document, llr: &llr::CompilationUnit) -> TokenStream {
+    let library_globals_trait_impls: Vec<_> = llr
+        .globals
+        .iter()
+        .filter(|global| global.from_library && global.exported)
+        .map(|global| generate_global_trait_impls(global, llr))
+        .collect();
+    let library_imports: Vec<_> = doc
+        .used_types
+        .borrow()
+        .library_types_imports
+        .iter()
+        .filter(|(symbol, _)| {
+            !llr.globals
+                .iter()
+                .any(|global| global.from_library && symbol == &format!("Inner{}", global.name))
+        })
+        .map(|(symbol, library_info)| {
+            let symbol_path = super::rust::library_symbol_path(library_info, ident(symbol));
+            quote!(pub use #symbol_path;)
+        })
+        .collect();
 
-            fn upgrade_from_weak_inner(inner: &Self::WeakInner) -> ::core::option::Option<Self> {
-                let rc = inner.upgrade()?;
-                ::core::option::Option::Some(Self(rc, ::core::marker::PhantomData::default()))
-            }
-        }
-    );
-
-    quote!(
-        #[allow(unused)]
-        pub struct #public_component_id<'a>(
-            sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
-            ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
-
-        );
-
-        impl<'a> #public_component_id<'a> {
-            #(#property_and_callback_accessors)*
-        }
-        #(pub type #aliases<'a> = #public_component_id<'a>;)*
-        #(#getters)*
-
-        #strong_handle_impl
-    )
+    quote! {
+        #(#library_imports)*
+        #(#library_globals_trait_impls)*
+    }
 }
 
 /// returns a function that converts the type to a Value.
