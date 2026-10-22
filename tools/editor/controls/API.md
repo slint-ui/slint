@@ -3,6 +3,8 @@
 Import styled controls and theme types from [`src/basic.slint`](src/basic.slint).
 Import headless controls and surface interfaces from [`src/headless.slint`](src/headless.slint).
 The controls implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
+These interfaces define the common compatibility API; headless bases can expose additional properties, callbacks, and functions for interaction and styling.
+The additional members don't become requirements for other implementations of the standard interfaces.
 Import those interfaces directly; neither entry point re-exports them.
 Enable experimental Slint features to use interfaces and typed slots.
 

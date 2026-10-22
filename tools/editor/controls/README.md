@@ -154,6 +154,10 @@ LineEdit {
 Derived components must explicitly forward these slots to expose them; see `PreviewLineEdit` in `examples/preview_controls.slint`.
 
 Each control and its base implement the corresponding existing standard widget interface, such as `ButtonInterface` or `ComboBoxInterface`.
+These interfaces define the shared compatibility contract, not the full API of each component.
+Headless bases can expose additional properties, callbacks, and functions for interaction and styling.
+For example, ComboBoxBase adds `highlighted-index` and the `highlighted` callback.
+These additions aren't requirements for other standard widget implementations.
 Import these directly from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint); the control entry points don't re-export them.
 Use these interfaces for typed slots accepting styled controls or custom implementations.
 Style definitions live in `src/basic/<control>_style.slint`.
