@@ -3,10 +3,10 @@
 
 import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
 import { CanvasView } from "canvas-view.slint";
-import { Snapping, SnapGuideLine } from "../snapping.slint";
+import { Snapping, SnapGuideLine, SnapGuide, SnapPreview } from "../snapping.slint";
 import { Style } from "../style.slint";
 import { FillSession, ShadowSession } from "inspector/index.slint";
-import { Api, CoordinateSpace, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
+import { Api, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
@@ -22,10 +22,14 @@ component SelectedCanvasFrame inherits Rectangle {
     callback clicked(Point);
     callback double-clicked();
     callback focus-requested();
+    callback geometry-previewed(SnapPreview);
+    callback geometry-activity-changed(bool);
 
     private property <bool> geometry-drag-active;
-    private property <Point> geometry-drag-position;
-    private property <Size> geometry-drag-size;
+    private property <SnapPreview> accepted-preview;
+    private property <string> geometry-identity;
+    private property <bool> geometry-pointer-active: frame.move-dragging || frame.resize-dragging;
+    changed geometry-pointer-active => { root.geometry-activity-changed(root.geometry-pointer-active); }
     private property <bool> rotation-active;
     private property <angle> pending-rotation;
     private property <bool> radius-drag-active;
@@ -49,23 +53,16 @@ component SelectedCanvasFrame inherits Rectangle {
             || Api.source-property-value-data("border-bottom-left-radius", {}).code != "";
     }
 
-    function preview-geometry(position: Point, size: Size) {
-        root.geometry-drag-active = true;
-        root.geometry-drag-position = position;
-        root.geometry-drag-size = size;
-        // Push live geometry so the previewed element follows the drag through
-        // debug-hook overrides without writing to disk.
-        Api.override-selected-element-geometry(
-            position.x / CanvasView.zoom,
-            position.y / CanvasView.zoom,
-            size.width / CanvasView.zoom,
-            size.height / CanvasView.zoom,
-            CoordinateSpace.Root,
-        );
+    function accept-preview(preview: SnapPreview) {
+        if preview.valid {
+            root.accepted-preview = preview;
+            root.geometry-drag-active = true;
+        }
+        root.geometry-previewed(preview);
     }
 
     function finish-interaction() {
-        if root.geometry-drag-active {
+        if root.geometry-drag-active && root.geometry-identity == Snapping.selection-identity() {
             Api.persist-selected-element-geometry();
         }
         if root.rotation-active {
@@ -117,7 +114,13 @@ component SelectedCanvasFrame inherits Rectangle {
             Api.override-selected-element-rotation(rotation);
         }
         control-hovered => { root.hover-suppressed(); }
-        move-press-started(position) => { root.hover-suppressed(); }
+        move-press-started(position) => {
+            root.geometry-identity = Snapping.selection-identity();
+            root.hover-suppressed();
+        }
+        resize-press-started => {
+            root.geometry-identity = Snapping.selection-identity();
+        }
         move-released(position) => {
             if !self.move-dragging && !root.interaction-disabled {
                 let preview = CanvasView.to-preview(position);
@@ -144,14 +147,21 @@ component SelectedCanvasFrame inherits Rectangle {
         radius-reset(corner) => {
             Api.reset-selected-element-border-radius(corner);
         }
-        resized-to(position, size) => {
-            root.preview-geometry(position, size);
+        resized-to(geometry, handle, square) => {
+            root.accept-preview(Snapping.preview-resize({
+                x: geometry.x / CanvasView.zoom,
+                y: geometry.y / CanvasView.zoom,
+                width: geometry.width / CanvasView.zoom,
+                height: geometry.height / CanvasView.zoom,
+            }, handle, square, root.geometry-identity));
         }
         moved-to(position) => {
-            root.preview-geometry(position, {
-                width: root.selection.width * CanvasView.zoom,
-                height: root.selection.height * CanvasView.zoom,
-            });
+            root.accept-preview(Snapping.preview-move({
+                x: position.x / CanvasView.zoom,
+                y: position.y / CanvasView.zoom,
+                width: root.selection.width,
+                height: root.selection.height,
+            }, root.geometry-identity));
         }
         interaction-ended => {
             root.finish-interaction();
@@ -159,11 +169,11 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     states [
-        geometry-dragging when root.geometry-drag-active: {
-            frame.x: root.geometry-drag-position.x;
-            frame.y: root.geometry-drag-position.y;
-            frame.width: root.geometry-drag-size.width;
-            frame.height: root.geometry-drag-size.height;
+        geometry-dragging when root.geometry-drag-active && root.geometry-identity == Snapping.selection-identity(): {
+            frame.x: root.accepted-preview.root-geometry.x * CanvasView.zoom;
+            frame.y: root.accepted-preview.root-geometry.y * CanvasView.zoom;
+            frame.width: root.accepted-preview.root-geometry.width * CanvasView.zoom;
+            frame.height: root.accepted-preview.root-geometry.height * CanvasView.zoom;
         }
         nudging when root.primary && CanvasView.nudging: {
             frame.x: CanvasView.nudge-position.x * CanvasView.zoom;
@@ -207,7 +217,11 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     callback real-element-selected();
     callback text-clicked(string, int, Point);
 
-    private property <Point> geometry-drag-position;
+    callback geometry-previewed(SnapPreview);
+    callback geometry-activity-changed(bool);
+    private property <SnapPreview> accepted-preview;
+    private property <string> geometry-identity;
+    changed move-dragging => { root.geometry-activity-changed(root.move-dragging); }
     private property <bool> text-click-candidate;
     private property <string> text-click-source-uri;
     private property <int> text-click-offset: -1;
@@ -236,19 +250,18 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     accessible-label: root.accessible-prefix;
 
     function preview-geometry(position: Point) {
-        root.geometry-drag-position = position;
-        Api.override-selected-element-geometry(
-            position.x / CanvasView.zoom,
-            position.y / CanvasView.zoom,
-            root.geometry.width,
-            root.geometry.height,
-            CoordinateSpace.Root,
-        );
+        root.accepted-preview = Snapping.preview-move({
+            x: position.x / CanvasView.zoom,
+            y: position.y / CanvasView.zoom,
+            width: root.geometry.width,
+            height: root.geometry.height,
+        }, root.geometry-identity);
+        root.geometry-previewed(root.accepted-preview);
     }
 
     function finish-interaction(position: Point) {
         let was-dragging = root.move-dragging;
-        if was-dragging {
+        if was-dragging && root.geometry-identity == Snapping.selection-identity() {
             Api.persist-selected-element-geometry();
         }
         root.gesture-ended();
@@ -273,6 +286,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
                 position.y / CanvasView.zoom,
             );
             root.real-element-selected();
+            root.geometry-identity = Snapping.selection-identity();
         }
     }
     moved-to(position) => {
@@ -298,9 +312,12 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
 
     states [
-        dragging when root.move-dragging: {
-            x: root.geometry-drag-position.x;
-            y: root.geometry-drag-position.y;
+        dragging when root.move-dragging && root.accepted-preview.valid
+            && root.geometry-identity == Snapping.selection-identity(): {
+            x: root.accepted-preview.root-geometry.x * CanvasView.zoom;
+            y: root.accepted-preview.root-geometry.y * CanvasView.zoom;
+            width: root.accepted-preview.root-geometry.width * CanvasView.zoom;
+            height: root.accepted-preview.root-geometry.height * CanvasView.zoom;
         }
     ]
 }
@@ -312,6 +329,12 @@ export component CanvasInteractionLayer inherits TouchArea {
     in property <Point> content-origin;
     in property <Size> content-size;
     private property <bool> hover-enabled;
+    private property <SnapPreview> accepted-preview;
+    private property <bool> geometry-active;
+    private property <[SnapGuide]> active-guides: root.geometry-active
+        && root.accepted-preview.valid
+        && root.accepted-preview.identity == Snapping.selection-identity()
+        ? root.accepted-preview.guides : [];
     private property <int> preview-generation: Hover.preview-generation;
     mouse-cursor: EditorCursors.canvas-default;
 
@@ -504,7 +527,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             }
         }
 
-        for guide in Snapping.guides(Api.current-element.source-uri, Api.current-element.offset, Api.selection.highlight-index): SnapGuideLine {
+        for guide in root.active-guides: SnapGuideLine {
             visible: root.selections.length > 0 && !root.text-editing;
             width: parent.width;
             height: parent.height;
@@ -515,6 +538,8 @@ export component CanvasInteractionLayer inherits TouchArea {
             visible: !root.text-editing;
             selection: selection;
             primary: idx == Api.selection.highlight-index;
+            geometry-previewed(preview) => { root.accepted-preview = preview; }
+            geometry-activity-changed(active) => { root.geometry-active = active; }
             shift-pressed: root.shift-pressed;
             interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
             show-outline-while-moving: root.keep-selection-outline-while-moving(
@@ -547,6 +572,8 @@ export component CanvasInteractionLayer inherits TouchArea {
         for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
             geometry: geometry;
             gesture-active: root.hover-selection-active;
+            geometry-previewed(preview) => { root.accepted-preview = preview; }
+            geometry-activity-changed(active) => { root.geometry-active = active; }
             show-outline-while-moving: root.keep-selection-outline-while-moving(
                 Hover.element.type-name,
             );

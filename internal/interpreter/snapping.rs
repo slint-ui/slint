@@ -47,7 +47,10 @@ pub(crate) fn snapping_geometry(
     let selected_parent = selected_anchor.parent_item(StopAtPopups);
     let parent_anchor = selected_parent.as_ref().map(|parent| geometry_anchor(parent).0);
     let root_to_parent = selected_geometry.parent_transform.inverse()?;
-    let mut seen = vec![selected_anchor];
+    let mut seen = selected_source
+        .occurrences(&sources.items, root)
+        .map(|(item_index, _)| geometry_anchor(&sources.items[item_index].as_item_rc()).0)
+        .collect::<Vec<_>>();
     let mut occurrences = Vec::new();
     for ((path, offset), source) in &sources.elements {
         for (instance_index, (item_index, _)) in
