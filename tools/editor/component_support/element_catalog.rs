@@ -38,9 +38,10 @@ pub struct Primitive {
     pub group: Group,
 }
 
-pub const PRIMITIVES: [Primitive; 4] = [
+pub const PRIMITIVES: [Primitive; 5] = [
     Primitive { kind: ElementKind::Rectangle, type_name: "Rectangle", group: Group::Visual },
     Primitive { kind: ElementKind::Text, type_name: "Text", group: Group::Visual },
+    Primitive { kind: ElementKind::StyledText, type_name: "StyledText", group: Group::Visual },
     Primitive { kind: ElementKind::Image, type_name: "Image", group: Group::Visual },
     Primitive {
         kind: ElementKind::TouchArea,

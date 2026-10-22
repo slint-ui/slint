@@ -78,6 +78,7 @@ mod tests {
             (ElementKind::Image, "Image", "Visual"),
             (ElementKind::Rectangle, "Rectangle", "Visual"),
             (ElementKind::Text, "Text", "Visual"),
+            (ElementKind::StyledText, "StyledText", "Visual"),
             (ElementKind::TouchArea, "TouchArea", "Input & interaction"),
         ] {
             let entry = primitive(kind).unwrap();
