@@ -17,8 +17,8 @@ export component InspectorTextWrapSection inherits InspectorSection {
 
         InspectorComboBox {
             accessible-name: @tr("Text Wrap");
-            value: InspectorEnumOptions.text-word-wrap-label();
-            selected-index: InspectorEnumOptions.text-word-wrap-index();
+            value: InspectorEnumOptions.option-label("wrap", "no-wrap", InspectorEnumOptions.text-word-wrap-options);
+            selected-index: InspectorEnumOptions.option-index("wrap", "no-wrap", InspectorEnumOptions.text-word-wrap-options);
             options: InspectorEnumOptions.text-word-wrap-options;
             wide: true;
             popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
