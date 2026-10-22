@@ -92,7 +92,7 @@ export component UpdateStatusPill inherits Rectangle {
         width: parent.width * Api.update-download-progress;
     }
 
-    Text {
+    label := Text {
         x: Metrics.space-regular;
         width: parent.width - 2 * Metrics.space-regular;
         text: UpdateStatus.label();
@@ -107,6 +107,11 @@ export component UpdateStatusPill inherits Rectangle {
     TouchArea {
         enabled: UpdateStatus.clickable();
         mouse-cursor: UpdateStatus.clickable() ? pointer : default;
+        accessible-role: button;
+        accessible-label: label.text;
+        accessible-action-default => {
+            Api.check-for-update();
+        }
         clicked => {
             Api.check-for-update();
         }
@@ -154,6 +159,11 @@ export component UpdateStatusBar inherits Rectangle {
 
             TouchArea {
                 enabled: UpdateStatus.clickable();
+                accessible-role: button;
+                accessible-label: label.text;
+                accessible-action-default => {
+                    Api.check-for-update();
+                }
                 mouse-cursor: UpdateStatus.clickable() ? pointer : default;
                 clicked => {
                     Api.check-for-update();
