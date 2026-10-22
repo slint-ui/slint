@@ -1,0 +1,32 @@
+---
+title: Editions
+description: Choose the Slint release whose language behavior your project uses, so that a newer Slint doesn't break it.
+---
+
+An edition is the Slint release whose language behavior your project uses, such as `1.19`.
+
+When a Slint release changes the behavior of the language,
+the change applies only if your edition is that release or newer.
+Newer versions of Slint keep compiling your project the way your edition's release did,
+until you raise the edition.
+You can use new features with any edition.
+
+## Choosing the Edition
+
+Set `slint-edition` in the [project file](../../../tooling/project-file/) to the major and minor version of the Slint release you write your project for.
+Write it as a string, such as `"1.19"`, not as the number `1.19`.
+Use the version of Slint you build with, or an older one.
+If the edition is newer than your version of Slint, Slint refuses to compile your project.
+
+```json
+{
+    "slint-edition": "1.19"
+}
+```
+
+When you compile or load `.slint` files, the edition comes from the project file.
+
+:::note
+Without a project file, Slint applies none of the behavior changes that depend on the edition.
+To opt in, add a project file that sets `slint-edition`.
+:::

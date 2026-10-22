@@ -11,7 +11,9 @@ from slint import slint as native
 def project_directory(tmp_path: pathlib.Path, settings: dict[str, Any]) -> pathlib.Path:
     # resolve() so the directory matches the paths the compiler reports back.
     directory = tmp_path.resolve()
-    (directory / "slint-project.json").write_text(json.dumps(settings))
+    (directory / "slint-project.json").write_text(
+        json.dumps({"slint-edition": "1.19", **settings})
+    )
     return directory
 
 

@@ -1,6 +1,6 @@
 ---
 title: Project File
-description: Configure the main file, include paths, and library paths of a project in one place.
+description: Configure the edition, main file, include paths, and library paths of a project in one place.
 ---
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
@@ -28,6 +28,7 @@ or in the root of your repository to configure all of them.
 
 ```json
 {
+    "slint-edition": "1.19",
     "main": "ui/main.slint",
     "include-paths": ["ui/shared"],
     "library-paths": {
@@ -37,12 +38,13 @@ or in the root of your repository to configure all of them.
 ```
 
 The file is JSON with `//` and `/* */` comments.
-Every setting is optional.
+`slint-edition` is required; every other setting is optional.
 
 ## Settings
 
 | Setting | Type | Description |
 |---------|------|-------------|
+| `slint-edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
 | `enable-experimental-features` | boolean | Turns on features that aren't stable yet. |
@@ -59,6 +61,10 @@ From highest to lowest priority:
 2. The project file.
 3. A compiler default.
 
+:::note
+You can't set `slint-edition` through the API or the command line; it only comes from the project file.
+:::
+
 ## Compiling the Project File
 
 Set `main` to the main `.slint` file of your application,
@@ -67,6 +73,7 @@ Slint compiles the main file with the settings of that project file and doesn't 
 
 ```json
 {
+    "slint-edition": "1.19",
     "main": "ui/main.slint"
 }
 ```

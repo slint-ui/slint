@@ -145,6 +145,10 @@ export default defineSlintDocsConfig({
                                                 label: "Reactivity vs React.js",
                                                 slug: "guide/language/concepts/reactivity-vs-react",
                                             },
+                                            {
+                                                label: "Editions",
+                                                slug: "guide/language/concepts/editions",
+                                            },
                                         ],
                                     },
                                     {
