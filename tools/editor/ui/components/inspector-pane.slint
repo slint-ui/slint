@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
+import { Api } from "../api.slint";
+import { CanvasPresetsSection } from "inspector/canvas-presets.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
@@ -77,6 +79,8 @@ export component InspectorPane inherits Rectangle {
             content-layout := VerticalLayout {
                 width: parent.width;
                 alignment: start;
+
+                if Api.selection.highlight-index < 0: CanvasPresetsSection { }
 
                 if InspectorContext.is-resizable-selection(): InspectorGeometrySection { }
 
