@@ -16,13 +16,15 @@ if [ "$(id -u)" -ne 0 ]; then
     sudo=sudo
 fi
 
+attempts=5
+
 download() {
-    for attempt in 1 2 3; do
+    for attempt in $(seq $attempts); do
         $sudo timeout -k 10 200 apt-get "$@" && return 0
         if [ $? -eq 124 ]; then
-            echo "apt-get $1 timed out (attempt $attempt of 3)"
+            echo "apt-get $1 timed out (attempt $attempt of $attempts)"
         else
-            echo "apt-get $1 failed (attempt $attempt of 3)"
+            echo "apt-get $1 failed (attempt $attempt of $attempts)"
         fi
     done
     return 1
