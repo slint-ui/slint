@@ -269,7 +269,7 @@ export global InspectorContext {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
         }
-        if column == InspectorEnumOptions.image-horizontal-alignment-index() && row == InspectorEnumOptions.image-vertical-alignment-index() {
+        if column == InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options) && row == InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options) {
             return true;
         }
         return InspectorContext.commit-codes([

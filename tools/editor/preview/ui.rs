@@ -292,6 +292,7 @@ pub fn initialize_editor(
 
         source_property_value(&api, property_name, fallback)
     });
+    api.on_combo_option_index(combo_option_index);
     api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
     api.on_choose_image_file(move |source_uri| {
@@ -1225,6 +1226,20 @@ fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Opt
     None
 }
 
+fn combo_option_index(value: SharedString, options: ModelRc<InspectorComboOption>) -> i32 {
+    let value = match value.split_once('.') {
+        Some((enum_name, member)) if enum_name.starts_with(|c: char| c.is_ascii_uppercase()) => {
+            member
+        }
+        _ => value.as_str(),
+    };
+    options
+        .iter()
+        .position(|option| option.value == value)
+        .and_then(|index| i32::try_from(index).ok())
+        .unwrap_or(-1)
+}
+
 fn source_property_value(
     api: &Api<'_>,
     property_name: SharedString,
@@ -1637,6 +1652,28 @@ mod tests {
     };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn test_combo_option_index() {
+        let options: slint::ModelRc<super::InspectorComboOption> =
+            std::rc::Rc::new(VecModel::from(
+                ["left", "center", "right"]
+                    .map(|value| super::InspectorComboOption {
+                        value: value.into(),
+                        label: SharedString::default(),
+                    })
+                    .to_vec(),
+            ))
+            .into();
+
+        assert_eq!(super::combo_option_index("center".into(), options.clone()), 1);
+        assert_eq!(
+            super::combo_option_index("TextHorizontalAlignment.right".into(), options.clone()),
+            2
+        );
+        assert_eq!(super::combo_option_index("root.left".into(), options.clone()), -1);
+        assert_eq!(super::combo_option_index("justify".into(), options), -1);
+    }
 
     #[test]
     fn numeric_property_defaults_and_resolved_bindings() {
