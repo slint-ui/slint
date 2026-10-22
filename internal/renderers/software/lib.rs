@@ -1668,8 +1668,8 @@ fn gradient_commands(
     let box_h = gradient_box.height();
     let (item_w, item_h) = if rotation.is_transpose() { (box_h, box_w) } else { (box_w, box_h) };
     let alpha_stop = |s: &GradientStop| GradientStop { color: alpha_color(s.color, alpha), ..*s };
-    let radial_conic_placement = |x: f32, y: f32| {
-        let rect: PhysicalRect = draw_rect.round().cast();
+    let rect: PhysicalRect = draw_rect.round().cast();
+    let to_rect_center = |x: f32, y: f32| {
         let (cx, cy) = match rotation {
             RenderingRotation::NoRotation => (x, y),
             RenderingRotation::Rotate90 => (box_w - y, x),
@@ -1677,7 +1677,6 @@ fn gradient_commands(
             RenderingRotation::Rotate270 => (y, box_h - x),
         };
         (
-            rect,
             gradient_box.min_x() + cx - rect.min_x() as f32,
             gradient_box.min_y() + cy - rect.min_y() as f32,
         )
@@ -1703,8 +1702,7 @@ fn gradient_commands(
             let reversed = angle <= 90 || angle > 270;
             let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
 
-            let act_rect: PhysicalRect = draw_rect.round().cast();
-            let act = act_rect.to_i32();
+            let act = rect.to_i32();
             let snapped_box = gradient_box.round().to_i32();
             let clip_length =
                 |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
@@ -1781,7 +1779,7 @@ fn gradient_commands(
                     right_clip: clip_length(band_right - act.max_x()),
                     clip,
                 };
-                sink(act_rect, AnyGradientCommand::Linear(gr));
+                sink(rect, AnyGradientCommand::Linear(gr));
                 true
             };
 
@@ -1809,7 +1807,7 @@ fn gradient_commands(
         }
         Brush::RadialGradient(g) if g.stops().nth(1).is_some() => {
             let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
-            let (rect, center_x, center_y) = radial_conic_placement(cx, cy);
+            let (center_x, center_y) = to_rect_center(cx, cy);
             let (rx, ry) = g.radii_or_default_scaled(item_w, item_h, scale_factor.get());
             let (radius_x, radius_y) = if rotation.is_transpose() { (ry, rx) } else { (rx, ry) };
 
@@ -1829,7 +1827,7 @@ fn gradient_commands(
         }
         Brush::ConicGradient(g) if g.stops().nth(1).is_some() => {
             let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
-            let (rect, center_x, center_y) = radial_conic_placement(cx, cy);
+            let (center_x, center_y) = to_rect_center(cx, cy);
             let conic_grad = ConicGradientCommand {
                 stops: PremultipliedGradientStop::collect(
                     g.stops().map(|s| (alpha_color(s.color, alpha).into(), s.position)),
