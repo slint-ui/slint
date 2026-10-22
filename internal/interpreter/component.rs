@@ -67,7 +67,7 @@ pub type FontFiles = HashMap<String, alloc::sync::Arc<Vec<u8>>>;
 #[derive(Clone, Default)]
 pub struct Resources {
     pub font_files: FontFiles,
-    #[cfg(feature = "internal-embed-textures")]
+    #[cfg(feature = "internal-mcu-interpreter")]
     pub pre_rendered: crate::static_resources::PreRendered,
 }
 
@@ -375,7 +375,7 @@ pub fn build_from_document(
 ) -> Vec<ComponentDefinitionInner> {
     let resources = Rc::new(Resources {
         font_files,
-        #[cfg(feature = "internal-embed-textures")]
+        #[cfg(feature = "internal-mcu-interpreter")]
         pre_rendered: crate::static_resources::PreRendered::from_document(document),
     });
     let mut unit =

@@ -5,6 +5,8 @@
 //! or another device.
 //!
 //! Write a unit with [`to_bytes()`] and read it with [`from_bytes()`]; this works without std.
+//! The unit refers to its pre-rendered textures and fonts by index:
+//! write each with [`resource_to_bytes()`], so that a receiver can keep those it already has.
 //! The unit serializes on its own, without any state shared across fields.
 //! The `Arc`s that the builtins provide are written as a reference to them,
 //! and every other `Arc` is written by value, through serde's `rc` feature.
@@ -19,6 +21,7 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use i_slint_common::pre_rendered::PreRenderedResource;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smol_str::SmolStr;
@@ -28,19 +31,32 @@ pub fn to_bytes(unit: &CompilationUnit) -> postcard::Result<Vec<u8>> {
     postcard::to_allocvec(&(NativeClasses::of(unit), unit))
 }
 
-/// Compiles the root file at `path` into a unit for [`to_bytes()`], unless the compilation fails.
+/// Compiles the root file at `path` like the interpreter does, into a unit for [`to_bytes()`],
+/// and the resources it refers to by index for [`resource_to_bytes()`],
+/// unless the compilation fails.
 #[cfg(feature = "std")]
 pub async fn compile(
     path: &crate::source_path::SourcePath,
     source_code: String,
-    config: crate::CompilerConfiguration,
-) -> (crate::diagnostics::BuildDiagnostics, Option<CompilationUnit>) {
+    mut config: crate::CompilerConfiguration,
+) -> (
+    crate::diagnostics::BuildDiagnostics,
+    Option<(CompilationUnit, Vec<Option<PreRenderedResource>>)>,
+) {
+    // Like the interpreter's `Compiler`
+    if std::env::var_os("SLINT_INLINING").is_none() {
+        config.inline_all_elements = false;
+    }
     let (diagnostics, loader) =
         crate::load_root_file(path, source_code, Default::default(), config).await;
-    let unit = loader.get_document(path).filter(|_| !diagnostics.has_errors()).map(|document| {
-        super::lower_to_item_tree::lower_to_item_tree(document, &loader.compiler_config)
-    });
-    (diagnostics, unit)
+    let compiled =
+        loader.get_document(path).filter(|_| !diagnostics.has_errors()).map(|document| {
+            (
+                super::lower_to_item_tree::lower_to_item_tree(document, &loader.compiler_config),
+                crate::embedded_resources::pre_rendered_resources(document),
+            )
+        });
+    (diagnostics, compiled)
 }
 
 /// Deserializes a unit written by [`to_bytes()`].
@@ -51,6 +67,17 @@ pub fn from_bytes(bytes: &[u8]) -> postcard::Result<CompilationUnit> {
             classes.0.get(&item.ty.class_name).cloned().ok_or(postcard::Error::SerdeDeCustom)?;
     }
     Ok(unit)
+}
+
+/// Serializes a resource of a unit for [`resource_from_bytes()`].
+/// `None` stands for a resource that the compiler didn't pre-render.
+pub fn resource_to_bytes(resource: &Option<PreRenderedResource>) -> postcard::Result<Vec<u8>> {
+    postcard::to_allocvec(resource)
+}
+
+/// Deserializes a resource written by [`resource_to_bytes()`].
+pub fn resource_from_bytes(bytes: &[u8]) -> postcard::Result<Option<PreRenderedResource>> {
+    postcard::from_bytes(bytes)
 }
 
 /// The native classes of the unit's items, by name.
