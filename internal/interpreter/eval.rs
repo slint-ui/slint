@@ -1852,7 +1852,7 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
         .collect()
 }
 
-#[cfg_attr(not(feature = "internal-embed-textures"), allow(unused_variables))]
+#[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_variables))]
 fn load_image_reference(
     resource_ref: &i_slint_compiler::expression_types::ImageReference,
     ctx: &EvalContext,
@@ -1896,13 +1896,13 @@ fn load_image_reference(
                 Err(Default::default())
             }
         }
-        #[cfg(feature = "internal-embed-textures")]
+        #[cfg(feature = "internal-mcu-interpreter")]
         Ref::EmbeddedTexture { resource_id } => ctx
             .globals
             .upgrade()
             .and_then(|globals| globals.resources.pre_rendered.image(*resource_id))
             .ok_or_else(Default::default),
-        #[cfg(not(feature = "internal-embed-textures"))]
+        #[cfg(not(feature = "internal-mcu-interpreter"))]
         Ref::EmbeddedTexture { .. } => Ok(Default::default()),
         // Without the compiler, only the images it embedded in the unit show
         #[cfg(not(feature = "std"))]
@@ -2567,7 +2567,7 @@ fn call_builtin_function(
             crate::popup::show_popup_menu(ctx, arguments)
         }
         BuiltinFunction::RegisterBitmapFont => {
-            #[cfg(feature = "internal-embed-textures")]
+            #[cfg(feature = "internal-mcu-interpreter")]
             if let [Expression::NumberLiteral(resource_id)] = arguments
                 && let Some(root) = find_root_instance(ctx)
                 && let Some(font) = root.globals.resources.pre_rendered.bitmap_font(

@@ -36,6 +36,10 @@ pub use i_slint_core::api::*;
 #[cfg(feature = "std")]
 pub use i_slint_compiler::DefaultTranslationContext;
 
+#[doc(hidden)]
+#[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
+pub use crate::static_resources::LoadedResource;
+
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -1193,12 +1197,12 @@ async fn build_compilation_result(
 /// ```
 pub struct SendableCompilationResult {
     /// `None` when the compilation produced no component.
-    compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
+    pub(crate) compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     font_files: crate::component::FontFiles,
-    #[cfg(feature = "internal-embed-textures")]
-    pre_rendered: Vec<Option<crate::static_resources::SendableResource>>,
+    #[cfg(feature = "internal-mcu-interpreter")]
+    pub(crate) pre_rendered: Vec<Option<i_slint_common::pre_rendered::PreRenderedResource>>,
     #[cfg(feature = "std")]
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
@@ -1213,13 +1217,32 @@ const _: () = {
 };
 
 impl From<SendableCompilationResult> for CompilationResult {
-    fn from(sent: SendableCompilationResult) -> Self {
+    #[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_mut))]
+    fn from(mut sent: SendableCompilationResult) -> Self {
+        #[cfg(feature = "internal-mcu-interpreter")]
+        let pre_rendered = crate::static_resources::PreRendered::from_sendable(core::mem::take(
+            &mut sent.pre_rendered,
+        ));
+        Self::from_sendable(
+            sent,
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
+        )
+    }
+}
+
+impl CompilationResult {
+    fn from_sendable(
+        sent: SendableCompilationResult,
+        #[cfg(feature = "internal-mcu-interpreter")]
+        pre_rendered: crate::static_resources::PreRendered,
+    ) -> Self {
         let SendableCompilationResult {
             compilation_unit,
             components,
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered,
+            #[cfg(feature = "internal-mcu-interpreter")]
+                pre_rendered: _,
             #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
@@ -1230,8 +1253,8 @@ impl From<SendableCompilationResult> for CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered: crate::static_resources::PreRendered::from_sendable(pre_rendered),
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
         });
         let components = components
             .into_iter()
@@ -1317,11 +1340,12 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     /// A result holding `unit`, such as one that `i_slint_compiler::llr::serialize` read,
-    /// with neither diagnostics nor watch paths.
+    /// and its `resources`, with neither diagnostics nor watch paths.
     #[doc(hidden)]
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
     pub fn from_compilation_unit(
         unit: i_slint_compiler::llr::CompilationUnit,
+        resources: impl IntoIterator<Item = LoadedResource>,
         _: i_slint_core::InternalToken,
     ) -> Self {
         let components = unit
@@ -1329,18 +1353,17 @@ impl CompilationResult {
             .iter_enumerated()
             .map(|(public_index, component)| (component.name.to_string(), public_index))
             .collect();
-        SendableCompilationResult {
+        let sent = SendableCompilationResult {
             compilation_unit: Some(unit),
             components,
             font_files: HashMap::new(),
-            #[cfg(feature = "internal-embed-textures")]
             pre_rendered: Vec::new(),
             #[cfg(feature = "std")]
             diagnostics: Vec::new(),
             watch_paths: Vec::new(),
             structs_and_enums: Vec::new(),
-        }
-        .into()
+        };
+        Self::from_sendable(sent, crate::static_resources::PreRendered::from_loaded(resources))
     }
 
     /// Consume the result so that it can be sent to another thread.
@@ -1383,7 +1406,7 @@ impl CompilationResult {
             compilation_unit,
             components,
             font_files: resources.font_files,
-            #[cfg(feature = "internal-embed-textures")]
+            #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered: resources.pre_rendered.into_sendable(),
             #[cfg(feature = "std")]
             diagnostics,
