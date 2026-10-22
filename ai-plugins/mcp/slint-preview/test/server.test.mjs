@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import {
+    cpSync,
     existsSync,
     mkdtempSync,
     readFileSync,
@@ -85,26 +87,66 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(screenshot._meta, undefined);
 });
 
-test("serves the view as an MCP App with the interpreter hosts allowed", async () => {
+function assertServesInterpreter(content, url, hosts) {
+    assert.equal(content.mimeType, "text/html;profile=mcp-app");
+    assert.doesNotMatch(content.text, /__[A-Z_]+__/);
+    assert.ok(content.text.includes(url), url);
+    const { csp } = content._meta.ui;
+    assert.deepEqual(csp.connectDomains, hosts);
+    assert.deepEqual(csp.resourceDomains, [...hosts, "blob:"]);
+}
+
+test("serves the view with the snapshot interpreter", async () => {
     const { result } = await request("resources/read", {
         uri: "ui://slint/preview.html",
     });
-    const [content] = result.contents;
-    assert.equal(content.mimeType, "text/html;profile=mcp-app");
-    assert.doesNotMatch(content.text, /__[A-Z]+_URL__/);
-
-    const { csp } = content._meta.ui;
-    const urls = [
-        "https://releases.slint.dev/1.18.1/wasm-interpreter/slint_wasm_interpreter.js",
+    assertServesInterpreter(
+        result.contents[0],
         "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
-    ];
-    for (const url of urls) {
-        assert.ok(content.text.includes(url), url);
-        const { origin } = new URL(url);
-        assert.ok(csp.resourceDomains.includes(origin), origin);
-        assert.ok(csp.connectDomains.includes(origin), origin);
+        ["https://snapshots.slint.dev"],
+    );
+});
+
+test("serves the view with the interpreter of the plugin's release on the release channel", async () => {
+    const root = mkdtempSync(join(tmpdir(), "slint-preview-release-"));
+    try {
+        for (const file of [
+            ".claude-plugin/plugin.json",
+            "assets/slint.svg",
+            "mcp/slint-preview/server.mjs",
+            "mcp/slint-preview/view.html",
+        ]) {
+            cpSync(new URL(file, pluginRoot), join(root, file));
+        }
+        writeFileSync(
+            join(root, "mcp/slint-preview/channel.json"),
+            JSON.stringify({ channel: "release" }),
+        );
+        const release = spawn(
+            process.execPath,
+            [join(root, "mcp/slint-preview/server.mjs")],
+            { stdio: ["pipe", "pipe", "inherit"] },
+        );
+        const lines = createInterface({ input: release.stdout });
+        release.stdin.write(
+            JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "resources/read",
+                params: { uri: "ui://slint/preview.html" },
+            }) + "\n",
+        );
+        const [line] = await once(lines, "line");
+        release.kill();
+        const { version } = readManifest(".claude-plugin/plugin.json");
+        assertServesInterpreter(
+            JSON.parse(line).result.contents[0],
+            `https://releases.slint.dev/${version}/wasm-interpreter/slint_wasm_interpreter.js`,
+            ["https://releases.slint.dev", "https://docs.slint.dev"],
+        );
+    } finally {
+        rmSync(root, { recursive: true, force: true });
     }
-    assert.ok(csp.resourceDomains.includes("blob:"));
 });
 
 test("lists the view resource", async () => {
