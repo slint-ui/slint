@@ -227,16 +227,32 @@ fn insert_property(
 
 pub(super) fn setup(editor: &ui::EditorUi) {
     let project = editor.global::<ui::Project>();
-    project.on_update_canvas_presets(|presets| {
-        let result = presets_from_model(presets).and_then(|presets| update(&presets));
-        if let Err(error) = &result {
-            super::PREVIEW_STATE.with_borrow(|state| {
-                if let Some(editor) = &state.editor_ui {
-                    editor.global::<ui::Project>().set_canvas_presets_error(error.into());
-                }
-            });
-        }
-        result.is_ok()
+    project.on_update_canvas_preset(|index, width, height| {
+        let proposal = (|| {
+            let mut presets = current_presets()?;
+            let preset = usize::try_from(index)
+                .ok()
+                .and_then(|index| presets.get_mut(index))
+                .ok_or("Canvas preset no longer exists")?;
+            *preset = CanvasPreset {
+                width: width
+                    .trim()
+                    .parse()
+                    .map_err(|_| "Canvas width must be a positive integer")?,
+                height: height
+                    .trim()
+                    .parse()
+                    .map_err(|_| "Canvas height must be a positive integer")?,
+            };
+            Ok(presets)
+        })();
+        submit_proposal(proposal)
+    });
+    project.on_add_canvas_preset(|| {
+        submit_proposal(current_presets().map(|mut presets| {
+            presets.push(CanvasPreset { width: 390, height: 720 });
+            presets
+        }))
     });
     project.on_select_canvas_preset(select);
 }
@@ -258,6 +274,25 @@ fn presets_from_model(
             Ok(CanvasPreset { width: preset.width as i32, height: preset.height as i32 })
         })
         .collect()
+}
+
+fn current_presets() -> Result<Vec<CanvasPreset>, String> {
+    super::PREVIEW_STATE.with_borrow(|state| {
+        let editor = state.editor_ui.as_ref().ok_or("No project is open")?;
+        presets_from_model(editor.global::<ui::Project>().get_canvas_presets())
+    })
+}
+
+fn submit_proposal(proposal: Result<Vec<CanvasPreset>, String>) -> bool {
+    let result = proposal.and_then(|presets| update(&presets));
+    if let Err(error) = &result {
+        super::PREVIEW_STATE.with_borrow(|state| {
+            if let Some(editor) = &state.editor_ui {
+                editor.global::<ui::Project>().set_canvas_presets_error(error.into());
+            }
+        });
+    }
+    result.is_ok()
 }
 
 fn default_presets() -> Vec<CanvasPreset> {
@@ -346,7 +381,10 @@ fn preset_model(presets: Vec<CanvasPreset>) -> slint::ModelRc<ui::CanvasPreset> 
 
 fn publish_presets(project: &ui::Project<'_>, presets: Vec<CanvasPreset>) {
     let presets = if presets.is_empty() { default_presets() } else { presets };
-    project.set_canvas_presets(preset_model(presets));
+    let model = preset_model(presets);
+    if !project.get_canvas_presets().iter().eq(model.iter()) {
+        project.set_canvas_presets(model);
+    }
     select(project.get_selected_canvas_preset());
 }
 
@@ -458,10 +496,7 @@ mod tests {
         let path = directory.path().join("slint-project.json");
         let url = lsp_types::Url::from_file_path(&path).unwrap();
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Missing);
-        assert!(project.invoke_update_canvas_presets(preset_model(vec![CanvasPreset {
-            width: 640,
-            height: 480
-        }])));
+        assert!(submit_proposal(Ok(vec![CanvasPreset { width: 640, height: 480 }])));
         assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 640.);
         assert!(!path.exists());
         crate::preview::set_contents(
@@ -469,9 +504,9 @@ mod tests {
             contents(&[720, 1920]),
         );
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Available);
-        let proposed = preset_model(vec![CanvasPreset { width: 800, height: 600 }]);
-        assert!(project.invoke_update_canvas_presets(proposed.clone()));
-        assert!(!project.invoke_update_canvas_presets(proposed));
+        let proposed = vec![CanvasPreset { width: 800, height: 600 }];
+        assert!(submit_proposal(Ok(proposed.clone())));
+        assert!(!submit_proposal(Ok(proposed)));
         assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 720.);
         crate::preview::set_contents(
             &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), Some(0)),
@@ -485,7 +520,7 @@ mod tests {
             );
             assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Invalid);
             assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 1440.);
-            assert!(!project.invoke_update_canvas_presets(preset_model(default_presets())));
+            assert!(!submit_proposal(Ok(default_presets())));
         }
         crate::preview::PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         crate::preview::set_contents(
@@ -494,7 +529,7 @@ mod tests {
         );
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Available);
         assert!(!project.get_canvas_presets_error().is_empty());
-        assert!(project.invoke_update_canvas_presets(preset_model(default_presets())));
+        assert!(submit_proposal(Ok(default_presets())));
         crate::preview::set_contents(
             &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
             contents(&[500]),
@@ -503,12 +538,9 @@ mod tests {
         crate::preview::delete_document(&url);
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Missing);
         assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 500.);
-        assert!(project.invoke_update_canvas_presets(preset_model(default_presets())));
+        assert!(submit_proposal(Ok(default_presets())));
         assert!(!path.exists());
-        assert!(!project.invoke_update_canvas_presets(preset_model(vec![CanvasPreset {
-            width: 0,
-            height: 1
-        }])));
+        assert!(!submit_proposal(Ok(vec![CanvasPreset { width: 0, height: 1 }])));
         let other = tempfile::tempdir().unwrap();
         crate::preview::reset_project_state(
             lsp_types::Url::from_directory_path(other.path()).unwrap(),
@@ -571,6 +603,38 @@ mod tests {
     }
 
     #[test]
+    fn preset_model_changes_only_with_values_or_project_reset() {
+        let directory = tempfile::tempdir().unwrap();
+        let editor = project_editor(directory.path());
+        let project = editor.global::<ui::Project>();
+        let url =
+            lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
+        crate::preview::set_contents(
+            &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
+            contents(&[720, 1920]),
+        );
+        let original = project.get_canvas_presets();
+        crate::preview::set_contents(
+            &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
+            format!("{}\n// comment", contents(&[720, 1920])),
+        );
+        assert_eq!(project.get_canvas_presets(), original);
+        crate::preview::set_contents(
+            &i_slint_live_preview::protocol::VersionedUrl::new(url, None),
+            contents(&[720, 1280]),
+        );
+        assert_ne!(project.get_canvas_presets(), original);
+        publish_presets(&project, default_presets());
+        let defaults = project.get_canvas_presets();
+        let other = tempfile::tempdir().unwrap();
+        crate::preview::reset_project_state(
+            lsp_types::Url::from_directory_path(other.path()).unwrap(),
+        );
+        assert_ne!(project.get_canvas_presets(), defaults);
+        assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 390.);
+    }
+
+    #[test]
     fn out_of_bounds_canvas_presets_use_struct_defaults() {
         let directory = tempfile::tempdir().unwrap();
         let editor = project_editor(directory.path());
@@ -593,39 +657,62 @@ mod tests {
     }
 
     #[test]
-    fn fractional_ui_lengths_are_rejected() {
-        let directory = tempfile::tempdir().unwrap();
-        let editor = project_editor(directory.path());
-        let project = editor.global::<ui::Project>();
-        for width in [1.5, f32::NAN, f32::INFINITY, 2147483648.] {
-            let model = std::rc::Rc::new(slint::VecModel::from(vec![ui::CanvasPreset {
-                width,
-                height: 720.,
-            }]))
-            .into();
-            assert!(!project.invoke_update_canvas_presets(model));
-            assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 390.);
-        }
-    }
-
-    #[test]
     fn identical_preset_update_does_not_block_a_subsequent_edit() {
         let directory = tempfile::tempdir().unwrap();
-        let editor = project_editor(directory.path());
-        let project = editor.global::<ui::Project>();
+        project_editor(directory.path());
         let url =
             lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
         crate::preview::set_contents(
             &i_slint_live_preview::protocol::VersionedUrl::new(url, None),
             contents(&[390]),
         );
-        assert!(project.invoke_update_canvas_presets(preset_model(vec![CanvasPreset {
-            width: 390,
-            height: 1080
-        }])));
+        assert!(submit_proposal(Ok(vec![CanvasPreset { width: 390, height: 1080 }])));
         assert!(!crate::preview::PREVIEW_STATE.with_borrow(|state| state.workspace_edit_sent));
-        assert!(project.invoke_update_canvas_presets(preset_model(default_presets())));
+        assert!(submit_proposal(Ok(default_presets())));
         assert!(crate::preview::PREVIEW_STATE.with_borrow(|state| state.workspace_edit_sent));
+    }
+
+    #[test]
+    fn fractional_ui_lengths_are_rejected() {
+        for width in [1.5, f32::NAN, f32::INFINITY, 2147483648.] {
+            let model = std::rc::Rc::new(slint::VecModel::from(vec![ui::CanvasPreset {
+                width,
+                height: 720.,
+            }]))
+            .into();
+            assert!(presets_from_model(model).is_err());
+        }
+    }
+
+    #[test]
+    fn row_and_add_callbacks_submit_fresh_proposals() {
+        let directory = tempfile::tempdir().unwrap();
+        let editor = project_editor(directory.path());
+        let project = editor.global::<ui::Project>();
+        let original = project.get_canvas_presets();
+        assert!(project.invoke_update_canvas_preset(0, "480".into(), "320".into()));
+        assert_eq!(original.row_data(0).unwrap().width, 390.);
+        assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 480.);
+        let url =
+            lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
+        crate::preview::set_contents(
+            &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
+            contents(&[720]),
+        );
+        let published = project.get_canvas_presets();
+        assert!(project.invoke_update_canvas_preset(0, "800".into(), "600".into()));
+        assert_eq!(published.row_data(0).unwrap().width, 720.);
+        assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 720.);
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+        assert!(project.invoke_add_canvas_preset());
+        assert_eq!(published.row_count(), 1);
+        assert_eq!(project.get_canvas_presets().row_count(), 1);
+        for (index, width, height) in
+            [(0, "0", "1"), (0, "1.5", "1"), (0, "2147483648", "1"), (5, "1", "1")]
+        {
+            assert!(!project.invoke_update_canvas_preset(index, width.into(), height.into()));
+            assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 720.);
+        }
     }
 
     fn presets() -> Vec<CanvasPreset> {

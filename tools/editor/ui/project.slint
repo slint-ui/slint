@@ -27,7 +27,8 @@ export global Project {
     in-out property <int> selected-canvas-preset;
     out property <Size> canvas-size: self.canvas-presets[self.selected-canvas-preset];
     in-out property <string> canvas-presets-error;
-    callback update-canvas-presets([CanvasPreset]) -> bool;
+    callback update-canvas-preset(int, string, string) -> bool;
+    callback add-canvas-preset() -> bool;
     callback select-canvas-preset(int);
 
     callback create-new-project() -> bool;
