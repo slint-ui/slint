@@ -2344,6 +2344,25 @@ mod tests {
     }
 
     #[test]
+    fn a_configured_edition_applies_without_a_project_file() {
+        let edition = i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 };
+        let mut session = session();
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData { slint_edition: Some(edition), ..Default::default() },
+                ..Default::default()
+            },
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.edition,
+            Some(edition)
+        );
+        assert_eq!(session.preview_config.overrides.project.slint_edition, Some(edition));
+    }
+
+    #[test]
     fn the_edition_reaches_the_preview_and_a_conflict_is_reported() {
         let temp = TempDir::new().unwrap();
         let outer = temp.path().join(FILE_NAME);

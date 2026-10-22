@@ -1416,6 +1416,7 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
     let mut library_paths = None;
     let mut style = None;
     let mut experimental = None;
+    let mut edition = None;
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
@@ -1455,6 +1456,20 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
                 experimental = Some(value);
             }
+            // SlintPad sets it. Elsewhere, the project file decides, as it does for the build.
+            if cfg!(any(target_arch = "wasm32", test))
+                && let Some(value) = config_object.get("edition")
+            {
+                let current = i_slint_compiler::project_file::SlintEdition::current();
+                let parsed = value
+                    .as_str()
+                    .ok_or_else(|| format!("{value} is not a string"))
+                    .and_then(i_slint_compiler::project_file::SlintEdition::parse_supported);
+                edition = Some(parsed.unwrap_or_else(|error| {
+                    tracing::warn!("Using edition {current}: {error}");
+                    current
+                }));
+            }
         }
     }
     SessionConfigOverrides {
@@ -1464,6 +1479,7 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
                 include_paths,
                 library_paths,
                 enable_experimental_features: experimental,
+                slint_edition: edition,
                 ..Default::default()
             },
             style,
@@ -1594,6 +1610,24 @@ pub mod tests {
                     HashMap::from([(paths.into(), PathBuf::from(paths))])
                 );
             }
+        }
+    }
+
+    #[test]
+    fn configuration_parser_reads_the_edition() {
+        use i_slint_compiler::project_file::SlintEdition;
+        let newer =
+            SlintEdition { minor: SlintEdition::current().minor + 1, ..SlintEdition::current() };
+        let overrides = parse_configuration(vec![serde_json::json!({})]);
+        assert_eq!(overrides.compiler.project.slint_edition, None);
+        for (value, expected) in [
+            (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
+            (serde_json::json!("1.18.1"), Some(SlintEdition::current())),
+            (serde_json::json!(newer.to_string()), Some(SlintEdition::current())),
+            (serde_json::json!(1.18), Some(SlintEdition::current())),
+        ] {
+            let overrides = parse_configuration(vec![serde_json::json!({ "edition": value })]);
+            assert_eq!(overrides.compiler.project.slint_edition, expected, "{value}");
         }
     }
 
