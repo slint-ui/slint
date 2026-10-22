@@ -314,8 +314,23 @@
   async function readSlintFile(path) {
     const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
     const text = result?.content?.[0]?.text ?? "";
-    if (result?.isError) throw new Error(text);
+    if (result?.isError) {
+      // The text starts with the code too, for a client that drops _meta.
+      const code = result._meta?.["slint/errorCode"] ?? text.match(/^(E[A-Z]+):/)?.[1];
+      throw Object.assign(new Error(text), { code });
+    }
     return text;
+  }
+
+  // `null` tells the interpreter that a directory has no project file, so that it searches the parent.
+  // cspell:ignore ENOENT ENOTDIR
+  async function loadProjectFile(url) {
+    try {
+      return await readSlintFile(fromFileUrl(url));
+    } catch (e) {
+      if (e.code === "ENOENT" || e.code === "ENOTDIR") return null;
+      throw String(e.message ?? e);
+    }
   }
 
   let instance = null;
@@ -364,9 +379,9 @@
     showStatus("Compiling…");
     const { component, diagnostics } = await untilPanic(
       current,
-      style
-        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource)
-        : slint.compile_from_string(source, url, loadImport, loadResource),
+      slint.compile_from_string_with_style(
+        source, url, style ?? "", loadImport, loadResource, undefined, path ? loadProjectFile : undefined,
+      ),
     );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {

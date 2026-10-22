@@ -44,6 +44,9 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
 - The interpreter compiles with the [edition](https://docs.slint.dev/latest/docs/slint/guide/language/concepts/editions/) of its own release.
   The sixth argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
   Pass `undefined` for the fifth, the resource loader, to reach it.
+- The seventh argument of `compile_from_string_with_style`, `(url) => Promise<string | null>`, loads a `slint-project.json`.
+  With it, the interpreter applies the nearest project file, searching the directory of the source URL and its parents.
+  `null` means that file doesn't exist.
 - Images don't go through that callback.
   With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
   With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.

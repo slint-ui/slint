@@ -3112,6 +3112,56 @@ mod project_file_tests {
 
     #[cfg(feature = "internal")]
     #[test]
+    fn a_url_input_finds_the_project_file_in_a_parent_directory() {
+        let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut compiler = Compiler::default();
+        compiler.set_file_loader(|path| {
+            let path = path.to_string_lossy().into_owned();
+            Box::pin(async move {
+                (path == "slint-file:///project/lib/shared.slint")
+                    .then(|| Ok("export component Shared {}".into()))
+            })
+        });
+        compiler.set_project_file_loader(
+            std::rc::Rc::new({
+                let calls = calls.clone();
+                move |path| {
+                    let path = path.to_string();
+                    let contents = if path == "slint-file:///project/slint-project.json" {
+                        Ok(r#"{ "slint-edition": "1.18", "library-paths": { "shared": "lib/shared.slint" } }"#.into())
+                    } else {
+                        Err(std::io::ErrorKind::NotFound.into())
+                    };
+                    calls.borrow_mut().push(path);
+                    Box::pin(async move { Some(contents) })
+                }
+            }),
+            i_slint_core::InternalToken,
+        );
+        let result = spin_on::spin_on(compiler.build_from_source_path(
+            Some(
+                "import { Shared } from \"@shared\";\nexport component Main inherits Window { Shared {} }"
+                    .into(),
+            ),
+            super::SourcePath::new("slint-file:///project/ui/main.slint"),
+            i_slint_core::InternalToken,
+        ));
+        assert_eq!(
+            *calls.borrow(),
+            [
+                "slint-file:///project/ui/slint-project.json",
+                "slint-file:///project/slint-project.json"
+            ]
+        );
+        assert!(result.component("Main").is_some(), "{result:?}");
+        assert!(
+            result.diagnostics().any(|d| d.message().contains("'slint-edition' 1.18 misses")),
+            "{result:?}"
+        );
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
     fn path_compilation_reads_manifest_and_entry_through_the_loader() {
         let directory = tempfile::TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);

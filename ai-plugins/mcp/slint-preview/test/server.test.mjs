@@ -229,6 +229,9 @@ test("reports a file it can't read as a tool error", async () => {
         });
         assert.equal(result.isError, true, name);
         assert.match(result.content[0].text, /ENOENT/, name);
+        if (name === "read_slint_file") {
+            assert.equal(result._meta["slint/errorCode"], "ENOENT");
+        }
     }
 });
 

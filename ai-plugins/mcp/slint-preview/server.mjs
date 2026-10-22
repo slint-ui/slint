@@ -96,7 +96,7 @@ const tools = [
     {
         name: "read_slint_file",
         title: "Read Slint File",
-        description: "Read a .slint file for the preview.",
+        description: "Read a .slint file, or a slint-project.json, for the preview.",
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -294,7 +294,7 @@ const toolCalls = {
         try {
             return textResult(readFileSync(args.path, "utf8"));
         } catch (e) {
-            return textResult(e.message, true);
+            return { ...textResult(e.message, true), _meta: { "slint/errorCode": e.code } };
         }
     },
     read_binary_file: (args) => {
