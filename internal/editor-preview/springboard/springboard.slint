@@ -11,6 +11,7 @@ export struct PreviewEndpoint {
     name: string,
     kind: PreviewEndpointKind,
     unavailable-reason: string,
+    version-mismatch: string,
     saved: bool,
     nearby: bool,
     address: string,
@@ -31,6 +32,14 @@ export enum ConnectionState {
     Failed,
 }
 
+export enum ViewerSearchState {
+    Idle,
+    Searching,
+    Found,
+    Failed,
+    Incompatible,
+}
+
 export global Springboard {
     in property <[PreviewEndpoint]> endpoints;
     in property <int> saved-count: 1;
@@ -41,8 +50,13 @@ export global Springboard {
     in property <ConnectionState> connection-state;
     in property <int> pairing-code-digits;
     in property <string> error-message;
-    in property <bool> device-found;
-    in property <string> search-error;
+    in property <ViewerSearchState> search-state;
+    in property <string> search-viewer-version;
+    in property <string> editor-version;
+
+    public pure function version-description(version: string) -> string {
+        return @tr("Slint {} · Editor {}", version == "" || version == "unknown" ? @tr("Unknown") : version, root.editor-version);
+    }
 
     callback close();
     callback select-endpoint(endpoint-index: int);

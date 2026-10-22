@@ -310,29 +310,37 @@ pub fn describe_version_mismatch(
     err: &tokio_tungstenite_wasm::Error,
     client: &str,
 ) -> Option<String> {
+    let version = incompatible_viewer_version(err)?;
     match err {
         tokio_tungstenite_wasm::Error::Http(response) => {
             let headers = response.headers();
-            let viewer_version = headers
-                .get(SLINT_VERSION_HEADER)
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("an unknown version");
+            let viewer_version = if version.is_empty() { "an unknown version" } else { version };
             let viewer_protocols =
                 headers.get(SLINT_PROTOCOLS_HEADER).and_then(|v| v.to_str().ok());
-            if headers.contains_key(SLINT_VERSION_HEADER) {
-                Some(format!(
-                    "Version mismatch: viewer runs Slint {viewer_version} (protocol {}), {client} speaks {PROTOCOL_SUBPROTOCOL} (Slint {SLINT_VERSION})",
-                    viewer_protocols.unwrap_or("unknown"),
-                ))
-            } else {
-                None
-            }
+            Some(format!(
+                "Version mismatch: viewer runs Slint {viewer_version} (protocol {}), {client} speaks {PROTOCOL_SUBPROTOCOL} (Slint {SLINT_VERSION})",
+                viewer_protocols.unwrap_or("unknown"),
+            ))
         }
         tokio_tungstenite_wasm::Error::Protocol(
             tokio_tungstenite_wasm::error::ProtocolError::SecWebSocketSubProtocolError(_),
         ) => Some(format!(
             "Version mismatch: viewer does not speak {PROTOCOL_SUBPROTOCOL} (this {client} is Slint {SLINT_VERSION})",
         )),
+        _ => None,
+    }
+}
+
+/// Returns the incompatible viewer version, or an empty string for a legacy viewer.
+pub fn incompatible_viewer_version(err: &tokio_tungstenite_wasm::Error) -> Option<&str> {
+    match err {
+        tokio_tungstenite_wasm::Error::Http(response) => response
+            .headers()
+            .get(SLINT_VERSION_HEADER)
+            .map(|version| version.to_str().unwrap_or_default()),
+        tokio_tungstenite_wasm::Error::Protocol(
+            tokio_tungstenite_wasm::error::ProtocolError::SecWebSocketSubProtocolError(_),
+        ) => Some(""),
         _ => None,
     }
 }

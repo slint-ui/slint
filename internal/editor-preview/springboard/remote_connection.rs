@@ -27,6 +27,18 @@ pub(super) enum ConnectionEvent {
     Ended { error: Option<String> },
 }
 
+#[derive(Debug)]
+pub(super) struct ConnectionError {
+    pub message: String,
+    pub incompatible_version: Option<String>,
+}
+
+impl From<String> for ConnectionError {
+    fn from(message: String) -> Self {
+        Self { message, incompatible_version: None }
+    }
+}
+
 pub(super) struct RemoteConnection {
     sender: mpsc::UnboundedSender<LspToPreviewMessage>,
     receiver: mpsc::UnboundedReceiver<ConnectionEvent>,
@@ -70,7 +82,7 @@ async fn run(
     mut close_receiver: oneshot::Receiver<()>,
 ) -> Result<(), String> {
     let mut socket = tokio::select! {
-        result = dial(&viewer) => result?,
+        result = dial(&viewer) => result.map_err(|error| error.message)?,
         _ = &mut close_receiver => return Ok(()),
     };
     let authenticated = tokio::select! {
@@ -110,7 +122,7 @@ async fn run(
     result
 }
 
-pub(super) async fn probe(viewer: DiscoveredViewer) -> Result<DiscoveredViewer, String> {
+pub(super) async fn probe(viewer: DiscoveredViewer) -> Result<DiscoveredViewer, ConnectionError> {
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let mut socket = dial(&viewer).await?;
     let ready = remote_authentication::await_pairing_ready(&mut socket).await;
@@ -119,7 +131,7 @@ pub(super) async fn probe(viewer: DiscoveredViewer) -> Result<DiscoveredViewer, 
     Ok(viewer)
 }
 
-async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
+async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, ConnectionError> {
     let mut last_error = "Viewer has no usable address".to_string();
     let mut mismatch = None;
     for address in &viewer.addresses {
@@ -135,14 +147,23 @@ async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
             Ok(Ok(socket)) => return Ok(socket),
             Ok(Err(error)) => {
                 mismatch = mismatch.or_else(|| {
-                    remote_authentication::describe_version_mismatch(&error, "Springboard")
+                    remote_authentication::incompatible_viewer_version(&error).map(|version| {
+                        ConnectionError {
+                            message: remote_authentication::describe_version_mismatch(
+                                &error,
+                                "Springboard",
+                            )
+                            .unwrap(),
+                            incompatible_version: Some(version.to_owned()),
+                        }
+                    })
                 });
                 last_error = error.to_string();
             }
             Err(_) => last_error = format!("Connection attempt to {address} timed out"),
         }
     }
-    Err(mismatch.unwrap_or(last_error))
+    Err(mismatch.unwrap_or_else(|| last_error.into()))
 }
 
 async fn receive(
@@ -246,6 +267,7 @@ mod tests {
             addresses: vec!["[::1%0]".into()],
             port,
             unavailable_reason: String::new(),
+            version_mismatch: String::new(),
         })
         .await
         .unwrap();
@@ -293,6 +315,7 @@ mod tests {
                             addresses: vec!["127.0.0.1".into()],
                             port,
                             unavailable_reason: String::new(),
+                            version_mismatch: String::new(),
                         },
                         None,
                     );
@@ -332,7 +355,7 @@ mod tests {
                 }
             }).await;
             let mut connection = RemoteConnection::connect(DiscoveredViewer {
-                fullname: "silent-peer".into(), name: "Silent".into(), addresses: vec!["127.0.0.1".into()], port, unavailable_reason: String::new(),
+                fullname: "silent-peer".into(), name: "Silent".into(), addresses: vec!["127.0.0.1".into()], port, unavailable_reason: String::new(), version_mismatch: String::new(),
             }, None);
             tokio::time::timeout(Duration::from_secs(5), async {
                 loop {

@@ -26,12 +26,13 @@ mod remote;
 mod remote_connection;
 mod settings;
 use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
-use remote_connection::{ConnectionEvent, RemoteConnection};
+use remote_connection::{ConnectionError, ConnectionEvent, RemoteConnection};
 use settings::{
     NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SavedDevice, SpringboardSettings,
 };
 
-type ViewerProbe = Pin<Box<dyn std::future::Future<Output = Result<DiscoveredViewer, String>>>>;
+type ViewerProbe =
+    Pin<Box<dyn std::future::Future<Output = Result<DiscoveredViewer, ConnectionError>>>>;
 type SavedProbes = Pin<Box<dyn std::future::Future<Output = Vec<(String, bool)>>>>;
 
 const LOCAL_ENDPOINT_ID: &str = "local";
@@ -98,7 +99,7 @@ struct SpringboardTask {
     probe: Option<ViewerProbe>,
     saved_probes: Option<SavedProbes>,
     found_device: Option<DiscoveredViewer>,
-    search_error: String,
+    search_error: Option<ConnectionError>,
     #[cfg(test)]
     discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
 }
@@ -179,7 +180,7 @@ impl Springboard {
             probe: None,
             saved_probes: None,
             found_device: None,
-            search_error: String::new(),
+            search_error: None,
             #[cfg(test)]
             discovery_receiver: None,
         };
@@ -264,7 +265,7 @@ impl SpringboardTask {
                     self.probe = None;
                     match result {
                         Ok(viewer) => self.found_device = Some(viewer),
-                        Err(error) => self.search_error = error,
+                        Err(error) => self.search_error = Some(error),
                     }
                     self.update_ui();
                 }
@@ -280,6 +281,7 @@ impl SpringboardTask {
                             && self.connection_state == ui::ConnectionState::Connected { continue; }
                         if let Some(viewer) = self.viewers.iter_mut().find(|viewer| viewer.fullname == id) {
                             viewer.unavailable_reason = if available { String::new() } else { UNAVAILABLE.into() };
+                            if available { viewer.version_mismatch.clear(); }
                         }
                     }
                     self.apply_last_selected();
@@ -684,6 +686,7 @@ impl SpringboardTask {
                                     addresses: saved.addresses.clone(),
                                     port: saved.port,
                                     unavailable_reason: UNAVAILABLE.into(),
+                                    version_mismatch: String::new(),
                                 });
                             }
                             self.saved_devices.push(saved);
@@ -807,7 +810,7 @@ impl SpringboardTask {
     fn search_address(&mut self, address: &str) {
         self.probe = None;
         self.found_device = None;
-        self.search_error.clear();
+        self.search_error = None;
         if !address.is_empty() {
             match crate::remote_client::parse_host_port(address) {
                 Ok((host, port)) => {
@@ -822,10 +825,11 @@ impl SpringboardTask {
                             addresses: vec![host],
                             port,
                             unavailable_reason: String::new(),
+                            version_mismatch: String::new(),
                         });
                     self.probe = Some(Box::pin(remote_connection::probe(viewer)));
                 }
-                Err(error) => self.search_error = error.message().into(),
+                Err(error) => self.search_error = Some(error.message().to_owned().into()),
             }
         }
         self.update_ui();
@@ -834,6 +838,7 @@ impl SpringboardTask {
     fn connect_found_device(&mut self) {
         let Some(mut viewer) = self.found_device.take() else { return };
         viewer.unavailable_reason.clear();
+        viewer.version_mismatch.clear();
         let id = viewer.fullname.clone();
         if let Some(existing) = self.viewers.iter_mut().find(|viewer| viewer.fullname == id) {
             *existing = viewer;
@@ -875,8 +880,24 @@ impl SpringboardTask {
         let error = self.error.clone();
         let saved = self.saved_devices.clone();
         let advertised = self.advertised.clone();
-        let device_found = self.found_device.is_some();
-        let search_error = self.search_error.clone();
+        let search_state = if self.probe.is_some() {
+            ui::ViewerSearchState::Searching
+        } else if self.found_device.is_some() {
+            ui::ViewerSearchState::Found
+        } else if let Some(error) = &self.search_error {
+            if error.incompatible_version.is_some() {
+                ui::ViewerSearchState::Incompatible
+            } else {
+                ui::ViewerSearchState::Failed
+            }
+        } else {
+            ui::ViewerSearchState::Idle
+        };
+        let search_viewer_version = self
+            .search_error
+            .as_ref()
+            .and_then(|error| error.incompatible_version.clone())
+            .unwrap_or_default();
         // Only a remembered viewer has a name to show. Local is started on
         // demand and has no discovery report to name it.
         let last_selected_name = match &self.last_selected {
@@ -898,6 +919,7 @@ impl SpringboardTask {
                 name: "Local".into(),
                 kind: ui::PreviewEndpointKind::Local,
                 unavailable_reason: "".into(),
+                version_mismatch: "".into(),
             }];
             endpoints.extend(viewers.into_iter().map(|viewer| {
                 ui::PreviewEndpoint {
@@ -913,6 +935,7 @@ impl SpringboardTask {
                     name: viewer.name.into(),
                     kind: ui::PreviewEndpointKind::Remote,
                     unavailable_reason: viewer.unavailable_reason.into(),
+                    version_mismatch: viewer.version_mismatch.into(),
                 }
             }));
             global.set_endpoints(ModelRc::new(slint::VecModel::from(endpoints)));
@@ -922,8 +945,9 @@ impl SpringboardTask {
             global.set_connection_state(connection);
             global.set_pairing_code_digits(pairing_code_digits.into());
             global.set_error_message(error.into());
-            global.set_device_found(device_found);
-            global.set_search_error(search_error.into());
+            global.set_search_state(search_state);
+            global.set_search_viewer_version(search_viewer_version.into());
+            global.set_editor_version(i_slint_live_preview::protocol::SLINT_VERSION.into());
         });
     }
 }

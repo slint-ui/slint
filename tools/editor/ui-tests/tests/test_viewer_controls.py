@@ -140,7 +140,7 @@ def test_viewer_autostart_transport_and_popup(
             window, "Enter IP address...", role=slint_testing.AccessibleRole.Button
         ).single_click(left)
         expect(
-            query(window, "Searching…", role=slint_testing.AccessibleRole.Button)
+            query(window, "Connect", role=slint_testing.AccessibleRole.Button)
         ).to_be_visible()
         screenshot(window).save(tmp_path / "device-manager-address.png")
         element(
@@ -160,6 +160,97 @@ def test_viewer_autostart_transport_and_popup(
             window, "Slint Viewer (local)", role=slint_testing.AccessibleRole.Button
         ).single_click(left)
         expect(query(window, "Connected")).to_be_visible()
+
+
+@pytest.mark.parametrize("version", ["1.18.1", "", None])
+def test_manual_viewer_failure_and_version_mismatch(
+    editor_binary, editor_environment, radial_scene, tmp_path, version
+):
+    requests = []
+
+    class RejectedViewer(socketserver.BaseRequestHandler):
+        def handle(self):
+            self.request.settimeout(10)
+            headers = b""
+            while b"\r\n\r\n" not in headers:
+                data = self.request.recv(4096)
+                if not data:
+                    return
+                headers += data
+            requests.append(headers)
+            version_header = "" if version is None else f"Slint-Version: {version}\r\n"
+            self.request.sendall(
+                (
+                    "HTTP/1.1 400 Bad Request\r\n"
+                    + version_header
+                    + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+                ).encode()
+            )
+
+    with socketserver.TCPServer(("127.0.0.1", 0), RejectedViewer) as server:
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with launch_editor(
+                editor_binary, editor_environment, radial_scene
+            ) as editor:
+                window = first_window(editor)
+                left = slint_testing.PointerEventButton.Left
+                expect(query(window, "Connected")).to_be_visible()
+                for label in [
+                    "Viewer controls",
+                    "Manage devices...",
+                    "Pair nearby device",
+                    "Enter IP address...",
+                ]:
+                    element(
+                        window, label, role=slint_testing.AccessibleRole.Button
+                    ).single_click(left)
+                expect(
+                    element(window, "Connect", role=slint_testing.AccessibleRole.Button)
+                ).to_be_enabled(False)
+                port = element(
+                    window, "9000", role=slint_testing.AccessibleRole.TextInput
+                )
+                port.accessible_value = str(server.server_address[1])
+                element(
+                    window, "192.168.1.42", role=slint_testing.AccessibleRole.TextInput
+                ).accessible_value = "127.0.0.1"
+                title = (
+                    "Couldn’t connect to this address"
+                    if version is None
+                    else "Incompatible Slint version"
+                )
+                expect(query(window, title)).to_be_visible()
+                button = element(
+                    window,
+                    "Search again" if version is None else "Connect",
+                    role=slint_testing.AccessibleRole.Button,
+                )
+                expect(button).to_be_enabled(version is None)
+                if version is not None:
+                    details = query(
+                        window,
+                        f"Slint {version or 'Unknown'} · Editor 1.19.0\nUpdate Slint Preview on this device.",
+                    )
+                    expect(details).to_be_visible()
+                    button.single_click(left)
+                    expect(details).to_be_visible()
+                    assert len(requests) == 1
+                else:
+                    button.single_click(left)
+                    expect.poll(lambda: len(requests)).to_equal(2)
+                    expect(query(window, title)).to_be_visible()
+                screenshot(window).save(tmp_path / "manual-viewer-status.png")
+                port.accessible_value = ""
+                expect(query(window, "Enter an address and port")).to_be_visible()
+                expect(query(window, title)).to_be_hidden()
+                expect(
+                    element(window, "Connect", role=slint_testing.AccessibleRole.Button)
+                ).to_be_enabled(False)
+        finally:
+            server.shutdown()
+            worker.join(timeout=10)
 
 
 def test_saved_device_removal_requires_confirmation(

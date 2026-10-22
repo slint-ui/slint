@@ -12,6 +12,7 @@ pub(super) struct DiscoveredViewer {
     pub addresses: Vec<String>,
     pub port: u16,
     pub unavailable_reason: String,
+    pub version_mismatch: String,
 }
 
 #[derive(Debug)]
@@ -88,6 +89,15 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
             "Viewer pre-dates protocol versioning; Springboard speaks {PROTOCOL_SUBPROTOCOL} (Slint {SLINT_VERSION})"
         ),
     };
+    let version_mismatch = if unavailable_reason.is_empty() {
+        String::new()
+    } else {
+        viewer
+            .txt_properties
+            .get_property_val_str(TXT_SLINT_VERSION_KEY)
+            .unwrap_or("unknown")
+            .to_owned()
+    };
     let mut addresses: Vec<_> = viewer
         .addresses
         .into_iter()
@@ -112,6 +122,7 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
         addresses,
         port: viewer.port,
         unavailable_reason,
+        version_mismatch,
     }
 }
 
@@ -160,6 +171,7 @@ pub(super) mod tests {
         assert_eq!(viewer.port, port);
         assert_eq!(format!("{}:{}", viewer.addresses[1], viewer.port), "[2001:db8::5]:1234");
         assert!(viewer.unavailable_reason.is_empty());
+        assert!(viewer.version_mismatch.is_empty());
         sender
             .send(mdns_sd::ServiceEvent::ServiceRemoved(SERVICE_TYPE.into(), fullname.clone()))
             .unwrap();
@@ -186,12 +198,15 @@ pub(super) mod tests {
     fn incompatible_viewers_or_unusable_addresses_are_unavailable() {
         for (protocols, address, port) in [
             (None, "127.0.0.1", 1234),
-            (Some("slint-preview.0.1"), "127.0.0.1", 1234),
+            (Some("slint-preview.1.18"), "127.0.0.1", 1234),
             (Some(PROTOCOL_SUBPROTOCOL), "fe80::1", 1234),
             (Some(PROTOCOL_SUBPROTOCOL), "127.0.0.1", 0),
         ] {
-            let properties =
+            let mut properties =
                 protocols.map(|protocols| vec![(TXT_PROTOCOLS_KEY, protocols)]).unwrap_or_default();
+            if protocols.is_some() {
+                properties.push((TXT_SLINT_VERSION_KEY, "1.18.1"));
+            }
             let viewer = mdns_sd::ServiceInfo::new(
                 SERVICE_TYPE,
                 "Phone",
@@ -202,7 +217,16 @@ pub(super) mod tests {
             )
             .unwrap()
             .as_resolved_service();
-            assert!(!normalize(viewer).unavailable_reason.is_empty());
+            let viewer = normalize(viewer);
+            assert!(!viewer.unavailable_reason.is_empty());
+            assert_eq!(
+                viewer.version_mismatch,
+                match protocols {
+                    None => "unknown".to_owned(),
+                    Some(PROTOCOL_SUBPROTOCOL) => String::new(),
+                    Some(_) => "1.18.1".to_owned(),
+                }
+            );
         }
     }
 }

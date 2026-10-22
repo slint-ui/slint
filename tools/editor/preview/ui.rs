@@ -2916,12 +2916,82 @@ mod tests {
             }
             if manual {
                 find_element(&editor, "Enter IP address...").invoke_accessible_default_action();
-                springboard.set_device_found(true);
+                springboard.set_search_state(
+                    i_slint_editor_preview::springboard_ui::ViewerSearchState::Found,
+                );
                 slint::platform::update_timers_and_animations();
             }
             find_element(&editor, if manual { "Connect" } else { "Pair" })
                 .invoke_accessible_default_action();
             assert_eq!(*calls.borrow(), ["run", "connect"]);
+            editor.hide().unwrap();
+        }
+    }
+
+    #[test]
+    fn nearby_viewer_version_mismatch_is_visible_and_blocks_pairing() {
+        use i_slint_editor_preview::springboard_ui::{
+            PreviewEndpoint, PreviewEndpointKind, Springboard,
+        };
+        i_slint_backend_testing::init_no_event_loop();
+        for incompatible in [false, true] {
+            let editor = super::create_ui().unwrap();
+            editor.global::<super::Preview>().set_can_run(true);
+            editor
+                .global::<super::Api>()
+                .set_editor_surface_mode(super::EditorSurfaceMode::Component);
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            let springboard = editor.global::<Springboard>();
+            let versions = "Slint 1.18.1 · Editor 1.19.0";
+            springboard.set_editor_version("1.19.0".into());
+            springboard.set_endpoints(
+                std::rc::Rc::new(slint::VecModel::from(vec![
+                    PreviewEndpoint {
+                        kind: PreviewEndpointKind::Local,
+                        saved: true,
+                        ..Default::default()
+                    },
+                    PreviewEndpoint {
+                        name: "iPhone".into(),
+                        kind: PreviewEndpointKind::Remote,
+                        nearby: true,
+                        unavailable_reason: if incompatible {
+                            "Protocol mismatch".into()
+                        } else {
+                            "".into()
+                        },
+                        version_mismatch: if incompatible { "1.18.1".into() } else { "".into() },
+                        ..Default::default()
+                    },
+                ]))
+                .into(),
+            );
+            let paired = std::rc::Rc::new(std::cell::Cell::new(false));
+            let recorded = paired.clone();
+            springboard.on_pair_endpoint(move |_| recorded.set(true));
+            editor.show().unwrap();
+            for label in ["Viewer controls", "Manage devices...", "Pair nearby device"] {
+                find_element(&editor, label).invoke_accessible_default_action();
+                slint::platform::update_timers_and_animations();
+            }
+            let pair = find_element(&editor, "Pair");
+            assert_eq!(pair.accessible_enabled(), Some(!incompatible));
+            for label in
+                ["Incompatible viewer version", versions, "Update Slint Preview on this device."]
+            {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    incompatible
+                );
+            }
+            pair.mock_single_click(PointerEventButton::Left);
+            assert_eq!(paired.get(), !incompatible);
             editor.hide().unwrap();
         }
     }
