@@ -7,6 +7,12 @@ use i_slint_core::window::WindowInner;
 use napi::bindgen_prelude::*;
 use napi::{Env, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
+use std::rc::Rc;
+
+#[cfg(feature = "live-preview")]
+use i_slint_live_preview::live_component::LiveReloadingComponent;
+#[cfg(feature = "live-preview")]
+use std::cell::RefCell;
 
 use crate::{JsAnchorOwner, JsWindow};
 
@@ -20,16 +26,40 @@ pub struct JsComponentInstance {
     /// `Weak::upgrade()` already returns `None` and the pinned side's
     /// `Drop` skips NAPI calls.
     anchor_seq: std::rc::Rc<std::cell::Cell<u32>>,
-    inner: ComponentInstance,
+    inner: Inner,
+}
+
+enum Inner {
+    Instance(ComponentInstance),
+    /// Replaces its instance after a change, keeping this JavaScript object and what is anchored on it.
+    /// What JavaScript set has this object as its anchor owner, so it stays valid.
+    #[cfg(feature = "live-preview")]
+    Live(Rc<RefCell<LiveReloadingComponent>>),
 }
 
 impl From<ComponentInstance> for JsComponentInstance {
     fn from(instance: ComponentInstance) -> Self {
-        Self { inner: instance, anchor_seq: std::rc::Rc::new(std::cell::Cell::new(0)) }
+        Self { inner: Inner::Instance(instance), anchor_seq: Rc::new(std::cell::Cell::new(0)) }
+    }
+}
+
+#[cfg(feature = "live-preview")]
+impl From<Rc<RefCell<LiveReloadingComponent>>> for JsComponentInstance {
+    fn from(component: Rc<RefCell<LiveReloadingComponent>>) -> Self {
+        Self { inner: Inner::Live(component), anchor_seq: Rc::new(std::cell::Cell::new(0)) }
     }
 }
 
 impl JsComponentInstance {
+    /// A strong reference to the current instance, so that no borrow lasts while JavaScript runs.
+    fn inner(&self) -> ComponentInstance {
+        match &self.inner {
+            Inner::Instance(instance) => instance.clone_strong(),
+            #[cfg(feature = "live-preview")]
+            Inner::Live(component) => component.borrow().instance().clone_strong(),
+        }
+    }
+
     fn anchor_owner(&self, env: &Env, this: &This<Object<'_>>) -> Result<JsAnchorOwner> {
         Ok(JsAnchorOwner {
             owner_weak: crate::weak_ref::weak_ref_from_object(env, &this.object)?,
@@ -101,7 +131,7 @@ impl JsComponentInstance {
 
     /// The type of the property `name` of the component, or of its global `global`.
     fn property_type(&self, global: Option<&str>, name: &str) -> Option<Type> {
-        let definition = self.inner.definition();
+        let definition = self.inner().definition();
         let find = |(prop_name, (ty, _)): (String, (Type, _))| (prop_name == name).then_some(ty);
         match global {
             None => definition.properties_and_callbacks().find_map(find),
@@ -127,7 +157,7 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn definition(&self) -> JsComponentDefinition {
-        self.inner.definition().into()
+        self.inner().definition().into()
     }
 
     #[napi]
@@ -138,7 +168,7 @@ impl JsComponentInstance {
         name: String,
     ) -> Result<Unknown<'a>> {
         let value = self
-            .inner
+            .inner()
             .get_property(name.as_ref())
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
         self.property_to_js(env, &this, &value, None, &name)
@@ -157,9 +187,13 @@ impl JsComponentInstance {
         })?;
 
         let owner = self.anchor_owner(env, &this)?;
-        self.inner
-            .set_property(&prop_name, super::value::to_value(env, js_value, &ty, &owner)?)
-            .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
+        let value = super::value::to_value(env, js_value, &ty, &owner)?;
+        let result = match &self.inner {
+            Inner::Instance(instance) => instance.set_property(&prop_name, value),
+            #[cfg(feature = "live-preview")]
+            Inner::Live(component) => component.borrow().try_set_property(&prop_name, value),
+        };
+        result.map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
         Ok(())
     }
@@ -176,7 +210,7 @@ impl JsComponentInstance {
             return Err(napi::Error::from_reason(format!("Global {global_name} not found")));
         }
         let value = self
-            .inner
+            .inner()
             .get_global_property(global_name.as_ref(), name.as_ref())
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
         self.property_to_js(env, &this, &value, Some(&global_name), &name)
@@ -192,7 +226,7 @@ impl JsComponentInstance {
         js_value: Unknown<'_>,
     ) -> Result<()> {
         let (ty, _) = self
-            .inner
+            .inner()
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
             .ok_or(napi::Error::from_reason(format!("Global {global_name} not found")))?
@@ -205,13 +239,17 @@ impl JsComponentInstance {
             })?;
 
         let owner = self.anchor_owner(env, &this)?;
-        self.inner
-            .set_global_property(
-                global_name.as_str(),
-                &prop_name,
-                super::value::to_value(env, js_value, &ty, &owner)?,
-            )
-            .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
+        let value = super::value::to_value(env, js_value, &ty, &owner)?;
+        let result = match &self.inner {
+            Inner::Instance(instance) => {
+                instance.set_global_property(&global_name, &prop_name, value)
+            }
+            #[cfg(feature = "live-preview")]
+            Inner::Live(component) => {
+                component.borrow().try_set_global_property(&global_name, &prop_name, value)
+            }
+        };
+        result.map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
         Ok(())
     }
@@ -225,7 +263,7 @@ impl JsComponentInstance {
         #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
-            .inner
+            .inner()
             .definition()
             .properties_and_callbacks()
             .find_map(|(name, proptype)| if name == callback_name { Some(proptype) } else { None })
@@ -248,9 +286,14 @@ impl JsComponentInstance {
                 cb_type.return_type.clone(),
                 callback_name.clone(),
             );
-            self.inner
-                .set_callback(callback_name.as_str(), handler)
-                .map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
+            let result = match &self.inner {
+                Inner::Instance(instance) => instance.set_callback(&callback_name, handler),
+                #[cfg(feature = "live-preview")]
+                Inner::Live(component) => {
+                    component.borrow().try_set_callback(&callback_name, Rc::new(handler))
+                }
+            };
+            result.map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
 
             return Ok(());
         }
@@ -268,7 +311,7 @@ impl JsComponentInstance {
         #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
-            .inner
+            .inner()
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
             .ok_or(napi::Error::from_reason(format!("Global {global_name} not found")))?
@@ -292,9 +335,18 @@ impl JsComponentInstance {
                 cb_type.return_type.clone(),
                 callback_name.clone(),
             );
-            self.inner
-                .set_global_callback(global_name.as_str(), callback_name.as_str(), handler)
-                .map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
+            let result = match &self.inner {
+                Inner::Instance(instance) => {
+                    instance.set_global_callback(&global_name, &callback_name, handler)
+                }
+                #[cfg(feature = "live-preview")]
+                Inner::Live(component) => component.borrow().try_set_global_callback(
+                    &global_name,
+                    &callback_name,
+                    Rc::new(handler),
+                ),
+            };
+            result.map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
 
             return Ok(());
         }
@@ -338,7 +390,7 @@ impl JsComponentInstance {
         callback_arguments: Vec<Unknown<'_>>,
     ) -> Result<Unknown<'a>> {
         let (ty, _) = self
-            .inner
+            .inner()
             .definition()
             .properties_and_callbacks()
             .find_map(|(name, proptype)| if name == callback_name { Some(proptype) } else { None })
@@ -362,7 +414,7 @@ impl JsComponentInstance {
         };
 
         let result = self
-            .inner
+            .inner()
             .invoke(callback_name.as_str(), args.as_slice())
             .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
         super::to_js_unknown(env, &result)
@@ -378,7 +430,7 @@ impl JsComponentInstance {
         callback_arguments: Vec<Unknown<'_>>,
     ) -> Result<Unknown<'a>> {
         let (ty, _) = self
-            .inner
+            .inner()
             .definition()
             .global_properties_and_callbacks(global_name.as_str())
             .ok_or(napi::Error::from_reason(format!("Global {global_name} not found")))?
@@ -409,7 +461,7 @@ impl JsComponentInstance {
         };
 
         let result = self
-            .inner
+            .inner()
             .invoke_global(global_name.as_str(), callback_name.as_str(), args.as_slice())
             .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
         super::to_js_unknown(env, &result)
@@ -419,7 +471,7 @@ impl JsComponentInstance {
     pub fn send_mouse_click(&self, _x: f64, _y: f64) {
         #[cfg(feature = "testing")]
         {
-            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
+            let window_adapter = WindowInner::from_pub(self.inner().window()).window_adapter();
             i_slint_backend_testing::testing_backend::send_mouse_click(
                 _x as f32,
                 _y as f32,
@@ -432,7 +484,7 @@ impl JsComponentInstance {
     pub fn send_keyboard_string_sequence(&self, _sequence: String) {
         #[cfg(feature = "testing")]
         {
-            let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
+            let window_adapter = WindowInner::from_pub(self.inner().window()).window_adapter();
             i_slint_backend_testing::testing_backend::send_keyboard_string_sequence(
                 &_sequence.into(),
                 &window_adapter,
@@ -443,7 +495,8 @@ impl JsComponentInstance {
     #[napi]
     pub fn send_key_combo(&self, keys: Vec<String>) {
         use i_slint_core::platform::WindowEvent;
-        let window = self.inner.window();
+        let instance = self.inner();
+        let window = instance.window();
         for key in &keys {
             window.dispatch_event(WindowEvent::KeyPressed { text: key.into() });
         }
@@ -454,13 +507,14 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn window(&self, env: &Env, this: This<Object<'_>>) -> Result<JsWindow> {
-        if !self.inner.definition().is_window() {
+        let instance = self.inner();
+        if !instance.definition().is_window() {
             return Err(napi::Error::from_reason(
                 "this component is not windowed (for example because it inherits from SystemTrayIcon) and has no window",
             ));
         }
         Ok(JsWindow {
-            inner: WindowInner::from_pub(self.inner.window()).window_adapter(),
+            inner: WindowInner::from_pub(instance.window()).window_adapter(),
             owner: self.anchor_owner(env, &this)?,
         })
     }
