@@ -136,6 +136,7 @@ path = [
   "package.json",
   "ai-plugins/hooks/package.json",
   "ai-plugins/mcp/slint-preview/package.json",
+  "ai-plugins/mcp/slint-preview/channel.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
