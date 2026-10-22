@@ -166,8 +166,8 @@ Sources: [styled](src/basic/slider.slint), [headless](src/headless/slider_base.s
 | --- | --- | --- | --- |
 | `in` | `enabled` | `bool` | `true` |
 | `in` | `minimum`, `maximum` | `float` | `0`, `100` |
-| `in` | `step` | `float` | `1`; nonpositive values disable snapping |
-| `in` | `page-step` | `float` | Ten keyboard steps; keyboard step is `step`, or 1% of the range when nonpositive |
+| `in` | `step` | `float` | `1`; zero or negative values disable snapping |
+| `in` | `page-step` | `float` | Ten keyboard steps; keyboard step is `step`, or 1% of the range when `step` is zero or negative |
 | `in` | `orientation` | `Orientation` | `horizontal` |
 | `in` | `inverted` | `bool` | `false` |
 | `in-out` | `value` | `float` | `minimum` |
