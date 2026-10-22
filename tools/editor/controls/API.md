@@ -81,7 +81,7 @@ Button includes the shared styled inputs above.
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 
-Default minimum size: `64px` wide, `32px` high.
+Default minimum size: `32px` in each dimension, growing to fit the content and padding.
 Missing icons and empty text don't create spacing gaps.
 Icons retain their original colors unless `colorize-icon` is true, including while disabled.
 When tinting is enabled, `icon-color` applies while enabled; disabled icons use the style's disabled foreground color.

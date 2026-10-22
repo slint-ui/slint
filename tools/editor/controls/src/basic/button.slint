@@ -36,8 +36,8 @@ export component Button inherits ButtonBase {
 
     private property <ButtonStateStyle> state-style: root.style.rest;
 
-    min-width: 64px;
-    min-height: 32px;
+    min-width: max(32px, content-layout.min-width);
+    min-height: max(32px, content-layout.min-height);
 
     states [
         disabled when !root.enabled: {
@@ -70,7 +70,7 @@ export component Button inherits ButtonBase {
         }
     }
 
-    content << HorizontalLayout {
+    content << content-layout := HorizontalLayout {
         padding-left: root.left-padding;
         padding-right: root.right-padding;
         padding-top: root.top-padding;

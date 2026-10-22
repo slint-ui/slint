@@ -96,6 +96,7 @@ component ButtonExampleRow inherits HorizontalLayout {
     HorizontalLayout {
         horizontal-stretch: 0;
         vertical-stretch: 0;
+        cross-axis-self-alignment: center;
         spacing: 8px;
         alignment: end;
         @children
@@ -145,8 +146,10 @@ export component ButtonExamples inherits Rectangle {
                 }
             }
 
-            HorizontalLayout {
+            FlexboxLayout {
                 spacing: 12px;
+                cross-axis-alignment: start;
+                cross-axis-line-alignment: start;
                 for variant in root.variants: PreviewButton {
                     text: variant.label;
                     style: variant.style;
