@@ -109,7 +109,7 @@ export component DeviceManager inherits Rectangle {
         x: parent.width - (48px * ViewerStyle.scale); y: (20px * ViewerStyle.scale); width: (32px * ViewerStyle.scale); height: (32px * ViewerStyle.scale); label: "Close device manager";
         activated => { root.closed(); }
         Rectangle { border-radius: (8px * ViewerStyle.scale); background: close.hovered ? ViewerStyle.pill-hover : transparent; }
-        Path { width: (12px * ViewerStyle.scale); height: (12px * ViewerStyle.scale); commands: "M 0 0 L 12 12 M 12 0 L 0 12"; stroke: ViewerStyle.muted; stroke-width: (1.5px * ViewerStyle.scale); }
+        Image { width: (24px * ViewerStyle.scale); height: (24px * ViewerStyle.scale); source: @image-url("../assets/lucide/x.svg"); colorize: ViewerStyle.muted; }
     }
 
     if root.page == 0: Rectangle {
@@ -144,7 +144,7 @@ export component DeviceManager inherits Rectangle {
                                 root.removing = device.id;
                             }
                             Rectangle { border-radius: (8px * ViewerStyle.scale); background: trash.hovered ? ViewerStyle.pill-hover : transparent; }
-                            Path { width: (15px * ViewerStyle.scale); height: (17px * ViewerStyle.scale); commands: "M 1 4 L 14 4 M 5 4 L 5 1 L 10 1 L 10 4 M 3 4 L 4 16 L 11 16 L 12 4 M 6 7 L 6 13 M 9 7 L 9 13"; stroke: ViewerStyle.muted; stroke-width: (1.3px * ViewerStyle.scale); }
+                            Image { width: (22px * ViewerStyle.scale); height: (22px * ViewerStyle.scale); source: @image-url("../assets/lucide/trash.svg"); colorize: ViewerStyle.muted; }
                         }
                         if index < Springboard.endpoints.length - 1: Rectangle { x: (58px * ViewerStyle.scale); y: parent.height - (1px * ViewerStyle.scale); width: parent.width - (74px * ViewerStyle.scale); height: (1px * ViewerStyle.scale); background: ViewerStyle.title-border.with-alpha(0.5); }
                     }

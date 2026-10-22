@@ -101,14 +101,14 @@ export component ViewerButton inherits ButtonBase {
 export component Chevron inherits Image {
     width: 20px * ViewerStyle.scale;
     height: 20px * ViewerStyle.scale;
-    source: @image-url("../assets/viewer/chevron.svg");
+    source: @image-url("../assets/lucide/chevron-down.svg");
     colorize: ViewerStyle.icon;
 }
 
 export component Checkmark inherits Image {
     width: 20px * ViewerStyle.scale;
     height: 20px * ViewerStyle.scale;
-    source: @image-url("../assets/viewer/check.svg");
+    source: @image-url("../assets/lucide/check.svg");
     colorize: ViewerStyle.accent;
 }
 
@@ -117,6 +117,6 @@ export component ViewerIcon inherits Image {
     height: (root.remote ? 28px : 26px) * ViewerStyle.scale;
     in property <bool> remote;
     in property <color> ink: ViewerStyle.strong-icon;
-    source: root.remote ? @image-url("../assets/viewer/phone.svg") : @image-url("../assets/viewer/monitor.svg");
+    source: root.remote ? @image-url("../assets/lucide/smartphone.svg") : @image-url("../assets/lucide/monitor.svg");
     colorize: root.ink;
 }

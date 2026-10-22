@@ -69,11 +69,10 @@ export component ViewerControls inherits Rectangle {
             }
         }
         content << Rectangle {
-            if Preview.is-running: Rectangle { width: 11px * ViewerStyle.pill-scale; height: 11px * ViewerStyle.pill-scale; border-radius: 2px * ViewerStyle.pill-scale; background: ViewerStyle.accent; }
-            if !Preview.is-running: Path {
-                x: 16px * ViewerStyle.pill-scale; y: 13px * ViewerStyle.pill-scale;
-                width: 11px * ViewerStyle.pill-scale; height: 14px * ViewerStyle.pill-scale;
-                commands: "M 0 0 L 13 8 L 0 16 Z"; fill: ViewerStyle.accent;
+            Image {
+                width: 15px * ViewerStyle.pill-scale; height: 15px * ViewerStyle.pill-scale;
+                source: Preview.is-running ? @image-url("../assets/lucide/square-filled.svg") : @image-url("../assets/lucide/play-filled.svg");
+                colorize: ViewerStyle.accent;
             }
         }
     }
