@@ -614,7 +614,7 @@ function loadSlint(loadData: LoadData): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        if (typeof options !== "undefined" && options.quiet !== true) {
+        if (options?.quiet !== true) {
             for (const d of diagnostics) {
                 switch (d.level) {
                     case napi.DiagnosticLevel.Warning:
