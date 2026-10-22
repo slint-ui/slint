@@ -196,7 +196,7 @@ pub unsafe extern "C" fn slint_register_font_from_data(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_register_bitmap_font(
     win: *const WindowAdapterRcOpaque,
-    font_data: &'static i_slint_core::graphics::BitmapFont,
+    font_data: &'static i_slint_core::graphics::BitmapFont<i_slint_core::graphics::StaticStorage>,
 ) {
     let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     window_adapter.renderer().register_bitmap_font(font_data);

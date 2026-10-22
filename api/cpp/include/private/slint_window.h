@@ -344,7 +344,8 @@ public:
     }
 
     /// Registers a bitmap font for use with the software renderer.
-    inline void register_bitmap_font(const cbindgen_private::BitmapFont &font)
+    inline void
+    register_bitmap_font(const cbindgen_private::BitmapFont<cbindgen_private::StaticStorage> &font)
     {
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
     }

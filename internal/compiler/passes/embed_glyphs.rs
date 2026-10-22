@@ -411,7 +411,7 @@ fn embed_font(
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
     BitmapFont {
-        family_name,
+        family_name: family_name.into_bytes(),
         character_map,
         units_per_em: metrics.units_per_em as f32,
         ascent: metrics.ascent,

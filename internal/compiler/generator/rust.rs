@@ -6017,6 +6017,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
+                    let family_name = proc_macro2::Literal::byte_string(family_name);
                     let character_map_size = character_map.len();
 
                     let glyphs_size = glyphs.len();
@@ -6056,7 +6057,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     quote!(
                         #link_section
                         static #symbol: sp::BitmapFont = sp::BitmapFont {
-                            family_name: sp::Slice::from_slice(#family_name.as_bytes()),
+                            family_name: sp::Slice::from_slice(#family_name),
                             character_map: sp::Slice::from_slice({
                                 #link_section
                                 static CM : [char; #character_map_size] = [#(#character_map),*];
