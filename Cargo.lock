@@ -7455,6 +7455,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-live-preview",
  "itertools 0.15.0",
  "libloading 0.9.0",
  "napi",

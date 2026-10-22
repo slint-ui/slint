@@ -9,7 +9,7 @@
 //   * the default release one (`rust-module.cjs` -> slint-ui.<platform>.node),
 //     shipped with the `slint-ui` package, and
 //   * the "dev" one (slint-ui-dev.<platform>.node) which additionally has the
-//     `system-testing` and `mcp` features compiled in.
+//     `system-testing`, `mcp`, and `live-preview` features compiled in.
 //
 // The dev binary is resolved from, in order:
 //
@@ -23,9 +23,10 @@
 //      directly throws, to catch accidental use.
 //
 // The published `slint-ui-dev` package (2) is only loaded when its features are
-// actually requested via the environment — `SLINT_MCP_PORT` (MCP server) or
-// `SLINT_TEST_SERVER` (system testing) — so a plain `slint-ui` run stays on the
-// lean release binary even when slint-ui-dev is installed as a dev dependency.
+// actually requested via the environment — `SLINT_MCP_PORT` (MCP server),
+// `SLINT_TEST_SERVER` (system testing), or `SLINT_LIVE_PREVIEW` — so a plain
+// `slint-ui` run stays on the lean release binary even when slint-ui-dev is
+// installed as a dev dependency.
 // The variable must be set before slint-ui is first required, as the choice is
 // made here at load time.
 //
@@ -50,7 +51,9 @@ function loadBinding() {
     //    native code. The binary is loaded through the `slint-ui-dev/loader`
     //    subpath; the package entry point itself throws to catch direct imports.
     const devRequested =
-        !!process.env.SLINT_MCP_PORT || !!process.env.SLINT_TEST_SERVER;
+        !!process.env.SLINT_MCP_PORT ||
+        !!process.env.SLINT_TEST_SERVER ||
+        process.env.SLINT_LIVE_PREVIEW !== undefined;
     if (devRequested) {
         try {
             const devVersion = require("slint-ui-dev/package.json").version;
