@@ -40,7 +40,7 @@ pub(crate) mod tests {
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
         let compile_result = spin_on::spin_on(compiler.build_from_source_path(
-            code.to_string(),
+            Some(code.to_string()),
             test_path(),
             i_slint_core::InternalToken,
         ));
@@ -335,7 +335,7 @@ export component Win inherits Window {
                     Some(std::hash::RandomState::new());
             }
             let r = spin_on::spin_on(compiler.build_from_source_path(
-                code.to_string(),
+                Some(code.to_string()),
                 test_path(),
                 i_slint_core::InternalToken,
             ));
