@@ -103,13 +103,13 @@ export component InspectorPane inherits Rectangle {
                     popup-bottom: root.popup-bottom;
                 }
 
-                if InspectorContext.is-text-selection(): InspectorTextContentSection { }
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() : InspectorTextContentSection { }
 
                 if InspectorContext.is-text-selection(): InspectorTypographySection {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-                if InspectorContext.is-text-selection(): InspectorTextAlignmentSection {
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection(): InspectorTextAlignmentSection {
                     popup-bottom: root.popup-bottom;
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection {

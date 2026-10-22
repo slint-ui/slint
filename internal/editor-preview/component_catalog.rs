@@ -122,6 +122,7 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
+        "StyledText" => vec![PropertyChange::new("text", "@markdown(\"Text\")".to_string())],
         "Image" => vec![PropertyChange::new("source", "@image-url(\"EDIT_ME.png\")".to_string())],
         _ => Vec::new(),
     };

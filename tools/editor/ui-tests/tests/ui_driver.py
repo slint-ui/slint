@@ -35,7 +35,7 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
     return wait_until(settled)
 
 
-PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
+PALETTE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea")
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:
