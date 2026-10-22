@@ -12,8 +12,8 @@ use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
 use std::rc::Weak;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
@@ -22,6 +22,7 @@ pub struct MudaAdapter {
     entries: Vec<MenuEntry>,
     tracker: Option<Pin<Box<PropertyTracker<false, MudaPropertyTracker>>>>,
     menu: Option<muda::Menu>,
+    generation: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, strum::EnumString, strum::Display)]
@@ -29,6 +30,8 @@ pub enum MudaType {
     Menubar,
     Context,
 }
+
+static NEXT_MENU_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 static MUDA_SET_EVENT_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
 
@@ -67,7 +70,7 @@ impl MudaAdapter {
                 window_adapter_weak,
             })));
 
-        let mut s = Self { entries: Default::default(), tracker, menu: None };
+        let mut s = Self { entries: Default::default(), tracker, menu: None, generation: 0 };
         s.rebuild_menu(winit_window, Some(menubar), MudaType::Menubar);
         s
     }
@@ -80,7 +83,7 @@ impl MudaAdapter {
     ) -> Option<Self> {
         install_event_handler_if_necessary(proxy);
 
-        let mut s = Self { entries: Default::default(), tracker: None, menu: None };
+        let mut s = Self { entries: Default::default(), tracker: None, menu: None, generation: 0 };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
         match winit_window.window_handle().ok()?.as_raw() {
@@ -128,8 +131,8 @@ impl MudaAdapter {
             win32_set_window_redraw(winit_window, false);
         }
 
-        // clear the menu
-        self.entries.clear();
+        self.reset_entries();
+        let generation = self.generation;
 
         fn generate_menu_entry(
             menu: vtable::VRef<'_, MenuVTable>,
@@ -138,8 +141,9 @@ impl MudaAdapter {
             map: &mut Vec<MenuEntry>,
             window_id: &str,
             muda_type: MudaType,
+            generation: u64,
         ) -> Box<dyn muda::IsMenuItem> {
-            let id = muda::MenuId(format!("{window_id}|{}|{}", map.len(), muda_type));
+            let id = menu_item_id(window_id, generation, map.len(), muda_type);
             map.push(entry.clone());
             if entry.is_separator {
                 Box::new(muda::PredefinedMenuItem::separator())
@@ -201,6 +205,7 @@ impl MudaAdapter {
                                 map,
                                 window_id,
                                 muda_type,
+                                generation,
                             ))
                             .unwrap();
                     }
@@ -274,6 +279,7 @@ impl MudaAdapter {
                             &mut self.entries,
                             &window_id,
                             muda_type,
+                            generation,
                         ))
                         .unwrap();
                     }
@@ -292,7 +298,16 @@ impl MudaAdapter {
         }
     }
 
-    pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, entry_id: usize) {
+    fn reset_entries(&mut self) {
+        // AppKit can retain old items after a rebuild or adapter replacement.
+        self.generation = NEXT_MENU_GENERATION.fetch_add(1, Ordering::Relaxed);
+        self.entries.clear();
+    }
+
+    pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, generation: u64, entry_id: usize) {
+        if generation != self.generation {
+            return;
+        }
         let Some(entry) = &self.entries.get(entry_id) else { return };
         vtable::VRc::borrow(menubar).activate(entry);
     }
@@ -320,7 +335,7 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: Vec::new(), menu: Some(menu_bar), tracker: None })
+        Ok(Self { entries: Vec::new(), menu: Some(menu_bar), tracker: None, generation: 0 })
     }
 
     #[cfg(target_os = "macos")]
@@ -329,6 +344,29 @@ impl MudaAdapter {
             menu.init_for_nsapp();
         }
     }
+}
+
+fn menu_item_id(
+    window_id: &str,
+    generation: u64,
+    entry_id: usize,
+    muda_type: MudaType,
+) -> muda::MenuId {
+    muda::MenuId(format!("{window_id}|{generation}|{entry_id}|{muda_type}"))
+}
+
+pub fn parse_menu_item_id(
+    id: &muda::MenuId,
+) -> Option<(winit::window::WindowId, u64, usize, MudaType)> {
+    let (window, entry) = id.0.split_once('|')?;
+    let (generation, entry) = entry.split_once('|')?;
+    let (entry, muda_type) = entry.split_once('|')?;
+    Some((
+        winit::window::WindowId::from(window.parse::<u64>().ok()?),
+        generation.parse().ok()?,
+        entry.parse().ok()?,
+        muda_type.parse().ok()?,
+    ))
 }
 
 fn key_string_to_key(string: &str) -> muda::accelerator::Key {
@@ -443,6 +481,122 @@ fn win32_set_window_redraw(winit_window: &Window, redraw: bool) {
             unsafe {
                 let _ = DrawMenuBar(hwnd);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::SharedVector;
+    use i_slint_core::menus::Menu;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    struct RecordingMenu(Rc<RefCell<Vec<i_slint_core::SharedString>>>);
+
+    impl Menu for RecordingMenu {
+        fn sub_menu(&self, _: Option<&MenuEntry>, _: &mut SharedVector<MenuEntry>) {}
+
+        fn activate(&self, entry: &MenuEntry) {
+            self.0.borrow_mut().push(entry.id.clone());
+        }
+
+        fn visible(&self) -> bool {
+            true
+        }
+    }
+
+    i_slint_core::MenuVTable_static!(static RECORDING_MENU_VT for RecordingMenu);
+
+    fn adapter(id: &str) -> MudaAdapter {
+        let mut adapter =
+            MudaAdapter { entries: Vec::new(), tracker: None, menu: None, generation: 0 };
+        replace_entry(&mut adapter, id);
+        adapter
+    }
+
+    fn replace_entry(adapter: &mut MudaAdapter, id: &str) {
+        adapter.reset_entries();
+        adapter.entries.push(MenuEntry { id: id.into(), ..Default::default() });
+    }
+
+    fn recording_menu() -> (vtable::VRc<MenuVTable>, Rc<RefCell<Vec<i_slint_core::SharedString>>>) {
+        let activations = Rc::new(RefCell::new(Vec::new()));
+        let menu = vtable::VRc::into_dyn(vtable::VRc::new(RecordingMenu(activations.clone())));
+        (menu, activations)
+    }
+
+    fn deliver(adapter: &MudaAdapter, menu: &vtable::VRc<MenuVTable>, id: &muda::MenuId) {
+        let (_, generation, entry, _) = parse_menu_item_id(id).unwrap();
+        adapter.invoke(menu, generation, entry);
+    }
+
+    #[test]
+    fn native_menu_ids_round_trip() {
+        for menu_type in [MudaType::Menubar, MudaType::Context] {
+            let id = menu_item_id("42", 17, 3, menu_type);
+            assert_eq!(parse_menu_item_id(&id), Some((42.into(), 17, 3, menu_type)));
+        }
+        for id in [
+            "",
+            "42|0|Menubar",
+            "x|17|0|Menubar",
+            "42|x|0|Menubar",
+            "42|17|x|Menubar",
+            "42|17|0|Unknown",
+            "42|17|0|Menubar|extra",
+        ] {
+            assert!(parse_menu_item_id(&muda::MenuId(id.into())).is_none(), "{id}");
+        }
+    }
+
+    #[test]
+    fn current_event_activates_its_entry() {
+        let (menu, activations) = recording_menu();
+        let adapter = adapter("deck-a");
+        let id = menu_item_id("42", adapter.generation, 0, MudaType::Menubar);
+        deliver(&adapter, &menu, &id);
+        assert_eq!(&*activations.borrow(), &[i_slint_core::SharedString::from("deck-a")]);
+    }
+
+    #[test]
+    fn missing_entry_is_ignored() {
+        let (menu, activations) = recording_menu();
+        let adapter = adapter("deck-a");
+        let id = menu_item_id("42", adapter.generation, 1, MudaType::Menubar);
+        deliver(&adapter, &menu, &id);
+        assert!(activations.borrow().is_empty());
+    }
+
+    #[test]
+    fn event_queued_before_rebuild_does_not_activate_replacement() {
+        for menu_type in [MudaType::Menubar, MudaType::Context] {
+            let (menu, activations) = recording_menu();
+            let mut adapter = adapter("deck-a");
+            let queued = menu_item_id("42", adapter.generation, 0, menu_type);
+            replace_entry(&mut adapter, "deck-b");
+            deliver(&adapter, &menu, &queued);
+            assert!(activations.borrow().is_empty(), "{menu_type}: {:?}", activations.borrow());
+            let current = menu_item_id("42", adapter.generation, 0, menu_type);
+            deliver(&adapter, &menu, &current);
+            assert_eq!(&*activations.borrow(), &[i_slint_core::SharedString::from("deck-b")]);
+        }
+    }
+
+    #[test]
+    fn event_from_replaced_adapter_is_ignored() {
+        for menu_type in [MudaType::Menubar, MudaType::Context] {
+            let (menu, activations) = recording_menu();
+            let old = adapter("deck-a");
+            let queued = menu_item_id("42", old.generation, 0, menu_type);
+            drop(old);
+            let replacement = adapter("deck-b");
+            deliver(&replacement, &menu, &queued);
+            assert!(activations.borrow().is_empty(), "{menu_type}: {:?}", activations.borrow());
+            let current = menu_item_id("42", replacement.generation, 0, menu_type);
+            deliver(&replacement, &menu, &current);
+            assert_eq!(&*activations.borrow(), &[i_slint_core::SharedString::from("deck-b")]);
         }
     }
 }

@@ -957,7 +957,7 @@ impl WinitWindowAdapter {
     }
 
     #[cfg(muda)]
-    pub fn muda_event(&self, entry_id: usize, muda_type: MudaType) {
+    pub fn muda_event(&self, generation: u64, entry_id: usize, muda_type: MudaType) {
         let Ok(maybe_muda_adapter) = std::cell::Ref::filter_map(
             self.winit_window_or_none.borrow(),
             |winit_window_or_none| match (winit_window_or_none, muda_type) {
@@ -978,12 +978,12 @@ impl WinitWindowAdapter {
         match muda_type {
             MudaType::Menubar => {
                 let Some(menu) = self.menubar() else { return };
-                muda_adapter.invoke(&menu, entry_id);
+                muda_adapter.invoke(&menu, generation, entry_id);
             }
             MudaType::Context => {
                 let menu = self.context_menu.borrow();
                 let Some(menu) = menu.as_ref() else { return };
-                muda_adapter.invoke(menu, entry_id);
+                muda_adapter.invoke(menu, generation, entry_id);
             }
         }
     }
