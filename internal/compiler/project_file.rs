@@ -301,7 +301,8 @@ impl ProjectFile {
         Self::parse(source_path, source)
     }
 
-    fn parse(source_path: SourcePath, mut source: Vec<u8>) -> Result<Self, Box<dyn Error>> {
+    /// Parses project-file contents without reading from disk.
+    pub fn parse(source_path: SourcePath, mut source: Vec<u8>) -> Result<Self, Box<dyn Error>> {
         blank_out_comments(&mut source);
         let current = SlintEdition::current();
         let missing =

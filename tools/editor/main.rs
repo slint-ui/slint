@@ -401,9 +401,12 @@ async fn lsp_main(
             }
         }
 
-        if let Err(error) =
-            sync_file_watcher_if_needed(&mut file_watcher, &session, &mut watch_paths_revision)
-        {
+        if let Err(error) = sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &session,
+            &project_root,
+            &mut watch_paths_revision,
+        ) {
             tracing::warn!("Failed to watch project: {error}");
         }
     }
@@ -479,6 +482,7 @@ async fn trigger_editor_file_watcher(
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     session: &editor_preview::EditorSession,
+    project_root: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
     let current_revision = session.document_cache.revision();
@@ -511,7 +515,9 @@ fn sync_file_watcher_if_needed(
                     .as_ref()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf)),
+            .chain(session.active_project_file_paths().map(Path::to_path_buf))
+            // Missing and deleted project files aren't active, but their creation must be observed.
+            .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
@@ -657,7 +663,7 @@ async fn activate_project(
     }
     while watcher_events.try_recv().is_ok() {}
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await;
-    if let Err(error) = sync_file_watcher_if_needed(watcher, session, &mut None) {
+    if let Err(error) = sync_file_watcher_if_needed(watcher, session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
     }
 }
@@ -951,6 +957,69 @@ mod tests {
     }
 
     #[test]
+    fn canvas_project_file_creation_and_recreation_reach_the_preview() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let main = root.join("main.slint");
+        std::fs::write(&main, "export component Main {}").unwrap();
+        let path = root.join("slint-project.json");
+        let url = Url::from_file_path(&path).unwrap();
+        let (mut session, messages) = session_with_recording_previews();
+        spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let mut watcher = FileWatcher::start(
+            move |event| {
+                let _ = sender.send(event);
+            },
+            |_| {},
+        )
+        .unwrap();
+        sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        for contents in [
+            Some(r#"{"metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
+            None,
+            Some("{"),
+            Some(r#"{"main":"main.slint"}"#),
+        ] {
+            clear_messages(&messages);
+            while receiver.try_recv().is_ok() {}
+            let expected_kind = if contents.is_some() {
+                if path.exists() { FileChangeKind::Changed } else { FileChangeKind::Created }
+            } else {
+                FileChangeKind::Deleted
+            };
+            match contents {
+                Some(contents) => std::fs::write(&path, contents).unwrap(),
+                None => std::fs::remove_file(&path).unwrap(),
+            }
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                let event = receiver
+                    .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+                    .unwrap();
+                if event.path == path && event.kind == expected_kind {
+                    spin_on::spin_on(trigger_editor_file_watcher(&mut session, event)).unwrap();
+                    break;
+                }
+            }
+            let messages = messages[PRIMARY_PREVIEW_INDEX].borrow();
+            assert!(
+                messages.iter().any(|message| match (contents, message) {
+                    (
+                        Some(expected),
+                        LspToPreviewMessage::SetContents { url: received, contents },
+                    ) => received.url() == &url && contents == expected.as_bytes(),
+                    (None, LspToPreviewMessage::ForgetFile { url: received }) => received == &url,
+                    _ => false,
+                }),
+                "{messages:?}"
+            );
+            sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        }
+    }
+
+    #[test]
     fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
@@ -1142,6 +1211,7 @@ mod tests {
         let missing_root = old_project.path().join("missing");
         let project = Project {
             root: missing_root.clone(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent {
                 url: Url::from_file_path(missing_root.join("main.slint")).unwrap(),
                 component: Some("Missing".into()),
