@@ -170,6 +170,9 @@ fn apply_scale_factor_to_logical_sizes_in_attributes(
     };
 
     fixup(&mut attributes.inner_size);
+    if let Some(winit::dpi::Position::Logical(position)) = attributes.position {
+        attributes.position = Some(position.to_physical::<i32>(scale_factor).into());
+    }
     fixup(&mut attributes.min_inner_size);
     fixup(&mut attributes.max_inner_size);
     fixup(&mut attributes.resize_increments);
@@ -1014,6 +1017,11 @@ impl WinitWindowAdapter {
         match &*self.winit_window_or_none.borrow() {
             WinitWindowOrNone::HasWindow { window, .. } => {
                 self.physical_size_before_scale_factor.set(None);
+                // A logical size is in Slint's logical pixels, which are winit's only while
+                // SLINT_SCALE_FACTOR is unset: convert it at Slint's scale factor, as
+                // `ensure_window` does for the attributes, rather than let winit use its own.
+                let size: winit::dpi::Size =
+                    size.to_physical::<u32>(self.window().scale_factor() as f64).into();
                 if let Some(size) = window.request_inner_size(size) {
                     // On wayland we might not get a WindowEvent::Resized, so resize the EGL surface right away.
                     self.resize_event(size)?;
@@ -1914,7 +1922,10 @@ impl WindowAdapter for WinitWindowAdapter {
     fn set_position(&self, position: corelib::api::WindowPosition) {
         let winit_pos = position_to_winit(&position);
         match &*self.winit_window_or_none.borrow() {
-            WinitWindowOrNone::HasWindow { window, .. } => window.set_outer_position(winit_pos),
+            // See `resize_window`.
+            WinitWindowOrNone::HasWindow { window, .. } => window.set_outer_position(
+                winit_pos.to_physical::<i32>(self.window().scale_factor() as f64),
+            ),
             WinitWindowOrNone::None(attributes) => {
                 attributes.borrow_mut().position = Some(winit_pos);
             }
@@ -2214,9 +2225,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 | corelib::items::InputType::Search
                 | _ => winit::window::ImePurpose::Normal,
             });
+            // See `resize_window`.
+            let sf = self.window().scale_factor() as f64;
             winit_window.set_ime_cursor_area(
-                position_to_winit(&props.cursor_rect_origin.into()),
-                window_size_to_winit(&props.cursor_rect_size.into()),
+                position_to_winit(&props.cursor_rect_origin.into()).to_physical::<i32>(sf),
+                window_size_to_winit(&props.cursor_rect_size.into()).to_physical::<u32>(sf),
             );
         }
 
