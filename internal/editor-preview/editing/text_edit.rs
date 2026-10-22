@@ -251,25 +251,34 @@ pub fn apply_workspace_edit(
     document_cache: &crate::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> crate::Result<Vec<EditedText>> {
+    apply_workspace_edit_with_source(workspace_edit, document_cache.format, |url| {
+        cached_source_file(document_cache, url)
+    })
+}
+
+fn cached_source_file(
+    document_cache: &crate::DocumentCache,
+    url: &lsp_types::Url,
+) -> Option<i_slint_compiler::diagnostics::SourceFile> {
+    Some(document_cache.get_document(url)?.node.as_ref()?.source_file.clone())
+}
+
+pub fn apply_workspace_edit_with_source(
+    workspace_edit: &lsp_types::WorkspaceEdit,
+    format: crate::ByteFormat,
+    source_file: impl Fn(&lsp_types::Url) -> Option<i_slint_compiler::diagnostics::SourceFile>,
+) -> crate::Result<Vec<EditedText>> {
     let mut processing = HashMap::new();
 
     for (doc, edit) in EditIterator::new(workspace_edit) {
         // This is ugly but necessary since the constructor might error out:-/
         if !processing.contains_key(&doc.uri) {
-            let Some(document) = document_cache.get_document(&doc.uri) else {
-                continue;
-            };
-            let Some(document_node) = &document.node else {
-                continue;
-            };
-            let editor = TextEditor::new(document_node.source_file.clone())?;
+            let Some(source_file) = source_file(&doc.uri) else { continue };
+            let editor = TextEditor::new(source_file)?;
             processing.insert(doc.uri.clone(), editor);
         }
 
-        processing
-            .get_mut(&doc.uri)
-            .expect("just added if missing")
-            .apply(edit, document_cache.format)?;
+        processing.get_mut(&doc.uri).expect("just added if missing").apply(edit, format)?;
     }
 
     Ok(processing
@@ -287,6 +296,16 @@ pub fn reversed_edit(
     document_cache: &crate::DocumentCache,
     edit: &lsp_types::WorkspaceEdit,
 ) -> Option<lsp_types::WorkspaceEdit> {
+    reversed_edit_with_source(edit, document_cache.format, |url| {
+        cached_source_file(document_cache, url)
+    })
+}
+
+pub fn reversed_edit_with_source(
+    edit: &lsp_types::WorkspaceEdit,
+    format: crate::ByteFormat,
+    source_file: impl Fn(&lsp_types::Url) -> Option<i_slint_compiler::diagnostics::SourceFile>,
+) -> Option<lsp_types::WorkspaceEdit> {
     struct UndoHelper {
         source_file: i_slint_compiler::diagnostics::SourceFile,
         /// (Range in the original, original string, new length)
@@ -297,12 +316,7 @@ pub fn reversed_edit(
 
     for (doc, edit) in EditIterator::new(edit) {
         if !processing.contains_key(&doc.uri) {
-            let document = document_cache.get_document(&doc.uri)?;
-            let Some(document_node) = &document.node else {
-                return None;
-            };
-            let helper =
-                UndoHelper { source_file: document_node.source_file.clone(), edits: Vec::new() };
+            let helper = UndoHelper { source_file: source_file(&doc.uri)?, edits: Vec::new() };
             processing.insert(doc.uri.clone(), helper);
         }
 
@@ -321,11 +335,8 @@ pub fn reversed_edit(
             .edits
             .into_iter()
             .map(|e| {
-                let orig_range = crate::util::lsp_range_to_text_range(
-                    &helper.source_file,
-                    e.range,
-                    document_cache.format,
-                );
+                let orig_range =
+                    crate::util::lsp_range_to_text_range(&helper.source_file, e.range, format);
                 let orig_string = source[orig_range].to_string();
 
                 // Count the number of \n in the original string and the replaced string
@@ -346,15 +357,16 @@ pub fn reversed_edit(
 
                 let adjusted_start = adjust_pos(e.range.start);
 
+                let last_line = e.new_text.rsplit('\n').next().unwrap();
+                let new_column = match format {
+                    crate::ByteFormat::Utf8 => last_line.len() as u32,
+                    crate::ByteFormat::Utf16 => last_line.encode_utf16().count() as u32,
+                };
                 let new_range = lsp_types::Range::new(
                     adjusted_start,
                     lsp_types::Position::new(
                         adjusted_start.line.saturating_add_signed(new_lines),
-                        if new_lines == 0 {
-                            adjusted_start.character + e.new_text.len() as u32
-                        } else {
-                            e.new_text.bytes().rev().take_while(|b| *b != b'\n').count() as u32
-                        },
+                        new_column + if new_lines == 0 { adjusted_start.character } else { 0 },
                     ),
                 );
 
@@ -1170,5 +1182,61 @@ mod test_apply_reversed_edit {
                 .unwrap(),
             "import { AboutSlint } from \"std-widgets.slint\";\ncomponent Foo {\n    AboutSlint {}\n}\n//comment\n\n"
         );
+    }
+}
+
+#[test]
+fn raw_source_edits_can_be_applied_reversed_and_redone() {
+    let path = SourcePath::new("/test/slint-project.json");
+    let url = path.to_url().unwrap();
+    for original in [
+        "{\r\n  \"main\": \"🦊.slint\", /* keep */ \"metadata\": {\"visual-editor\":{\"old\":\"🦊\"}}\r\n}",
+        "{\"metadata\": {\"visual-editor\":{\n\"old\":\"🦊\"\n}}}",
+    ] {
+        let offset = original.find("{\"visual-editor\"").unwrap();
+        let end = original.rfind('}').unwrap();
+        for format in [crate::ByteFormat::Utf8, crate::ByteFormat::Utf16] {
+            let source = std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+                path.clone(),
+                original.into(),
+            ));
+            let edit = crate::editing::create_workspace_edit(
+                url.clone(),
+                Some(1),
+                vec![lsp_types::TextEdit {
+                    range: crate::util::text_range_to_lsp_range(
+                        &source,
+                        TextRange::new((offset as u32).into(), (end as u32).into()),
+                        format,
+                    ),
+                    new_text: "{\"visual-editor\":{\"canvas-presets\":[]}}".into(),
+                }],
+            );
+            let result =
+                apply_workspace_edit_with_source(&edit, format, |_| Some(source.clone())).unwrap();
+            assert_eq!(result.len(), 1);
+            let expected = format!(
+                "{}{}{}",
+                &original[..offset],
+                "{\"visual-editor\":{\"canvas-presets\":[]}}",
+                &original[end..]
+            );
+            assert_eq!(result[0].contents, expected);
+            let reverse =
+                reversed_edit_with_source(&edit, format, |_| Some(source.clone())).unwrap();
+            let updated = std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+                path.clone(),
+                result[0].contents.clone(),
+            ));
+            let restored =
+                apply_workspace_edit_with_source(&reverse, format, |_| Some(updated.clone()))
+                    .unwrap();
+            assert_eq!(restored[0].contents, original);
+            let redo =
+                reversed_edit_with_source(&reverse, format, |_| Some(updated.clone())).unwrap();
+            let redone =
+                apply_workspace_edit_with_source(&redo, format, |_| Some(source.clone())).unwrap();
+            assert_eq!(redone[0].contents, expected);
+        }
     }
 }

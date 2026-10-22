@@ -1923,6 +1923,23 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
     });
 }
 
+fn workspace_edit_source_file(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    source_code: &SourceCodeCache,
+    url: &lsp_types::Url,
+) -> Option<i_slint_compiler::diagnostics::SourceFile> {
+    let path = SourcePath::from_url(url);
+    if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+        let source = source_code.get(url)?;
+        Some(std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+            path,
+            source.code.clone(),
+        )))
+    } else {
+        Some(document_cache.get_document(url)?.node.as_ref()?.source_file.clone())
+    }
+}
+
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
     submit_workspace_edit(label, edit, test_edit, None)
 }
@@ -1936,9 +1953,12 @@ fn submit_workspace_edit(
     let Some(document_cache) = document_cache() else {
         return false;
     };
-    let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
-        return false;
-    };
+    let result = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
+    let Ok(result) = result else { return false };
     let fill_refresh = if let Some(fill) = fill.clone() {
         let [expected] = result.as_slice() else { return false };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
@@ -1972,7 +1992,11 @@ fn submit_workspace_edit(
         }
     }
 
-    let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
+    let reverse_edit = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::reversed_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
 
     let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
@@ -3794,6 +3818,81 @@ mod tests {
             "Replacement preview",
         );
         assert_eq!(global.get_entries().row_count(), 1);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn project_workspace_edits_use_raw_cache_and_undo_callbacks() {
+        let editor = availability_test_editor();
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle {}",
+            true,
+        );
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("slint-project.json");
+        let url = Url::from_file_path(&path).unwrap();
+        let original =
+            r#"{"main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        std::fs::write(&path, original).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        let document_cache = document_cache().unwrap();
+        let source_file = PREVIEW_STATE.with_borrow(|state| {
+            workspace_edit_source_file(&document_cache, &state.source_code, &url).unwrap()
+        });
+        let edit = project_file::update_canvas_presets_edit(
+            &source_file,
+            Some(1),
+            &[project_file::CanvasPreset { width: 720, height: 1280 }],
+            document_cache.format,
+        )
+        .unwrap();
+        assert!(send_workspace_edit("Canvas presets".into(), edit.clone(), true));
+        assert!(!send_workspace_edit("Successive presets".into(), edit.clone(), true));
+        let result =
+            text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |_| {
+                Some(source_file.clone())
+            })
+            .unwrap();
+        let expected = result[0].contents.clone();
+        std::fs::write(&path, &expected).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(2)), expected.clone());
+        preview_instance_ready();
+        messages.as_ref().borrow_mut().clear();
+        for (redo, expected_source) in [(false, original), (true, expected.as_str())] {
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let messages = std::mem::take(&mut *messages.as_ref().borrow_mut());
+            let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = messages.as_slice() else {
+                panic!("Missing history edit");
+            };
+            let result = PREVIEW_STATE
+                .with_borrow(|state| {
+                    text_edit::apply_workspace_edit_with_source(
+                        edit,
+                        document_cache.format,
+                        |url| workspace_edit_source_file(&document_cache, &state.source_code, url),
+                    )
+                })
+                .unwrap();
+            assert_eq!(result[0].contents, expected_source);
+            std::fs::write(&path, expected_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), expected_source.into());
+            preview_instance_ready();
+        }
+        std::fs::write(&path, "{}").unwrap();
+        editor.global::<ui::Api>().invoke_undo();
+        assert!(messages.borrow().is_empty());
+        assert!(!editor.global::<ui::Api>().get_undo_enabled());
         reset_preview_state(Default::default());
     }
 

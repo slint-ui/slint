@@ -31,11 +31,12 @@ fn content_hash(content: &str) -> u64 {
 
 fn prepare_history_edit(
     document_cache: &i_slint_editor_preview::DocumentCache,
+    source_code: &super::SourceCodeCache,
     item: &EditItem,
 ) -> Option<(lsp_types::WorkspaceEdit, FileHashes)> {
     for (url, expected) in &item.file_hashes {
-        let document = document_cache.get_document(url)?;
-        let cached = document.node.as_ref()?.source_file.source()?;
+        let source_file = super::workspace_edit_source_file(document_cache, source_code, url)?;
+        let cached = source_file.source()?;
         let disk = SourcePath::from_url(url).read_to_string().ok()?;
         let cached_hash = content_hash(cached);
         let disk_hash = content_hash(&disk);
@@ -44,8 +45,14 @@ fn prepare_history_edit(
             return None;
         }
     }
-    let result = text_edit::apply_workspace_edit(document_cache, &item.edit).ok()?;
-    let reverse = text_edit::reversed_edit(document_cache, &item.edit)?;
+    let result =
+        text_edit::apply_workspace_edit_with_source(&item.edit, document_cache.format, |url| {
+            super::workspace_edit_source_file(document_cache, source_code, url)
+        })
+        .ok()?;
+    let reverse = text_edit::reversed_edit_with_source(&item.edit, document_cache.format, |url| {
+        super::workspace_edit_source_file(document_cache, source_code, url)
+    })?;
     Some((reverse, compute_file_hashes(&result)))
 }
 
@@ -110,7 +117,9 @@ pub fn setup(api: &ui::Api<'_>) {
                 tracing::debug!("Preview: Undo requested without history");
                 return;
             };
-            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+            let Some((reverse, file_hashes)) =
+                prepare_history_edit(&document_cache, &state.source_code, &edit)
+            else {
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
@@ -145,7 +154,9 @@ pub fn setup(api: &ui::Api<'_>) {
                 tracing::debug!("Preview: Redo requested without history");
                 return;
             };
-            let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
+            let Some((reverse, file_hashes)) =
+                prepare_history_edit(&document_cache, &state.source_code, &edit)
+            else {
                 state.undo_redo_stack.clear();
                 set_undo_redo_enabled(state);
                 return;
