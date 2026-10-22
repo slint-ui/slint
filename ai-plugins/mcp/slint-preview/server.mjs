@@ -12,18 +12,6 @@ import { createInterface } from "node:readline";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
-const SLINT_RELEASE = "1.18.1";
-const INTERPRETER_URLS = {
-    release: `https://releases.slint.dev/${SLINT_RELEASE}/wasm-interpreter/slint_wasm_interpreter.js`,
-    snapshot:
-        "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
-};
-const INTERPRETER_HOSTS = [
-    "https://releases.slint.dev",
-    // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
-    "https://docs.slint.dev",
-    "https://snapshots.slint.dev",
-];
 // A client that shows the view has it check in quickly; one that doesn't never will.
 const VIEW_START_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 3000,
@@ -39,6 +27,25 @@ const pluginVersion = JSON.parse(
         "utf8",
     ),
 ).version;
+
+const { channel } = JSON.parse(
+    readFileSync(new URL("channel.json", import.meta.url), "utf8"),
+);
+const INTERPRETERS = {
+    release: {
+        url: `https://releases.slint.dev/${pluginVersion}/wasm-interpreter/slint_wasm_interpreter.js`,
+        // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
+        hosts: ["https://releases.slint.dev", "https://docs.slint.dev"],
+    },
+    snapshot: {
+        url: "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
+        hosts: ["https://snapshots.slint.dev"],
+    },
+};
+const interpreter = INTERPRETERS[channel];
+if (!interpreter) {
+    throw new Error(`Unknown channel in channel.json: ${channel}`);
+}
 
 const icons = [
     {
@@ -79,11 +86,6 @@ const tools = [
                     type: "string",
                     enum: ["fluent", "material", "cupertino", "cosmic"],
                     description: "Widget style for std-widgets.slint.",
-                },
-                channel: {
-                    type: "string",
-                    enum: ["release", "snapshot"],
-                    description: `'snapshot' (the default) runs the latest development build of Slint, 'release' runs Slint ${SLINT_RELEASE}.`,
                 },
             },
         },
@@ -352,16 +354,16 @@ const handlers = {
                     uri: VIEW_URI,
                     mimeType: VIEW_MIME_TYPE,
                     text: readView()
-                        .replace("__RELEASE_URL__", INTERPRETER_URLS.release)
-                        .replace("__SNAPSHOT_URL__", INTERPRETER_URLS.snapshot),
+                        .replace("__INTERPRETER_URL__", interpreter.url)
+                        .replace("__CHANNEL__", channel),
                     _meta: {
                         ui: {
                             csp: {
-                                connectDomains: INTERPRETER_HOSTS,
+                                connectDomains: interpreter.hosts,
                                 // The interpreter shows inlined images through blob: URLs,
                                 // which the Codex app blocks unless declared.
                                 resourceDomains: [
-                                    ...INTERPRETER_HOSTS,
+                                    ...interpreter.hosts,
                                     "blob:",
                                 ],
                             },
