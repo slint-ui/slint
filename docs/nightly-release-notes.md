@@ -62,6 +62,20 @@ cargo install --locked --git https://github.com/slint-ui/slint slint-lsp --branc
 
 Alternatively, download the binary from "Assets" section below.
 
+### AI Coding Assistants
+
+Install the Slint plugin from the `nightly` branch of [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins/tree/nightly).
+It follows `master`, so the skill covers unreleased features and the Slint preview runs the latest development build.
+
+ - Claude Code: `/plugin marketplace add slint-ui/ai-plugins#nightly`, then `/plugin install slint@slint`
+ - Codex: `codex plugin marketplace add slint-ui/ai-plugins@nightly`, then `codex plugin add slint@slint`
+ - Antigravity: `git clone --branch nightly https://github.com/slint-ui/ai-plugins`, then `agy plugin install ./ai-plugins`
+ - GitHub CLI: `gh skill install slint-ui/ai-plugins slint --pin nightly`; reinstall with `--force` to update
+ - skills CLI: `npx skills add https://github.com/slint-ui/ai-plugins/tree/nightly --skill slint`
+
+Claude Code and Codex accept only one `slint` marketplace.
+If you added the release one, remove it first with `/plugin marketplace remove slint` or `codex plugin marketplace remove slint`.
+
 ### Online Demos and Documentation
 
  - Documentation: https://slint.dev/snapshots/{feature}/docs
