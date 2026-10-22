@@ -705,7 +705,18 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
-    let root = preview_project_root(&ctx.session, &url);
+    let source = SourcePath::from_url(&url);
+    let root = match source.as_native_path() {
+        Some(path) => ctx
+            .session
+            .find_project_file_path_for(path)
+            .map_err(|error| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: format!("Cannot find project file for {}: {error}", path.display()),
+            })?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
     if *ctx.session.primary_preview().project_root.borrow() != root {
         ctx.session.primary_preview_mut().to_show = None;
         ctx.session.primary_preview().project_root.replace(root);
@@ -717,37 +728,24 @@ pub fn show_preview_command(
     Ok(())
 }
 
-#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-fn preview_project_root(session: &editor_preview::EditorSession, url: &Url) -> Option<Url> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let _ = (session, url);
-        return None;
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let source = SourcePath::from_url(url);
-        let source = source.as_native_path()?;
-        session
-            .active_project_file_paths()
-            .filter_map(|project_file| project_file.parent())
-            .filter(|root| source.starts_with(root))
-            .last()
-            .and_then(|root| Url::from_directory_path(root).ok())
-    }
-}
-
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-builtin", feature = "preview-external")
 ))]
-pub fn sync_preview_project_root(session: &editor_preview::EditorSession) {
-    let Some(component) = session.primary_preview().to_show.as_ref() else { return };
-    let root = preview_project_root(session, &component.url);
+pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std::io::Result<()> {
+    let Some(component) = session.primary_preview().to_show.as_ref() else { return Ok(()) };
+    let source = SourcePath::from_url(&component.url);
+    let root = match source.as_native_path() {
+        Some(path) => session
+            .find_project_file_path_for(path)?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
     if *session.primary_preview().project_root.borrow() != root {
         session.primary_preview().project_root.replace(root);
         session.send_state_to_preview(0);
     }
+    Ok(())
 }
 
 fn populate_command_range(
@@ -2167,14 +2165,21 @@ enum {}
         std::fs::create_dir(&nested_root).unwrap();
         let outer_manifest = outer_root.join("slint-project.json");
         let nested_manifest = nested_root.join("slint-project.json");
-        std::fs::write(&outer_manifest, "{}").unwrap();
-        std::fs::write(&nested_manifest, "{}").unwrap();
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
         let source_path = nested_root.join("main.slint");
+        let outer_source_path = outer_root.join("root.slint");
         let source = "export component Main inherits Window {}";
         std::fs::write(&source_path, source).unwrap();
+        std::fs::write(&outer_source_path, source).unwrap();
         let source_url = Url::from_file_path(&source_path).unwrap();
+        let outer_source_url = Url::from_file_path(&outer_source_path).unwrap();
+        let outer_manifest_url = Url::from_file_path(&outer_manifest).unwrap();
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
         let (mut context, messages) = mock_context_with_preview_capture();
+        context.session.set_workspace_roots(vec![outer_root.to_path_buf()]);
+        spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
+            .unwrap();
         spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
             .unwrap();
         messages.borrow_mut().clear();
@@ -2190,7 +2195,7 @@ enum {}
             .iter()
             .position(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
             .unwrap();
-        for url in [&source_url, &nested_manifest_url] {
+        for url in [&source_url, &outer_manifest_url, &nested_manifest_url] {
             let contents_index = replay
                 .iter()
                 .position(|message| {
@@ -2217,24 +2222,97 @@ enum {}
         ))
         .unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session);
+        sync_preview_project_root(&context.session).unwrap();
+        let outer_root_url = Url::from_directory_path(outer_root).unwrap();
         assert!(matches!(
             messages.borrow().first(),
-            Some(LspToPreviewMessage::OpenProject { root: None })
+            Some(LspToPreviewMessage::OpenProject { root: Some(root) }) if root == &outer_root_url
         ));
         assert!(messages.borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::ShowPreview(component)
                 if component.url == source_url)
         }));
 
+        std::fs::remove_file(&outer_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            outer_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: None })
+        ));
+
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
         spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session);
-        let outer_root_url = Url::from_directory_path(outer_root).unwrap();
+        sync_preview_project_root(&context.session).unwrap();
         assert!(
             matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
             if root == &outer_root_url)
         );
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_does_not_reuse_an_active_project_above_its_boundary() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer = directory.path().join("outer");
+        let inner = outer.join("inner");
+        let inner_source_directory = inner.join("ui");
+        std::fs::create_dir_all(&inner_source_directory).unwrap();
+        std::fs::write(outer.join("slint-project.json"), r#"{"slint-edition":"1.19"}"#).unwrap();
+        let outer_source = outer.join("a.slint");
+        let inner_source = inner_source_directory.join("b.slint");
+        let code = "export component Main inherits Window {}";
+        for source in [&outer_source, &inner_source] {
+            std::fs::write(source, code).unwrap();
+        }
+        let outer_url = Url::from_file_path(&outer_source).unwrap();
+        let inner_url = Url::from_file_path(&inner_source).unwrap();
+        for workspace_roots in [vec![outer.clone(), inner.clone()], Vec::new()] {
+            let (mut context, _) = mock_context_with_preview_capture();
+            context.session.set_workspace_roots(workspace_roots);
+            for url in [&outer_url, &inner_url] {
+                spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
+                    .unwrap();
+            }
+            assert_eq!(
+                context.session.find_project_file_path_for(&outer_source).unwrap(),
+                Some(outer.join("slint-project.json"))
+            );
+            assert_eq!(context.session.find_project_file_path_for(&inner_source).unwrap(), None);
+        }
+    }
+
+    #[cfg(all(unix, any(feature = "preview-builtin", feature = "preview-external")))]
+    #[test]
+    fn preview_root_lookup_errors_keep_the_current_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = directory.path().join("slint-project.json");
+        std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
+        let source_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        let error =
+            show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context)
+                .unwrap_err();
+        assert!(matches!(error.code, LspErrorCode::RequestFailed));
+        assert!(error.message.contains(&source_url.to_file_path().unwrap().display().to_string()));
+        assert!(messages.borrow().is_empty());
+
+        let previous_root = Url::from_directory_path(directory.path()).unwrap();
+        context.session.primary_preview().project_root.replace(Some(previous_root.clone()));
+        context.session.primary_preview_mut().to_show =
+            Some(PreviewComponent { url: source_url, component: None });
+        assert!(sync_preview_project_root(&context.session).is_err());
+        assert_eq!(
+            context.session.primary_preview().project_root.borrow().as_ref(),
+            Some(&previous_root)
+        );
+        assert!(messages.borrow().is_empty());
     }
 
     #[test]

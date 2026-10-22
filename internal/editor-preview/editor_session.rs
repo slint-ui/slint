@@ -186,6 +186,7 @@ pub struct EditorSession {
     compiler_config_defaults: crate::document_cache::CompilerConfiguration,
     startup_config_overrides: SessionConfigOverrides,
     workspace_config_overrides: SessionConfigOverrides,
+    workspace_roots: Vec<PathBuf>,
     active_projects: HashMap<PathBuf, ProjectFileState>,
     /// The project files of the open documents, broadest first.
     /// A shared document cache has one configuration, so their settings are merged.
@@ -267,6 +268,7 @@ impl EditorSession {
             compiler_config_defaults,
             startup_config_overrides: Default::default(),
             workspace_config_overrides: Default::default(),
+            workspace_roots: Default::default(),
             active_projects: Default::default(),
             project_file_paths: Default::default(),
         }
@@ -274,6 +276,40 @@ impl EditorSession {
 
     pub fn set_startup_config_overrides(&mut self, overrides: SessionConfigOverrides) {
         self.startup_config_overrides = overrides;
+    }
+
+    pub fn set_workspace_roots(&mut self, roots: Vec<PathBuf>) {
+        self.workspace_roots = roots;
+    }
+
+    fn discovery_boundary<'a>(&'a self, directory: &'a std::path::Path) -> &'a std::path::Path {
+        self.workspace_roots
+            .iter()
+            .filter(|root| directory.starts_with(root))
+            .max_by_key(|root| root.components().count())
+            .map(PathBuf::as_path)
+            .unwrap_or(directory)
+    }
+
+    pub fn find_project_file_path_for(
+        &self,
+        path: &std::path::Path,
+    ) -> std::io::Result<Option<PathBuf>> {
+        if cfg!(target_arch = "wasm32") {
+            return Ok(None);
+        }
+        let Some(directory) = path.parent() else { return Ok(None) };
+        let boundary = self.discovery_boundary(directory);
+        for directory in directory.ancestors() {
+            let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME);
+            if self.open_project_file_state(&candidate).is_some() || candidate.try_exists()? {
+                return Ok(Some(candidate));
+            }
+            if directory == boundary {
+                break;
+            }
+        }
+        Ok(None)
     }
 
     pub async fn set_workspace_config_overrides(
@@ -458,21 +494,10 @@ impl EditorSession {
         if cfg!(target_arch = "wasm32") {
             return Ok(DiscoveredProjectFile::None);
         }
-        let directory =
-            SourcePath::new(&document_path).parent().into_native_path().unwrap_or_default();
         let path = if Self::project_file_source(url).is_some() {
             Some(document_path)
         } else {
-            i_slint_compiler::project_file::find_project_file_path_with_exists(
-                &directory,
-                |path| {
-                    if self.open_project_file_state(path).is_some() {
-                        Ok(true)
-                    } else {
-                        path.try_exists()
-                    }
-                },
-            )?
+            self.find_project_file_path_for(&document_path)?
         };
         let Some(path) = path else {
             return Ok(DiscoveredProjectFile::None);
@@ -1861,8 +1886,10 @@ mod preview_tests {
         std::fs::create_dir(&nested_directory).unwrap();
         let nested_manifest = nested_directory.join(i_slint_compiler::project_file::FILE_NAME);
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
-        std::fs::write(&root_manifest, r#"{"include-paths":["outer"]}"#).unwrap();
-        std::fs::write(&nested_manifest, r#"{"include-paths":["inner"]}"#).unwrap();
+        std::fs::write(&root_manifest, r#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
+            .unwrap();
+        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
+            .unwrap();
         let source = nested_directory.join("main.slint");
         let component = PreviewComponent {
             url: Url::from_file_path(&source).unwrap(),
@@ -1896,11 +1923,11 @@ mod preview_tests {
         );
         let manifest_index = replay.iter().position(|message| {
             matches!(message, LspToPreviewMessage::SetContents { url, contents }
-                if url.url() == &root_manifest_url && contents.as_slice() == b"{\"include-paths\":[\"outer\"]}")
+                if url.url() == &root_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
         }).unwrap();
         let nested_manifest_index = replay.iter().position(|message| {
             matches!(message, LspToPreviewMessage::SetContents { url, contents }
-                if url.url() == &nested_manifest_url && contents.as_slice() == b"{\"include-paths\":[\"inner\"]}")
+                if url.url() == &nested_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
         }).unwrap();
         let configuration_index = replay
             .iter()
@@ -1934,6 +1961,60 @@ mod tests {
     use super::*;
     use i_slint_compiler::project_file::FILE_NAME;
     use tempfile::TempDir;
+
+    #[test]
+    fn project_file_lookup_uses_nearest_workspace_boundary() {
+        let directory = TempDir::new().unwrap();
+        let workspace = directory.path().join("workspace");
+        let nested = workspace.join("ui");
+        let source = nested.join("deep/main.slint");
+        std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+        let outside_manifest = directory.path().join(FILE_NAME);
+        let workspace_manifest = workspace.join(FILE_NAME);
+        let nested_manifest = nested.join(FILE_NAME);
+        for manifest in [&outside_manifest, &workspace_manifest, &nested_manifest] {
+            std::fs::write(manifest, "{}").unwrap();
+        }
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(vec![workspace]);
+        for (removed, expected) in [
+            (None, Some(nested_manifest.as_path())),
+            (Some(nested_manifest.as_path()), Some(workspace_manifest.as_path())),
+            (Some(workspace_manifest.as_path()), None),
+        ] {
+            if let Some(removed) = removed {
+                std::fs::remove_file(removed).unwrap();
+            }
+            assert_eq!(
+                editor_session.find_project_file_path_for(&source).unwrap().as_deref(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn project_file_lookup_finds_an_open_buffer_without_a_disk_file() {
+        let directory = TempDir::new().unwrap();
+        let manifest = directory.path().join(FILE_NAME);
+        let source = directory.path().join("main.slint");
+        let url = Url::from_file_path(&manifest).unwrap();
+        let mut editor_session = session();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+        spin_on::spin_on(editor_session.open_document("{}".into(), url.clone(), Some(1))).unwrap();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), Some(manifest));
+        spin_on::spin_on(editor_session.close_document(url)).unwrap();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn project_file_lookup_reports_filesystem_errors() {
+        let directory = TempDir::new().unwrap();
+        let manifest = directory.path().join(FILE_NAME);
+        std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
+        let source = directory.path().join("main.slint");
+        assert!(session().find_project_file_path_for(&source).is_err());
+    }
 
     fn session() -> EditorSession {
         let config = crate::document_cache::CompilerConfiguration {
@@ -2278,6 +2359,7 @@ mod tests {
         write_document(&document_path);
 
         let mut session = session();
+        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
         load_document(&mut session, &document_path).unwrap();
 
         assert_eq!(
@@ -2287,6 +2369,118 @@ mod tests {
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
             vec![nested_directory.join("nested")]
+        );
+    }
+
+    #[test]
+    fn discovery_checks_the_workspace_root_and_stops_there() {
+        let directory = TempDir::new().unwrap();
+        let workspace = directory.path().join("workspace");
+        let source_directory = workspace.join("ui");
+        std::fs::create_dir_all(&source_directory).unwrap();
+        let outside_project = directory.path().join(FILE_NAME);
+        let workspace_project = workspace.join(FILE_NAME);
+        let source = source_directory.join("main.slint");
+        std::fs::write(&outside_project, "{").unwrap();
+        std::fs::write(
+            &workspace_project,
+            r#"{"slint-edition":"1.19","include-paths":["include"]}"#,
+        )
+        .unwrap();
+        write_document(&source);
+
+        let mut bounded = session();
+        bounded.set_workspace_roots(vec![workspace.clone()]);
+        load_document(&mut bounded, &source).unwrap();
+        assert_eq!(
+            bounded.active_project_file_paths().collect::<Vec<_>>(),
+            [workspace_project.as_path()]
+        );
+
+        std::fs::remove_file(&workspace_project).unwrap();
+        let mut without_project = session();
+        without_project.set_workspace_roots(vec![workspace]);
+        load_document(&mut without_project, &source).unwrap();
+        assert!(without_project.active_project_file_paths().next().is_none());
+    }
+
+    #[test]
+    fn files_without_a_containing_workspace_check_only_siblings() {
+        let directory = TempDir::new().unwrap();
+        let source_directory = directory.path().join("ui");
+        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::write(directory.path().join(FILE_NAME), "{").unwrap();
+        let source = source_directory.join("main.slint");
+        write_document(&source);
+
+        for roots in [Vec::new(), vec![directory.path().join("other")]] {
+            let mut editor_session = session();
+            editor_session.set_workspace_roots(roots);
+            load_document(&mut editor_session, &source).unwrap();
+            assert!(editor_session.active_project_file_paths().next().is_none());
+        }
+
+        let sibling_project = source_directory.join(FILE_NAME);
+        std::fs::write(&sibling_project, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let mut editor_session = session();
+        load_document(&mut editor_session, &source).unwrap();
+        assert_eq!(
+            editor_session.active_project_file_paths().collect::<Vec<_>>(),
+            [sibling_project.as_path()]
+        );
+    }
+
+    #[test]
+    fn overlapping_and_multiple_workspace_roots_remain_independent() {
+        let directory = TempDir::new().unwrap();
+        let outer = directory.path().join("outer");
+        let inner = outer.join("inner");
+        let inner_source_directory = inner.join("ui");
+        let other = directory.path().join("other");
+        std::fs::create_dir_all(&inner_source_directory).unwrap();
+        std::fs::create_dir(&other).unwrap();
+        std::fs::write(outer.join(FILE_NAME), "{").unwrap();
+        let inner_source = inner_source_directory.join("main.slint");
+        let other_source = other.join("main.slint");
+        write_document(&inner_source);
+        write_document(&other_source);
+        let roots = vec![outer, inner.clone(), other.clone()];
+
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(roots.clone());
+        load_document(&mut editor_session, &inner_source).unwrap();
+        assert!(editor_session.active_project_file_paths().next().is_none());
+
+        let inner_project = inner.join(FILE_NAME);
+        let other_project = other.join(FILE_NAME);
+        std::fs::write(
+            &inner_project,
+            r#"{"slint-edition":"1.19","include-paths":["inner-include"]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &other_project,
+            r#"{"slint-edition":"1.19","include-paths":["other-include"]}"#,
+        )
+        .unwrap();
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(roots);
+        load_document(&mut editor_session, &inner_source).unwrap();
+        load_document(&mut editor_session, &other_source).unwrap();
+        assert_eq!(
+            editor_session.active_project_file_paths().collect::<HashSet<_>>(),
+            HashSet::from([inner_project.as_path(), other_project.as_path()])
+        );
+        assert_eq!(
+            editor_session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .iter()
+                .cloned()
+                .collect::<HashSet<_>>(),
+            HashSet::from([inner.join("inner-include"), other.join("other-include")])
         );
     }
 
@@ -2713,6 +2907,7 @@ mod tests {
         write_document(&document_b);
 
         let mut session = session();
+        session.set_workspace_roots(vec![project_a.clone(), project_b.clone()]);
         load_document(&mut session, &document_a).unwrap();
         load_document(&mut session, &document_b).unwrap();
 
@@ -2739,6 +2934,7 @@ mod tests {
     fn invalid_project_recovery_preserves_equal_depth_precedence() {
         let temp = TempDir::new().unwrap();
         let mut session = session();
+        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
         let mut project_paths = Vec::new();
         for (directory, include_path) in [("first", "first-include"), ("second", "second-include")]
         {
@@ -2807,6 +3003,7 @@ mod tests {
         write_document(&inner.join("main.slint"));
 
         let mut session = session();
+        session.set_workspace_roots(vec![outer.clone()]);
         load_document(&mut session, &inner.join("main.slint")).unwrap();
         load_document(&mut session, &outer.join("main.slint")).unwrap();
 

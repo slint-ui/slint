@@ -171,31 +171,6 @@ pub async fn load_from_root_with_file_loader(
     }
 }
 
-/// Searches `directory` and its ancestors for a project file,
-/// returning the path of the first one found.
-pub fn find_project_file_path(directory: &Path) -> std::io::Result<Option<PathBuf>> {
-    // On wasm std::fs reports Unsupported rather than NotFound, which would turn every
-    // lookup below into an error. There is no filesystem to hold a project file anyway.
-    if cfg!(target_arch = "wasm32") {
-        return Ok(None);
-    }
-
-    find_project_file_path_with_exists(directory, |path| path.try_exists())
-}
-
-pub fn find_project_file_path_with_exists(
-    directory: &Path,
-    mut file_exists: impl FnMut(&Path) -> std::io::Result<bool>,
-) -> std::io::Result<Option<PathBuf>> {
-    for directory in directory.ancestors() {
-        let candidate = directory.join(FILE_NAME);
-        if file_exists(&candidate)? {
-            return Ok(Some(candidate));
-        }
-    }
-    Ok(None)
-}
-
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
         let source_path = normalize_project_file_path(SourcePath::File(
@@ -562,8 +537,7 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        FILE_NAME, ProjectFile, SlintEdition, find_project_file_path, is_project_file,
-        resolve_input, resolve_relative_path,
+        FILE_NAME, ProjectFile, SlintEdition, is_project_file, resolve_input, resolve_relative_path,
     };
     use crate::{generator::OutputFormat, source_path::SourcePath};
     use std::{
@@ -972,52 +946,6 @@ mod tests {
             assert_eq!(compiler_config.style, default_config.style);
             assert_eq!(compiler_config.enable_experimental, default_config.enable_experimental);
         });
-    }
-
-    #[test]
-    fn existence_callback_probes_nearest_first_and_stops_at_a_match() {
-        let directory = Path::new("project/ui/widgets");
-        let target = Path::new("project/ui").join(FILE_NAME);
-        let mut probes = Vec::new();
-        let found = super::find_project_file_path_with_exists(directory, |path| {
-            probes.push(path.to_path_buf());
-            Ok(path == target)
-        })
-        .unwrap();
-        assert_eq!(found, Some(target.clone()));
-        assert_eq!(probes, [directory.join(FILE_NAME), target]);
-    }
-
-    #[test]
-    fn existence_callback_errors_stop_the_ancestor_search() {
-        let directory = Path::new("project/ui/widgets");
-        let mut probes = Vec::new();
-        let error = super::find_project_file_path_with_exists(directory, |path| {
-            probes.push(path.to_path_buf());
-            if probes.len() == 2 {
-                Err(std::io::ErrorKind::PermissionDenied.into())
-            } else {
-                Ok(false)
-            }
-        })
-        .unwrap_err();
-        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
-        assert_eq!(probes, [directory.join(FILE_NAME), Path::new("project/ui").join(FILE_NAME)]);
-    }
-
-    #[test]
-    fn the_nearest_project_file_is_found() {
-        let root = unique_temp_file_path().parent().unwrap().to_path_buf();
-        let nested = root.join("a/b");
-        fs::create_dir_all(&nested).unwrap();
-
-        fs::write(root.join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
-        assert_eq!(find_project_file_path(&nested).unwrap(), Some(root.join(FILE_NAME)));
-
-        fs::write(root.join("a").join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
-        assert_eq!(find_project_file_path(&nested).unwrap(), Some(root.join("a").join(FILE_NAME)));
-
-        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

@@ -634,6 +634,7 @@ async fn activate_project(
     project: Project,
 ) {
     *project_root = project.root;
+    session.set_workspace_roots(vec![project_root.clone()]);
     let component = project.preview;
     if let Err(error) = open_project(session, PRIMARY_PREVIEW_INDEX, project_root) {
         tracing::warn!("Failed to open project: {error}");
