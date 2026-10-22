@@ -262,11 +262,9 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install 32-bit build dependencies
-              run: |
-                  sudo dpkg --add-architecture i386
-                  bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update
-                  bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+              with:
+                  add-architecture: i386
+                  extra-packages: gcc-multilib g++-multilib libfontconfig-dev:i386
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-unknown-linux-gnu
@@ -849,10 +847,8 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install ffmpeg and alsa (Linux)
-              run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y --no-install-recommends clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
-            - name: Install gstreamer and libunwind (Linux)
-              run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y --no-install-recommends libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+              with:
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - uses: ./.github/actions/setup-rust
             - name: Run Clippy
               run: ./scripts/run_clippy.sh

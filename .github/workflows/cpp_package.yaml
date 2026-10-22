@@ -96,11 +96,11 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: gcc-arm-none-eabi libnewlib-arm-none-eabi
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
-            - name: Install GNU Arm Embedded Toolchain
-              run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install gcc-arm-none-eabi
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
