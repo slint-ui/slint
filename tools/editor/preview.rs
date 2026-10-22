@@ -52,6 +52,7 @@ pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
+mod project_file;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
