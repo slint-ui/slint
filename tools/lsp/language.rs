@@ -200,93 +200,70 @@ async fn register_file_watcher(ctx: &Context) -> editor_preview::Result<()> {
                 ),
             }],
         };
-        let server_notifier = { ctx.server_notifier.clone() };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
-            .await?;
+        register_capability(
+            ctx,
+            "slint.file_watcher.registration",
+            lsp_types::notification::DidChangeWatchedFiles::METHOD,
+            fs_watcher,
+        )
+        .await?;
     }
 
     Ok(())
 }
 
-async fn update_formatting(ctx: &Context) -> crate::editor_preview::Result<()> {
-    use lsp_types::request::Request as _;
-    let supports_dynamic = ctx
-        .init_param
-        .capabilities
+async fn register_capability(
+    ctx: &Context,
+    id: &str,
+    method: &str,
+    options: impl serde::Serialize,
+) -> editor_preview::Result<()> {
+    ctx.server_notifier
+        .send_request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
+            registrations: vec![lsp_types::Registration {
+                id: id.to_string(),
+                method: method.to_string(),
+                register_options: Some(serde_json::to_value(options).unwrap()),
+            }],
+        })?
+        .await?;
+    Ok(())
+}
+
+fn formatting_supports_dynamic_registration(client_cap: &ClientCapabilities) -> bool {
+    client_cap
         .text_document
         .as_ref()
         .and_then(|td| td.formatting.as_ref())
         .and_then(|f| f.dynamic_registration)
-        .unwrap_or(false);
-    if !supports_dynamic {
-        tracing::debug!("Client does not support dynamic formatting registration");
+        .unwrap_or(false)
+}
+
+/// Registers the formatter for `.slint` documents only.
+/// A static `document_formatting_provider` applies to every document the client
+/// sends us, including Rust files, where it competes with rust-analyzer.
+async fn register_formatting(ctx: &Context) -> editor_preview::Result<()> {
+    use lsp_types::request::Request;
+
+    if !formatting_supports_dynamic_registration(&ctx.init_param.capabilities) {
         return Ok(());
     }
 
-    let mut selector: Vec<lsp_types::DocumentFilter> = vec![
-        lsp_types::DocumentFilter {
-            language: Some("slint".into()),
-            scheme: Some("file".into()),
-            pattern: None,
-        },
-        lsp_types::DocumentFilter {
-            language: Some("slint".into()),
-            scheme: Some("untitled".into()),
-            pattern: None,
-        },
-    ];
-    if ctx.enable_rust_formatting.get() {
-        selector.push(lsp_types::DocumentFilter {
-            language: Some("rust".into()),
-            scheme: Some("file".into()),
-            pattern: None,
-        });
-        selector.push(lsp_types::DocumentFilter {
-            language: Some("rust".into()),
-            scheme: Some("untitled".into()),
-            pattern: None,
-        });
-    }
-
-    let options = serde_json::to_value(lsp_types::TextDocumentRegistrationOptions {
-        document_selector: Some(selector),
-    })
-    .unwrap();
-
-    let server_notifier = ctx.server_notifier.clone();
-    // Best-effort unregister previous (ignore error if not yet registered)
-    if let Ok(fut) = server_notifier.send_request::<lsp_types::request::UnregisterCapability>(
-        lsp_types::UnregistrationParams {
-            unregisterations: vec![lsp_types::Unregistration {
-                id: "slint.formatting".into(),
-                method: lsp_types::request::Formatting::METHOD.into(),
-            }],
-        },
-    ) {
-        let _ = fut.await;
-    }
-    if let Ok(fut) = server_notifier.send_request::<lsp_types::request::RegisterCapability>(
-        lsp_types::RegistrationParams {
-            registrations: vec![lsp_types::Registration {
-                id: "slint.formatting".into(),
-                method: lsp_types::request::Formatting::METHOD.into(),
-                register_options: Some(options),
-            }],
-        },
-    ) && let Err(e) = fut.await
-    {
-        tracing::warn!("Failed to register formatting: {e}");
-    }
-    Ok(())
+    let options = lsp_types::TextDocumentRegistrationOptions {
+        document_selector: Some(vec![
+            lsp_types::DocumentFilter {
+                language: Some("slint".into()),
+                scheme: None,
+                pattern: None,
+            },
+            lsp_types::DocumentFilter {
+                language: None,
+                scheme: None,
+                pattern: Some("**/*.slint".into()),
+            },
+        ]),
+    };
+    register_capability(ctx, "slint.formatting.registration", Formatting::METHOD, options).await
 }
 
 pub struct Context {
@@ -297,7 +274,6 @@ pub struct Context {
     /// Disables the host-language rename prompt for the rest of the session.
     /// TODO(#12111): Persist this setting across sessions.
     pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
-    pub enable_rust_formatting: Rc<Cell<bool>>,
 }
 
 /// An error from a LSP request
@@ -443,17 +419,8 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                     OneOf::Left(true)
                 },
             ),
-            // For clients with dynamic registration, initially disable formatting
-            // and enable slint (and optionally rust) after `workspace/configuration`
-            // is loaded. For non-dynamic clients, advertise statically so
-            // `.slint` formatting still works and `rust` is filtered in the handler.
             document_formatting_provider: Some(OneOf::Left(
-                !client_cap
-                    .text_document
-                    .as_ref()
-                    .and_then(|td| td.formatting.as_ref())
-                    .and_then(|f| f.dynamic_registration)
-                    .unwrap_or(false),
+                !formatting_supports_dynamic_registration(client_cap),
             )),
             ..ServerCapabilities::default()
         },
@@ -700,12 +667,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(None)
     });
     rh.register::<Formatting>(|params, ctx| {
-        if !ctx.enable_rust_formatting.get() {
-            let uri_str = params.text_document.uri.as_str();
-            if uri_str.ends_with(".rs") || uri_str.ends_with(".Rs") {
-                return Ok(None);
-            }
-        }
         Ok(formatting::format_document(params, &ctx.session.document_cache))
     });
 }
@@ -1445,23 +1406,8 @@ fn get_highlights_for_position(
 
 pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     register_file_watcher(ctx).await?;
+    register_formatting(ctx).await?;
     load_configuration(ctx).await
-}
-
-fn rust_formatting_from_object(obj: &serde_json::Map<String, serde_json::Value>) -> Option<bool> {
-    obj.get("rust")
-        .and_then(|v| v.as_object())
-        .and_then(|o| o.get("formatting"))
-        .and_then(|v| v.as_bool())
-}
-
-fn rust_formatting_enabled(workspace_config: &[serde_json::Value]) -> bool {
-    workspace_config
-        .iter()
-        .filter_map(|v| v.as_object())
-        .filter_map(rust_formatting_from_object)
-        .last()
-        .unwrap_or(true)
 }
 
 fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfigOverrides {
@@ -1552,16 +1498,10 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
         )?
         .await?;
 
-    let enable_rust_formatting = rust_formatting_enabled(&workspace_config);
     let config_overrides = parse_configuration(workspace_config);
     tracing::debug!("Loaded configuration: {config_overrides:?}");
     let diagnostics = ctx.session.set_workspace_config_overrides(config_overrides).await?;
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
-
-    ctx.enable_rust_formatting.set(enable_rust_formatting);
-    if let Err(e) = update_formatting(ctx).await {
-        tracing::warn!("Failed to update formatting registration: {e}");
-    }
 
     tracing::debug!("Loaded configuration from client");
 
@@ -2338,72 +2278,5 @@ export { Global }
                 }
             ])
         );
-    }
-
-    #[test]
-    fn test_parse_configuration_rust_formatting() {
-        // Default is true (compatible with previous Left(true))
-        assert!(rust_formatting_enabled(&[]));
-        // Nested {rust:{formatting:false}}
-        assert!(!rust_formatting_enabled(&[serde_json::json!({"rust": {"formatting": false}})]));
-        // Explicit true
-        assert!(rust_formatting_enabled(&[serde_json::json!({"rust": {"formatting": true}})]));
-    }
-
-    #[test]
-    fn test_server_initialize_result_formatting_dynamic() {
-        // Dynamic client -> initially false, will be enabled via RegisterCapability
-        let mut caps = ClientCapabilities::default();
-        caps.text_document = Some(lsp_types::TextDocumentClientCapabilities {
-            formatting: Some(lsp_types::DynamicRegistrationClientCapabilities {
-                dynamic_registration: Some(true),
-            }),
-            ..Default::default()
-        });
-        let res = server_initialize_result(&caps);
-        assert_eq!(res.capabilities.document_formatting_provider, Some(OneOf::Left(false)));
-        // Non-dynamic client -> statically true, handler filters rust when off
-        let caps = ClientCapabilities::default();
-        let res = server_initialize_result(&caps);
-        assert_eq!(res.capabilities.document_formatting_provider, Some(OneOf::Left(true)));
-    }
-
-    #[test]
-    fn test_formatting_respects_rust_toggle() {
-        // Rust file with unformatted slint! macro
-        let rust_src = r#"slint::slint!{component Foo { in property <int> bar; }}"#.to_string();
-        let (dc, uri, _) =
-            crate::language::test::loaded_document_cache_with_file_name(rust_src, "test.rs");
-        let mut ctx = crate::language::test::mock_context();
-        ctx.session.document_cache = dc;
-        // When disabled, handler should return None for .rs
-        ctx.enable_rust_formatting.set(false);
-        let params = lsp_types::DocumentFormattingParams {
-            text_document: lsp_types::TextDocumentIdentifier { uri: uri.clone() },
-            options: Default::default(),
-            work_done_progress_params: Default::default(),
-        };
-        // Simulate handler guard
-        let is_rust = params.text_document.uri.as_str().ends_with(".rs");
-        assert!(is_rust);
-        assert!(!ctx.enable_rust_formatting.get());
-        // Direct formatting would still produce edits, but handler early-returns None
-        // Verify slint file is not filtered
-        let (dc2, uri2, _) = crate::language::test::loaded_document_cache(
-            "component Foo { in property <int> bar; }".into(),
-        );
-        ctx.session.document_cache = dc2;
-        let params2 = lsp_types::DocumentFormattingParams {
-            text_document: lsp_types::TextDocumentIdentifier { uri: uri2.clone() },
-            options: Default::default(),
-            work_done_progress_params: Default::default(),
-        };
-        let is_rust2 = params2.text_document.uri.as_str().ends_with(".rs");
-        assert!(!is_rust2);
-        // Handler would proceed to actual formatting for slint
-        let edits =
-            crate::language::formatting::format_document(params2, &ctx.session.document_cache);
-        assert!(edits.is_some());
-        assert!(!edits.unwrap().is_empty());
     }
 }

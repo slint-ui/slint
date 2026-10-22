@@ -723,8 +723,6 @@ unparseable
 unpic
 Unpremul
 unpremultiply
-Unregistration
-unregisterations
 unsendable
 usbc
 usecases

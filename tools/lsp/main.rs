@@ -43,7 +43,6 @@ use clap::{Args, Parser, Subcommand};
 use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
-use std::cell::Cell;
 use std::io::Write as _;
 use std::path::Path;
 use std::rc::Rc;
@@ -522,7 +521,6 @@ async fn run_main_loop(
         server_notifier,
         init_param,
         host_language_rename_dont_ask_again: Default::default(),
-        enable_rust_formatting: Rc::new(Cell::new(true)),
     };
 
     let connection = Arc::new(connection);
