@@ -6,7 +6,7 @@ import { CanvasView } from "canvas-view.slint";
 import { Snapping, SnapGuideLine } from "../snapping.slint";
 import { Style } from "../style.slint";
 import { FillSession, ShadowSession } from "inspector/index.slint";
-import { Api, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
+import { Api, CoordinateSpace, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
@@ -60,6 +60,7 @@ component SelectedCanvasFrame inherits Rectangle {
             position.y / CanvasView.zoom,
             size.width / CanvasView.zoom,
             size.height / CanvasView.zoom,
+            CoordinateSpace.Root,
         );
     }
 
@@ -241,6 +242,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
             position.y / CanvasView.zoom,
             root.geometry.width,
             root.geometry.height,
+            CoordinateSpace.Root,
         );
     }
 
