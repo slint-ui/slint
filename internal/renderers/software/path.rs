@@ -139,13 +139,27 @@ fn render_path_with_style<T: TargetPixel>(
                 let mut run_end = 0;
                 while let Some(skipped) = mask_row[run_end..].iter().position(|&c| c > 0) {
                     let run_start = run_end + skipped;
+                    let opaque = mask_row[run_start] == u8::MAX;
                     run_end = mask_row[run_start..]
                         .iter()
-                        .position(|&c| c == 0)
+                        .position(|&c| c == 0 || (c == u8::MAX) != opaque)
                         .map_or(mask_row.len(), |len| run_start + len);
+                    let run = x_start + run_start..x_start + run_end;
+                    if opaque {
+                        for (rect, gradient) in gradients {
+                            gradient.as_command::<T>().draw_line(
+                                rect,
+                                line_number,
+                                &mut line[run.clone()],
+                                run.start as i16 - rect.min_x(),
+                                rect.max_x() - run.end as i16,
+                            );
+                        }
+                        continue;
+                    }
                     blend_with_coverage(
                         line,
-                        x_start + run_start..x_start + run_end,
+                        run,
                         |scratch, chunk| {
                             for (rect, gradient) in gradients {
                                 gradient.as_command::<T>().draw_scratch_line(
