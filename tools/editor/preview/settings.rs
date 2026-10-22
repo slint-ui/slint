@@ -17,6 +17,8 @@ const MAX_RECENT_PROJECTS: usize = 4;
 pub(crate) struct Project {
     pub root: PathBuf,
     pub preview: PreviewComponent,
+    #[serde(default)]
+    pub selected_canvas_preset: i32,
 }
 
 #[derive(Default, Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -45,13 +47,37 @@ impl VisualEditorSettings {
             .ok()
     }
 
-    pub(crate) fn add_recent_project(&mut self, project: Project) -> bool {
+    pub(crate) fn add_recent_project(&mut self, mut project: Project) -> bool {
+        if let Some(existing) =
+            self.recent_projects.iter().find(|recent| recent.root == project.root)
+        {
+            project.selected_canvas_preset = existing.selected_canvas_preset;
+        }
         if self.recent_projects.first() == Some(&project) {
             return false;
         }
         self.recent_projects.retain(|recent| recent.root != project.root);
         self.recent_projects.insert(0, project);
         self.recent_projects.truncate(MAX_RECENT_PROJECTS);
+        true
+    }
+
+    pub(crate) fn selected_canvas_preset(&self, root: &Path) -> i32 {
+        self.recent_projects
+            .iter()
+            .find(|recent| recent.root == root)
+            .map_or(0, |project| project.selected_canvas_preset.max(0))
+    }
+
+    pub(crate) fn set_selected_canvas_preset(&mut self, root: &Path, index: i32) -> bool {
+        let Some(project) = self.recent_projects.iter_mut().find(|recent| recent.root == root)
+        else {
+            return false;
+        };
+        if project.selected_canvas_preset == index {
+            return false;
+        }
+        project.selected_canvas_preset = index;
         true
     }
 
@@ -135,7 +161,7 @@ impl Project {
         }
         let url = Url::from_file_path(&path)
             .map_err(|_| format!("Failed to convert {} to URL", path.display()))?;
-        Ok(Self { root, preview: PreviewComponent { url, component } })
+        Ok(Self { root, preview: PreviewComponent { url, component }, selected_canvas_preset: 0 })
     }
 }
 
@@ -214,6 +240,7 @@ mod tests {
     fn recent_project(root: impl Into<PathBuf>, url: Url, component: &str) -> Project {
         Project {
             root: root.into(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent { url, component: Some(component.into()) },
         }
     }
@@ -318,6 +345,39 @@ mod tests {
         assert!(settings.clear_recent_projects());
         assert!(settings.recent_projects.is_empty());
         assert!(!settings.clear_recent_projects());
+    }
+
+    #[test]
+    fn selected_canvas_preset_survives_preview_updates_and_older_settings() {
+        let root = Path::new("/project");
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/main.slint").unwrap(),
+            "Main",
+        ));
+        assert!(settings.set_selected_canvas_preset(root, 1));
+        settings.add_recent_project(recent_project(
+            root,
+            Url::parse("file:///project/other.slint").unwrap(),
+            "Other",
+        ));
+        assert_eq!(settings.selected_canvas_preset(root), 1);
+        let serialized = settings.serialize();
+        assert_eq!(
+            VisualEditorSettings::deserialize(&serialized).unwrap().selected_canvas_preset(root),
+            1
+        );
+        let mut old: serde_json::Value = serde_json::from_str(&serialized).unwrap();
+        old["recent_projects"][0].as_object_mut().unwrap().remove("selected_canvas_preset");
+        assert_eq!(
+            VisualEditorSettings::deserialize(&old.to_string())
+                .unwrap()
+                .selected_canvas_preset(root),
+            0
+        );
+        assert!(settings.clear_recent_projects());
+        assert_eq!(settings.selected_canvas_preset(root), 0);
     }
 
     #[test]
