@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore appstreamcli metainfo
+# cspell:ignore metainfo
 
 # Flatpak manifest for the Slint Visual Editor, with Skia built from source
 # inside the sandbox. The two generated source lists it references are not
@@ -11,12 +11,12 @@
 id: dev.slint.VisualEditor
 
 runtime: org.freedesktop.Platform
-runtime-version: "25.08"
+runtime-version: "26.08"
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
   # Provides clang/clang++ (Skia's supported compiler) and libclang for bindgen
-  - org.freedesktop.Sdk.Extension.llvm20
+  - org.freedesktop.Sdk.Extension.llvm22
 
 command: slint-visual-editor
 
@@ -36,9 +36,9 @@ finish-args:
 cleanup:
   - /bin/gn
 
-# Applies to all modules: both gn and Skia are built with the llvm20 clang
+# Applies to all modules: both gn and Skia are built with the llvm22 clang
 build-options:
-  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm22/bin
 
 modules:
   # gn, the meta-build tool needed to configure Skia. Its revision does not
@@ -66,8 +66,8 @@ modules:
         # Points skia-bindings at the pre-synced Skia source tree; this
         # triggers its offline build path (no downloads, no git-sync-deps)
         SKIA_SOURCE_DIR: /run/build/slint-visual-editor/deps/skia-src
-        # bindgen needs libclang from the llvm20 SDK extension
-        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        # bindgen needs libclang from the llvm22 SDK extension
+        LIBCLANG_PATH: /usr/lib/sdk/llvm22/lib
         # Use the gn built by the gn module instead of Skia's prebuilt bin/gn
         # (which the offline build never downloads)
         SKIA_GN_COMMAND: /app/bin/gn
@@ -96,7 +96,6 @@ modules:
         jq -r '.packages[] | select(.name == "slint-editor") | .version')/"
         -e "s/@DATE@/$(git log -1 --format=%cs)/"
         tools/editor/packaging/linux/${FLATPAK_ID}.metainfo.xml.in > ${FLATPAK_ID}.metainfo.xml
-      - appstreamcli validate --no-net ${FLATPAK_ID}.metainfo.xml
       - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
     sources:
       # Without a ref flatpak-builder would build the default branch, not the

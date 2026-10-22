@@ -33,6 +33,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Text";
     }
 
+    public pure function is-styled-text-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StyledText";
+    }
+
     public pure function is-image-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Image";
     }
