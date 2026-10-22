@@ -37,6 +37,10 @@ ELEMENTS = {
     text: "Text";
 }
 """,
+    "StyledText": """StyledText {
+    text: @markdown("Text");
+}
+""",
     "Image": """Image {
     source: @image-url("EDIT_ME.png");
     width: 160px;

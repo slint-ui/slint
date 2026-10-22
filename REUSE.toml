@@ -286,6 +286,7 @@ path = [
   "scripts/commit-template.txt",
 
   "tools/**.md",
+  "tools/compiler/npm/package.json",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
   "tools/slintpad/styles/**.css",

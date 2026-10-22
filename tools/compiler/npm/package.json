@@ -1,0 +1,29 @@
+{
+  "name": "slint-compiler",
+  "version": "1.19.0",
+  "description": "Slint Compiler: generates TypeScript type declarations, or C++, Rust, or Python code, from a .slint user interface.",
+  "bin": {
+    "slint-compiler": "slint-compiler.cjs"
+  },
+  "files": [
+    "slint-compiler.cjs",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "homepage": "https://slint.dev",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slint-ui/slint"
+  },
+  "keywords": [
+    "Slint",
+    "GUI",
+    "UI",
+    "compiler"
+  ],
+  "engines": {
+    "node": ">= 18"
+  },
+  "optionalDependencies": {}
+}

@@ -30,6 +30,9 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "software-embed-assets")]
     gen_software_embed_assets(&mut generated_file)?;
 
+    #[cfg(feature = "interpreter-embed-assets")]
+    gen_interpreter_embed_assets(&mut generated_file)?;
+
     #[cfg(feature = "anyrender")]
     gen_anyrender(&mut generated_file)?;
 
@@ -41,41 +44,44 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
+/// The quoted path of the reference of `testcase` with embedded assets, its source, its markers,
+/// and its `#[ignore]` when one of `drivers` ignores it.
+#[cfg(any(feature = "software-embed-assets", feature = "interpreter-embed-assets"))]
+fn embed_assets_case(
+    testcase: &test_driver_lib::TestCase,
+    drivers: &[&str],
+) -> std::io::Result<(String, String, ScreenshotMarkers, &'static str)> {
+    let reference: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "software_embed_assets"].iter().collect();
+    let reference = reference
+        .join(testcase.relative_path.clone())
+        .with_extension("png")
+        .to_str()
+        .unwrap()
+        .escape_default()
+        .to_string();
+    println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+    let source = std::fs::read_to_string(&testcase.absolute_path)?;
+    let markers = parse_markers(&source, testcase);
+    let ignored =
+        if drivers.iter().any(|driver| testcase.is_ignored(driver)) { "#[ignore]" } else { "" };
+    Ok((format!("\"{reference}\""), source, markers, ignored))
+}
+
 // Renders every case with everything pre-rendered at compile time (`EmbedTextures`): bitmap fonts
 // and pre-decoded textures, the MCU-style path. Compares against (and creates) a single
 // `references/software_embed_assets` reference per case.
 #[cfg(feature = "software-embed-assets")]
 fn gen_software_embed_assets(generated_file: &mut impl Write) -> std::io::Result<()> {
-    let references_root_dir: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "references", "software_embed_assets"].iter().collect();
-
     for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
-        let mut reference_path = references_root_dir
-            .join(testcase.relative_path.clone())
-            .with_extension("png")
-            .to_str()
-            .unwrap()
-            .escape_default()
-            .to_string();
-
-        reference_path = format!("\"{reference_path}\"");
-
-        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+        let (reference, source, markers, ignored) =
+            embed_assets_case(&testcase, &["software", "software-embed-assets"])?;
         let module_name = testcase.identifier();
 
         writeln!(
             generated_file,
             "#[path=\"{module_name}.embed.rs\"] mod r#software_embed_assets_{module_name};"
         )?;
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
-
-        let markers = parse_markers(&source, &testcase);
-        let ignored =
-            if testcase.is_ignored("software") || testcase.is_ignored("software-embed-assets") {
-                "#[ignore]"
-            } else {
-                ""
-            };
 
         let mut output = BufWriter::new(std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap())
@@ -95,7 +101,7 @@ fn gen_software_embed_assets(generated_file: &mut impl Write) -> std::io::Result
             &mut output,
             &markers,
             ignored,
-            SoftwareDriver::EmbedAssets { reference: reference_path },
+            SoftwareDriver::EmbedAssets { reference },
         )?;
 
         output.flush()?;
@@ -103,7 +109,36 @@ fn gen_software_embed_assets(generated_file: &mut impl Write) -> std::io::Result
     Ok(())
 }
 
-#[cfg(feature = "software")]
+// Renders every case like `gen_software_embed_assets`, but compiled at run time by the interpreter,
+// and compares against the same references.
+#[cfg(feature = "interpreter-embed-assets")]
+fn gen_interpreter_embed_assets(generated_file: &mut impl Write) -> std::io::Result<()> {
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        let (reference, source, markers, ignored) = embed_assets_case(
+            &testcase,
+            &["software", "software-embed-assets", "interpreter-embed-assets"],
+        )?;
+        let path = testcase.absolute_path.to_str().unwrap().escape_default().to_string();
+        let include_paths = test_driver_lib::extract_include_paths(&source)
+            .map(|path| format!("\"{}\"", path.escape_default()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let scale_factor = markers.scale_factor.unwrap_or(1.);
+        let load =
+            format!("crate::interpreter::load(\"{path}\", {scale_factor}f32, &[{include_paths}])");
+        let module_name = testcase.identifier();
+        write!(generated_file, "\n#[cfg(test)]\nmod r#interpreter_embed_assets_{module_name} {{")?;
+        write_software_test(
+            generated_file,
+            &markers,
+            ignored,
+            SoftwareDriver::Interpreter { reference, load },
+        )?;
+        writeln!(generated_file, "\n}}")?;
+    }
+    Ok(())
+}
+
 fn generate_source(
     source: &str,
     output: &mut impl Write,
@@ -196,12 +231,23 @@ fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> Screensh
 // Which software driver a generated test belongs to. `EmbedAssets` (everything pre-rendered at
 // compile time) compares against and creates a single reference. `RuntimeAssets` (vector fonts plus
 // runtime-decoded images) compares against the `software/` reference if it exists, otherwise the
-// `software_embed_assets/` one, creating new references only under `software/`. All values are
-// quoted string literals.
+// `software_embed_assets/` one, creating new references only under `software/`. `Interpreter`
+// renders the case that `load` compiles at run time, and compares against `reference`.
+// All values are quoted string literals, except `load`, which is an expression.
 #[cfg(feature = "software")]
 enum SoftwareDriver {
-    EmbedAssets { reference: String },
-    RuntimeAssets { primary: String, fallback: String },
+    EmbedAssets {
+        reference: String,
+    },
+    RuntimeAssets {
+        primary: String,
+        fallback: String,
+    },
+    #[cfg(feature = "interpreter-embed-assets")]
+    Interpreter {
+        reference: String,
+        load: String,
+    },
 }
 
 // Emits the `#[test]` body that renders the (already generated) `TestCase` with the software
@@ -225,8 +271,9 @@ fn write_software_test(
     // decodes resources at runtime, a path that isn't rotation/partial-render stable (e.g. image
     // scaling) -- and those renderer dimensions are already covered for every case by the
     // embed-assets path.
-    let (configure_fonts, reference_setup, asserts) = match driver {
+    let (instance, configure_fonts, reference_setup, asserts) = match driver {
         SoftwareDriver::EmbedAssets { reference } => (
+            "TestCase::new().unwrap()".to_string(),
             "",
             format!("let screenshot = {reference};"),
             format!(
@@ -234,11 +281,20 @@ fn write_software_test(
             ),
         ),
         SoftwareDriver::RuntimeAssets { primary, fallback } => (
+            "TestCase::new().unwrap()".to_string(),
             "i_slint_backend_testing::configure_test_fonts();",
             format!(
                 "let (screenshot, options) = crate::software::resolve_software_reference({primary}, {fallback}, &options);"
             ),
             "    crate::software::assert_base_render(&screenshot, window.clone(), &options);"
+                .to_string(),
+        ),
+        #[cfg(feature = "interpreter-embed-assets")]
+        SoftwareDriver::Interpreter { reference, load } => (
+            load.to_string(),
+            "",
+            format!("let screenshot = {reference};"),
+            "    crate::software::assert_with_render(screenshot, window.clone(), &options);"
                 .to_string(),
         ),
     };
@@ -254,8 +310,8 @@ fn write_software_test(
     let options = crate::testing::TestCaseOptions {{ base_threshold: {base_threshold}f32, rotation_threshold: {rotation_threshold}f32, skip_clipping: {skip_clipping}, create_path: None }};
     {reference_setup}
 
-    let instance = TestCase::new().unwrap();
-    instance.show().unwrap();
+    let instance = {instance};
+    slint::ComponentHandle::show(&instance).unwrap();
 
 {asserts}
 
