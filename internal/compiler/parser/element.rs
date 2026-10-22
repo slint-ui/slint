@@ -129,7 +129,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_if_element(&mut *p);
                 }
                 _ if p.peek().as_str() == "match" => {
-                    let mut i = 2;
+                    let mut i = 1;
                     loop {
                         match p.nth(i).kind() {
                             SyntaxKind::FatArrow => {
