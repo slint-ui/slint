@@ -249,3 +249,39 @@ fn generated_python_loads_the_project_directory_it_was_generated_from() {
         assert!(code.contains("path=os.path.join(os.path.dirname(__file__), r'')"), "{code}");
     }
 }
+
+#[test]
+fn an_edition_before_a_behavior_change_warns() {
+    let project = Project::new(Some(r#"{ "slint-edition": "1.18", "main": "main.slint" }"#));
+    project.write("main.slint", PLAIN);
+
+    let output = project.compile(&project.root, &[]);
+    let message = stderr(&output);
+    assert!(output.status.success(), "{message}");
+    let warning = "'slint-edition' 1.18 misses the language behavior changes up to 1.19";
+    assert_eq!(message.matches(warning).count(), 1, "{message}");
+    assert!(message.contains("slint-project.json"), "{message}");
+
+    let project = Project::new(Some(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#));
+    project.write("main.slint", PLAIN);
+    let output = project.compile(&project.root, &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+}
+
+#[test]
+fn the_slint_edition_variable_does_not_warn() {
+    let project = Project::new(None);
+    let main = project.write("main.slint", PLAIN);
+    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+        .env("SLINT_EDITION", "1.18")
+        .arg("-f")
+        .arg("cpp")
+        .arg("-o")
+        .arg(project.root.join("generated.h"))
+        .arg(&main)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+}
