@@ -10,6 +10,8 @@ export struct CodeBinding {
 
 export enum CoordinateSpace { Root, Parent }
 
+export enum ResizeHandle { top, right, bottom, left, top-left, top-right, bottom-right, bottom-left }
+
 export struct Geometry {
     x: length,
     y: length,
@@ -493,6 +495,7 @@ export struct ImageAssetPreview {
 }
 
 export global Api {
+    out property <length> minimum-square-resize-size: 80px;
     // # Properties
     // ## General preview state:
     // enable editing mode
