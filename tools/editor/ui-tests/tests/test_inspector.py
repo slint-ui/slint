@@ -1072,6 +1072,108 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+ORIENTATION_ROWS = {"Slider": "inspect-slider", "RadioGroup": "inspect-radio-group"}
+ORIENTATION_DEFAULTS = {"Slider": "Horizontal", "RadioGroup": "Vertical"}
+
+
+def with_orientation_widgets(
+    baseline: bytes, kind: str, orientation: str | None = None
+) -> bytes:
+    bindings = {name: b"" for name in ORIENTATION_ROWS}
+    if orientation:
+        bindings[kind] = f"\n        orientation: {orientation};".encode()
+    source = replace_once(
+        baseline,
+        b"export component InspectorCases",
+        b'import { RadioGroup, Slider } from "std-widgets.slint";\n\n'
+        b"export component InspectorCases",
+    )
+    return replace_once(
+        source,
+        b"        vertical-alignment: center;\n    }\n}",
+        b"        vertical-alignment: center;\n    }\n\n"
+        b"    inspect-slider := Slider {\n"
+        b"        x: 32px;\n        y: 256px;\n        width: 160px;\n        height: 32px;"
+        + bindings["Slider"]
+        + b"\n    }\n\n"
+        b"    inspect-radio-group := RadioGroup {\n"
+        b"        x: 224px;\n        y: 256px;"
+        + bindings["RadioGroup"]
+        + b'\n        RadioButton { text: "One"; }'
+        b'\n        RadioButton { text: "Two"; }'
+        b"\n    }\n}",
+    )
+
+
+def select_orientation_widget(window: slint_testing.Window, kind: str) -> None:
+    select_outline_row(window, ORIENTATION_ROWS[kind])
+    element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
+
+
+@pytest.mark.parametrize("kind", tuple(ORIENTATION_ROWS))
+def test_orientation_shows_widget_default(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    source_file.write_bytes(with_orientation_widgets(source_file.read_bytes(), kind))
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_orientation_widget(window, kind)
+        wait_for_field(
+            window,
+            "Orientation",
+            ORIENTATION_DEFAULTS[kind],
+            slint_testing.AccessibleRole.Combobox,
+        )
+
+
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("kind", tuple(ORIENTATION_ROWS))
+def test_each_orientation_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    orientation: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    initial = "vertical" if orientation == "horizontal" else "horizontal"
+    starting_source = with_orientation_widgets(source_file.read_bytes(), kind, initial)
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_orientation_widget(window, kind)
+        wait_for_field(
+            window,
+            "Orientation",
+            initial.capitalize(),
+            slint_testing.AccessibleRole.Combobox,
+        )
+        open_combo_and_accept(
+            window, "Orientation", ("Horizontal", "Vertical"), orientation
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        orientation: {initial};".encode(),
+                f"        orientation: {orientation};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        wait_for_field(
+            window,
+            "Orientation",
+            orientation.capitalize(),
+            slint_testing.AccessibleRole.Combobox,
+        )
+
+
 @pytest.mark.parametrize(
     ("case", "value", "expected"),
     [

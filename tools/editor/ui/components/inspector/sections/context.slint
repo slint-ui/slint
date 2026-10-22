@@ -21,6 +21,10 @@ export global InspectorContext {
         return Api.selection.highlight-index >= 0 && InspectorContext.selection-rects.length > Api.selection.highlight-index;
     }
 
+    public pure function has-orientation-selection() -> bool {
+        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider");
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
@@ -47,6 +51,10 @@ export global InspectorContext {
 
     public pure function is-checkbox-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "CheckBox";
+    }
+
+    public pure function is-slider-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Slider";
     }
 
     public pure function is-resizable-selection() -> bool {
