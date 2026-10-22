@@ -715,7 +715,7 @@ mod tests {
                     Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
                 let entry = Url::from_file_path(directory.path().join("main.slint")).unwrap();
                 for (url, source) in [
-                    (manifest.clone(), r#"{"main":"main.slint"}"#),
+                    (manifest.clone(), r#"{"slint-edition":"1.19","main":"main.slint"}"#),
                     (
                         entry.clone(),
                         "export component Main inherits Window { out property <int> marker: 91; }",
@@ -760,7 +760,7 @@ mod tests {
                 session.process_message(
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(manifest, None),
-                        contents: "{}".into(),
+                        contents: r#"{"slint-edition":"1.19"}"#.into(),
                     },
                     &|_| {},
                     &mut None,
@@ -814,8 +814,8 @@ mod tests {
         assert!(session.dependencies.borrow().contains(&url));
         assert!(capture.0.borrow().is_empty());
         for (contents, rebuild) in [
-            (Some("{}"), true),
-            (Some("{}"), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
             (Some("{broken"), true),
             (None, true),
             (None, true),

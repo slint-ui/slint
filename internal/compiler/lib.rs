@@ -183,6 +183,13 @@ pub struct CompilerConfiguration {
     /// Add support for experimental features
     pub enable_experimental: bool,
 
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before editions existed.
+    pub edition: Option<project_file::SlintEdition>,
+
+    /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
+    invalid_edition_env: Option<String>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -310,6 +317,15 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        // Undocumented. Selects an edition without a project file,
+        // for the test drivers or to try a `.slint` file in slint-viewer.
+        let (edition, invalid_edition_env) = match std::env::var("SLINT_EDITION")
+            .map_or(Ok(None), |value| edition_from_env(&value))
+        {
+            Ok(edition) => (edition, None),
+            Err(message) => (None, Some(message)),
+        };
+
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -338,6 +354,8 @@ impl CompilerConfiguration {
             const_image_sizes,
             accessibility: true,
             enable_experimental,
+            edition,
+            invalid_edition_env,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -363,6 +381,20 @@ impl CompilerConfiguration {
     }
 }
 
+fn edition_from_env(value: &str) -> Result<Option<project_file::SlintEdition>, String> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let current = project_file::SlintEdition::current();
+    match value.parse() {
+        Ok(edition) if edition > current => Err(format!(
+            "SLINT_EDITION is {edition}, newer than this Slint {current}: set it to {current} or older"
+        )),
+        Ok(edition) => Ok(Some(edition)),
+        Err(message) => Err(format!("SLINT_EDITION: {message}")),
+    }
+}
+
 /// Prepare for compilation of the source file
 /// - storing parser configuration
 /// - setting up the parser
@@ -378,6 +410,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    // Not a panic, which would crash the LSP.
+    if let Some(message) = &compiler_config.invalid_edition_env {
+        diagnostics.push_error_with_span(message.clone(), Default::default());
+    }
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
@@ -468,5 +504,30 @@ fn reject_experimental_feature(
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{edition_from_env, project_file::SlintEdition};
+
+    #[test]
+    fn slint_edition_variable_selects_the_edition() {
+        assert_eq!(edition_from_env("1.19"), Ok(Some(SlintEdition::V1_19)));
+        assert_eq!(edition_from_env(""), Ok(None));
+    }
+
+    #[test]
+    fn an_invalid_slint_edition_variable_is_an_error() {
+        assert!(
+            edition_from_env("1.19.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION: '1.19.0' is not a Slint edition")
+        );
+        assert!(
+            edition_from_env("999.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION is 999.0, newer than this Slint")
+        );
     }
 }

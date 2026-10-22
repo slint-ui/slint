@@ -316,7 +316,9 @@ fn project_with_shared_component(project_file: &str) -> tempfile::TempDir {
 
 #[test]
 fn project_file_include_paths_are_used() {
-    let project = project_with_shared_component(r#"{ "include-paths": ["shared"] }"#);
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "include-paths": ["shared"] }"#,
+    );
     let main = project.path().join("main.slint");
     std::fs::write(
         &main,
@@ -329,8 +331,9 @@ fn project_file_include_paths_are_used() {
 
 #[test]
 fn project_file_library_paths_are_used() {
-    let project =
-        project_with_shared_component(r#"{ "library-paths": { "lib": "shared/shared.slint" } }"#);
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "library-paths": { "lib": "shared/shared.slint" } }"#,
+    );
     let main = project.path().join("main.slint");
     std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
         .unwrap();
@@ -340,7 +343,9 @@ fn project_file_library_paths_are_used() {
 
 #[test]
 fn an_empty_include_path_wins_over_the_project_file() {
-    let project = project_with_shared_component(r#"{ "include-paths": ["shared"] }"#);
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "include-paths": ["shared"] }"#,
+    );
     let main = project.path().join("main.slint");
     std::fs::write(
         &main,
@@ -354,8 +359,9 @@ fn an_empty_include_path_wins_over_the_project_file() {
 
 #[test]
 fn an_empty_library_path_wins_over_the_project_file() {
-    let project =
-        project_with_shared_component(r#"{ "library-paths": { "lib": "shared/shared.slint" } }"#);
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "library-paths": { "lib": "shared/shared.slint" } }"#,
+    );
     let main = project.path().join("main.slint");
     std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
         .unwrap();
