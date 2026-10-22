@@ -55,10 +55,13 @@ enum PyColorInput {
     },
 }
 
-/// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha is represented
-/// as an 8-bit integer. The alpha channel is 0 for fully transparent and 255 for fully opaque.
+/// A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha are
+/// represented as an 8-bit integer. The alpha channel is:
 ///
-/// Construct colors from a CSS color string, or by specifying the red, green, blue, and (optional) alpha channels in a dict.
+/// - `0`: fully transparent
+/// - `255`: fully opaque
+///
+/// You can construct colors from a CSS color string, or from a dict with the red, green, blue, and optional alpha channels.
 #[pyclass(name = "Color", from_py_object)]
 #[derive(Clone)]
 pub struct PyColor {
@@ -169,12 +172,12 @@ enum PyBrushInput {
     SolidColor(PyColor),
 }
 
-/// A brush is a data structure that is used to describe how a shape, such as a rectangle, path or even text,
-/// shall be filled. A brush can also be applied to the outline of a shape, that means the fill of the outline itself.
+/// A brush describes how a shape, such as a rectangle, path, or even text, is filled. You can also apply a brush
+/// to the outline of a shape, which fills the outline itself.
 ///
-/// Brushes can only be constructed from solid colors.
+/// You can only construct brushes from solid colors.
 ///
-/// **Note:** In future, we plan to reduce this constraint and allow for declaring gradient brushes programmatically.
+/// **Note:** In the future, we plan to lift this constraint and let you declare gradient brushes programmatically.
 #[pyclass(name = "Brush")]
 pub struct PyBrush {
     pub brush: slint_interpreter::Brush,
@@ -200,12 +203,12 @@ impl PyBrush {
         self.brush.color().into()
     }
 
-    /// Returns true if this brush contains a fully transparent color (alpha value is zero).
+    /// Returns `True` if this brush contains a fully transparent color (alpha value is `0`).
     fn is_transparent(&self) -> bool {
         self.brush.is_transparent()
     }
 
-    /// Returns true if this brush is fully opaque.
+    /// Returns `True` if this brush is fully opaque.
     fn is_opaque(&self) -> bool {
         self.brush.is_opaque()
     }
@@ -219,14 +222,14 @@ impl PyBrush {
 
     /// Returns a new version of this brush that has the brightness decreased
     /// by the specified factor. This is done by calling `Color.darker` on
-    /// all the color of this brush.
+    /// all the colors of this brush.
     fn darker(&self, factor: f32) -> Self {
         Self { brush: self.brush.darker(factor) }
     }
 
-    /// Returns a new version of this brush with the opacity decreased by `factor`.
+    /// Returns a new version of this brush with the opacity decreased by `amount`.
     ///
-    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - amount)`.
     ///
     /// See also `Color.transparentize`.
     fn transparentize(&self, amount: f32) -> Self {
