@@ -741,29 +741,49 @@ async fn handle_workspace_edit(
     let urls = editor_preview::editing::text_edit::EditIterator::new(edit)
         .map(|(document, _)| document.uri)
         .collect::<std::collections::HashSet<_>>();
+    let mut sources = std::collections::HashMap::new();
     for url in &urls {
-        if session
-            .document_cache
-            .get_document(url)
-            .and_then(|document| document.node.as_ref())
-            .is_none()
-            && let Err(error) = session.reload_document(url.clone()).await
-        {
-            tracing::error!(%url, %error, "Failed to load a workspace edit document");
-            return false;
-        }
+        let path = SourcePath::from_url(url);
+        let source_file =
+            if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+                match path.read_to_string() {
+                    Ok(contents) => std::sync::Arc::new(
+                        i_slint_compiler::diagnostics::SourceFileInner::new(path, contents),
+                    ),
+                    Err(error) => {
+                        tracing::error!(%url, %error, "Failed to load a workspace edit document");
+                        return false;
+                    }
+                }
+            } else {
+                if session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .is_none()
+                    && let Err(error) = session.reload_document(url.clone()).await
+                {
+                    tracing::error!(%url, %error, "Failed to load a workspace edit document");
+                    return false;
+                }
+                let Some(source_file) = session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .map(|node| node.source_file.clone())
+                else {
+                    tracing::warn!(%url, "Cannot apply a workspace edit with an unloaded document");
+                    return false;
+                };
+                source_file
+            };
+        sources.insert(url.clone(), source_file);
     }
-    if urls.iter().any(|url| {
-        session
-            .document_cache
-            .get_document(url)
-            .and_then(|document| document.node.as_ref())
-            .is_none()
-    }) {
-        tracing::warn!(?urls, "Cannot apply a workspace edit with unloaded documents");
-        return false;
-    }
-    match editor_preview::editing::text_edit::apply_workspace_edit(&session.document_cache, edit) {
+    match editor_preview::editing::text_edit::apply_workspace_edit_with_source(
+        edit,
+        session.document_cache.format,
+        |url| sources.get(url).cloned(),
+    ) {
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
@@ -928,6 +948,45 @@ mod tests {
                 "watcher event for {changed_file}"
             );
         }
+    }
+
+    #[test]
+    fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("slint-project.json");
+        let original = r#"{"main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
+        std::fs::write(&path, original).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let (mut session, _) = session_with_recording_previews();
+        for (version, width) in [(Some(10), 720), (Some(1), 1920)] {
+            let source = std::fs::read_to_string(&path).unwrap();
+            let offset = source.find("100").or_else(|| source.find("720")).unwrap();
+            let edit = editor_preview::editing::create_workspace_edit(
+                url.clone(),
+                version,
+                vec![lsp_types::TextEdit {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(0, offset as u32),
+                        lsp_types::Position::new(0, offset as u32 + 3),
+                    ),
+                    new_text: width.to_string(),
+                }],
+            );
+            assert!(spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+            assert!(session.document_cache.get_document(&url).is_none());
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                original.replace("100,", &format!("{width},"))
+            );
+        }
+        std::fs::remove_file(&path).unwrap();
+        let edit = editor_preview::editing::create_workspace_edit(
+            url,
+            None,
+            vec![lsp_types::TextEdit { range: lsp_types::Range::default(), new_text: "{}".into() }],
+        );
+        assert!(!spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+        assert!(!path.exists());
     }
 
     #[test]
