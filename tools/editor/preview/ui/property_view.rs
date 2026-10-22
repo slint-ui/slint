@@ -610,7 +610,7 @@ export component Win inherits Window {
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
-            code.into(),
+            Some(code.into()),
             path.clone(),
             i_slint_core::InternalToken,
         ));
@@ -688,7 +688,7 @@ export component Win inherits Window {
         drop(item);
         let old_item = cache.as_ref().get();
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
-            code.replace("Test Family", "Next Family"),
+            Some(code.replace("Test Family", "Next Family")),
             path,
             i_slint_core::InternalToken,
         ));

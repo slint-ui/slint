@@ -1019,28 +1019,31 @@ impl Compiler {
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
     ///
+    /// Without `source_code`, the file at `path` is read through the project file loader
+    /// (see `set_project_file_loader`), or directly without one.
+    ///
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(any(feature = "internal", feature = "internal-highlight"))]
     pub async fn build_from_source_path(
         &self,
-        source_code: String,
+        source_code: Option<String>,
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(Some(source_code), path, AnimationMode::Running).await
+        self.build(source_code, path, AnimationMode::Running).await
     }
 
-    /// Compile Slint code without timers or animations.
+    /// [`Self::build_from_source_path`] without timers or animations.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub async fn build_static_from_source(
         &self,
-        source_code: String,
+        source_code: Option<String>,
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(Some(source_code), path, AnimationMode::Static).await
+        self.build(source_code, path, AnimationMode::Static).await
     }
 
     async fn build(
@@ -2677,7 +2680,7 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     let path = SourcePath::new("/tmp/test.slint");
 
     let compile_result = spin_on::spin_on(compiler.build_from_source_path(
-        code.to_string(),
+        Some(code.to_string()),
         path.clone(),
         i_slint_core::InternalToken,
     ));
@@ -3054,13 +3057,13 @@ mod project_file_tests {
         let source = source.into();
         if static_compilation {
             spin_on::spin_on(compiler.build_static_from_source(
-                source,
+                Some(source),
                 path,
                 i_slint_core::InternalToken,
             ))
         } else {
             spin_on::spin_on(compiler.build_from_source_path(
-                source,
+                Some(source),
                 path,
                 i_slint_core::InternalToken,
             ))
@@ -3092,7 +3095,7 @@ mod project_file_tests {
             });
             let result = if remote {
                 spin_on::spin_on(compiler.build_from_source_path(
-                    source.into(),
+                    Some(source.into()),
                     super::SourcePath::new("https://example.invalid/ui/main.slint"),
                     i_slint_core::InternalToken,
                 ))
@@ -3286,7 +3289,7 @@ mod project_file_tests {
                 i_slint_core::InternalToken,
             );
             let result = spin_on::spin_on(compiler.build_from_source_path(
-                r#"{"main":"main.rs"}"#.into(),
+                Some(r#"{"main":"main.rs"}"#.into()),
                 manifest.clone(),
                 i_slint_core::InternalToken,
             ));
@@ -3309,7 +3312,7 @@ mod project_file_tests {
         let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
         let entry = manifest.parent().join("main.slint").unwrap();
         let result = spin_on::spin_on(Compiler::default().build_from_source_path(
-            r#"{"main":"main.slint"}"#.into(),
+            Some(r#"{"main":"main.slint"}"#.into()),
             manifest,
             i_slint_core::InternalToken,
         ));
@@ -3384,7 +3387,7 @@ mod project_file_tests {
                         if has_entry { r#"{"main":"main.slint"}"# } else { "{}" }.to_string();
                     let result = if static_compilation {
                         spin_on::spin_on(compiler.build_static_from_source(
-                            source,
+                            Some(source),
                             manifest.clone(),
                             i_slint_core::InternalToken,
                         ))
@@ -3392,7 +3395,7 @@ mod project_file_tests {
                         spin_on::spin_on(compiler.build_from_source(source, path.to_path_buf()))
                     } else {
                         spin_on::spin_on(compiler.build_from_source_path(
-                            source,
+                            Some(source),
                             manifest.clone(),
                             i_slint_core::InternalToken,
                         ))
@@ -3496,13 +3499,13 @@ mod project_file_tests {
                     compiler.set_include_paths(Vec::new());
                     let result = if static_compilation {
                         spin_on::spin_on(compiler.build_static_from_source(
-                            source.into(),
+                            Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
                         ))
                     } else {
                         spin_on::spin_on(compiler.build_from_source_path(
-                            source.into(),
+                            Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
                         ))

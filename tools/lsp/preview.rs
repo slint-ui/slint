@@ -1396,12 +1396,11 @@ fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)>
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.dependencies.insert(url.to_owned());
 
-        preview_state.source_code.get(url).map(|r| (r.version, r.code.clone())).ok_or(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not registered in Live-Preview!",
-            ),
-        )
+        preview_state
+            .source_code
+            .get(url)
+            .map(|r| (r.version, r.code.clone()))
+            .ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
     })
 }
 
@@ -1573,7 +1572,7 @@ async fn parse_source(
     config: PreviewConfig,
     path: SourcePath,
     version: SourceFileVersion,
-    source_code: String,
+    source_code: Option<String>,
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
@@ -1638,8 +1637,12 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let resolved_source =
-        i_slint_live_preview::protocol::preview_source_path(&path, &source_code).await;
+    let resolved_source = match &source_code {
+        Some(source_code) => {
+            i_slint_live_preview::protocol::preview_source_path(&path, source_code).await
+        }
+        None => None,
+    };
     let result =
         builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
 
@@ -1672,10 +1675,17 @@ async fn reload_preview_impl(
     }
 
     let path = SourcePath::from_url(&component.url);
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
-        tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
-        Default::default()
-    });
+    let (version, source) = match get_url_from_cache(&component.url) {
+        Ok((version, source)) => (version, Some(source)),
+        Err(err) => {
+            tracing::debug!(
+                "Preview: Failed to load source for url={}, error={}",
+                component.url,
+                err
+            );
+            (None, None)
+        }
+    };
 
     let format = if config.format_utf8 {
         editor_preview::ByteFormat::Utf8
@@ -2231,7 +2241,7 @@ pub mod test {
             Default::default(),
             path,
             Some(24),
-            source_code.to_string(),
+            Some(source_code.to_string()),
             style.to_string(),
             None,
             move |path| {
@@ -2300,7 +2310,7 @@ mod tests {
             Default::default(),
             SourcePath::from_url(&target.url),
             None,
-            r#"{"main":"main.slint"}"#.into(),
+            Some(r#"{"main":"main.slint"}"#.into()),
             "fluent".into(),
             None,
             move |path| {
@@ -2351,7 +2361,7 @@ mod tests {
             let switched_target = replacement.clone();
             let (diagnostics, _, _, _, resolved) = spin_on::spin_on(parse_source(
                 Default::default(), SourcePath::from_url(&original.url), None,
-                r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into(),
+                Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
                 move |path| {
                     let replacement = switched_target.clone();
@@ -2399,7 +2409,7 @@ mod tests {
                 Default::default(),
                 manifest.clone(),
                 Some(1),
-                source.into(),
+                Some(source.into()),
                 String::new(),
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
@@ -2416,6 +2426,33 @@ mod tests {
                 has_entry.then_some("CachedEntry")
             );
             assert_eq!(resolved, has_entry.then_some(entry.clone()));
+        }
+    }
+
+    #[test]
+    fn an_uncached_file_reports_the_missing_file() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let directory = tempfile::tempdir().unwrap();
+        for file_name in ["slint-project.json", "main.slint"] {
+            let path = SourcePath::new(directory.path().join(file_name));
+            let (diagnostics, compiled, _, versions, _) = spin_on::spin_on(parse_source(
+                Default::default(),
+                path.clone(),
+                None,
+                None,
+                String::new(),
+                None,
+                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+            ));
+            assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+            assert!(diagnostics[0].message().contains("File not found"), "{diagnostics:?}");
+            assert!(compiled.is_none());
+            let url = path.to_url().unwrap();
+            let converted = convert_diagnostics(&diagnostics, &versions.borrow());
+            let lsp_diagnostics = &converted[&url].1;
+            assert_eq!(lsp_diagnostics.len(), 1, "{converted:?}");
+            assert_eq!(lsp_diagnostics[0].range, lsp_types::Range::default());
         }
     }
 
