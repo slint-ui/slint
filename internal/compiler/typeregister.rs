@@ -224,6 +224,7 @@ impl BuiltinTypes {
                 ("easing", Type::Easing),
                 ("delay", Type::Int32),
                 ("enabled", Type::Bool),
+                ("angle-interpolation", enumeration(&enums.AngleInterpolation)),
             ],
         );
         add(

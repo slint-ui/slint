@@ -7,7 +7,6 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -485,7 +484,7 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16, sdf: bool },
 }
 
 impl SharedBufferData {
@@ -495,11 +494,12 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
         }
     }
-    #[allow(unused)]
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => {
+                data.as_slice().len() / *width as usize
+            }
         }
     }
 }
@@ -551,10 +551,23 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
-            SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
+                SceneTexture {
+                    data: &alpha.as_bytes()[start..end],
+                    pixel_stride: stride as u16,
+                    format: TexturePixelFormat::AlphaMap,
+                    extra: self.extra,
+                }
+            }
+            SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
+                data: &data.as_slice()[start..end],
                 pixel_stride: *width,
-                format: TexturePixelFormat::AlphaMap,
+                format: if *sdf {
+                    TexturePixelFormat::SignedDistanceField
+                } else {
+                    TexturePixelFormat::AlphaMap
+                },
                 extra: self.extra,
             },
             SharedBufferData::SharedImage(_) => unreachable!(
@@ -630,10 +643,56 @@ pub struct LinearGradientCommand {
     pub clip: GradientClip,
 }
 
+pub(crate) type GradientPosition = Fixed<i32, 16>;
+/// An interpolation factor between two stops, or its rate of change.
+pub(crate) type GradientFactor = Fixed<u32, 12>;
+
 #[derive(Clone, Copy, Debug)]
 pub struct PremultipliedGradientStop {
     pub color: PremultipliedRgbaColor,
-    pub position: f32,
+    pub position: GradientPosition,
+    /// The factor's rate of change per unit of position, towards the next stop.
+    /// 0 when the next stop isn't after this one.
+    pub step: GradientFactor,
+}
+
+impl PremultipliedGradientStop {
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+    ) -> i_slint_core::SharedVector<Self> {
+        // Keeps the distance between any two stops within an i32.
+        const MAX_POSITION: f32 = (1 << (30 - GradientPosition::SHIFT)) as f32;
+        let mut stops = stops
+            .map(|(color, position)| Self {
+                color,
+                position: GradientPosition::from_f32(position.clamp(-MAX_POSITION, MAX_POSITION))
+                    .unwrap_or_default(),
+                step: Fixed(0),
+            })
+            .peekable();
+        core::iter::from_fn(|| {
+            let mut stop = stops.next()?;
+            if let Some(next) = stops.peek() {
+                let distance = next.position - stop.position;
+                if distance.0 > 0 {
+                    stop.step = Fixed::from_fraction(
+                        GradientPosition::from_integer(1).0 as u32,
+                        distance.0 as u32,
+                    );
+                }
+            }
+            Some(stop)
+        })
+        .collect()
+    }
+
+    /// The interpolation factor towards the next stop at `position`,
+    /// which is between this stop and the next.
+    pub fn factor(&self, position: GradientPosition) -> GradientFactor {
+        let offset = (position - self.position).0 as u32;
+        let half = 1 << (GradientPosition::SHIFT - 1);
+        Fixed((offset * self.step.0 + half) >> GradientPosition::SHIFT)
+    }
 }
 
 /// Radial gradient that interpolates colors from the center outward

@@ -1,0 +1,118 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ISSUE #6320: padding-left etc. and spacing-horizontal/-vertical read the value of padding/spacing when not set
+
+import { HorizontalBox } from "std-widgets.slint";
+
+component MyBox inherits HorizontalLayout {
+    padding: 7px;
+    spacing: 3px;
+}
+
+component EmptyBox inherits HorizontalLayout { }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    in-out property <length> pad: 4px;
+
+    VerticalLayout {
+        h := HorizontalLayout {
+            padding: 8px;
+            Rectangle { }
+        }
+
+        h2 := HorizontalLayout {
+            padding: 8px;
+            padding-left: 2px;
+            Rectangle { }
+        }
+
+        g := GridLayout {
+            padding: 5px;
+            spacing: 4px;
+            spacing-vertical: 1px;
+            Rectangle { }
+        }
+
+        f := FlexboxLayout {
+            padding: 6px;
+            spacing: 9px;
+            Rectangle { }
+        }
+
+        m := MyBox {
+            Rectangle { }
+        }
+
+        hb := HorizontalBox {
+            Rectangle { }
+        }
+
+        e := EmptyBox {
+            padding: 3px;
+            Rectangle { }
+        }
+
+        v := VerticalLayout {
+            padding: pad;
+            Rectangle { }
+        }
+    }
+
+    out property <bool> box-ok: h.padding-left == 8px && h.padding-right == 8px && h.padding-top == 8px && h.padding-bottom == 8px;
+    out property <bool> box-override-ok: h2.padding-left == 2px && h2.padding-right == 8px;
+    out property <bool> grid-ok: g.padding-left == 5px && g.padding-bottom == 5px && g.spacing-horizontal == 4px && g.spacing-vertical == 1px;
+    out property <bool> flexbox-ok: f.padding-top == 6px && f.padding-right == 6px && f.spacing-horizontal == 9px && f.spacing-vertical == 9px;
+    out property <bool> component-ok: m.padding-left == 7px && m.padding-bottom == 7px;
+    out property <bool> std-box-ok: hb.padding > 0 && hb.padding-left == hb.padding && hb.padding-top == hb.padding;
+    out property <bool> use-site-ok: e.padding-left == 3px && e.padding-bottom == 3px;
+    out property <bool> runtime-ok: v.padding-left == pad && v.padding-bottom == pad;
+    out property <bool> test: box-ok && box-override-ok && grid-ok && flexbox-ok && component-ok && std-box-ok && use-site-ok && runtime-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_box_ok());
+assert!(instance.get_box_override_ok());
+assert!(instance.get_grid_ok());
+assert!(instance.get_flexbox_ok());
+assert!(instance.get_component_ok());
+assert!(instance.get_std_box_ok());
+assert!(instance.get_use_site_ok());
+assert!(instance.get_runtime_ok());
+instance.set_pad(10.);
+assert!(instance.get_runtime_ok());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_box_ok());
+assert(instance.get_box_override_ok());
+assert(instance.get_grid_ok());
+assert(instance.get_flexbox_ok());
+assert(instance.get_component_ok());
+assert(instance.get_std_box_ok());
+assert(instance.get_use_site_ok());
+assert(instance.get_runtime_ok());
+instance.set_pad(10.);
+assert(instance.get_runtime_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.box_ok);
+assert(instance.box_override_ok);
+assert(instance.grid_ok);
+assert(instance.flexbox_ok);
+assert(instance.component_ok);
+assert(instance.std_box_ok);
+assert(instance.use_site_ok);
+assert(instance.runtime_ok);
+instance.pad = 10;
+assert(instance.runtime_ok);
+```
+*/

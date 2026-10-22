@@ -19,7 +19,7 @@ impl PyImage {
         Ok(Self { image: Default::default() })
     }
 
-    /// The size of the image as tuple of `width` and `height`.
+    /// The size of the image as a tuple of `width` and `height`.
     #[getter]
     fn size(&self) -> PyResult<(u32, u32)> {
         Ok(self.image.size().into())
@@ -37,20 +37,20 @@ impl PyImage {
         Ok(self.image.size().height)
     }
 
-    /// The path of the image if it was loaded from disk, or None.
+    /// The path of the image if it was loaded from disk, or `None`.
     #[getter]
     fn path(&self) -> PyResult<Option<std::path::PathBuf>> {
         Ok(self.image.path().map(|p| p.to_path_buf()))
     }
 
-    /// Loads the image from the specified path. Returns None if the image can't be loaded.
+    /// Loads the image from the specified path. Raises `RuntimeError` if the image can't be loaded.
     #[staticmethod]
     fn load_from_path(path: std::path::PathBuf) -> Result<Self, crate::errors::PyLoadImageError> {
         let image = slint_interpreter::Image::load_from_path(&path)?;
         Ok(Self { image })
     }
 
-    /// Creates a new image from a string that describes the image in SVG format.
+    /// Creates a new image from bytes that describe the image in SVG format.
     #[staticmethod]
     fn load_from_svg_data(data: Vec<u8>) -> Result<Self, crate::errors::PyLoadImageError> {
         let image = slint_interpreter::Image::load_from_svg_data(&data)?;
@@ -65,12 +65,12 @@ impl PyImage {
     ///  - The buffer's format needs to be `B` (unsigned char)
     ///  - The shape must be a tuple of (height, width, bytes-per-pixel)
     ///  - If a stride is defined, the row stride must be equal to width * bytes-per-pixel, and the column stride must equal the bytes-per-pixel.
-    ///  - A value of 3 for bytes-per-pixel is interpreted as RGB image, a value of 4 means RGBA.
+    ///  - A value of 3 for bytes-per-pixel is interpreted as an RGB image, a value of 4 means RGBA.
     ///
-    /// The image is created by performing a deep copy of the array's data. Subsequent changes to the buffer are not automatically
+    /// The image is created by performing a deep copy of the array's data. Subsequent changes to the buffer aren't
     /// reflected in a previously created Image.
     ///
-    /// Example of importing a matplot figure into an image:
+    /// Example of importing a Matplotlib figure into an image:
     /// ```python
     /// import slint
     /// import matplotlib

@@ -110,7 +110,6 @@ fn generate_public_component(
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke(#prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #component_name, #prop_name))
@@ -118,7 +117,6 @@ fn generate_public_component(
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
                     self.0.borrow().set_callback(#prop_name, sp::Rc::new(move |values| {
@@ -135,7 +133,6 @@ fn generate_public_component(
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke(#prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for function {}::{}", #component_name, #prop_name))
@@ -148,7 +145,6 @@ fn generate_public_component(
 
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #convert_from_value(self.0.borrow().get_property(#prop_name))
                         .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #component_name, #prop_name))
@@ -158,14 +154,13 @@ fn generate_public_component(
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         self.0.borrow().set_property(#prop_name, #convert_to_value(value))
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -296,7 +291,6 @@ fn generate_global(
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke_global(#global_name, #prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for callback {}::{}", #global_name, #prop_name))
@@ -304,7 +298,6 @@ fn generate_global(
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let f = ::core::cell::RefCell::new(f);
                     self.0.borrow().set_global_callback(#global_name, #prop_name, sp::Rc::new(move |values| {
@@ -321,7 +314,6 @@ fn generate_global(
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     self.0.borrow().invoke_global(#global_name, #prop_name, &[#(#args_name.into(),)*])
                         .try_into().unwrap_or_else(|_| panic!("Invalid return type for function {}::{}", #global_name, #prop_name))
@@ -334,7 +326,6 @@ fn generate_global(
 
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #convert_from_value(self.0.borrow().get_global_property(#global_name, #prop_name))
                         .unwrap_or_else(|_| panic!("Invalid property type for {}::{}", #global_name, #prop_name))
@@ -344,14 +335,13 @@ fn generate_global(
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             if !p.read_only() {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         self.0.borrow().set_global_property(#global_name, #prop_name, #convert_to_value(value))
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -374,7 +364,6 @@ fn generate_global(
     );
 
     quote!(
-        #[allow(unused)]
         pub struct #public_component_id<'a>(
             #public_fields sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>,
             #public_fields ::core::marker::PhantomData<&'a sp::live_preview::LiveReloadingComponent>,
@@ -439,7 +428,7 @@ fn import_library_types(doc: &Document, llr: &llr::CompilationUnit) -> TokenStre
         })
         .map(|(symbol, library_info)| {
             let symbol_path = super::rust::library_symbol_path(library_info, ident(symbol));
-            quote!(#[allow(unused_imports)] pub use #symbol_path;)
+            quote!(pub use #symbol_path;)
         })
         .collect();
 

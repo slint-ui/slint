@@ -260,7 +260,6 @@ pub fn generate(
             .map(|(symbol, library_info)| {
                 let symbol_path = library_symbol_path(library_info, ident(symbol));
                 quote!(
-                    #[allow(unused_imports)]
                     pub use #symbol_path;
                 )
             })
@@ -282,10 +281,16 @@ pub fn generate(
 
     let inner_module = generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
+    // Each sub-component in its own module: rustc doesn't split a module into several codegen
+    // units, so with incremental compilation one change would rebuild all of them.
     let sub_compos = llr
         .used_sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(*sub_compo, &llr, None, None, false))
+        .map(|sub_compo| {
+            let module = format_ident!("sc_{}", ident(&llr.sub_components[*sub_compo].name));
+            let code = generate_sub_component(*sub_compo, &llr, None, None, false);
+            quote!(mod #module { use super::*; #code } use #module::*;)
+        })
         .collect::<Vec<_>>();
     let public_components =
         llr.public_components.iter().map(|p| generate_public_component(p, &llr, compiler_config));
@@ -354,12 +359,11 @@ pub fn generate(
 pub(super) fn generate_module_header() -> TokenStream {
     quote! {
         #![allow(non_snake_case, non_camel_case_types)]
-        #![allow(unused_braces, unused_parens, dead_code)]
+        #![allow(unused)]
         #![allow(clippy::all, clippy::pedantic, clippy::nursery)]
         #![allow(unknown_lints, if_let_rescope, tail_expr_drop_order)] // We don't have fancy Drop
 
         use slint::private_unstable_api::re_exports as sp;
-        #[allow(unused_imports)]
         use sp::{RepeatedItemTree as _, ModelExt as _, Model as _};
     }
 }
@@ -715,13 +719,13 @@ fn generate_shared_globals(
     });
 
     quote! {
-        #pub_token struct SharedGlobals {
+        pub struct SharedGlobals {
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
             context : sp::SlintContext,
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
-            #(#[allow(dead_code)]
+            #(
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
         }
         impl SharedGlobals {
@@ -747,7 +751,6 @@ fn generate_shared_globals(
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
-            #[allow(dead_code)]
             #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
                 sp::Rc::new(Self {
                     #(#global_names : self.#global_names.clone(),)*
@@ -764,7 +767,6 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
-            #[allow(dead_code)]
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
             }
@@ -876,7 +878,6 @@ fn generate_enum(en: &std::sync::Arc<Enumeration>) -> TokenStream {
         rust_attributes_tokens(&en.rust_attributes, "enum", &en.name, en.node.as_ref());
     quote! {
         #attributes
-        #[allow(dead_code)]
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
         pub enum #enum_name {
             #(#enum_values,)*
@@ -975,7 +976,8 @@ fn handle_property_init(
     // instantiated once per property type instead of per (property type,
     // component). Globals are behind a plain Rc without a type-erased weak
     // form and keep the helpers that are generic over the component.
-    let erased = ctx.current_global().is_none();
+    let inner_component = ctx.current_sub_component().map(inner_component_id);
+    let erased = inner_component.is_some();
     // A closure evaluating `body` on the component, in the form expected by
     // the selected helper. Optionally takes extra arguments.
     let self_closure = |args: TokenStream, body: TokenStream| {
@@ -984,6 +986,18 @@ fn handle_property_init(
         } else {
             quote!(move |self_rc #args| { let _self = self_rc.as_ref(); #body })
         }
+    };
+    // Like `self_closure`, but a function item when the types can be spelled out: converting a
+    // closure to a function pointer generates one more function per binding.
+    let self_fn = |args: TokenStream, ret: Option<TokenStream>, body: TokenStream| match (
+        ret,
+        &inner_component,
+    ) {
+        (Some(ret), Some(inner)) => quote!({
+            fn binding(_self: ::core::pin::Pin<&#inner> #args) -> #ret { #body }
+            binding
+        }),
+        _ => self_closure(args, body),
     };
     let helper = |name: &str| {
         if erased {
@@ -1002,7 +1016,14 @@ fn handle_property_init(
             compile_expression(&binding_expression.expression.borrow(), &ctx2);
         let as_ = if matches!(callback.return_type, Type::Void) { quote!(;) } else { quote!(as _) };
         let set_callback_handler = helper("set_callback_handler");
-        let handler = self_closure(quote!(, args), quote!({ (#tokens_for_expression) #as_ }));
+        let arg_types = callback.args.iter().map(rust_primitive_type).collect::<Option<Vec<_>>>();
+        let (args, ret) = match arg_types {
+            Some(arg_types) => {
+                (quote!(, args: &(#(#arg_types,)*)), rust_primitive_type(&callback.return_type))
+            }
+            None => (quote!(, args), None),
+        };
+        let handler = self_fn(args, ret, quote!({ (#tokens_for_expression) #as_ }));
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             #set_callback_handler(#rust_property, &self_rc, { #handler });
@@ -1029,16 +1050,22 @@ fn handle_property_init(
                 quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
             }
             llr::BindingKind::State => {
-                let binding_tokens =
-                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
+                let binding_tokens = self_fn(
+                    unit_arg.clone(),
+                    Some(quote!(i32)),
+                    quote!((#tokens_for_expression) #maybe_cast),
+                );
                 let set_property_state_binding = helper("set_property_state_binding");
                 quote! { {
                     #set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             }
             llr::BindingKind::Normal => {
-                let binding_tokens =
-                    self_closure(unit_arg.clone(), quote!((#tokens_for_expression) #maybe_cast));
+                let binding_tokens = self_fn(
+                    unit_arg.clone(),
+                    rust_property_type(prop_type),
+                    quote!((#tokens_for_expression) #maybe_cast),
+                );
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
@@ -1076,13 +1103,31 @@ fn handle_property_init(
     }
 }
 
+/// The member `member` (a field offset) of the current component, or of the parent component
+/// that `parent_path` walks to (see [`parent_access_path`]).
+fn pinned_member(parent_path: &Option<TokenStream>, member: TokenStream) -> MemberAccess {
+    match parent_path {
+        None => MemberAccess::Direct(quote!(#member.apply_pin(_self))),
+        Some(parent_path) => MemberAccess::Option(option_map(
+            quote!(&#parent_path),
+            quote!(#member.apply_pin(x.as_pin_ref())),
+        )),
+    }
+}
+
+/// `opt.map(|x| body)`, spelled as a `match` so that it doesn't instantiate `Option::map` with
+/// a new closure type at every use.
+fn option_map(opt: TokenStream, body: TokenStream) -> TokenStream {
+    quote!(match #opt { Some(x) => Some(#body), None => None })
+}
+
 /// Token stream that walks up `parent_level` parent pointers (`_self.parent.upgrade()...`),
 /// or `None` when `parent_level` is 0 (the member lives on the current component).
 fn parent_access_path(parent_level: usize) -> Option<TokenStream> {
     (parent_level != 0).then(|| {
         let mut path = quote!(_self.parent.upgrade());
         for _ in 1..parent_level {
-            path = quote!(#path.and_then(|x| x.parent.upgrade()));
+            path = quote!(match #path { Some(x) => x.parent.upgrade(), None => None });
         }
         path
     })
@@ -1145,12 +1190,7 @@ fn access_callback_tracker(
             let tracker_field = access_component_field_offset(&component_id, &tracker_name);
 
             let parent_path = parent_access_path(*parent_level);
-            Some(parent_path.map_or_else(
-                || MemberAccess::Direct(quote!((#compo_path #tracker_field).apply_pin(_self))),
-                |parent_path| {
-                    MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #tracker_field).apply_pin(x.as_pin_ref()))))
-                },
-            ))
+            Some(pinned_member(&parent_path, quote!((#compo_path #tracker_field))))
         }
         _ => None,
     }
@@ -1175,7 +1215,6 @@ fn public_api(
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop.call(&(#(#args_name,)*))
@@ -1186,10 +1225,8 @@ fn public_api(
             let set_dirty = access_callback_tracker(&p.prop, ctx)
                 .map(|t| t.then(|t| quote!({ #t.mark_dirty(); })));
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let _self = #self_init;
-                    #[allow(unused)]
                     #prop.set_handler(
                         // FIXME: why do i need to clone here?
                         move |args| f(#(args.#args_index.clone()),*)
@@ -1205,7 +1242,6 @@ fn public_api(
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop(#(#args_name,)*)
@@ -1219,9 +1255,7 @@ fn public_api(
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
-                    #[allow(unused_imports)]
                     let _self = #self_init;
                     #prop_expression
                 }
@@ -1231,16 +1265,14 @@ fn public_api(
             if !p.read_only() {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
-                        #[allow(unused_imports)]
                         let _self = #self_init;
                         #set_value
                     }
                 ));
             } else {
                 property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                    fn #setter_ident(&self, _read_only_property : ()) { }
                 ));
             }
         }
@@ -1249,15 +1281,14 @@ fn public_api(
     for (name, ty) in private_properties {
         if let Type::Function { .. } = ty {
             let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
-            property_and_callback_accessors.push(
-                quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
-            );
+            property_and_callback_accessors
+                .push(quote!( fn #caller_ident(&self, _private_function: ()) {} ));
         } else {
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
             let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
-                #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
+                fn #getter_ident(&self, _private_property: ()) {}
+                fn #setter_ident(&self, _private_property: ()) {}
             ));
         }
     }
@@ -1309,7 +1340,6 @@ fn emit_in_chunks(
             chunk_fns.push(quote!(
                 #[inline(never)]
                 fn #name(#params) #ret {
-                    #![allow(unused)]
                     #prologue
                     #(#chunk)*
                     #ok
@@ -1586,7 +1616,7 @@ fn generate_sub_component_body(
                 quote!((#index, sp::AccessibilityAction::#what) => { #e })
             } else {
                 let arg = (0..arg_count).map(|i| format_ident!("arg_{i}")).collect::<Vec<_>>();
-                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { #[allow(unused_variables)] let args = (#(#arg,)*); #e })
+                quote!((#index, sp::AccessibilityAction::#what(#(#arg),*)) => { let args = (#(#arg,)*); #e })
             });
             supported_accessibility_actions.entry(*index).or_default().insert(what);
         } else {
@@ -1760,9 +1790,35 @@ fn generate_sub_component_body(
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
-    for prop in &component.const_properties {
-        let rust_property = access_local_member(prop, &ctx);
-        init.push(quote!(#rust_property.set_constant();))
+    if !component.const_properties.is_empty() {
+        let offsets = component.const_properties.iter().map(|prop| {
+            let offset = const_path_offset(root, component, &prop.sub_component_path, |sc| {
+                match &prop.reference {
+                    llr::LocalMemberIndex::Property(index) => access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.properties[*index].name),
+                    ),
+                    llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
+                        let item = &sc.items[*item_index];
+                        let item_field = access_component_field_offset(
+                            &self::inner_component_id(sc),
+                            &ident(&item.name),
+                        );
+                        let item_ty = ident(&item.ty.class_name);
+                        let prop = ident(prop_name);
+                        quote!(sp::compose_field_offsets(#item_field, sp::#item_ty::FIELD_OFFSETS.#prop()))
+                    }
+                    _ => unreachable!("only properties can be constant"),
+                }
+            });
+            quote!(sp::ErasedPropertyOffset::new(#offset))
+        });
+        let count = component.const_properties.len();
+        init.push(quote!(sp::set_constant_properties(_self, {
+            const CONSTANT_PROPERTIES: [sp::ErasedPropertyOffset<#inner_component_id>; #count] =
+                [#(#offsets),*];
+            &CONSTANT_PROPERTIES
+        });));
     }
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
@@ -1802,7 +1858,6 @@ fn generate_sub_component_body(
                     new_row: bool,
                     result: &mut [sp::GridLayoutInputData],
                 ) {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1816,7 +1871,6 @@ fn generate_sub_component_body(
                 fn flexbox_layout_item_info_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                 ) -> sp::FlexboxLayoutItemInfo {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1830,7 +1884,6 @@ fn generate_sub_component_body(
                 fn cross_axis_self_alignment_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                 ) -> sp::CrossAxisAlignment {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
@@ -1842,15 +1895,11 @@ fn generate_sub_component_body(
             let expr = compile_expression(&expr.borrow(), &ctx);
             quote! {
                 fn layout_order_for_repeated(self: ::core::pin::Pin<&Self>) -> i32 {
-                    #![allow(unused)]
                     let _self = self;
                     #expr
                 }
             }
         });
-
-    // FIXME! this is only public because of the ComponentHandle::WeakInner. we should find another way
-    let visibility = parent_ctx.is_none().then(|| quote!(pub));
 
     let subtree_index_function = if let Some(property_index) = index_property {
         let prop = access_local_member(&property_index.into(), &ctx);
@@ -1922,43 +1971,39 @@ fn generate_sub_component_body(
         #[const_field_offset(sp::const_field_offset)]
         #[repr(C)]
         #pin_macro
-        #visibility
-        struct #inner_component_id {
-            #(#item_names : sp::#item_types,)*
-            #(#sub_component_names : #sub_component_types,)*
-            #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
-            #(#declared_property_vars : sp::Property<#declared_property_types>,)*
-            #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#callback_tracker_names : sp::Property<()>,)*
-            #(#repeated_element_components,)*
-            #(#change_tracker_names : sp::ChangeTracker,)*
-            #(#timer_names : sp::Timer,)*
-            self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
-            #(parent : #parent_component_type,)*
-            globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
-            tree_index: ::core::cell::Cell<u32>,
-            tree_index_of_first_child: ::core::cell::Cell<u32>,
+        pub struct #inner_component_id {
+            #(pub(super) #item_names : sp::#item_types,)*
+            #(pub(super) #sub_component_names : #sub_component_types,)*
+            #(pub(super) #popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
+            #(pub(super) #declared_property_vars : sp::Property<#declared_property_types>,)*
+            #(pub(super) #declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(pub(super) #callback_tracker_names : sp::Property<()>,)*
+            #(pub(super) #repeated_element_components,)*
+            #(pub(super) #change_tracker_names : sp::ChangeTracker,)*
+            #(pub(super) #timer_names : sp::Timer,)*
+            pub(super) self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
+            #(pub(super) parent : #parent_component_type,)*
+            pub(super) globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
+            pub(super) tree_index: ::core::cell::Cell<u32>,
+            pub(super) tree_index_of_first_child: ::core::cell::Cell<u32>,
         }
 
         impl #inner_component_id {
             // Shorthands used by the generated expression code: these accesses are
             // emitted many times, so keep the call sites as small as possible.
-            #[allow(dead_code)]
-            fn globals(&self) -> &sp::Rc<SharedGlobals> {
+            pub(super) fn globals(&self) -> &sp::Rc<SharedGlobals> {
                 self.globals.get().unwrap()
             }
 
-            #[allow(dead_code)]
-            fn origin_rc(&self) -> sp::ItemTreeRc {
+            pub(super) fn origin_rc(&self) -> sp::ItemTreeRc {
                 sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
             }
 
-            fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
+            pub(super) fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32)
                 -> ::core::result::Result<(), slint::PlatformError>
             {
-                #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
                 let _ = _self.globals.set(globals);
@@ -1968,21 +2013,19 @@ fn generate_sub_component_body(
                 ::core::result::Result::Ok(())
             }
 
-            fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                #![allow(unused)]
+            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
 
             #(#chunk_fns)*
 
-            fn visit_dynamic_children(
+            pub(super) fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
                 order: sp::TraversalOrder,
                 visitor: sp::ItemVisitorRefMut<'_>
             ) -> sp::VisitChildrenResult {
-                #![allow(unused)]
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
@@ -1990,16 +2033,14 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                #![allow(unused)]
+            pub(super) fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
                 let _self = self;
                 let mut _changed = false;
                 #(#ensure_instantiated_stmts)*
                 _changed
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-                #![allow(unused)]
+            pub(super) fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
                 let _self = self;
                 match orientation {
                     sp::Orientation::Horizontal => #layout_info_h,
@@ -2015,8 +2056,7 @@ fn generate_sub_component_body(
 
             #layout_order_for_repeated_fn
 
-            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-                #![allow(unused)]
+            pub(super) fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
@@ -2024,8 +2064,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-                #![allow(unused)]
+            pub(super) fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
@@ -2033,14 +2072,12 @@ fn generate_sub_component_body(
                 };
             }
 
-            fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
-                #![allow(unused)]
+            pub(super) fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 let _self = self;
                 #subtree_index_function
             }
 
-            fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-                #![allow(unused)]
+            pub(super) fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 let _self = self;
                 // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
                 // fields are in alphabetical order
@@ -2051,8 +2088,7 @@ fn generate_sub_component_body(
                 sp::euclid::rect(x, y, w, h)
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                #![allow(unused)]
+            pub(super) fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
                 let _self = self;
                 match index {
                     #(#accessible_role_branch)*
@@ -2061,12 +2097,11 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn accessible_string_property(
+            pub(super) fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
                 what: sp::AccessibleStringProperty,
             ) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
@@ -2074,8 +2109,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                #![allow(unused)]
+            pub(super) fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
                 let _self = self;
                 match (index, action) {
                     #(#accessibility_action_branch)*
@@ -2083,8 +2117,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                #![allow(unused)]
+            pub(super) fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
                 let _self = self;
                 match index {
                     #(#supported_accessibility_actions_branch)*
@@ -2092,8 +2125,7 @@ fn generate_sub_component_body(
                 }
             }
 
-            fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
+            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
                 let _self = self;
                 match index {
                     #(#item_element_infos_branch)*
@@ -2276,7 +2308,6 @@ fn generate_global(
         );
 
         quote!(
-            #[allow(unused)]
             pub struct #public_component_id<'a>(#pub_token ::core::pin::Pin<sp::Rc<#inner_component_id>>, #pub_token ::core::marker::PhantomData<&'a #inner_component_id>);
 
             impl<'a> #public_component_id<'a> {
@@ -2306,7 +2337,6 @@ fn generate_global(
             impl #inner_component_id {
                 // Shorthand used by the generated expression code: the member access is
                 // emitted for every global property access, so keep it as small as possible.
-                #[allow(dead_code)]
                 fn globals(&self) -> sp::Rc<SharedGlobals> {
                     self.globals.get().unwrap().upgrade().unwrap()
                 }
@@ -2314,7 +2344,6 @@ fn generate_global(
                     sp::Rc::pin(Self::default())
                 }
                 fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
-                    #![allow(unused)]
                     let _ = self.globals.set(sp::Rc::downgrade(globals));
                     let self_rc = self;
                     let _self = self_rc.as_ref();
@@ -2486,23 +2515,16 @@ fn generate_item_tree_body(
                     }
                 ));
 
-                // The array is const, so nested offsets are composed with the
-                // const compose_field_offsets rather than the non-const `+`.
-                let mut sc = &root.sub_components[sub_tree.root];
-                let mut offsets = Vec::new();
-                for i in &node.sub_component_path {
-                    offsets.push(access_component_field_offset(
-                        &self::inner_component_id(sc),
-                        &ident(&sc.sub_components[*i].name),
-                    ));
-                    sc = &root.sub_components[sc.sub_components[*i].ty];
-                }
-                let offset = offsets.into_iter().rfold(
-                    access_component_field_offset(
-                        &self::inner_component_id(component),
-                        &ident(&item.name),
-                    ),
-                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                let offset = const_path_offset(
+                    root,
+                    &root.sub_components[sub_tree.root],
+                    &node.sub_component_path,
+                    |sc| {
+                        access_component_field_offset(
+                            &self::inner_component_id(sc),
+                            &ident(&item.name),
+                        )
+                    },
                 );
                 item_array.push(quote!(sp::VOffset::new(#offset)));
             }
@@ -2634,8 +2656,7 @@ fn generate_item_tree_body(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
-                #![allow(unused)]
+            pub(super) fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = sp::VRc::new(_self);
@@ -2648,12 +2669,12 @@ fn generate_item_tree_body(
                 ::core::result::Result::Ok(self_rc)
             }
 
-            fn item_tree() -> &'static [sp::ItemTreeNode] {
+            pub(super) fn item_tree() -> &'static [sp::ItemTreeNode] {
                 const ITEM_TREE : [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 &ITEM_TREE
             }
 
-            fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
+            pub(super) fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
                 const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
                     = [#(#item_array),*];
                 &ITEM_ARRAY
@@ -3024,7 +3045,6 @@ fn generate_repeated_component_body(
                         .collect();
 
                     quote! {
-                        #[allow(unused)]
                         if let Some(index) = child_index {
                             let _self = self.as_ref();
                             let mut count = 0usize;
@@ -3103,19 +3123,16 @@ fn generate_repeated_component_body(
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }
-                    #[allow(unused_variables)]
                     fn flexbox_layout_item_info_at_cross_width(
                         self: ::core::pin::Pin<&Self>,
                         #cross_width_param: f32,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #at_cross_width_body
@@ -3144,9 +3161,7 @@ fn generate_repeated_component_body(
                         self: ::core::pin::Pin<&Self>,
                         #param: f32,
                     ) -> sp::LayoutItemInfo {
-                        #[allow(unused)]
                         let _self = self.as_ref();
-                        #[allow(unused)]
                         let o = sp::Orientation::Vertical;
                         sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
                     }
@@ -3303,12 +3318,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     let property_field =
                         access_component_field_offset(&component_id, &property_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #property_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #property_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #property_field)))
                 }
                 llr::LocalMemberIndex::Callback(callback_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3320,12 +3330,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let callback_name = ident(&sub_component.callbacks[*callback_index].name);
                     let callback_field =
                         access_component_field_offset(&component_id, &callback_name);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #callback_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #callback_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #callback_field)))
                 }
                 llr::LocalMemberIndex::Function(function_index) => {
                     let mut sub_component = &ctx.compilation_unit.sub_components
@@ -3347,7 +3352,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     parent_path.map_or_else(
                         || MemberAccess::Direct(quote!(#compo_path.#fn_id)),
                         |parent_path| {
-                            MemberAccess::OptionFn(parent_path, quote!(|x| #compo_path.#fn_id))
+                            MemberAccess::OptionFn(parent_path, quote!(#compo_path.#fn_id))
                         },
                     )
                 }
@@ -3360,12 +3365,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let component_id = inner_component_id(sub_component);
                     let timer_ident = format_ident!("timer{}", usize::from(*timer_index));
                     let timer_field = access_component_field_offset(&component_id, &timer_ident);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #timer_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #timer_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #timer_field)))
                 }
                 llr::LocalMemberIndex::Repeater(repeater_index) => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3377,12 +3377,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let repeater_ident = format_ident!("repeater{}", usize::from(*repeater_index));
                     let repeater_field =
                         access_component_field_offset(&component_id, &repeater_ident);
-                    parent_path.map_or_else(
-                        || MemberAccess::Direct(quote!((#compo_path #repeater_field).apply_pin(_self))),
-                        |parent_path| {
-                            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #repeater_field).apply_pin(x.as_pin_ref()))))
-                        },
-                    )
+                    pinned_member(&parent_path, quote!((#compo_path #repeater_field)))
                 }
                 llr::LocalMemberIndex::Native { item_index, prop_name, .. } => {
                     let (compo_path, sub_component) = follow_sub_component_path(
@@ -3395,12 +3390,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                     let item_field = access_component_field_offset(&component_id, &item_name);
                     if prop_name.is_empty() {
                         // then this is actually a reference to the element itself
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))))
-                            }
-                        )
+                        pinned_member(&parent_path, quote!((#compo_path #item_field)))
                     } else if matches!(
                         sub_component.items[*item_index].ty.lookup_property(prop_name),
                         Some(&Type::Function(..))
@@ -3409,19 +3399,14 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         parent_path.map_or_else(
                             || MemberAccess::Direct(quote!((#compo_path #item_field).apply_pin(_self).#property_name)),
                             |parent_path| {
-                                MemberAccess::OptionFn(quote!(#parent_path.as_ref().map(|x| (#compo_path #item_field).apply_pin(x.as_pin_ref()))), quote!(|x| x .#property_name))
+                                MemberAccess::OptionFn(parent_path, quote!((#compo_path #item_field).apply_pin(x.as_pin_ref()).#property_name))
                             }
                         )
                     } else {
                         let property_name = ident(prop_name);
                         let item_ty = ident(&sub_component.items[*item_index].ty.class_name);
                         let prop_offset = quote!((#compo_path #item_field + sp::#item_ty::FIELD_OFFSETS.#property_name()));
-                        parent_path.map_or_else(
-                            || MemberAccess::Direct(quote!(#prop_offset.apply_pin(_self))),
-                            |parent_path| {
-                                MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| #prop_offset.apply_pin(x.as_pin_ref()))))
-                            }
-                        )
+                        pinned_member(&parent_path, quote!(#prop_offset))
                     }
                 }
             }
@@ -3457,7 +3442,8 @@ enum MemberAccess {
     Direct(TokenStream),
     /// The token stream is a an expression to an option of the member
     Option(TokenStream),
-    /// the first token stream is an option, and the second is a path to the function in a `.map` and it must be called
+    /// The first token stream is an option of the component, and the second is a path to the
+    /// function relative to that component bound as `x`
     OptionFn(TokenStream, TokenStream),
 }
 
@@ -3475,11 +3461,11 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 let r = f(quote!(#binding));
-                quote!({ let _ = #t.map(|#binding| #r); })
+                quote!({ if let Some(#binding) = #t { let _ = #r; } })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
-                quote!({ let _ = #opt.as_ref().map(#r); })
+                quote!({ if let Some(x) = &#opt { let _ = #r; } })
             }
         }
     }
@@ -3489,11 +3475,11 @@ impl MemberAccess {
             MemberAccess::Direct(t) => f(t),
             MemberAccess::Option(t) => {
                 let r = f(quote!(x));
-                quote!(#t.map(|x| #r).unwrap_or_default())
+                quote!(match #t { Some(x) => #r, None => ::core::default::Default::default() })
             }
             MemberAccess::OptionFn(opt, inner) => {
                 let r = f(inner);
-                quote!(#opt.as_ref().map(#r).unwrap_or_default())
+                quote!(match &#opt { Some(x) => #r, None => ::core::default::Default::default() })
             }
         }
     }
@@ -3501,9 +3487,7 @@ impl MemberAccess {
     fn get_property(self) -> TokenStream {
         match self {
             MemberAccess::Direct(t) => quote!(#t.get()),
-            MemberAccess::Option(t) => {
-                quote!(#t.map(|x| x.get()).unwrap_or_default())
-            }
+            MemberAccess::Option(_) => self.map_or_default(|x| quote!(#x.get())),
             MemberAccess::OptionFn(..) => panic!("function is not a property"),
         }
     }
@@ -3567,7 +3551,7 @@ fn item_owner(pr: &llr::MemberReference) -> MemberAccess {
     match parent_access_path(*parent_level) {
         None => MemberAccess::Direct(quote!(_self)),
         Some(parent_path) => {
-            MemberAccess::Option(quote!(#parent_path.as_ref().map(|x| x.as_pin_ref())))
+            MemberAccess::Option(option_map(quote!(&#parent_path), quote!(x.as_pin_ref())))
         }
     }
 }
@@ -3780,7 +3764,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::StoreLocalVariable { name, value } => (|| {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
-            quote!(#[allow(unused_variables)] let #name = #value;)
+            quote!(let #name = #value;)
         })(),
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
@@ -4184,7 +4168,7 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
     let value = compile_expression(value, ctx);
-    let mut owner = MemberAccess::Direct(quote!(_self));
+    let owner = MemberAccess::Option(parent_access_path(level + 1).unwrap());
     let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
     let mut repeater_index = None;
     for _ in 0..=*level {
@@ -4192,13 +4176,6 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
         par = x.parent;
         repeater_index = x.repeater_index;
         sc = x.sub_component;
-        owner = match owner {
-            MemberAccess::Direct(t) => MemberAccess::Option(quote!(#t.parent.upgrade())),
-            MemberAccess::Option(t) => {
-                MemberAccess::Option(quote!(#t.and_then(|a| a.as_pin_ref().parent.upgrade())))
-            }
-            MemberAccess::OptionFn(..) => unreachable!(),
-        };
     }
     let repeater_index = repeater_index.unwrap();
     let sub_component = &ctx.compilation_unit.sub_components[sc];
@@ -4676,22 +4653,12 @@ fn compile_builtin_function_call(
                 is_open_args @ ..,
             ] = arguments
             {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, local_reference } = owner_ref
                 else {
                     unreachable!()
                 };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.as_pin_ref().parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
+                let component_access_tokens = parent_access_path(*parent_level)
+                    .map_or(MemberAccess::Direct(quote!(_self)), MemberAccess::Option);
                 let (suffix, _) = follow_sub_component_path_fields(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
@@ -4804,22 +4771,12 @@ fn compile_builtin_function_call(
                 Expression::PropertyReference(parent_ref),
             ] = arguments
             {
-                let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
                 let llr::MemberReference::Relative { parent_level, local_reference } = parent_ref
                 else {
                     unreachable!()
                 };
-                for _ in 0..*parent_level {
-                    component_access_tokens = match component_access_tokens {
-                        MemberAccess::Option(token_stream) => MemberAccess::Option(
-                            quote!(#token_stream.and_then(|a| a.parent.upgrade())),
-                        ),
-                        MemberAccess::Direct(token_stream) => {
-                            MemberAccess::Option(quote!(#token_stream.parent.upgrade()))
-                        }
-                        _ => unreachable!(),
-                    };
-                }
+                let component_access_tokens = parent_access_path(*parent_level)
+                    .map_or(MemberAccess::Direct(quote!(_self)), MemberAccess::Option);
                 let (suffix, _) = follow_sub_component_path_fields(
                     ctx.compilation_unit,
                     ctx.parent_sub_component_idx(*parent_level).unwrap(),
@@ -5954,6 +5911,26 @@ fn generate_flexbox_measure_closure(
     }
 }
 
+/// The field offset of the member `leaf` gives on the sub-component at the end of `path`,
+/// starting from `component`. It is usable in a constant, unlike the `+` of field offsets.
+fn const_path_offset(
+    root: &llr::CompilationUnit,
+    component: &llr::SubComponent,
+    path: &[llr::SubComponentInstanceIdx],
+    leaf: impl FnOnce(&llr::SubComponent) -> TokenStream,
+) -> TokenStream {
+    let mut sc = component;
+    let mut offsets = Vec::new();
+    for i in path {
+        offsets.push(access_component_field_offset(
+            &inner_component_id(sc),
+            &ident(&sc.sub_components[*i].name),
+        ));
+        sc = &root.sub_components[sc.sub_components[*i].ty];
+    }
+    offsets.into_iter().rfold(leaf(sc), |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)))
+}
+
 /// Access a field offset via `FIELD_OFFSETS.field()`. The `FIELD_OFFSETS`
 /// constant is a ZST with const fn methods, so this does not create a MIR
 /// local of any aggregate type.
@@ -6040,6 +6017,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
+                    let family_name = proc_macro2::Literal::byte_string(family_name);
                     let character_map_size = character_map.len();
 
                     let glyphs_size = glyphs.len();
@@ -6079,7 +6057,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     quote!(
                         #link_section
                         static #symbol: sp::BitmapFont = sp::BitmapFont {
-                            family_name: sp::Slice::from_slice(#family_name.as_bytes()),
+                            family_name: sp::Slice::from_slice(#family_name),
                             character_map: sp::Slice::from_slice({
                                 #link_section
                                 static CM : [char; #character_map_size] = [#(#character_map),*];
@@ -6199,7 +6177,6 @@ fn generate_translations(
     quote!(
         const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
-        #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
         const _SLINT_BUNDLED_TRANSLATIONS: &[sp::TranslationsBundled] = &[#(#lang),*];
     )

@@ -1238,6 +1238,53 @@ def test_invalid_text_content_does_not_change_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+def test_styled_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Palette.slint"
+    source = replace_once(
+        source_file.read_bytes(),
+        b"    background: #f8fafc;\n",
+        b"    background: #f8fafc;\n"
+        b"    styled := StyledText {\n"
+        b"        x: 32px;\n"
+        b"        y: 32px;\n"
+        b"        width: 200px;\n"
+        b"        height: 48px;\n"
+        b"    }\n",
+    )
+    source_file.write_bytes(source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source)
+        window = first_window(editor)
+        select_outline_row(window, "styled")
+        element(window, "Selected StyledText", role=slint_testing.AccessibleRole.Region)
+        wait_for_field(
+            window,
+            "Text content",
+            '@markdown("")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        edit_field(
+            window,
+            "Text content",
+            '@markdown("**Bold**")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                source,
+                b"        y: 32px;\n",
+                b'        y: 32px;\n        text: @markdown("**Bold**");\n',
+            ),
+            relative_path="Palette.slint",
+        )
+
+
 def test_inspector_length_fields_show_numbers_without_pixel_labels(
     editor_binary, editor_environment, fixture_project
 ):

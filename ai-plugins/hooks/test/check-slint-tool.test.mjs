@@ -41,9 +41,9 @@ const runHook = (tool, cwd) =>
 test("reports a missing tool in a Slint project", () => {
     const output = JSON.parse(runHook("slint-viewer", slintProject));
     assert.equal(output.hookSpecificOutput.hookEventName, "SessionStart");
-    assert.match(
+    assert.equal(
         output.hookSpecificOutput.additionalContext,
-        /^slint-viewer isn't on PATH.*tools-install\.md/,
+        "slint-viewer isn't on PATH, so edits to .slint files get no compiler diagnostics.",
     );
 });
 

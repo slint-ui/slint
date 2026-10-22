@@ -179,7 +179,7 @@ export component GalleryFoundations inherits Rectangle {
                 BodyLabel { text: "Picker panel"; horizontal-alignment: center; vertical-alignment: center; }
             }
             SectionTitle { label: "ELEMENT ICONS"; }
-            for kind in [ElementKind.rectangle, ElementKind.text, ElementKind.image, ElementKind.touch-area]: ComponentPaletteRow { kind: kind; label: kind == ElementKind.rectangle ? "Rectangle" : kind == ElementKind.text ? "Text" : kind == ElementKind.image ? "Image" : "TouchArea"; drag-enabled: false; }
+            for kind in [ElementKind.rectangle, ElementKind.text, ElementKind.styled-text, ElementKind.image, ElementKind.touch-area]: ComponentPaletteRow { kind: kind; label: kind == ElementKind.rectangle ? "Rectangle" : kind == ElementKind.text ? "Text" : kind == ElementKind.styled-text ? "StyledText" : kind == ElementKind.image ? "Image" : "TouchArea"; drag-enabled: false; }
         }
     }
 }

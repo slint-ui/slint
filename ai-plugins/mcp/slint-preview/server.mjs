@@ -9,21 +9,10 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
-const SLINT_RELEASE = "1.18.1";
-const INTERPRETER_URLS = {
-    release: `https://releases.slint.dev/${SLINT_RELEASE}/wasm-interpreter/slint_wasm_interpreter.js`,
-    snapshot:
-        "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
-};
-const INTERPRETER_HOSTS = [
-    "https://releases.slint.dev",
-    // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
-    "https://docs.slint.dev",
-    "https://snapshots.slint.dev",
-];
 // A client that shows the view has it check in quickly; one that doesn't never will.
 const VIEW_START_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 3000,
@@ -39,6 +28,25 @@ const pluginVersion = JSON.parse(
         "utf8",
     ),
 ).version;
+
+const { channel } = JSON.parse(
+    readFileSync(new URL("channel.json", import.meta.url), "utf8"),
+);
+const INTERPRETERS = {
+    release: {
+        url: `https://releases.slint.dev/${pluginVersion}/wasm-interpreter/slint_wasm_interpreter.js`,
+        // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
+        hosts: ["https://releases.slint.dev", "https://docs.slint.dev"],
+    },
+    snapshot: {
+        url: "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
+        hosts: ["https://snapshots.slint.dev"],
+    },
+};
+const interpreter = INTERPRETERS[channel];
+if (!interpreter) {
+    throw new Error(`Unknown channel in channel.json: ${channel}`);
+}
 
 const icons = [
     {
@@ -58,7 +66,7 @@ const tools = [
         title: "Preview Slint",
         icons,
         description:
-            "Render .slint code as a live, interactive preview in the conversation. " +
+            "Preview saved Slint source using the matching Wasm interpreter. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "Compile errors are reported back to you once the preview has loaded. " +
             "Then call get_preview_screenshot to see the preview as the user sees it.",
@@ -80,13 +88,9 @@ const tools = [
                     enum: ["fluent", "material", "cupertino", "cosmic"],
                     description: "Widget style for std-widgets.slint.",
                 },
-                channel: {
-                    type: "string",
-                    enum: ["release", "snapshot"],
-                    description: `'snapshot' (the default) runs the latest development build of Slint, 'release' runs Slint ${SLINT_RELEASE}.`,
-                },
             },
         },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
         _meta: { ui: { resourceUri: VIEW_URI } },
     },
     {
@@ -101,9 +105,9 @@ const tools = [
         _meta: { ui: { visibility: ["app"] } },
     },
     {
-        name: "read_image_file",
-        title: "Read Image File",
-        description: "Read an image file that the preview shows.",
+        name: "read_binary_file",
+        title: "Read Binary File",
+        description: "Read an image or font file that the preview uses.",
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -162,7 +166,7 @@ function nextChange(preview, ms) {
     });
 }
 
-const IMAGE_MIME_TYPES = {
+const BINARY_MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -170,6 +174,9 @@ const IMAGE_MIME_TYPES = {
     ".webp": "image/webp",
     ".svg": "image/svg+xml",
     ".bmp": "image/bmp",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".ttc": "font/collection",
 };
 
 function textResult(text, isError = false) {
@@ -290,7 +297,7 @@ const toolCalls = {
             return textResult(e.message, true);
         }
     },
-    read_image_file: (args) => {
+    read_binary_file: (args) => {
         if (typeof args.path !== "string" || !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be an absolute path");
         }
@@ -298,12 +305,15 @@ const toolCalls = {
             return {
                 content: [
                     {
-                        type: "image",
-                        data: readFileSync(args.path).toString("base64"),
-                        mimeType:
-                            IMAGE_MIME_TYPES[
-                                extname(args.path).toLowerCase()
-                            ] ?? "application/octet-stream",
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(args.path).href,
+                            mimeType:
+                                BINARY_MIME_TYPES[
+                                    extname(args.path).toLowerCase()
+                                ] ?? "application/octet-stream",
+                            blob: readFileSync(args.path).toString("base64"),
+                        },
                     },
                 ],
             };
@@ -351,16 +361,16 @@ const handlers = {
                     uri: VIEW_URI,
                     mimeType: VIEW_MIME_TYPE,
                     text: readView()
-                        .replace("__RELEASE_URL__", INTERPRETER_URLS.release)
-                        .replace("__SNAPSHOT_URL__", INTERPRETER_URLS.snapshot),
+                        .replace("__INTERPRETER_URL__", interpreter.url)
+                        .replace("__CHANNEL__", channel),
                     _meta: {
                         ui: {
                             csp: {
-                                connectDomains: INTERPRETER_HOSTS,
+                                connectDomains: interpreter.hosts,
                                 // The interpreter shows inlined images through blob: URLs,
                                 // which the Codex app blocks unless declared.
                                 resourceDomains: [
-                                    ...INTERPRETER_HOSTS,
+                                    ...interpreter.hosts,
                                     "blob:",
                                 ],
                             },

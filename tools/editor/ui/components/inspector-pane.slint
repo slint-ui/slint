@@ -105,7 +105,7 @@ export component InspectorPane inherits Rectangle {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-                if InspectorContext.is-text-selection(): InspectorTextAlignmentSection {
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection(): InspectorTextAlignmentSection {
                     popup-bottom: root.popup-bottom;
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection {

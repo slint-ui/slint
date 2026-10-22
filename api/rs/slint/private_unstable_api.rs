@@ -183,9 +183,10 @@ pub mod re_exports {
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{
-        ChangeTracker, Property, PropertyTracker, StateInfo, change_tracker_init_erased,
-        set_animated_property_binding_erased, set_callback_handler_erased,
-        set_property_binding_erased, set_property_state_binding_erased, set_state_binding,
+        ChangeTracker, ErasedPropertyOffset, Property, PropertyTracker, StateInfo,
+        change_tracker_init_erased, set_animated_property_binding_erased,
+        set_callback_handler_erased, set_constant_properties, set_property_binding_erased,
+        set_property_state_binding_erased, set_state_binding,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};

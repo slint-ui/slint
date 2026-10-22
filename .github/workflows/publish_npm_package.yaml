@@ -136,6 +136,16 @@ jobs:
                   # package (distributed via the slint-ui-dev package) and loaded
                   # conditionally at runtime (see binding.cjs).
                   pnpm run build:dev --target ${{ matrix.rust-target }}
+            - name: Build slint-compiler
+              shell: bash
+              run: |
+                  features=()
+                  # jemalloc's configure links test programs, which fails against the Alpine sysroot
+                  # of the musl containers (no crtbeginS.o or libgcc).
+                  if [[ "${{ matrix.rust-target }}" == *-musl ]]; then
+                      features=(--no-default-features --features renderer-software,image-default-formats,bundle-translations,cpp,rust,python,typescript)
+                  fi
+                  cargo build --locked --release -p slint-compiler --target ${{ matrix.rust-target }} "${features[@]}"
             - name: Create package
               shell: bash
               working-directory: api/node
@@ -144,6 +154,11 @@ jobs:
                   PKG="$GITHUB_WORKSPACE/api/node/scripts/packaging.mts"
                   node "$PKG" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PACKED"
                   node "$PKG" pack-binary binaries-dev.json ${{ matrix.napi-rs-target }} slint-ui-dev "$PACKED"
+            - name: Create slint-compiler package
+              shell: bash
+              working-directory: api/node
+              run: |
+                  node scripts/packaging.mts pack-compiler-binary ${{ matrix.napi-rs-target }} "$GITHUB_WORKSPACE/target/${{ matrix.rust-target }}/release" "$PKG_VERSION" "$PWD/packed"
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
@@ -210,6 +225,10 @@ jobs:
               working-directory: api/node
               run: |
                   node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-dev-meta "$PKG_VERSION" "$GITHUB_WORKSPACE/api/node"
+            - name: Build slint-compiler package
+              working-directory: api/node
+              run: |
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-compiler-meta "$PKG_VERSION" "$GITHUB_WORKSPACE/api/node"
             - name: Build package
               run: |
                   cargo xtask node_package $PKG_EXTRA_ARGS

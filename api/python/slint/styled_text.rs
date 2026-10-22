@@ -24,9 +24,9 @@ impl PyStyledText {
         Self { styled_text: i_slint_core::styled_text::StyledText::from_plain_text(text) }
     }
 
-    /// Parses markdown and returns a StyledText object.
+    /// Parses Markdown and returns a StyledText object.
     ///
-    /// Raises a ValueError if the markdown contains unsupported syntax.
+    /// Raises a `ValueError` if the Markdown contains unsupported syntax.
     #[staticmethod]
     fn from_markdown(markdown: &str) -> PyResult<Self> {
         i_slint_core::styled_text::StyledText::from_markdown(markdown)

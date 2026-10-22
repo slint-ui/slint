@@ -587,29 +587,31 @@ impl LayoutGeometry {
     }
 
     pub fn new(layout_element: &ElementRc) -> Self {
-        let spacing = || binding_reference(layout_element, "spacing");
-        init_fake_property(layout_element, "spacing-horizontal", spacing);
-        init_fake_property(layout_element, "spacing-vertical", spacing);
-
+        let spacing_ref = || binding_reference(layout_element, "spacing");
         let alignment = binding_reference(layout_element, "alignment");
-
-        let padding = || binding_reference(layout_element, "padding");
-        init_fake_property(layout_element, "padding-left", padding);
-        init_fake_property(layout_element, "padding-right", padding);
-        init_fake_property(layout_element, "padding-top", padding);
-        init_fake_property(layout_element, "padding-bottom", padding);
+        let padding_ref = || binding_reference(layout_element, "padding");
 
         let padding = Padding {
-            left: binding_reference(layout_element, "padding-left").or_else(padding),
-            right: binding_reference(layout_element, "padding-right").or_else(padding),
-            top: binding_reference(layout_element, "padding-top").or_else(padding),
-            bottom: binding_reference(layout_element, "padding-bottom").or_else(padding),
+            left: binding_reference(layout_element, "padding-left").or_else(padding_ref),
+            right: binding_reference(layout_element, "padding-right").or_else(padding_ref),
+            top: binding_reference(layout_element, "padding-top").or_else(padding_ref),
+            bottom: binding_reference(layout_element, "padding-bottom").or_else(padding_ref),
         };
 
         let spacing = Spacing {
-            horizontal: binding_reference(layout_element, "spacing-horizontal").or_else(spacing),
-            vertical: binding_reference(layout_element, "spacing-vertical").or_else(spacing),
+            horizontal: binding_reference(layout_element, "spacing-horizontal")
+                .or_else(spacing_ref),
+            vertical: binding_reference(layout_element, "spacing-vertical").or_else(spacing_ref),
         };
+
+        // After building `padding` and `spacing`, so that the layout doesn't depend on the
+        // fake properties: they then cost nothing unless read.
+        init_fake_property(layout_element, "spacing-horizontal", spacing_ref);
+        init_fake_property(layout_element, "spacing-vertical", spacing_ref);
+        init_fake_property(layout_element, "padding-left", padding_ref);
+        init_fake_property(layout_element, "padding-right", padding_ref);
+        init_fake_property(layout_element, "padding-top", padding_ref);
+        init_fake_property(layout_element, "padding-bottom", padding_ref);
 
         let rect = LayoutRect::install_on_element(layout_element);
 
@@ -658,7 +660,10 @@ fn init_fake_property(
     name: &str,
     lazy_default: impl Fn() -> Option<NamedReference>,
 ) {
-    if grid_layout_element.borrow().property_declarations.contains_key(name)
+    if grid_layout_element
+        .borrow()
+        .lookup_property(name, PropertyLookupMode::ComponentLocal)
+        .is_valid()
         && grid_layout_element.borrow().binding(name).is_none()
         && let Some(e) = lazy_default()
     {

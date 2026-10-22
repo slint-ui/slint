@@ -136,6 +136,7 @@ path = [
   "package.json",
   "ai-plugins/hooks/package.json",
   "ai-plugins/mcp/slint-preview/package.json",
+  "ai-plugins/mcp/slint-preview/channel.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
@@ -286,6 +287,7 @@ path = [
   "scripts/commit-template.txt",
 
   "tools/**.md",
+  "tools/compiler/npm/package.json",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
   "tools/slintpad/styles/**.css",
