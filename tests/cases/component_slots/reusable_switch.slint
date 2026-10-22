@@ -16,11 +16,12 @@ component SwitchHost {
 
 component CustomSwitch inherits SwitchBase {
     slot forwarded-indicator;
-    indicator << forwarded-indicator;
-
-    content << Text {
-        text: "Replacement label";
-        vertical-alignment: center;
+    content << HorizontalLayout {
+        forwarded-indicator { }
+        Text {
+            text: "Replacement label";
+            vertical-alignment: center;
+        }
     }
 }
 

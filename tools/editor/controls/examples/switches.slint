@@ -5,6 +5,7 @@ import {
     SwitchStyle,
     SwitchStyles,
     BasicTheme,
+    Switch,
 } from "../src/basic.slint";
 import { SwitchBase } from "../src/headless.slint";
 import { PreviewSwitch } from "preview_controls.slint";
@@ -31,8 +32,10 @@ export component SwitchExamples inherits Rectangle {
         ExampleSection {
             title: "Base theme";
             description: "Off, on, and disabled switches using BasicTheme.";
-            HorizontalLayout {
+            FlexboxLayout {
                 spacing: 12px;
+                cross-axis-alignment: start;
+                cross-axis-line-alignment: start;
                 standard := PreviewSwitch {
                     style: root.preview-style;
                     size-index: root.size-index;
@@ -55,6 +58,16 @@ export component SwitchExamples inherits Rectangle {
                     size-index: root.size-index;
                     enabled: false;
                     text: "Disabled";
+                }
+
+                Switch {
+                    text: "";
+                    track-height: 12px;
+                    vertical-padding: 0px;
+                }
+
+                Switch {
+                    text: "Enable notifications\nFor messages and updates";
                 }
             }
 
@@ -102,28 +115,36 @@ export component SwitchExamples inherits Rectangle {
                     spacing: 8px;
                     horizontal-padding: 6px;
                     vertical-padding: 6px;
-                    indicator << Rectangle {
-                        width: 40px;
-                        height: 22px;
-                        vertical-stretch: 0;
-                        background: bare.checked ? #7c3aed : #f5f3ff;
-                        border-color: bare.has-focus ? #5b21b6 : #a78bfa;
-                        border-width: bare.has-focus ? 2px : 1px;
-                        border-radius: 4px;
+                    content << VerticalLayout {
+                        padding-left: bare.left-padding;
+                        padding-right: bare.right-padding;
+                        padding-top: bare.top-padding;
+                        padding-bottom: bare.bottom-padding;
+                        spacing: bare.spacing;
+                        cross-axis-alignment: center;
                         Rectangle {
-                            width: 14px;
-                            height: parent.height - 6px;
-                            x: bare.checked ? parent.width - self.width - 3px : 3px;
-                            y: 3px;
-                            background: bare.checked ? white : #7c3aed;
-                            border-radius: 2px;
+                            width: 40px;
+                            height: 22px;
+                            vertical-stretch: 0;
+                            background: bare.checked ? #7c3aed : #f5f3ff;
+                            border-color: bare.has-focus ? #5b21b6 : #a78bfa;
+                            border-width: bare.has-focus ? 2px : 1px;
+                            border-radius: 4px;
+                            Rectangle {
+                                width: 14px;
+                                height: parent.height - 6px;
+                                x: bare.checked ? parent.width - self.width - 3px : 3px;
+                                y: 3px;
+                                background: bare.checked ? white : #7c3aed;
+                                border-radius: 2px;
+                            }
                         }
-                    }
-                    content << Text {
-                        text: bare.text;
-                        color: #5b21b6;
-                        font-size: 14px;
-                        vertical-alignment: center;
+                        Text {
+                            text: bare.text;
+                            color: #5b21b6;
+                            font-size: 14px;
+                            vertical-alignment: center;
+                        }
                     }
                     toggled => { root.custom-toggles += 1; }
                 }

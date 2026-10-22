@@ -105,7 +105,7 @@ Public function: `activate()` changes `checked` and emits `toggled()` when enabl
 Assigning `checked` directly doesn't emit `toggled()`.
 CheckBoxBase also accepts `font-size: length` and `font-weight: int`, both defaulting to zero.
 CheckBoxBase also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
-Its slots are `background`, `indicator`, and `content`.
+Use the `content` slot to arrange custom visuals and apply padding and spacing.
 
 ### Styled Inputs
 
@@ -122,7 +122,8 @@ CheckBox includes the shared styled inputs above.
 | `indicator-border-width`, `indicator-radius` | `length` | `1px`, `4px` |
 | `checkmark-padding`, `checkmark-width` | `length` | `3px`, `2px` |
 
-Default minimum height: `32px`.
+Default minimum height: `32px`, growing to fit the indicator, label, and padding.
+The styled control places its indicator beside the label, centered vertically.
 `checked-color` overrides the indicator fill only while enabled and checked.
 
 ## Switch
@@ -131,7 +132,7 @@ Sources: [styled](src/basic/switch.slint), [headless](src/headless/switch_base.s
 
 ### Behavior: Switch and SwitchBase
 
-Switch and SwitchBase expose the same interaction properties, callback, function, padding inputs, and slots as CheckBox and CheckBoxBase.
+Switch and SwitchBase expose the same interaction API, padding inputs, and slots as CheckBox and CheckBoxBase.
 They implement `SwitchInterface` and expose an additional `out property <bool> focus-visible` for keyboard focus indication.
 `focus-visible` isn't part of `SwitchInterface`.
 
@@ -152,7 +153,8 @@ Switch includes the shared styled inputs above.
 | `thumb-padding` | `length` | `3px` |
 | `thumb-size` | `length` | `max(0px, track-height - 2 * thumb-padding)` |
 
-Default minimum height: `32px`.
+Default minimum height: `32px`, growing to fit the track, label, and padding.
+The styled control places its track beside the label, centered vertically.
 The thumb's rendered size is bounded by the track's inner dimensions.
 `checked-color` overrides the track fill only while enabled and checked.
 

@@ -26,8 +26,6 @@ export component CheckBoxBase {
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
 
-    slot background;
-    slot indicator;
     slot content;
 
     callback toggled();
@@ -46,8 +44,6 @@ export component CheckBoxBase {
     accessible-checked: root.checked;
     accessible-action-default => { root.activate(); }
 
-    background { }
-
     interaction := PressInteraction {
         width: root.width;
         height: root.height;
@@ -55,14 +51,6 @@ export component CheckBoxBase {
         activated => { root.activate(); }
     }
 
-    HorizontalLayout {
-        padding-left: root.left-padding;
-        padding-right: root.right-padding;
-        padding-top: root.top-padding;
-        padding-bottom: root.bottom-padding;
-        spacing: root.spacing;
-        indicator { }
-        content { }
-        @children
-    }
+    content { }
+    @children
 }

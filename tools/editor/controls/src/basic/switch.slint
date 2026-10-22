@@ -42,7 +42,7 @@ export component Switch inherits SwitchBase {
     horizontal-padding: 6px;
     vertical-padding: 5px;
 
-    min-height: 32px;
+    min-height: max(32px, layout.min-height);
 
     states [
         disabled when !root.enabled: {
@@ -56,44 +56,54 @@ export component Switch inherits SwitchBase {
         }
     ]
 
-    indicator << Rectangle {
-        width: root.track-width;
-        height: root.track-height;
-        vertical-stretch: 0;
-        background: root.enabled && root.checked ? root.checked-color : root.state-style.track-color;
-        border-color: root.state-style.track-border-color;
-        border-width: root.track-border-width;
-        border-radius: root.effective-track-radius;
+    content << layout := HorizontalLayout {
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
+        spacing: root.spacing;
+        cross-axis-alignment: center;
 
-        thumb := Rectangle {
-            width: min(root.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.thumb-padding));
-            height: self.width;
-            x: root.checked ? max(0px, parent.width - self.width - root.thumb-padding) : root.thumb-padding;
-            y: (parent.height - self.height) / 2;
-            background: root.state-style.thumb-color;
-            border-radius: root.effective-thumb-radius;
+        Rectangle {
+            width: root.track-width;
+            height: root.track-height;
+            vertical-stretch: 0;
+            background: root.enabled && root.checked ? root.checked-color : root.state-style.track-color;
+            border-color: root.state-style.track-border-color;
+            border-width: root.track-border-width;
+            border-radius: root.effective-track-radius;
+
+            thumb := Rectangle {
+                width: min(root.thumb-size, max(0px, min(parent.width, parent.height) - 2 * root.thumb-padding));
+                height: self.width;
+                x: root.checked ? max(0px, parent.width - self.width - root.thumb-padding) : root.thumb-padding;
+                y: (parent.height - self.height) / 2;
+                background: root.state-style.thumb-color;
+                border-radius: root.effective-thumb-radius;
+            }
+
+            focus-outline := FocusOutline {
+                active: root.enabled && root.has-focus;
+                outline-color: root.style.focus-color;
+                target-width: parent.width;
+                target-height: parent.height;
+                line-width: root.focus-width;
+                offset: root.focus-offset;
+                radius: root.effective-track-radius;
+            }
         }
 
-        focus-outline := FocusOutline {
-            active: root.enabled && root.has-focus;
-            outline-color: root.style.focus-color;
-            target-width: parent.width;
-            target-height: parent.height;
-            line-width: root.focus-width;
-            offset: root.focus-offset;
-            radius: root.effective-track-radius;
+        HorizontalLayout {
+            if root.text != "": Text {
+                text: root.text;
+                color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                font-family: root.font-family;
+                font-italic: root.font-italic;
+                vertical-alignment: center;
+            }
         }
-    }
-
-    content << HorizontalLayout {
-        if root.text != "": Text {
-            text: root.text;
-            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-            font-size: root.font-size;
-            font-weight: root.font-weight;
-            font-family: root.font-family;
-            font-italic: root.font-italic;
-            vertical-alignment: center;
-        }
+        @children
     }
 }

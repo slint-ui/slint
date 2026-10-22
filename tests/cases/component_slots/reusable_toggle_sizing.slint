@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBox, Switch } from "../../../tools/editor/controls/src/basic.slint";
+import { CheckBoxExamples } from "../../../tools/editor/controls/examples/check_boxes.slint";
+import { SwitchExamples } from "../../../tools/editor/controls/examples/switches.slint";
+
+export component TestCase inherits Window {
+    in-out property <length> available-width: 800px;
+    in-out property <length> available-height: 80px;
+    in-out property <length> text-size: 14px;
+    in-out property <length> indicator-height: 20px;
+    in-out property <length> track-height: 22px;
+    in-out property <length> top-padding: 5px;
+    in-out property <length> bottom-padding: 8px;
+    in-out property <length> gallery-width: 800px;
+    in-out property <int> preview-size: 1;
+
+    out property <bool> test: choice.width > 20px && toggle.width > 40px;
+
+    width: 1100px;
+    height: 2400px;
+
+    HorizontalLayout {
+        x: 20px;
+        y: 20px;
+        width: root.available-width;
+        height: root.available-height;
+        spacing: 12px;
+
+        choice := CheckBox {
+            text: "A longer checkbox label";
+            accessible-label: "Sized checkbox";
+            font-size: root.text-size;
+            indicator-size: root.indicator-height;
+            left-padding: 7px;
+            right-padding: 9px;
+            top-padding: root.top-padding;
+            bottom-padding: root.bottom-padding;
+        }
+
+        toggle := Switch {
+            text: "A longer switch label";
+            accessible-label: "Sized switch";
+            font-size: root.text-size;
+            track-height: root.track-height;
+            left-padding: 7px;
+            right-padding: 9px;
+            top-padding: root.top-padding;
+            bottom-padding: root.bottom-padding;
+        }
+    }
+
+    CheckBoxExamples {
+        x: 20px;
+        y: 200px;
+        width: root.gallery-width;
+        height: self.preferred-height;
+        size-index: root.preview-size;
+    }
+
+    SwitchExamples {
+        x: 20px;
+        y: 1300px;
+        width: root.gallery-width;
+        height: self.preferred-height;
+        size-index: root.preview-size;
+    }
+}
+
+/*
+```rust
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let assert_fits = |control: &ElementHandle| {
+    let position = control.absolute_position();
+    let size = control.size();
+    let label = control.query_descendants().match_type_name("Text").find_first().unwrap();
+    let indicator = control.query_descendants().match_type_name("Rectangle").find_first().unwrap();
+    for child in [label, indicator] {
+        let child_position = child.absolute_position();
+        let child_size = child.size();
+        assert!(child_position.x >= position.x + 7. - 0.1);
+        assert!(child_position.x + child_size.width <= position.x + size.width - 9. + 0.1,
+            "{:?} overflows horizontally", control.accessible_label());
+        assert!(child_position.y >= position.y + instance.get_top_padding() - 0.1);
+        assert!(child_position.y + child_size.height <= position.y + size.height - instance.get_bottom_padding() + 0.1,
+            "{:?} overflows vertically", control.accessible_label());
+    }
+};
+for width in [800., 220., 80.] {
+    instance.set_available_width(width);
+    for (font, indicator, track) in [(14., 20., 22.), (36., 20., 22.), (14., 48., 50.)] {
+        instance.set_text_size(font);
+        instance.set_indicator_height(indicator);
+        instance.set_track_height(track);
+        for height in [80., 32.] {
+            instance.set_available_height(height);
+            slint::platform::update_timers_and_animations();
+            for label in ["Sized checkbox", "Sized switch"] {
+                let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+                assert_fits(&control);
+            }
+        }
+    }
+}
+
+instance.set_available_height(1.);
+instance.set_text_size(14.);
+instance.set_indicator_height(20.);
+instance.set_track_height(22.);
+instance.set_top_padding(0.);
+instance.set_bottom_padding(0.);
+slint::platform::update_timers_and_animations();
+for label in ["Sized checkbox", "Sized switch"] {
+    let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+    assert!(control.size().height >= 32., "{label} lost its minimum height with compact padding");
+    assert_fits(&control);
+}
+
+for width in [800., 500., 420.] {
+    instance.set_gallery_width(width);
+    for size in [0, 1, 2] {
+        instance.set_preview_size(size);
+        slint::platform::update_timers_and_animations();
+        for kind in ["PreviewCheckBox", "PreviewSwitch"] {
+            let controls: Vec<_> = ElementHandle::find_by_element_type_name(&instance, kind).collect();
+            assert!(controls.len() >= 3);
+            for control in controls {
+                let position = control.absolute_position();
+                assert!(position.x >= 20. - 0.1);
+                assert!(position.x + control.size().width <= 20. + width + 0.1,
+                    "{kind} exceeds the gallery at width {width}, size {size}");
+            }
+        }
+    }
+}
+```
+*/

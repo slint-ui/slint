@@ -8,7 +8,7 @@ import { Diagnostics } from "../../diagnostics.slint";
 
 export component InspectorSwitch inherits SwitchBase {
     enabled: Diagnostics.preview-editable;
-    indicator << Rectangle {
+    content << Rectangle {
         width: Metrics.control-medium;
         height: Metrics.icon-medium;
         opacity: Diagnostics.preview-status-visible ? Metrics.disabled-opacity : 1;

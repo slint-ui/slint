@@ -51,9 +51,13 @@ export component TestCase inherits Window {
         text: "Default checkbox label";
         accessible-label: "Custom checkbox";
         checked: true;
-        background << Rectangle { background: #234567; }
-        indicator << Rectangle { width: 20px; height: 20px; background: #345678; }
-        content << Text { text: "Choice"; }
+        content << Rectangle {
+            background: #234567;
+            HorizontalLayout {
+                Rectangle { width: 20px; height: 20px; background: #345678; }
+                Text { text: "Choice"; }
+            }
+        }
     }
 
     SwitchBase {
@@ -63,9 +67,13 @@ export component TestCase inherits Window {
         height: 40px;
         text: "Default switch label";
         accessible-label: "Custom switch";
-        background << Rectangle { background: #234567; }
-        indicator << Rectangle { width: 40px; height: 22px; background: #345678; }
-        content << Text { text: "Toggle"; }
+        content << Rectangle {
+            background: #234567;
+            VerticalLayout {
+                Rectangle { width: 40px; height: 22px; background: #345678; }
+                Text { text: "Toggle"; }
+            }
+        }
     }
 
     ComboBoxBase {

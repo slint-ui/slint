@@ -122,20 +122,23 @@ import { CheckBoxBase } from "../src/headless.slint";
 choice := CheckBoxBase {
     text: "Show guides";
     spacing: 8px;
-    indicator << Rectangle {
-        width: 18px;
-        height: 18px;
-        vertical-stretch: 0;
-        background: choice.checked ? #2563eb : transparent;
-        border-color: #2563eb;
-        border-width: 1px;
+    content << HorizontalLayout {
+        spacing: choice.spacing;
+        cross-axis-alignment: center;
+        Rectangle {
+            width: 18px;
+            height: 18px;
+            background: choice.checked ? #2563eb : transparent;
+            border-color: #2563eb;
+            border-width: 1px;
+        }
+        Text { text: choice.text; }
     }
-    content << Text { text: choice.text; }
 }
 ```
 
 Basic controls fill their visual slots, except LineEdit's `leading` and `trailing`; use the corresponding headless base to replace other visuals.
-Size custom indicators inside their slots and add button padding through a layout in `ButtonBase.content`.
+Use the `content` slot to arrange custom visuals in ButtonBase, CheckBoxBase, and SwitchBase.
 The [API reference](API.md) lists each base's slots and required geometry inputs.
 
 For content around a styled text field, fill LineEdit's `leading` and `trailing` slots:
