@@ -1214,14 +1214,14 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { kind: ui::ElementKind },
+    NewComponent { kind: ui::ElementKind, type_name: &'static str },
 }
 
-fn new_component_data_for_kind(kind: ui::ElementKind) -> DataTransfer {
-    if element_catalog::primitive(kind).is_none() {
+fn new_component_data(type_name: SharedString) -> DataTransfer {
+    let Some(entry) = element_catalog::entry(&type_name) else {
         return Default::default();
-    }
-    DragItem::NewComponent { kind }.into()
+    };
+    DragItem::NewComponent { kind: entry.kind, type_name: entry.type_name }.into()
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -1255,7 +1255,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { type_name, .. }) = data.try_into() else {
         return false;
     };
 
@@ -1270,26 +1270,27 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn palette_component(kind: ui::ElementKind) -> Option<ComponentInformation> {
-    let primitive = element_catalog::primitive(kind)?;
+fn palette_component(type_name: &str) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .find(|component| component.name == primitive.type_name && component.is_builtin)
+            .find(|component| {
+                component.name == type_name && (component.is_builtin || component.is_std_widget)
+            })
             .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
         return;
     };
 
@@ -1299,7 +1300,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return;
     };
 
@@ -1317,7 +1318,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
         return;
     };
 
@@ -1331,7 +1332,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return;
     };
 
@@ -2089,6 +2090,7 @@ fn previewed_component_changed() {
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
+        i_slint_editor_preview::util::poll_once(document_cache.preload_builtins());
 
         for (url, cache_entry) in &source_code {
             if SourcePath::from_url(url).file_name()
