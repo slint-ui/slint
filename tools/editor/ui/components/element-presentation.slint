@@ -34,6 +34,15 @@ export global ElementVisuals {
                 label: "Text",
             };
         }
+        if kind == ElementKind.styled-text {
+            return {
+                icon: EditorTreeIcons.text,
+                preview-size: {},
+                corner-radius: 8px,
+                show-thumbnail: false,
+                label: "StyledText",
+            };
+        }
         if kind == ElementKind.image {
             return {
                 icon: Icons.image,

@@ -3691,6 +3691,7 @@ fn build(l: &mut Loader) {
             in property <easing> easing;
             in property <float> iteration-count: 1.0;
             in property <bool> enabled: true;
+            in property <AngleInterpolation> angle-interpolation;
         }
     }
 

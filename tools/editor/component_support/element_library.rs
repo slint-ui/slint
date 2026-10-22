@@ -67,11 +67,11 @@ mod tests {
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
-            ("", vec!["Image", "Rectangle", "Text"]),
-            ("  ", vec!["Image", "Rectangle", "Text"]),
-            ("E", vec!["Image", "Rectangle", "Text"]),
+            ("", vec!["Image", "Rectangle", "StyledText", "Text"]),
+            ("  ", vec!["Image", "Rectangle", "StyledText", "Text"]),
+            ("E", vec!["Image", "Rectangle", "StyledText", "Text"]),
             ("  aG  ", vec!["Image"]),
-            ("t", vec!["Rectangle", "Text"]),
+            ("t", vec!["Rectangle", "StyledText", "Text"]),
             ("TouchArea", vec![]),
         ] {
             let result = filter(group.entries.clone(), normalize_query(query.into()));

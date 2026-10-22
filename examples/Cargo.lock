@@ -4754,6 +4754,7 @@ dependencies = [
  "libudev-sys",
  "memmap2",
  "nix",
+ "pkg-config",
  "raw-window-handle",
  "wgpu",
  "xkbcommon",
