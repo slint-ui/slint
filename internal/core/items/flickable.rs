@@ -767,9 +767,17 @@ impl FlickableDataInner {
                     let limit_x = Self::flick_limits(flick_rc, delta.x as f32, Dimension::X);
                     let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+                    let (inside_bounds_x, inside_bounds_y) = inside_bounds(
+                        flick,
+                        LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
+                        &geo,
+                    );
 
                     let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
                         (delta.x != Coord::default()).then(|| {
+                            if !inside_bounds_x {
+                                return Self::spring_back(flick, flick_rc, Dimension::X, &geo, 0.);
+                            }
                             Self::set_simulation(
                                 &content_x,
                                 FlickAnimation::create_animation(
@@ -786,6 +794,9 @@ impl FlickableDataInner {
 
                     let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
                         (delta.y != Coord::default()).then(|| {
+                            if !inside_bounds_y {
+                                return Self::spring_back(flick, flick_rc, Dimension::Y, &geo, 0.);
+                            }
                             Self::set_simulation(
                                 &content_y,
                                 FlickAnimation::create_animation(

@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A wheel scroll that starts while the content is past its end used to fail
+// a debug assertion, or leave the content past its end in a release build (#14350).
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 400px;
+
+    fli := Flickable {
+        width: parent.width;
+        height: parent.height;
+        content-height: 2000px;
+    }
+
+    in-out property fli_height <=> fli.height;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_y <=> fli.content_y;
+}
+
+/*
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+fn wheel(instance: &TestCase, delta_y: f32, phase: TouchPhase) {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position: LogicalPoint::new(150., 200.),
+        delta_x: 0.,
+        delta_y,
+        phase,
+    }));
+}
+
+fn with_physics(bounce: AutoBool) -> TestCase {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    instance
+}
+
+fn assert_settles_at_end(instance: &TestCase) {
+    slint_testing::mock_elapsed_time(100000);
+    let end = instance.get_fli_height() - instance.get_fli_content_height();
+    assert_eq!(instance.get_fli_content_y(), end);
+}
+
+// Without bounce: a swipe down coasts to the end, a wheel tick up starts an
+// animation, the content shrinks under it, and a wheel tick down follows.
+let instance = with_physics(AutoBool::Off);
+wheel(&instance, 0., TouchPhase::Started);
+wheel(&instance, -196.091, TouchPhase::Moved);
+slint_testing::mock_elapsed_time(14);
+wheel(&instance, -41.571, TouchPhase::Moved);
+slint_testing::mock_elapsed_time(11);
+wheel(&instance, -153.304, TouchPhase::Moved);
+wheel(&instance, 0., TouchPhase::Ended);
+slint_testing::mock_elapsed_time(330);
+wheel(&instance, 24.12, TouchPhase::Moved);
+instance.set_fli_content_height(1779.833);
+wheel(&instance, -96.745, TouchPhase::Moved);
+assert_settles_at_end(&instance);
+
+// With bounce: a swipe overscrolls past the end, and a wheel tick down
+// follows before it has bounced back.
+let instance = with_physics(AutoBool::On);
+instance.set_fli_content_height(1031.588);
+wheel(&instance, 0., TouchPhase::Started);
+wheel(&instance, -34.924, TouchPhase::Moved);
+slint_testing::mock_elapsed_time(10);
+wheel(&instance, -187.076, TouchPhase::Moved);
+wheel(&instance, 0., TouchPhase::Ended);
+slint_testing::mock_elapsed_time(134);
+wheel(&instance, -85.213, TouchPhase::Moved);
+assert_settles_at_end(&instance);
+```
+*/
