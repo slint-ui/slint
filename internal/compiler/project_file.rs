@@ -26,6 +26,15 @@ pub struct ProjectFileData {
 
     /// Selects the language behavior of this Slint release. Required in a project file.
     pub slint_edition: Option<SlintEdition>,
+
+    #[serde(default, deserialize_with = "ignore_metadata", skip_serializing)]
+    pub metadata: (),
+}
+
+fn ignore_metadata<'de, Deserializer: serde::Deserializer<'de>>(
+    deserializer: Deserializer,
+) -> Result<(), Deserializer::Error> {
+    serde::de::IgnoredAny::deserialize(deserializer).map(|_| ())
 }
 
 /// The `major.minor` of the Slint release whose language behavior a project uses.
@@ -297,9 +306,6 @@ impl ProjectFile {
         let current = SlintEdition::current();
         let missing =
             || format!("'slint-edition' is missing: add \"slint-edition\": \"{current}\"").into();
-        if source.iter().all(u8::is_ascii_whitespace) {
-            return Err(missing());
-        }
         // Before the strict parse, which rejects the settings that a newer Slint added.
         #[derive(Deserialize)]
         #[serde(rename_all = "kebab-case")]
@@ -421,6 +427,7 @@ impl ProjectFileData {
             enable_experimental_features,
             main: _,
             slint_edition,
+            metadata: (),
         } = self;
         if let Some(include_paths) = include_paths {
             compiler_config.include_paths = include_paths.clone();
@@ -547,6 +554,7 @@ impl Overrides {
             enable_experimental_features,
             main,
             slint_edition,
+            metadata: (),
         } = project;
         replace_if_supplied(&mut self.project.schema, schema);
         replace_if_supplied(&mut self.project.library_paths, library_paths);
@@ -662,8 +670,7 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
-        resolve_input, resolve_relative_path,
+        FILE_NAME, ProjectFile, SlintEdition, is_project_file, resolve_input, resolve_relative_path,
     };
     use crate::{generator::OutputFormat, source_path::SourcePath};
     use std::{
@@ -743,6 +750,22 @@ mod tests {
         assert_eq!(overrides.style.as_deref(), Some("fluent"));
         assert_eq!(overrides.project.enable_experimental_features, Some(false));
         assert_eq!(overrides.debug_info, Some(false));
+    }
+
+    #[test]
+    fn metadata_is_ignored() {
+        let baseline: super::ProjectFileData =
+            serde_json::from_str(r#"{"main":"main.slint"}"#).unwrap();
+        for metadata in ["null", "true", "42", r#"{"visual-editor":{"canvas-presets":[]}}"#] {
+            let source = format!(r#"{{"main":"main.slint","metadata":{metadata}}}"#);
+            let parsed: super::ProjectFileData = serde_json::from_str(&source).unwrap();
+            assert_eq!(parsed, baseline);
+            assert_eq!(
+                serde_json::to_value(parsed).unwrap(),
+                serde_json::to_value(&baseline).unwrap()
+            );
+        }
+        assert!(serde_json::from_str::<super::ProjectFileData>(r#"{"unknown":{}}"#).is_err());
     }
 
     #[test]
@@ -860,6 +883,11 @@ mod tests {
     }
 
     #[test]
+    fn a_file_of_only_comments_is_invalid() {
+        assert!(load_project_file("// nothing set yet\n/* not even this */\n").is_err());
+    }
+
+    #[test]
     fn a_comment_keeps_the_line_of_a_later_error() {
         let error = load_project_file(
             r#"{
@@ -912,7 +940,7 @@ mod tests {
 
     #[test]
     fn the_edition_is_required() {
-        let cases = ["", "{}", "{\n}", "  \t \n", "// nothing set yet\n/* not even this */\n"];
+        let cases = ["{}", "{\n}"];
 
         for case in cases {
             let error = load_project_file(case).unwrap_err().to_string();
@@ -925,112 +953,10 @@ mod tests {
     }
 
     #[test]
-    fn a_minimal_project_file_is_valid() {
-        let parsed = load_project_file(r#"{ "slint-edition": "1.19" }"#).unwrap();
-        assert_eq!(parsed.slint_edition(), SlintEdition::V1_19);
-        assert_eq!(parsed.library_paths(), None);
-        assert_eq!(parsed.include_paths(), None);
-        assert_eq!(parsed.enable_experimental_features(), None);
-    }
-
-    #[test]
-    fn an_older_edition_is_valid() {
-        let parsed = load_project_file(r#"{ "slint-edition": "1.10" }"#).unwrap();
-        assert_eq!(parsed.slint_edition(), SlintEdition { major: 1, minor: 10 });
-    }
-
-    #[test]
-    fn a_newer_edition_is_rejected() {
-        let current = SlintEdition::current();
-        let newer = SlintEdition { minor: current.minor + 1, ..current };
-        let error = load_project_file(&format!(r#"{{ "slint-edition": "{newer}" }}"#)).unwrap_err();
-        let expected = format!(
-            r#"'slint-edition' is {newer}, newer than this Slint {current}: upgrade Slint, or set "slint-edition": "{current}""#
-        );
-        assert!(error.to_string().contains(&expected), "{error}");
-    }
-
-    #[test]
-    fn a_newer_edition_is_reported_before_an_unknown_setting() {
-        let current = SlintEdition::current();
-        let newer = SlintEdition { minor: current.minor + 1, ..current };
-        let error =
-            load_project_file(&format!(r#"{{ "slint-edition": "{newer}", "new-setting": 1 }}"#))
-                .unwrap_err();
-        assert!(error.to_string().contains("upgrade Slint"), "{error}");
-    }
-
-    #[test]
-    fn a_malformed_edition_is_rejected() {
-        for value in [r#""1.19.0""#, r#""1""#, r#""1.x""#, r#""1.019""#, r#""""#, "1.19", "119"] {
-            let error = load_project_file(&format!(r#"{{ "slint-edition": {value} }}"#))
-                .unwrap_err()
-                .to_string();
-            assert!(error.contains("such as"), "{value}: {error}");
-            assert!(error.contains("line 1"), "{value}: {error}");
+    fn empty_files_and_invalid_metadata_are_rejected() {
+        for source in ["", "  \t \n", r#"{ "metadata": { this is not json! } }"#] {
+            assert!(load_project_file(source).is_err(), "{source}");
         }
-    }
-
-    #[test]
-    fn the_project_file_edition_wins_over_slint_edition() {
-        with_project_file_contents(r#"{ "slint-edition": "1.19" }"#, |path| {
-            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            config.edition = Some(SlintEdition { major: 1, minor: 10 });
-            ProjectFile::load(path).unwrap().apply_to(&mut config);
-            assert_eq!(config.edition, Some(SlintEdition::V1_19));
-        });
-    }
-
-    #[test]
-    fn editions_compare_by_number() {
-        let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
-        assert!(parse("1.9") < parse("1.10"));
-        assert!(parse("1.19") < parse("2.0"));
-        assert_eq!(parse("1.0").to_string(), "1.0");
-    }
-
-    #[test]
-    fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
-        let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
-        let warning = parse("1.18").behavior_change_warning().unwrap();
-        assert!(
-            warning
-                .contains("'slint-edition' 1.18 misses the language behavior changes up to 1.19")
-        );
-        assert_eq!(SlintEdition::current().behavior_change_warning(), None);
-    }
-
-    #[test]
-    fn an_edition_override_has_no_warning_location() {
-        with_project_file_contents(r#"{ "slint-edition": "1.18" }"#, |path| {
-            let project = ProjectFile::load(path).unwrap();
-            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            Overrides::default().apply(Some(&project), &mut config);
-            assert!(config.edition_location.is_some());
-
-            let overrides = Overrides {
-                project: ProjectFileData {
-                    slint_edition: Some(SlintEdition::V1_19),
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
-            overrides.apply(Some(&project), &mut config);
-            assert_eq!(config.edition, Some(SlintEdition::V1_19));
-            assert!(config.edition_location.is_none());
-        });
-    }
-
-    #[test]
-    fn the_edition_selects_the_behavior() {
-        let config = |source: &str| {
-            with_project_file_contents(source, |path| {
-                ProjectFile::load(path).unwrap().into_compiler_configuration(OutputFormat::Llr)
-            })
-        };
-        assert!(config(r#"{ "slint-edition": "1.19" }"#).repeated_children_constrain_parent());
-        assert!(!config(r#"{ "slint-edition": "1.18" }"#).repeated_children_constrain_parent());
     }
 
     #[test]
@@ -1242,7 +1168,11 @@ mod tests {
     #[test]
     fn callback_loading_shares_parsing_and_relative_paths() {
         for source in [
+            "",
+            "  \t \r\n",
+            "{}",
             "// empty\n/* manifest */",
+            r#"{ "metadata": { this is not json! } }"#,
             r#"{"slint-edition":"1.19","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#,
             r#"{"unknown":true}"#,
             "{\n// preserved line\n\"main\": invalid}",

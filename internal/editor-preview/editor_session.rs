@@ -341,6 +341,7 @@ impl EditorSession {
             slint_edition,
             schema: _,
             main: _,
+            metadata: (),
         } = overrides;
         let override_source = |workspace_supplied| {
             if workspace_supplied {
@@ -380,6 +381,7 @@ impl EditorSession {
                     slint_edition: project_edition,
                     schema: _,
                     main: _,
+                    metadata: (),
                 } = project.resolved_data();
                 let source = format!("project file {}", project.source_path());
                 let mut warn = |setting: String, selected: String, source: &str| {
@@ -441,6 +443,7 @@ impl EditorSession {
                 slint_edition: edition.map(|(version, _)| version),
                 schema: None,
                 main: None,
+                metadata: (),
             },
             project_diagnostics,
         )
