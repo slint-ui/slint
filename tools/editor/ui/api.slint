@@ -8,6 +8,20 @@ export struct CodeBinding {
     value: string,
 }
 
+export enum CoordinateSpace { Root, Parent }
+
+export struct Geometry {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+}
+
+export struct GeometryResult {
+    valid: bool,
+    geometry: Geometry,
+}
+
 export enum InspectorCommitResult { rejected, unchanged, pending }
 
 export enum CanvasCorner {
@@ -628,7 +642,8 @@ export global Api {
     callback selected-element-resize(x: length, y: length, width: length, height: length);
     callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
-    callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
+    callback root-geometry-to-parent-geometry(geometry: Geometry) -> GeometryResult;
+    callback override-selected-element-geometry(x: length, y: length, width: length, height: length, coordinate-space: CoordinateSpace) -> GeometryResult;
     callback override-selected-element-rotation(rotation: angle);
 
     callback selected-element-delete();

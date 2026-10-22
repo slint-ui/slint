@@ -4,7 +4,7 @@
 import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
+import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
 import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
@@ -335,7 +335,7 @@ export component EditorUi inherits Window {
                     self.nudge-origin.x,
                     self.nudge-origin.y,
                     CanvasView.selection.width,
-                    CanvasView.selection.height);
+                    CanvasView.selection.height, CoordinateSpace.Root);
             }
 
             // Several edits in flight at once get lost, so quick taps share one write.
@@ -423,7 +423,7 @@ export component EditorUi inherits Window {
                         CanvasView.nudge-position.x,
                         CanvasView.nudge-position.y,
                         CanvasView.selection.width,
-                        CanvasView.selection.height);
+                        CanvasView.selection.height, CoordinateSpace.Root);
                     return accept;
                 }
                 reject
