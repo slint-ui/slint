@@ -502,6 +502,12 @@ async fn run_main_loop(
 
     let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
     let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
+    session.set_workspace_roots(
+        host_language_search::resolve_workspace_folders(&init_param)
+            .into_iter()
+            .filter_map(|folder| SourcePath::from_url(&folder.uri).into_native_path())
+            .collect(),
+    );
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
@@ -623,7 +629,9 @@ async fn run_main_loop(
         }
 
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-        language::sync_preview_project_root(&ctx.session);
+        if let Err(error) = language::sync_preview_project_root(&ctx.session) {
+            tracing::warn!("Failed to sync preview project root: {error}");
+        }
         sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
 }
