@@ -2034,7 +2034,7 @@ enum {}
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
-    fn send_requested_state_sends_configuration_and_empty_absent_user_settings() {
+    fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
@@ -2054,6 +2054,8 @@ enum {}
             format_utf8: false,
         };
 
+        // Configuration flows independently of user settings; a settings file
+        // the store does not have must not produce a SetUserSettings message.
         send_requested_state_to_preview(&ctx, &[], &["does-not-exist-xyz.json".to_string()]);
 
         let messages = messages.borrow();
@@ -2061,10 +2063,7 @@ enum {}
             m,
             LspToPreviewMessage::SetConfiguration { config } if config == &ctx.session.preview_config
         )));
-        assert!(messages.iter().any(|m| matches!(m,
-            LspToPreviewMessage::SetUserSettings { name, contents }
-                if name == "does-not-exist-xyz.json" && contents.is_empty()
-        )));
+        assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
     }
 
     #[test]

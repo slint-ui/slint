@@ -237,7 +237,6 @@ mod tests {
             addresses: vec!["[::1%0]".into()],
             port,
             unavailable_reason: String::new(),
-            version_mismatch: String::new(),
         })
         .await
         .unwrap();
@@ -285,7 +284,6 @@ mod tests {
                             addresses: vec!["127.0.0.1".into()],
                             port,
                             unavailable_reason: String::new(),
-                            version_mismatch: String::new(),
                         },
                         None,
                     );
@@ -325,7 +323,7 @@ mod tests {
                 }
             }).await;
             let mut connection = RemoteConnection::connect(DiscoveredViewer {
-                fullname: "silent-peer".into(), name: "Silent".into(), addresses: vec!["127.0.0.1".into()], port, unavailable_reason: String::new(), version_mismatch: String::new(),
+                fullname: "silent-peer".into(), name: "Silent".into(), addresses: vec!["127.0.0.1".into()], port, unavailable_reason: String::new(),
             }, None);
             tokio::time::timeout(Duration::from_secs(5), async {
                 loop {

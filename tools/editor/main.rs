@@ -1289,25 +1289,6 @@ mod tests {
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
     }
 
-    #[test]
-    fn absent_requested_settings_receive_an_empty_reply() {
-        let (mut session, messages) = session_with_recording_previews();
-        let project = tempfile::tempdir().unwrap();
-        spin_on::spin_on(handle_preview_message(
-            PreviewToLspMessage::RequestState {
-                files: Vec::new(),
-                settings: vec!["does-not-exist-xyz.json".into()],
-            },
-            RUN_PREVIEW_INDEX,
-            &mut session,
-            project.path(),
-        ));
-        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| matches!(message,
-            LspToPreviewMessage::SetUserSettings { name, contents }
-                if name == "does-not-exist-xyz.json" && contents.is_empty()
-        )));
-    }
-
     /// Remote viewers reach the editor through the Springboard of the run preview (#14132).
     #[test]
     fn the_run_preview_can_only_request_files_of_the_project() {

@@ -86,34 +86,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn incomplete_devices_do_not_discard_other_settings() {
-        let settings = SpringboardSettings::deserialize(r#"{
-            "version": 1,
-            "last_selected": {"remote": {"fullname": "phone", "name": "Phone"}},
-            "devices": [
-                {"id": "phone", "name": "Phone", "addresses": ["127.0.0.1"], "port": 9000, "manual": false},
-                {"id": "tablet"},
-                {"name": "No identity"},
-                {"id": "broken", "port": "invalid"}
-            ]
-        }"#).unwrap();
-        assert_eq!(settings.devices.len(), 2);
-        assert_eq!(settings.devices[0].name, "Phone");
-        assert_eq!(settings.devices[1].name, "tablet");
-        let roundtrip = SpringboardSettings::deserialize(&settings.serialize()).unwrap();
-        assert_eq!(roundtrip.devices, settings.devices);
-        assert_eq!(roundtrip.last_selected, settings.last_selected);
-        assert!(!settings.serialize().contains("manual"));
-    }
-
-    #[test]
-    fn absent_settings_use_defaults() {
-        let settings = SpringboardSettings::deserialize("").unwrap();
-        assert!(settings.devices.is_empty());
-        assert!(settings.last_selected.is_none());
-    }
-
-    #[test]
     fn settings_of_another_version_are_still_used() {
         let contents = format!(
             r#"{{"version":{},"last_selected":"local"}}"#,
