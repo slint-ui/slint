@@ -1,0 +1,123 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { LightTheme, DarkTheme, Theme, ThemeKind } from "../style.slint";
+
+export global ViewerStyle {
+    // Keep toolbar dimensions independent of the larger popup geometry.
+    out property <float> pill-scale: 2 / 3;
+    out property <float> scale: 0.8;
+    out property <length> radius: 17px * root.pill-scale;
+    out property <length> inset: 12px * root.scale;
+    out property <length> row-height: 47px * root.scale;
+    out property <bool> dark: Theme.current == ThemeKind.dark;
+    out property <color> ink: root.dark ? DarkTheme.colors.foreground : #172031;
+    out property <color> muted: root.dark ? #aeb6c2 : #768398;
+    out property <color> accent: root.dark ? #59b3ff : LightTheme.selection-accent;
+    out property <color> border: root.dark ? #4b5058 : LightTheme.rotation-dial.ring-border;
+    out property <brush> pill-rim: root.dark ? @linear-gradient(180deg, #202329, #373b43 45%, #40454e) : @linear-gradient(180deg, #cdd5df, #e7ebf0 45%, #dde3ea);
+    out property <brush> pill-face: root.dark ? @linear-gradient(180deg, #25272c, #2b2e34 30%, #303339) : @linear-gradient(180deg, #e9edf2, #f0f3f6 30%, #f5f7f9);
+    out property <color> pill-hover: root.dark ? #ffffff08 : #45617e08;
+    out property <color> pill-text: root.dark ? #d3d9e2 : #435169;
+    out property <color> icon: root.dark ? #b7c1ce : #647187;
+    out property <color> strong-icon: root.dark ? #c3cbd6 : #475569;
+    out property <color> shadow: root.dark ? #00000050 : #34445c25;
+    out property <color> popup-ambient-shadow: root.dark ? #0000002e : #18202b14;
+    out property <color> popup-key-shadow: root.dark ? #00000021 : #18202b17;
+    out property <brush> popup: root.dark ? @linear-gradient(135deg, #373a40, #2e3136) : @linear-gradient(135deg, #fcfdfe, #f4f6f8);
+    out property <color> arrow: root.dark ? #373a40 : #fcfdfe;
+    out property <brush> field: root.dark ? @linear-gradient(180deg, #3b3e45, #33363c) : @linear-gradient(180deg, #ffffff, #f3f5f7);
+    out property <brush> field-hover: root.dark ? @linear-gradient(180deg, #42464e, #393d45) : @linear-gradient(180deg, #ffffff, #edf3f9);
+    out property <color> field-border: root.dark ? #555b65 : #c6cfd9;
+    out property <color> action-text: root.dark ? #bec7d3 : #556278;
+    out property <brush> menu: root.dark ? @linear-gradient(140deg, #363a40, #2f3339) : @linear-gradient(140deg, #ffffff, #fafbfd);
+    out property <color> selected: root.dark ? #2a415b : #e8f3ff;
+    out property <color> selected-hover: root.dark ? #324d6b : #dfedff;
+    out property <color> unavailable: root.dark ? #929baa : #8b98ad;
+    out property <color> warning: root.dark ? #e4b77b : #8c642c;
+    out property <brush> dial-ring: root.dark ? @linear-gradient(145deg, #2c3036, #454d56) : @linear-gradient(145deg, #e2e7ed, #ffffff);
+    out property <brush> dial-face: root.dark ? @radial-gradient(circle at 10px 7px, #4a525d, #383f49 55%, #30363e) : LightTheme.rotation-dial.face;
+    out property <brush> dial-hover: root.dark ? @linear-gradient(150deg, #56616f, #3a424d) : @linear-gradient(150deg, #ffffff, #dce8f5);
+    out property <color> dial-border: root.dark ? #505b67 : LightTheme.rotation-dial.face-border;
+    out property <color> title-border: root.dark ? #42464d : #d9dfe6;
+    out property <color> connected: root.dark ? #5f826d : #94b9a0;
+}
+
+export component ViewerPopup inherits PopupWindow {
+    in property <length> anchor-width;
+    in property <length> anchor-height;
+    in property <length> panel-height;
+    out property <length> panel-width: 461px * ViewerStyle.scale;
+    in property <string> label;
+    close-policy: close-on-click-outside;
+    x: root.anchor-width - self.width + 16px;
+    y: root.anchor-height + 8px / 3;
+    width: root.panel-width + 32px;
+    height: panel.y + panel.height + 20px * ViewerStyle.scale;
+    Rectangle {
+        x: panel.x; y: panel.y; width: panel.width; height: panel.height;
+        border-radius: ViewerStyle.radius;
+        background: ViewerStyle.popup;
+        drop-shadow-color: ViewerStyle.popup-ambient-shadow;
+        drop-shadow-blur: 20px * ViewerStyle.scale;
+        drop-shadow-offset-y: 8px * ViewerStyle.scale;
+    }
+    panel := Rectangle {
+        x: 16px; y: 9px * ViewerStyle.scale;
+        width: root.panel-width; height: root.panel-height;
+        accessible-role: groupbox; accessible-label: root.label;
+        border-radius: ViewerStyle.radius;
+        background: ViewerStyle.popup;
+        border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
+        drop-shadow-color: ViewerStyle.popup-key-shadow;
+        drop-shadow-blur: 3px * ViewerStyle.scale;
+        drop-shadow-offset-y: 1px * ViewerStyle.scale;
+        @children
+    }
+    Path {
+        x: panel.x + 298px * ViewerStyle.scale; y: 0px;
+        width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
+        commands: "M 0 10 L 14 -4 L 28 10";
+        fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
+    }
+}
+
+export component ViewerButton inherits ButtonBase {
+    mouse-cursor: MouseCursor.default;
+    slot body;
+    in property <bool> ghost;
+    height: 52px * ViewerStyle.scale;
+    background << Rectangle {
+        border-radius: 10px * ViewerStyle.scale;
+        border-width: !root.ghost || root.hovered || root.has-focus ? 1px * ViewerStyle.scale : 0px;
+        border-color: root.has-focus ? ViewerStyle.accent : ViewerStyle.field-border;
+        background: root.ghost ? transparent : root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
+    }
+    content << Rectangle {
+        body { }
+    }
+}
+
+export component Chevron inherits Image {
+    width: 20px * ViewerStyle.scale;
+    height: 20px * ViewerStyle.scale;
+    source: @image-url("../assets/lucide/chevron-down.svg");
+    colorize: ViewerStyle.icon;
+}
+
+export component Checkmark inherits Image {
+    width: 20px * ViewerStyle.scale;
+    height: 20px * ViewerStyle.scale;
+    source: @image-url("../assets/lucide/check.svg");
+    colorize: ViewerStyle.accent;
+}
+
+export component ViewerIcon inherits Image {
+    width: 26px * ViewerStyle.scale;
+    height: (root.remote ? 28px : 26px) * ViewerStyle.scale;
+    in property <bool> remote;
+    in property <color> ink: ViewerStyle.strong-icon;
+    source: root.remote ? @image-url("../assets/lucide/smartphone.svg") : @image-url("../assets/lucide/monitor.svg");
+    colorize: root.ink;
+}

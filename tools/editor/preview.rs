@@ -2213,12 +2213,11 @@ fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)>
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.dependencies.insert(url.to_owned());
 
-        preview_state.source_code.get(url).map(|r| (r.version, r.code.clone())).ok_or(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not registered in Live-Preview!",
-            ),
-        )
+        preview_state
+            .source_code
+            .get(url)
+            .map(|r| (r.version, r.code.clone()))
+            .ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
     })
 }
 
@@ -2454,7 +2453,7 @@ async fn parse_source(
     config: PreviewConfig,
     path: SourcePath,
     version: SourceFileVersion,
-    source_code: String,
+    source_code: Option<String>,
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
@@ -2526,8 +2525,12 @@ async fn parse_source(
         }),
         i_slint_core::InternalToken,
     );
-    let resolved_source =
-        i_slint_live_preview::protocol::preview_source_path(&path, &source_code).await;
+    let resolved_source = match &source_code {
+        Some(source_code) => {
+            i_slint_live_preview::protocol::preview_source_path(&path, source_code).await
+        }
+        None => None,
+    };
     let result =
         builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
 
@@ -2560,12 +2563,17 @@ async fn reload_preview_impl(
     }
 
     let path = SourcePath::from_url(&component.url);
-    let source = get_url_from_cache(&component.url);
-    let source_available = source.is_ok();
-    let (version, source) = source.unwrap_or_else(|err| {
-        tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
-        Default::default()
-    });
+    let (version, source) = match get_url_from_cache(&component.url) {
+        Ok((version, source)) => (version, Some(source)),
+        Err(err) => {
+            tracing::debug!(
+                "Preview: Failed to load source for url={}, error={}",
+                component.url,
+                err
+            );
+            (None, None)
+        }
+    };
 
     let format = if config.format_utf8 {
         i_slint_editor_preview::ByteFormat::Utf8
@@ -2621,11 +2629,7 @@ async fn reload_preview_impl(
     );
 
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
-    ui::diagnostics::set_compilation_diagnostics(
-        &mut diagnostics,
-        source_available && no_component,
-        success,
-    );
+    ui::diagnostics::set_compilation_diagnostics(&mut diagnostics, no_component, success);
     let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone().unwrap());
     lsp.notify_diagnostics(diags).unwrap();
 
@@ -3157,7 +3161,7 @@ pub mod test {
                 Default::default(),
                 path,
                 Some(24),
-                source_code.to_string(),
+                Some(source_code.to_string()),
                 style.to_string(),
                 None,
                 move |path| {
@@ -3232,7 +3236,7 @@ mod tests {
             let switched_target = replacement.clone();
             let (diagnostics, _, _, _, _, resolved) = spin_on::spin_on(parse_source(
                 Default::default(), SourcePath::from_url(&original.url), None,
-                r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into(),
+                Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
                 move |path| {
                     let replacement = switched_target.clone();
@@ -3247,6 +3251,33 @@ mod tests {
                 assert!(!state.apply_resolved_source(&original, resolved.as_ref()));
                 assert_eq!(state.current_source_component(), Some(replacement.clone()));
             });
+        }
+    }
+
+    #[test]
+    fn an_uncached_file_reports_the_missing_file() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let directory = tempfile::tempdir().unwrap();
+        for file_name in ["slint-project.json", "main.slint"] {
+            let path = SourcePath::new(directory.path().join(file_name));
+            let (diagnostics, compiled, _, versions, _, _) = spin_on::spin_on(parse_source(
+                Default::default(),
+                path.clone(),
+                None,
+                None,
+                String::new(),
+                None,
+                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+            ));
+            assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+            assert!(diagnostics[0].message().contains("File not found"), "{diagnostics:?}");
+            assert!(compiled.is_none());
+            let url = path.to_url().unwrap();
+            let converted = convert_diagnostics(&diagnostics, &versions.borrow());
+            let lsp_diagnostics = &converted[&url].1;
+            assert_eq!(lsp_diagnostics.len(), 1, "{converted:?}");
+            assert_eq!(lsp_diagnostics[0].range, lsp_types::Range::default());
         }
     }
 
@@ -3288,7 +3319,7 @@ mod tests {
                 Default::default(),
                 manifest.clone(),
                 Some(1),
-                source.into(),
+                Some(source.into()),
                 String::new(),
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
@@ -3426,7 +3457,7 @@ mod tests {
             Default::default(),
             path,
             Some(24),
-            source.into(),
+            source_available.then(|| source.into()),
             "fluent".into(),
             requested.component.clone(),
             |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
@@ -3434,7 +3465,7 @@ mod tests {
         let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
         ui::diagnostics::set_compilation_diagnostics(
             &mut diagnostics,
-            source_available && no_component,
+            no_component,
             compiled.is_some(),
         );
         update_preview_area(

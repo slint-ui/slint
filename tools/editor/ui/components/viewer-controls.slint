@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { Metrics, Typography } from "../style.slint";
+import { Preview } from "../preview.slint";
+import { Springboard, ConnectionState } from "@springboard";
+import { EditorScrollView } from "editor-scroll-view.slint";
+import { ViewerStyle, ViewerPopup, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
+import { DeviceManager } from "device-manager.slint";
+
+export component ViewerControls inherits Rectangle {
+    private property <bool> manager-open: manager.is-open;
+    changed manager-open => { if !root.manager-open { Springboard.cancel-pairing(); } }
+    in property <bool> can-start;
+    in property <bool> busy;
+    width: 378px * ViewerStyle.pill-scale;
+    height: 56px * ViewerStyle.pill-scale;
+    border-radius: ViewerStyle.radius;
+    background: ViewerStyle.pill-rim;
+
+    Rectangle {
+        x: 1px * ViewerStyle.pill-scale; y: 1px * ViewerStyle.pill-scale;
+        width: parent.width - 2px * ViewerStyle.pill-scale; height: parent.height - 2px * ViewerStyle.pill-scale;
+        border-radius: ViewerStyle.radius - 1px * ViewerStyle.pill-scale;
+        background: ViewerStyle.pill-face;
+    }
+    launcher := ButtonBase {
+        mouse-cursor: MouseCursor.default;
+        width: parent.width; height: parent.height;
+        text: @tr("Viewer controls");
+        accessible-expanded: popup.is-open;
+        enabled: root.can-start || Preview.is-running;
+        clicked => { if popup.is-open { popup.close(); } else { popup.show(); } }
+        background << Rectangle {
+            x: 2px * ViewerStyle.pill-scale; y: 2px * ViewerStyle.pill-scale;
+            width: parent.width - 4px * ViewerStyle.pill-scale; height: parent.height - 4px * ViewerStyle.pill-scale;
+            background: launcher.hovered && !transport.hovered ? ViewerStyle.pill-hover : transparent;
+            animate background { duration: 100ms; }
+            border-radius: ViewerStyle.radius - 2px * ViewerStyle.pill-scale;
+            border-width: launcher.has-focus ? Metrics.border-width : 0px;
+            border-color: ViewerStyle.accent;
+        }
+        content << Rectangle {
+            ViewerIcon { x: 17px * ViewerStyle.pill-scale; width: 24px * ViewerStyle.pill-scale; height: 24px * ViewerStyle.pill-scale; remote: !Preview.local; ink: ViewerStyle.icon; }
+            Text { x: 53px * ViewerStyle.pill-scale; y: 9px * ViewerStyle.pill-scale; width: parent.width - 109px * ViewerStyle.pill-scale; text: Preview.endpoint-name; color: ViewerStyle.pill-text; font-size: 17px * ViewerStyle.pill-scale; font-weight: 500; overflow: elide; }
+            Text { x: 53px * ViewerStyle.pill-scale; y: 21px; width: parent.width - 109px * ViewerStyle.pill-scale; text: Preview.status; color: ViewerStyle.muted; font-size: 11px; overflow: elide; }
+        }
+    }
+    transport := ButtonBase {
+        mouse-cursor: MouseCursor.default;
+        x: parent.width - 48px * ViewerStyle.pill-scale; y: 8px * ViewerStyle.pill-scale;
+        width: 40px * ViewerStyle.pill-scale; height: 40px * ViewerStyle.pill-scale;
+        text: Preview.is-running ? @tr("Stop preview") : @tr("Start preview");
+        enabled: Preview.is-running || (root.can-start && !root.busy);
+        opacity: Preview.is-running || root.can-start ? 1 : Metrics.disabled-opacity;
+        clicked => { if Preview.is-running { Springboard.close(); } else { Preview.run(); } }
+        background << Rectangle {
+            border-radius: self.height / 2;
+            background: ViewerStyle.dial-ring;
+            border-width: 1px * ViewerStyle.pill-scale;
+            border-color: transport.has-focus ? ViewerStyle.accent : Preview.connected ? ViewerStyle.connected : ViewerStyle.border;
+            Rectangle {
+                x: 2px * ViewerStyle.pill-scale; y: 2px * ViewerStyle.pill-scale;
+                width: parent.width - 4px * ViewerStyle.pill-scale; height: parent.height - 4px * ViewerStyle.pill-scale;
+                border-radius: self.height / 2;
+                background: transport.hovered ? ViewerStyle.dial-hover : ViewerStyle.dial-face;
+                border-width: 1px * ViewerStyle.pill-scale; border-color: ViewerStyle.dial-border;
+            }
+        }
+        content << Rectangle {
+            Image {
+                width: 15px * ViewerStyle.pill-scale; height: 15px * ViewerStyle.pill-scale;
+                source: Preview.is-running ? @image-url("../assets/lucide/square-filled.svg") : @image-url("../assets/lucide/play-filled.svg");
+                colorize: ViewerStyle.accent;
+            }
+        }
+    }
+
+    popup := ViewerPopup {
+        anchor-width: root.width; anchor-height: root.height;
+        label: @tr("Viewer options");
+        panel-height: 132px * ViewerStyle.scale
+            + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
+        selector := ViewerButton {
+            x: ViewerStyle.inset;
+            y: ViewerStyle.inset;
+            width: popup.panel-width - 2 * ViewerStyle.inset;
+            text: @tr("Choose viewer");
+            accessible-role: combobox; accessible-value: Preview.endpoint-name; accessible-expanded: viewers.is-open;
+            clicked => { viewers.show(); }
+            body << Rectangle {
+                ViewerIcon { x: 20px * ViewerStyle.scale; remote: !Preview.local; }
+                Text { x: 62px * ViewerStyle.scale; width: parent.width - 110px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: Preview.endpoint-name; color: ViewerStyle.ink; font-size: 18px * ViewerStyle.scale; font-weight: 500; overflow: elide; }
+                Chevron { x: parent.width - 40px * ViewerStyle.scale; transform-rotation: viewers.is-open ? 180deg : 0deg; }
+            }
+            viewers := PopupWindow {
+                close-policy: close-on-click-outside;
+                y: selector.height + 2px * ViewerStyle.scale; width: selector.width;
+                height: min(224px, Springboard.saved-count * ViewerStyle.row-height + 8px * ViewerStyle.scale);
+                Rectangle {
+                    background: ViewerStyle.menu;
+                    border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
+                    border-radius: 10px * ViewerStyle.scale;
+                    drop-shadow-color: ViewerStyle.shadow; drop-shadow-blur: 12px * ViewerStyle.scale;
+                    drop-shadow-offset-y: 5px * ViewerStyle.scale;
+                }
+                EditorScrollView {
+                    x: 5px * ViewerStyle.scale; y: 4px * ViewerStyle.scale;
+                    width: parent.width - 10px * ViewerStyle.scale; height: parent.height - 8px * ViewerStyle.scale;
+                    content-width: self.width; content-height: Springboard.saved-count * ViewerStyle.row-height;
+                    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                    VerticalLayout {
+                    width: parent.width;
+                    for endpoint[index] in Springboard.endpoints: option := ButtonBase {
+                        mouse-cursor: MouseCursor.default;
+                        width: parent.width; height: endpoint.saved ? ViewerStyle.row-height : 0px;
+                        visible: endpoint.saved;
+                        text: index == 0 ? Preview.local-name : endpoint.name;
+                        enabled: endpoint.unavailable-reason == "";
+                        accessible-description: endpoint.unavailable-reason;
+                        clicked => {
+                            if !Preview.is-running { Preview.run(); }
+                            Springboard.select-endpoint(index);
+                            viewers.close();
+                        }
+                        background << Rectangle {
+                            border-radius: 9px * ViewerStyle.scale;
+                            border-width: option.has-focus ? Metrics.border-width : 0px;
+                            border-color: ViewerStyle.accent;
+                            background: option.hovered ? ViewerStyle.selected-hover : Springboard.selected-endpoint-index == index ? ViewerStyle.selected : transparent;
+                        }
+                        content << Rectangle {
+                            ViewerIcon { x: 15px * ViewerStyle.scale; remote: index > 0; ink: option.enabled ? ViewerStyle.strong-icon : ViewerStyle.unavailable; }
+                            Text { x: 57px * ViewerStyle.scale; width: parent.width - (option.enabled ? 100px : 182px) * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: option.text; color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: 18px * ViewerStyle.scale; overflow: elide; }
+                            if !option.enabled: Text { x: parent.width - 120px * ViewerStyle.scale; width: 100px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: @tr("Unavailable"); color: ViewerStyle.unavailable; font-size: 14px * ViewerStyle.scale; }
+                            if option.enabled && Springboard.selected-endpoint-index == index: Checkmark { x: parent.width - 35px * ViewerStyle.scale; }
+                        }
+                    }
+                    }
+                }
+            }
+        }
+        device-manager := ViewerButton {
+            x: selector.x; y: selector.y + selector.height + 8px * ViewerStyle.scale;
+            width: selector.width; height: 48px * ViewerStyle.scale;
+            ghost: true;
+            text: @tr("Manage devices...");
+            clicked => { popup.close(); manager.show(); }
+            body << Rectangle {
+                Text { x: 20px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: device-manager.text; color: ViewerStyle.action-text; font-size: 17px * ViewerStyle.scale; }
+            }
+        }
+        if Springboard.error-message != "": Text {
+            x: selector.x; y: device-manager.y + device-manager.height + Metrics.space-compact;
+            width: selector.width; height: Typography.caption.size;
+            text: Springboard.error-message;
+            color: ViewerStyle.muted; font-size: Typography.caption.size; overflow: elide;
+        }
+    }
+    manager := ViewerPopup {
+        anchor-width: root.width; anchor-height: root.height;
+        label: @tr("Device manager");
+        panel-height: 414px * ViewerStyle.scale;
+        DeviceManager {
+            width: manager.panel-width; height: manager.panel-height;
+            closed => { manager.close(); }
+        }
+    }
+    private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired
+        || Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired;
+    changed pairing-required => { if root.pairing-required { popup.close(); manager.show(); } }
+}

@@ -214,7 +214,7 @@ def test_broken_project_recovers_when_repaired_on_disk(
                             "EOF while parsing",
                             "has no 'main'",
                             "No component found",
-                            "File not registered",
+                            "File not found",
                         ]
                     )
                     for message in elements(

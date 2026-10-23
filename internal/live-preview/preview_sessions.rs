@@ -430,7 +430,7 @@ impl PreviewSession {
             .and_then(SourcePath::to_url)
             .unwrap_or_else(|| component.url.clone());
         let compilation_result =
-            compiler.build_from_source_path(source_code, path, InternalToken).await;
+            compiler.build_from_source_path(Some(source_code), path, InternalToken).await;
         drop(compiler);
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
