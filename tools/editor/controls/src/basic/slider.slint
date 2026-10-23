@@ -2,36 +2,54 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { SliderBase, LinearSliderSurface } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import {
+    SliderStyle,
+    SliderStateStyle,
+} from "slider_style.slint";
+import { SliderStyles } from "slider_styles.slint";
+import { FocusOutline } from "focus_outline.slint";
 
 export component Slider inherits SliderBase {
+    in property <SliderStyle> style: SliderStyles.standard;
+
+    in property <brush> track-color: root.state-style.track-color;
+    in property <brush> fill-color: root.state-style.fill-color;
+    in property <brush> handle-color: root.state-style.handle-color;
+
+    in property <length> preferred-length: 200px;
+    in property <length> min-thickness: 32px;
+
     in property <length> handle-width: 20px;
     in property <length> handle-height: 20px;
+    in property <length> handle-border-width: 1px;
+    in property <length> handle-radius: -1px;
+
     in property <length> track-thickness: 4px;
-    preferred-width: root.orientation == Orientation.vertical ? 32px : 200px;
-    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
-    private property <brush> state-handle: BasicTheme.accent;
-    private property <brush> state-fill: BasicTheme.accent;
-    private property <brush> state-track: BasicTheme.hover-background;
-    in property <brush> track-color: root.state-track;
-    in property <brush> fill-color: root.state-fill;
-    in property <brush> handle-color: root.state-handle;
-    in property <brush> handle-border-color: root.has-focus ? BasicTheme.focus : BasicTheme.border;
-    in property <length> handle-border-width: root.has-focus ? 2px : 1px;
-    in property <length> handle-radius: min(root.handle-width, root.handle-height) / 2;
-    in property <length> track-radius: root.track-thickness / 2;
+    in property <length> track-radius: -1px;
+
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    private property <SliderStateStyle> state-style: root.style.rest;
+    private property <length> effective-handle-radius: root.handle-radius < 0px ? min(root.handle-width, root.handle-height) / 2 : root.handle-radius;
+    private property <length> effective-track-radius: root.track-radius < 0px ? root.track-thickness / 2 : root.track-radius;
+
+    preferred-width: root.orientation == Orientation.vertical ? root.min-width : max(root.min-width, root.preferred-length);
+    preferred-height: root.orientation == Orientation.vertical ? max(root.min-height, root.preferred-length) : root.min-height;
+    min-width: root.orientation == Orientation.vertical
+        ? max(root.min-thickness, max(root.handle-width, root.track-thickness)) : root.handle-width;
+    min-height: root.orientation == Orientation.vertical ? root.handle-height
+        : max(root.min-thickness, max(root.handle-height, root.track-thickness));
 
     states [
         disabled when !root.enabled: {
-            root.state-handle: BasicTheme.disabled-foreground;
-            root.state-fill: BasicTheme.disabled-foreground;
-            root.state-track: BasicTheme.disabled-background;
+            state-style: root.style.disabled;
         }
         pressed when root.pressed: {
-            root.state-handle: BasicTheme.accent-pressed;
+            state-style: root.style.pressed;
         }
         hover when root.hovered: {
-            root.state-handle: BasicTheme.accent-hover;
+            state-style: root.style.hover;
         }
     ]
 
@@ -40,8 +58,8 @@ export component Slider inherits SliderBase {
         handle-height: root.handle-height;
         track-thickness: root.track-thickness;
         track << Rectangle {
-            background: root.track-color;
-            border-radius: root.track-radius;
+            background: root.enabled ? root.track-color : root.state-style.track-color;
+            border-radius: root.effective-track-radius;
             Rectangle {
                 x: root.orientation == Orientation.horizontal && root.inverted
                     ? parent.width * root.visual-position : 0px;
@@ -49,16 +67,26 @@ export component Slider inherits SliderBase {
                     ? parent.height * root.visual-position : 0px;
                 width: root.orientation == Orientation.horizontal ? parent.width * root.position : parent.width;
                 height: root.orientation == Orientation.vertical ? parent.height * root.position : parent.height;
-                background: root.fill-color;
-                border-radius: root.track-radius;
+                background: root.enabled ? root.fill-color : root.state-style.fill-color;
+                border-radius: root.effective-track-radius;
             }
         }
 
         handle << Rectangle {
-            background: root.handle-color;
-            border-color: root.handle-border-color;
+            background: root.enabled ? root.handle-color : root.state-style.handle-color;
+            border-color: root.state-style.handle-border-color;
             border-width: root.handle-border-width;
-            border-radius: root.handle-radius;
+            border-radius: root.effective-handle-radius;
+
+            focus-outline := FocusOutline {
+                active: root.enabled && root.has-focus;
+                outline-color: root.style.focus-color;
+                target-width: parent.width;
+                target-height: parent.height;
+                line-width: root.focus-width;
+                offset: root.focus-offset;
+                radius: root.effective-handle-radius;
+            }
         }
     }
 }

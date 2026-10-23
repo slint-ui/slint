@@ -3,18 +3,22 @@
 
 export component PressInteraction {
     in property <bool> enabled: true;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
+
     out property <bool> has-focus: keys.has-focus;
     out property <bool> focus-visible;
     out property <bool> hovered: root.enabled && pointer.has-hover && root.pointer-inside;
     out property <bool> pressed: root.enabled && (
         (pointer.pressed && root.pointer-inside && !root.pointer-canceled)
         || (root.has-focus && root.pressed-key != ""));
-    callback activated();
 
     private property <string> pressed-key;
     private property <bool> pointer-canceled;
     private property <bool> pointer-inside: pointer.mouse-x >= 0px && pointer.mouse-x < pointer.width
         && pointer.mouse-y >= 0px && pointer.mouse-y < pointer.height;
+
+    callback activated();
 
     forward-focus: keys;
 
@@ -32,6 +36,7 @@ export component PressInteraction {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.pointer-canceled = false;
                 root.focus-visible = false;
+                if root.focus-on-click { keys.focus(); }
             } else if event.kind == PointerEventKind.cancel {
                 root.pointer-canceled = true;
             }
@@ -45,6 +50,8 @@ export component PressInteraction {
         width: 0px;
         height: 0px;
         enabled: root.enabled;
+        focus-on-click: false;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         focus-changed-event(reason) => {
             root.focus-visible = self.has-focus && reason == FocusReason.tab-navigation;
             if !self.has-focus { root.pressed-key = ""; }
@@ -54,7 +61,7 @@ export component PressInteraction {
                 root.pressed-key = "";
                 return accept;
             }
-            if root.enabled && !event.modifiers.control && !event.modifiers.alt
+            if root.enabled && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta
                 && (event.text == Key.Space || event.text == Key.Return) {
                 if !event.repeat && root.pressed-key == "" { root.pressed-key = event.text; }
                 return accept;

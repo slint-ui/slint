@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component FocusOutline inherits Rectangle {
+    in property <brush> outline-color;
+
+    in property <bool> active;
+    in property <length> line-width: 2px;
+    in property <length> offset: 2px;
+    in property <length> radius;
+    in property <length> target-width;
+    in property <length> target-height;
+
+    private property <length> outset: root.offset + root.line-width;
+
+    x: -root.outset;
+    y: -root.outset;
+    width: root.target-width + 2 * root.outset;
+    height: root.target-height + 2 * root.outset;
+    visible: root.active && root.line-width > 0px;
+    border-color: root.outline-color;
+    border-width: root.line-width;
+    border-radius: root.radius + root.outset;
+}
