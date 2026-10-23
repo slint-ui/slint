@@ -124,9 +124,10 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 assert_eq!(instance.get_non_scrollable_clicked(), true);
 assert_eq!(instance.get_scrollable_clicked_count(), 0);
 
+// A pannable Flickable passes a quick click only to its ancestors, not to a sibling underneath.
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_scrollable_clicked_count(), 1);
+assert_eq!(instance.get_scrollable_clicked_count(), 0);
 assert_eq!(instance.get_scrollable_content_y(), 0.);
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
@@ -134,7 +135,6 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 10.0) });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(300.0, 10.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_scrollable_content_y(), -90.);
-assert_eq!(instance.get_scrollable_clicked_count(), 1);
 ```
 
 ```rust
