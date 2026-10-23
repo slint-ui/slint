@@ -14,10 +14,6 @@ target-dir = "target"
 [profile.release]
 panic = "abort"
 
-[profile.editor-test]
-inherits = "release"
-panic = "unwind"
-
 # Always build resvg and its hot-path dependencies with optimizations,
 # as it otherwise causes freezes to load large SVGs in debug builds.
 [profile.dev.package.resvg]
