@@ -21,6 +21,7 @@ use crate::input::{
 };
 use crate::item_rendering::{
     CachedRenderingData, HasFont, ItemRenderer, PlainOrStyledText, RenderString, RenderText,
+    TextForWidth, resolve_line_height_factor,
 };
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
@@ -173,7 +174,6 @@ impl HasFont for ComplexText {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
-            self.line_height_factor(),
             self.font_italic(),
         )
     }
@@ -182,6 +182,9 @@ impl HasFont for ComplexText {
 impl RenderString for ComplexText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(Self::FIELD_OFFSETS.line_height_factor().apply_pin(self).get())
     }
 
     fn max_lines(self: Pin<&Self>) -> i32 {
@@ -393,7 +396,6 @@ impl HasFont for StyledTextItem {
             Default::default(),
             self.default_font_size(),
             Default::default(),
-            1.0,
             Default::default(),
         )
     }
@@ -578,7 +580,6 @@ impl HasFont for SimpleText {
             self.font_weight(),
             self.font_size(),
             LogicalLength::default(),
-            1.0,
             false,
         )
     }
@@ -640,7 +641,10 @@ fn single_line_height(
 ) -> Option<Coord> {
     match text.text() {
         PlainOrStyledText::Plain(s) if !s.contains('\n') => {
-            window_adapter.renderer().text_line_height(text.font_request(self_rc)).map(|h| h.get())
+            let font_request = text.font_request(self_rc);
+            let line_height =
+                window_adapter.renderer().text_line_height(font_request, text.line_height_factor());
+            line_height.map(|h| h.get())
         }
         _ => None,
     }
@@ -659,14 +663,17 @@ fn text_layout_info(
     // The text layout cache holds one wrap mode per item, and an unconstrained measurement
     // doesn't need `NoWrap`: with no width to break at, the mode can't change the width.
     let wrap = text.wrap();
-    let implicit_size =
-        |max_width| window_adapter.renderer().text_size(text, self_rc, max_width, wrap);
+    let implicit_size = |text: Pin<&dyn RenderString>, max_width| {
+        window_adapter.renderer().text_size(text, self_rc, max_width, wrap)
+    };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
     // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
     // letters will be cut off, apply the ceiling here.
     match orientation {
         Orientation::Horizontal => {
+            let width_text = TextForWidth(text);
+            let width_text = Pin::new(&width_text);
             // A word-wrapping text mustn't be squeezed below its longest word. One
             // content-widths measurement gives both that minimum and the single-line
             // preferred width, so this replaces the plain measurement below.
@@ -678,10 +685,11 @@ fn text_layout_info(
             let (min, preferred) = match word_wrap_widths {
                 Some(widths) => (widths.min.get(), widths.max.get()),
                 None => {
-                    let unwrapped_width = implicit_size(None).width;
+                    let unwrapped_width = implicit_size(width_text, None).width;
                     let min = match text.overflow() {
-                        TextOverflow::Elide => unwrapped_width
-                            .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
+                        TextOverflow::Elide => unwrapped_width.min(
+                            window_adapter.renderer().char_size(width_text, self_rc, '…').width,
+                        ),
                         TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
                             // char-wrap can break anywhere, so it keeps no lower bound.
@@ -696,14 +704,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match wrap {
                 TextWrap::NoWrap => single_line_height(window_adapter, text, self_rc)
-                    .unwrap_or_else(|| implicit_size(None).height),
+                    .unwrap_or_else(|| implicit_size(text, None).height),
                 TextWrap::WordWrap | TextWrap::CharWrap => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
                         width.get()
                     };
-                    implicit_size(Some(w)).height
+                    implicit_size(text, Some(w)).height
                 }
             }
             .ceil();
@@ -853,16 +861,15 @@ impl Item for TextInput {
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None);
+                let width_text = TextForWidth(self);
+                let width_text = Pin::new(&width_text);
+                let width =
+                    window_adapter.renderer().text_size(width_text, self_rc, None, wrap).width;
                 let min = match wrap {
-                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::NoWrap => width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
-                LayoutInfo {
-                    min: min.ceil(),
-                    preferred: implicit_size.width.ceil(),
-                    ..LayoutInfo::default()
-                }
+                LayoutInfo { min: min.ceil(), preferred: width.ceil(), ..LayoutInfo::default() }
             }
             Orientation::Vertical => {
                 let h = match wrap {
@@ -1341,7 +1348,6 @@ impl HasFont for TextInput {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
-            self.line_height_factor(),
             self.font_italic(),
         )
     }
@@ -1353,6 +1359,9 @@ impl RenderString for TextInput {
         // the selection too -- see `text_with_preedit`.
         let text = self.text_with_preedit().0;
         PlainOrStyledText::Plain(if self.is_password() { mask_password(&text) } else { text })
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(Self::FIELD_OFFSETS.line_height_factor().apply_pin(self).get())
     }
 }
 
