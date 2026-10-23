@@ -313,6 +313,8 @@ pub struct BuiltinElement {
     pub accepts_focus: bool,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
+    /// `Some(stretch)` when the element's layout info is the default one with that stretch.
+    pub constant_layout_info_stretch: Option<f64>,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
     /// Documentation sections of the builtin element declaration, preserving source order.

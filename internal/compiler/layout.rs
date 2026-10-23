@@ -878,26 +878,8 @@ impl FlexboxLayout {
     }
 }
 
-/// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
-/// its layout info is the static default, never height-for-width.
-pub(crate) fn has_no_intrinsic_size(base: &ElementType) -> bool {
-    let ElementType::Builtin(b) = base else { return false };
-    matches!(
-        b.name.as_str(),
-        "Rectangle"
-            | "Empty"
-            | "TouchArea"
-            | "FocusScope"
-            | "Opacity"
-            | "Layer"
-            | "BoxShadow"
-            | "BackdropBlur"
-            | "Clip"
-    )
-}
-
 /// Controls whether `implicit_layout_info_call` returns layout info for builtins
-/// that don't have an intrinsic size (Rectangle, Empty, TouchArea, etc.).
+/// that don't have an intrinsic size.
 #[derive(Clone, Copy, PartialEq)]
 pub enum BuiltinFilter {
     /// Return layout info for all builtins (existing behavior).
@@ -969,38 +951,32 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            base @ ElementType::Builtin(_) if has_no_intrinsic_size(base) => {
-                if filter == BuiltinFilter::SkipNonImplicit {
-                    return None;
-                }
-                // hard-code the value for rectangle because many rectangle end up optimized away and we
-                // don't want to depend on the element.
-                Some(Expression::Struct {
-                    ty: crate::typeregister::layout_info_type(),
-                    values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
-                        .iter()
-                        .map(|(s, v)| {
-                            (SmolStr::new_static(s), Expression::NumberLiteral(*v as _, Unit::Px))
-                        })
-                        .chain(
-                            [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
-                                .iter()
-                                .map(|(s, v)| {
-                                    (
-                                        SmolStr::new_static(s),
-                                        Expression::NumberLiteral(*v, Unit::None),
-                                    )
-                                }),
-                        )
-                        .collect(),
-                })
-            }
             ElementType::Builtin(base_type)
                 if filter == BuiltinFilter::SkipNonImplicit
                     && base_type.default_size_binding
                         != crate::element_type::DefaultSizeBinding::ImplicitSize =>
             {
                 None
+            }
+            ElementType::Builtin(base_type)
+                if let Some(stretch) = base_type.constant_layout_info_stretch =>
+            {
+                Some(Expression::Struct {
+                    ty: crate::typeregister::layout_info_type(),
+                    values: [
+                        ("min", 0., Unit::Px),
+                        ("max", f32::MAX as f64, Unit::Px),
+                        ("preferred", 0., Unit::Px),
+                        ("min_percent", 0., Unit::None),
+                        ("max_percent", 100., Unit::None),
+                        ("stretch", stretch, Unit::None),
+                    ]
+                    .into_iter()
+                    .map(|(s, v, unit)| {
+                        (SmolStr::new_static(s), Expression::NumberLiteral(v, unit))
+                    })
+                    .collect(),
+                })
             }
             _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
