@@ -891,6 +891,70 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         }
     }
 
+    fn draw_particles(
+        &mut self,
+        particles: Pin<&i_slint_core::items::Particles>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+        let instances = particles.instances();
+        let len = instances.len();
+        if len == 0 {
+            return;
+        }
+        let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
+        let scale_factor = self.scale_factor;
+        let Some(skia_image) = self.image_cache.get_or_update_cache_entry(item_rc, || {
+            let size =
+                particles.start_size().max(particles.end_size()) + particles.size_variation();
+            super::cached_image::as_skia_image(
+                particles.source(),
+                &|| LogicalSize::from_lengths(size, size),
+                ImageFit::Contain,
+                scale_factor,
+                transform_scale,
+                self.canvas,
+                self.surface,
+            )
+        }) else {
+            return;
+        };
+
+        let tex = skia_safe::Rect::from_iwh(skia_image.width(), skia_image.height());
+        let anchor = (tex.width() / 2., tex.height() / 2.);
+        let longer_side = tex.width().max(tex.height());
+        let mut colorize = false;
+        let mut xforms = Vec::with_capacity(len);
+        let mut colors = Vec::with_capacity(len);
+        for particle in instances {
+            colorize |= particle.colorize.is_some();
+            let center = particle.center * scale_factor;
+            xforms.push(skia_safe::RSXform::from_radians(
+                particle.size.get() * scale_factor.get() / longer_side,
+                particle.rotation.to_radians(),
+                (center.x, center.y),
+                anchor,
+            ));
+            let color = particle.colorize.unwrap_or(Color::from_rgb_u8(255, 255, 255));
+            colors.push(to_skia_color(&color.with_alpha(particle.opacity)));
+        }
+        let texs = vec![tex; len];
+        // The sprite is the source and the color the destination: `DstIn` keeps the color
+        // where the sprite is opaque, and `Modulate` scales the sprite by the opacity.
+        let mode =
+            if colorize { skia_safe::BlendMode::DstIn } else { skia_safe::BlendMode::Modulate };
+        self.canvas.draw_atlas(
+            &skia_image,
+            &xforms,
+            &texs,
+            colors.as_slice(),
+            mode,
+            skia_safe::SamplingOptions::from(skia_safe::FilterMode::Linear),
+            None,
+            self.default_paint().as_ref(),
+        );
+    }
+
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&i_slint_core::items::BoxShadow>,
