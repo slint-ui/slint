@@ -424,11 +424,13 @@ def test_literal_color_field_separates_rgb_and_opacity(
         rgb.invoke_accessible_default_action()
         rgb_focused = screenshot(window)
         assert rgb_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
-        assert rgb_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert rgb_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
+        assert rgb_focused.getpixel(divider) == rendered.getpixel(divider)
 
         opacity.invoke_accessible_default_action()
         opacity_focused = screenshot(window)
-        assert opacity_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert opacity_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
+        assert opacity_focused.getpixel(divider) == rendered.getpixel(divider)
         assert opacity_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
 
 
@@ -546,7 +548,7 @@ def test_color_field_opacity_writes_exact_source(
         )
         suffixes = (
             opacity_field.query_descendants()
-            .match_id("InspectorTextFieldBase::fixed-suffix")
+            .match_id("EditorInput::fixed-suffix")
             .find_all()
         )
         assert len(suffixes) == 1

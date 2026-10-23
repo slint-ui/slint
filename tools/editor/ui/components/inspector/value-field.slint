@@ -19,6 +19,7 @@ export component InspectorValueField inherits FocusScope {
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
     in property <bool> normalize-accepted: false;
     in property <bool> live-edit: false;
+    in property <bool> muted-value: false;
     in property <bool> show-focus-border: true;
     in property <bool> scrubbable: false;
     in property <bool> scrub-on-suffix: false;
@@ -99,6 +100,7 @@ export component InspectorValueField inherits FocusScope {
         suffix-width: root.suffix-width;
         normalize-accepted: root.normalize-accepted;
         live-edit: root.live-edit;
+        muted-value: root.muted-value;
         show-focus-border: root.show-focus-border;
         accessible-name: root.accessible-name;
         width: parent.width;
@@ -122,14 +124,14 @@ export component InspectorValueField inherits FocusScope {
             stroke-width: Metrics.border-width;
         }
         if root.corner-index < 0 && root.prefix != "": prefix-container := Rectangle {
-            width: prefix-text.preferred-width;
+            width: root.style.prefix-width;
             height: field.height;
             prefix-text := Text {
                 width: self.preferred-width;
                 height: parent.height;
                 text: root.prefix;
                 color: root.style.appearance.muted;
-                font-size: Typography.caption.size - 1px;
+                font-size: Typography.caption.size;
                 vertical-alignment: center;
             }
             if root.scrubbable && !root.scrub-on-suffix: TouchArea {
@@ -154,7 +156,7 @@ export component InspectorValueField inherits FocusScope {
     }
 
     if root.scrubbable && root.scrub-on-suffix && root.suffix != "": TouchArea {
-        x: root.width - root.style.padding-inline - root.suffix-width;
+        x: root.width - root.style.padding-end - root.suffix-width;
         width: root.suffix-width;
         enabled: root.enabled;
         mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);

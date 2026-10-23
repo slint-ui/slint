@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from inspector_interactions import inspector_field
 from slint_testing import keys
 from ui_assertions import expect
@@ -260,6 +261,10 @@ def test_pane_sizes_persist_across_relaunch(
     source_file = fixture_project / "Main.slint"
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(
+            fixture_project / "Main.slint",
+            (fixture_project / "Main.slint").read_bytes(),
+        )
         window = first_window(editor)
         elements_divider = element(window, "Elements pane resize")
         outline_divider = element(window, "Outline pane resize")
@@ -299,6 +304,10 @@ def test_pane_sizes_persist_across_relaunch(
         )
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(
+            fixture_project / "Main.slint",
+            (fixture_project / "Main.slint").read_bytes(),
+        )
         window = first_window(editor)
         elements_divider = element(window, "Elements pane resize")
         outline_divider = element(window, "Outline pane resize")
@@ -318,6 +327,10 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
+        wait_for_source(
+            fixture_project / "Main.slint",
+            (fixture_project / "Main.slint").read_bytes(),
+        )
         window = first_window(editor)
         elements = element(window, "Elements pane resize")
         outline = element(window, "Outline pane resize")
@@ -396,6 +409,10 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
+        wait_for_source(
+            fixture_project / "Main.slint",
+            (fixture_project / "Main.slint").read_bytes(),
+        )
         window = first_window(editor)
         for label, default_height in [
             ("Elements pane resize", default_elements),

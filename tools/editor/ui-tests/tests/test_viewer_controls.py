@@ -6,6 +6,7 @@
 import pytest
 import slint_testing
 from canvas_interactions import center
+from editor_sync import wait_for_source
 from ui_assertions import expect
 from ui_driver import element, first_window, launch_editor, query, screenshot
 
@@ -14,6 +15,7 @@ def test_viewer_transport_and_popup(
     editor_binary, editor_environment, radial_scene, tmp_path
 ):
     with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+        wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         left = slint_testing.PointerEventButton.Left
         expect(query(window, "Off")).to_be_visible()
@@ -101,7 +103,7 @@ def test_viewer_transport_and_popup(
         # Nested popup bounds are popup-relative, so count the selected fill in the window capture.
         colors = viewer_list.getcolors(viewer_list.width * viewer_list.height) or []
         selected_pixels = sum(
-            count for count, color in colors if color == (232, 243, 255)
+            count for count, color in colors if color == (227, 241, 252)
         )
         assert (
             selected_pixels

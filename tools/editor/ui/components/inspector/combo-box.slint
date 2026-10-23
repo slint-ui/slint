@@ -5,11 +5,12 @@ import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuSt
 import { InspectorComboOption } from "control-data.slint";
 import { EditorIcons } from "../index.slint";
 
+import { InputSurface } from "../input-surface.slint";
+import { FloatingSurface } from "../floating-surface.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
 
-export component InspectorComboBox inherits Rectangle {
+export component InspectorComboBox inherits InputSurface {
     in property <ComboMenuStyle> menu-style: Style.combo-menu;
-    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
     in property <string> value;
@@ -20,17 +21,12 @@ export component InspectorComboBox inherits Rectangle {
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
     callback accepted(string) -> bool;
-    private property <PaintStyle> paint: fallback-popup.is-open ? root.style.appearance.focus
-        : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
+    focused: fallback-popup.is-open || combo-focus.has-focus;
+    hovered: native-menu-touch.has-hover;
 
     width: root.fit-options
         ? max(Style.inspector-layout.column-width, options-measure.preferred-width + 2 * Metrics.space-regular + Metrics.space-small + Metrics.icon-medium)
         : root.wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
-    height: root.style.height;
-    border-radius: root.style.radius;
-    background: root.paint.background;
-    border-width: fallback-popup.is-open || combo-focus.has-focus ? Metrics.border-width : 0px;
-    border-color: fallback-popup.is-open || combo-focus.has-focus ? root.style.appearance.focus.border : root.paint.border;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
     accessible-value: root.value;
@@ -150,8 +146,8 @@ export component InspectorComboBox inherits Rectangle {
         }
 
         HorizontalLayout {
-            padding-left: Metrics.space-regular;
-            padding-right: Metrics.space-regular;
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-end;
             spacing: Metrics.space-small;
             cross-axis-alignment: center;
 
@@ -200,14 +196,11 @@ export component InspectorComboBox inherits Rectangle {
         close-policy: close-on-click-outside;
         forward-focus: popup-focus;
 
-        Rectangle {
+        FloatingSurface {
             background: root.menu-style.background;
             border-width: Metrics.border-width;
             border-color: root.menu-style.border;
             border-radius: root.style.radius;
-            drop-shadow-color: root.menu-style.shadow.color;
-            drop-shadow-blur: root.menu-style.shadow.blur;
-            drop-shadow-offset-y: root.menu-style.shadow.offset-y;
         }
 
         popup-focus := FocusScope {

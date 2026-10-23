@@ -195,10 +195,10 @@ def test_broken_preview_cancels_active_fill_session(
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
         open_gradient(window)
-        element(window, "Close Custom", role=slint_testing.AccessibleRole.Button)
+        element(window, "Close Fill", role=slint_testing.AccessibleRole.Button)
         source.write_bytes(baseline + b"\nthis is not valid Slint\n")
         element(window, "Stale preview", role=slint_testing.AccessibleRole.Region)
-        wait_until(lambda: True if not elements(window, "Close Custom") else None)
+        wait_until(lambda: True if not elements(window, "Close Fill") else None)
         SourceSnapshot.capture(fixture_project).assert_unchanged()
 
 

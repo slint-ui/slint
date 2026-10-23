@@ -120,7 +120,7 @@ def test_gradient_angle_snapping(
         restored = center(control(window, end_label), rotation + initial - 90)
         assert restored.x == pytest.approx(start.x, abs=0.01)
         assert restored.y == pytest.approx(start.y, abs=0.01)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -215,7 +215,7 @@ def test_conic_snapping_across_seam_saves_and_undoes(
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
         expect(query(window, "Gradient angle")).to_be_hidden()
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         saved = wait_for_source_change(path, original.sources[Path(path.name)])
         angle = re.search(rb"from ([0-9.]+)deg", saved)
         assert angle is not None

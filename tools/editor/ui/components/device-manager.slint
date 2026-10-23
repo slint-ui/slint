@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorInput } from "editor-input.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import { Springboard, ConnectionState, ViewerSearchState } from "@springboard";
 import { Preview } from "../preview.slint";
@@ -38,23 +39,14 @@ component SoftButton inherits DeviceAction {
     Text { text: root.label; color: !root.enabled ? ViewerStyle.unavailable : root.primary ? ViewerStyle.accent : ViewerStyle.ink; font-size: 13px; font-weight: 500; }
 }
 
-component DeviceField inherits Rectangle {
+component DeviceField inherits EditorInput {
     in-out property <string> text;
-    in property <string> placeholder;
     in property <bool> numeric;
-    border-radius: (10px * ViewerStyle.scale);
-    background: ViewerStyle.pill-face;
-    border-width: (1px * ViewerStyle.scale);
-    border-color: input.has-focus ? ViewerStyle.accent : ViewerStyle.field-border;
-    if root.text == "": Text { x: (14px * ViewerStyle.scale); height: parent.height; vertical-alignment: center; text: root.placeholder; color: ViewerStyle.muted; font-size: (16px * ViewerStyle.scale); }
-    input := TextInput {
-        x: (14px * ViewerStyle.scale); width: parent.width - (28px * ViewerStyle.scale); height: parent.height;
-        text <=> root.text;
-        color: ViewerStyle.ink; font-size: (16px * ViewerStyle.scale);
-        vertical-alignment: center;
-        input-type: root.numeric ? InputType.number : InputType.text;
-        accessible-label: root.placeholder;
-    }
+    value: root.text;
+    accessible-name: root.placeholder;
+    input-type: root.numeric ? InputType.number : InputType.text;
+    live-edit: true;
+    accepted(value) => { root.text = value; return true; }
 }
 
 export component DeviceManager inherits Rectangle {
@@ -117,7 +109,7 @@ export component DeviceManager inherits Rectangle {
         Rectangle {
             x: (16px * ViewerStyle.scale); y: (92px * ViewerStyle.scale); width: parent.width - (32px * ViewerStyle.scale); height: (228px * ViewerStyle.scale);
             border-radius: (11px * ViewerStyle.scale); border-width: (1px * ViewerStyle.scale); border-color: ViewerStyle.title-border;
-            background: ViewerStyle.dark ? #ffffff03 : #ffffff65;
+            background: ViewerStyle.device-row;
             clip: true;
             EditorScrollView {
                 horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
@@ -213,8 +205,8 @@ export component DeviceManager inherits Rectangle {
         Text { x: (24px * ViewerStyle.scale); y: (76px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: @tr("Enter the address shown in Slint Preview\non your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
         Text { x: (24px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("IP address"); color: ViewerStyle.muted; font-size: 11px; }
         Text { x: parent.width - (122px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("Port"); color: ViewerStyle.muted; font-size: 11px; }
-        DeviceField { x: (24px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: parent.width - (162px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); text <=> root.host; placeholder: "192.168.1.42"; }
-        DeviceField { x: parent.width - (122px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: (98px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); text <=> root.port; placeholder: "9000"; numeric: true; }
+        DeviceField { x: (24px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: parent.width - (162px * ViewerStyle.scale); text <=> root.host; placeholder: "192.168.1.42"; }
+        DeviceField { x: parent.width - (122px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: (98px * ViewerStyle.scale); text <=> root.port; placeholder: "9000"; numeric: true; }
         Text {
             x: 24px * ViewerStyle.scale; y: 242px * ViewerStyle.scale; width: parent.width - 48px * ViewerStyle.scale;
             text: Springboard.search-state == ViewerSearchState.Idle ? @tr("Enter an address and port")
@@ -255,8 +247,8 @@ export component DeviceManager inherits Rectangle {
         Text { x: (91px * ViewerStyle.scale); y: (85px * ViewerStyle.scale); width: parent.width - (115px * ViewerStyle.scale); text: Springboard.selected-endpoint.name; color: ViewerStyle.ink; font-size: (17px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
         Text { x: (91px * ViewerStyle.scale); y: (112px * ViewerStyle.scale); text: Springboard.selected-endpoint.address; color: ViewerStyle.muted; font-size: 11px; }
         Text { x: (24px * ViewerStyle.scale); y: (166px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection-state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
-        if Springboard.connection-state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (52px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.pairing-code-digits); numeric: true; }
-        Text { x: (24px * ViewerStyle.scale); y: (274px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.error-message; wrap: word-wrap; color: ViewerStyle.dark ? #edaaa3 : #a94d46; font-size: 11px; }
+        if Springboard.connection-state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.pairing-code-digits); numeric: true; }
+        Text { x: (24px * ViewerStyle.scale); y: (274px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.error-message; wrap: word-wrap; color: ViewerStyle.error; font-size: 11px; }
         SoftButton {
             x: (24px * ViewerStyle.scale); y: (315px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); label: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device"); primary: true; enabled: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection-state == ConnectionState.PairingRequired && root.code.character-count == Springboard.pairing-code-digits);
             activated => {
