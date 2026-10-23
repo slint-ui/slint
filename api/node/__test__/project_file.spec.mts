@@ -29,7 +29,10 @@ function writeMain(directory: string, source: string): string {
 }
 
 test("include paths come from the project file", () => {
-    const directory = projectDirectory({ main: "main.slint", "include-paths": ["include"] });
+    const directory = projectDirectory({
+        main: "main.slint",
+        "include-paths": ["include"],
+    });
     fs.mkdirSync(path.join(directory, "include"));
     fs.writeFileSync(
         path.join(directory, "include", "shared.slint"),
@@ -69,10 +72,7 @@ test("a project file that isn't valid json is reported", () => {
         fs.mkdtempSync(path.join(os.tmpdir(), "slint-project-file-")),
     );
     fs.writeFileSync(path.join(directory, "slint-project.json"), "{");
-    writeMain(
-        directory,
-        "export component Main inherits Window { }",
-    );
+    writeMain(directory, "export component Main inherits Window { }");
 
     let error: CompileError | undefined;
     try {
@@ -127,7 +127,10 @@ test("loading a project file directly is an error", () => {
 test("loading a slint file ignores its project file", () => {
     const directory = projectDirectory({ main: "elsewhere.slint" });
     fs.writeFileSync(path.join(directory, "slint-project.json"), "{");
-    const main = writeMain(directory, "export component Main inherits Window { }");
+    const main = writeMain(
+        directory,
+        "export component Main inherits Window { }",
+    );
 
     expect(() => loadFile(main)).not.toThrow();
 });
