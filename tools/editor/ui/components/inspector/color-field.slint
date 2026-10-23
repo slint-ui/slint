@@ -23,6 +23,7 @@ export component InspectorColorField inherits Rectangle {
     in property <string> preview-key: "";
     in property <string> session-key: "";
     in property <string> property-name: "";
+    in property <float> element-rotation;
     callback accepted(string) -> bool;
     private property <ColorFieldData> data: Api.source-color-field-data(root.property-name);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
@@ -40,10 +41,10 @@ export component InspectorColorField inherits Rectangle {
         commit-key: root.commit-key;
         accepted(color, expression) => { return root.accepted(expression); }
         preview(color) => {
-            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
+            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, false);
         }
         scrub-accepted(color) => {
-            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
+            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, true, false);
         }
         scrub-canceled(color) => { Api.inspector-cancel(); }
         swatch-activated => { root.show-picker(); }
@@ -158,6 +159,7 @@ export component InspectorColorField inherits Rectangle {
                 property-name: root.property-name,
                 size: root.target-size,
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
+                element-rotation: root.element-rotation,
             },
             expression: root.value,
             unsupported: root.data.unsupported,

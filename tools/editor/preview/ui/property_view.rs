@@ -1328,14 +1328,18 @@ export component Test { in property <Foobar> test1; }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 20.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 40.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
@@ -1353,7 +1357,9 @@ export component Test { in property <Foobar> test1; }"#,
             3,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert!(!result.fill.custom_radius);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,
