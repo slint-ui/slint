@@ -81,7 +81,7 @@ jobs:
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
             check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
-            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
+            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'examples')) }}
             test_styles: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && matrix.pr_test_styles || '' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
