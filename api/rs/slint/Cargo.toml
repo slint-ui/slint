@@ -19,6 +19,7 @@ categories = ["gui", "rendering::engine", "no-std"]
 path = "lib.rs"
 
 [features]
+image-decoders = ["i-slint-core/image-decoders"]
 
 default = [
   "std",
