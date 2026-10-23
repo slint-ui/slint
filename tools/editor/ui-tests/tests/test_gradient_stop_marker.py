@@ -82,7 +82,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
             expect(picker_field(window, "Hex color")).to_have_value("0000FF")
             expect(picker_field(window, "Hex color opacity")).to_have_value("50")
             click_picker_button(window, "Close Stop color")
-            click_picker_button(window, "Close Custom")
+            click_picker_button(window, "Close Fill")
             original.assert_unchanged()
             open_gradient(window)
             marker = control(window, "Gradient stop 2", role)

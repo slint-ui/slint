@@ -97,7 +97,7 @@ def test_conic_escape_restores_gesture(
         )
         assert restored.x == pytest.approx(start.x, abs=0.001)
         assert restored.y == pytest.approx(start.y, abs=0.001)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -255,7 +255,7 @@ def test_conic_rotation_crosses_the_seam(
             slint_testing.PointerReleaseEvent(around(c, radius, 7), button)
         )
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         baseline = original.sources[Path(conic_scene.name)]
 
         def applied_source() -> bytes | None:
@@ -284,7 +284,7 @@ def test_conic_rotation_crosses_the_seam(
         expected = around(c, 126, 367)
         assert reopened.x == pytest.approx(expected.x, abs=0.01)
         assert reopened.y == pytest.approx(expected.y, abs=0.01)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         assert conic_scene.read_bytes() == saved
 
 
@@ -302,10 +302,10 @@ def test_conic_noop_and_collapsed_rotation_do_not_write_source(
         actual = center(control(window, "Gradient rotation handle"), 130)
         assert actual.x == pytest.approx(r.x, abs=0.001)
         assert actual.y == pytest.approx(r.y, abs=0.001)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
         open_conic(window)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 

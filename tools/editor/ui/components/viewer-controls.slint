@@ -7,6 +7,7 @@ import { Preview } from "../preview.slint";
 import { Springboard, ConnectionState } from "@springboard";
 import { EditorScrollView } from "editor-scroll-view.slint";
 import { ViewerStyle, ViewerPopup, ViewerButton, ViewerIcon, Chevron, Checkmark } from "viewer-style.slint";
+import { FloatingSurface } from "floating-surface.slint";
 import { DeviceManager } from "device-manager.slint";
 
 export component ViewerControls inherits Rectangle {
@@ -98,12 +99,10 @@ export component ViewerControls inherits Rectangle {
                 close-policy: close-on-click-outside;
                 y: selector.height + 2px * ViewerStyle.scale; width: selector.width;
                 height: min(224px, Springboard.saved-count * ViewerStyle.row-height + 8px * ViewerStyle.scale);
-                Rectangle {
+                FloatingSurface {
                     background: ViewerStyle.menu;
                     border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
                     border-radius: 10px * ViewerStyle.scale;
-                    drop-shadow-color: ViewerStyle.shadow; drop-shadow-blur: 12px * ViewerStyle.scale;
-                    drop-shadow-offset-y: 5px * ViewerStyle.scale;
                 }
                 EditorScrollView {
                     x: 5px * ViewerStyle.scale; y: 4px * ViewerStyle.scale;

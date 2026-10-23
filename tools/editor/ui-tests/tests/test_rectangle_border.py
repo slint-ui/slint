@@ -218,7 +218,7 @@ def test_border_defaults_and_rectangle_selection(
         element(window, "Hex color", role=slint_testing.AccessibleRole.TextInput)
         element(window, "Gradient", role=slint_testing.AccessibleRole.Button)
         element(
-            window, "Close Custom", role=slint_testing.AccessibleRole.Button
+            window, "Close Fill", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         for row in ("inspect-text", "inspect-image"):
             select_outline_row(window, row)

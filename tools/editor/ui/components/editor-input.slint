@@ -1,0 +1,183 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InputSurface } from "input-surface.slint";
+
+export component EditorInput inherits InputSurface {
+    in property <string> accessible-name: "";
+    in property <string> value;
+    in property <bool> live-edit: false;
+    in property <bool> muted-value: false;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
+    in property <bool> normalize-accepted: false;
+    in property <bool> show-focus-border: true;
+    in property <string> placeholder;
+    in property <InputType> input-type: InputType.text;
+    callback keyboard(KeyEvent) -> EventResult;
+    callback focus-lost();
+    keyboard(event) => { return reject; }
+    public function focus-input() { input.focus(); }
+    public function select-range(start: int, end: int) { input.set-selection-offsets(start, end); }
+    focused: input.has-focus;
+    hovered: touch.has-hover;
+    framed: root.show-focus-border;
+    out property <color> paint-foreground: root.paint.foreground;
+    out property <bool> input-focused: input.has-focus;
+    in property <string> commit-key: "";
+    private property <string> active-commit-key: root.commit-key;
+    private property <bool> edited: false;
+    callback edit-started();
+    callback accepted(string) -> bool;
+    callback normalized(string) -> string;
+
+    accessible-role: AccessibleRole.text-input;
+    accessible-label: root.accessible-name;
+    accessible-value: input.text;
+    accessible-enabled: root.enabled;
+    accessible-action-set-value(value) => {
+        if root.enabled {
+            root.accept-input(value, true);
+        }
+    }
+    accessible-action-default => {
+        if root.enabled {
+            input.focus();
+        }
+    }
+
+    changed value => {
+        if !input.has-focus || !root.edited {
+            input.text = root.value;
+        }
+    }
+
+    changed commit-key => {
+        root.edited = false;
+        input.text = root.value;
+        root.active-commit-key = root.commit-key;
+    }
+
+    function begin-edit() {
+        if !root.edited {
+            root.edit-started();
+            root.edited = true;
+        }
+    }
+
+    function accept-input(text: string, normalize: bool) -> bool {
+        if root.active-commit-key != root.commit-key {
+            input.text = root.value;
+            root.active-commit-key = root.commit-key;
+            return false;
+        }
+        root.begin-edit();
+        let accepted = root.accepted(text);
+        if accepted && normalize && root.normalize-accepted {
+            input.text = root.normalized(text);
+            root.edited = false;
+        }
+        return accepted;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: text;
+        clicked => { input.focus(); }
+
+        HorizontalLayout {
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-end + (root.suffix-width > 0px
+                ? root.suffix-width + root.style.gap
+                : 0px);
+            spacing: root.style.gap;
+            cross-axis-alignment: center;
+
+            @children
+
+            input := TextInput {
+                // Disable TextInput's built-in accessibility support as the frame takes care of that.
+                accessible-role: none;
+                horizontal-stretch: 1;
+                text: root.value;
+                enabled: root.enabled;
+                horizontal-alignment: root.horizontal-alignment;
+                color: root.muted-value ? root.style.appearance.muted : root.paint.foreground;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
+                vertical-alignment: center;
+                selection-background-color: root.style.appearance.selection;
+                selection-foreground-color: root.style.appearance.selection-foreground;
+                text-cursor-width: 1phx;
+                input-type: root.input-type;
+                key-pressed(event) => { return root.keyboard(event); }
+
+                if input.text == "": Text {
+                    x: 0px; y: 0px;
+                    width: parent.width; height: parent.height;
+                    horizontal-alignment: root.horizontal-alignment;
+                    text: root.placeholder;
+                    color: root.style.appearance.muted;
+                    font-size: root.style.text.size;
+                    vertical-alignment: center;
+                }
+
+                edited => {
+                    root.begin-edit();
+                    if root.live-edit { root.accept-input(self.text, false); }
+                }
+
+                accepted => {
+                    if !root.accept-input(self.text, true) {
+                        self.text = root.value;
+                    }
+                }
+
+                TouchArea {
+                    enabled: root.enabled && !input.has-focus;
+                    mouse-cursor: text;
+                    clicked => { input.focus(); }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                            input.focus();
+                        }
+                    }
+                }
+
+                changed has-focus => {
+                    if self.has-focus {
+                        root.active-commit-key = root.commit-key;
+                        self.select-all();
+                    }
+                    if !self.has-focus && self.text != root.value {
+                        if !root.accept-input(self.text, true) {
+                            self.text = root.value;
+                        }
+                    }
+                    if !self.has-focus { root.edited = false; root.focus-lost(); }
+                }
+            }
+
+            if root.suffix != "" && root.suffix-width == 0px: Text {
+                text: root.suffix;
+                color: root.style.appearance.muted;
+                font-size: root.style.text.size;
+                vertical-alignment: center;
+            }
+
+        }
+
+        if root.suffix != "" && root.suffix-width > 0px: fixed-suffix := Text {
+            x: parent.width - root.style.padding-end - root.suffix-width;
+            y: 0px;
+            width: root.suffix-width;
+            height: parent.height;
+            text: root.suffix;
+            color: root.style.appearance.muted;
+            font-size: root.style.text.size;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

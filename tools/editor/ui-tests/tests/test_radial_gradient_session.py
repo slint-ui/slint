@@ -40,8 +40,8 @@ def test_escape_restores_radial_gesture(
         restored = center(control(window, label), 35)
         assert restored.x == pytest.approx(start.x, abs=0.001)
         assert restored.y == pytest.approx(start.y, abs=0.001)
-        control(window, "Close Custom")
-        click(window, "Close Custom")
+        control(window, "Close Fill")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -100,7 +100,7 @@ def test_external_edit_invalidates_radial_session(
         radial_scene.write_text(external)
         wait_for_source(radial_scene, external.encode())
         assert not elements(window, "Gradient center handle")
-        assert not elements(window, "Close Custom")
+        assert not elements(window, "Close Fill")
         assert radial_scene.read_text() == external
         open_radial(window)
         click(window, "Edit stop 1 color")

@@ -46,7 +46,7 @@ def test_coincident_canvas_insertion_preserves_rendering(
             gesture(window, point, point)
         control(window, "Gradient stop 5")
         assert pixels() == before
-        control(window, "Close Custom").invoke_accessible_default_action()
+        control(window, "Close Fill").invoke_accessible_default_action()
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert (

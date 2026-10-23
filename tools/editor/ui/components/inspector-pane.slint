@@ -22,7 +22,7 @@ export component InspectorPane inherits Rectangle {
     callback outline-pane-reset();
 
     width: Style.panes.inspector-width;
-    background: Colors.surface;
+    background: Style.panel-background;
     accessible-role: AccessibleRole.complementary;
     accessible-label: @tr("Inspector and outline");
     accessible-enabled: Diagnostics.preview-editable;

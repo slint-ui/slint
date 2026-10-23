@@ -214,7 +214,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
         swatch = element(window, "Shadow color color picker")
         gesture(window, center(swatch), center(swatch))
         element(window, "Hex color", role=slint_testing.AccessibleRole.TextInput)
-        element(window, "Close Custom").invoke_accessible_default_action()
+        element(window, "Close Fill").invoke_accessible_default_action()
         expect(query(window, "Hex color")).to_be_hidden()
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
         snapshot.assert_unchanged()

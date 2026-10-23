@@ -114,7 +114,7 @@ def test_radial_radius_save_reopen_and_history(
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         gesture(window, r, shifted(c, x=percent))
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         saved = wait_for_source_change(
             radial_scene, original.sources[Path(radial_scene.name)]
         )
@@ -146,10 +146,10 @@ def test_radial_guide_rotation_and_noop_do_not_write_source(
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         gesture(window, r, shifted(c, x=-math.hypot(r.x - c.x, r.y - c.y)))
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
         open_radial(window)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()
 
 

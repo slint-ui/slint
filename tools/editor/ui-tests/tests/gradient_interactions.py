@@ -74,7 +74,13 @@ def picker_panel(window, name):
 
 def move_picker_to_files(window, name):
     panel = picker_panel(window, name)
-    title = "Custom" if name == "main" else "Stop color"
+    sidebar = element(
+        window, "Project pane resize", role=slint_testing.AccessibleRole.Slider
+    )
+    sidebar.accessible_value = str(
+        max(float(sidebar.accessible_value.removesuffix(" px")), panel.size.width + 24)
+    )
+    title = "Fill" if name == "main" else "Stop color"
     handle = control(window, f"Move {title} picker")
     files = control(window, "Files", slint_testing.AccessibleRole.Tree)
     point = center(handle)

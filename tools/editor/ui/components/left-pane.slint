@@ -136,7 +136,7 @@ export component LeftPane inherits Rectangle {
     }
 
     width: Style.panes.left-width;
-    background: Colors.surface;
+    background: Style.panel-background;
     accessible-role: AccessibleRole.navigation;
     accessible-label: @tr("Project and elements");
 
@@ -150,8 +150,8 @@ export component LeftPane inherits Rectangle {
         HorizontalLayout {
             height: Style.panes.heading-height;
             padding-top: Metrics.space-medium;
-            padding-left: Metrics.space-medium;
-            padding-right: Metrics.space-medium;
+            padding-left: Style.sidebar-spacing.padding;
+            padding-right: Style.sidebar-spacing.padding;
             spacing: Metrics.space-medium;
             cross-axis-alignment: center;
 
@@ -180,7 +180,7 @@ export component LeftPane inherits Rectangle {
         }
 
         VerticalLayout {
-            padding: Metrics.space-medium;
+            padding: Style.sidebar-spacing.padding;
             padding-bottom: 0px;
             SectionTitle {
                 label: @tr("FILES");
@@ -199,10 +199,10 @@ export component LeftPane inherits Rectangle {
                 vertical-stretch: 1;
 
                 FileTreeView {
-                    x: 0px;
-                    width: parent.width + Metrics.space-medium;
+                    x: Style.sidebar-spacing.list-inset - Style.sidebar-spacing.padding;
+                    width: parent.width - 2 * self.x + Style.sidebar-spacing.list-inset;
                     height: parent.height;
-                    rename-right-extension: Metrics.space-medium;
+                    rename-right-extension: Style.sidebar-spacing.list-inset;
                 }
             }
         }
