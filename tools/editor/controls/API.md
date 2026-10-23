@@ -8,16 +8,10 @@ The additional members don't become requirements for other implementations of th
 Import those interfaces directly; neither entry point re-exports them.
 Enable experimental Slint features to use interfaces and typed slots.
 
-This reference lists the controls' public declarations, including inherited and delegated members.
-Slint's built-in geometry, layout, accessibility, visibility, and focus APIs remain available; they aren't repeated here.
+This reference covers additions to the standard widget interfaces, behavior differences, and styled defaults.
+Each control links to its standard API and behavior documentation.
 For examples and customization rules, see the [usage guide](README.md).
 
-- `in`: accepts a value or binding from the caller.
-- `in-out`: accepts a value or two-way binding and can change through interaction.
-- `out`: exposes read-only state.
-- Callback: notifies the caller; registering a handler doesn't replace a public function.
-
-Unspecified strings default to empty, booleans to `false`, numbers and lengths to zero, and models to empty.
 Defaults described as “state style” follow the active state of the selected `style`.
 
 ## Shared Styled Inputs
@@ -47,25 +41,16 @@ Focus outlines don't change layout dimensions.
 
 ## Button
 
-Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/button.slint).
+Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/button.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/button.mdx).
 
-### Behavior: Button and ButtonBase
+### Additions: Button and ButtonBase
 
 | Direction | Property | Type | Default or Meaning |
 | --- | --- | --- | --- |
-| `in` | `enabled` | `bool` | `true` |
-| `in` | `text` | `string` | Empty; also supplies the default accessible label |
-| `in` | `checkable` | `bool` | `false`; enables toggling on activation |
-| `in-out` | `checked` | `bool` | `false` |
-| `in` | `icon` | `image` | Empty |
-| `in` | `icon-size` | `length` | `20px` |
-| `in` | `primary` | `bool` | `false`; selects the primary style in Button |
-| `in` | `colorize-icon` | `bool` | `false`; enables icon tinting in Button |
 | `in` | `focus-on-click` | `bool` | `false`; takes focus on a left-button press when enabled |
 | `in` | `focus-on-tab-navigation` | `bool` | `true`; participates in Tab navigation |
-| `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
+| `out` | `hovered` | `bool` | Pointer is over the enabled control |
 
-Callback: `clicked()`.
 Public function: `activate()` toggles `checked` when checkable, then emits `clicked()` when enabled.
 ButtonBase slots: `background`, `content`.
 Button supplies both visuals; use ButtonBase to replace them.
@@ -80,6 +65,7 @@ Button includes the shared styled inputs above.
 | `style` | `ButtonStyle` | `ButtonStyles.primary` when primary or checked; otherwise `ButtonStyles.secondary` |
 | `background-color`, `foreground-color` | `brush` | State style |
 | `icon-color` | `brush` | `foreground-color` |
+| `icon-size` | `length` | `20px` |
 | `spacing` | `length` | `6px` |
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
@@ -92,22 +78,16 @@ Set `icon-color: transparent` to retain original image colors while enabled.
 
 ## CheckBox
 
-Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/checkbox.slint).
+Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/checkbox.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/checkbox.mdx).
 
-### Behavior: CheckBox and CheckBoxBase
+### Additions: CheckBox and CheckBoxBase
 
 | Direction | Property | Type | Default or Meaning |
 | --- | --- | --- | --- |
-| `in` | `enabled` | `bool` | `true` |
-| `in` | `text` | `string` | Empty; also supplies the default accessible label |
-| `in-out` | `checked` | `bool` | `false` |
 | `in` | `focus-on-click`, `focus-on-tab-navigation` | `bool` | `false`, `true`, as in ButtonBase |
-| `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
+| `out` | `hovered`, `pressed` | `bool` | Current interaction state |
 
-Callback: `toggled()`.
 Public function: `activate()` changes `checked` and emits `toggled()` when enabled.
-Assigning `checked` directly doesn't emit `toggled()`.
-CheckBoxBase also accepts `font-size: length` and `font-weight: int`, both defaulting to zero.
 CheckBoxBase also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
 Use the `content` slot to arrange custom visuals and apply padding and spacing.
 CheckBoxBase defaults both stretch factors to zero.
@@ -133,11 +113,11 @@ The styled control places its indicator beside the label, centered vertically.
 
 ## Switch
 
-Sources: [styled](src/basic/switch.slint), [headless](src/headless/switch_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/switch.slint).
+Sources: [styled](src/basic/switch.slint), [headless](src/headless/switch_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/switch.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/switch.mdx).
 
-### Behavior: Switch and SwitchBase
+### Additions: Switch and SwitchBase
 
-Switch and SwitchBase expose the same interaction API, padding inputs, and slots as CheckBox and CheckBoxBase.
+Switch and SwitchBase expose the same additions, padding inputs, and slots as CheckBox and CheckBoxBase.
 They implement `SwitchInterface` and expose an additional `out property <bool> focus-visible` for keyboard focus indication.
 `focus-visible` isn't part of `SwitchInterface`.
 
@@ -165,24 +145,17 @@ The thumb's rendered size is bounded by the track's inner dimensions.
 
 ## Slider
 
-Sources: [styled](src/basic/slider.slint), [headless](src/headless/slider_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/slider.slint).
+Sources: [styled](src/basic/slider.slint), [headless](src/headless/slider_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/slider.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/slider.mdx).
 
-### Behavior: Slider and SliderBase
+### Additions: Slider and SliderBase
 
 | Direction | Property | Type | Default or Meaning |
 | --- | --- | --- | --- |
-| `in` | `enabled` | `bool` | `true` |
-| `in` | `minimum`, `maximum` | `float` | `0`, `100` |
-| `in` | `step` | `float` | `1`; zero or negative values disable snapping |
 | `in` | `page-step` | `float` | Ten keyboard steps; keyboard step is `step`, or 1% of the range when `step` is zero or negative |
-| `in` | `orientation` | `Orientation` | `horizontal` |
 | `in` | `inverted` | `bool` | `false` |
-| `in-out` | `value` | `float` | `minimum` |
-| `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
+| `out` | `hovered`, `pressed` | `bool` | Current interaction state |
 | `out` | `position` | `float` | Bounded fraction from the lower to upper bound, from `0` to `1` |
 | `out` | `visual-position` | `float` | Position adjusted for orientation and inversion |
-
-Callbacks: `changed(value: float)`, `released(value: float)`.
 
 | Public Function | Effect |
 | --- | --- |
@@ -194,7 +167,7 @@ Assigning `value` directly doesn't clamp, snap, or emit callbacks.
 The displayed and accessible values remain bounded.
 `set-value` preserves exact endpoints and doesn't emit `released`.
 Snapping is relative to the lower bound when `step` is positive.
-Pointer, keyboard, and accessibility interactions emit `released` when they finish.
+Zero or negative `step` disables snapping and uses 1% of the range for keyboard steps.
 SliderBase accepts a typed `surface` slot implementing `SliderSurface`.
 
 ### Styled Inputs
@@ -233,30 +206,27 @@ Its geometry inputs determine both visual placement and pointer mapping.
 
 ## ComboBox
 
-Sources: [styled](src/basic/combo_box.slint), [headless](src/headless/combo_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/combobox.slint).
+Sources: [styled](src/basic/combo_box.slint), [headless](src/headless/combo_box_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/combobox.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/basic-widgets/combobox.mdx).
 
-### Behavior: ComboBox and ComboBoxBase
+### Additions and Differences: ComboBox and ComboBoxBase
 
 | Direction | Property | Type | Default or Meaning |
 | --- | --- | --- | --- |
-| `in` | `enabled` | `bool` | `true` |
-| `in` | `model` | `[string]` | Empty |
-| `in-out` | `current-index` | `int` | `0` for a nonempty model, otherwise `-1` |
-| `in-out` | `current-value` | `string` | Value at `current-index`, or empty |
 | `out` | `count` | `int` | Model length |
 | `out` | `highlighted-index` | `int` | Highlighted popup row; initially `-1` |
 | `out` | `expanded` | `bool` | Popup is open |
-| `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
+| `out` | `hovered`, `pressed` | `bool` | Current interaction state |
 | `in` | `maximum-visible-items` | `int` | `8` |
 | `in` | `popup-width` | `length` | Field width |
 | `in` | `popup-height` | `length` | Visible row count times `item-height`, plus twice `popup-padding` |
 | `in` | `item-height`, `popup-padding` | `length` | Zero in ComboBoxBase; styled defaults below |
 
 ComboBoxBase also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
-Index and value synchronize against the model; assigning a value searches for its first matching row.
-Direct property assignments don't emit `selected`.
+An empty model uses `current-index: -1`.
+While the popup is open, keyboard navigation changes the highlight; Enter or Space commits it, and Escape closes without committing.
+Clearing an open model closes the popup and restores field focus.
 
-Callbacks: `selected(current-value: string)`, `highlighted(index: int)`.
+Additional callback: `highlighted(index: int)`.
 
 | Public Function | Effect |
 | --- | --- |
@@ -334,37 +304,20 @@ Standalone popup usage must supply popup dimensions and connect its selection an
 
 ## LineEdit
 
-Sources: [styled](src/basic/line_edit.slint), [headless](src/headless/line_edit_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/lineedit.slint).
+Sources: [styled](src/basic/line_edit.slint), [headless](src/headless/line_edit_base.slint), [standard interface](../../../internal/compiler/widgets/interfaces/lineedit.slint), [standard behavior](../../../docs/astro/src/content/docs/reference/std-widgets/views/lineedit.mdx).
 
-### Behavior: LineEdit and LineEditBase
+### Additions: LineEdit and LineEditBase
 
 | Direction | Property | Type | Default or Meaning |
 | --- | --- | --- | --- |
-| `in` | `enabled` | `bool` | `true` |
-| `in` | `read-only` | `bool` | `false` |
-| `in` | `placeholder-text` | `string` | Empty |
-| `in` | `input-type` | `InputType` | `text` |
-| `in` | `input-method-hints` | `InputMethodHints` | Sentence capitalization, automatic correction and completion enabled |
-| `in-out` | `text` | `string` | Empty |
 | `in-out` | `password-revealed` | `bool` | `false`; displays password text without changing the declared `input-type` |
-| `out` | `has-focus`, `has-selection`, `hovered` | `bool` | Current input state |
+| `out` | `hovered` | `bool` | Pointer is over the enabled field |
 
-Callbacks: `accepted(text: string)`, `edited(text: string)`,
-`key-pressed(event: KeyEvent) -> EventResult`, and `key-released(event: KeyEvent) -> EventResult`.
-Assigning `text` directly doesn't emit `edited`.
 Password reveal applies only to `input-type: password` and resets on focus loss, disabling, or a change of input type.
 Revealed text uses native text-input behavior, including copying and cutting; hidden passwords suppress those operations.
 
-| Public Function | Effect |
-| --- | --- |
-| `set-selection-offsets(anchor: int, focus: int)` | Sets native text selection using UTF-8 byte offsets |
-| `select-all()`, `clear-selection()` | Changes the native selection |
-| `copy()` | Copies while enabled |
-| `cut()`, `paste()`, `undo()`, `redo()` | Edits while enabled and not read-only |
-
-LineEditBase also exposes the four font inputs, `foreground-color: brush`, and both `selection-*-color: color` inputs.
-Those inputs delegate to its native TextInput defaults.
-It accepts `horizontal-alignment: TextHorizontalAlignment = left`, plus the seven padding and spacing inputs defaulting to zero.
+LineEditBase adds `font-weight: int`, `foreground-color: brush`, and both `selection-*-color: color` inputs, delegated to native TextInput.
+It also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
 Its slots are `background`, `placeholder`, `leading`, and `trailing`.
 
 ### Styled Inputs and Slots
@@ -376,7 +329,6 @@ LineEdit includes the shared styled inputs above.
 | `style` | `LineEditStyle` | `LineEditStyles.standard` |
 | `background-color`, `foreground-color` | `brush` | State style |
 | `selection-background-color`, `selection-foreground-color` | `color` | Style |
-| `horizontal-alignment` | `TextHorizontalAlignment` | `left` |
 | `horizontal-padding`, `vertical-padding`, `spacing` | `length` | `12px`, `6px`, `8px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 
@@ -384,7 +336,7 @@ Default minimum size is at least `160px` wide and `34px` high, growing to accomm
 LineEdit exposes `leading` and `trailing` slots; its background and placeholder visuals are supplied internally.
 Derived components must declare and forward these slots to expose them to their callers.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
-Read-only fields retain enabled colors, text selection, and copying.
+Read-only fields retain enabled style colors.
 
 ## Style Struct Fields
 
