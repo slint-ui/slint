@@ -349,7 +349,6 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
-i-slint-backend-selector = { workspace = true, features = ["backend-testing"] }
 # The next can not be a workspace dependency because it may not have a version
 i-slint-backend-testing = { path = "../../../internal/backends/testing", features = ["internal"] }
 i-slint-renderer-skia = { path = "../../../internal/renderers/skia" }

@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #[cfg(feature = "shared-parley")]
-use i_slint_common::sharedfontique;
-
+use crate::textlayout::sharedparley::FontContext;
 #[cfg(feature = "shared-parley")]
-crate::thread_local! {
-    static CUSTOM_COLLECTION: core::cell::RefCell<Option<sharedfontique::fontique::Collection>> =
-        const { core::cell::RefCell::new(None) };
-}
+use i_slint_common::sharedfontique;
 
 #[cfg(all(feature = "std", feature = "shared-parley"))]
 crate::thread_local! {
@@ -31,10 +27,7 @@ impl Drop for PrefetchGuard {
 #[must_use = "the prefetched collection is discarded when the guard is dropped"]
 pub fn prefetch() -> Option<PrefetchGuard> {
     #[cfg(all(feature = "std", feature = "shared-parley", not(target_family = "wasm")))]
-    if crate::SlintContext::current().is_none()
-        && CUSTOM_COLLECTION.with_borrow(Option::is_none)
-        && PREFETCHED.with_borrow(Option::is_none)
-    {
+    if crate::SlintContext::current().is_none() && PREFETCHED.with_borrow(Option::is_none) {
         let worker = std::thread::Builder::new()
             .name("slint-font-collection".into())
             .spawn(|| sharedfontique::system_collection(true))
@@ -46,30 +39,57 @@ pub fn prefetch() -> Option<PrefetchGuard> {
 }
 
 #[cfg(feature = "shared-parley")]
-pub fn set_collection(
-    mut collection: sharedfontique::fontique::Collection,
-) -> Result<(), crate::api::PlatformError> {
-    if crate::SlintContext::current().is_some() {
-        return Err(crate::api::PlatformError::Other(
-            "The font collection must be set before Slint is initialized on this thread".into(),
-        ));
-    }
-    collection.make_shared();
-    CUSTOM_COLLECTION.set(Some(collection));
-    Ok(())
+pub(crate) struct LazyFontContext {
+    font_context: core::cell::OnceCell<core::cell::RefCell<FontContext>>,
+    #[cfg(feature = "std")]
+    prefetched:
+        core::cell::Cell<Option<std::thread::JoinHandle<sharedfontique::fontique::Collection>>>,
 }
 
 #[cfg(feature = "shared-parley")]
-pub(crate) fn take_or_create() -> sharedfontique::Collection {
-    if let Some(collection) = CUSTOM_COLLECTION.take() {
-        return sharedfontique::init_collection(collection, true);
+impl LazyFontContext {
+    pub(crate) fn new() -> Self {
+        Self {
+            font_context: Default::default(),
+            #[cfg(feature = "std")]
+            prefetched: core::cell::Cell::new(PREFETCHED.take()),
+        }
     }
-    #[cfg(feature = "std")]
-    if let Some(worker) = PREFETCHED.take() {
-        let collection = worker.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic));
-        return sharedfontique::init_collection(collection, true);
+
+    pub(crate) fn get(&self) -> &core::cell::RefCell<FontContext> {
+        self.font_context.get_or_init(|| {
+            #[cfg(feature = "std")]
+            if let Some(worker) = self.prefetched.take() {
+                let collection =
+                    worker.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+                return font_context(sharedfontique::init_collection(collection, true));
+            }
+            font_context(sharedfontique::create_collection(true))
+        })
     }
-    sharedfontique::create_collection(true)
+
+    pub(crate) fn set_collection(
+        &self,
+        mut collection: sharedfontique::fontique::Collection,
+    ) -> Result<(), crate::api::PlatformError> {
+        collection.make_shared();
+        self.font_context
+            .set(font_context(sharedfontique::init_collection(collection, true)))
+            .map_err(|_| {
+                crate::api::PlatformError::Other("The font collection is already in use".into())
+            })?;
+        #[cfg(feature = "std")]
+        drop(self.prefetched.take());
+        Ok(())
+    }
+}
+
+#[cfg(feature = "shared-parley")]
+fn font_context(collection: sharedfontique::Collection) -> core::cell::RefCell<FontContext> {
+    core::cell::RefCell::new(FontContext::new(parley::FontContext {
+        collection: collection.inner,
+        source_cache: collection.source_cache,
+    }))
 }
 
 #[cfg(all(test, feature = "std", feature = "shared-parley", not(target_family = "wasm")))]
