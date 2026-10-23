@@ -3185,6 +3185,53 @@ impl<T: RasterCommandSink> i_slint_core::item_rendering::ItemRenderer
         }
     }
 
+    fn draw_particles(
+        &mut self,
+        particles: Pin<&i_slint_core::items::Particles>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+        let instances = particles.instances();
+        let source = particles.source();
+        let image_inner: &ImageInner = (&source).into();
+        let source_size = source.size();
+        if instances.len() == 0
+            || source_size.is_empty()
+            || matches!(image_inner, ImageInner::NineSlice(..))
+        {
+            return;
+        }
+        let source_rect = euclid::Rect::from_size(source_size.cast());
+        let longer_side = source_size.width.max(source_size.height) as Coord;
+        for particle in instances {
+            let scale = particle.size.get() / longer_side;
+            let size = LogicalSize::new(
+                source_size.width as Coord * scale,
+                source_size.height as Coord * scale,
+            );
+            let rect = LogicalRect::new(particle.center - size / 2 as Coord, size);
+            if particle.opacity <= 0. || !self.should_draw(&rect) {
+                continue;
+            }
+            self.save_state();
+            self.translate(rect.origin.to_vector());
+            self.apply_opacity(particle.opacity);
+            if let Some(fit) = i_slint_core::graphics::fit(
+                i_slint_core::items::ImageFit::Fill,
+                size.cast() * self.scale_factor,
+                source_rect,
+                self.scale_factor,
+                Default::default(),
+                Default::default(),
+            ) {
+                // The opacity is in the global alpha, so the color must be opaque.
+                let colorize = particle.colorize.map_or(Color::default(), |c| c.with_alpha(1.));
+                self.draw_image_impl(image_inner, fit, colorize);
+            }
+            self.restore_state();
+        }
+    }
+
     #[cfg(all(feature = "std", not(feature = "path")))]
     fn draw_path(
         &mut self,

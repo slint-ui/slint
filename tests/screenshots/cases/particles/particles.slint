@@ -1,0 +1,55 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// FemtoVG and anyrender don't draw particles yet
+//ignore: skia,femtovg,anyrender,vello_cpu
+
+export component TestCase inherits Window {
+    width: 64phx;
+    height: 64phx;
+    background: black;
+
+    untinted := Particles {
+        x: 0phx;
+        y: 0phx;
+        width: 32phx;
+        height: 32phx;
+        source: @image-url("dot.png");
+        seed: 1;
+        start-size: 12phx;
+        start-opacity: 0.5;
+        Emitter { x: 4phx; y: 4phx; width: 24phx; height: 24phx; }
+    }
+
+    tinted := Particles {
+        x: 32phx;
+        y: 0phx;
+        width: 32phx;
+        height: 32phx;
+        source: @image-url("dot.png");
+        seed: 2;
+        start-size: 10phx;
+        size-variation: 4phx;
+        start-color: #ffaa33;
+        Emitter { x: 4phx; y: 4phx; width: 24phx; height: 24phx; shape: ellipse; }
+    }
+
+    clipped := Particles {
+        x: 8phx;
+        y: 40phx;
+        width: 48phx;
+        height: 16phx;
+        clip: true;
+        source: @image-url("dot.png");
+        seed: 3;
+        start-size: 20phx;
+        start-color: #3388ff;
+        Emitter { x: 0phx; y: 8phx; width: 48phx; height: 0phx; shape: line; }
+    }
+
+    init => {
+        untinted.burst(6);
+        tinted.burst(6);
+        clipped.burst(4);
+    }
+}
