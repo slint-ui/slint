@@ -16,6 +16,12 @@ pub mod interpreter;
 #[cfg(all(test, feature = "anyrender"))]
 pub mod anyrender;
 
+#[cfg(all(test, feature = "femtovg"))]
+mod femtovg;
+
+#[cfg(all(test, any(feature = "skia", feature = "femtovg")))]
+mod shadow;
+
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 

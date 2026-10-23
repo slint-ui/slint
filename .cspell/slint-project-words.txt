@@ -550,9 +550,11 @@ radiobuttontile
 Raleway
 Randriana
 rasterizer
+rasterizers
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable

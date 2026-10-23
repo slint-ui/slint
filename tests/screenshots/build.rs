@@ -27,6 +27,9 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "skia")]
     gen_skia(&mut generated_file)?;
 
+    #[cfg(feature = "femtovg")]
+    gen_femtovg(&mut generated_file)?;
+
     #[cfg(feature = "software-embed-assets")]
     gen_software_embed_assets(&mut generated_file)?;
 
@@ -139,6 +142,7 @@ fn gen_interpreter_embed_assets(generated_file: &mut impl Write) -> std::io::Res
     Ok(())
 }
 
+#[cfg(feature = "software")]
 fn generate_source(
     source: &str,
     output: &mut impl Write,
@@ -185,7 +189,8 @@ fn generate_source(
 }
 
 // Test parameters parsed from `KEY=value` / `KEY` markers in a case's source comments.
-#[cfg(feature = "software")]
+#[cfg(any(feature = "software", feature = "femtovg"))]
+#[cfg_attr(not(all(feature = "software", feature = "femtovg")), allow(dead_code))]
 struct ScreenshotMarkers {
     scale_factor: Option<f32>,
     base_threshold: f32,
@@ -193,9 +198,10 @@ struct ScreenshotMarkers {
     size: (u32, u32),
     skip_clipping: bool,
     skip_line_by_line: bool,
+    skip_warp: bool,
 }
 
-#[cfg(feature = "software")]
+#[cfg(any(feature = "software", feature = "femtovg"))]
 fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> ScreenshotMarkers {
     // The `f32` value following `needle`, up to the next whitespace; `None` if the marker is
     // absent, panicking if it is present but malformed.
@@ -225,6 +231,7 @@ fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> Screensh
         size,
         skip_clipping: source.contains("SKIP_CLIPPING"),
         skip_line_by_line: source.contains("SKIP_LINE_BY_LINE"),
+        skip_warp: source.contains("SKIP_WARP"),
     }
 }
 
@@ -346,6 +353,49 @@ fn skia_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
         absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
         relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
         reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+    }})
+}}"##,
+        )?;
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "femtovg")]
+fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "femtovg"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let markers = parse_markers(&source, &testcase);
+        let base_threshold = markers.base_threshold;
+        let skip_warp = markers.skip_warp;
+        let scale_factor = markers.scale_factor.unwrap_or(1.);
+        let (size_w, size_h) = markers.size;
+
+        let reference_path = references_root_dir
+            .join(testcase.relative_path.clone())
+            .with_extension("png")
+            .to_string_lossy()
+            .into_owned();
+        let absolute_path = testcase.absolute_path.to_string_lossy();
+
+        let identifier = testcase.identifier();
+        let ignored = if testcase.is_ignored("femtovg") { "#[ignore]" } else { "" };
+
+        write!(
+            generated_file,
+            r##"
+#[test] {ignored}
+fn femtovg_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
+    crate::femtovg::run_test(crate::femtovg::TestCase {{
+        absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+        reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+        base_threshold: {base_threshold}f32,
+        size: i_slint_core::api::PhysicalSize::new({size_w}, {size_h}),
+        scale_factor: {scale_factor}f32,
+        skip_warp: {skip_warp},
     }})
 }}"##,
         )?;
