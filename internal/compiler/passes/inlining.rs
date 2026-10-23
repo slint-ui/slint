@@ -537,6 +537,10 @@ fn inline_element(
             elem_mut.layout_info_v_with_constraint = Some(orig.clone());
         }
     }
+    let orig = inlined_component.root_element.borrow().implicit_layout_info_prop.clone();
+    let own = &mut elem_mut.implicit_layout_info_prop;
+    own.0 = own.0.take().or(orig.0);
+    own.1 = own.1.take().or(orig.1);
 
     core::mem::drop(elem_mut);
 
@@ -658,6 +662,7 @@ fn duplicate_element_with_mapping(
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         layout_info_h_at_own_height: elem.layout_info_h_at_own_height.clone(),
+        implicit_layout_info_prop: elem.implicit_layout_info_prop.clone(),
         height_is_literal: elem.height_is_literal,
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),

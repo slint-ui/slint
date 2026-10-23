@@ -1048,6 +1048,83 @@ pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
         .map(|_| Expression::NumberLiteral(0., Unit::None))
 }
 
+/// The property holding the layout info `elem` reports itself, if one was created.
+/// It may be the property of the root of a base component, which is the same item.
+pub fn implicit_layout_info_prop(
+    elem: &ElementRc,
+    orientation: Orientation,
+) -> Option<NamedReference> {
+    let own_prop = |elem: &Element| match orientation {
+        Orientation::Horizontal => elem.implicit_layout_info_prop.0.clone(),
+        Orientation::Vertical => elem.implicit_layout_info_prop.1.clone(),
+    };
+    if let Some(prop) = own_prop(&elem.borrow()) {
+        return Some(prop);
+    }
+    let mut base = elem.borrow().base_type.clone();
+    while let ElementType::Component(c) = base {
+        let root = c.root_element.borrow();
+        if let Some(prop) = own_prop(&root) {
+            return Some(NamedReference::new(elem, prop.name().clone()));
+        }
+        base = root.base_type.clone();
+    }
+    None
+}
+
+/// The implicit layout info of `elem`, shared with its other readers when an earlier pass
+/// created [`implicit_layout_info_prop`], otherwise computed in place.
+/// It never creates that property: unlike [`implicit_layout_info`], it is for a single reader.
+pub fn existing_implicit_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    constraint: Option<Expression>,
+) -> Option<Expression> {
+    if constraint.is_none()
+        && let Some(prop) = implicit_layout_info_prop(elem, orientation)
+    {
+        return Some(Expression::PropertyReference(prop));
+    }
+    implicit_layout_info_call(elem, orientation, BuiltinFilter::All, constraint)
+}
+
+/// Like [`implicit_layout_info_call`] without a constraint, but a call to the item is read from
+/// [`implicit_layout_info_prop`], created on first use, so that its readers share one call.
+pub fn implicit_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    filter: BuiltinFilter,
+) -> Option<Expression> {
+    let call = implicit_layout_info_call(elem, orientation, filter, None)?;
+    let calls_item = matches!(
+        call,
+        Expression::FunctionCall {
+            function: Callable::Builtin(BuiltinFunction::ImplicitLayoutInfo(_)),
+            ..
+        }
+    );
+    if !calls_item || elem.borrow().repeated.is_some() {
+        return Some(call);
+    }
+    let prop = implicit_layout_info_prop(elem, orientation).unwrap_or_else(|| {
+        let name = match orientation {
+            Orientation::Horizontal => "implicit-layoutinfo-h",
+            Orientation::Vertical => "implicit-layoutinfo-v",
+        };
+        let prop = create_new_prop(elem, SmolStr::new_static(name), call.ty());
+        let mut elem = elem.borrow_mut();
+        let mut binding = BindingExpression::new_with_span(call, elem.to_source_location());
+        binding.priority = i32::MAX;
+        elem.set_binding(prop.name().clone(), binding);
+        match orientation {
+            Orientation::Horizontal => elem.implicit_layout_info_prop.0 = Some(prop.clone()),
+            Orientation::Vertical => elem.implicit_layout_info_prop.1 = Some(prop.clone()),
+        }
+        prop
+    });
+    Some(Expression::PropertyReference(prop))
+}
+
 /// Create a new property based on the name. (it might get a different name if that property exist)
 pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();

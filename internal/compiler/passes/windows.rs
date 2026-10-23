@@ -65,6 +65,7 @@ pub fn ensure_window(
         layout_info_prop: Default::default(),
         layout_info_v_with_constraint: Default::default(),
         layout_info_h_at_own_height: Default::default(),
+        implicit_layout_info_prop: Default::default(),
         height_is_literal: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
