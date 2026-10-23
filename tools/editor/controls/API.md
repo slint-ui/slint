@@ -61,12 +61,15 @@ Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.s
 | `in` | `icon-size` | `length` | `20px` |
 | `in` | `primary` | `bool` | `false`; selects the primary style in Button |
 | `in` | `colorize-icon` | `bool` | `false`; enables icon tinting in Button |
+| `in` | `focus-on-click` | `bool` | `false`; takes focus on a left-button press when enabled |
+| `in` | `focus-on-tab-navigation` | `bool` | `true`; participates in Tab navigation |
 | `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
 
 Callback: `clicked()`.
 Public function: `activate()` toggles `checked` when checkable, then emits `clicked()` when enabled.
 ButtonBase slots: `background`, `content`.
 Button supplies both visuals; use ButtonBase to replace them.
+ButtonBase defaults both stretch factors to zero; set either factor to one to fill available layout space.
 
 ### Styled Inputs
 
@@ -98,6 +101,7 @@ Sources: [styled](src/basic/check_box.slint), [headless](src/headless/check_box_
 | `in` | `enabled` | `bool` | `true` |
 | `in` | `text` | `string` | Empty; also supplies the default accessible label |
 | `in-out` | `checked` | `bool` | `false` |
+| `in` | `focus-on-click`, `focus-on-tab-navigation` | `bool` | `false`, `true`, as in ButtonBase |
 | `out` | `has-focus`, `hovered`, `pressed` | `bool` | Current interaction state |
 
 Callback: `toggled()`.
@@ -106,6 +110,7 @@ Assigning `checked` directly doesn't emit `toggled()`.
 CheckBoxBase also accepts `font-size: length` and `font-weight: int`, both defaulting to zero.
 CheckBoxBase also accepts the seven padding and spacing inputs from the shared table, defaulting to zero.
 Use the `content` slot to arrange custom visuals and apply padding and spacing.
+CheckBoxBase defaults both stretch factors to zero.
 
 ### Styled Inputs
 
@@ -206,6 +211,9 @@ Slider accepts the shared focus inputs; it has no font or padding inputs.
 | `handle-radius`, `track-radius` | `length` | `-1px` for automatic rounding |
 | `track-thickness` | `length` | `4px` |
 
+The minimum cross-axis size contains the handle and track, and is at least `min-thickness`.
+The preferred size never falls below the minimum size.
+
 ### LinearSliderSurface and SliderSurface
 
 Source: [LinearSliderSurface](src/headless/linear_slider_surface.slint).
@@ -279,7 +287,8 @@ ComboBox includes the shared styled inputs above.
 | `selected-item-font-weight` | `int` | `600` |
 | `item-height` | `length` | Larger of `min-item-height` and normal/selected font height plus twice `item-vertical-padding` |
 
-Default minimum size: `120px` wide, `32px` high; preferred width: `200px`.
+Default minimum size: at least `120px` wide and `32px` high, growing to contain the label, indicator, and padding.
+Preferred width: the greater of `200px` and the minimum width.
 Field fonts also apply to popup rows.
 Field padding and direct field colors don't change popup row padding or colors.
 An explicit `item-height` replaces automatic row sizing.
@@ -337,11 +346,14 @@ Sources: [styled](src/basic/line_edit.slint), [headless](src/headless/line_edit_
 | `in` | `input-type` | `InputType` | `text` |
 | `in` | `input-method-hints` | `InputMethodHints` | Sentence capitalization, automatic correction and completion enabled |
 | `in-out` | `text` | `string` | Empty |
+| `in-out` | `password-revealed` | `bool` | `false`; displays password text without changing the declared `input-type` |
 | `out` | `has-focus`, `has-selection`, `hovered` | `bool` | Current input state |
 
 Callbacks: `accepted(text: string)`, `edited(text: string)`,
 `key-pressed(event: KeyEvent) -> EventResult`, and `key-released(event: KeyEvent) -> EventResult`.
 Assigning `text` directly doesn't emit `edited`.
+Password reveal applies only to `input-type: password` and resets on focus loss, disabling, or a change of input type.
+Revealed text uses native text-input behavior, including copying and cutting; hidden passwords suppress those operations.
 
 | Public Function | Effect |
 | --- | --- |

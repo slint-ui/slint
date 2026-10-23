@@ -14,6 +14,8 @@ export component ButtonBase {
     in property <length> icon-size: 20px;
     in property <bool> primary;
     in property <bool> colorize-icon;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
 
     in-out property <bool> checked;
 
@@ -32,6 +34,8 @@ export component ButtonBase {
         root.clicked();
     }
 
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
     forward-focus: interaction;
     accessible-role: button;
     accessible-label: root.text;
@@ -46,6 +50,8 @@ export component ButtonBase {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        focus-on-click: root.focus-on-click;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }
     }
 

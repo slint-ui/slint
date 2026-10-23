@@ -128,7 +128,7 @@ export component SliderBase {
         enabled: root.enabled;
         focus-changed-event => { if !self.has-focus { root.active-key = ""; } }
         key-pressed(event) => {
-            if !root.enabled || event.modifiers.control || event.modifiers.alt { return reject; }
+            if !root.enabled || event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
             if event.text == Key.Escape && root.pressed {
                 root.cancel-interaction();
                 return accept;

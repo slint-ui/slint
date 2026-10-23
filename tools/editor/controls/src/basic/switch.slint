@@ -43,6 +43,7 @@ export component Switch inherits SwitchBase {
     vertical-padding: 5px;
 
     min-height: max(32px, layout.min-height);
+    preferred-height: max(root.min-height, layout.preferred-height);
 
     states [
         disabled when !root.enabled: {

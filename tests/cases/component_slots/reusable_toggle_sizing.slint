@@ -15,8 +15,11 @@ export component TestCase inherits Window {
     in-out property <length> bottom-padding: 8px;
     in-out property <length> gallery-width: 800px;
     in-out property <int> preview-size: 1;
+    in-out property <string> preferred-label;
 
     out property <bool> test: choice.width > 20px && toggle.width > 40px;
+    out property <bool> preferred-sizes-fit: choice-frame.height >= preferred-choice.min-height
+        && switch-frame.height >= preferred-switch.min-height;
 
     width: 1100px;
     height: 2400px;
@@ -65,6 +68,32 @@ export component TestCase inherits Window {
         width: root.gallery-width;
         height: self.preferred-height;
         size-index: root.preview-size;
+    }
+
+    choice-frame := Rectangle {
+        x: 850px;
+        y: 20px;
+        width: preferred-choice.preferred-width;
+        height: preferred-choice.preferred-height;
+        preferred-choice := CheckBox {
+            accessible-label: "Preferred checkbox";
+            text: root.preferred-label;
+            font-size: root.text-size;
+            vertical-padding: 0px;
+        }
+    }
+
+    switch-frame := Rectangle {
+        x: 850px;
+        y: 130px;
+        width: preferred-switch.preferred-width;
+        height: preferred-switch.preferred-height;
+        preferred-switch := Switch {
+            accessible-label: "Preferred switch";
+            text: root.preferred-label;
+            font-size: root.text-size;
+            vertical-padding: 0px;
+        }
     }
 }
 
@@ -135,6 +164,23 @@ for width in [800., 500., 420.] {
                 assert!(position.x + control.size().width <= 20. + width + 0.1,
                     "{kind} exceeds the gallery at width {width}, size {size}");
             }
+        }
+    }
+}
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+for text in ["", "A", "First line\nSecond line"] {
+    instance.set_preferred_label(text.into());
+    for font in [14., 36.] {
+        instance.set_text_size(font);
+        slint::platform::update_timers_and_animations();
+        assert!(instance.get_preferred_sizes_fit(), "preferred dimensions must contain the toggle minimum");
+        for label in ["Preferred checkbox", "Preferred switch"] {
+            let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+            assert!(control.size().height >= 32.);
         }
     }
 }

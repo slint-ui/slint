@@ -1,0 +1,263 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+import { LineEditBase } from "../../../tools/editor/controls/src/headless.slint";
+import { LineEditInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
+
+component PasswordField inherits LineEditBase {
+    input-type: InputType.password;
+    accessible-label: "Derived password";
+    placeholder << Text {
+        text: root.placeholder-text;
+        width: 100%;
+        height: 100%;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+}
+
+component ContractHost {
+    slot <LineEditInterface> field;
+    field { read-only: true; }
+}
+
+export component TestCase inherits Window {
+    width: 540px;
+    height: 320px;
+    in-out property <string> text <=> field.text;
+    in-out property <length> field-width: 200px;
+    in-out property <length> font-size: 16px;
+    in-out property <length> adornment-width: 20px;
+    in-out property <TextHorizontalAlignment> alignment: left;
+    in-out property <bool> read-only <=> field.read-only;
+    in-out property <bool> enabled <=> secret.enabled;
+    in-out property <bool> revealed <=> secret.password-revealed;
+    in-out property <InputType> input-type <=> secret.input-type;
+    in-out property <bool> styled-revealed <=> styled-secret.password-revealed;
+    out property <string> password: secret.text;
+    out property <bool> selected: field.has-selection;
+    out property <bool> field-focused: field.has-focus;
+    out property <bool> password-focused: secret.has-focus;
+    out property <int> edits;
+    out property <int> submissions;
+    out property <bool> test: root.password == "secret" && !root.revealed;
+
+    public function focus-field() { field.focus(); }
+    public function focus-password() { secret.focus(); }
+    public function focus-styled-password() { styled-secret.focus(); }
+    public function select(anchor: int, focus: int) { field.set-selection-offsets(anchor, focus); }
+    public function copy() { field.copy(); }
+    public function paste() { field.paste(); }
+    public function select-all() { field.select-all(); }
+    public function cut-password() { secret.select-all(); secret.cut(); }
+    public function copy-password() { secret.select-all(); secret.copy(); }
+
+    field := LineEdit {
+        x: 20px;
+        y: 20px;
+        width: root.field-width;
+        height: self.min-height;
+        font-size: root.font-size;
+        horizontal-alignment: root.alignment;
+        placeholder-text: "Enter a value";
+        accessible-label: "Editable value";
+        edited => { root.edits += 1; }
+        accepted => { root.submissions += 1; }
+        leading << Rectangle { width: root.adornment-width; height: 20px; background: #cccccc; }
+        trailing << Rectangle { width: root.adornment-width; height: 20px; background: #cccccc; }
+    }
+
+    secret := PasswordField {
+        x: 20px;
+        y: 100px;
+        width: 200px;
+        height: 40px;
+        text: "secret";
+    }
+    styled-secret := LineEdit {
+        x: 280px;
+        y: 100px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Styled password";
+        input-type: InputType.password;
+        text: "styled-secret";
+    }
+    ContractHost {
+        x: 20px;
+        y: 180px;
+        width: 200px;
+        height: 40px;
+        field << PasswordField { text: "contract-secret"; accessible-label: "Password contract"; }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+instance.invoke_focus_field();
+let unicode = "Aé🦀e\u{301}東京";
+instance.set_text(unicode.into());
+instance.invoke_select(1, 7);
+assert!(instance.get_selected());
+instance.invoke_copy();
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "é🦀");
+assert_eq!(instance.get_edits(), 1);
+instance.set_text(unicode.into());
+instance.invoke_select(7, 1);
+instance.invoke_copy();
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "é🦀");
+instance.set_text(unicode.into());
+instance.invoke_select(-100, 1000);
+instance.invoke_copy();
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), unicode);
+let edits = instance.get_edits();
+instance.set_read_only(true);
+instance.invoke_select(1, 7);
+instance.invoke_copy();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), unicode);
+assert_eq!(instance.get_edits(), edits);
+instance.set_read_only(false);
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "é🦀");
+```
+
+```rust
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+instance.invoke_focus_field();
+let field = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Editable value").next().unwrap();
+let placeholder = field.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
+let placeholder_visible = || field.query_descendants().match_id("LineEdit::placeholder-label").find_first().is_some();
+assert!(placeholder_visible());
+assert_eq!(placeholder.accessible_role(), Some(slint_testing::AccessibleRole::None));
+let mut composition = InternalKeyEvent::default();
+composition.event_type = KeyEventType::UpdateComposition;
+composition.preedit_text = "東京".into();
+composition.cursor_position = Some(6);
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(composition));
+assert_eq!(instance.get_text(), "");
+assert_eq!(instance.get_edits(), 0);
+assert!(!placeholder_visible());
+let mut cancel = InternalKeyEvent::default();
+cancel.event_type = KeyEventType::UpdateComposition;
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(cancel));
+assert!(placeholder_visible());
+assert_eq!(instance.get_edits(), 0);
+let mut commit = InternalKeyEvent::default();
+commit.event_type = KeyEventType::CommitComposition;
+commit.key_event.text = "東京".into();
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(commit));
+assert_eq!(instance.get_text(), "東京");
+assert_eq!(instance.get_edits(), 1);
+assert_eq!(instance.get_submissions(), 0);
+instance.set_text("".into());
+assert!(placeholder_visible());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+instance.invoke_focus_field();
+let field = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Editable value").next().unwrap();
+let input = field.query_descendants().match_id("LineEditBase::input").find_first().unwrap();
+let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
+let placeholder = field.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
+let small_height = field.size().height;
+instance.set_font_size(30.);
+slint::platform::update_timers_and_animations();
+assert!(field.size().height > small_height);
+assert!((placeholder.size().height - viewport.size().height).abs() < 0.01);
+let text = "Aé🦀e\u{301}東京 abcdefghijklmnopqrstuvwxyz";
+instance.set_text(text.into());
+for alignment in [i_slint_core::items::TextHorizontalAlignment::Left, i_slint_core::items::TextHorizontalAlignment::Center, i_slint_core::items::TextHorizontalAlignment::Right] {
+    instance.set_alignment(alignment);
+    for width in [100., 200., 140.] {
+        instance.set_field_width(width);
+        for decoration in [4., 20.] {
+            instance.set_adornment_width(decoration);
+            instance.invoke_select(text.len() as i32, text.len() as i32);
+            slint::platform::update_timers_and_animations();
+            assert!(viewport.size().width > 0.);
+            assert!(input.absolute_position().x < viewport.absolute_position().x);
+            let end = input.absolute_position().x + input.size().width;
+            let edge = viewport.absolute_position().x + viewport.size().width;
+            assert!(end <= edge && edge - end < 3.);
+            instance.invoke_select(0, 0);
+            slint::platform::update_timers_and_animations();
+            let start_offset = input.absolute_position().x - viewport.absolute_position().x;
+            assert!((-1. ..=0.01).contains(&start_offset),
+                "alignment={alignment:?}, width={width}, decoration={decoration}, delta={}",
+                start_offset);
+        }
+    }
+}
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_input_type(), i_slint_core::items::InputType::Password);
+instance.invoke_focus_field();
+instance.set_text("clipboard-marker".into());
+instance.invoke_select_all();
+instance.invoke_copy();
+instance.invoke_focus_password();
+instance.invoke_copy_password();
+instance.invoke_cut_password();
+assert_eq!(instance.get_password(), "secret");
+instance.invoke_focus_field();
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "clipboard-marker");
+instance.invoke_focus_password();
+slint::platform::update_timers_and_animations();
+instance.set_revealed(true);
+assert!(instance.get_revealed());
+assert_eq!(instance.get_input_type(), i_slint_core::items::InputType::Password);
+instance.invoke_copy_password();
+instance.invoke_focus_field();
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_revealed());
+instance.invoke_select_all();
+instance.invoke_paste();
+assert_eq!(instance.get_text(), "secret");
+instance.invoke_focus_password();
+slint::platform::update_timers_and_animations();
+instance.set_revealed(true);
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_revealed());
+instance.set_enabled(true);
+instance.invoke_focus_password();
+slint::platform::update_timers_and_animations();
+instance.set_revealed(true);
+instance.set_input_type(i_slint_core::items::InputType::Text);
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_revealed());
+instance.set_input_type(i_slint_core::items::InputType::Password);
+instance.invoke_focus_styled_password();
+slint::platform::update_timers_and_animations();
+instance.set_styled_revealed(true);
+instance.invoke_focus_field();
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_styled_revealed());
+let contract = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Password contract").next().unwrap();
+assert_eq!(contract.accessible_read_only(), Some(true));
+contract.set_accessible_value("blocked");
+assert_eq!(contract.accessible_value().as_deref(), Some("contract-secret"));
+```
+*/

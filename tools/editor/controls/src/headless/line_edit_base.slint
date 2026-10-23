@@ -31,10 +31,15 @@ export component LineEditBase {
     in property <length> spacing;
 
     in-out property <string> text <=> input.text;
+    in-out property <bool> password-revealed;
 
     out property <bool> has-focus: input.has-focus;
     @shadowable out property <bool> has-selection: input.has-selection;
     out property <bool> hovered: root.enabled && pointer.has-hover;
+
+    changed has-focus => { if !self.has-focus { self.password-revealed = false; } }
+    changed enabled => { if !self.enabled { self.password-revealed = false; } }
+    changed input-type => { self.password-revealed = false; }
 
     slot background;
     slot placeholder;
@@ -117,7 +122,8 @@ export component LineEditBase {
                     vertical-alignment: center;
                     enabled: root.enabled;
                     read-only: root.read-only;
-                    input-type: root.input-type;
+                    input-type: root.input-type == InputType.password && root.password-revealed
+                        ? InputType.text : root.input-type;
                     input-method-hints: root.input-method-hints;
                     horizontal-alignment: root.horizontal-alignment;
                     accessible-role: none;

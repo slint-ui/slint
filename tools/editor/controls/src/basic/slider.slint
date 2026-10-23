@@ -34,10 +34,12 @@ export component Slider inherits SliderBase {
     private property <length> effective-handle-radius: root.handle-radius < 0px ? min(root.handle-width, root.handle-height) / 2 : root.handle-radius;
     private property <length> effective-track-radius: root.track-radius < 0px ? root.track-thickness / 2 : root.track-radius;
 
-    preferred-width: root.orientation == Orientation.vertical ? root.min-thickness : root.preferred-length;
-    preferred-height: root.orientation == Orientation.vertical ? root.preferred-length : root.min-thickness;
-    min-width: root.orientation == Orientation.vertical ? root.min-thickness : root.handle-width;
-    min-height: root.orientation == Orientation.vertical ? root.handle-height : root.min-thickness;
+    preferred-width: root.orientation == Orientation.vertical ? root.min-width : max(root.min-width, root.preferred-length);
+    preferred-height: root.orientation == Orientation.vertical ? max(root.min-height, root.preferred-length) : root.min-height;
+    min-width: root.orientation == Orientation.vertical
+        ? max(root.min-thickness, max(root.handle-width, root.track-thickness)) : root.handle-width;
+    min-height: root.orientation == Orientation.vertical ? root.handle-height
+        : max(root.min-thickness, max(root.handle-height, root.track-thickness));
 
     states [
         disabled when !root.enabled: {

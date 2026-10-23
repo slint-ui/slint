@@ -26,6 +26,11 @@ Set geometry directly on the control and use `style` for state colors.
 Set `enabled: false` to disable interaction.
 Supply `accessible-label` for controls without a text label, including icon-only buttons, sliders, and combo boxes.
 
+Button, CheckBox, and Switch default both layout stretch factors to zero.
+Set `horizontal-stretch` or `vertical-stretch` to one to fill extra space.
+They participate in Tab navigation and preserve the current input focus when clicked.
+Set `focus-on-click: true` for click focus, or `focus-on-tab-navigation: false` for actions outside the Tab order.
+
 ## Application Theme
 
 Controls use `BasicPalettes.light` by default.
@@ -155,6 +160,9 @@ LineEdit {
 ```
 
 Derived components must explicitly forward these slots to expose them; see `PreviewLineEdit` in `examples/preview_controls.slint`.
+
+For password fields, set `input-type: password` and bind a reveal action to `password-revealed`.
+Use an action that preserves input focus; revealing resets when the field loses focus.
 
 Each control and its base implement the corresponding existing standard widget interface, such as `ButtonInterface` or `ComboBoxInterface`.
 These interfaces define the shared compatibility contract, not the full API of each component.

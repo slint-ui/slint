@@ -38,6 +38,8 @@ export component Button inherits ButtonBase {
 
     min-width: max(32px, content-layout.min-width);
     min-height: max(32px, content-layout.min-height);
+    preferred-width: max(root.min-width, content-layout.preferred-width);
+    preferred-height: max(root.min-height, content-layout.preferred-height);
 
     states [
         disabled when !root.enabled: {

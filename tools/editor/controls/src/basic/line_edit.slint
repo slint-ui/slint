@@ -18,6 +18,7 @@ export component LineEdit {
     in property <color> selection-foreground-color: root.style.selection-foreground-color;
 
     in property <int> font-weight <=> field.font-weight;
+    in-out property <bool> password-revealed <=> field.password-revealed;
 
     in property <length> horizontal-padding: 12px;
     in property <length> vertical-padding: 6px;
@@ -42,8 +43,8 @@ export component LineEdit {
 
     min-width: max(160px, field.min-width);
     min-height: max(34px, field.min-height);
-    preferred-width: field.preferred-width;
-    preferred-height: field.preferred-height;
+    preferred-width: max(root.min-width, field.preferred-width);
+    preferred-height: max(root.min-height, field.preferred-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
     forward-focus: field;
@@ -107,6 +108,7 @@ export component LineEdit {
         }
 
         placeholder << placeholder-label := Text {
+            accessible-role: none;
             x: 0px;
             y: 0px;
             width: 100%;

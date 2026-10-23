@@ -113,7 +113,7 @@ export component ComboBoxBase {
         if root.count == 0 {
             root.current-index = -1;
             root.highlight-index = -1;
-            popup.close();
+            root.close();
         } else {
             if root.current-index < -1 || root.current-index >= root.count {
                 root.current-index = clamp(root.current-index, -1, root.count - 1);
@@ -124,7 +124,7 @@ export component ComboBoxBase {
     }
 
     function handle-key(event: KeyEvent) -> EventResult {
-        if !root.enabled || root.count == 0 || event.modifiers.control { return reject; }
+        if !root.enabled || root.count == 0 || event.modifiers.control || event.modifiers.meta { return reject; }
         if event.text == Key.Escape && root.expanded {
             root.close();
             return accept;

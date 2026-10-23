@@ -11,6 +11,8 @@ export component CheckBoxBase {
     in property <string> text;
     in property <length> font-size;
     in property <int> font-weight;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
 
     in property <length> spacing;
     in property <length> horizontal-padding;
@@ -36,6 +38,8 @@ export component CheckBoxBase {
         root.toggled();
     }
 
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
     forward-focus: interaction;
     accessible-role: checkbox;
     accessible-label: root.text;
@@ -48,6 +52,8 @@ export component CheckBoxBase {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        focus-on-click: root.focus-on-click;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }
     }
 

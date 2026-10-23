@@ -138,7 +138,9 @@ export component ComboBoxPopup {
                 ]
                 text: value;
                 accessible-role: list-item;
-                accessible-checked: index == root.current-index;
+                accessible-item-selectable: true;
+                accessible-item-selected: index == root.current-index;
+                accessible-item-index: index;
                 clicked => { root.selected(index); }
                 changed hovered => { if self.hovered { root.highlight(index); } }
                 background << Rectangle {
@@ -206,9 +208,10 @@ export component ComboBox inherits ComboBoxBase {
     item-height: row-metrics.row-height;
 
     horizontal-stretch: 1;
-    min-width: 120px;
-    min-height: 32px;
-    preferred-width: 200px;
+    min-width: max(120px, content-layout.min-width + root.indicator-width + root.spacing
+        + root.left-padding + root.right-padding);
+    min-height: max(32px, content-layout.min-height + root.top-padding + root.bottom-padding);
+    preferred-width: max(200px, root.min-width);
 
     states [
         disabled when !root.enabled: {
@@ -247,16 +250,18 @@ export component ComboBox inherits ComboBoxBase {
         }
     }
 
-    content << Text {
-        horizontal-stretch: 1;
-        text: root.display-text;
-        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-        font-size: root.font-size;
-        font-weight: root.font-weight;
-        font-family: root.font-family;
-        font-italic: root.font-italic;
-        vertical-alignment: center;
-        overflow: elide;
+    content << content-layout := HorizontalLayout {
+        Text {
+            horizontal-stretch: 1;
+            text: root.display-text;
+            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
+            vertical-alignment: center;
+            overflow: elide;
+        }
     }
 
     indicator << Path {

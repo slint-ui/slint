@@ -39,6 +39,7 @@ export component CheckBox inherits CheckBoxBase {
     vertical-padding: 6px;
 
     min-height: max(32px, layout.min-height);
+    preferred-height: max(root.min-height, layout.preferred-height);
 
     states [
         disabled when !root.enabled: {

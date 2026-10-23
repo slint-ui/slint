@@ -9,6 +9,8 @@ export component SwitchBase {
 
     in property <bool> enabled: true;
     in property <string> text;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
 
     in property <length> spacing;
     in property <length> horizontal-padding;
@@ -35,6 +37,8 @@ export component SwitchBase {
         root.toggled();
     }
 
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
     forward-focus: interaction;
     accessible-role: switch;
     accessible-label: root.text;
@@ -47,6 +51,8 @@ export component SwitchBase {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        focus-on-click: root.focus-on-click;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }
     }
 
