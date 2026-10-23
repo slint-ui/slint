@@ -8,7 +8,8 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorContext, InspectorEffectsSection, InspectorEnabledSection,
     InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorOrientationSection,
-    InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTypographySection,
+    InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
+    InspectorTypographySection,
 } from "inspector/sections/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
@@ -81,6 +82,8 @@ export component InspectorPane inherits Rectangle {
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
                 }
+
+                if InspectorContext.is-title-selection(): InspectorTitleSection { }
 
                 if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
 
