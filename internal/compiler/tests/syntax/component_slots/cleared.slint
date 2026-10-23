@@ -1,0 +1,72 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction {
+    out property <bool> pressed;
+}
+
+component Host inherits Rectangle {
+    slot content << Text { }
+    slot plain;
+    slot <Interaction> control;
+    VerticalLayout {
+        content { }
+
+        plain { }
+
+        control { }
+    }
+}
+
+component ClearedHost inherits Host {
+    content << { }
+    control << TouchArea { }
+}
+
+export component ClearedTyped {
+    Host {
+        control << { }
+//      >            <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    }
+}
+
+export component ClearedAndAssigned {
+    Host {
+        content << { }
+        content << Text { }
+//      >     <error{Duplicate assignment to slot 'content'}
+        control << TouchArea { }
+    }
+}
+
+export component ClearedUnknown {
+    Host {
+        missing << { }
+//      >     <error{Unknown slot 'missing' in 'Host'}
+        control << TouchArea { }
+    }
+}
+
+export component ClearedChildren {
+    Host {
+        children << { }
+//      >      <error{The name 'children' is reserved for the default slot; add the element as a direct child instead}
+        control << TouchArea { }
+    }
+}
+
+export component ClearedOnBuiltin {
+    Rectangle {
+        content << { }
+//      >            <error{Slot assignments can only be used on components}
+    }
+}
+
+export component ClearedWithoutDefault {
+    Host {
+        plain << { }
+        control << TouchArea { }
+    }
+
+    ClearedHost { }
+}

@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -75,7 +76,7 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
     for (const name of [
         "read_slint_file",
-        "read_image_file",
+        "read_binary_file",
         "publish_preview_capture",
     ]) {
         const tool = result.tools.find((t) => t.name === name);
@@ -183,35 +184,46 @@ test("takes either an absolute path or source", async () => {
     }
 });
 
-test("reads Slint and image files for the view", async () => {
+test("reads Slint, image, and font files for the view", async () => {
     const dir = mkdtempSync(join(tmpdir(), "slint-preview-"));
     try {
         const slintFile = join(dir, "main.slint");
         const source = 'Image { source: @image-url("dot.png"); }';
         writeFileSync(slintFile, source);
-        writeFileSync(join(dir, "dot.png"), Buffer.from([0x89, 0x50]));
-        writeFileSync(join(dir, "icon.svg"), "<svg/>");
-
         const slint = await callTool("read_slint_file", { path: slintFile });
         assert.deepEqual(slint.content, [{ type: "text", text: source }]);
 
-        const png = await callTool("read_image_file", {
-            path: join(dir, "dot.png"),
-        });
-        assert.deepEqual(png.content, [
-            { type: "image", data: "iVA=", mimeType: "image/png" },
-        ]);
-        const svg = await callTool("read_image_file", {
-            path: join(dir, "icon.svg"),
-        });
-        assert.equal(svg.content[0].mimeType, "image/svg+xml");
+        for (const [file, mimeType, bytes] of [
+            ["dot.png", "image/png", Buffer.from([0x89, 0x50])],
+            ["icon.svg", "image/svg+xml", Buffer.from("<svg/>")],
+            ["font.ttf", "font/ttf", Buffer.from([0, 1, 0, 0])],
+        ]) {
+            const path = join(dir, file);
+            writeFileSync(path, bytes);
+            const blob = bytes.toString("base64");
+            const result = await callTool("read_binary_file", { path });
+            assert.deepEqual(
+                result.content,
+                [
+                    {
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(path).href,
+                            mimeType,
+                            blob,
+                        },
+                    },
+                ],
+                file,
+            );
+        }
     } finally {
         rmSync(dir, { recursive: true });
     }
 });
 
 test("reports a file it can't read as a tool error", async () => {
-    for (const name of ["read_slint_file", "read_image_file"]) {
+    for (const name of ["read_slint_file", "read_binary_file"]) {
         const result = await callTool(name, {
             path: "/nonexistent/main.slint",
         });

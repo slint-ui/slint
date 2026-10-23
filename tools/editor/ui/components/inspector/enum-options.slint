@@ -39,127 +39,34 @@ export global InspectorEnumOptions {
         { value: "center", label: @tr("Center") },
         { value: "bottom", label: @tr("Bottom") },
     ];
+    out property <[InspectorComboOption]> image-horizontal-alignment-options: [
+        { value: "left", label: @tr("Left") },
+        { value: "center", label: @tr("Center") },
+        { value: "right", label: @tr("Right") },
+    ];
+    out property <[InspectorComboOption]> image-vertical-alignment-options: [
+        { value: "top", label: @tr("Top") },
+        { value: "center", label: @tr("Center") },
+        { value: "bottom", label: @tr("Bottom") },
+    ];
     out property <[InspectorComboOption]> text-word-wrap-options: [
         { value: "no-wrap", label: @tr("No wrap") },
         { value: "word-wrap", label: @tr("Word wrap") },
         { value: "char-wrap", label: @tr("Character wrap") },
     ];
 
-    public pure function text-horizontal-alignment-index() -> int {
-        let value = Api.source-property-value("horizontal-alignment", "start");
-        if value == "start" || value == "TextHorizontalAlignment.start" {
-            return 0;
-        }
-        if value == "end" || value == "TextHorizontalAlignment.end" {
-            return 1;
-        }
-        if value == "left" || value == "TextHorizontalAlignment.left" {
-            return 2;
-        }
-        if value == "center" || value == "TextHorizontalAlignment.center" {
-            return 3;
-        }
-        if value == "right" || value == "TextHorizontalAlignment.right" {
-            return 4;
-        }
-        return -1;
+    public pure function option-index(name: string, default: string, options: [InspectorComboOption]) -> int {
+        return Api.combo-option-index(Api.source-property-value(name, default), options);
     }
 
-    public pure function text-word-wrap-index() -> int {
-        let value = Api.source-property-value("wrap", "no-wrap");
-        if value == "no-wrap" || value == "TextWrap.no-wrap" {
-            return 0;
-        }
-        if value == "word-wrap" || value == "TextWrap.word-wrap" {
-            return 1;
-        }
-        if value == "char-wrap" || value == "TextWrap.char-wrap" {
-            return 2;
-        }
-        return -1;
+    public pure function option-label(name: string, default: string, options: [InspectorComboOption]) -> string {
+        let index = InspectorEnumOptions.option-index(name, default, options);
+        return options[index >= 0 ? index : Api.combo-option-index(default, options)].label;
     }
 
-    public pure function text-vertical-alignment-index() -> int {
-        let value = Api.source-property-value("vertical-alignment", "top");
-        if value == "top" || value == "TextVerticalAlignment.top" {
-            return 0;
-        }
-        if value == "center" || value == "TextVerticalAlignment.center" {
-            return 1;
-        }
-        if value == "bottom" || value == "TextVerticalAlignment.bottom" {
-            return 2;
-        }
-        return -1;
-    }
-
-    public pure function image-fit-index() -> int {
-        let value = Api.source-property-value("image-fit", "fill");
-        if value == "fill" || value == "ImageFit.fill" {
-            return 0;
-        }
-        if value == "preserve" || value == "ImageFit.preserve" {
-            return 1;
-        }
-        if value == "contain" || value == "ImageFit.contain" {
-            return 2;
-        }
-        if value == "cover" || value == "ImageFit.cover" {
-            return 3;
-        }
-        return -1;
-    }
-
-    public pure function image-fit-value() -> string {
-        let index = InspectorEnumOptions.image-fit-index();
-        return index >= 0 ? InspectorEnumOptions.image-fit-options[index].value : "fill";
-    }
-
-    public pure function image-tiling-index(name: string) -> int {
-        let value = Api.source-property-value(name, "none");
-        if value == "none" || value == "ImageTiling.none" {
-            return 0;
-        }
-        if value == "repeat" || value == "ImageTiling.repeat" {
-            return 1;
-        }
-        if value == "round" || value == "ImageTiling.round" {
-            return 2;
-        }
-        return -1;
-    }
-
-    public pure function image-tiling-value(name: string) -> string {
-        let index = InspectorEnumOptions.image-tiling-index(name);
-        return index >= 0 ? InspectorEnumOptions.image-tiling-options[index].value : "none";
-    }
-
-    public pure function image-horizontal-alignment-index() -> int {
-        let value = Api.source-property-value("horizontal-alignment", "center");
-        if value == "left" || value == "ImageHorizontalAlignment.left" {
-            return 0;
-        }
-        if value == "center" || value == "ImageHorizontalAlignment.center" {
-            return 1;
-        }
-        if value == "right" || value == "ImageHorizontalAlignment.right" {
-            return 2;
-        }
-        return -1;
-    }
-
-    public pure function image-vertical-alignment-index() -> int {
-        let value = Api.source-property-value("vertical-alignment", "center");
-        if value == "top" || value == "ImageVerticalAlignment.top" {
-            return 0;
-        }
-        if value == "center" || value == "ImageVerticalAlignment.center" {
-            return 1;
-        }
-        if value == "bottom" || value == "ImageVerticalAlignment.bottom" {
-            return 2;
-        }
-        return -1;
+    public pure function option-value(name: string, default: string, options: [InspectorComboOption]) -> string {
+        let index = InspectorEnumOptions.option-index(name, default, options);
+        return index >= 0 ? options[index].value : default;
     }
 
     public pure function text-font-weight-index() -> int {
@@ -197,20 +104,5 @@ export global InspectorEnumOptions {
     public pure function text-font-weight-label() -> string {
         let index = InspectorEnumOptions.text-font-weight-index();
         return index >= 0 ? InspectorEnumOptions.text-font-weight-options[index].label : @tr("Normal");
-    }
-
-    public pure function text-horizontal-alignment-label() -> string {
-        let index = InspectorEnumOptions.text-horizontal-alignment-index();
-        return index >= 0 ? InspectorEnumOptions.text-horizontal-alignment-options[index].label : @tr("Start");
-    }
-
-    public pure function text-vertical-alignment-label() -> string {
-        let index = InspectorEnumOptions.text-vertical-alignment-index();
-        return index >= 0 ? InspectorEnumOptions.text-vertical-alignment-options[index].label : @tr("Top");
-    }
-
-    public pure function text-word-wrap-label() -> string {
-        let index = InspectorEnumOptions.text-word-wrap-index();
-        return index >= 0 ? InspectorEnumOptions.text-word-wrap-options[index].label : @tr("No wrap");
     }
 }
