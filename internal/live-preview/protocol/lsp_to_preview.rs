@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{collections::HashMap, path::PathBuf};
-
 use lsp_types::Url;
 
 use super::{PreviewTarget, VersionedUrl};
@@ -20,11 +18,9 @@ pub struct PreviewComponent {
 #[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
-    pub style: String,
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
+    #[serde(default, with = "named_overrides")]
+    pub overrides: i_slint_compiler::project_file::Overrides,
     pub format_utf8: bool,
-    pub enable_experimental: bool,
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
@@ -123,5 +119,109 @@ pub trait LspToPreview {
     fn preview_target(&self) -> PreviewTarget;
     fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
         Box::pin(async move { self.send(&LspToPreviewMessage::Quit) })
+    }
+}
+
+mod named_overrides {
+    use i_slint_compiler::project_file::Overrides;
+    use serde::{Deserialize, Serialize};
+
+    pub fn serialize<S: serde::Serializer>(
+        overrides: &Overrides,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            overrides.serialize(serializer)
+        } else {
+            let bytes = serde_json::to_vec(overrides).map_err(serde::ser::Error::custom)?;
+            serializer.serialize_bytes(&bytes)
+        }
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Overrides, D::Error> {
+        if deserializer.is_human_readable() {
+            Overrides::deserialize(deserializer)
+        } else {
+            let bytes = Vec::<u8>::deserialize(deserializer)?;
+            serde_json::from_slice(&bytes).map_err(serde::de::Error::custom)
+        }
+    }
+}
+
+#[cfg(test)]
+mod configuration_tests {
+    use super::PreviewConfig;
+
+    fn future_overrides() -> serde_json::Value {
+        serde_json::json!({
+            "style": "fluent",
+            "project": { "include-paths": [] },
+            "embed_resources": "FutureEmbedding",
+            "default_translation_context": "FutureContext",
+            "debug_info": false,
+            "const_scale_factor": 2.0,
+            "use_sdf_fonts": true,
+            "bundled_translations_path": "/translations",
+            "future-compiler-setting": 17
+        })
+    }
+
+    #[test]
+    fn named_json_configuration_keeps_supported_fields() {
+        let config: PreviewConfig = serde_json::from_value(serde_json::json!({
+            "hide_ui": null, "format_utf8": true, "overrides": future_overrides()
+        }))
+        .unwrap();
+        assert_eq!(config.overrides.style.as_deref(), Some("fluent"));
+        assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
+        assert_eq!(config.overrides.debug_info, Some(false));
+        assert_eq!(config.overrides.const_scale_factor, Some(2.));
+        assert_eq!(config.overrides.embed_resources, None);
+        assert_eq!(config.overrides.default_translation_context, None);
+        let json = serde_json::to_value(&config).unwrap();
+        assert!(json["overrides"].is_object());
+        assert_eq!(serde_json::from_value::<PreviewConfig>(json).unwrap(), config);
+        assert!(
+            serde_json::from_value::<PreviewConfig>(serde_json::json!({
+                "hide_ui": null, "format_utf8": true, "overrides": {"embed_resources": 42}
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn nested_project_fields_remain_strict() {
+        assert!(
+            serde_json::from_value::<PreviewConfig>(serde_json::json!({
+                "hide_ui": null, "format_utf8": true,
+                "overrides": {"project": {"future-project-setting": true}}
+            }))
+            .is_err()
+        );
+    }
+
+    #[cfg(feature = "remote")]
+    #[test]
+    fn postcard_configuration_uses_named_fields_across_feature_sets() {
+        #[derive(serde::Serialize)]
+        struct FutureConfig {
+            hide_ui: Option<bool>,
+            overrides: Vec<u8>,
+            format_utf8: bool,
+        }
+        let encoded = postcard::to_allocvec(&FutureConfig {
+            hide_ui: Some(true),
+            overrides: serde_json::to_vec(&future_overrides()).unwrap(),
+            format_utf8: true,
+        })
+        .unwrap();
+        let decoded: PreviewConfig = postcard::from_bytes(&encoded).unwrap();
+        assert_eq!(decoded.overrides.style.as_deref(), Some("fluent"));
+        assert_eq!(decoded.overrides.embed_resources, None);
+        assert_eq!(decoded.overrides.default_translation_context, None);
+        let encoded = postcard::to_allocvec(&decoded).unwrap();
+        assert_eq!(postcard::from_bytes::<PreviewConfig>(&encoded).unwrap(), decoded);
     }
 }

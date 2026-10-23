@@ -113,6 +113,8 @@ jobs:
                 df -h
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - uses: ./.github/actions/install-skia-dependencies
             - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
@@ -130,9 +132,6 @@ jobs:
                   version: "6.2.2"
                   setup-python: false
                   cache: true
-            - name: Install ffmpeg, alsa, gstreamer and libunwind (Linux)
-              if: runner.os == 'Linux'
-              run: sudo timeout 600 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - name: Setup headless display
               if: runner.os != 'macOS'
               uses: pyvista/setup-headless-display-action@v5
@@ -242,4 +241,3 @@ jobs:
             - name: Print Disk Usage
               if: always()
               run: df -h
-

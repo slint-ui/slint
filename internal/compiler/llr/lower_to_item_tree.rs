@@ -192,10 +192,14 @@ pub fn lower_to_item_tree(
         PopupMenu { item_tree, sub_menu, activated, close, entries }
     });
 
+    let mut sub_components: TiVec<SubComponentIdx, SubComponent> =
+        state.sub_components.into_iter().map(|sc| sc.sub_component).collect();
+    make_sub_component_names_unique(&mut sub_components, &public_components);
+
     let mut root = CompilationUnit {
         public_components,
         globals,
-        sub_components: state.sub_components.into_iter().map(|sc| sc.sub_component).collect(),
+        sub_components,
         used_sub_components: document
             .used_types
             .borrow()
@@ -384,13 +388,40 @@ impl LoweringState {
     }
 }
 
+/// Components with the same name in different files, or nested in such components, get the same
+/// name from [`component_id`]: suffix all but the first. The public components keep their name.
+fn make_sub_component_names_unique(
+    sub_components: &mut TiVec<SubComponentIdx, SubComponent>,
+    public_components: &TiVec<PublicComponentIdx, PublicComponent>,
+) {
+    let public_roots: HashSet<_> = public_components.iter().map(|c| c.item_tree.root).collect();
+    let mut seen: HashSet<SmolStr> =
+        public_roots.iter().map(|idx| sub_components[*idx].name.clone()).collect();
+    for (idx, sc) in sub_components.iter_mut_enumerated() {
+        if public_roots.contains(&idx) || seen.insert(sc.name.clone()) {
+            continue;
+        }
+        sc.name = (2..)
+            .map(|i| format_smolstr!("{}_{i}", sc.name))
+            .find(|name| seen.insert(name.clone()))
+            .unwrap();
+    }
+}
+
 fn component_id(component: &Rc<Component>) -> SmolStr {
     if component.is_global() {
         component.root_element.borrow().id.clone()
     } else if component.from_library.get() {
         component.id.clone()
     } else if component.id.is_empty() {
-        format_smolstr!("Component_{}", component.root_element.borrow().id)
+        let parent =
+            component.parent_element().and_then(|e| e.borrow().enclosing_component.upgrade());
+        match parent {
+            Some(parent) => {
+                format_smolstr!("{}_{}", component_id(&parent), component.root_element.borrow().id)
+            }
+            None => format_smolstr!("Component_{}", component.root_element.borrow().id),
+        }
     } else {
         format_smolstr!("{}_{}", component.id, component.root_element.borrow().id)
     }

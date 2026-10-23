@@ -301,6 +301,8 @@ pub struct PreviewState {
     /// redundant updates when the UI re-reports settings we just applied.
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
+    // TODO: Rework source resolution so preview state does not store a separate source URL.
+    resolved_source_url: Option<Url>,
     current_project_root: Option<Url>,
     project_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
@@ -322,7 +324,32 @@ impl PreviewState {
         self.current_previewed_component.clone()
     }
 
+    pub(super) fn current_source_component(&self) -> Option<PreviewComponent> {
+        let mut component = self.current_component()?;
+        component.url = self.resolved_source_url.clone().unwrap_or(component.url);
+        Some(component)
+    }
+
+    fn apply_resolved_source(
+        &mut self,
+        target: &PreviewComponent,
+        source: Option<&SourcePath>,
+    ) -> bool {
+        if self.current_previewed_component.as_ref() != Some(target) {
+            return false;
+        }
+        self.resolved_source_url = source.and_then(SourcePath::to_url);
+        true
+    }
+
     pub fn set_current_component(&mut self, component: PreviewComponent) {
+        if self
+            .current_previewed_component
+            .as_ref()
+            .is_none_or(|current| current.url != component.url)
+        {
+            self.resolved_source_url = None;
+        }
         if self.current_previewed_component.as_ref().is_none_or(|current| {
             current.url != component.url
                 || component.component.as_ref().is_some_and(|name| {
@@ -386,8 +413,9 @@ impl PreviewState {
     }
 
     pub fn rename_current_component(&mut self, url: &Url, old_name: &str, new_name: &str) {
+        let source_matches = self.resolved_source_url.as_ref() == Some(url);
         if let Some(pc) = &mut self.current_previewed_component
-            && pc.url == *url
+            && (pc.url == *url || source_matches)
             && pc.component.as_deref() == Some(old_name)
         {
             pc.component = Some(new_name.to_string());
@@ -485,6 +513,8 @@ fn reset_project_state(root: Url) {
         state.current_load_behavior = None;
         state.loading_state = PreviewFutureState::Pending;
         state.current_previewed_component = None;
+        state.resolved_source_url = None;
+        state.config = PreviewConfig::default();
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -771,6 +801,25 @@ pub(super) fn request_preview_path(path: &Path, component: Option<String>) -> bo
     request_preview(component)
 }
 
+/// Previews `path` in the open project, keeping its root, as a click in the file tree does.
+///
+/// Returns `false` without doing anything when no project is open or `path` is outside its root.
+#[cfg(target_os = "macos")]
+pub(crate) fn preview_in_open_project(path: &Path) -> bool {
+    let root = PREVIEW_STATE.with_borrow(|preview_state| {
+        let api = preview_state.api.upgrade()?;
+        if api.get_startup_wizard_visible() {
+            return None;
+        }
+        preview_state.current_project_root.as_ref()?.to_file_path().ok()
+    });
+    let in_root = root
+        .and_then(|root| std::fs::canonicalize(root).ok())
+        .zip(std::fs::canonicalize(path).ok())
+        .is_some_and(|(root, path)| path.starts_with(root));
+    in_root && request_preview_path(path, None)
+}
+
 fn request_preview(component: PreviewComponent) -> bool {
     let to_lsp = PREVIEW_STATE.with_borrow(|preview_state| preview_state.to_lsp.borrow().clone());
     let Some(to_lsp) = to_lsp else {
@@ -820,7 +869,7 @@ fn add_new_component() {
     };
 
     let preview_component =
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component());
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_source_component());
 
     let Some(preview_component) = preview_component else {
         return;
@@ -844,7 +893,10 @@ fn add_new_component() {
     {
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.set_current_component(PreviewComponent {
-                url: preview_component.url.clone(),
+                url: preview_state
+                    .current_component()
+                    .map(|target| target.url)
+                    .unwrap_or_else(|| preview_component.url.clone()),
                 component: Some(component_name),
             });
             preview_state.selected = Some(ElementSelection {
@@ -1162,14 +1214,14 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { kind: ui::ElementKind },
+    NewComponent { kind: ui::ElementKind, type_name: &'static str },
 }
 
-fn new_component_data_for_kind(kind: ui::ElementKind) -> DataTransfer {
-    if element_catalog::primitive(kind).is_none() {
+fn new_component_data(type_name: SharedString) -> DataTransfer {
+    let Some(entry) = element_catalog::entry(&type_name) else {
         return Default::default();
-    }
-    DragItem::NewComponent { kind }.into()
+    };
+    DragItem::NewComponent { kind: entry.kind, type_name: entry.type_name }.into()
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -1203,7 +1255,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { type_name, .. }) = data.try_into() else {
         return false;
     };
 
@@ -1218,26 +1270,27 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn palette_component(kind: ui::ElementKind) -> Option<ComponentInformation> {
-    let primitive = element_catalog::primitive(kind)?;
+fn palette_component(type_name: &str) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
-            .find(|component| component.name == primitive.type_name && component.is_builtin)
+            .find(|component| {
+                component.name == type_name && (component.is_builtin || component.is_std_widget)
+            })
             .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
         return;
     };
 
@@ -1247,7 +1300,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return;
     };
 
@@ -1265,7 +1318,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
         return;
     };
 
@@ -1279,7 +1332,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = palette_component(kind) else {
+    let Some(component) = palette_component(type_name) else {
         return;
     };
 
@@ -1981,7 +2034,7 @@ fn change_style() {
     // style so the next build uses it.
     let style = get_current_style();
     let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.config.style = style;
+        preview_state.config.overrides.style = Some(style);
         preview_state.current_component()
     }) else {
         return;
@@ -2024,7 +2077,7 @@ fn previewed_component_changed() {
     // TODO: Return early on !success (see previous finish_parsing implementation)
     let (Some(previewed_url), preview_component, source_code) =
         PREVIEW_STATE.with_borrow(|preview_state| {
-            let pc = preview_state.current_component();
+            let pc = preview_state.current_source_component();
             (
                 pc.as_ref().map(|pc| pc.url.clone()),
                 pc.as_ref().and_then(|pc| pc.component.clone()),
@@ -2037,8 +2090,14 @@ fn previewed_component_changed() {
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
+        i_slint_editor_preview::util::poll_once(document_cache.preload_builtins());
 
         for (url, cache_entry) in &source_code {
+            if SourcePath::from_url(url).file_name()
+                == Some(i_slint_compiler::project_file::FILE_NAME)
+            {
+                continue;
+            }
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
                 i_slint_editor_preview::util::poll_once(document_cache.load_url(
@@ -2228,7 +2287,7 @@ async fn reload_timer_function(project_generation: u64) {
         };
         // An empty style lets the compiler apply its own default (and SLINT_STYLE);
         // the ComboBox is updated to the resolved style once the build finishes.
-        let style = config.style.clone();
+        let style = config.overrides.style.clone().unwrap_or_default();
 
         match reload_preview_impl(preview_component, behavior, style, config, project_generation)
             .await
@@ -2398,6 +2457,7 @@ async fn parse_source(
     Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     bool,
+    Option<SourcePath>,
 ) {
     let mut builder = slint_interpreter::Compiler::default();
     let named_component = component.is_some();
@@ -2414,13 +2474,6 @@ async fn parse_source(
     // Otherwise this may cause a runtime panic because of the recursion
     cc.error_on_binding_loop_with_window_layout = true;
     cc.is_preview = true;
-
-    if !style.is_empty() {
-        cc.style = Some(style);
-    }
-    cc.include_paths = config.include_paths;
-    cc.library_paths = config.library_paths;
-    cc.enable_experimental |= config.enable_experimental;
     cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
@@ -2434,6 +2487,34 @@ async fn parse_source(
         );
 
     tracing::debug!(%path, "Preview: compiling source");
+    let mut overrides = config.overrides;
+    if !style.is_empty() {
+        overrides.style = Some(style);
+    }
+    builder.set_overrides(overrides, i_slint_core::InternalToken);
+    let project_loader = open_file_fallback.clone();
+    let project_versions = source_file_versions.clone();
+    builder.set_project_file_loader(
+        Rc::new(move |path| {
+            let project_loader = project_loader.clone();
+            let project_versions = project_versions.clone();
+            Box::pin(async move {
+                match project_loader {
+                    Some(loader) => Some(match loader(path.clone()).await {
+                        Some(result) => result.map(|(version, contents)| {
+                            project_versions.as_ref().borrow_mut().insert(path, version);
+                            contents
+                        }),
+                        None => Err(std::io::ErrorKind::NotFound.into()),
+                    }),
+                    None => Some(Err(std::io::ErrorKind::NotFound.into())),
+                }
+            })
+        }),
+        i_slint_core::InternalToken,
+    );
+    let resolved_source =
+        i_slint_live_preview::protocol::preview_source_path(&path, &source_code).await;
     let result =
         builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
 
@@ -2442,7 +2523,7 @@ async fn parse_source(
     let no_component = !named_component
         && compiled.is_none()
         && ui::diagnostics::has_only_no_component_error(&diagnostics);
-    (diagnostics, compiled, open_file_fallback, source_file_versions, no_component)
+    (diagnostics, compiled, open_file_fallback, source_file_versions, no_component, resolved_source)
 }
 
 // Must be inside the thread running the slint event loop
@@ -2479,7 +2560,7 @@ async fn reload_preview_impl(
         i_slint_editor_preview::ByteFormat::Utf16
     };
 
-    let (mut diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
+    let (mut diagnostics, compiled, open_import_callback, source_file_versions, no_component, resolved_source) =
         parse_source(
             config,
             path,
@@ -2504,6 +2585,11 @@ async fn reload_preview_impl(
         return Ok(());
     }
 
+    if !PREVIEW_STATE
+        .with_borrow_mut(|state| state.apply_resolved_source(&component, resolved_source.as_ref()))
+    {
+        return Ok(());
+    }
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
 
@@ -2761,12 +2847,13 @@ fn set_selected_element(
 ) {
     inline_text_edit::selection_changed(selection.as_ref(), &editor_notification);
     inspector::cancel();
-    let (layout_kind, parent_layout_kind, type_name) = {
+    let (layout_kind, parent_layout_kind, is_root, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
         let (layout_kind, parent_layout_kind) = selection_node
             .as_ref()
             .map(|en| (en.layout_kind(), element_selection::parent_layout_kind(en)))
             .unwrap_or((ui::LayoutKind::None, ui::LayoutKind::None));
+        let is_root = selection_node.as_ref().is_some_and(|en| en.parent().is_none());
         let type_name = selection_node
             .and_then(|n| {
                 // This is an approximation, I hope it is good enough. The ElementRc was lowered, so there is nothing to see there anymore
@@ -2776,7 +2863,7 @@ fn set_selected_element(
             })
             .unwrap_or_default();
 
-        (layout_kind, parent_layout_kind, type_name)
+        (layout_kind, parent_layout_kind, is_root, type_name)
     };
 
     set_drop_mark(&None);
@@ -2806,7 +2893,7 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: !is_in_layout,
+                is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
             });
 
@@ -3052,27 +3139,28 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
-            path,
-            Some(24),
-            source_code.to_string(),
-            style.to_string(),
-            None,
-            move |path| {
-                let code = code.clone();
+        let (diagnostics, component_definition, _, _, _, _) =
+            spin_on::spin_on(super::parse_source(
+                Default::default(),
+                path,
+                Some(24),
+                source_code.to_string(),
+                style.to_string(),
+                None,
+                move |path| {
+                    let code = code.clone();
 
-                Box::pin(async move {
-                    let Some(source) = code.get(&path) else {
-                        return Some(Result::Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "path not found",
-                        )));
-                    };
-                    Some(Ok((Some(24), source.clone())))
-                })
-            },
-        ));
+                    Box::pin(async move {
+                        let Some(source) = code.get(&path) else {
+                            return Some(Result::Err(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "path not found",
+                            )));
+                        };
+                        Some(Ok((Some(24), source.clone())))
+                    })
+                },
+            ));
 
         assert!(diagnostics.is_empty());
 
@@ -3115,6 +3203,177 @@ mod tests {
         });
     }
 
+    #[test]
+    fn a_target_changed_during_compilation_rejects_the_old_resolved_source() {
+        i_slint_backend_testing::init_no_event_loop();
+        let original =
+            PreviewComponent { url: Url::parse("file:///old.slint").unwrap(), component: None };
+        for replacement in [
+            PreviewComponent { url: Url::parse("file:///new.slint").unwrap(), component: None },
+            PreviewComponent { url: original.url.clone(), component: Some("Different".into()) },
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                *state = Default::default();
+                state.set_current_component(original.clone());
+            });
+            let switched_target = replacement.clone();
+            let (diagnostics, _, _, _, _, resolved) = spin_on::spin_on(parse_source(
+                Default::default(), SourcePath::from_url(&original.url), None,
+                r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into(),
+                String::new(), None,
+                move |path| {
+                    let replacement = switched_target.clone();
+                    Box::pin(async move {
+                        PREVIEW_STATE.with_borrow_mut(|state| state.set_current_component(replacement));
+                        Some(if path.file_name() == Some("dependency.slint") { Ok((None, "export component Dependency inherits Window {}".into())) } else { Err(std::io::ErrorKind::NotFound.into()) })
+                    })
+                },
+            ));
+            assert!(diagnostics.is_empty(), "{diagnostics:?}");
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                assert!(!state.apply_resolved_source(&original, resolved.as_ref()));
+                assert_eq!(state.current_source_component(), Some(replacement.clone()));
+            });
+        }
+    }
+
+    #[test]
+    fn cached_manifest_pipeline_resolves_entry_and_reports_missing_entry() {
+        i_slint_backend_testing::init_no_event_loop();
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = SourcePath::new(directory.path().join("slint-project.json"));
+        let entry = manifest.parent().join("main.slint").unwrap();
+        let definition = manifest.parent().join("definition.slint").unwrap();
+        std::fs::write(
+            directory.path().join("slint-project.json"),
+            r#"{"style":"wrong-disk-style"}"#,
+        )
+        .unwrap();
+        for has_entry in [true, false] {
+            let source = if has_entry { r#"{"main":"main.slint"}"# } else { "{}" };
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.source_code.insert(
+                    manifest.to_url().unwrap(),
+                    SourceCodeCacheEntry { version: Some(1), code: source.into() },
+                );
+                state.source_code.insert(
+                    entry.to_url().unwrap(),
+                    SourceCodeCacheEntry {
+                        version: Some(2),
+                        code: r#"export { CachedEntry } from "definition.slint";"#.into(),
+                    },
+                );
+                state.source_code.insert(
+                    definition.to_url().unwrap(),
+                    SourceCodeCacheEntry {
+                        version: Some(3),
+                        code: "export component CachedEntry inherits Window {}".into(),
+                    },
+                );
+            });
+            let (diagnostics, compiled, _, _, _, resolved) = spin_on::spin_on(parse_source(
+                Default::default(),
+                manifest.clone(),
+                Some(1),
+                source.into(),
+                String::new(),
+                None,
+                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+            ));
+            if has_entry {
+                assert!(diagnostics.is_empty(), "{diagnostics:?}");
+                let root = compiled.as_ref().unwrap().root_component();
+                assert_eq!(root.node.as_ref().unwrap().source_file.path(), &definition);
+            } else {
+                assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+                assert!(diagnostics[0].message().contains("has no 'main' to compile"));
+                assert_eq!(diagnostics[0].source_url(), manifest.to_url().map(String::from));
+            }
+            assert_eq!(
+                compiled.as_ref().map(|component| component.name()),
+                has_entry.then_some("CachedEntry")
+            );
+            assert_eq!(resolved, has_entry.then_some(entry.clone()));
+        }
+    }
+
+    #[test]
+    fn component_catalog_snapshot_excludes_project_manifests() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let main = Url::parse("file:///snapshot/main.slint").unwrap();
+        let manifest = Url::parse("file:///snapshot/slint-project.json").unwrap();
+        let extra = Url::parse("file:///snapshot/extra.slint").unwrap();
+        let mut cache = i_slint_editor_preview::test::empty_document_cache();
+        spin_on::spin_on(cache.load_url(
+            &main,
+            Some(1),
+            "export component Main {}".into(),
+            &mut diagnostics::BuildDiagnostics::default(),
+        ))
+        .unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(PreviewComponent {
+                url: main.clone(),
+                component: Some("Main".into()),
+            });
+            state.document_cache.replace(Some(Rc::new(cache)));
+            for (url, source) in
+                [(manifest.clone(), "{}"), (extra.clone(), "export component Extra {}")]
+            {
+                state
+                    .source_code
+                    .insert(url, SourceCodeCacheEntry { version: Some(2), code: source.into() });
+            }
+        });
+        previewed_component_changed();
+        let snapshot = document_cache().unwrap();
+        assert!(snapshot.get_document(&extra).is_some());
+        assert!(snapshot.get_document(&manifest).is_none());
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn manifest_cache_changes_preserve_dependency_reload_behavior() {
+        reset_preview_state(Default::default());
+        let root = tempfile::tempdir().unwrap();
+        let manifest_path = root.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest_path, r#"{"style":"disk"}"#).unwrap();
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let component = PreviewComponent {
+            url: Url::from_file_path(root.path().join("main.slint")).unwrap(),
+            component: None,
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(component);
+            state.loading_state = PreviewFutureState::Loading;
+        });
+        assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
+        for (contents, reload) in [
+            (Some("{}"), true),
+            (Some("{}"), false),
+            (Some("{broken"), true),
+            (None, true),
+            (None, true),
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.loading_state = PreviewFutureState::Loading;
+                state.current_load_behavior = None;
+            });
+            if let Some(contents) = contents {
+                set_contents(&VersionedUrl::new(manifest.clone(), None), contents.into());
+            } else {
+                delete_document(&manifest);
+            }
+            PREVIEW_STATE.with_borrow(|state| {
+                assert_eq!(state.loading_state == PreviewFutureState::NeedsReload, reload);
+                assert_eq!(state.current_load_behavior.is_some(), reload);
+                assert!(state.dependencies.contains(&manifest));
+            });
+        }
+        reset_preview_state(Default::default());
+    }
+
     fn availability_test_editor() -> ui::EditorUi {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
@@ -3143,16 +3402,22 @@ mod tests {
                 );
             });
         }
-        let (mut diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
-            spin_on::spin_on(parse_source(
-                Default::default(),
-                path,
-                Some(24),
-                source.into(),
-                "fluent".into(),
-                requested.component.clone(),
-                |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
-            ));
+        let (
+            mut diagnostics,
+            compiled,
+            open_import_callback,
+            source_file_versions,
+            no_component,
+            _resolved_source,
+        ) = spin_on::spin_on(parse_source(
+            Default::default(),
+            path,
+            Some(24),
+            source.into(),
+            "fluent".into(),
+            requested.component.clone(),
+            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+        ));
         let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
         ui::diagnostics::set_compilation_diagnostics(
             &mut diagnostics,
@@ -3572,6 +3837,29 @@ mod tests {
     }
 
     #[test]
+    fn root_element_selection_is_not_moveable() {
+        let editor = availability_test_editor();
+        let source = "export component Main inherits Rectangle {\n    Rectangle { width: 10px; height: 10px; }\n}";
+        apply_availability_test_source(&editor, source, true);
+        for (offset, moveable) in
+            [(source.find("Rectangle {"), false), (source.rfind("Rectangle {"), true)]
+        {
+            set_selected_element(
+                Some(ElementSelection {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: (offset.unwrap() as u32).into(),
+                    instance_index: 0,
+                    editing_text: false,
+                }),
+                SelectionNotification::Never,
+            );
+            assert!(PREVIEW_STATE.with_borrow(|state| state.selected.is_some()));
+            assert_eq!(editor.global::<ui::Api>().get_selection().is_moveable, moveable);
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
     fn missing_selection_respects_selection_notification() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::EditorUi::new().unwrap();
@@ -3630,6 +3918,8 @@ mod tests {
             );
             state.dependencies.insert(old_url.clone());
             state.resources.insert(old_url.clone());
+            state.config.overrides.style = Some("material".into());
+            state.resolved_source_url = Some(old_url.clone());
             state.current_previewed_component =
                 Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });
             state.initial_live_data.insert(live_data_key.clone(), live_data.clone());
@@ -3650,6 +3940,8 @@ mod tests {
             assert_eq!(state.current_project_root, Some(new_root));
             assert_ne!(state.project_generation, old_project_generation);
             assert!(state.current_previewed_component.is_none());
+            assert_eq!(state.config, PreviewConfig::default());
+            assert!(state.resolved_source_url.is_none());
             assert!(state.source_code.is_empty());
             assert!(state.dependencies.is_empty());
             assert!(state.resources.is_empty());

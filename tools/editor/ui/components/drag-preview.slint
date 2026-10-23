@@ -100,7 +100,8 @@ export component DragPreview inherits Rectangle {
     private property <bool> row-preview: AppState.outline-drag-active || root.palette-outline-preview;
     private property <ElementPresentation> presentation: ElementVisuals.for-kind(AppState.palette-drag-kind);
     private property <bool> palette-drag-active: AppState.palette-drag-kind != ElementKind.none;
-    private property <float> visual-scale: !root.row-preview && AppState.palette-drag-kind == ElementKind.text
+    private property <bool> text-drag: AppState.palette-drag-kind == ElementKind.text || AppState.palette-drag-kind == ElementKind.styled-text;
+    private property <float> visual-scale: !root.row-preview && root.text-drag
         ? root.palette-scale : 1;
     visible: (root.show-outline && AppState.outline-drag-active) || (root.show-palette && root.palette-drag-active);
     width: root.row-preview
@@ -125,10 +126,10 @@ export component DragPreview inherits Rectangle {
     drop-shadow-blur: root.style.shadow.blur;
     drop-shadow-offset-y: root.style.shadow.offset-y;
     drop-shadow-color: AppState.outline-drag-active
-        || (!root.row-preview && AppState.palette-drag-kind == ElementKind.text)
+        || (!root.row-preview && root.text-drag)
         ? transparent : root.style.shadow.color;
     accessible-role: AccessibleRole.region;
-    accessible-label: root.row-preview ? @tr("Outline drag preview") : @tr("{} drag preview", root.presentation.label);
+    accessible-label: root.row-preview ? @tr("Outline drag preview") : @tr("{} drag preview", AppState.palette-drag-label);
 
     if root.palette-outline-preview && !AppState.outline-drag-active: Rectangle {
         border-radius: root.style.row.radius;
@@ -152,7 +153,7 @@ export component DragPreview inherits Rectangle {
 
             Text {
                 horizontal-stretch: 1;
-                text: root.presentation.label;
+                text: AppState.palette-drag-label;
                 color: root.style.row.foreground;
                 font-size: Typography.body.size;
                 vertical-alignment: center;
@@ -169,9 +170,9 @@ export component DragPreview inherits Rectangle {
         border-color: root.style.border;
     }
 
-    if !root.row-preview && AppState.palette-drag-kind == ElementKind.text: PaletteTextDragPreview { }
+    if !root.row-preview && root.text-drag: PaletteTextDragPreview { }
 
-    if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area): PalettePlaceholderDragPreview {
+    if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area || AppState.palette-drag-kind == ElementKind.widget): PalettePlaceholderDragPreview {
             style: root.style;
         corner-radius: root.border-radius;
         show-thumbnail: root.presentation.show-thumbnail;

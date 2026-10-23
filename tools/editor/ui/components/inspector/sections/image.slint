@@ -52,8 +52,8 @@ export component InspectorImageSection inherits InspectorSection {
 
             InspectorComboBox {
                 accessible-name: @tr("Image fit");
-                value: InspectorEnumOptions.image-fit-value();
-                selected-index: InspectorEnumOptions.image-fit-index();
+                value: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
+                selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
                 options: InspectorEnumOptions.image-fit-options;
                 wide: true;
                 width: root.field-width;
@@ -84,8 +84,8 @@ export component InspectorImageSection inherits InspectorSection {
             }
 
             alignment := InspectorImageAlignment {
-                selected-column: InspectorEnumOptions.image-horizontal-alignment-index();
-                selected-row: InspectorEnumOptions.image-vertical-alignment-index();
+                selected-column: InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options);
+                selected-row: InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options);
                 chosen(column, row) => { InspectorContext.set-image-alignment(column, row); }
             }
         }
@@ -111,8 +111,8 @@ export component InspectorImageSection inherits InspectorSection {
 
             InspectorComboBox {
                 accessible-name: @tr("Horizontal tiling");
-                value: InspectorEnumOptions.image-tiling-value("horizontal-tiling");
-                selected-index: InspectorEnumOptions.image-tiling-index("horizontal-tiling");
+                value: InspectorEnumOptions.option-value("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                selected-index: InspectorEnumOptions.option-index("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
                 options: InspectorEnumOptions.image-tiling-options;
                 wide: true;
                 width: root.field-width;
@@ -144,8 +144,8 @@ export component InspectorImageSection inherits InspectorSection {
 
             InspectorComboBox {
                 accessible-name: @tr("Vertical tiling");
-                value: InspectorEnumOptions.image-tiling-value("vertical-tiling");
-                selected-index: InspectorEnumOptions.image-tiling-index("vertical-tiling");
+                value: InspectorEnumOptions.option-value("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);
+                selected-index: InspectorEnumOptions.option-index("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);
                 options: InspectorEnumOptions.image-tiling-options;
                 wide: true;
                 width: root.field-width;

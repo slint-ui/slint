@@ -973,6 +973,12 @@ impl Item for TextInput {
                 if pressed > 0 {
                     let (clicked_offset, clicked_affinity) =
                         self.byte_offset_for_position(*position, window_adapter, self_rc);
+                    // Like Android's native text fields, dragging a finger after a single tap moves
+                    // the cursor instead of selecting.
+                    #[cfg(target_os = "android")]
+                    if pressed == 1 && event.is_from_touch() {
+                        self.as_ref().anchor_position_byte_offset.set(clicked_offset as i32);
+                    }
                     self.set_cursor_position_with_affinity(
                         clicked_offset as i32,
                         clicked_affinity,

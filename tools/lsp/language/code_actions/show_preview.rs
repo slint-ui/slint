@@ -5,10 +5,11 @@
 
 use super::Context;
 
+use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use lsp_types::CodeActionOrCommand;
 
 pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
-    let Some(component) = &ctx.component else {
+    let Some(component) = component_of_header(&ctx.node).filter(|c| !super::is_global(c)) else {
         return;
     };
     let Some(component_name) =
@@ -21,6 +22,20 @@ pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
         &ctx.uri,
         &component_name,
     )));
+}
+
+fn component_of_header(node: &SyntaxNode) -> Option<syntax_nodes::Component> {
+    match node.kind() {
+        SyntaxKind::Component => syntax_nodes::Component::new(node.clone()),
+        SyntaxKind::DeclaredIdentifier => node.parent().and_then(syntax_nodes::Component::new),
+        SyntaxKind::QualifiedName => node
+            .parent()
+            .filter(|n| n.kind() == SyntaxKind::Element)?
+            .parent()
+            .and_then(syntax_nodes::Component::new),
+        SyntaxKind::ExportsList => syntax_nodes::ExportsList::new(node.clone())?.Component(),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

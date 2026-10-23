@@ -108,7 +108,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let shape_size = shadow_options.shape_size();
         if shape_size.is_empty() {
@@ -204,7 +204,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_inset_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let width = shadow_options.width.get();
         let height = shadow_options.height.get();
@@ -520,19 +520,38 @@ impl<'a> SkiaItemRenderer<'a> {
                             / skia_image.height() as f32,
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
-                if let Some(shader) = skia_image
-                    .make_subset(
-                        self.canvas
-                            .recording_context()
-                            .as_mut()
-                            .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
-                        src,
-                        skia_safe::image::RequiredProperties::default(),
-                    )
-                    .and_then(|i| {
-                        i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
-                    })
-                {
+                // A texture-backed image (a colorized one, cached by a window on the GPU) has
+                // no subset without a GPU recorder, as when `take_snapshot()` draws it on a
+                // raster canvas: the whole image is used as it is, and a subset is taken from a
+                // raster copy.
+                let tile = if src == skia_image.bounds() {
+                    Some(skia_image.clone())
+                } else {
+                    skia_image
+                        .make_subset(
+                            self.canvas
+                                .recording_context()
+                                .as_mut()
+                                .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
+                            src,
+                            skia_safe::image::RequiredProperties::default(),
+                        )
+                        .or_else(|| {
+                            skia_image
+                                .make_raster_image(
+                                    self.canvas.direct_context().as_mut(),
+                                    skia_safe::image::CachingHint::Allow,
+                                )?
+                                .make_subset(
+                                    None::<&mut dyn skia_safe::Recorder>,
+                                    src,
+                                    skia_safe::image::RequiredProperties::default(),
+                                )
+                        })
+                };
+                if let Some(shader) = tile.and_then(|i| {
+                    i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
+                }) {
                     let mut paint = self.default_paint().unwrap_or_default();
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);

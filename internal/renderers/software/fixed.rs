@@ -5,6 +5,10 @@
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fixed<T, const SHIFT: usize>(pub T);
 
+impl<T, const SHIFT: usize> Fixed<T, SHIFT> {
+    pub(crate) const SHIFT: usize = SHIFT;
+}
+
 impl<
     T: Copy
         + core::ops::Shl<usize, Output = T>

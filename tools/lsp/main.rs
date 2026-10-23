@@ -85,7 +85,7 @@ pub struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Vec<String>,
 
-    /// The style name for the preview. Defaults to 'fluent' if not specified
+    /// The style name for the preview.
     #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
@@ -458,8 +458,9 @@ async fn run_main_loop(
                 editor_preview::document_cache::CompilerConfiguration::default().compiler_config;
             compiler_config.include_paths = cli_args.include_paths;
             compiler_config.library_paths = library_paths;
-            compiler_config.style =
-                Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
+            if let Some(style) = &startup_style {
+                compiler_config.style = Some(style.clone());
+            }
             compiler_config.resource_url_mapper = None;
             compiler_config
         },
@@ -777,7 +778,9 @@ async fn handle_notification(
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            ctx.session.close_document(params.text_document.uri).await
+            let diagnostics = ctx.session.close_document(params.text_document.uri).await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;

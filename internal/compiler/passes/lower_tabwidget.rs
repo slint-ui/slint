@@ -56,7 +56,7 @@ pub async fn lower_tabwidget(
     let tab_widgets: Vec<_> = tab_widgets
         .into_iter()
         .filter(|elem| {
-            if !base_chain_declares_tabs(&elem.borrow().base_type, &seen) {
+            if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
                 return true;
             }
             if !elem.borrow().children.is_empty() {
@@ -116,29 +116,6 @@ pub async fn lower_tabwidget(
     }
 }
 
-/// Walks a chain of `component Sub inherits Base { ... }` steps (as `base_type`s of
-/// components collected as TabWidgets), skipping empty pass-through subclasses, to check
-/// whether some component along the way already declares its own Tab children. Stops (and
-/// returns `false`) as soon as the chain leaves the collected TabWidgets, e.g. at the
-/// style-selected builtin TabWidget itself.
-fn base_chain_declares_tabs(
-    base_type: &ElementType,
-    tab_widget_roots: &HashSet<*const std::cell::RefCell<Element>>,
-) -> bool {
-    let mut base_type = base_type.clone();
-    loop {
-        let ElementType::Component(c) = &base_type else { return false };
-        if !tab_widget_roots.contains(&Rc::as_ptr(&c.root_element)) {
-            return false;
-        }
-        if !c.root_element.borrow().children.is_empty() {
-            return true;
-        }
-        let next = c.root_element.borrow().base_type.clone();
-        base_type = next;
-    }
-}
-
 fn process_tabwidget(
     elem: &ElementRc,
     tabwidget_impl: ElementType,
@@ -157,6 +134,7 @@ fn process_tabwidget(
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {
+        error_on_slot_default(child, "TabWidget", diag);
         if child.borrow().repeated.is_some() {
             diag.push_error(
                 "dynamic tabs ('if' or 'for') are currently not supported".into(),

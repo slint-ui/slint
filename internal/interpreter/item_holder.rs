@@ -6,15 +6,12 @@
 //! Items are stored as `Pin<Rc<dyn ErasedItem>>`.
 //! Trait methods look up `PropertyInfo`/`CallbackInfo` by name via `BuiltinItem`.
 
-use crate::Value;
 use crate::erased::{ErasedItem, ErasedItemRc};
-use i_slint_core::Property;
+use crate::prelude::*;
 use i_slint_core::items::{ItemVTable, PropertyAnimation};
 use i_slint_core::rtti::{
     AnimatedBindingKind, BuiltinItem, CallbackInfo, PropertyInfo, TwoWayBindingMapping,
 };
-use std::pin::Pin;
-use std::rc::Rc;
 use vtable::{HasStaticVTable, VRef};
 
 fn find_property<T: 'static + BuiltinItem>(

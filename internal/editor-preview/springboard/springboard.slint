@@ -34,6 +34,7 @@ export global Springboard {
     in property <[PreviewEndpoint]> endpoints;
     in property <int> selected-endpoint-index: -1;
     out property <PreviewEndpoint> selected-endpoint: endpoints[selected-endpoint-index];
+    in property <string> last-selected-endpoint-name;
     in property <SpringboardState> state;
     in property <ConnectionState> connection-state;
     in property <int> pairing-code-digits;
@@ -83,7 +84,9 @@ export component SpringboardView inherits Rectangle {
 
         Text {
             text: Springboard.state == SpringboardState.Stopped ? "Preview stopped"
-                : Springboard.state == SpringboardState.Idle ? "Select an endpoint"
+                : Springboard.state == SpringboardState.Idle ? (Springboard.last-selected-endpoint-name == ""
+                    ? "Select an endpoint"
+                    : "Waiting for the last selected endpoint (\{Springboard.last-selected-endpoint-name})")
                 : Springboard.selected-endpoint.kind == PreviewEndpointKind.Local ? "Local preview running"
                 : Springboard.connection-state == ConnectionState.Connecting ? "Connecting to \{Springboard.selected-endpoint.name}"
                 : Springboard.connection-state == ConnectionState.PairingRequired ? "Enter the code shown on \{Springboard.selected-endpoint.name}"

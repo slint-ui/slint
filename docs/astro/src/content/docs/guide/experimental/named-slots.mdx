@@ -45,8 +45,98 @@ export component App inherits Rectangle {
 ```
 
 Assigning an untyped slot is optional.
-An unassigned untyped slot renders nothing.
+An unassigned untyped slot renders its [default content](#default-content), or nothing if it has none.
 [Typed slots](#typed-slots) require a supplied component.
+
+## Default Content
+
+Give an untyped slot default content with `<<` in its declaration.
+The component shows the default until a caller assigns the slot.
+An assignment replaces the whole default, including its layout constraints.
+
+```slint
+export component Panel inherits Rectangle {
+    slot heading << Text { text: "Untitled"; }
+    VerticalLayout {
+        heading { }
+        @children
+    }
+}
+
+export component App inherits Window {
+    VerticalLayout {
+        Panel {
+            Text { text: "Shows the default heading"; }
+        }
+        Panel {
+            heading << Text { text: "Project"; }
+            Text { text: "Details"; }
+        }
+    }
+}
+```
+
+Assign `{ }` to remove the default content without replacing it:
+
+```slint no-test
+Panel {
+    heading << { }
+}
+```
+
+The default content is a single element.
+Wrap an `if` or `for` in an element to use it as default content.
+Default content can't contain slot placeholders or `@children`.
+A `Tab` in a `TabWidget` and a `Menu` in a `ContextMenuArea` or `SystemTrayIcon` can't be default content;
+declare them as children instead.
+
+Replacing the default removes its elements, so references to them from outside the default content are errors:
+
+```slint no-test
+component Foo inherits Rectangle {
+    slot bar << label := Text { text: "Default"; }
+    Text { text: label.text; }   // error
+    bar { }
+}
+```
+
+References between elements inside the same default content are allowed.
+For shared state, declare a property on the component and bind both the default content and other elements to it.
+
+A slot that's forwarded to another component's slot can't have default content.
+Set the default on the target slot instead.
+Typed slots don't support default content yet.
+
+### Filling Inherited Slots
+
+A derived component fills an inherited untyped slot with `<<` at its root.
+The assignment becomes the slot's default content: the slot stays open, and callers of the derived component can replace it.
+Assigning `{ }` removes the inherited default and also leaves the slot open.
+
+```slint
+component Base inherits Rectangle {
+    slot content << Text { text: "Base default"; }
+    VerticalLayout {
+        content { }
+    }
+}
+
+component Derived inherits Base {
+    content << Text { text: "Derived default"; }
+}
+
+export component App inherits Window {
+    VerticalLayout {
+        Derived { }   // shows "Derived default"
+        Derived {
+            content << Text { text: "Caller"; }
+        }
+    }
+}
+```
+
+Don't redeclare an inherited slot or place it again in the derived component.
+The slot keeps the position its base component gives it.
 
 ## Referencing a slot
 
@@ -160,6 +250,7 @@ Members can be declared directly, inherited, or delegated with `implement Action
 
 A typed slot requires exactly one component when its host is instantiated.
 A derived component can leave the slot open for its caller.
+Unlike an untyped slot, a typed slot that a derived component fills is closed to that component's callers.
 When forwarding between two typed slots, both must declare the same interface.
 
 Typed placeholders accept property bindings, callback connections, and property change handlers, but not child elements or new declarations.

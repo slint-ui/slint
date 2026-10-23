@@ -399,8 +399,7 @@ fn apply_project_file(
 ) -> Result<(), String> {
     if let Some(project_file) = project_file::ProjectFile::find(search_directory)? {
         project_file.apply_to(compiler_config);
-        diag.all_loaded_files
-            .insert(i_slint_compiler::source_path::SourcePath::new(project_file.source_path()));
+        diag.all_loaded_files.insert(project_file.source_path().clone());
     }
     Ok(())
 }

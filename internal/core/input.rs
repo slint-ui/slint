@@ -1441,10 +1441,8 @@ struct DelayedPress {
     _timer: Option<crate::timers::Timer>,
     /// The press in the delaying item's local frame, replayed to its children when `timer` fires.
     event_for_children: MouseEvent,
-    /// The press in `root`'s frame, replayed from `root` on release.
+    /// The press in the root item's frame, replayed from the root on release.
     original_event: MouseEvent,
-    /// The item the press was dispatched from: the window's root item or a popup's.
-    root: ItemWeak,
 }
 
 /// The state which a window should hold for the mouse input
@@ -1789,8 +1787,8 @@ pub fn process_mouse_input(
         &mut result,
         mouse_input_state.top_item().as_ref(),
         None,
-        &root,
         mouse_event,
+        &[],
     );
     let accepted = r.has_aborted();
     if matches!(mouse_event, MouseEvent::DragMove { .. }) {
@@ -1858,7 +1856,7 @@ pub(crate) fn process_delayed_event(
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     // the take bellow will also destroy the Timer
-    let Some(DelayedPress { event_for_children: event, original_event, root, .. }) =
+    let Some(DelayedPress { event_for_children: event, original_event, .. }) =
         mouse_input_state.delayed.take()
     else {
         return mouse_input_state;
@@ -1885,8 +1883,8 @@ pub(crate) fn process_delayed_event(
                 &mut mouse_input_state,
                 Some(last_top_item),
                 Some(false),
-                &top_item,
                 &original_event,
+                &[],
             )
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
@@ -1897,7 +1895,7 @@ pub(crate) fn process_delayed_event(
     );
     if !r.has_aborted() {
         mouse_input_state.delayed =
-            Some(DelayedPress { _timer: None, event_for_children: event, original_event, root });
+            Some(DelayedPress { _timer: None, event_for_children: event, original_event });
     }
     mouse_input_state.send_delayed_exit_events(window_adapter);
     mouse_input_state
@@ -1926,7 +1924,10 @@ pub(crate) fn resolve_delayed_event_on_release(
         return mouse_input_state;
     }
 
-    let Some(DelayedPress { original_event, root, .. }) = mouse_input_state.delayed.take() else {
+    let Some(DelayedPress { original_event, .. }) = mouse_input_state.delayed.take() else {
+        return mouse_input_state;
+    };
+    let Some(((root, _), replay_path)) = mouse_input_state.item_stack.split_first() else {
         return mouse_input_state;
     };
     let Some(root) = root.upgrade() else {
@@ -1946,13 +1947,13 @@ pub(crate) fn resolve_delayed_event_on_release(
 
     let r = send_mouse_event_to_item(
         &original_event,
-        root.clone(),
+        root,
         window_adapter,
         &mut result,
         last_top_item.as_ref(),
         Some(true),
-        &root,
         &original_event,
+        replay_path,
     );
 
     if !r.has_aborted() {
@@ -1976,8 +1977,8 @@ fn send_mouse_event_to_item(
     result: &mut MouseInputState,
     last_top_item: Option<&ItemRc>,
     replaying: Option<bool>,
-    root: &ItemRc,
     original_event: &MouseEvent,
+    replay_path: &[(ItemWeak, InputEventFilterResult)],
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
     let geom = item_rc.geometry();
@@ -2029,7 +2030,6 @@ fn send_mouse_event_to_item(
                 _timer: Some(timer),
                 event_for_children: event_for_children.clone(),
                 original_event: original_event.clone(),
-                root: root.downgrade(),
             });
             result
                 .item_stack
@@ -2046,15 +2046,21 @@ fn send_mouse_event_to_item(
     if forward_to_children {
         let mut actual_visitor =
             |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
+                let child = ItemRc::new(component.clone(), index);
+                let child_path = match replay_path.split_first() {
+                    None => &[][..],
+                    Some(((next, _), rest)) if *next == child.downgrade() => rest,
+                    Some(_) => return VisitChildrenResult::CONTINUE,
+                };
                 send_mouse_event_to_item(
                     &event_for_children,
-                    ItemRc::new(component.clone(), index),
+                    child,
                     window_adapter,
                     result,
                     last_top_item,
                     replaying,
-                    root,
                     original_event,
+                    child_path,
                 )
             };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);

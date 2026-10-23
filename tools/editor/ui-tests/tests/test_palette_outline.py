@@ -15,6 +15,7 @@ from test_undo_redo import shortcut
 from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
+    WIDGET_KINDS,
     element,
     elements,
     first_window,
@@ -37,6 +38,10 @@ ELEMENTS = {
     text: "Text";
 }
 """,
+    "StyledText": """StyledText {
+    text: @markdown("Text");
+}
+""",
     "Image": """Image {
     source: @image-url("EDIT_ME.png");
     width: 160px;
@@ -49,7 +54,25 @@ ELEMENTS = {
     height: 96px;
 }
 """,
+    **{
+        widget: f"""{widget} {{
+    text: "{widget}";
+}}
+"""
+        for widget in WIDGET_KINDS
+    },
 }
+
+
+def with_widget_import(source: str, kind: str) -> str:
+    if kind not in WIDGET_KINDS:
+        return source
+    header_end = source.index("export component")
+    return (
+        source[:header_end]
+        + f'import {{ {kind} }} from "std-widgets.slint";\n'
+        + source[header_end:]
+    )
 
 
 @pytest.mark.parametrize(
@@ -91,6 +114,7 @@ def test_palette_outline_insertion(
     else:
         expected = baseline[:-2] + indent(ELEMENTS[kind], "    ") + "}\n"
         level = "Hierarchy level 2"
+    expected = with_widget_import(expected, kind)
 
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
@@ -176,9 +200,12 @@ def test_palette_outline_layout_controls_geometry(
     )
     if kind == "TouchArea":
         element = "TouchArea { }\n"
-    expected = baseline.replace(
-        "    }\n\n    HorizontalLayout",
-        indent(element, "        ") + "    }\n\n    HorizontalLayout",
+    expected = with_widget_import(
+        baseline.replace(
+            "    }\n\n    HorizontalLayout",
+            indent(element, "        ") + "    }\n\n    HorizontalLayout",
+        ),
+        kind,
     )
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:

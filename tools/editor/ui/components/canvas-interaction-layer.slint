@@ -569,19 +569,13 @@ export component CanvasInteractionLayer inherits TouchArea {
                 ? max(root.text-edit-size.width * CanvasView.zoom, input.preferred-width + input.text-cursor-width)
                 : root.text-edit-size.width * CanvasView.zoom;
             height: root.text-edit-size.height * CanvasView.zoom;
-            init => { focus-text-input.start(); }
-
-            focus-text-input := Timer {
-                interval: 0ms;
-                triggered => {
-                    self.stop();
-                    input.focus();
-                    if input.has-focus {
-                        input.select-all();
-                        root.text-edit-had-focus = true;
-                    } else {
-                        root.commit-text-edit();
-                    }
+            init => {
+                input.focus();
+                if input.has-focus {
+                    input.select-all();
+                    root.text-edit-had-focus = true;
+                } else {
+                    root.commit-text-edit();
                 }
             }
 

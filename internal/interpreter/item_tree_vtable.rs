@@ -7,22 +7,20 @@
 //! walk the instance's sub-component tree on demand rather than through
 //! a precomputed offset table.
 
-use crate::instance::Instance;
+use crate::prelude::*;
 use i_slint_core::SharedString;
-use i_slint_core::SlintContext;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::item_tree::{
-    IndexRange, ItemTree, ItemTreeNode, ItemTreeVTable, ItemVisitorVTable, ItemWeak,
-    TraversalOrder, VisitChildrenResult,
+    IndexRange, ItemTree, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder,
+    VisitChildrenResult,
 };
 use i_slint_core::items::{AccessibleRole, ItemVTable};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
-use std::pin::Pin;
 use vtable::{VRef, VRefMut, VWeak};
 
 i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance);
@@ -39,7 +37,7 @@ pub(crate) fn sub_component_path_of(
         target_ptr: *const crate::instance::SubComponentInstance,
         path: &mut Vec<i_slint_compiler::llr::SubComponentInstanceIdx>,
     ) -> bool {
-        if std::ptr::eq(current as *const _, target_ptr) {
+        if core::ptr::eq(current as *const _, target_ptr) {
             return true;
         }
         for (idx, nested) in current.sub_components.iter().enumerate() {
@@ -67,7 +65,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let weak = this.self_weak.get().unwrap().clone();
         if index >= 0 && this.z_sort_table.get(index as usize).is_some_and(|e| e.is_some()) {
             i_slint_core::item_tree::visit_item_tree_z_sorted(
-                &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
+                &VRc::into_dyn(weak.upgrade().unwrap()),
                 &this.tree_nodes[..],
                 index,
                 order,
@@ -79,7 +77,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             )
         } else {
             i_slint_core::item_tree::visit_item_tree(
-                &vtable::VRc::into_dyn(weak.upgrade().unwrap()),
+                &VRc::into_dyn(weak.upgrade().unwrap()),
                 &this.tree_nodes[..],
                 index,
                 order,
@@ -145,7 +143,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         }
         let repeater = &sub.repeaters[rep_idx];
         if let Some(instance) = repeater.instance_at(subindex) {
-            *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(instance));
+            *result = VRc::downgrade(&VRc::into_dyn(instance));
         }
     }
 
@@ -171,7 +169,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let Some(parent_root_vrc) = parent_sub.root.get().and_then(|w| w.upgrade()) else {
             return;
         };
-        let parent_dyn = vtable::VRc::into_dyn(parent_root_vrc.clone());
+        let parent_dyn = VRc::into_dyn(parent_root_vrc.clone());
         if let Some((_, repeater_idx)) = this.root_sub_component.repeated_in.get() {
             // Return the DynamicTree node itself in the parent's flat tree.
             // `parent_item` in i_slint_core detects that the returned parent
@@ -215,7 +213,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             [this.root_sub_component.sub_component_idx];
         for (idx, prop) in sc.properties.iter_enumerated() {
             if prop.name == "model_index"
-                && let crate::Value::Number(n) =
+                && let Value::Number(n) =
                     Pin::as_ref(&this.root_sub_component.properties[idx]).get()
             {
                 return n as usize;
@@ -294,12 +292,12 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         };
         let expr = expr_cell.borrow();
         let mut ctx = crate::eval::EvalContext::new(ctx_owner);
-        let crate::Value::Struct(s) = crate::eval::eval_expression(&mut ctx, &expr) else {
+        let Value::Struct(s) = crate::eval::eval_expression(&mut ctx, &expr) else {
             return LogicalRect::default();
         };
         let as_f32 = |name: &str| -> f32 {
             match s.get_field(name) {
-                Some(crate::Value::Number(n)) => *n as f32,
+                Some(Value::Number(n)) => *n as f32,
                 _ => 0.0,
             }
         };
@@ -334,9 +332,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             let sc = &cu.sub_components[owner.sub_component_idx];
             if let Some(expr) = sc.accessible_prop.get(&(local_idx, what_str.clone())) {
                 let mut ctx = crate::eval::EvalContext::new(owner);
-                if let crate::Value::String(s) =
-                    crate::eval::eval_expression(&mut ctx, &expr.borrow())
-                {
+                if let Value::String(s) = crate::eval::eval_expression(&mut ctx, &expr.borrow()) {
                     *result = s;
                     return true;
                 }
@@ -458,7 +454,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
 fn resolve_accessible_item(
     instance: &Instance,
     item_index: u32,
-) -> Option<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
+) -> Option<(Pin<Rc<crate::instance::SubComponentInstance>>, u32)> {
     let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref)?;
     let mut owner = instance.root_sub_component.clone();
     for &sub_idx in entry.0.iter() {
@@ -479,7 +475,7 @@ fn resolve_accessible_item(
 fn resolve_accessible_candidates(
     instance: &Instance,
     item_index: u32,
-) -> Vec<(Pin<std::rc::Rc<crate::instance::SubComponentInstance>>, u32)> {
+) -> Vec<(Pin<Rc<crate::instance::SubComponentInstance>>, u32)> {
     let mut out = Vec::new();
     let Some(entry) = instance.item_table.get(item_index as usize).and_then(Option::as_ref) else {
         return out;
@@ -521,13 +517,13 @@ fn accessibility_action_name(action: &AccessibilityAction) -> &'static str {
     }
 }
 
-fn accessibility_action_args(action: &AccessibilityAction) -> Vec<crate::Value> {
+fn accessibility_action_args(action: &AccessibilityAction) -> Vec<Value> {
     match action {
         AccessibilityAction::ReplaceSelectedText(s) | AccessibilityAction::SetValue(s) => {
-            vec![crate::Value::String(s.clone())]
+            vec![Value::String(s.clone())]
         }
         AccessibilityAction::SetSelectionOffsets(anchor, focus) => {
-            vec![crate::Value::Number(*anchor as f64), crate::Value::Number(*focus as f64)]
+            vec![Value::Number(*anchor as f64), Value::Number(*focus as f64)]
         }
         _ => Vec::new(),
     }

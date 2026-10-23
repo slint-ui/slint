@@ -366,12 +366,13 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data-for-kind(root.kind);
+        data: Api.new-component-data(root.label);
         allow-copy: true;
 
         changed dragging => {
             if self.dragging {
                 AppState.palette-drag-cancelled = false;
+                AppState.palette-drag-label = root.label;
                 AppState.update-palette-drag(root.kind, root.pointer-window-position());
                 root.drag-started();
             } else {
@@ -388,6 +389,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
 export global AppState {
     in-out property <ElementKind> palette-drag-kind: ElementKind.none;
+    in-out property <string> palette-drag-label;
     in-out property <Point> palette-drag-pointer-position: { x: 0px, y: 0px };
     in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
     in-out property <Size> palette-text-drag-size;
@@ -414,7 +416,7 @@ export global AppState {
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             if self.palette-drag-kind != kind {
-                self.palette-drag-size = kind == ElementKind.text
+                self.palette-drag-size = kind == ElementKind.text || kind == ElementKind.styled-text
                     ? self.palette-text-drag-size
                     : ElementVisuals.for-kind(kind).preview-size;
             }

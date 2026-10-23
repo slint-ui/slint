@@ -4754,6 +4754,7 @@ dependencies = [
  "libudev-sys",
  "memmap2",
  "nix",
+ "pkg-config",
  "raw-window-handle",
  "wgpu",
  "xkbcommon",
@@ -9326,7 +9327,7 @@ dependencies = [
 
 [[package]]
 name = "vtable"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
