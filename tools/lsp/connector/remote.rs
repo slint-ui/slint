@@ -1708,9 +1708,11 @@ mod tests {
 
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        tokio::task::spawn_local(async move {
+        i_slint_editor_preview::spawn_local(async move {
             let (stream, _) = listener.accept().await.unwrap();
             // Echo the subprotocol back, or the client refuses the upgrade.
+            // tungstenite's Callback trait dictates the signature.
+            #[allow(clippy::result_large_err)]
             let select_protocol = |_req: &Request, mut response: Response| {
                 response
                     .headers_mut()
