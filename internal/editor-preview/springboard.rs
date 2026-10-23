@@ -1140,6 +1140,7 @@ mod tests {
             let directory = tempfile::tempdir().unwrap();
             let source = lsp_types::Url::from_file_path(directory.path().join("main.slint")).unwrap();
             let manifest = lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
+            controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into() });
