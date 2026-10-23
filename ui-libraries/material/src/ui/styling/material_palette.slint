@@ -64,6 +64,10 @@ export global MaterialPalette {
     out property <float> disable_opacity: 38%;
     out property <color> background_modal: #000000.with_alpha(50%);
 
+    // When true, the colors follow the system's Material 3 scheme where the platform reports
+    // one (Android 14 and later), and `schemes` otherwise.
+    in property <bool> use_system_colors: false;
+
     in property <MaterialSchemes> schemes: {
         light: {
             primary: rgb(68, 94, 145),
@@ -169,5 +173,65 @@ export global MaterialPalette {
         },
     };
 
-    property <MaterialScheme> scheme: Palette.color_scheme == ColorScheme.dark ? root.schemes.dark : root.schemes.light;
+    property <bool> dark: Palette.color_scheme == ColorScheme.dark;
+    property <MaterialScheme> own_scheme: root.dark ? root.schemes.dark : root.schemes.light;
+    property <bool> system_scheme_available: root.use_system_colors && Platform.system-color-schemes.light.primary.alpha > 0;
+    property <MaterialScheme> scheme: root.system_scheme_available
+        ? root.from_system(root.dark ? Platform.system-color-schemes.dark : Platform.system-color-schemes.light, root.own_scheme)
+        : root.own_scheme;
+
+    // The system doesn't report `shadow` and `scrim`, they come from `fallback`.
+    pure function from_system(system: SystemColorScheme, fallback: MaterialScheme) -> MaterialScheme {
+        return {
+            primary: system.primary,
+            surfaceTint: system.surface-tint,
+            onPrimary: system.on-primary,
+            primaryContainer: system.primary-container,
+            onPrimaryContainer: system.on-primary-container,
+            secondary: system.secondary,
+            onSecondary: system.on-secondary,
+            secondaryContainer: system.secondary-container,
+            onSecondaryContainer: system.on-secondary-container,
+            tertiary: system.tertiary,
+            onTertiary: system.on-tertiary,
+            tertiaryContainer: system.tertiary-container,
+            onTertiaryContainer: system.on-tertiary-container,
+            error: system.error,
+            onError: system.on-error,
+            errorContainer: system.error-container,
+            onErrorContainer: system.on-error-container,
+            background: system.background,
+            onBackground: system.on-background,
+            surface: system.surface,
+            onSurface: system.on-surface,
+            surfaceVariant: system.surface-variant,
+            onSurfaceVariant: system.on-surface-variant,
+            outline: system.outline,
+            outlineVariant: system.outline-variant,
+            shadow: fallback.shadow,
+            scrim: fallback.scrim,
+            inverseSurface: system.inverse-surface,
+            inverseOnSurface: system.inverse-on-surface,
+            inversePrimary: system.inverse-primary,
+            primaryFixed: system.primary-fixed,
+            onPrimaryFixed: system.on-primary-fixed,
+            primaryFixedDim: system.primary-fixed-dim,
+            onPrimaryFixedVariant: system.on-primary-fixed-variant,
+            secondaryFixed: system.secondary-fixed,
+            onSecondaryFixed: system.on-secondary-fixed,
+            secondaryFixedDim: system.secondary-fixed-dim,
+            onSecondaryFixedVariant: system.on-secondary-fixed-variant,
+            tertiaryFixed: system.tertiary-fixed,
+            onTertiaryFixed: system.on-tertiary-fixed,
+            tertiaryFixedDim: system.tertiary-fixed-dim,
+            onTertiaryFixedVariant: system.on-tertiary-fixed-variant,
+            surfaceDim: system.surface-dim,
+            surfaceBright: system.surface-bright,
+            surfaceContainerLowest: system.surface-container-lowest,
+            surfaceContainerLow: system.surface-container-low,
+            surfaceContainer: system.surface-container,
+            surfaceContainerHigh: system.surface-container-high,
+            surfaceContainerHighest: system.surface-container-highest,
+        };
+    }
 }

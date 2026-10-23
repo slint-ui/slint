@@ -116,7 +116,7 @@ macro_rules! generate_builtin_structs_pyi {
                             .map(declared_default)
                             .unwrap_or_else(|| map_default(stringify!($field_type)).to_string());
                         writeln!(writer, "    {}: {} = {}", stringify!($field), field_type, default).unwrap();
-                        let mut field_doc_str = vec![$($field_doc),*].join("\n").trim().to_string();
+                        let mut field_doc_str = <[&str]>::join(&[$($field_doc),*], "\n").trim().to_string();
                         // The rendered documentation shows the annotation without the
                         // default value, so document it in the docstring.
                         if declared.is_some() {

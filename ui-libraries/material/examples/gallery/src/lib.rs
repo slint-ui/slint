@@ -338,6 +338,7 @@ mod theme {
             MenuItem { text: "Purple".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Red".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Green".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "System".into(), enabled: true, ..Default::default() },
         ]));
 
         adapter.on_load_palette({
@@ -345,6 +346,8 @@ mod theme {
 
             move |index| {
                 let ui = ui_weak.unwrap();
+                // "System" falls back to the Slint theme where the platform has no scheme.
+                MaterialPalette::get(&ui).set_use_system_colors(index == 4);
                 load_theme(index as usize, &ui);
             }
         })

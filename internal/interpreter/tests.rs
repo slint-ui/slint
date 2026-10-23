@@ -872,6 +872,35 @@ fn accent_color_reachable_from_global() {
 }
 
 #[test]
+fn system_color_schemes_reachable_from_global() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    let code = r#"
+        global Observer {
+            out property <color> primary: Platform.system-color-schemes.light.primary;
+        }
+        export component App inherits Window {
+            out property <color> primary: Observer.primary;
+        }
+    "#;
+    let result =
+        spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    let primary = || match instance.get_property("primary").unwrap() {
+        crate::Value::Brush(brush) => brush.color(),
+        value => panic!("not a color: {value:?}"),
+    };
+    assert_eq!(primary(), i_slint_core::Color::default());
+
+    let red = i_slint_core::Color::from_argb_u8(255, 255, 0, 0);
+    let mut schemes = i_slint_core::items::SystemColorSchemes::default();
+    schemes.light.primary = red;
+    i_slint_backend_testing::set_system_color_schemes(schemes);
+    assert_eq!(primary(), red);
+}
+
+#[test]
 fn text_runs_belong_to_the_nearest_accessible_item() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::{Compiler, ComponentHandle};

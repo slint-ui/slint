@@ -33,6 +33,12 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
                         arguments: Vec::new(),
                         source_location: None,
                     }
+                } else if nr.name() == "system-color-schemes" {
+                    *e = Expression::FunctionCall {
+                        function: BuiltinFunction::SystemColorSchemes.into(),
+                        arguments: Vec::new(),
+                        source_location: None,
+                    }
                 } else if nr.name() == "uses-mock-data" {
                     *e = Expression::BoolLiteral(type_loader.compiler_config.is_preview);
                 }
