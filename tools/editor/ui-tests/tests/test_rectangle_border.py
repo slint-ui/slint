@@ -202,9 +202,7 @@ def test_border_defaults_and_rectangle_selection(
             window, "Border width", slint_testing.AccessibleRole.TextInput
         )
         suffixes = (
-            width.query_descendants()
-            .match_id("InspectorTextFieldBase::fixed-suffix")
-            .find_all()
+            width.query_descendants().match_id("EditorInput::fixed-suffix").find_all()
         )
         assert len(suffixes) == 1
         assert suffixes[0].accessible_label == "px"

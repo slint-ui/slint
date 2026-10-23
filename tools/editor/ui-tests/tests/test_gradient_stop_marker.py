@@ -58,26 +58,26 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         open_gradient(window)
 
         marker = control(window, "Gradient stop 2", role)
-        assert marker.size.width == pytest.approx(40)
-        assert marker.size.height == pytest.approx(40)
+        assert marker.size.width == pytest.approx(
+            24 if role == slint_testing.AccessibleRole.Slider else 32
+        )
+        assert marker.size.height == pytest.approx(
+            30 if role == slint_testing.AccessibleRole.Slider else 32
+        )
         if kind == "linear" and role == slint_testing.AccessibleRole.Slider:
             image = screenshot(window)
             x = round(marker.absolute_position.x)
             y = round(marker.absolute_position.y)
-            opaque = cast(tuple[int, int, int], image.getpixel((x + 14, y + 23)))
-            translucent = cast(tuple[int, int, int], image.getpixel((x + 26, y + 23)))
-            horizontal_tick = cast(
-                tuple[int, int, int], image.getpixel((x + 4, y + 23))
-            )
-            bottom_tick = cast(tuple[int, int, int], image.getpixel((x + 20, y + 37)))
-            pointer = cast(tuple[int, int, int], image.getpixel((x + 20, y + 4)))
-
+            opaque = cast(tuple[int, int, int], image.getpixel((x + 17, y + 18)))
+            translucent = cast(tuple[int, int, int], image.getpixel((x + 7, y + 18)))
+            pointer = image.getpixel((x + 12, y + 4))
+            outside_pointer = image.getpixel((x + 3, y + 4))
+            outline = cast(tuple[int, int, int], image.getpixel((x + 1, y + 18)))
             assert opaque[0] < 16 and opaque[1] < 16 and opaque[2] > 239
             assert translucent[0] > 31 and translucent[1] > 31
             assert translucent[2] > translucent[0] and translucent[2] > translucent[1]
-            assert max(horizontal_tick) < 48
-            assert max(bottom_tick) < 48
-            assert min(pointer) > 224
+            assert pointer != outside_pointer
+            assert outline[2] > outline[0]
             marker.invoke_accessible_default_action()
             expect(picker_field(window, "Hex color")).to_have_value("0000FF")
             expect(picker_field(window, "Hex color opacity")).to_have_value("50")

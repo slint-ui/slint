@@ -7,6 +7,7 @@ export component EditorInput inherits InputSurface {
     in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> live-edit: false;
+    in property <bool> select-all-on-focus: true;
     in property <bool> muted-value: false;
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
     in property <string> suffix: "";
@@ -148,7 +149,7 @@ export component EditorInput inherits InputSurface {
                 changed has-focus => {
                     if self.has-focus {
                         root.active-commit-key = root.commit-key;
-                        self.select-all();
+                        if root.select-all-on-focus { self.select-all(); }
                     }
                     if !self.has-focus && self.text != root.value {
                         if !root.accept-input(self.text, true) {

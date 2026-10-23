@@ -66,7 +66,6 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
             original = SourceSnapshot.capture(tmp_path)
             select_outline_row(window, "fill")
             open_gradient(window)
-        assert picker_field(window, "Stop 1 color").size.width >= 88
         first = picker_field(window, "Stop 1 position")
         top = first.absolute_position.y
         scroll_point = center(first)

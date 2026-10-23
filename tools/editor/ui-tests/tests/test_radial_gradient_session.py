@@ -79,8 +79,8 @@ def test_radial_keyboard_and_collapsed_radius(
         ) == pytest.approx(36)
         press_key(window, keys.Backspace)
         press_key(window, keys.Backspace)
-        control(window, "Gradient stop 2")
-        assert not elements(window, "Gradient stop 3")
+        control(window, "Gradient stop 1")
+        assert not elements(window, "Gradient stop 2")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 

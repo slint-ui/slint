@@ -4,6 +4,7 @@
 # cspell:ignore getbbox getextrema getpixel tobytes
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 import slint_testing
@@ -398,9 +399,19 @@ def test_outline_gap_matches_drop_destination(
         assert gap.absolute_position.y == pytest.approx(stable.y)
         drop_image = screenshot(window)
         hidden = outline_image(window, outline_row(window, "sibling-b"), drop_image)
-        assert hidden.crop(
-            (24, 6, hidden.width - 8, hidden.height - 8)
-        ).getextrema() == tuple((channel, channel) for channel in blank)
+        area = (24, 6, hidden.width - 8, hidden.height - 8)
+        background_y = drop_image.height - hidden.height - 12
+        background = drop_image.crop(
+            (
+                round(source_row.absolute_position.x),
+                background_y,
+                round(source_row.absolute_position.x) + hidden.width,
+                background_y + hidden.height,
+            )
+        )
+        difference = ImageChops.difference(hidden.crop(area), background.crop(area))
+        extrema = cast(tuple[tuple[int, int], ...], difference.getextrema())
+        assert all(high <= 1 for _, high in extrema)
         destination = outline_image(window, gap, drop_image)
         expected_background = tuple(
             round((a + b) / 2) for a, b in zip(hover_background, blank)

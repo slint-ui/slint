@@ -58,9 +58,9 @@ export component OutlineDragRow inherits Rectangle {
     opacity: Style.drag-preview.ghost-opacity;
 
     Rectangle {
-        x: root.style.hit-size;
+        x: Style.sidebar-spacing.list-inset;
         width: parent.width - self.x;
-        height: Metrics.outline-row-height - 4px;
+        height: Metrics.outline-row-height;
         border-radius: root.style.radius;
         background: root.row-background;
     }

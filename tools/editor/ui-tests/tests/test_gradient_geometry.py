@@ -165,6 +165,8 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             f"{property_name}: @{kind}-gradient({prefix}, {stops});".encode(),
             f"{property_name}: @{kind}-gradient({geometry}, {saved_stops});".encode(),
         )
+        if kind == "linear":
+            saved = original.sources[Path(file.name)]
         original.wait_for_applied(saved, file.name)
         click_picker_button(window, picker)
         click_picker_button(window, "Add gradient stop")

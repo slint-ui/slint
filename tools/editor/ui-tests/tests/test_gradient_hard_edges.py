@@ -12,6 +12,7 @@ from gradient_interactions import (
     control,
     gesture,
     gradient_document,
+    move_picker_to_files,
     open_gradient,
 )
 from PIL import Image
@@ -31,6 +32,7 @@ def test_coincident_canvas_insertion_preserves_rendering(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+        move_picker_to_files(window, "main")
         start = center(control(window, "Gradient start"))
         end = center(control(window, "Gradient end"))
         point = type(start)(x=(start.x + end.x) / 2, y=(start.y + end.y) / 2)
@@ -53,4 +55,5 @@ def test_coincident_canvas_insertion_preserves_rendering(
             b"#ff0000 0%, #ff0000 50%, #0000ff 50%, #0000ff 50%, #0000ff 100%" in saved
         )
         open_gradient(window)
+        move_picker_to_files(window, "main")
         assert pixels() == before

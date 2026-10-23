@@ -215,6 +215,7 @@ component FileTreeRow inherits Rectangle {
             width: root.width + root.rename-right-extension - self.x;
             value: root.rename-name;
             live-edit: true;
+            select-all-on-focus: false;
             accessible-name: @tr("Rename {}", root.node.label);
             border-color: root.rename-error == "" ? self.paint.border : root.error-color;
             init => {

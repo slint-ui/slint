@@ -192,6 +192,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         press_key(window, keys.Delete)
         press_key(window, keys.Delete)
         control(window, "Gradient center handle")
-        control(window, "Gradient stop 2")
+        control(window, "Gradient stop 1")
+        assert not elements(window, "Gradient stop 2")
         press_key(window, keys.Escape)
         original.assert_unchanged()
