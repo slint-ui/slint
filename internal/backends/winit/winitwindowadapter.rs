@@ -594,9 +594,7 @@ impl WinitWindowAdapter {
             }
         }
 
-        #[cfg(target_os = "linux")]
-        if !self.shared_backend_data.is_wayland
-            && let Some(window_item) = WindowInner::from_pub(self.window()).window_item()
+        if let Some(window_item) = WindowInner::from_pub(self.window()).window_item()
             && let Some(icon) = icon_to_winit(
                 window_item.as_pin_ref().icon(),
                 i_slint_core::lengths::LogicalSize::new(64., 64.)
