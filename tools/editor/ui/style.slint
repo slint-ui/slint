@@ -1533,6 +1533,10 @@ export global Colors {
 }
 
 export global Style {
+    out property <brush> titlebar-background: Theme.current == ThemeKind.dark
+        ? @linear-gradient(180deg, #343434, #2c2c2c)
+        : @linear-gradient(180deg, #fcfdfe, #f5f7f9);
+
     out property <PreviewDiagnosticsStyle> preview-diagnostics: {
         background: Colors.surface,
         foreground: Colors.foreground,

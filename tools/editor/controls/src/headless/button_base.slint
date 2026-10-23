@@ -8,6 +8,7 @@ export component ButtonBase {
     implement ButtonInterface <=> self;
 
     in property <bool> enabled: true;
+    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
     in property <bool> checkable;
     in-out property <bool> checked;
     in property <string> text;
@@ -54,6 +55,7 @@ export component ButtonBase {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        mouse-cursor: root.mouse-cursor;
         activated => { root.activate(); }
     }
 

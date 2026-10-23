@@ -617,21 +617,23 @@ impl SpringboardTask {
             );
             *mapping.lock().unwrap() = identities;
             let mut endpoints = vec![ui::PreviewEndpoint {
+                id: "local".into(),
                 name: "Local".into(),
                 kind: ui::PreviewEndpointKind::Local,
-                addresses: ModelRc::default(),
-                port: 0,
-                unavailable_reason: "".into(),
+                saved: true,
+                ..Default::default()
             }];
             endpoints.extend(viewers.into_iter().map(|viewer| ui::PreviewEndpoint {
+                id: viewer.fullname.into(),
                 name: viewer.name.into(),
                 kind: ui::PreviewEndpointKind::Remote,
-                addresses: ModelRc::new(slint::VecModel::from(
-                    viewer.addresses.into_iter().map(Into::into).collect::<Vec<_>>(),
-                )),
-                port: i32::from(viewer.port),
+                address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
                 unavailable_reason: viewer.unavailable_reason.into(),
+                saved: true,
+                nearby: true,
+                ..Default::default()
             }));
+            global.set_saved_count(endpoints.len() as i32);
             global.set_endpoints(ModelRc::new(slint::VecModel::from(endpoints)));
             global.set_selected_endpoint_index(selected);
             global.set_state(state);
