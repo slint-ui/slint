@@ -1962,6 +1962,12 @@ fn lower_dialog_layout(
                     &role_binding,
                 );
             }
+            if is_standard_button(&layout_child.borrow()) {
+                diag.push_warning(
+                    "'dialog-button-role' overrides the role that a 'StandardButton' gets from its 'kind': remove it, or use a 'Button' for a custom role".into(),
+                    &role_binding,
+                );
+            }
             true
         } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
