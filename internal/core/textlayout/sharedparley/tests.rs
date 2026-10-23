@@ -311,3 +311,151 @@ fn test_max_lines_caps_height() {
     );
     assert_eq!(limited.height, first_line_bottom);
 }
+
+fn layout_markdown_with_builder(
+    markdown: &str,
+    builder: super::shaping::LayoutWithoutLineBreaksBuilder,
+    options: LayoutOptions,
+) -> Layout {
+    let mut font_ctx = test_font_context();
+    let text = crate::styled_text::StyledText::from_markdown(markdown).unwrap();
+    let paragraphs = create_text_paragraphs(
+        &builder,
+        &mut font_ctx,
+        PlainOrStyledText::Styled(text),
+        Color::default(),
+    );
+    let scale_factor = builder.scale_factor;
+    layout(&builder, &mut font_ctx, paragraphs, scale_factor, options, None)
+}
+
+fn layout_markdown(markdown: &str, options: LayoutOptions) -> Layout {
+    layout_markdown_with_builder(markdown, super::shaping::wrap_builder_for_tests(), options)
+}
+
+const QUOTED_TEXT: &str = "> The quick brown fox jumps over the lazy dog again and again";
+
+fn quote_step(scale_factor: f32) -> f32 {
+    (DEFAULT_FONT_SIZE.get() * scale_factor * super::shaping::QUOTE_INDENT_EM).round()
+}
+
+#[test]
+fn quote_paragraph_x_per_depth() {
+    let layout = layout_markdown("a\n\n> b\n>> c", LayoutOptions::default());
+    let xs: Vec<f32> = layout.paragraphs.iter().map(|p| p.x().get()).collect();
+    assert_eq!(xs, [0.0, quote_step(1.0), 2.0 * quote_step(1.0)]);
+
+    let builder = super::shaping::LayoutWithoutLineBreaksBuilder::new(
+        None,
+        TextWrap::WordWrap,
+        None,
+        ScaleFactor::new(2.0),
+    );
+    let layout = layout_markdown_with_builder("> b", builder, LayoutOptions::default());
+    assert_eq!(layout.paragraphs[0].x().get(), quote_step(2.0));
+}
+
+#[test]
+fn quote_wraps_within_reduced_width() {
+    let max_width = LogicalLength::new(150.);
+    let options = || LayoutOptions { max_width: Some(max_width), ..LayoutOptions::default() };
+    let quoted = layout_markdown(QUOTED_TEXT, options());
+    let plain = layout_markdown(&QUOTED_TEXT[2..], options());
+
+    let paragraph = &quoted.paragraphs[0];
+    for line in paragraph.layout.lines() {
+        let metrics = line.metrics();
+        let right = paragraph.x().get() + metrics.inline_min_coord + metrics.advance
+            - metrics.hanging_advance;
+        assert!(right <= max_width.get() + 0.5, "line ends at {right}");
+    }
+    assert!(paragraph.layout.lines().len() >= plain.paragraphs[0].layout.lines().len());
+}
+
+#[test]
+fn quote_indent_counts_toward_max_width() {
+    let builder = super::shaping::plain_builder_for_tests;
+    let quoted = layout_markdown_with_builder("> word", builder(), LayoutOptions::default());
+    let plain = layout_markdown_with_builder("word", builder(), LayoutOptions::default());
+    assert_eq!(quoted.max_width.get(), plain.max_width.get() + quote_step(1.0));
+}
+
+#[test]
+fn link_hit_test_respects_quote_indent() {
+    let layout = layout_markdown("> [link](u)", LayoutOptions::default());
+    let paragraph = &layout.paragraphs[0];
+    let y = paragraph.y.get() + paragraph.layout.height() / 2.;
+    assert_eq!(link_in_layout(&layout, PhysicalPoint::new(1., y)), None);
+    assert_eq!(
+        link_in_layout(&layout, PhysicalPoint::new(paragraph.x().get() + 2., y)).as_deref(),
+        Some("u")
+    );
+}
+
+#[test]
+fn elision_in_quote_respects_indent() {
+    let max_width = LogicalLength::new(100.);
+    let options = LayoutOptions {
+        max_width: Some(max_width),
+        text_overflow: TextOverflow::Elide,
+        ..LayoutOptions::default()
+    };
+    let layout = layout_markdown_with_builder(
+        QUOTED_TEXT,
+        super::shaping::plain_builder_for_tests(),
+        options,
+    );
+    let paragraph = &layout.paragraphs[0];
+    let x = paragraph.x();
+    let line = paragraph.layout.lines().next().unwrap();
+    let mut elided = false;
+    for item in line.items() {
+        let parley::PositionedLayoutItem::GlyphRun(run) = item else { continue };
+        let (glyphs, ellipsis) = layout.glyphs_with_elision(&run, false, 0., x);
+        let Some((ellipsis, ..)) = ellipsis else { continue };
+        elided = true;
+        let kept_end = glyphs.last().map_or(0., |glyph| glyph.x + glyph.advance);
+        assert!(kept_end + ellipsis.advance <= (max_width.get() - x.get()) + 0.5);
+    }
+    assert!(elided);
+}
+
+#[test]
+fn quote_bars_cover_only_drawn_lines() {
+    let options =
+        LayoutOptions { max_width: Some(LogicalLength::new(150.)), ..LayoutOptions::default() };
+    let layout = layout_markdown(QUOTED_TEXT, options);
+    let paragraph = &layout.paragraphs[0];
+    let lines: Vec<_> = paragraph.layout.lines().map(|line| *line.metrics()).collect();
+    assert!(lines.len() >= 3);
+    let last = lines.len() - 1;
+    let para_y = layout.y_offset + paragraph.y;
+    let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
+
+    assert_eq!(
+        paragraph.quote_bar_extent(&layout, para_y, &everything, last),
+        Some(lines[0].block_min_coord.round()..lines[last].block_max_coord.round())
+    );
+
+    let far_below = PhysicalLength::new(10_000.)..PhysicalLength::new(20_000.);
+    assert_eq!(paragraph.quote_bar_extent(&layout, para_y, &far_below, last), None);
+}
+
+#[test]
+fn quote_bars_stop_at_max_lines_cut() {
+    let options = LayoutOptions {
+        max_width: Some(LogicalLength::new(150.)),
+        max_lines: Some(2),
+        ..LayoutOptions::default()
+    };
+    let layout = layout_markdown(QUOTED_TEXT, options);
+    let cut = layout.visible_extent().unwrap();
+    assert_eq!((cut.last_paragraph, cut.last_line), (0, 1));
+    let paragraph = &layout.paragraphs[0];
+    let line = *paragraph.layout.lines().nth(1).unwrap().metrics();
+    let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
+    let extent = paragraph
+        .quote_bar_extent(&layout, layout.y_offset + paragraph.y, &everything, cut.last_line)
+        .unwrap();
+    assert_eq!(extent.end, line.block_max_coord.round());
+}

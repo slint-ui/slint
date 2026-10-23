@@ -68,12 +68,15 @@ impl StyledText {
 pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     match styled_text.paragraphs.as_slice() {
         [] => "".into(),
-        [paragraph] => paragraph.text.as_str().into(),
-        _ => {
+        [paragraph] if paragraph.quote_depth == 0 => paragraph.text.as_str().into(),
+        paragraphs => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
+            for paragraph in paragraphs {
                 if !result.is_empty() {
                     result.push('\n');
+                }
+                for _ in 0..paragraph.quote_depth {
+                    result.push_str("> ");
                 }
                 result.push_str(paragraph.text.as_str());
             }
@@ -203,5 +206,13 @@ mod tests {
     #[test]
     fn string_to_styled_text_returns_default_for_empty_string() {
         assert_eq!(super::string_to_styled_text(Default::default()), StyledText::default());
+    }
+
+    #[test]
+    fn raw_text_prefixes_quotes() {
+        let text = StyledText::from_markdown("> a\n>> b\n\nc").unwrap();
+        assert_eq!(get_raw_text(&text), "> a\n> > b\nc");
+        let text = StyledText::from_markdown("> a").unwrap();
+        assert_eq!(get_raw_text(&text), "> a");
     }
 }
