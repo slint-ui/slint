@@ -9,7 +9,7 @@ Use `@testable` to mark the properties your UI tests read back.
 Testing tools, such as `ElementHandle` in the `slint-testing` crate and the [MCP server for AI coding assistants](../../tooling/ai-coding-assistants/), list only `@testable` properties.
 They can't see any other property, whether it's `in`, `out`, `in-out`, or `private`.
 
-The compiler removes properties that nothing reads, and future versions may remove more.
+The compiler removes unused properties.
 It always keeps a `@testable` property, so your tests don't break when the optimizer changes.
 
 :::note
