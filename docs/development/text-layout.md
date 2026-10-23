@@ -36,8 +36,11 @@ Slint's text layout system handles the complex process of converting text string
 ## Font Collection Initialization
 
 Each `SlintContext` owns its Fontique collection.
-When Slint creates the backend itself, `font_collection::prefetch()` starts system font discovery on a worker thread,
-and a `SlintContext` created on that thread while the returned guard lives takes the result.
+Applications can supply a collection with `slint::fontique_012::set_shared_collection()` before initializing Slint on the current thread.
+The first context uses that collection, skips system font discovery, and still registers environment and embedded fonts.
+Without a supplied collection, Slint calls `font_collection::prefetch()` before creating the backend.
+This starts system font discovery on a worker thread.
+A `SlintContext` created on that thread while the returned guard lives takes the result.
 Dropping the guard discards the result if no context used it.
 Otherwise, a context discovers system fonts synchronously.
 See `internal/core/font_collection.rs`.
