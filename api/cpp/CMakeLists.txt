@@ -471,7 +471,7 @@ if (SLINT_BUILD_RUNTIME)
     if(WIN32)
         install(FILES $<TARGET_LINKER_FILE:${slint_cpp_impl}> TYPE LIB)
         # Cargo names the MSVC import library `slint_cpp.dll.lib`, but build systems other than
-        # CMake, such as qmake with `-lslint_cpp`, look for `slint_cpp.lib`.
+        # CMake, look for `slint_cpp.lib`.
         if(MSVC AND BUILD_SHARED_LIBS)
             install(FILES $<TARGET_LINKER_FILE:${slint_cpp_impl}> TYPE LIB RENAME slint_cpp.lib)
         endif()
