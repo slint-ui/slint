@@ -668,7 +668,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! Supported by the Skia, FemtoVG, Vello, and software renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
@@ -1645,7 +1645,7 @@ fn build(l: &mut Loader) {
         ///       Moves that don't start a flick don't reset or cancel this delay.
         ///    2. If the release comes before the 100ms elapse, the press and the release are delivered right away.
         ///    3. If no element inside the `Flickable` handles the press, and it doesn't start a flick,
-        ///       the click goes to the elements behind the `Flickable`.
+        ///       the click goes to the parent elements of the `Flickable`, but not to other elements behind it.
         ///       They receive the press together with the release.
         /// 4. Dragging more than 8 logical pixels (10 on iOS) along an axis the `Flickable` can scroll starts a flick.
         ///    If an element inside already received the press, the drag must start within 500ms of the press,
@@ -1760,7 +1760,7 @@ fn build(l: &mut Loader) {
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
         /// If no child handles a click, and the click doesn't start a swipe,
-        /// the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// the click goes to the parent elements of the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.

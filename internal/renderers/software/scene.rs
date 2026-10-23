@@ -3,6 +3,7 @@
 
 //! This is the module contain data structures for a scene of items that can be rendered
 
+use super::box_shadow::BoxShadowCommand;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
@@ -21,6 +22,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub box_shadows: Vec<BoxShadowCommand>,
 }
 
 pub struct Scene {
@@ -355,6 +357,10 @@ pub enum SceneCommand {
     ConicGradient {
         conic_gradient_index: u16,
     },
+    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    BoxShadow {
+        box_shadow_index: u16,
+    },
 }
 
 pub struct SceneTexture<'a> {
@@ -600,7 +606,7 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GradientClip {
     /// A zero radius means no clip.
@@ -618,6 +624,12 @@ pub struct RoundedRectangle {
     pub width: PhysicalLength,
     pub border_color: PremultipliedRgbaColor,
     pub inner_color: PremultipliedRgbaColor,
+}
+
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
 }
 
 /// Goes from color 1 to color2

@@ -1,0 +1,115 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct MatchStruct {
+    match: int,
+}
+
+export enum MatchEnum {
+    match,
+    other,
+}
+
+export component Properties {
+    in-out property <int> match: 1;
+    in-out property <int> other;
+    in-out property <int> alias <=> match;
+    out property <int> read: root.match + match;
+    out property <int> changes;
+    changed match => {
+        changes += 1;
+    }
+    animate match {
+        duration: 1s;
+    }
+}
+
+export component Functions {
+    function match() -> int {
+        1
+    }
+    out property <int> result: match() + root.match();
+}
+
+export component Subjects {
+    in property <int> match;
+    match match {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match root.match {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component StructsAndEnums {
+    in property <MatchEnum> value;
+    out property <MatchStruct> data: { match: 1 };
+    out property <int> field: data.match;
+    match value {
+        MatchEnum.match: Rectangle { }
+        other: Rectangle { }
+    }
+    match value {
+        match: Rectangle { }
+        other: Rectangle { }
+    }
+}
+
+export component States {
+    in property <bool> condition;
+    out property <int> value;
+    states [
+        match when condition: {
+            value: 1;
+            in {
+                animate value { duration: 1s; }
+            }
+        }
+    ]
+}
+
+component SlotHolder inherits Rectangle {
+    slot match;
+    VerticalLayout {
+        match { }
+    }
+}
+
+export component Slots inherits Rectangle {
+    slot match;
+    SlotHolder {
+        match << Rectangle { }
+    }
+    SlotHolder {
+        match << match;
+    }
+}
+
+export component CallbackAliases {
+    callback other;
+    callback match <=> other;
+    callback third <=> match;
+}
+
+export component Parameters {
+    callback handle(match: int);
+    handle(match) => {
+        debug(match);
+    }
+    function compute(match: int) -> int {
+        match * 2
+    }
+    function local() -> int {
+        let match = 1;
+        match
+    }
+}
+
+export component Repeaters {
+    in property <[int]> match: [1];
+    for match[index] in match: Rectangle {
+        x: (match + index) * 1px;
+    }
+}

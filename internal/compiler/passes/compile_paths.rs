@@ -102,7 +102,12 @@ pub fn compile_paths(
                             }
                         }
                         path_data.push(PathElement { element_type, bindings });
-                        enclosing_component.optimized_elements.borrow_mut().push(child);
+                        enclosing_component.optimized_elements.borrow_mut().push(
+                            OptimizedElement {
+                                element: child,
+                                former_parent: Rc::downgrade(elem_),
+                            },
+                        );
                     }
                 } else {
                     elem.children.push(child);

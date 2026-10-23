@@ -1,0 +1,139 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction {
+    callback activated();
+}
+
+component Base inherits Rectangle {
+    slot content << Text {
+        text: "Base";
+    }
+    slot <Interaction> control;
+    VerticalLayout {
+        content { }
+    }
+
+    control { }
+}
+
+component Clickable inherits Rectangle {
+    callback poke();
+}
+
+export component PlacedAtTopLevel inherits Base {
+    content { }
+//  >      <error{Assign to the inherited slot 'content' with 'content << ...'}
+}
+
+export component PlacedInLayout inherits Base {
+    VerticalLayout {
+        content { }
+//      >      <error{Unknown element 'content'}
+    }
+}
+
+export component PlacedTyped inherits Base {
+    control {
+//  >      <error{Assign to the inherited slot 'control' with 'control << ...'}
+        activated => {}
+    }
+}
+
+export component Redeclared inherits Base {
+    slot content;
+//       >     <error{Remove the declaration of slot 'content' inherited from 'Base'; assign with 'content << ...' to replace its content}
+}
+
+export component RedeclaredAndPlaced inherits Base {
+    slot content;
+//       >     <error{Remove the declaration of slot 'content' inherited from 'Base'; assign with 'content << ...' to replace its content}
+    VerticalLayout {
+        content { }
+//      >      <error{Unknown element 'content'}
+    }
+}
+
+export component PlacedInInstance {
+    Base {
+        content { }
+//      >      <error{Assign to slot 'content' of 'Base' with 'content << ...'}
+    }
+}
+
+export component PlacedTypedInInstance {
+    Base {
+        control {
+//      >      <error{Assign to slot 'control' of 'Base' with 'control << ...'}
+            activated => {}
+        }
+    }
+}
+
+export component ReferenceById inherits Base {
+    content << label := Text {
+        text: "Derived";
+    }
+    out property <string> label-text: label.text;
+//                                    >         <error{Move references to the default content of slot 'content' inside that content}
+}
+
+export component ReferenceBySlotName inherits Base {
+    content << Text {
+        text: "Derived";
+    }
+    out property <string> label-text: content.text;
+//                                    >           <error{Move references to the default content of slot 'content' inside that content}
+}
+
+export component ReferenceInChangeCallback inherits Base {
+    content << label := Text {
+        text: "Derived";
+    }
+    in property <bool> highlighted;
+    changed highlighted => {
+        label.text = "Changed";
+//      >         <error{Move references to the default content of slot 'content' inside that content}
+    }
+}
+
+export component ReferenceAsCallbackCall inherits Base {
+    content << target := Clickable { }
+    callback reset();
+    reset => {
+        target.poke();
+//             >  <error{Move references to the default content of slot 'content' inside that content}
+    }
+}
+
+export component ReferencesFromInside inherits Base {
+    in property <string> caption: "Derived";
+    sibling := Rectangle {
+        width: 10px;
+    }
+
+    content << Text {
+        text: root.caption;
+        width: sibling.width;
+    }
+}
+
+export component Header inherits Rectangle { }
+
+component HeaderBase inherits Rectangle {
+    slot Header;
+    VerticalLayout {
+        Header { }
+//      >        <warning{The slot 'Header' shadows an element type of the same name. This element is a slot placeholder, not an instance of 'Header'}
+    }
+}
+
+export component TypeNamedLikeInheritedSlot inherits HeaderBase {
+    Header { }
+}
+
+export component TypeNamedLikeSlotInInstance {
+    HeaderBase {
+        Header { }
+    }
+}

@@ -189,7 +189,7 @@ fn resolve_match_elements(
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
-        check_exhaustiveness(match_element, domain, &values, diag);
+        check_case_coverage(match_element, domain, &values, diag);
 
         let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
         let subject = std::mem::replace(
@@ -287,16 +287,16 @@ fn check_duplicate_cases(
     }
 }
 
-/// Reports a match element that does not cover every value its subject can take
-fn check_exhaustiveness(
+fn check_case_coverage(
     match_element: &MatchElementInfo,
     domain: MatchSubjectDomain,
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
-        return;
-    }
+    let wildcard_star = match_element
+        .node
+        .WildcardMatchCase()
+        .and_then(|wildcard| wildcard.child_token(SyntaxKind::Star));
     let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
@@ -310,16 +310,27 @@ fn check_exhaustiveness(
         MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return,
         MatchSubjectDomain::Exhaustive(case_values) => case_values,
         MatchSubjectDomain::Unbounded => {
-            diag.push_error(
-                format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
-                &subject_node,
-            );
+            if wildcard_star.is_none() {
+                diag.push_error(
+                    format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
+                    &subject_node,
+                );
+            }
             return;
         }
     };
 
     let missing = missing_case_values(&expected, covered);
-    if !missing.is_empty() {
+    if wildcard_star.is_some() {
+        if missing.is_empty() {
+            diag.push_warning(
+                format!(
+                    "The '*' case is never hit because every '{subject_type}' value has a case. Remove it"
+                ),
+                &wildcard_star,
+            );
+        }
+    } else if !missing.is_empty() {
         let missing =
             missing.iter().map(|value| format!("'{value}'")).collect::<Vec<_>>().join(", ");
         diag.push_error(

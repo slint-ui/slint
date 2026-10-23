@@ -134,6 +134,7 @@ fn process_tabwidget(
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {
+        error_on_slot_default(child, "TabWidget", diag);
         if child.borrow().repeated.is_some() {
             diag.push_error(
                 "dynamic tabs ('if' or 'for') are currently not supported".into(),
