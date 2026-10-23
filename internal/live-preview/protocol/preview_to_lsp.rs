@@ -19,6 +19,7 @@ pub enum PreviewTarget {
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
     Diagnostics {
@@ -108,6 +109,24 @@ pub enum PreviewToLspMessage {
     Exited,
     /// Clear the highlight in the visual editor run preview.
     ClearHighlight,
+}
+
+impl PreviewToLspMessage {
+    /// Whether the LSP takes this message from a remote viewer.
+    ///
+    /// A remote viewer runs on someone else's machine: it may report what it
+    /// compiled and ask for the files it needs, and nothing else. That, not
+    /// "does it reach the editor", is where the line is — a viewer's whole job
+    /// is to send back diagnostics.
+    ///
+    /// Listed positively on purpose: a new variant stays refused until it is
+    /// deliberately allowed.
+    pub fn is_allowed_from_remote_viewer(&self) -> bool {
+        matches!(
+            self,
+            Self::Diagnostics { .. } | Self::DebugMessage { .. } | Self::RequestState { .. }
+        )
+    }
 }
 
 /// `lsp_types` omits empty optional fields when serializing, which the

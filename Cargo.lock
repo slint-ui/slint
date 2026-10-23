@@ -3534,6 +3534,7 @@ dependencies = [
  "notify",
  "postcard",
  "rand 0.9.5",
+ "rand_core 0.6.4",
  "scopeguard",
  "serde",
  "serde_json",
