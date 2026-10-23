@@ -57,6 +57,19 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }
 
+    public pure function has-text-property-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "Text"
+                || InspectorContext.element-information.type-name == "StyledText"
+                || InspectorContext.element-information.type-name == "Button"
+                || InspectorContext.element-information.type-name == "CheckBox"
+                || InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "Switch"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "RadioButton"
+                || InspectorContext.element-information.type-name == "TextInput");
+    }
+
     public pure function is-enable-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "Button"
@@ -84,6 +97,7 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "TextEdit"
                 || InspectorContext.element-information.type-name == "TextInput"
                 || InspectorContext.element-information.type-name == "TouchArea"
+                || InspectorContext.element-information.type-name == "RadioButton"
                 || InspectorContext.element-information.type-name == "WindowMoveArea");
     }
 

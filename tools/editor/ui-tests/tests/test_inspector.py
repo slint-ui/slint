@@ -37,6 +37,8 @@ ELEMENT_ROWS = {
     "Rectangle": "inspect-rectangle",
     "Text": "inspect-text",
     "Image": "inspect-image",
+    "Button": "inspect-button",
+    "CheckBox": "inspect-checkbox",
 }
 
 
@@ -1150,6 +1152,63 @@ def test_text_content_writes_exact_source(
             relative_path=INSPECTOR_SOURCE,
         )
         element(window, rendered, role=slint_testing.AccessibleRole.Text)
+
+
+@pytest.mark.parametrize(
+    ("kind", "original", "rendered", "role"),
+    [
+        (
+            "Button",
+            "Inspector button",
+            "Button content",
+            slint_testing.AccessibleRole.Button,
+        ),
+        (
+            "CheckBox",
+            "Inspector checkbox",
+            "CheckBox content",
+            slint_testing.AccessibleRole.Checkbox,
+        ),
+    ],
+    ids=("button", "checkbox"),
+)
+def test_widget_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    original: str,
+    rendered: str,
+    role: slint_testing.AccessibleRole,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        wait_for_field(
+            window,
+            "Text content",
+            f'"{original}"',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        edit_field(
+            window,
+            "Text content",
+            f'"{rendered}"',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                f'        text: "{original}";'.encode(),
+                f'        text: "{rendered}";'.encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        element(window, rendered, role=role)
 
 
 def test_invalid_text_content_does_not_change_source(
