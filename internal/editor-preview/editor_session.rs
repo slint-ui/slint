@@ -24,10 +24,30 @@ pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diag
 
 pub struct PreviewConnection {
     pub to_preview: Rc<crate::LspToPreviews>,
-    pub project_root: std::cell::RefCell<Option<Url>>,
+    project_root: Option<Url>,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<PreviewComponent>,
+    to_show: Option<PreviewComponent>,
+}
+
+impl PreviewConnection {
+    pub fn new(to_preview: Rc<crate::LspToPreviews>) -> Self {
+        Self {
+            to_preview,
+            project_root: None,
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: None,
+        }
+    }
+
+    pub fn project_root(&self) -> Option<&Url> {
+        self.project_root.as_ref()
+    }
+
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    pub fn component(&self) -> Option<&PreviewComponent> {
+        self.to_show.as_ref()
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -198,10 +218,6 @@ impl EditorSession {
         self.previews.first().expect("EditorSession must have at least one preview")
     }
 
-    pub fn primary_preview_mut(&mut self) -> &mut PreviewConnection {
-        self.previews.first_mut().expect("EditorSession must have at least one preview")
-    }
-
     pub fn preview(&self, preview_index: usize) -> Option<&PreviewConnection> {
         let preview = self.previews.get(preview_index);
         if preview.is_none() {
@@ -213,7 +229,7 @@ impl EditorSession {
         preview
     }
 
-    pub fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
+    fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
         let preview_count = self.previews.len();
         let preview = self.previews.get_mut(preview_index);
         if preview.is_none() {
@@ -226,9 +242,6 @@ impl EditorSession {
 
     pub fn send_to_preview(&self, preview_index: usize, message: &LspToPreviewMessage) {
         let Some(preview) = self.preview(preview_index) else { return };
-        if let LspToPreviewMessage::OpenProject { root } = message {
-            preview.project_root.replace(root.clone());
-        }
         preview.to_preview.send(message);
     }
 
@@ -239,15 +252,7 @@ impl EditorSession {
     }
 
     pub fn new(document_cache: crate::DocumentCache, to_preview: Rc<crate::LspToPreviews>) -> Self {
-        Self::with_previews(
-            document_cache,
-            vec![PreviewConnection {
-                to_preview,
-                project_root: Default::default(),
-                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-                to_show: None,
-            }],
-        )
+        Self::with_previews(document_cache, vec![PreviewConnection::new(to_preview)])
     }
 
     pub fn with_previews(
@@ -706,7 +711,7 @@ impl EditorSession {
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub fn send_state_to_preview(&self, preview_index: usize) {
         let Some(preview) = self.preview(preview_index) else { return };
-        let root = preview.project_root.borrow().clone();
+        let root = preview.project_root.clone();
         preview.to_preview.send(&LspToPreviewMessage::OpenProject { root });
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -868,12 +873,23 @@ impl EditorSession {
     }
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    pub fn show_preview(&mut self, preview_index: usize, component: PreviewComponent) {
+    pub fn show_preview(
+        &mut self,
+        preview_index: usize,
+        component: PreviewComponent,
+        project_root: Option<Url>,
+    ) {
         let component_url =
             SourcePath::from_url(&component.url).to_url().unwrap_or_else(|| component.url.clone());
         let Some(preview) = self.preview_mut(preview_index) else { return };
+        let root_changed = preview.project_root != project_root;
+        preview.project_root = project_root;
         preview.to_show = Some(component.clone());
-        preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
+        if root_changed {
+            self.send_state_to_preview(preview_index);
+        } else {
+            self.send_to_preview(preview_index, &LspToPreviewMessage::ShowPreview(component));
+        }
         self.pending_recompile.insert(component_url);
     }
 
@@ -1276,11 +1292,7 @@ mod preview_tests {
         let captures = std::array::from_fn(|_| crate::test::preview_capture());
         let previews = captures
             .iter()
-            .map(|(to_preview, _)| PreviewConnection {
-                to_preview: to_preview.clone(),
-                project_root: Default::default(),
-                to_show: None,
-            })
+            .map(|(to_preview, _)| PreviewConnection::new(to_preview.clone()))
             .collect();
         let messages = captures.map(|(_, messages)| messages);
         let session = EditorSession::with_previews(crate::test::empty_document_cache(), previews);
@@ -1785,7 +1797,7 @@ mod preview_tests {
             component: Some("Primary".into()),
         };
 
-        session.primary_preview_mut().to_show = Some(component.clone());
+        session.show_preview(0, component.clone(), None);
 
         assert_eq!(session.primary_preview().to_show, Some(component));
         assert!(session.preview(1).unwrap().to_show.is_none());
@@ -1804,7 +1816,7 @@ mod preview_tests {
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
         session.send_files_to_preview(2, &[], &[]);
-        session.show_preview(2, component);
+        session.show_preview(2, component, None);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
         assert!(session.pending_recompile.is_empty());
@@ -1866,7 +1878,7 @@ mod preview_tests {
         let asset = temp_directory.path().join("requested.png");
         std::fs::write(&asset, []).unwrap();
 
-        session.show_preview(1, component.clone());
+        session.show_preview(1, component.clone(), None);
         for recorded_messages in &messages {
             recorded_messages.borrow_mut().clear();
         }
@@ -1933,8 +1945,7 @@ mod preview_tests {
             session.active_project_file_paths().collect::<Vec<_>>(),
             [root_manifest.as_path(), nested_manifest.as_path()]
         );
-        session.primary_preview_mut().to_show = Some(component.clone());
-        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: Some(root.clone()) });
+        session.show_preview(0, component.clone(), Some(root.clone()));
         messages[0].borrow_mut().clear();
 
         session.send_state_to_preview(0);
@@ -1962,7 +1973,16 @@ mod preview_tests {
         assert!(configuration_index < component_index);
         drop(replay);
 
-        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: None });
+        let next_component =
+            PreviewComponent { url: component.url.clone(), component: Some("Other".into()) };
+        messages[0].borrow_mut().clear();
+        session.show_preview(0, next_component.clone(), Some(root.clone()));
+        assert!(matches!(
+            messages[0].borrow().as_slice(),
+            [LspToPreviewMessage::ShowPreview(sent)] if sent == &next_component
+        ));
+
+        session.show_preview(0, next_component.clone(), None);
         messages[0].borrow_mut().clear();
         session.send_state_to_preview(0);
         let replay = messages[0].borrow();
@@ -1972,8 +1992,61 @@ mod preview_tests {
                 if url.url() == &root_manifest_url)
         }));
         assert!(replay.iter().any(|message| {
-            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &next_component)
         }));
+    }
+
+    #[test]
+    fn changing_root_and_component_replays_only_the_new_selection() {
+        let (mut session, messages) = session_with_recording_previews();
+        let component_url = crate::test::test_file_name("selection.slint").to_url().unwrap();
+        let initial_component =
+            PreviewComponent { url: component_url.clone(), component: Some("Initial".into()) };
+        let initial_root = Url::parse("file:///initial/").unwrap();
+        session.show_preview(0, initial_component, Some(initial_root));
+
+        let next_root = Url::parse("file:///next/").unwrap();
+        for (root, name) in [(Some(next_root), "Next"), (None, "Cleared")] {
+            messages[0].borrow_mut().clear();
+            let component =
+                PreviewComponent { url: component_url.clone(), component: Some(name.into()) };
+            session.show_preview(0, component.clone(), root.clone());
+
+            let captured = messages[0].borrow();
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message,
+                        LspToPreviewMessage::OpenProject { root: sent } if sent == &root))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(
+                        message,
+                        LspToPreviewMessage::SetConfiguration { .. }
+                    ))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message,
+                        LspToPreviewMessage::ShowPreview(sent) if sent == &component))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
+                    .count(),
+                1
+            );
+        }
     }
 }
 
@@ -2349,7 +2422,7 @@ mod tests {
         let entry_url = Url::from_file_path(&entry).unwrap();
         let encoded_url =
             Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
-        session.show_preview(0, PreviewComponent { url: encoded_url, component: None });
+        session.show_preview(0, PreviewComponent { url: encoded_url, component: None }, None);
         assert!(session.pending_recompile.contains(&entry_url));
         spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
             .unwrap();

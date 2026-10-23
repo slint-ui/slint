@@ -455,14 +455,7 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 
     editor_preview::EditorSession::with_previews(
         editor_preview::DocumentCache::new(compiler_config),
-        to_previews
-            .into_iter()
-            .map(|to_preview| editor_preview::PreviewConnection {
-                to_preview,
-                project_root: Default::default(),
-                to_show: Default::default(),
-            })
-            .collect(),
+        to_previews.into_iter().map(editor_preview::PreviewConnection::new).collect(),
     )
 }
 
@@ -512,8 +505,7 @@ fn sync_file_watcher_if_needed(
             )
             .chain(session.previews.iter().filter_map(|preview| {
                 preview
-                    .to_show
-                    .as_ref()
+                    .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
             .chain(session.active_project_file_paths().map(Path::to_path_buf))
@@ -559,7 +551,9 @@ async fn handle_preview_message(
                 tracing::warn!("Ignoring preview request with an invalid path: {}", component.url);
                 return;
             };
-            open_preview(session, preview_index, component).await;
+            let root =
+                session.preview(preview_index).and_then(|preview| preview.project_root().cloned());
+            open_preview(session, preview_index, component, root).await;
         }
         UpdateUserSettings { name, contents } => {
             if let Err(error) =
@@ -654,29 +648,32 @@ async fn activate_project(
     *project_root = project.root;
     session.set_workspace_roots(vec![project_root.clone()]);
     let component = project.preview;
-    if let Err(error) = open_project(session, PRIMARY_PREVIEW_INDEX, project_root) {
-        tracing::warn!("Failed to open project: {error}");
-    }
     if let Err(error) =
         watcher.update_watched_paths(SourcePath::from_url(&component.url).into_native_path())
     {
         tracing::warn!("Failed to watch project: {error}");
     }
     while watcher_events.try_recv().is_ok() {}
-    open_preview(session, PRIMARY_PREVIEW_INDEX, component).await;
+    let root = match Url::from_directory_path(project_root.as_path()) {
+        Ok(root) => Some(root),
+        Err(()) => {
+            tracing::warn!("Failed to convert {} to URL", project_root.display());
+            None
+        }
+    };
+    open_preview(session, PRIMARY_PREVIEW_INDEX, component, root).await;
     if let Err(error) = sync_file_watcher_if_needed(watcher, session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
     }
 }
 
 fn run_preview(session: &mut editor_preview::EditorSession) -> bool {
-    let Some(component) = session.primary_preview().to_show.clone() else {
+    let Some(component) = session.primary_preview().component().cloned() else {
         tracing::warn!("Cannot run a preview before a component is open");
         return false;
     };
-    let root = session.primary_preview().project_root.borrow().clone();
-    session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::OpenProject { root });
-    session.show_preview(RUN_PREVIEW_INDEX, component);
+    let root = session.primary_preview().project_root().cloned();
+    session.show_preview(RUN_PREVIEW_INDEX, component, root);
     true
 }
 
@@ -713,22 +710,12 @@ async fn open_preview(
     session: &mut editor_preview::EditorSession,
     preview_index: usize,
     component: PreviewComponent,
+    root: Option<Url>,
 ) {
     if let Err(error) = session.reload_document(component.url.clone()).await {
         tracing::warn!("Failed to load {}: {error}", component.url);
     }
-    session.show_preview(preview_index, component);
-}
-
-fn open_project(
-    session: &editor_preview::EditorSession,
-    preview_index: usize,
-    root: &Path,
-) -> Result<()> {
-    let url = Url::from_directory_path(root)
-        .map_err(|_| format!("Failed to convert {} to URL", root.display()))?;
-    session.send_to_preview(preview_index, &LspToPreviewMessage::OpenProject { root: Some(url) });
-    Ok(())
+    session.show_preview(preview_index, component, root);
 }
 
 fn canonical_preview_component(
@@ -847,13 +834,16 @@ mod tests {
             &mut root,
             project,
         ));
-        assert_eq!(session.primary_preview().to_show, Some(component.clone()));
+        assert_eq!(session.primary_preview().component().cloned(), Some(component.clone()));
         assert!(
             session.document_cache.get_document(&Url::from_file_path(source).unwrap()).is_some()
         );
         assert_eq!(root, project_directory);
         let messages = messages[PRIMARY_PREVIEW_INDEX].borrow();
-        assert!(matches!(messages.first(), Some(LspToPreviewMessage::OpenProject { .. })));
+        assert!(messages.iter().any(|message| matches!(message,
+            LspToPreviewMessage::OpenProject { root: Some(sent) }
+                if sent == &Url::from_directory_path(&project_directory).unwrap()
+        )));
         assert!(messages.iter().any(|message| matches!(message,
             LspToPreviewMessage::SetContents { url, .. }
                 if url.url() == &Url::from_file_path(&manifest).unwrap()
@@ -868,11 +858,7 @@ mod tests {
         let captures = std::array::from_fn(|_| editor_preview::test::preview_capture());
         let previews = captures
             .iter()
-            .map(|(to_preview, _)| editor_preview::PreviewConnection {
-                to_preview: to_preview.clone(),
-                project_root: Default::default(),
-                to_show: None,
-            })
+            .map(|(to_preview, _)| editor_preview::PreviewConnection::new(to_preview.clone()))
             .collect();
         let messages = captures.map(|(_, messages)| messages);
         let session = editor_preview::EditorSession::with_previews(
@@ -915,6 +901,7 @@ mod tests {
             session.show_preview(
                 PRIMARY_PREVIEW_INDEX,
                 PreviewComponent { url: url.clone(), component: Some("Main".into()) },
+                None,
             );
             let edit = editor_preview::editing::create_workspace_edit(
                 url.clone(),
@@ -1143,6 +1130,7 @@ mod tests {
         session.show_preview(
             PRIMARY_PREVIEW_INDEX,
             PreviewComponent { url: old_url.clone(), component: Some("Old".into()) },
+            None,
         );
         assert!(run_preview(&mut session));
 
@@ -1168,7 +1156,7 @@ mod tests {
         assert_eq!(project_root, expected_root);
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert!(session.document_cache.get_document(&expected_component.url).is_some());
-        assert!(session.previews[RUN_PREVIEW_INDEX].to_show.is_none());
+        assert!(session.previews[RUN_PREVIEW_INDEX].component().cloned().is_none());
         assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
         let expected_root_url =
             Url::from_directory_path(std::fs::canonicalize(&project_root).unwrap()).unwrap();
@@ -1212,11 +1200,18 @@ mod tests {
 
         clear_messages(&messages);
         assert!(run_preview(&mut session));
-        assert_eq!(session.previews[RUN_PREVIEW_INDEX].to_show, Some(expected_component.clone()));
+        assert_eq!(
+            session.previews[RUN_PREVIEW_INDEX].component().cloned(),
+            Some(expected_component.clone())
+        );
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
         assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::ShowPreview(component)
                 if component == &expected_component)
+        }));
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::OpenProject { root }
+                if root.as_ref() == Some(&expected_root_url))
         }));
     }
 
@@ -1233,7 +1228,7 @@ mod tests {
         ));
         let old_component =
             PreviewComponent { url: old_url.clone(), component: Some("Old".into()) };
-        session.show_preview(PRIMARY_PREVIEW_INDEX, old_component.clone());
+        session.show_preview(PRIMARY_PREVIEW_INDEX, old_component.clone(), None);
         assert!(run_preview(&mut session));
         let old_run_preview = session.previews[RUN_PREVIEW_INDEX].to_preview.clone();
         let mut project_root = old_project.path().to_path_buf();
@@ -1260,8 +1255,8 @@ mod tests {
 
         assert_eq!(project_root, missing_root);
         assert!(session.document_cache.get_document(&old_url).is_none());
-        assert_eq!(session.primary_preview().to_show, Some(target));
-        assert!(session.previews[RUN_PREVIEW_INDEX].to_show.is_none());
+        assert_eq!(session.primary_preview().component().cloned(), Some(target));
+        assert!(session.previews[RUN_PREVIEW_INDEX].component().cloned().is_none());
         assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
         assert!(matches!(
             messages[PRIMARY_PREVIEW_INDEX].borrow().first(),
@@ -1314,8 +1309,8 @@ mod tests {
         assert!(messages[1].borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::ShowPreview(current) if current == &component)
         }));
-        assert!(session.primary_preview().to_show.is_none());
-        assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+        assert!(session.primary_preview().component().cloned().is_none());
+        assert_eq!(session.preview(1).unwrap().component().cloned(), Some(component));
     }
 
     #[test]
@@ -1329,7 +1324,7 @@ mod tests {
     fn run_preview_uses_the_primary_preview_target() {
         let (mut session, messages) = session_with_recording_previews();
         let primary_component = component("primary.slint", "Primary");
-        session.show_preview(PRIMARY_PREVIEW_INDEX, primary_component.clone());
+        session.show_preview(PRIMARY_PREVIEW_INDEX, primary_component.clone(), None);
         clear_messages(&messages);
 
         run_preview(&mut session);
@@ -1338,7 +1333,10 @@ mod tests {
         assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::ShowPreview(component) if component == &primary_component)
         }));
-        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(primary_component));
+        assert_eq!(
+            session.preview(RUN_PREVIEW_INDEX).unwrap().component().cloned(),
+            Some(primary_component)
+        );
     }
 
     #[test]
@@ -1346,17 +1344,23 @@ mod tests {
         let (mut session, messages) = session_with_recording_previews();
         let first_component = component("first.slint", "First");
         let second_component = component("second.slint", "Second");
-        session.show_preview(PRIMARY_PREVIEW_INDEX, first_component.clone());
+        session.show_preview(PRIMARY_PREVIEW_INDEX, first_component.clone(), None);
         run_preview(&mut session);
         clear_messages(&messages);
 
-        session.show_preview(PRIMARY_PREVIEW_INDEX, second_component.clone());
+        session.show_preview(PRIMARY_PREVIEW_INDEX, second_component.clone(), None);
 
-        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(first_component));
+        assert_eq!(
+            session.preview(RUN_PREVIEW_INDEX).unwrap().component().cloned(),
+            Some(first_component)
+        );
         assert!(messages[RUN_PREVIEW_INDEX].borrow().is_empty());
 
         run_preview(&mut session);
-        assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(second_component));
+        assert_eq!(
+            session.preview(RUN_PREVIEW_INDEX).unwrap().component().cloned(),
+            Some(second_component)
+        );
     }
 
     #[test]
@@ -1370,6 +1374,7 @@ mod tests {
         session.show_preview(
             PRIMARY_PREVIEW_INDEX,
             PreviewComponent { url: url.clone(), component: Some("Main".into()) },
+            None,
         );
         run_preview(&mut session);
         clear_messages(&messages);
