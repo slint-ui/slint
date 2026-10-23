@@ -110,10 +110,10 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  key: x-visual-editor-v1-rust
+                  key: x-visual-editor-v2-rust
                   save_if: ${{ github.ref == 'refs/heads/master' }}
             - name: Test the visual editor
-              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
+              run: cargo test --locked --profile editor-test -p slint-editor --all-features --features slint/mcp --timings
             - uses: actions/setup-python@v7
               if: matrix.run_ui_tests
               with:
@@ -139,16 +139,13 @@ jobs:
                   uv run --no-sync ty check
                   uv run --no-sync ruff check
                   uv run --no-sync ruff format --check
-            - name: Build the visual editor UI test binary
-              if: matrix.run_ui_tests
-              run: cargo build --release --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
                   RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
-                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/release/slint-editor
+                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/editor-test/slint-editor
               run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
 
             - name: Upload UI test failure diagnostics

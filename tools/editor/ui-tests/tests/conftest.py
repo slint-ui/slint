@@ -15,7 +15,12 @@ from ui_reporting import TestReport, current_report
 UI_TEST_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = UI_TEST_ROOT.parents[2]
 FIXTURE_PROJECT = UI_TEST_ROOT / "fixtures" / "editor-project"
-DEFAULT_EDITOR_BINARY = REPOSITORY_ROOT / "target" / "release" / "slint-editor"
+DEFAULT_EDITOR_BINARY = (
+    REPOSITORY_ROOT
+    / os.environ.get("CARGO_TARGET_DIR", "target")
+    / "editor-test"
+    / "slint-editor"
+)
 
 
 @pytest.fixture

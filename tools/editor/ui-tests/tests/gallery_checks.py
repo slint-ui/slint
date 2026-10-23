@@ -50,7 +50,7 @@ def gallery_binary(editor_binary: Path) -> Path:
         )
     )
     assert binary.is_file(), (
-        f"Build with cargo build -p slint-editor --example gallery --features system-testing: {binary}"
+        f"Build with cargo build --profile editor-test -p slint-editor --example gallery --features system-testing: {binary}"
     )
     return binary
 

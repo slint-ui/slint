@@ -23,12 +23,26 @@
   Run `mise run ci:autofix:fix` and CI's strict Clippy check.
   Report failures and remaining skips.
 
-Build the UI test binary from the repository root:
+Use the `editor-test` profile for Rust tests and the UI test binary.
+It keeps release optimizations and uses unwinding for both, so they share compiled dependencies.
+Distribution builds continue to use the `release` profile.
+
+Run Rust tests from the repository root:
 
 ```sh
 SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
-  cargo build --release --locked -p slint-editor --all-features --features slint/mcp
+  cargo test --locked --profile editor-test -p slint-editor --all-features --features slint/mcp
 ```
+
+The Rust test command also builds the editor and gallery executables used by UI tests.
+To build them without running Rust tests:
+
+```sh
+SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+  cargo build --locked --profile editor-test -p slint-editor --all-features --features slint/mcp --bin slint-editor --example gallery
+```
+
+After running Rust tests, reuse those executables without another Cargo build.
 
 From `tools/editor/ui-tests`, use its installed test environment:
 
@@ -36,7 +50,8 @@ From `tools/editor/ui-tests`, use its installed test environment:
 SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh
 ```
 
-Set `SLINT_EDITOR_BINARY` when using a different build profile or output directory.
+The UI tests use `target/editor-test/slint-editor` by default and respect `CARGO_TARGET_DIR`.
+Set `SLINT_EDITOR_BINARY` to override the executable path.
 Use [CI](../../.github/workflows/ci.yaml) for current Rust test and lint commands.
 
 ## Retrying Assertions
