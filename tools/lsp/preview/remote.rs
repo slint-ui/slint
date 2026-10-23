@@ -135,7 +135,77 @@ fn report_manual_entry_error(api_weak: &slint::Weak<Api<'static>>, message: &str
     });
 }
 
-use i_slint_editor_preview::remote_client::parse_host_port;
+#[derive(Debug, PartialEq, Eq)]
+enum HostPortError {
+    Empty,
+    BareIpv6,
+    ExtraColons,
+    MissingPort,
+    InvalidPort,
+    InvalidHost,
+}
+
+impl HostPortError {
+    fn message(&self) -> &'static str {
+        match self {
+            HostPortError::Empty => "Enter a host and port",
+            HostPortError::BareIpv6 => "IPv6 addresses must be bracketed, e.g. [::1]:1234",
+            HostPortError::ExtraColons => "Too many `:` characters; expected host:port",
+            HostPortError::MissingPort => "Missing `:port`",
+            HostPortError::InvalidPort => "Port must be a number between 1 and 65535",
+            HostPortError::InvalidHost => "Host is empty",
+        }
+    }
+}
+
+/// Parse `host:port` or `[ipv6]:port` into a `(host, port)` pair.
+///
+/// `std::net::SocketAddr::from_str` rejects anything that isn't an IP, and
+/// `url::Url::parse` collapses every rejection into a single `ParseError`.
+/// We want to accept a hostname like `phone.local:1234` and surface typed
+/// errors verbatim in the dialog, so we parse by hand.
+fn parse_host_port(input: &str) -> Result<(String, u16), HostPortError> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err(HostPortError::Empty);
+    }
+    if let Some(rest) = trimmed.strip_prefix('[') {
+        let end = rest.find(']').ok_or(HostPortError::MissingPort)?;
+        let host = &rest[..end];
+        if host.is_empty() {
+            return Err(HostPortError::InvalidHost);
+        }
+        let after = &rest[end + 1..];
+        let port_str = after.strip_prefix(':').ok_or(HostPortError::MissingPort)?;
+        let port = port_str.parse::<u16>().map_err(|_| HostPortError::InvalidPort)?;
+        if port == 0 {
+            return Err(HostPortError::InvalidPort);
+        }
+        return Ok((format!("[{host}]"), port));
+    }
+    // Bracketed IPv6 is the only legitimate way to have more than one `:`.
+    // Bare `::1` etc. is a common typo and gets its own dedicated message;
+    // anything else with extra colons (`host:8080:9000`) is ExtraColons.
+    let colon_count = trimmed.bytes().filter(|&b| b == b':').count();
+    if colon_count == 0 {
+        return Err(HostPortError::MissingPort);
+    }
+    if colon_count > 1 {
+        if trimmed.contains("::") {
+            return Err(HostPortError::BareIpv6);
+        }
+        return Err(HostPortError::ExtraColons);
+    }
+    let (host, port_str) = trimmed.split_once(':').unwrap();
+    if host.is_empty() {
+        return Err(HostPortError::InvalidHost);
+    }
+    let port = port_str.parse::<u16>().map_err(|_| HostPortError::InvalidPort)?;
+    if port == 0 {
+        return Err(HostPortError::InvalidPort);
+    }
+    Ok((host.to_owned(), port))
+}
 
 /// Lives in [`crate::preview::PREVIEW_STATE`] (thread-local), so a `RefCell` is enough.
 #[derive(Default)]

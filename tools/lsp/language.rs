@@ -106,17 +106,23 @@ pub fn send_requested_state_to_preview(
         send_files_to_preview(ctx, files);
     }
 
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    ))]
     for name in settings {
-        #[cfg(not(target_arch = "wasm32"))]
-        let contents =
-            i_slint_editor_preview::settings_store::load("lsp", name).unwrap_or_default();
-        #[cfg(target_arch = "wasm32")]
-        let contents = String::new();
-        ctx.session
-            .primary_preview()
-            .to_preview
-            .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
+        if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
+            ctx.session
+                .primary_preview()
+                .to_preview
+                .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
+        }
     }
+    #[cfg(not(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    )))]
+    let _ = settings;
 }
 
 /// Persist a settings blob received from the preview. The payload is opaque to

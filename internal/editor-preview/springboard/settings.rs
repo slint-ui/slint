@@ -43,50 +43,11 @@ pub(super) struct SpringboardSettings {
     version: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) last_selected: Option<NamedEndpointIdentity>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_devices",
-        skip_serializing_if = "Vec::is_empty"
-    )]
-    pub(super) devices: Vec<SavedDevice>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub(super) struct SavedDevice {
-    pub id: String,
-    #[serde(default)]
-    pub name: String,
-    #[serde(default)]
-    pub addresses: Vec<String>,
-    #[serde(default)]
-    pub port: u16,
-}
-
-fn deserialize_devices<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<SavedDevice>, D::Error> {
-    use serde::Deserialize;
-    let entries = Vec::<serde_json::Value>::deserialize(deserializer)?;
-    Ok(entries
-        .into_iter()
-        .filter_map(|entry| match serde_json::from_value::<SavedDevice>(entry) {
-            Ok(mut device) if !device.id.is_empty() => {
-                if device.name.is_empty() {
-                    device.name = device.id.clone();
-                }
-                Some(device)
-            }
-            _ => {
-                tracing::warn!("Ignoring malformed saved device");
-                None
-            }
-        })
-        .collect())
 }
 
 impl SpringboardSettings {
     pub(super) fn new(last_selected: Option<NamedEndpointIdentity>) -> Self {
-        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected, devices: Vec::new() }
+        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected }
     }
 
     pub(super) fn serialize(&self) -> String {
@@ -101,9 +62,6 @@ impl SpringboardSettings {
     /// A blob written by another version is used as far as it parses, so a
     /// setting that version does not know about is the only thing lost.
     pub(super) fn deserialize(contents: &str) -> Option<Self> {
-        if contents.is_empty() {
-            return Some(Self::new(None));
-        }
         match serde_json::from_str::<Self>(contents) {
             Ok(settings) => {
                 if settings.version != SPRINGBOARD_SETTINGS_VERSION {

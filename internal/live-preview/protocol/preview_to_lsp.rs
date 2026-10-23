@@ -34,7 +34,7 @@ pub enum PreviewToLspMessage {
     /// Request all documents and configuration to be sent from the LSP to the
     /// Preview. `settings` names the user-settings files the preview wants
     /// restored; the LSP replies with a
-    /// [`super::LspToPreviewMessage::SetUserSettings`] for each requested file, with empty contents when it is absent.
+    /// [`super::LspToPreviewMessage::SetUserSettings`] for each one that exists.
     RequestState {
         #[serde(default)]
         files: Vec<Url>,

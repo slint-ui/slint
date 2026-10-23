@@ -12,7 +12,6 @@ pub(super) struct DiscoveredViewer {
     pub addresses: Vec<String>,
     pub port: u16,
     pub unavailable_reason: String,
-    pub version_mismatch: String,
 }
 
 #[derive(Debug)]
@@ -89,15 +88,6 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
             "Viewer pre-dates protocol versioning; Springboard speaks {PROTOCOL_SUBPROTOCOL} (Slint {SLINT_VERSION})"
         ),
     };
-    let version_mismatch = if unavailable_reason.is_empty() {
-        String::new()
-    } else {
-        viewer
-            .txt_properties
-            .get_property_val_str(TXT_SLINT_VERSION_KEY)
-            .unwrap_or("unknown")
-            .to_owned()
-    };
     let mut addresses: Vec<_> = viewer
         .addresses
         .into_iter()
@@ -122,7 +112,6 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
         addresses,
         port: viewer.port,
         unavailable_reason,
-        version_mismatch,
     }
 }
 

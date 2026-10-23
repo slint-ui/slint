@@ -42,8 +42,7 @@ pub enum LspToPreviewMessage {
     /// Deliver a stored user-settings blob to the preview. The LSP treats the
     /// payload opaquely: `name` is the settings file name the preview asked for
     /// via [`super::PreviewToLspMessage::RequestState`], `contents` is the raw
-    /// serialized string read from disk, or empty when the file is absent.
-    /// The preview owns (de)serialization.
+    /// serialized string read from disk. The preview owns (de)serialization.
     SetUserSettings {
         name: String,
         contents: String,

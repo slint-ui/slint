@@ -26,17 +26,8 @@ mod remote;
 mod remote_connection;
 mod settings;
 use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
-use remote_connection::{ConnectionError, ConnectionEvent, RemoteConnection};
-use settings::{
-    NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SavedDevice, SpringboardSettings,
-};
-
-type ViewerProbe =
-    Pin<Box<dyn std::future::Future<Output = Result<DiscoveredViewer, ConnectionError>>>>;
-type SavedProbes = Pin<Box<dyn std::future::Future<Output = Vec<(String, bool)>>>>;
-
-const LOCAL_ENDPOINT_ID: &str = "local";
-const UNAVAILABLE: &str = "Unavailable";
+use remote_connection::{ConnectionEvent, RemoteConnection};
+use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
@@ -81,7 +72,6 @@ struct SpringboardTask {
     state: ui::SpringboardState,
     connection_state: ui::ConnectionState,
     pairing_code_digits: u8,
-    pairing_in_progress: bool,
     error: String,
     preview: Option<Endpoint>,
     highlight: Option<LspToPreviewMessage>,
@@ -94,12 +84,6 @@ struct SpringboardTask {
     /// the user isn't selected again when discovery re-advertises it.
     last_selected: Option<NamedEndpointIdentity>,
     credentials: HashMap<String, PairingCredentials>,
-    saved_devices: Vec<SavedDevice>,
-    settings_loaded: bool,
-    probe: Option<ViewerProbe>,
-    saved_probes: Option<SavedProbes>,
-    found_device: Option<DiscoveredViewer>,
-    search_error: Option<ConnectionError>,
     #[cfg(test)]
     discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
 }
@@ -117,34 +101,9 @@ impl Springboard {
         let select_handle = handle.clone();
         let code_handle = handle.clone();
         let consent_handle = handle.clone();
-        let manager_handle = handle.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
             global.on_close(move || close_handle.close());
-            let pairing_handle = select_handle.clone();
-            global.on_select_endpoint(move |index| select_handle.select_displayed(index, false));
-            global.on_pair_endpoint(move |index| pairing_handle.select_displayed(index, true));
-            let handle = manager_handle.clone();
-            global.on_search_address(move |address| {
-                let _ = handle
-                    .task_sender
-                    .send(Box::new(move |task| task.search_address(address.as_str())));
-            });
-            let handle = manager_handle.clone();
-            global.on_connect_found_device(move || {
-                let _ = handle.task_sender.send(Box::new(|task| task.connect_found_device()));
-            });
-            let handle = manager_handle.clone();
-            global.on_forget_device(move |id| {
-                let _ =
-                    handle.task_sender.send(Box::new(move |task| task.forget_device(id.as_str())));
-            });
-            let handle = manager_handle.clone();
-            global.on_discover_devices(move || {
-                let _ = handle.task_sender.send(Box::new(|task| task.start_discovery()));
-            });
-            global.on_cancel_pairing(move || {
-                let _ = manager_handle.task_sender.send(Box::new(|task| task.cancel_pairing()));
-            });
+            global.on_select_endpoint(move |index| select_handle.select_displayed(index));
             global.on_submit_pairing_code(move |code| {
                 let code = code.trim().to_owned();
                 let _ = code_handle
@@ -165,7 +124,6 @@ impl Springboard {
             state: ui::SpringboardState::Stopped,
             connection_state: ui::ConnectionState::None,
             pairing_code_digits: 0,
-            pairing_in_progress: false,
             error: String::new(),
             preview: None,
             highlight: None,
@@ -175,12 +133,6 @@ impl Springboard {
             selected: None,
             last_selected: None,
             credentials: HashMap::new(),
-            saved_devices: Vec::new(),
-            settings_loaded: false,
-            probe: None,
-            saved_probes: None,
-            found_device: None,
-            search_error: None,
             #[cfg(test)]
             discovery_receiver: None,
         };
@@ -189,30 +141,17 @@ impl Springboard {
         handle
     }
 
-    fn select_displayed(&self, index: i32, pairing: bool) {
+    fn select_displayed(&self, index: i32) {
         let endpoint = usize::try_from(index)
             .ok()
             .and_then(|index| self.displayed_endpoints.lock().unwrap().get(index).cloned());
         if let Some(endpoint) = endpoint {
-            let _ = self.task_sender.send(Box::new(move |task| {
-                task.start();
-                task.select_endpoint(endpoint);
-                if pairing && task.connection_state == ui::ConnectionState::Connecting {
-                    task.pairing_in_progress = true;
-                }
-            }));
+            let _ = self.task_sender.send(Box::new(move |task| task.select_endpoint(endpoint)));
         }
     }
 
     pub fn start(&self) {
         let _ = self.task_sender.send(Box::new(|task| task.start()));
-    }
-
-    pub fn start_local(&self) {
-        let _ = self.task_sender.send(Box::new(|task| {
-            task.start();
-            task.select_endpoint(EndpointIdentity::Local);
-        }));
     }
 
     pub fn close(&self) {
@@ -256,37 +195,6 @@ impl SpringboardTask {
                         None => self.fail_endpoint("Preview connection ended unexpectedly".into()),
                     }
                 }
-                result = async {
-                    match &mut self.probe {
-                        Some(probe) => probe.await,
-                        None => std::future::pending().await,
-                    }
-                } => {
-                    self.probe = None;
-                    match result {
-                        Ok(viewer) => self.found_device = Some(viewer),
-                        Err(error) => self.search_error = Some(error),
-                    }
-                    self.update_ui();
-                }
-                results = async {
-                    match &mut self.saved_probes {
-                        Some(probes) => probes.await,
-                        None => std::future::pending().await,
-                    }
-                } => {
-                    self.saved_probes = None;
-                    for (id, available) in results {
-                        if self.selected == Some(EndpointIdentity::Remote(id.clone()))
-                            && self.connection_state == ui::ConnectionState::Connected { continue; }
-                        if let Some(viewer) = self.viewers.iter_mut().find(|viewer| viewer.fullname == id) {
-                            viewer.unavailable_reason = if available { String::new() } else { UNAVAILABLE.into() };
-                            if available { viewer.version_mismatch.clear(); }
-                        }
-                    }
-                    self.apply_last_selected();
-                    self.update_ui();
-                }
                 event = async {
                     match &self.discovery {
                         Some(discovery) => discovery.next_event().await,
@@ -313,14 +221,6 @@ impl SpringboardTask {
         }
         self.state = ui::SpringboardState::Idle;
         self.request_last_selected();
-        self.start_discovery();
-    }
-
-    fn start_discovery(&mut self) {
-        self.refresh_manual_devices();
-        if self.discovery.is_some() {
-            return;
-        }
         #[cfg(test)]
         if let Some(receiver) = &self.discovery_receiver {
             self.discovery = Some(Discovery::from_receiver(receiver.clone()));
@@ -341,6 +241,12 @@ impl SpringboardTask {
                 if let Some(existing) =
                     self.viewers.iter_mut().find(|existing| existing.fullname == viewer.fullname)
                 {
+                    if existing == &viewer {
+                        // Already known and unchanged, but it may still be the
+                        // endpoint the last session used.
+                        self.apply_last_selected();
+                        return;
+                    }
                     *existing = viewer;
                 } else {
                     self.viewers.push(viewer);
@@ -350,36 +256,28 @@ impl SpringboardTask {
             DiscoveryEvent::Removed(fullname) => {
                 self.advertised.remove(&fullname);
                 if self.selected == Some(EndpointIdentity::Remote(fullname.clone())) {
-                    self.mark_unadvertised_selected();
-                    self.update_ui();
+                    if self.mark_unadvertised_selected() {
+                        self.update_ui();
+                    }
                     return;
                 }
-                if let Some(viewer) =
-                    self.viewers.iter_mut().find(|viewer| viewer.fullname == fullname)
-                    && self.saved_devices.iter().any(|saved| saved.id == fullname)
-                {
-                    viewer.unavailable_reason = UNAVAILABLE.into();
-                } else {
-                    self.viewers.retain(|viewer| viewer.fullname != fullname);
-                }
+                self.viewers.retain(|viewer| viewer.fullname != fullname);
             }
         }
         self.update_ui();
     }
 
-    fn mark_unadvertised_selected(&mut self) {
-        let Some(EndpointIdentity::Remote(fullname)) = &self.selected else { return };
-        if self.preview.is_some()
-            || self.advertised.contains(fullname)
-            || fullname.starts_with("manual:")
-        {
-            return;
+    fn mark_unadvertised_selected(&mut self) -> bool {
+        let Some(EndpointIdentity::Remote(fullname)) = &self.selected else { return false };
+        if self.preview.is_some() || self.advertised.contains(fullname) {
+            return false;
         }
         let Some(viewer) = self.viewers.iter_mut().find(|viewer| &viewer.fullname == fullname)
         else {
-            return;
+            return false;
         };
         viewer.unavailable_reason = "Viewer is no longer advertised".into();
+        true
     }
 
     #[cfg(test)]
@@ -404,7 +302,8 @@ impl SpringboardTask {
         {
             return;
         }
-        // Discovery or a manual probe must confirm that a remote endpoint is usable.
+        // A remote endpoint is only selectable once discovery reported a usable
+        // address for it, and the same report is what names it.
         let (viewer, named) = match &identity {
             EndpointIdentity::Local => (None, NamedEndpointIdentity::Local),
             EndpointIdentity::Remote(fullname) => {
@@ -427,13 +326,11 @@ impl SpringboardTask {
             }
         };
         self.preview = None;
-        self.pairing_in_progress = false;
         self.selected = Some(identity.clone());
         self.store_last_selected(named);
         self.error.clear();
         self.viewers.retain(|viewer| {
             self.advertised.contains(&viewer.fullname)
-                || self.saved_devices.iter().any(|saved| saved.id == viewer.fullname)
                 || self.selected == Some(EndpointIdentity::Remote(viewer.fullname.clone()))
         });
         if let Some(viewer) = viewer {
@@ -474,7 +371,6 @@ impl SpringboardTask {
                     return;
                 };
                 *pairing_answer = Some(answer);
-                self.pairing_in_progress = true;
                 match prompt {
                     PairingPrompt::Code { attempts_left, expires_in_seconds, code_digits } => {
                         self.connection_state = ui::ConnectionState::PairingRequired;
@@ -508,8 +404,6 @@ impl SpringboardTask {
             }
             ConnectionEvent::Connected => {
                 self.connection_state = ui::ConnectionState::Connected;
-                self.pairing_in_progress = false;
-                self.save_selected_device();
                 if let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview {
                     *pairing_answer = None;
                 }
@@ -546,7 +440,6 @@ impl SpringboardTask {
 
     fn fail_endpoint(&mut self, error: String) {
         self.preview = None;
-        self.pairing_in_progress = false;
         self.error = error;
         if matches!(self.selected, Some(EndpointIdentity::Remote(_))) {
             self.connection_state = ui::ConnectionState::Failed;
@@ -588,28 +481,13 @@ impl SpringboardTask {
     }
 
     fn close(&mut self) {
-        let mut remembered = self.named_selection();
-        if let Some(NamedEndpointIdentity::Remote { fullname, .. }) = &remembered
-            && !self.saved_devices.iter().any(|saved| &saved.id == fullname)
-        {
-            remembered = Some(NamedEndpointIdentity::Local);
-            self.persist_settings(remembered.clone());
-        }
         self.error.clear();
         self.preview = None;
-        self.pairing_in_progress = false;
         self.discovery = None;
-        self.probe = None;
-        self.saved_probes = None;
-        self.found_device = None;
-        self.viewers
-            .retain(|viewer| self.saved_devices.iter().any(|saved| saved.id == viewer.fullname));
-        for viewer in &mut self.viewers {
-            viewer.unavailable_reason = UNAVAILABLE.into();
-        }
+        self.viewers.clear();
         self.advertised.clear();
         self.selected = None;
-        self.last_selected = remembered;
+        self.last_selected = None;
         self.state = ui::SpringboardState::Stopped;
         self.connection_state = ui::ConnectionState::None;
         self.update_ui();
@@ -629,25 +507,25 @@ impl SpringboardTask {
     /// The display name travels with the identity, see [`NamedEndpointIdentity`].
     fn store_last_selected(&mut self, last_selected: NamedEndpointIdentity) {
         self.last_selected = None;
-        self.persist_settings(Some(last_selected));
-    }
-
-    fn persist_settings(&self, last_selected: Option<NamedEndpointIdentity>) {
-        if !self.settings_loaded {
-            return;
-        }
-        let mut settings = SpringboardSettings::new(last_selected);
-        settings.devices = self.saved_devices.clone();
+        let settings = SpringboardSettings::new(Some(last_selected));
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
             contents: settings.serialize(),
         });
     }
 
+    /// Preselect the endpoint the last session connected to, so the user does
+    /// not have to click it again.
+    ///
+    /// A no-op until both facts are known: the stored selection, and that the
+    /// endpoint is usable. `Local` is always usable; a remote viewer only once a
+    /// discovery report carried a usable address, which is the same condition
+    /// that makes its row clickable (`unavailable_reason` is what disables it).
+    /// Callers are the two places where one of those facts can arrive last:
+    /// the settings branch of [`Self::send`], and [`Self::handle_discovery`].
+    ///
+    /// Fires at most once per run, see `last_selected`.
     fn apply_last_selected(&mut self) {
-        if self.state == ui::SpringboardState::Stopped {
-            return;
-        }
         let Some(last_selected) = &self.last_selected else { return };
         let available = match last_selected {
             NamedEndpointIdentity::Local => true,
@@ -672,35 +550,11 @@ impl SpringboardTask {
         {
             // A reply that arrives after the user already selected, or after the
             // run ended, must not take the selection back.
-            if !self.settings_loaded || self.state == ui::SpringboardState::Idle {
-                let already_selected = self.selected.is_some();
-                self.settings_loaded = false;
-                if let Some(settings) = SpringboardSettings::deserialize(contents) {
-                    self.settings_loaded = true;
-                    for saved in settings.devices {
-                        if !self.saved_devices.iter().any(|device| device.id == saved.id) {
-                            if !self.viewers.iter().any(|viewer| viewer.fullname == saved.id) {
-                                self.viewers.push(DiscoveredViewer {
-                                    fullname: saved.id.clone(),
-                                    name: saved.name.clone(),
-                                    addresses: saved.addresses.clone(),
-                                    port: saved.port,
-                                    unavailable_reason: UNAVAILABLE.into(),
-                                    version_mismatch: String::new(),
-                                });
-                            }
-                            self.saved_devices.push(saved);
-                        }
-                    }
-                    if self.state == ui::SpringboardState::Idle {
-                        self.last_selected = settings.last_selected;
-                        self.apply_last_selected();
-                    }
-                }
-                if already_selected {
-                    self.persist_settings(self.named_selection());
-                }
-                self.refresh_manual_devices();
+            if self.state == ui::SpringboardState::Idle
+                && let Some(settings) = SpringboardSettings::deserialize(contents)
+            {
+                self.last_selected = settings.last_selected;
+                self.apply_last_selected();
                 self.update_ui();
             }
             return;
@@ -728,135 +582,6 @@ impl SpringboardTask {
         }
     }
 
-    fn named_selection(&self) -> Option<NamedEndpointIdentity> {
-        match &self.selected {
-            Some(EndpointIdentity::Local) => Some(NamedEndpointIdentity::Local),
-            Some(EndpointIdentity::Remote(id)) => {
-                self.viewers.iter().find(|viewer| &viewer.fullname == id).map(|viewer| {
-                    NamedEndpointIdentity::Remote {
-                        fullname: id.clone(),
-                        name: viewer.name.clone(),
-                    }
-                })
-            }
-            None => self.last_selected.clone(),
-        }
-    }
-
-    fn refresh_manual_devices(&mut self) {
-        let viewers: Vec<_> = self
-            .viewers
-            .iter()
-            .filter(|viewer| {
-                self.saved_devices
-                    .iter()
-                    .any(|saved| saved.id.starts_with("manual:") && saved.id == viewer.fullname)
-                    && !(self.selected == Some(EndpointIdentity::Remote(viewer.fullname.clone()))
-                        && self.connection_state == ui::ConnectionState::Connected)
-            })
-            .cloned()
-            .collect();
-        if viewers.is_empty() {
-            return;
-        }
-        self.saved_probes = Some(Box::pin(async move {
-            futures_util::future::join_all(viewers.into_iter().map(|viewer| async move {
-                let id = viewer.fullname.clone();
-                (id, remote_connection::probe(viewer).await.is_ok())
-            }))
-            .await
-        }));
-    }
-
-    fn save_selected_device(&mut self) {
-        let Some(EndpointIdentity::Remote(id)) = &self.selected else { return };
-        let Some(viewer) = self.viewers.iter().find(|viewer| &viewer.fullname == id) else {
-            return;
-        };
-        let saved = SavedDevice {
-            id: id.clone(),
-            name: viewer.name.clone(),
-            addresses: viewer.addresses.clone(),
-            port: viewer.port,
-        };
-        if let Some(existing) = self.saved_devices.iter_mut().find(|device| &device.id == id) {
-            *existing = saved;
-        } else {
-            self.saved_devices.push(saved);
-        }
-        self.persist_settings(self.named_selection());
-    }
-
-    fn forget_device(&mut self, id: &str) {
-        if !self.saved_devices.iter().any(|device| device.id == id) {
-            return;
-        }
-        self.saved_devices.retain(|device| device.id != id);
-        self.credentials.remove(id);
-        if self.selected == Some(EndpointIdentity::Remote(id.into())) {
-            self.select_endpoint(EndpointIdentity::Local);
-        }
-        if matches!(&self.last_selected, Some(NamedEndpointIdentity::Remote { fullname, .. }) if fullname == id)
-        {
-            self.last_selected = None;
-        }
-        if !self.advertised.contains(id) {
-            self.viewers.retain(|viewer| viewer.fullname != id);
-        }
-        self.persist_settings(self.named_selection());
-        self.update_ui();
-    }
-
-    fn search_address(&mut self, address: &str) {
-        self.probe = None;
-        self.found_device = None;
-        self.search_error = None;
-        if !address.is_empty() {
-            match crate::remote_client::parse_host_port(address) {
-                Ok((host, port)) => {
-                    let viewer = self
-                        .viewers
-                        .iter()
-                        .find(|viewer| viewer.port == port && viewer.addresses.contains(&host))
-                        .cloned()
-                        .unwrap_or_else(|| DiscoveredViewer {
-                            fullname: format!("manual:{host}:{port}"),
-                            name: format!("Viewer at {host}"),
-                            addresses: vec![host],
-                            port,
-                            unavailable_reason: String::new(),
-                            version_mismatch: String::new(),
-                        });
-                    self.probe = Some(Box::pin(remote_connection::probe(viewer)));
-                }
-                Err(error) => self.search_error = Some(error.message().to_owned().into()),
-            }
-        }
-        self.update_ui();
-    }
-
-    fn connect_found_device(&mut self) {
-        let Some(mut viewer) = self.found_device.take() else { return };
-        viewer.unavailable_reason.clear();
-        viewer.version_mismatch.clear();
-        let id = viewer.fullname.clone();
-        if let Some(existing) = self.viewers.iter_mut().find(|viewer| viewer.fullname == id) {
-            *existing = viewer;
-        } else {
-            self.viewers.push(viewer);
-        }
-        self.start();
-        self.select_endpoint(EndpointIdentity::Remote(id));
-        self.pairing_in_progress = self.connection_state == ui::ConnectionState::Connecting;
-    }
-
-    fn cancel_pairing(&mut self) {
-        self.search_address("");
-        if self.pairing_in_progress {
-            self.select_endpoint(EndpointIdentity::Local);
-        }
-    }
-
     fn selected_index(&self) -> i32 {
         match &self.selected {
             Some(EndpointIdentity::Local) => 0,
@@ -878,26 +603,6 @@ impl SpringboardTask {
         let connection = self.connection_state;
         let pairing_code_digits = self.pairing_code_digits;
         let error = self.error.clone();
-        let saved = self.saved_devices.clone();
-        let advertised = self.advertised.clone();
-        let search_state = if self.probe.is_some() {
-            ui::ViewerSearchState::Searching
-        } else if self.found_device.is_some() {
-            ui::ViewerSearchState::Found
-        } else if let Some(error) = &self.search_error {
-            if error.incompatible_version.is_some() {
-                ui::ViewerSearchState::Incompatible
-            } else {
-                ui::ViewerSearchState::Failed
-            }
-        } else {
-            ui::ViewerSearchState::Idle
-        };
-        let search_viewer_version = self
-            .search_error
-            .as_ref()
-            .and_then(|error| error.incompatible_version.clone())
-            .unwrap_or_default();
         // Only a remembered viewer has a name to show. Local is started on
         // demand and has no discovery report to name it.
         let last_selected_name = match &self.last_selected {
@@ -912,42 +617,29 @@ impl SpringboardTask {
             );
             *mapping.lock().unwrap() = identities;
             let mut endpoints = vec![ui::PreviewEndpoint {
-                id: LOCAL_ENDPOINT_ID.into(),
-                saved: true,
-                nearby: false,
-                address: "This computer".into(),
+                id: "local".into(),
                 name: "Local".into(),
                 kind: ui::PreviewEndpointKind::Local,
-                unavailable_reason: "".into(),
-                version_mismatch: "".into(),
+                saved: true,
+                ..Default::default()
             }];
-            endpoints.extend(viewers.into_iter().map(|viewer| {
-                ui::PreviewEndpoint {
-                    saved: saved.iter().any(|saved| saved.id == viewer.fullname),
-                    nearby: advertised.contains(&viewer.fullname),
-                    id: viewer.fullname.into(),
-                    address: viewer
-                        .addresses
-                        .first()
-                        .map(|address| format!("{address}:{}", viewer.port))
-                        .unwrap_or_default()
-                        .into(),
-                    name: viewer.name.into(),
-                    kind: ui::PreviewEndpointKind::Remote,
-                    unavailable_reason: viewer.unavailable_reason.into(),
-                    version_mismatch: viewer.version_mismatch.into(),
-                }
+            endpoints.extend(viewers.into_iter().map(|viewer| ui::PreviewEndpoint {
+                id: viewer.fullname.into(),
+                name: viewer.name.into(),
+                kind: ui::PreviewEndpointKind::Remote,
+                address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
+                unavailable_reason: viewer.unavailable_reason.into(),
+                saved: true,
+                nearby: true,
+                ..Default::default()
             }));
+            global.set_saved_count(endpoints.len() as i32);
             global.set_endpoints(ModelRc::new(slint::VecModel::from(endpoints)));
-            global.set_saved_count(1 + saved.len() as i32);
             global.set_selected_endpoint_index(selected);
             global.set_state(state);
             global.set_connection_state(connection);
             global.set_pairing_code_digits(pairing_code_digits.into());
             global.set_error_message(error.into());
-            global.set_search_state(search_state);
-            global.set_search_viewer_version(search_viewer_version.into());
-            global.set_editor_version(i_slint_live_preview::protocol::SLINT_VERSION.into());
         });
     }
 }
