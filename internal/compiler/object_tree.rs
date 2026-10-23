@@ -2365,7 +2365,7 @@ impl Element {
 
     /// The base component whose root element declares `name`, if any. `None` when the member comes
     /// from a builtin element or doesn't exist.
-    fn declaring_base_component(&self, name: &str) -> Option<Rc<Component>> {
+    pub(crate) fn declaring_base_component(&self, name: &str) -> Option<Rc<Component>> {
         let mut base = self.base_type.clone();
         loop {
             let (ElementType::Component(c) | ElementType::Interface(Some(c))) = base else {
