@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component WidthDependentStyle inherits Window {
+    VerticalLayout {
+        StyledText {
+            text: @markdown("One\nTwo");
+            default-style: { line-height-factor: self.width / 100px };
+        }
+    }
+}
+
+export component HeightDependentStyle inherits Window {
+    StyledText {
+        text: @markdown("One");
+        default-style: { line-height-factor: self.height / 100px };
+//                     >                                          <error{The binding for the property 'default-style' is part of a binding loop (StyledText.default-style -> StyledText.preferred-height -> StyledText.height -> StyledText.default-style)}
+    }
+}

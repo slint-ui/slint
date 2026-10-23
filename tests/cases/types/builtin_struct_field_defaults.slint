@@ -7,6 +7,11 @@
 
 export component TestCase {
     ti := TextInput {}
+    styled := StyledText {}
+
+    in-out property <RichTextStyle> style;
+    in-out property <RichTextStyle> empty-style: {};
+    in-out property <RichTextStyle> custom-style: { line-height-factor: 1.5 };
 
     // A property that is never set is initialized with the declared defaults
     in-out property <InputMethodHints> never-set;
@@ -22,7 +27,10 @@ export component TestCase {
         && !opt-out.auto-correct && !opt-out.auto-complete
         && opt-out.capitalization == CapitalizationMode.sentences
         && ti.input-method-hints.auto-correct && ti.input-method-hints.auto-complete
-        && ti.input-method-hints.capitalization == CapitalizationMode.sentences;
+        && ti.input-method-hints.capitalization == CapitalizationMode.sentences
+        && style.line-height-factor == 1 && empty-style.line-height-factor == 1
+        && custom-style.line-height-factor == 1.5
+        && styled.default-style.line-height-factor == 1;
 }
 
 /*
@@ -40,6 +48,18 @@ let mut custom = slint::language::InputMethodHints::default();
 custom.capitalization = slint::language::CapitalizationMode::Words;
 assert!(custom.auto_correct);
 assert!(custom.auto_complete);
+let mut style = slint::language::RichTextStyle::default();
+assert_eq!(style.line_height_factor, 1.0);
+style.line_height_factor = 2.0;
+instance.set_style(style);
+assert_eq!(instance.get_style().line_height_factor, 2.0);
+
+let value = slint_interpreter::Value::from(slint::language::RichTextStyle::default());
+let style = slint::language::RichTextStyle::try_from(value).unwrap();
+assert_eq!(style.line_height_factor, 1.0);
+assert!(slint::language::RichTextStyle::try_from(
+    slint_interpreter::Value::Struct(slint_interpreter::Struct::default())
+).is_err());
 ```
 
 ```cpp
@@ -51,6 +71,11 @@ slint::language::InputMethodHints hints{};
 assert(hints.auto_correct);
 assert(hints.auto_complete);
 assert(hints.capitalization == slint::language::CapitalizationMode::Sentences);
+slint::language::RichTextStyle style{};
+assert(style.line_height_factor == 1.f);
+style.line_height_factor = 2.f;
+instance.set_style(style);
+assert(instance.get_style().line_height_factor == 2.f);
 ```
 
 ```js
@@ -65,6 +90,12 @@ assert.equal(hints.capitalization, "sentences");
 let custom = slintlib.language.InputMethodHints({ capitalization: "words" });
 assert.equal(custom.auto_correct, true);
 assert.equal(custom.auto_complete, true);
+let style = slintlib.language.RichTextStyle();
+assert.equal(style.line_height_factor, 1);
+instance.style = { line_height_factor: 2 };
+assert.equal(instance.style.line_height_factor, 2);
+instance.style = {};
+assert.equal(instance.style.line_height_factor, 1);
 ```
 
 ```python
@@ -72,9 +103,21 @@ instance = TestCase()
 assert instance.test
 
 import slint
+import typing
 hints = slint.language.InputMethodHints()
 assert hints.auto_correct
 assert hints.auto_complete
 assert hints.capitalization == slint.language.CapitalizationMode.sentences
+style = slint.language.RichTextStyle()
+assert style.line_height_factor == 1
+instance.style = slint.language.RichTextStyle(line_height_factor=2)
+assert instance.style.line_height_factor == 2
+instance.style = slint.language.RichTextStyle()
+assert instance.style.line_height_factor == 1
+runtime_instance = typing.cast(typing.Any, instance)
+runtime_instance.style = {"line_height_factor": 2}
+assert instance.style.line_height_factor == 2
+runtime_instance.style = {}
+assert instance.style.line_height_factor == 1
 ```
 */

@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+    default-font-family: "Inter 24pt";
+    default-font-size: 10px;
+    in-out property <length> available-width: 160px;
+    in-out property <int> wrap-mode: 2;
+    in-out property <int> overflow-mode: 0;
+
+    HorizontalLayout {
+        width: root.available-width;
+        height: 100px;
+        styled := StyledText {
+            text: @markdown("One\nTwo");
+            default-style: { line-height-factor: self.width / 100px };
+        }
+    }
+    HorizontalLayout {
+        width: root.available-width;
+        height: 100px;
+        plain := Text {
+            text: "One\nTwo";
+            wrap: root.wrap-mode == 0 ? no-wrap : root.wrap-mode == 1 ? char-wrap : word-wrap;
+            overflow: root.overflow-mode == 0 ? clip : elide;
+            line-height-factor: self.width / 100px;
+        }
+    }
+    HorizontalLayout {
+        width: root.available-width;
+        height: 100px;
+        input := TextInput {
+            text: "One\nTwo";
+            single-line: false;
+            line-height-factor: self.width / 100px;
+        }
+    }
+    VerticalLayout {
+        width: root.available-width;
+        height: 100px;
+        cross-axis-alignment: center;
+        aligned := StyledText {
+            text: @markdown("One\nTwo");
+            default-style: { line-height-factor: self.width / 100px };
+        }
+    }
+    VerticalLayout {
+        width: root.available-width;
+        height: 100px;
+        cross-axis-alignment: center;
+        aligned-plain := Text {
+            text: "One\nTwo";
+            wrap: word-wrap;
+            line-height-factor: self.width / 100px;
+        }
+    }
+
+    out property <length> styled-height: styled.preferred-height;
+    out property <length> plain-height: plain.preferred-height;
+    out property <length> input-height: input.preferred-height;
+    out property <bool> test: styled.width > 0px && plain.width > 0px && input.width > 0px
+        && aligned.width > 0px && aligned-plain.width > 0px
+        && styled-height > 0px && plain-height > 0px && input-height > 0px
+        && aligned.preferred-height > 0px && aligned-plain.preferred-height > 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let styled_height = instance.get_styled_height();
+let plain_height = instance.get_plain_height();
+let input_height = instance.get_input_height();
+instance.set_available_width(320.0);
+assert!(instance.get_test());
+assert!((instance.get_styled_height() - 2.0 * styled_height).abs() < 2.0);
+assert!((instance.get_plain_height() - 2.0 * plain_height).abs() < 2.0);
+assert!((instance.get_input_height() - 2.0 * input_height).abs() < 2.0);
+for wrap in 0..3 {
+    instance.set_wrap_mode(wrap);
+    for overflow in 0..2 {
+        instance.set_overflow_mode(overflow);
+        assert!(instance.get_test());
+    }
+}
+```
+*/
