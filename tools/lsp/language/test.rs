@@ -185,21 +185,23 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.session.primary_preview_mut().to_show =
-        Some(i_slint_live_preview::protocol::PreviewComponent {
-            url: main_url.clone(),
-            component: None,
-        });
-    ctx.session.previews.push(editor_preview::PreviewConnection {
-        to_preview: editor_preview::LspToPreviews::with_one(
-            editor_preview::DummyLspToPreview::default(),
-        ),
-        project_root: Default::default(),
-        to_show: Some(i_slint_live_preview::protocol::PreviewComponent {
+    ctx.session.show_preview(
+        0,
+        i_slint_live_preview::protocol::PreviewComponent { url: main_url.clone(), component: None },
+        None,
+    );
+    ctx.session.previews.push(editor_preview::PreviewConnection::new(
+        editor_preview::LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+    ));
+    ctx.session.show_preview(
+        1,
+        i_slint_live_preview::protocol::PreviewComponent {
             url: secondary_url.clone(),
             component: None,
-        }),
-    });
+        },
+        None,
+    );
+    ctx.session.pending_recompile.clear();
 
     spin_on::spin_on(ctx.session.trigger_file_watcher(dep_url.clone(), FileChangeKind::Changed))
         .unwrap();
@@ -228,7 +230,7 @@ fn request_state_re_sends_only_targeted_files_when_present() {
         r#"export component Main { }"#,
     );
 
-    ctx.session.primary_preview_mut().to_preview = capture;
+    ctx.session.previews[0].to_preview = capture;
     messages.borrow_mut().clear();
 
     crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);
@@ -246,7 +248,7 @@ fn request_state_re_sends_only_targeted_files_when_present() {
 fn request_state_serves_assets_of_the_workspace_folders() {
     let (capture, messages) = preview_capture();
     let mut ctx = mock_context();
-    ctx.session.primary_preview_mut().to_preview = capture;
+    ctx.session.previews[0].to_preview = capture;
     let workspace = tempfile::tempdir().unwrap();
     let logo = workspace.path().join("logo.png");
     std::fs::write(&logo, []).unwrap();

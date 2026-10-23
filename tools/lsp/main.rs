@@ -629,7 +629,7 @@ async fn run_main_loop(
         }
 
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-        if let Err(error) = language::sync_preview_project_root(&ctx.session) {
+        if let Err(error) = language::sync_preview_project_root(&mut ctx.session) {
             tracing::warn!("Failed to sync preview project root: {error}");
         }
         sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
