@@ -79,7 +79,7 @@ jobs:
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
             check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
-            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
+            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'examples')) }}
             test_styles: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && matrix.pr_test_styles || '' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
@@ -272,6 +272,7 @@ jobs:
             - name: Run tests
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
             - name: Run tests with live-preview
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'live_preview_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
               env:
                   SLINT_LIVE_PREVIEW: 1
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
@@ -768,7 +769,7 @@ jobs:
               run: cmake --build build --target todo
 
     ios_cpp:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full }}
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v7
