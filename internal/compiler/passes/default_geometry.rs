@@ -550,7 +550,9 @@ pub(crate) fn fills_parent_by_default(elem: &ElementRc, parent: &ElementRc, name
     let parent_positions_children = parent_type.default_size_binding != DefaultSizeBinding::None
         || matches!(parent_type.name.as_str(), "Empty" | "Window" | "PopupWindow");
     elem_type.default_size_binding == DefaultSizeBinding::ExpandsToParentGeometry
-        && crate::layout::has_no_intrinsic_size(elem_base)
+        && elem_type.constant_layout_info_stretch.is_some()
+        // A Flickable without a size takes its maximum and preferred size from its content.
+        && !super::flickable::is_flickable_element(elem)
         && parent_positions_children
         && !super::flickable::is_flickable_element(parent)
         && !LayoutConstraints::build(elem, None, MergedFixedSize::Ignored)

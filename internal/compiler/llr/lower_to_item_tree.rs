@@ -2051,10 +2051,12 @@ export component TestCase inherits Window {
             "export component Main inherits Window { width: 300px; \
              VerticalLayout { Text { wrap: word-wrap; text: \"a b\"; } } }",
         );
-        assert_eq!(h.matches("ImplicitLayoutInfo").count(), 1, "{h}");
-        assert!(!h.contains("reference: Property("), "{h}");
+        assert!(!h.contains("ImplicitLayoutInfo") && !h.contains("reference: Property("), "{h}");
         // The text is measured at the fixed width, not at the children's horizontal fold.
-        assert!(v.contains("NumberLiteral(300.0)"), "{v}");
+        assert!(
+            v.contains("ImplicitLayoutInfo(Vertical)") && v.contains("NumberLiteral(300.0)"),
+            "{v}"
+        );
         assert!(
             !v.contains("ImplicitLayoutInfo(Horizontal)") && !v.contains("reference: Property("),
             "{v}"

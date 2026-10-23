@@ -51,6 +51,8 @@
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
 //! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
 //! leave the docs of the native items out of the element's.
+//! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
+//! whatever item it lowers to.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
 //! that exists only at compile time and `@sc` one of the Slint SC subset.
@@ -172,6 +174,7 @@ macro_rules! flag {
     ($e:ident expands_to_parent_geometry) => { $e.element.default_size_binding = DefaultSizeBinding::ExpandsToParentGeometry };
     ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
+    ($e:ident constant_layout_info($stretch:literal)) => { $e.element.constant_layout_info_stretch = Some($stretch) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -497,7 +500,7 @@ fn build(l: &mut Loader) {
         }};
     }
     macro_rules! element {
-        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:ident))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
+        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:tt))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
             let mut e = l.element(stringify!($Name), docs!($($d)*));
             $( l.base(&mut e, stringify!($Item)); )?
             $( flag!(e $flag $(($arg))?); )*
@@ -509,7 +512,7 @@ fn build(l: &mut Loader) {
     item! { Empty { } }
 
     element! {
-        @is_internal
+        @is_internal @constant_layout_info(1.)
         Empty: Empty
     }
 
@@ -808,7 +811,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:elements
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         Rectangle: BorderRectangle
     }
 
@@ -1052,7 +1055,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Transform: Transform
     }
 
@@ -1436,7 +1439,7 @@ fn build(l: &mut Loader) {
         /// ```
         /// </NotInSC>
         /// \group:gestures
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         TouchArea: TouchArea
     }
 
@@ -1454,7 +1457,7 @@ fn build(l: &mut Loader) {
         /// KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
         ///
         /// See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
-        @is_non_item_type
+        @is_non_item_type @constant_layout_info(0.)
         KeyBinding: KeyBinding
     }
 
@@ -1551,7 +1554,7 @@ fn build(l: &mut Loader) {
         /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
         /// to deliver the key event to the parent element.
         /// \group:keyboard-input
-        @accepts_focus @expands_to_parent_geometry
+        @accepts_focus @expands_to_parent_geometry @constant_layout_info(1.)
         FocusScope: FocusScope {
             children: KeyBinding;
         }
@@ -1660,7 +1663,7 @@ fn build(l: &mut Loader) {
         /// To bring an element inside the `Flickable` into view, call
         /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         Flickable: Flickable
     }
 
@@ -1766,7 +1769,7 @@ fn build(l: &mut Loader) {
         /// `Slider`'s `changed` and `released` callbacks.
         /// :::
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         SwipeGestureHandler: SwipeGestureHandler
     }
 
@@ -1847,7 +1850,7 @@ fn build(l: &mut Loader) {
         /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
         /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         ScaleRotateGestureHandler: ScaleRotateGestureHandler
     }
 
@@ -1900,7 +1903,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DragArea: DragArea
     }
 
@@ -1935,7 +1938,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DropArea: DropArea
     }
 
@@ -1968,7 +1971,7 @@ fn build(l: &mut Loader) {
 
     element! {
         /// A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         MenuItem: MenuItem
     }
 
@@ -2132,7 +2135,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // The NativeItem, exported as ContextMenuInternal for the style
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         ContextMenuInternal: ContextMenu {
             in property <[MenuEntry]> entries;
         }
@@ -2297,7 +2300,7 @@ fn build(l: &mut Loader) {
         /// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
         /// </NotInSC>
         /// \group:window
-        @sc
+        @sc @constant_layout_info(0.)
         Window: WindowItem {
             children: MenuBar;
         }
@@ -2349,7 +2352,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         WindowMoveArea: WindowMoveArea
     }
 
@@ -2370,7 +2373,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BoxShadow: BoxShadow
     }
 
@@ -2383,7 +2386,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BackdropBlur: BackdropBlur
     }
 
@@ -2556,7 +2559,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Clip: Clip
     }
 
@@ -2566,7 +2569,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Opacity: Opacity
     }
 
@@ -2576,7 +2579,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Layer: Layer
     }
 
@@ -3390,7 +3393,7 @@ fn build(l: &mut Loader) {
         /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
         /// accordingly.
         /// \group:elements
-        @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        @disallow_global_types_as_child_elements @expands_to_parent_geometry @constant_layout_info(1.)
         Path: Path {
             children: MoveTo, LineTo, ArcTo, CubicTo, QuadraticTo, Close;
         }
@@ -3508,7 +3511,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         TooltipArea: TooltipArea
     }
 
@@ -3754,7 +3757,7 @@ fn build(l: &mut Loader) {
         ///
         /// Same as <Link type="Window"/>.
         /// \group:window
-        @skip_inherited
+        @skip_inherited @constant_layout_info(0.)
         Dialog: WindowItem
     }
 
@@ -4352,7 +4355,7 @@ fn build(l: &mut Loader) {
         /// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
         ///
         /// \group:window
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         SystemTrayIcon: SystemTrayIcon {
             children: Menu;
         }
