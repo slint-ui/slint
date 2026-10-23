@@ -55,6 +55,9 @@ wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
 [target.'cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))'.dependencies]
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }
 

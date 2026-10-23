@@ -3583,6 +3583,7 @@ dependencies = [
  "lyon_path",
  "pin-weak",
  "rgb",
+ "slint",
  "wasm-bindgen",
  "web-sys",
  "wgpu 30.0.1",
