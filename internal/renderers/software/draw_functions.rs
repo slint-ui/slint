@@ -232,13 +232,14 @@ pub(super) fn draw_texture_line(
                     for pix in line_buffer {
                         let pos = pos(4).0;
                         let p: &[u8] = &data[pos..pos + 4];
-                        let alpha = ((p[3] as u16 * alpha as u16) / 255) as u8;
-                        if alpha == 0xff {
-                            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                        } else {
-                            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                                alpha, p[0], p[1], p[2],
-                            )));
+                        match ((p[3] as u16 * alpha as u16) / 255) as u8 {
+                            0 => {}
+                            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+                            alpha => {
+                                pix.blend(PremultipliedRgbaColor::premultiply(
+                                    Color::from_argb_u8(alpha, p[0], p[1], p[2]),
+                                ));
+                            }
                         }
                     }
                 } else {
@@ -261,17 +262,24 @@ pub(super) fn draw_texture_line(
                 } else if alpha == 0xff {
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor {
-                            alpha: data[pos + 3],
-                            red: data[pos + 0],
-                            green: data[pos + 1],
-                            blue: data[pos + 2],
-                        };
-                        pix.blend(c);
+                        let p: &[u8] = &data[pos..pos + 4];
+                        match p[3] {
+                            0 => {}
+                            0xff => *pix = TargetPixel::from_rgb(p[0], p[1], p[2]),
+                            alpha => pix.blend(PremultipliedRgbaColor {
+                                alpha,
+                                red: p[0],
+                                green: p[1],
+                                blue: p[2],
+                            }),
+                        }
                     }
                 } else {
                     for pix in line_buffer {
                         let pos = pos(4).0;
+                        if data[pos + 3] == 0 {
+                            continue;
+                        }
                         let c = PremultipliedRgbaColor {
                             alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
                             red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
