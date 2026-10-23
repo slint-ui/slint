@@ -1090,21 +1090,20 @@ def with_orientation_widgets(
         b'import { RadioGroup, Slider } from "std-widgets.slint";\n\n'
         b"export component InspectorCases",
     )
-    return replace_once(
-        source,
-        b"        vertical-alignment: center;\n    }\n}",
-        b"        vertical-alignment: center;\n    }\n\n"
-        b"    inspect-slider := Slider {\n"
-        b"        x: 32px;\n        y: 256px;\n        width: 160px;\n        height: 32px;"
+    widgets = (
+        b"\n    inspect-slider := Slider {\n"
+        b"        x: 32px;\n        y: 336px;\n        width: 160px;\n        height: 32px;"
         + bindings["Slider"]
         + b"\n    }\n\n"
         b"    inspect-radio-group := RadioGroup {\n"
-        b"        x: 224px;\n        y: 256px;"
+        b"        x: 224px;\n        y: 336px;"
         + bindings["RadioGroup"]
         + b'\n        RadioButton { text: "One"; }'
         b'\n        RadioButton { text: "Two"; }'
-        b"\n    }\n}",
+        b"\n    }\n"
     )
+    assert source.endswith(b"\n}\n")
+    return source[:-2] + widgets + b"}\n"
 
 
 def select_orientation_widget(window: slint_testing.Window, kind: str) -> None:
