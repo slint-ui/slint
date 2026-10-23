@@ -2078,7 +2078,6 @@ fn previewed_component_changed() {
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
-        i_slint_editor_preview::util::poll_once(document_cache.preload_builtins());
 
         for (url, cache_entry) in &source_code {
             if SourcePath::from_url(url).file_name()
@@ -2106,6 +2105,11 @@ fn previewed_component_changed() {
             &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
+        for widget in element_catalog::WIDGETS {
+            if !components.iter().any(|ci| ci.is_std_widget && ci.name == widget.type_name) {
+                components.push(component_catalog::std_widgets_info(widget.type_name, false));
+            }
+        }
 
         for url in document_cache.all_urls().filter(|u| u.scheme() != "builtin") {
             component_catalog::file_local_components(&document_cache, &url, &mut components);
@@ -3359,6 +3363,44 @@ mod tests {
         let snapshot = document_cache().unwrap();
         assert!(snapshot.get_document(&extra).is_some());
         assert!(snapshot.get_document(&manifest).is_none());
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn palette_widgets_do_not_load_unused_documents() {
+        i_slint_backend_testing::init_no_event_loop();
+        let main = Url::parse("file:///palette/main.slint").unwrap();
+        for source in [
+            "export component Main inherits Window {}",
+            "import { Button } from \"std-widgets.slint\"; export component Main inherits Window { Button {} }",
+        ] {
+            reset_preview_state(Default::default());
+            let mut cache = i_slint_editor_preview::test::empty_document_cache();
+            let mut diag = diagnostics::BuildDiagnostics::default();
+            spin_on::spin_on(cache.load_url(&main, Some(1), source.into(), &mut diag)).unwrap();
+            assert!(!diag.has_errors());
+            let documents = cache.all_urls().collect::<HashSet<_>>();
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.set_current_component(PreviewComponent {
+                    url: main.clone(),
+                    component: Some("Main".into()),
+                });
+                state.document_cache.replace(Some(Rc::new(cache)));
+            });
+            for _ in 0..2 {
+                previewed_component_changed();
+                assert_eq!(document_cache().unwrap().all_urls().collect::<HashSet<_>>(), documents);
+                PREVIEW_STATE.with_borrow(|state| {
+                    for widget in element_catalog::WIDGETS {
+                        let matches = state
+                            .known_components
+                            .iter()
+                            .filter(|ci| ci.is_std_widget && ci.name == widget.type_name);
+                        assert_eq!(matches.count(), 1, "{}", widget.type_name);
+                    }
+                });
+            }
+        }
         reset_preview_state(Default::default());
     }
 

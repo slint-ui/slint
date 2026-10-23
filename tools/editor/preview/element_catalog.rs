@@ -117,6 +117,13 @@ mod tests {
                             component.is_std_widget && component.name == widget.type_name
                         })
                         .unwrap_or_else(|| panic!("{style} must export {}", widget.type_name));
+                    assert_eq!(
+                        *component,
+                        i_slint_editor_preview::component_catalog::std_widgets_info(
+                            widget.type_name,
+                            false
+                        ),
+                    );
                     let properties = component
                         .default_properties
                         .iter()

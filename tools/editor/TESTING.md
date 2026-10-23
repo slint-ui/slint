@@ -27,7 +27,7 @@ Build the UI test binary from the repository root:
 
 ```sh
 SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
-  cargo build --locked -p slint-editor --all-features --features slint/mcp
+  cargo build --release --locked -p slint-editor --all-features --features slint/mcp
 ```
 
 From `tools/editor/ui-tests`, use its installed test environment:
@@ -36,7 +36,7 @@ From `tools/editor/ui-tests`, use its installed test environment:
 SLINT_EDITOR_UI_TEST_BACKEND=headless-skia ./run-tests.sh
 ```
 
-Set `SLINT_EDITOR_BINARY` when using a different build output directory.
+Set `SLINT_EDITOR_BINARY` when using a different build profile or output directory.
 Use [CI](../../.github/workflows/ci.yaml) for current Rust test and lint commands.
 
 ## Retrying Assertions
