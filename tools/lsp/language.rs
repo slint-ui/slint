@@ -200,21 +200,70 @@ async fn register_file_watcher(ctx: &Context) -> editor_preview::Result<()> {
                 ),
             }],
         };
-        let server_notifier = { ctx.server_notifier.clone() };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
-            .await?;
+        register_capability(
+            ctx,
+            "slint.file_watcher.registration",
+            lsp_types::notification::DidChangeWatchedFiles::METHOD,
+            fs_watcher,
+        )
+        .await?;
     }
 
     Ok(())
+}
+
+async fn register_capability(
+    ctx: &Context,
+    id: &str,
+    method: &str,
+    options: impl serde::Serialize,
+) -> editor_preview::Result<()> {
+    ctx.server_notifier
+        .send_request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
+            registrations: vec![lsp_types::Registration {
+                id: id.to_string(),
+                method: method.to_string(),
+                register_options: Some(serde_json::to_value(options).unwrap()),
+            }],
+        })?
+        .await?;
+    Ok(())
+}
+
+fn formatting_supports_dynamic_registration(client_cap: &ClientCapabilities) -> bool {
+    client_cap
+        .text_document
+        .as_ref()
+        .and_then(|td| td.formatting.as_ref())
+        .and_then(|f| f.dynamic_registration)
+        .unwrap_or(false)
+}
+
+/// Registers the formatter for `.slint` documents only.
+/// A static `document_formatting_provider` applies to every document the client
+/// sends us, including Rust files, where it competes with rust-analyzer.
+async fn register_formatting(ctx: &Context) -> editor_preview::Result<()> {
+    use lsp_types::request::Request;
+
+    if !formatting_supports_dynamic_registration(&ctx.init_param.capabilities) {
+        return Ok(());
+    }
+
+    let options = lsp_types::TextDocumentRegistrationOptions {
+        document_selector: Some(vec![
+            lsp_types::DocumentFilter {
+                language: Some("slint".into()),
+                scheme: None,
+                pattern: None,
+            },
+            lsp_types::DocumentFilter {
+                language: None,
+                scheme: None,
+                pattern: Some("**/*.slint".into()),
+            },
+        ]),
+    };
+    register_capability(ctx, "slint.formatting.registration", Formatting::METHOD, options).await
 }
 
 pub struct Context {
@@ -370,7 +419,9 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                     OneOf::Left(true)
                 },
             ),
-            document_formatting_provider: Some(OneOf::Left(true)),
+            document_formatting_provider: Some(OneOf::Left(
+                !formatting_supports_dynamic_registration(client_cap),
+            )),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -1355,6 +1406,7 @@ fn get_highlights_for_position(
 
 pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     register_file_watcher(ctx).await?;
+    register_formatting(ctx).await?;
     load_configuration(ctx).await
 }
 
