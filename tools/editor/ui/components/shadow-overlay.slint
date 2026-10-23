@@ -5,13 +5,14 @@ import { Api, Hover } from "../api.slint";
 import { Style, Colors, Metrics, Typography } from "../style.slint";
 import { CanvasView } from "canvas-view.slint";
 import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
-import { EditorAngles } from "index.slint";
+import { EditorAngles, EditorCursors } from "index.slint";
 import { FillSession, ShadowSession, ShadowGesture, ShadowValues } from "inspector/index.slint";
 
 component ShadowHandle inherits FocusScope {
     in property <ShadowGesture> kind;
     in property <string> label;
     in property <int> focus-generation;
+    in property <angle> rotation;
     changed focus-generation => {
         if root.kind == ShadowSession.gesture && ShadowSession.canvas-active { root.focus(); }
     }
@@ -50,7 +51,9 @@ component ShadowHandle inherits FocusScope {
     }
     TouchArea {
         enabled: ShadowSession.canvas-visible;
-        mouse-cursor: root.kind == ShadowGesture.offset ? move : root.kind == ShadowGesture.blur ? ns-resize : ew-resize;
+        mouse-cursor: root.kind == ShadowGesture.offset ? move
+            : root.rotation.mod(180deg) == 0deg ? (root.kind == ShadowGesture.blur ? ns-resize : ew-resize)
+            : MouseCursor.custom(EditorCursors.resize-image(root.rotation + (root.kind == ShadowGesture.blur ? 90deg : 0deg)), 16, 16);
         accessible-role: button;
         accessible-label: root.label;
         pointer-event(event) => {
@@ -172,6 +175,7 @@ export component ShadowOverlay inherits FocusScope {
     for kind in [ShadowGesture.offset, ShadowGesture.blur, ShadowGesture.spread]: ShadowHandle {
         kind: kind;
         focus-generation: root.focus-epoch;
+        rotation: FillSession.selection.angle;
         private property <Point> point: kind == ShadowGesture.offset ? root.shadow-center : kind == ShadowGesture.blur ? root.blur-point : root.spread-point;
         x: self.point.x - self.width / 2;
         y: self.point.y - self.height / 2;
