@@ -38,21 +38,15 @@ component BrandMark inherits Rectangle {
     }
 }
 
-component ActionIcon inherits Rectangle {
+component ActionIcon inherits Image {
     in property <color> icon-color: Style.welcome-shell.muted;
     in property <bool> folder: false;
-
     width: Metrics.icon-large;
     height: Metrics.icon-large;
-
-    Image {
-        width: Metrics.icon-large;
-        height: Metrics.icon-large;
-        source: root.folder
-            ? @image-url("assets/primer-folder-open.svg")
-            : @image-url("assets/primer-plus-circle.svg");
-        colorize: root.icon-color;
-    }
+    source: root.folder
+        ? @image-url("assets/primer-folder-open.svg")
+        : @image-url("assets/primer-plus-circle.svg");
+    colorize: root.icon-color;
 }
 
 component WelcomeAction inherits Rectangle {
