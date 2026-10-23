@@ -10,6 +10,7 @@ import base64
 import copy
 import gettext
 import gzip
+import keyword
 import logging
 import os
 import pathlib
@@ -84,7 +85,9 @@ class Component:
 
 
 def _normalize_prop(name: str) -> str:
-    return name.replace("-", "_")
+    # Like `ident` in the Python generator, which names these in the type hints
+    name = name.replace("-", "_")
+    return name + "_" if keyword.iskeyword(name) or name == "self" else name
 
 
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
@@ -278,7 +281,7 @@ def _build_class(
 
             return property(global_getter)
 
-        properties_and_callbacks[global_name] = mk_global(global_class)
+        properties_and_callbacks[_normalize_prop(global_name)] = mk_global(global_class)
 
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 

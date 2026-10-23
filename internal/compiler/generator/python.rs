@@ -38,7 +38,8 @@ pub fn ident(ident: &str) -> SmolStr {
     if ident.contains('-') {
         new_ident = ident.replace_smolstr("-", "_");
     }
-    if is_python_keyword(new_ident.as_str()) {
+    // `self` isn't a keyword, but it's the instance parameter of methods
+    if is_python_keyword(new_ident.as_str()) || new_ident == "self" {
         new_ident = format_smolstr!("{}_", new_ident);
     }
     new_ident
