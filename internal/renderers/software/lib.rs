@@ -2210,10 +2210,11 @@ impl PrepareScene {
         &mut self,
         geometry: PhysicalRect,
         command: SceneCommand,
-        clips: impl Iterator<Item = ShapeClip>,
+        rounded_clips: &[RoundedClip],
+        own_clip: Option<ShapeClip>,
     ) {
         let clip_start = self.vectors.clips.len();
-        self.vectors.clips.extend(clips);
+        self.vectors.clips.extend(shape_clips(rounded_clips, &geometry).chain(own_clip));
         debug_assert!(self.vectors.clips.len() <= u16::MAX as usize, "too many clips in the scene");
         self.items.push(SceneItem {
             pos: geometry.origin,
@@ -2235,11 +2236,7 @@ impl ProcessScene for PrepareScene {
     ) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
-        self.push_item(
-            geometry,
-            SceneCommand::Texture { texture_index },
-            shape_clips(rounded_clips, &geometry),
-        );
+        self.push_item(geometry, SceneCommand::Texture { texture_index }, rounded_clips, None);
     }
 
     fn process_shared_buffer(
@@ -2253,7 +2250,8 @@ impl ProcessScene for PrepareScene {
         self.push_item(
             geometry,
             SceneCommand::SharedBuffer { shared_buffer_index },
-            shape_clips(rounded_clips, &geometry),
+            rounded_clips,
+            None,
         );
     }
 
@@ -2311,11 +2309,7 @@ impl ProcessScene for PrepareScene {
         rounded_clips: &[RoundedClip],
     ) {
         if !geometry.is_empty() {
-            self.push_item(
-                geometry,
-                SceneCommand::Rectangle { color },
-                shape_clips(rounded_clips, &geometry),
-            );
+            self.push_item(geometry, SceneCommand::Rectangle { color }, rounded_clips, None);
         }
     }
 
@@ -2331,7 +2325,8 @@ impl ProcessScene for PrepareScene {
             self.push_item(
                 geometry,
                 SceneCommand::RoundedRectangle { rectangle_index },
-                shape_clips(rounded_clips, &geometry),
+                rounded_clips,
+                None,
             );
         }
     }
@@ -2349,7 +2344,8 @@ impl ProcessScene for PrepareScene {
             self.push_item(
                 geometry,
                 SceneCommand::LinearGradient { linear_gradient_index },
-                shape_clips(rounded_clips, &geometry).chain(clip),
+                rounded_clips,
+                clip,
             );
         }
     }
@@ -2366,7 +2362,8 @@ impl ProcessScene for PrepareScene {
             self.push_item(
                 geometry,
                 SceneCommand::RadialGradient { radial_gradient_index },
-                shape_clips(rounded_clips, &geometry).chain(clip),
+                rounded_clips,
+                clip,
             );
         }
     }
@@ -2383,7 +2380,8 @@ impl ProcessScene for PrepareScene {
             self.push_item(
                 geometry,
                 SceneCommand::ConicGradient { conic_gradient_index },
-                shape_clips(rounded_clips, &geometry).chain(clip),
+                rounded_clips,
+                clip,
             );
         }
     }
@@ -2399,7 +2397,8 @@ impl ProcessScene for PrepareScene {
             self.push_item(
                 geometry,
                 SceneCommand::BoxShadow { box_shadow_index },
-                shape_clips(rounded_clips, &geometry),
+                rounded_clips,
+                None,
             );
         }
     }
