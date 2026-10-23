@@ -753,9 +753,8 @@ pub mod fontique_012 {
     pub use i_slint_common::sharedfontique::fontique;
 
     #[i_slint_core_macros::slint_doc]
-    /// Returns a clone of [`fontique::Collection`] that's used by Slint for text rendering. It's set up
-    /// with shared storage, so fonts registered with the returned collection or additionally configured font
-    /// fallbacks apply to the entire process.
+    /// Returns a clone of the [`fontique::Collection`] used for text rendering in the current thread's context.
+    /// It uses shared storage, so registered fonts and configured fallbacks are visible to Slint.
     ///
     /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
     ///       see also the [Font Handling](slint:FontHandling) documentation.
@@ -792,5 +791,30 @@ pub mod fontique_012 {
             ctx.font_context().borrow().collection.clone()
         })
         .unwrap()
+    }
+
+    /// Sets the font collection for Slint's first context on the current thread.
+    /// Call this before initializing a backend or creating components.
+    /// Slint uses the supplied collection instead of discovering system fonts.
+    /// Embedded fonts and fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` are still registered.
+    ///
+    /// Slint converts the collection to shared storage.
+    /// Create it with `shared: true` to share later changes with clones retained by your application.
+    /// Returns an error if Slint is already initialized on this thread.
+    ///
+    /// ```rust
+    /// use slint::fontique_012::fontique;
+    ///
+    /// let collection = fontique::Collection::new(fontique::CollectionOptions {
+    ///     shared: true,
+    ///     system_fonts: false,
+    /// });
+    /// slint::fontique_012::set_shared_collection(collection)?;
+    /// # Ok::<(), slint::PlatformError>(())
+    /// ```
+    pub fn set_shared_collection(
+        collection: fontique::Collection,
+    ) -> Result<(), crate::PlatformError> {
+        i_slint_core::font_collection::set_collection(collection)
     }
 }

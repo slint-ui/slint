@@ -34,7 +34,7 @@ pub fn system_collection(shared: bool) -> fontique::Collection {
     create()
 }
 
-/// Adds the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` to a collection from [`system_collection`].
+/// Adds the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` to a collection.
 /// They become the default font and the generic families.
 pub fn init_collection(mut collection: fontique::Collection, shared: bool) -> Collection {
     let mut source_cache =
