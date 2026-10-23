@@ -39,16 +39,18 @@ component FileTreeRow inherits Rectangle {
     callback rename-finished();
     callback rename-submitted();
 
-    init => {
+    function focus-if-current() {
         if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
     }
 
+    init => {
+        focus-if-current();
+    }
+
     changed keyboard-current => {
-        if root.keyboard-current && !root.editing {
-            row-focus.focus();
-        }
+        focus-if-current();
     }
 
     height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
