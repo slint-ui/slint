@@ -743,9 +743,8 @@ pub mod fontique_012 {
     pub use i_slint_common::sharedfontique::fontique;
 
     #[i_slint_core_macros::slint_doc]
-    /// Returns a clone of [`fontique::Collection`] that's used by Slint for text rendering. It's set up
-    /// with shared storage, so fonts registered with the returned collection or additionally configured font
-    /// fallbacks apply to the entire process.
+    /// Returns a clone of the [`fontique::Collection`] used for text rendering in the current thread's context.
+    /// It uses shared storage, so registered fonts and configured fallbacks are visible to Slint.
     ///
     /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
     ///       see also the [Font Handling](slint:FontHandling) documentation.
@@ -782,5 +781,34 @@ pub mod fontique_012 {
             ctx.font_context().borrow().collection.clone()
         })
         .unwrap()
+    }
+
+    /// Sets the font collection used for text rendering in the current thread's context.
+    /// Slint uses it instead of discovering system fonts.
+    /// Embedded fonts and fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` are still registered.
+    ///
+    /// Call this before creating components or calling [`shared_collection()`].
+    /// Returns an error if the context already uses its font collection.
+    /// Like [`shared_collection()`], this initializes the default backend if no platform is set.
+    /// When using a custom platform, call [`set_platform()`](crate::platform::set_platform) first.
+    /// A default backend starts discovering system fonts in the background, and Slint discards the result.
+    ///
+    /// Slint converts the collection to shared storage.
+    /// Create it with `shared: true` to share later changes with clones retained by your application.
+    ///
+    /// ```rust,no_run
+    /// use slint::fontique_012::fontique;
+    ///
+    /// let collection = fontique::Collection::new(fontique::CollectionOptions {
+    ///     shared: true,
+    ///     system_fonts: false,
+    /// });
+    /// slint::fontique_012::set_shared_collection(collection)?;
+    /// # Ok::<(), slint::PlatformError>(())
+    /// ```
+    pub fn set_shared_collection(
+        collection: fontique::Collection,
+    ) -> Result<(), crate::PlatformError> {
+        i_slint_backend_selector::with_global_context(|ctx| ctx.set_font_collection(collection))?
     }
 }
