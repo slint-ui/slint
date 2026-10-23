@@ -31,9 +31,10 @@ The follow table summarizes the entire mapping. The `.slint` types link to the S
 
 ## Structures
 
-The Slint compiler generates a `class` with all data members in
-the same order for any user-defined, exported `struct` in the `.slint`
-code.
+For any user-defined, exported `struct` in the `.slint` code,
+the Slint compiler generates a `class` with all data members in the same order.
+Dashes (`-`) in the names become underscores (`_`),
+and a name that's a C++ keyword gets a trailing underscore, such as a field `delete` that becomes `delete_`.
 
 For example, this `struct` in a `.slint` file
 
