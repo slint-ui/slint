@@ -199,7 +199,7 @@ pub fn initialize_editor(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
+    api.on_new_component_data(super::new_component_data);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();

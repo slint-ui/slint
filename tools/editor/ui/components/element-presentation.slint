@@ -61,6 +61,15 @@ export global ElementVisuals {
                 label: "TouchArea",
             };
         }
+        if kind == ElementKind.widget {
+            return {
+                icon: EditorTreeIcons.default-item,
+                preview-size: { width: 120px, height: 32px },
+                corner-radius: 4px,
+                show-thumbnail: false,
+                label: "Widget",
+            };
+        }
         return {
             icon: EditorTreeIcons.default-item,
             preview-size: { width: 96px, height: 48px },
