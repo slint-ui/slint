@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Rooms } from "../rooms.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { Icon, IconName } from "../components/icon.slint";
+
+export component EnergyCard inherits Rectangle {
+    in property <int> room;
+    in property <bool> shown;
+    private property <color> accent: Rooms.all[root.room].accent;
+    private property <[float]> samples: [0.32,0.25,0.22,0.30,0.48,0.72,0.64,0.51,0.58,0.86,0.94,0.70];
+    private property <float> growth: root.shown ? 1 : 0;
+    animate growth { duration: 700ms; delay: 220ms; easing: ease-out; }
+    CardLabel { text: "ENERGY TODAY"; }
+    HorizontalLayout {
+        x: 22px; y: 49px; width: 142px; height: 48px; alignment: start; spacing: 7px;
+        Text { text: Home.tenths(Rooms.all[root.room].energy); font-size: 40px; font-weight: 300; color: Theme.text; }
+        Text { text: "kWh"; font-size: 15px; color: Theme.secondary; vertical-alignment: bottom; }
+    }
+    Icon { x: parent.width - 46px; y: 64px; name: IconName.bolt; ink: root.accent; }
+    chart := Rectangle {
+        x: 22px; y: 112px; width: parent.width - 44px; height: parent.height - 140px;
+        for value[index] in root.samples: Rectangle {
+            private property <float> scaled: value * (0.7 + 0.3 * mod(round(Rooms.all[root.room].energy * 10) + index * 3,5) / 4);
+            x: index * (chart.width + 7px) / 12;
+            width: (chart.width + 7px) / 12 - 7px;
+            height: max(3px,chart.height * self.scaled * root.growth);
+            y: chart.height - self.height;
+            border-radius: min(5px,self.width / 2);
+            background: @linear-gradient(180deg, index == 11 ? root.accent : root.accent.with-alpha(0.65), root.accent.with-alpha(0.14));
+        }
+    }
+    Text { x: 22px; y: parent.height - 20px; text: "06:00"; color: Theme.muted; font-size: 10px; }
+    Text { x: parent.width - 43px; y: parent.height - 20px; text: "Now"; color: Theme.muted; font-size: 10px; }
+}

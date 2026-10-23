@@ -1,0 +1,33 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "home-assistant"
+version = "1.19.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition.workspace = true
+publish = false
+license = "MIT"
+
+[[bin]]
+path = "main.rs"
+name = "home-assistant"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+name = "home_assistant_lib"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-18", "std", "accessibility"] }
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
+ui-testing = ["slint/system-testing"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1.5"

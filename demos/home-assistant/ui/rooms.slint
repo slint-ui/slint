@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Slots are in the 3 × 2 dashboard grid, ordered by CardKind.
+export enum CardKind { climate, weather, lights, energy, media, camera, scenes, appliance }
+export struct CardSlot { present: bool, column: int, row: int, columns: int, rows: int }
+export struct RoomInfo {
+    name: string,
+    accent: color,
+    lights: [string],
+    camera-name: string,
+    camera-image: image,
+    energy: float,
+    cards: [CardSlot],
+}
+
+export global Rooms {
+    out property <[RoomInfo]> all: [
+        { name: "Living Room", accent: #7e98ff, lights: ["Ceiling", "Floor lamp", "Shelf"], camera-name: "Front door", camera-image: @image-url("../assets/images/front-porch.jpg"), energy: 3.2,
+          cards: [{present:true,column:0,row:0,columns:1,rows:2}, {}, {present:true,column:1,row:0,columns:1,rows:1}, {}, {present:true,column:1,row:1,columns:2,rows:1}, {present:true,column:2,row:0,columns:1,rows:1}, {}, {}] },
+        { name: "Kitchen", accent: #ffa967, lights: ["Island", "Pendants", "Cabinets"], camera-name: "Front door", camera-image: @image-url("../assets/images/front-porch.jpg"), energy: 1.9,
+          cards: [{present:true,column:1,row:0,columns:1,rows:2}, {}, {present:true,column:0,row:0,columns:1,rows:1}, {present:true,column:2,row:0,columns:1,rows:1}, {}, {}, {present:true,column:2,row:1,columns:1,rows:1}, {present:true,column:0,row:1,columns:1,rows:1}] },
+        { name: "Bedroom", accent: #b99bff, lights: ["Bedside", "Ceiling", "Wardrobe"], camera-name: "Garden", camera-image: @image-url("../assets/images/back-yard.jpg"), energy: 0.8,
+          cards: [{present:true,column:2,row:0,columns:1,rows:2}, {}, {present:true,column:0,row:1,columns:1,rows:1}, {}, {present:true,column:0,row:0,columns:2,rows:1}, {}, {present:true,column:1,row:1,columns:1,rows:1}, {}] },
+        { name: "Office", accent: #62d9cd, lights: ["Desk", "Ceiling", "Bookcase"], camera-name: "Garden", camera-image: @image-url("../assets/images/back-yard.jpg"), energy: 2.4,
+          cards: [{present:true,column:2,row:0,columns:1,rows:2}, {}, {present:true,column:0,row:1,columns:1,rows:1}, {present:true,column:0,row:0,columns:2,rows:1}, {present:true,column:1,row:1,columns:1,rows:1}, {}, {}, {}] },
+        { name: "Garden", accent: #8add9b, lights: ["Path", "Patio", "Pond"], camera-name: "Back yard", camera-image: @image-url("../assets/images/back-yard.jpg"), energy: 0.6,
+          cards: [{}, {present:true,column:0,row:0,columns:1,rows:2}, {present:true,column:1,row:1,columns:1,rows:1}, {}, {}, {present:true,column:1,row:0,columns:2,rows:1}, {present:true,column:2,row:1,columns:1,rows:1}, {}] },
+    ];
+}

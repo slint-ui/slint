@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Home } from "state.slint";
+import { Rooms } from "rooms.slint";
+import { CardFrame } from "components/card.slint";
+import { SwipeArea } from "components/swipe-area.slint";
+import { NavigationRail } from "navigation.slint";
+import { Header } from "header.slint";
+import { ClimateCard } from "cards/climate.slint";
+import { LightsCard } from "cards/lights.slint";
+import { EnergyCard } from "cards/energy.slint";
+import { MediaCard } from "cards/media.slint";
+import { CameraCard } from "cards/camera.slint";
+import { ScenesCard } from "cards/scenes.slint";
+import { WeatherCard } from "cards/weather.slint";
+import { ApplianceCard } from "cards/appliance.slint";
+
+export component Dashboard inherits Rectangle {
+    in property <string> date-label;
+    background: @linear-gradient(180deg, #151c39, #0b1025 50%, #080b1a);
+    Rectangle { background: @radial-gradient(circle 500px at 205px 0px, Rooms.all[Home.room].accent.with-alpha(0.08), transparent); }
+    SwipeArea { swiped(delta) => { Home.select-room(Home.room + delta); } activity => { Home.activity(); } }
+    NavigationRail { x: 16px; y: 16px; }
+    Header { x: 128px; y: 16px; width: 880px; height: 80px; date-label: root.date-label; }
+    Rectangle {
+        x: 128px; y: 112px; width: 880px; height: 472px;
+        for index in 8: CardFrame {
+            room: Home.room; slot: Rooms.all[Home.room].cards[index];
+            if index == 0: ClimateCard { room: parent.displayed-room; }
+            if index == 1: WeatherCard { }
+            if index == 2: LightsCard { room: parent.displayed-room; }
+            if index == 3: EnergyCard { room: parent.displayed-room; shown: parent.slot.present; }
+            if index == 4: MediaCard { room: parent.displayed-room; }
+            if index == 5: CameraCard { room: parent.displayed-room; }
+            if index == 6: ScenesCard { room: parent.displayed-room; }
+            if index == 7: ApplianceCard { room: parent.displayed-room; }
+        }
+    }
+}

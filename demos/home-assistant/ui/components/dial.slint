@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Home } from "../state.slint";
+
+export component TemperatureDial inherits Rectangle {
+    in property <float> value;
+    in property <float> current;
+    callback adjusted(float);
+    private property <float> displayed: root.value;
+    private property <float> fraction: clamp((root.displayed - 16) / 12,0,1);
+    private property <angle> angle: 135deg + root.fraction * 270deg;
+    width: 256px; height: 256px;
+    animate displayed { duration: touch.pressed ? 0ms : 440ms; easing: ease-out; }
+
+    // Continuous vector arc, with fine scale marks instead of baked dot sprites.
+    Path {
+        width: 100%; height: 100%; viewbox-width: 256; viewbox-height: 256;
+        stroke: #303b68; stroke-width: 6px; stroke-line-cap: round;
+        commands: "M 54.46 201.54 A 104 104 0 1 1 201.54 201.54";
+    }
+    for i in 49: Path {
+        private property <angle> a: 135deg + i * 270deg / 48;
+        width: 100%; height: 100%; viewbox-width: 256; viewbox-height: 256;
+        stroke-width: 1px;
+        stroke: i / 48 <= root.fraction ? Theme.cool.mix(Theme.hot,1 - i / 48) : #404b76;
+        MoveTo { x: 128 + 116 * cos(parent.a); y: 128 + 116 * sin(parent.a); }
+        LineTo { x: 128 + (mod(i,4) == 0 ? 124 : 120) * cos(parent.a); y: 128 + (mod(i,4) == 0 ? 124 : 120) * sin(parent.a); }
+    }
+    Path {
+        width: 100%; height: 100%; viewbox-width: 256; viewbox-height: 256;
+        visible: root.fraction > 0.001;
+        stroke-width: 6px; stroke-line-cap: round;
+        stroke: @linear-gradient(90deg, Theme.cool, #a69afc 50%, Theme.hot);
+        MoveTo { x: 54.46; y: 201.54; }
+        ArcTo {
+            radius-x: 104; radius-y: 104; sweep: true;
+            large-arc: root.fraction > 2 / 3;
+            x: 128 + 104 * cos(root.angle); y: 128 + 104 * sin(root.angle);
+        }
+    }
+    Rectangle {
+        x: 128px + 104px * cos(root.angle) - 10px;
+        y: 128px + 104px * sin(root.angle) - 10px;
+        width: 20px; height: 20px; border-radius: 10px;
+        background: Theme.cool.mix(Theme.hot,1 - root.fraction);
+        border-width: 3px; border-color: Theme.text;
+        drop-shadow-blur: 14px; drop-shadow-color: Theme.cool.mix(Theme.hot,1 - root.fraction).with-alpha(0.4);
+    }
+    Rectangle {
+        private property <angle> a: 135deg + clamp((root.current - 16) / 12,0,1) * 270deg;
+        x: 128px + 86px * cos(self.a) - 3px; y: 128px + 86px * sin(self.a) - 3px;
+        width: 6px; height: 6px; border-radius: 3px; background: Theme.secondary;
+    }
+    Text { y: 72px; text: "TARGET"; color: Theme.muted; font-size: 12px; letter-spacing: 1.5px; }
+    Text { y: 94px; text: Home.tenths(root.displayed) + "°"; color: Theme.text; font-size: 66px; font-weight: 300; }
+    Text { y: 175px; text: "Now " + Home.tenths(root.current) + "°"; color: Theme.secondary; font-size: 14px; }
+    Text { x: 37px; y: 230px; text: "16°"; color: Theme.muted; font-size: 12px; }
+    Text { x: 199px; y: 230px; text: "28°"; color: Theme.muted; font-size: 12px; }
+
+    public pure function temperature-at(x: length, y: length) -> float {
+        let angle = mod(atan2((y - 128px) / 1px,(x - 128px) / 1px) / 1deg - 135 + 360,360);
+        let sweep = angle > 270 ? (angle > 315 ? 0 : 270) : angle;
+        return round((16 + sweep / 270 * 12) * 2) / 2;
+    }
+    private property <bool> dragging: false;
+    accessible-role: slider;
+    accessible-label: "Target temperature";
+    accessible-value: Home.tenths(root.value);
+    accessible-value-minimum: 16;
+    accessible-value-maximum: 28;
+    accessible-value-step: 0.5;
+    accessible-action-increment => { root.adjusted(min(28,root.value + 0.5)); }
+    accessible-action-decrement => { root.adjusted(max(16,root.value - 0.5)); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                let dx = (self.mouse-x - 128px) / 1px;
+                let dy = (self.mouse-y - 128px) / 1px;
+                root.dragging = dx * dx + dy * dy > 70 * 70;
+                if root.dragging { root.adjusted(root.temperature-at(self.mouse-x,self.mouse-y)); }
+            } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel { root.dragging = false; }
+        }
+        moved => { if self.pressed && root.dragging { root.adjusted(root.temperature-at(self.mouse-x,self.mouse-y)); } }
+    }
+}

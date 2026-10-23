@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+
+// The surrounding row owns input; this component only draws the switch.
+export component Toggle inherits Rectangle {
+    in property <bool> checked;
+    in property <color> accent;
+    width: 46px; height: 26px; border-radius: 13px;
+    background: root.checked ? root.accent : Theme.track;
+    animate background { duration: 180ms; }
+    Rectangle {
+        x: root.checked ? parent.width - self.width - 3px : 3px;
+        y: 3px; width: 20px; height: 20px; border-radius: 10px;
+        background: @linear-gradient(180deg, #ffffff, #d6ddf5);
+        animate x { duration: 220ms; easing: cubic-bezier(0.2,0.8,0.2,1); }
+    }
+}

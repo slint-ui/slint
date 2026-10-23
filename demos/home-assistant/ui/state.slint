@@ -1,0 +1,127 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export struct RoomState { target: float, current: float, first: bool, second: bool, third: bool, scene: int }
+
+// Demo state is deliberately independent of visuals and hardware. Replace these
+// functions with controller callbacks when connecting real devices.
+export global Home {
+    in-out property <int> room: 0;
+    in-out property <bool> locked: true;
+    in-out property <bool> tour-enabled: true;
+    in-out property <bool> attracting: true;
+    in-out property <float> idle: 0;
+    in-out property <float> tour-wait: 3;
+    in-out property <int> tour-step: 0;
+    in-out property <int> visited: 0;
+    in-out property <float> unlock-progress: 0;
+    in-out property <bool> playing: true;
+    in-out property <float> progress: 0.32;
+    in-out property <float> cycle-progress: 0.42;
+    in-out property <float> seconds: 0;
+    in-out property <bool> talking: false;
+    in-out property <bool> diagnostics: false;
+    in-out property <[RoomState]> rooms: [
+        {target:21.5,current:20.8,first:true,second:true,third:false,scene:1},
+        {target:20,current:19.3,first:true,second:false,third:true,scene:0},
+        {target:19,current:18.3,first:false,second:true,third:false,scene:2},
+        {target:22.5,current:21.8,first:true,second:false,third:false,scene:0},
+        {target:18,current:17.3,first:false,second:true,third:true,scene:3},
+    ];
+
+    public pure function light-on(room: int, index: int) -> bool {
+        return index == 0 ? root.rooms[room].first : index == 1 ? root.rooms[room].second : root.rooms[room].third;
+    }
+    public pure function light-count(room: int) -> int {
+        return (root.rooms[room].first ? 1 : 0) + (root.rooms[room].second ? 1 : 0) + (root.rooms[room].third ? 1 : 0);
+    }
+    public pure function tenths(value: float) -> string {
+        let scaled = round(value * 10);
+        return "\{floor(scaled / 10)}.\{mod(scaled,10)}";
+    }
+    public pure function padded(value: int) -> string { return value < 10 ? "0\{value}" : "\{value}"; }
+    out property <string> clock: root.padded(mod(floor((1122 + root.seconds / 60) / 60),24)) + ":" + root.padded(mod(1122 + floor(root.seconds / 60),60));
+
+    public function activity() {
+        root.idle = 0;
+        root.attracting = false;
+        root.unlock-progress = 0;
+    }
+    public function select-room(index: int) {
+        root.activity();
+        root.room = clamp(index,0,4);
+        root.talking = false;
+    }
+    public function toggle-light(room: int, index: int) {
+        root.activity();
+        root.flip-light(room,index);
+    }
+    function flip-light(room: int, index: int) {
+        if index == 0 { root.rooms[room].first = !root.rooms[room].first; }
+        else if index == 1 { root.rooms[room].second = !root.rooms[room].second; }
+        else { root.rooms[room].third = !root.rooms[room].third; }
+    }
+    public function set-target(room: int, value: float) {
+        root.activity();
+        root.rooms[room].target = clamp(round(value * 2) / 2,16,28);
+    }
+    public function select-scene(room: int, scene: int) {
+        root.activity();
+        root.rooms[room].scene = scene;
+    }
+    public function toggle-play() { root.activity(); root.playing = !root.playing; }
+    public function skip() { root.activity(); root.progress = 0; }
+    public function seek(value: float) { root.activity(); root.progress = clamp(value,0,1); }
+    public function lock() { root.activity(); root.locked = true; root.talking = false; }
+    public function unlock() { root.locked = false; root.unlock-progress = 0; root.visited = 0; root.tour-wait = 2; }
+    public function toggle-tour() {
+        root.activity();
+        root.tour-enabled = !root.tour-enabled;
+        root.attracting = root.tour-enabled;
+        root.tour-wait = 1;
+    }
+
+    // Called every 100 ms. UI animations stay declarative and frame-rate independent.
+    public function tick() {
+        root.seconds += 0.1;
+        root.idle += 0.1;
+        if root.playing { root.progress = mod(root.progress + 0.1 / 244,1); }
+        root.cycle-progress = mod(root.cycle-progress + 0.1 / 600,1);
+        root.update-temperature(0); root.update-temperature(1); root.update-temperature(2);
+        root.update-temperature(3); root.update-temperature(4);
+        if !root.tour-enabled { return; }
+        if !root.attracting {
+            if root.idle >= 12 { root.attracting = true; root.tour-wait = 0; }
+            return;
+        }
+        root.tour-wait -= 0.1;
+        if root.tour-wait > 0 { return; }
+        if root.locked {
+            root.unlock-progress += 0.1 / 1.2;
+            if root.unlock-progress >= 1 { root.unlock(); }
+            return;
+        }
+        if root.visited >= 5 {
+            root.locked = true;
+            root.tour-wait = 3.5;
+            return;
+        }
+        let step = mod(root.tour-step,5);
+        if step == 0 { root.flip-light(root.room,mod(floor(root.tour-step / 5),3)); }
+        if step == 1 { root.rooms[root.room].target += root.rooms[root.room].target < 22 ? 2.5 : -3; }
+        if step == 2 { root.rooms[root.room].scene = mod(floor(root.tour-step / 5),4); }
+        if step == 3 && mod(root.tour-step,15) == 3 { root.playing = !root.playing; }
+        if step == 4 { root.room = mod(root.room + 1,5); root.visited += 1; }
+        root.tour-step += 1;
+        root.tour-wait = step == 4 ? 2.2 : 0.9;
+    }
+    function update-temperature(room: int) {
+        root.rooms[room].current += (root.rooms[room].target - root.rooms[room].current) * 0.008;
+    }
+}
+
+export global RenderStats {
+    in-out property <bool> available: false;
+    in-out property <float> peak-ms: 0;
+    in-out property <[float]> history: [];
+}

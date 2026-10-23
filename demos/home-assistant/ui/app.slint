@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import "../assets/fonts/Inter-VariableFont.ttf";
+import { Home, RenderStats } from "state.slint";
+import { Dashboard } from "dashboard.slint";
+import { LockScreen } from "lock-screen.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Home, RenderStats } from "state.slint";
+
+export component HomeAssistant inherits Window {
+    title: "Home Assistant · Slint";
+    width: 1024px; height: 600px;
+    default-font-family: "Inter";
+    default-font-size: 16px;
+    background: #0b0f24;
+    // Public entry points also make this project usable in slint-viewer.
+    in-out property <bool> locked <=> Home.locked;
+    in-out property <int> current-room <=> Home.room;
+    in-out property <bool> tour-enabled <=> Home.tour-enabled;
+    in property <string> date-label: "Tuesday, 21 October";
+    private property <bool> keyboard-hold: false;
+    forward-focus: keys;
+    // A focused control can disappear with its card. Restore the enclosing
+    // shortcut scope whenever navigation or locking changes the visible UI.
+    changed current-room => { keys.focus(); }
+    changed locked => { keys.focus(); }
+    Timer { interval: 100ms; triggered => { Home.tick(); } }
+    keys := FocusScope {
+        capture-key-pressed(event) => {
+            if Home.locked {
+                if event.text == " " { root.keyboard-hold = true; return accept; }
+            } else {
+                if event.text == Key.LeftArrow { Home.select-room(Home.room - 1); return accept; }
+                if event.text == Key.RightArrow { Home.select-room(Home.room + 1); return accept; }
+                if event.text == "1" { Home.select-room(0); return accept; }
+                if event.text == "2" { Home.select-room(1); return accept; }
+                if event.text == "3" { Home.select-room(2); return accept; }
+                if event.text == "4" { Home.select-room(3); return accept; }
+                if event.text == "5" { Home.select-room(4); return accept; }
+                if event.text == Key.Escape || event.text == "l" { Home.lock(); return accept; }
+            }
+            if event.text == "t" { Home.toggle-tour(); return accept; }
+            if event.text == "d" { Home.activity(); Home.diagnostics = !Home.diagnostics; return accept; }
+            return reject;
+        }
+        capture-key-released(event) => {
+            if event.text == " " { root.keyboard-hold = false; return accept; }
+            return reject;
+        }
+        Dashboard { date-label: root.date-label; }
+        LockScreen { date-label: root.date-label; keyboard-hold: root.keyboard-hold; }
+        if Home.diagnostics: Diagnostics { x: 448px; y: 6px; }
+    }
+}

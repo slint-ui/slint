@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Rooms } from "../rooms.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { ProgressTrack } from "../components/progress.slint";
+
+export component ApplianceCard inherits Rectangle {
+    in property <int> room;
+    CardLabel { text: "DISHWASHER"; }
+    Rectangle {
+        x: 22px; y: 54px; width: 88px; height: 88px; border-radius: 14px; clip: true;
+        Image { source: @image-url("../../assets/images/dishwasher.jpg"); width: 100%; height: 100%; image-fit: cover; }
+    }
+    Text { x: 128px; y: 65px; text: "\{ceil((1 - Home.cycle-progress) * 65)}"; color: Theme.text; font-size: 40px; font-weight: 300; }
+    Text { x: 186px; y: 86px; text: "min"; color: Theme.secondary; font-size: 15px; }
+    Text { x: 130px; y: 117px; text: "Eco · drying next"; color: Theme.secondary; font-size: 12px; }
+    ProgressTrack { x: 22px; y: 158px; width: parent.width - 44px; thickness: 7px; progress: Home.cycle-progress; accent: Rooms.all[root.room].accent; }
+    Text { x: 22px; y: 195px; text: "Cycle in progress"; color: Theme.muted; font-size: 12px; }
+    Text { x: parent.width - self.width - 22px; y: 195px; text: "\{floor(Home.cycle-progress * 100)}%"; color: Theme.secondary; font-size: 12px; }
+}

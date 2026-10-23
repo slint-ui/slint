@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Home, RenderStats } from "state.slint";
+
+export component Diagnostics inherits Rectangle {
+    width: 280px; height: expanded ? 122px : 58px;
+    private property <bool> expanded: true;
+    background: #0d132cf5; border-radius: 14px; border-width: 1px; border-color: Theme.border;
+    Text { x: 14px; y: 12px; text: "SLINT RENDERER"; color: Theme.secondary; font-size: 11px; letter-spacing: 1px; }
+    Text { x: 14px; y: 32px; text: RenderStats.available ? "Render CPU peak  " + Home.tenths(RenderStats.peak-ms) + " ms" : "No render timing samples available"; color: Theme.text; font-size: 13px; }
+    if root.expanded: Rectangle {
+        x: 14px; y: 66px; width: parent.width - 28px; height: 40px;
+        Rectangle { y: parent.height * (1 - 16.667 / 25); height: 1px; background: Theme.danger.with-alpha(0.6); }
+        for value[index] in RenderStats.history: Rectangle {
+            x: index * 4px; width: 2px; height: min(40px,value / 25 * 40px); y: parent.height - self.height;
+            background: Theme.success;
+        }
+        if !RenderStats.available: Text { text: "Requires native graphics API callbacks"; color: Theme.muted; font-size: 11px; }
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.expanded = !root.expanded; Home.activity(); } }
+}

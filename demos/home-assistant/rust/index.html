@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Home Assistant · Slint</title>
+        <style>
+            body { margin: 0; background: #0b0f24; color: #eef1ff; font-family: sans-serif; }
+            canvas { display: block; margin: 20px auto; }
+        </style>
+    </head>
+    <body>
+        <canvas id="canvas" data-slint-auto-resize-to-preferred="true"></canvas>
+        <script type="module">
+            import init from "./pkg/home_assistant_lib.js";
+            init();
+        </script>
+    </body>
+</html>

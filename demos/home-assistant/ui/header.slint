@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Home } from "state.slint";
+import { Rooms } from "rooms.slint";
+
+export component Header inherits Rectangle {
+    in property <string> date-label;
+    private property <string> title: Rooms.all[Home.room].name;
+    private property <float> arrival: 1;
+    changed title => { title-timer.running = true; root.arrival = 0; }
+    title-timer := Timer { interval: 1ms; running: false; triggered => { self.running = false; root.arrival = 1; } }
+    animate arrival { duration: title-timer.running ? 0ms : 360ms; easing: ease-out; }
+    Text { x: 0; y: 14px + (1 - root.arrival) * 12px; text: root.title; font-size: 28px; font-weight: 600; color: Theme.text; opacity: root.arrival; }
+    Text {
+        x: 0; y: 55px; text: "\{Home.light-count(Home.room)} lights on  ·  " + Home.tenths(Home.rooms[Home.room].current) + "°C  ·  48% humidity";
+        font-size: 15px; color: Theme.secondary;
+    }
+    Image { x: parent.width - 328px; y: 12px; width: 56px; height: 56px; image-fit: contain; source: @image-url("../assets/images/weather/sunny.png"); }
+    Text { x: parent.width - 263px; y: 16px; text: "14°"; font-size: 28px; color: Theme.text; }
+    Text { x: parent.width - 263px; y: 53px; text: "Sunny"; font-size: 12px; color: Theme.secondary; }
+    Rectangle {
+        x: parent.width - 190px; width: 190px;
+        Text { x: parent.width - self.width; y: 3px; text: Home.clock; font-size: 44px; font-weight: 300; color: Theme.text; }
+        Text { x: parent.width - self.width; y: 58px; text: root.date-label; font-size: 13px; color: Theme.secondary; }
+        TouchArea { mouse-cursor: pointer; clicked => { Home.activity(); Home.diagnostics = !Home.diagnostics; } }
+    }
+}

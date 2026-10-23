@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { CardSlot } from "../rooms.slint";
+
+// Retain a departing card's geometry and content while fading it out. Shared
+// cards move as the same live instance; arriving cards wait for the departure.
+export component CardFrame inherits Rectangle {
+    in property <CardSlot> slot;
+    in property <int> room;
+    out property <int> displayed-room: root.room;
+    private property <CardSlot> placed: root.slot;
+    private property <bool> moving: false;
+    init => { root.placed = root.slot; root.displayed-room = root.room; }
+    changed slot => {
+        if root.slot.present {
+            root.moving = root.opacity > 0.1;
+            root.placed = root.slot;
+            root.displayed-room = root.room;
+        }
+    }
+    changed room => { if root.slot.present { root.displayed-room = root.room; } }
+    x: root.placed.column * 300px;
+    y: root.placed.row * 246px;
+    width: max(1,root.placed.columns) * 300px - 20px;
+    height: max(1,root.placed.rows) * 246px - 20px;
+    opacity: root.slot.present ? 1 : 0;
+    visible: root.opacity > 0.001;
+    animate x, y, width, height {
+        duration: root.moving ? Theme.motion : 0ms;
+        easing: cubic-bezier(0.22,0.8,0.22,1);
+    }
+    animate opacity { duration: 240ms; delay: root.slot.present ? 200ms : 0ms; }
+    border-radius: 24px;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: @linear-gradient(150deg, #414f82, #252e50 70%);
+    clip: true;
+    @children
+    // A departing or arriving card must not activate a control underneath it.
+    TouchArea { enabled: !root.slot.present || root.opacity < 0.99; }
+}
+
+export component CardLabel inherits Text {
+    x: 22px; y: 20px;
+    color: Theme.secondary; font-size: 13px; font-weight: 600; letter-spacing: 1.1px;
+}

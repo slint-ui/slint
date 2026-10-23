@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { CardLabel } from "../components/card.slint";
+
+export component WeatherCard inherits Rectangle {
+    CardLabel { text: "WEATHER"; }
+    Image { y: 65px; width: 112px; height: 112px; source: @image-url("../../assets/images/weather/sunny.png"); image-fit: contain; }
+    Text { y: 183px; text: "14°"; font-size: 80px; font-weight: 300; color: Theme.text; }
+    Text { y: 279px; text: "Sunny, light breeze"; font-size: 16px; color: Theme.secondary; }
+    Rectangle { x: 24px; y: 316px; width: parent.width - 48px; height: 1px; background: #ffffff0b; }
+    VerticalLayout {
+        x: 28px; y: 330px; width: parent.width - 56px; height: 120px; spacing: 5px;
+        for item in [
+            { day: "Wed", temperature: "12°", picture: @image-url("../../assets/images/weather/sunny-cloudy.png") },
+            { day: "Thu", temperature: "9°", picture: @image-url("../../assets/images/weather/rainy.png") },
+            { day: "Fri", temperature: "15°", picture: @image-url("../../assets/images/weather/sunny.png") },
+        ]: HorizontalLayout {
+            Text { text: item.day; font-size: 16px; color: Theme.secondary; horizontal-stretch: 1; }
+            Image { source: item.picture; width: 32px; height: 32px; image-fit: contain; }
+            Text { text: item.temperature; font-size: 17px; color: Theme.text; horizontal-alignment: right; horizontal-stretch: 1; }
+        }
+    }
+}

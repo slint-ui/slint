@@ -39,6 +39,12 @@ const CATALOG: &[CatalogEntry] = &[
         args: &[],
     },
     CatalogEntry {
+        binary: "home-assistant",
+        title: "Home Assistant",
+        description: "A home control panel with animated room layouts, climate, lights, and media.",
+        args: &[],
+    },
+    CatalogEntry {
         binary: "home-automation",
         title: "Home Automation",
         description: "A fictional user interface of a device that automates the control of a home.",

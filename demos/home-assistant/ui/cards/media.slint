@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Rooms } from "../rooms.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { IconName } from "../components/icon.slint";
+import { ActionButton } from "../components/button.slint";
+import { ProgressTrack } from "../components/progress.slint";
+
+export component MediaCard inherits Rectangle {
+    in property <int> room;
+    private property <bool> wide: root.width > 400px;
+    private property <float> play-level: Home.playing ? 1 : 0;
+    private property <duration> phase: animation-tick();
+    animate play-level { duration: 220ms; }
+    CardLabel { text: "NOW PLAYING"; }
+    Rectangle {
+        x: 22px; y: 53px; width: root.wide ? 96px : 74px; height: self.width;
+        border-radius: 14px; clip: true;
+        Image { source: @image-url("../../assets/images/album.png"); image-fit: cover; width: 100%; height: 100%; }
+    }
+    Text { x: root.wide ? 134px : 111px; y: 65px; width: root.wide ? 225px : 150px; text: "Midnight City"; color: Theme.text; font-size: root.wide ? 22px : 17px; font-weight: 500; }
+    Text { x: root.wide ? 134px : 111px; y: 96px; text: "M83"; color: Theme.secondary; font-size: 14px; }
+    for i in 4: Rectangle {
+        x: (root.wide ? 134px : 111px) + i * 8px;
+        width: 4px; height: 4px + 15px * root.play-level * (0.5 + 0.5 * sin(root.phase / 1s * (360deg + i * 140deg) + i * 60deg));
+        y: (root.wide ? 140px : 134px) - self.height; border-radius: 2px; background: Rooms.all[root.room].accent;
+    }
+    HorizontalLayout {
+        x: root.wide ? parent.width - 185px : (parent.width - 168px) / 2;
+        y: root.wide ? 76px : 171px;
+        width: 168px; height: 42px; spacing: 21px;
+        ActionButton { width: 42px; height: 42px; quiet: true; icon: IconName.prev; label: "Previous track"; activated => { Home.skip(); } }
+        ActionButton { width: 42px; height: 42px; selected: true; accent: Rooms.all[root.room].accent; icon: Home.playing ? IconName.pause : IconName.play; label: Home.playing ? "Pause music" : "Play music"; activated => { Home.toggle-play(); } }
+        ActionButton { width: 42px; height: 42px; quiet: true; icon: IconName.next; label: "Next track"; activated => { Home.skip(); } }
+    }
+    ProgressTrack {
+        x: 22px; y: root.wide ? 165px : 139px; width: parent.width - 44px;
+        progress: Home.progress; accent: Rooms.all[root.room].accent; interactive: true;
+        seek(value) => { Home.seek(value); }
+    }
+    if root.wide: Text { x: 22px; y: 197px; text: "\{floor(Home.progress * 244 / 60)}:" + Home.padded(mod(floor(Home.progress * 244),60)); font-size: 11px; color: Theme.muted; }
+    if root.wide: Text { x: parent.width - 45px; y: 197px; text: "4:04"; font-size: 11px; color: Theme.muted; }
+}

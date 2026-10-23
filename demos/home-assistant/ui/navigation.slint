@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Home } from "state.slint";
+import { Rooms } from "rooms.slint";
+import { Icon, IconName } from "components/icon.slint";
+import { ActionButton } from "components/button.slint";
+
+export component NavigationRail inherits Rectangle {
+    width: 84px; height: 568px;
+    background: @linear-gradient(180deg,#151d3b,#0e1229);
+    border-radius: 27px; border-width: 1px; border-color: #2b355c;
+    Rectangle {
+        x: 12px; y: 28px + Home.room * 92px; width: 60px; height: 60px;
+        border-radius: 20px;
+        background: @linear-gradient(150deg,Rooms.all[Home.room].accent.brighter(0.16),Rooms.all[Home.room].accent.darker(0.16));
+        animate y, background { duration: 420ms; easing: cubic-bezier(0.22,0.8,0.22,1); }
+    }
+    for room[index] in Rooms.all: Rectangle {
+        x: 0; y: 12px + index * 92px; width: parent.width; height: 92px;
+        accessible-role: button; accessible-label: room.name;
+        accessible-action-default => { Home.select-room(index); }
+        Icon {
+            width: 28px; height: 28px;
+            name: index == 0 ? IconName.home : index == 1 ? IconName.kitchen : index == 2 ? IconName.bedroom : index == 3 ? IconName.office : IconName.garden;
+            ink: Home.room == index ? Theme.ink : touch.has-hover ? Theme.text : Theme.secondary;
+            animate ink { duration: 180ms; }
+        }
+        touch := TouchArea { mouse-cursor: pointer; clicked => { Home.select-room(index); } }
+    }
+    ActionButton {
+        y: 510px; quiet: true;
+        icon: IconName.lock; label: "Lock home"; activated => { Home.lock(); }
+    }
+}

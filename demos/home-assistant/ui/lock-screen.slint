@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "theme.slint";
+import { Home } from "state.slint";
+import { Rooms } from "rooms.slint";
+import { Icon, IconName } from "components/icon.slint";
+
+component StatusChip inherits Rectangle {
+    in property <string> label;
+    in property <IconName> icon;
+    in property <color> accent;
+    height: 34px; border-radius: 17px; border-width: 1px; border-color: #35416b;
+    background: @linear-gradient(180deg,#222c50,#18203e);
+    HorizontalLayout {
+        cross-axis-alignment: center;
+        padding-left: 13px; padding-right: 13px; spacing: 7px;
+        Icon { width: 18px; height: 18px; name: root.icon; ink: root.accent; }
+        Text { text: root.label; font-size: 13px; color: Theme.text; }
+    }
+}
+
+component LockContent inherits Rectangle {
+    in property <string> date-label;
+    in property <float> progress;
+    in property <color> accent;
+    width: 1024px; height: 600px;
+    Text { y: 133px; text: Home.clock; color: Theme.text; font-size: 84px; font-weight: 250; letter-spacing: -2px; }
+    Text { y: 239px; text: root.date-label; color: Theme.secondary; font-size: 18px; }
+    HorizontalLayout {
+        x: 280px; y: 286px; width: 464px; height: 34px; spacing: 12px;
+        StatusChip { label: Home.tenths((Home.rooms[0].current + Home.rooms[1].current + Home.rooms[2].current + Home.rooms[3].current + Home.rooms[4].current) / 5) + "° inside"; icon: IconName.thermo; accent: Theme.hot; }
+        StatusChip { label: "\{Home.light-count(0) + Home.light-count(1) + Home.light-count(2) + Home.light-count(3) + Home.light-count(4)} lights on"; icon: IconName.bulb; accent: Theme.warm; }
+        StatusChip { label: "Doors locked"; icon: IconName.lock; accent: root.accent; }
+    }
+    Rectangle {
+        x: 402px; y: 322px; width: 220px; height: 220px;
+        background: @radial-gradient(circle,root.accent.with-alpha(0.13 + root.progress * 0.15),transparent 70%);
+    }
+    Path {
+        x: 432px; y: 352px; width: 160px; height: 160px;
+        viewbox-width: 160; viewbox-height: 160;
+        stroke: #303c68; stroke-width: 3px;
+        commands: "M 80 14 A 66 66 0 1 1 79.99 14";
+    }
+    Path {
+        x: 432px; y: 352px; width: 160px; height: 160px;
+        viewbox-width: 160; viewbox-height: 160;
+        visible: root.progress > 0.001;
+        stroke: root.accent; stroke-width: 4px; stroke-line-cap: round;
+        MoveTo { x: 80; y: 14; }
+        ArcTo { x: 80 + 66 * cos(-90deg + min(0.9999,root.progress) * 360deg); y: 80 + 66 * sin(-90deg + min(0.9999,root.progress) * 360deg); radius-x: 66; radius-y: 66; sweep: true; large-arc: root.progress > 0.5; }
+    }
+    Rectangle {
+        x: 468px; y: 388px; width: 88px; height: 88px; border-radius: 44px;
+        background: @linear-gradient(150deg,root.accent.brighter(0.24),root.accent.darker(0.2));
+        border-width: 1px; border-color: root.accent.brighter(0.35);
+        Icon { width: 42px; height: 42px; name: IconName.fingerprint; ink: Theme.ink; }
+    }
+    Text { y: 527px; text: root.progress > 0 ? "Keep holding…" : "Hold to unlock"; color: Theme.secondary; font-size: 13px; letter-spacing: 0.4px; }
+}
+
+export component LockScreen inherits Rectangle {
+    in property <string> date-label;
+    in property <bool> keyboard-hold: false;
+    private property <float> opening: Home.locked ? 0 : 1;
+    private property <duration> hold-duration: 1200ms;
+    private property <float> held: root.holding ? 1 : 0;
+    private property <float> progress: max(root.held,Home.unlock-progress);
+    private property <bool> holding: Home.locked && (root.keyboard-hold || (hold.pressed && hold.mouse-x >= 0px && hold.mouse-x <= hold.width && hold.mouse-y >= 0px && hold.mouse-y <= hold.height));
+    animate held { duration: root.holding ? root.hold-duration : 0ms; easing: linear; }
+    animate opening { duration: 900ms; easing: cubic-bezier(0.22,0.8,0.22,1); }
+    visible: root.opening < 0.9999;
+    // The blocker remains during the door animation, so covered cards never receive taps.
+    TouchArea { pointer-event(event) => { if event.kind == PointerEventKind.down { Home.activity(); } } }
+    for side in 2: Rectangle {
+        x: side * 512px + (side == 0 ? -1 : 1) * root.opening * 540px;
+        width: 512px; height: 600px; clip: true;
+        background: @linear-gradient(180deg,#1c254a,#0a0f26 65%,#080c1e);
+        Rectangle {
+            x: side == 0 ? 511px : 0px; width: 1px;
+            background: @linear-gradient(180deg,transparent,Rooms.all[Home.room].accent.with-alpha(0.7),transparent);
+            opacity: max(0,1 - root.opening * 6);
+        }
+        LockContent { x: -side * 512px; y: 0; date-label: root.date-label; progress: root.progress; accent: Rooms.all[Home.room].accent; }
+    }
+    changed holding => { if root.holding { Home.activity(); } }
+    // Use one deadline: counting short timer ticks extends the hold when frames
+    // are slow or the event loop stalls. The ring animates independently.
+    Timer {
+        interval: root.hold-duration; running: root.holding;
+        triggered => { if root.holding { Home.unlock(); } }
+    }
+    hold := TouchArea {
+        x: 432px; y: 352px; width: 160px; height: 160px;
+        enabled: Home.locked; mouse-cursor: pointer;
+        accessible-role: button; accessible-label: "Hold to unlock";
+        accessible-action-default => { Home.activity(); Home.unlock(); }
+    }
+}

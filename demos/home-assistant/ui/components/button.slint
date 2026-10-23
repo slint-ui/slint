@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Icon, IconName } from "icon.slint";
+
+export component ActionButton inherits Rectangle {
+    in property <string> label;
+    in property <IconName> icon;
+    in property <bool> show-icon: true;
+    in property <bool> show-label: false;
+    in property <bool> selected: false;
+    in property <bool> quiet: false;
+    in property <color> accent: #7e98ff;
+    callback activated();
+    width: 48px; height: 48px;
+    border-radius: min(root.width,root.height) / 2;
+    border-width: root.quiet && !touch.has-hover && !keys.has-focus ? 0px : 1px;
+    border-color: keys.has-focus ? Theme.text : root.selected ? root.accent : Theme.border;
+    background: root.selected ? root.accent : touch.pressed ? #354374 : touch.has-hover ? #2c365f : root.quiet ? transparent : Theme.control;
+    animate background { duration: 150ms; }
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.activated(); }
+    forward-focus: keys;
+    keys := FocusScope {
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return { root.activated(); return accept; }
+            return reject;
+        }
+    }
+    if root.show-icon: Icon { name: root.icon; ink: root.selected ? Theme.ink : Theme.text; }
+    if root.show-label: Text {
+        text: root.label; color: root.selected ? Theme.ink : Theme.text;
+        font-size: 15px; font-weight: 600;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { keys.focus(); root.activated(); }
+    }
+}

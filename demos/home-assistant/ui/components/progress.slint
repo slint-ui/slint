@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+
+export component ProgressTrack inherits Rectangle {
+    in property <float> progress;
+    in property <color> accent;
+    in property <length> thickness: 4px;
+    in property <bool> interactive: false;
+    callback seek(float);
+    height: 28px;
+    Rectangle {
+        height: root.thickness; border-radius: root.thickness / 2;
+        background: Theme.track;
+        Rectangle {
+            x: 0; width: max(root.thickness,parent.width * clamp(root.progress,0,1));
+            border-radius: root.thickness / 2; background: root.accent;
+        }
+    }
+    if root.interactive: Rectangle {
+        x: clamp(root.progress,0,1) * (root.width - 12px);
+        width: 12px; height: 12px; border-radius: 6px; background: Theme.text;
+    }
+    touch := TouchArea {
+        enabled: root.interactive;
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down { root.seek(self.mouse-x / self.width); }
+        }
+        moved => { if self.pressed { root.seek(self.mouse-x / self.width); } }
+    }
+}

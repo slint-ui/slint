@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export enum IconName { home, kitchen, bedroom, office, garden, bulb, thermo, bolt, drop, music, play, pause, next, prev, camera, lock, fingerprint, plus, minus, spark }
+
+export component Icon inherits Image {
+    in property <IconName> name;
+    in property <color> ink: #eef1ff;
+    width: 24px;
+    height: 24px;
+    image-fit: contain;
+    colorize: root.ink;
+    source: root.name == IconName.home ? @image-url("../../assets/icons/home.svg")
+        : root.name == IconName.kitchen ? @image-url("../../assets/icons/kitchen.svg")
+        : root.name == IconName.bedroom ? @image-url("../../assets/icons/bedroom.svg")
+        : root.name == IconName.office ? @image-url("../../assets/icons/office.svg")
+        : root.name == IconName.garden ? @image-url("../../assets/icons/garden.svg")
+        : root.name == IconName.bulb ? @image-url("../../assets/icons/bulb.svg")
+        : root.name == IconName.thermo ? @image-url("../../assets/icons/thermo.svg")
+        : root.name == IconName.bolt ? @image-url("../../assets/icons/bolt.svg")
+        : root.name == IconName.drop ? @image-url("../../assets/icons/drop.svg")
+        : root.name == IconName.music ? @image-url("../../assets/icons/music.svg")
+        : root.name == IconName.play ? @image-url("../../assets/icons/play.svg")
+        : root.name == IconName.pause ? @image-url("../../assets/icons/pause.svg")
+        : root.name == IconName.next ? @image-url("../../assets/icons/next.svg")
+        : root.name == IconName.prev ? @image-url("../../assets/icons/prev.svg")
+        : root.name == IconName.camera ? @image-url("../../assets/icons/camera.svg")
+        : root.name == IconName.lock ? @image-url("../../assets/icons/lock.svg")
+        : root.name == IconName.fingerprint ? @image-url("../../assets/icons/fingerprint.svg")
+        : root.name == IconName.plus ? @image-url("../../assets/icons/plus.svg")
+        : root.name == IconName.minus ? @image-url("../../assets/icons/minus.svg")
+        : @image-url("../../assets/icons/spark.svg");
+}

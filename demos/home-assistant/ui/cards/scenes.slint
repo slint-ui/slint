@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Rooms } from "../rooms.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { Icon, IconName } from "../components/icon.slint";
+
+export component ScenesCard inherits Rectangle {
+    in property <int> room;
+    CardLabel { text: "SCENES"; }
+    for name[index] in ["Morning","Relax","Movie","Away"]: Rectangle {
+        private property <bool> selected: Home.rooms[root.room].scene == index;
+        x: 22px + mod(index,2) * ((root.width - 56px) / 2 + 12px);
+        y: 55px + floor(index / 2) * 78px;
+        width: (root.width - 56px) / 2; height: 66px; border-radius: 15px;
+        background: self.selected ? Rooms.all[root.room].accent : touch.has-hover ? #303a66 : Theme.control;
+        border-width: 1px; border-color: self.selected ? Rooms.all[root.room].accent.brighter(0.2) : Theme.border;
+        animate background, border-color { duration: 180ms; }
+        accessible-role: button; accessible-label: name; accessible-checked: self.selected;
+        accessible-action-default => { Home.select-scene(root.room,index); }
+        Icon { x: 13px; y: 10px; width: 20px; height: 20px; name: index == 0 ? IconName.spark : index == 1 ? IconName.music : index == 2 ? IconName.camera : IconName.lock; ink: Home.rooms[root.room].scene == index ? Theme.ink : Theme.secondary; }
+        Text { x: 13px; y: 39px; text: name; color: Home.rooms[root.room].scene == index ? Theme.ink : Theme.text; font-size: 15px; font-weight: 500; }
+        touch := TouchArea { mouse-cursor: pointer; clicked => { Home.select-scene(root.room,index); } }
+    }
+}

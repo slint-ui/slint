@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { Icon, IconName } from "../components/icon.slint";
+import { ActionButton } from "../components/button.slint";
+import { TemperatureDial } from "../components/dial.slint";
+
+export component ClimateCard inherits Rectangle {
+    in property <int> room;
+    private property <float> target: Home.rooms[root.room].target;
+    private property <float> current: Home.rooms[root.room].current;
+    private property <string> mode: root.target > root.current + 0.2 ? "Heating" : root.target < root.current - 0.2 ? "Cooling" : "Holding";
+    private property <color> mode-color: root.mode == "Cooling" ? Theme.cool : root.mode == "Holding" ? Theme.success : Theme.hot;
+    CardLabel { text: "CLIMATE"; }
+    Rectangle {
+        x: parent.width - 111px; y: 16px; width: 89px; height: 26px;
+        background: root.mode-color.with-alpha(0.12); border-radius: 13px;
+        HorizontalLayout {
+            cross-axis-alignment: center;
+            padding-left: 10px; padding-right: 10px; spacing: 7px;
+            Rectangle { width: 5px; height: 5px; border-radius: 3px; background: root.mode-color; }
+            Text { text: root.mode; font-size: 12px; color: root.mode-color; }
+        }
+    }
+    dial := TemperatureDial {
+        y: 92px; value: root.target; current: root.current;
+        adjusted(value) => { Home.set-target(root.room,value); }
+    }
+    HorizontalLayout {
+        x: 28px; y: parent.height - 86px; width: parent.width - 56px; height: 52px;
+        ActionButton { width: 52px; height: 52px; icon: IconName.minus; label: "Decrease temperature"; activated => { Home.set-target(root.room,root.target - 0.5); } }
+        HorizontalLayout {
+            alignment: center; spacing: 6px;
+            Icon { width: 20px; height: 20px; name: IconName.drop; ink: Theme.cool; }
+            Text { text: "48%"; font-size: 16px; color: Theme.text; }
+        }
+        ActionButton { width: 52px; height: 52px; icon: IconName.plus; label: "Increase temperature"; activated => { Home.set-target(root.room,root.target + 0.5); } }
+    }
+}

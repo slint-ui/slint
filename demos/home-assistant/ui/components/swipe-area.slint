@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component SwipeArea inherits TouchArea {
+    callback swiped(int);
+    callback activity();
+    private property <bool> handled: false;
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.down { root.handled = false; root.activity(); }
+    }
+    moved => {
+        if self.pressed && !root.handled && abs(self.mouse-x - self.pressed-x) > 45px && abs(self.mouse-x - self.pressed-x) > abs(self.mouse-y - self.pressed-y) {
+            root.handled = true;
+            root.swiped(self.mouse-x < self.pressed-x ? 1 : -1);
+        }
+    }
+}

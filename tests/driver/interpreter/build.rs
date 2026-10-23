@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("example_sprite_sheet", "examples/sprite-sheet/demo.slint"),
         ("example_fancy_switches", "examples/fancy-switches/demo.slint"),
         ("example_home_automation", "demos/home-automation/ui/demo.slint"),
+        ("example_home_assistant", "demos/home-assistant/ui/app.slint"),
         ("example_energy_monitor", "demos/energy-monitor/ui/desktop_window.slint"),
         ("example_weather", "demos/weather-demo/ui/main.slint"),
         ("example_grid_model_rows", "examples/layouts/grid-with-model-in-rows.slint"),

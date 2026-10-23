@@ -13,6 +13,7 @@ members = [
   'energy-monitor',
   'food-processor/rust',
   'home-automation/rust',
+  'home-assistant/rust',
   'launcher',
   'printerdemo/rust',
   'printerdemo_mcu',

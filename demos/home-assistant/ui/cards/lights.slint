@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Theme } from "../theme.slint";
+import { Rooms } from "../rooms.slint";
+import { Home } from "../state.slint";
+import { CardLabel } from "../components/card.slint";
+import { Icon, IconName } from "../components/icon.slint";
+import { Toggle } from "../components/toggle.slint";
+
+export component LightsCard inherits Rectangle {
+    in property <int> room;
+    CardLabel { text: "LIGHTS"; }
+    Text { x: parent.width - self.width - 22px; y: 20px; text: "\{Home.light-count(root.room)} of 3 on"; color: Theme.muted; font-size: 13px; }
+    VerticalLayout {
+        x: 16px; y: 54px; width: parent.width - 32px; height: 156px; spacing: 2px;
+        for name[index] in Rooms.all[root.room].lights: Rectangle {
+            private property <bool> on: Home.light-on(root.room,index);
+            height: 48px;
+            background: touch.has-hover ? #ffffff08 : transparent;
+            border-radius: 12px;
+            accessible-role: checkbox; accessible-label: name;
+            accessible-checked: self.on;
+            accessible-action-default => { Home.toggle-light(root.room,index); }
+            HorizontalLayout {
+                padding-left: 10px; padding-right: 6px; spacing: 12px;
+                Icon { width: 22px; height: 22px; name: IconName.bulb; ink: Home.light-on(root.room,index) ? Theme.warm : Theme.muted; }
+                Text { text: name; font-size: 16px; color: Home.light-on(root.room,index) ? Theme.text : Theme.secondary; horizontal-stretch: 1; }
+                Toggle { checked: Home.light-on(root.room,index); accent: Rooms.all[root.room].accent; }
+            }
+            touch := TouchArea { mouse-cursor: pointer; clicked => { Home.toggle-light(root.room,index); } }
+        }
+    }
+}
