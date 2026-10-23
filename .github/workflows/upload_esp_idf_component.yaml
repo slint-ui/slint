@@ -23,7 +23,7 @@ jobs:
         container: espressif/idf:latest
         steps:
             - uses: actions/checkout@v7
-            - run: timeout 600 apt-get update && timeout 600 apt-get install -y yq
+            - run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y yq
             - name: Make subsequent git calls work
               run: git config --global --add safe.directory '*'
             - name: Extract Version and determine name
@@ -71,4 +71,3 @@ jobs:
               uses: actions/upload-artifact@v7
               with:
                   path: "api/cpp/esp-idf/slint/dist/*"
-

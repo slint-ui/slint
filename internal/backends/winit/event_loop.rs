@@ -207,19 +207,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             }
             #[cfg(muda)]
             CustomEvent::Muda(event) => {
-                if let Some((window, eid, muda_type)) =
-                    event.id().0.split_once('|').and_then(|(w, e)| {
-                        let (e, muda_type) = e.split_once('|')?;
-                        Some((
-                            self.shared_backend_data.window_by_id(
-                                winit::window::WindowId::from(w.parse::<u64>().ok()?),
-                            )?,
-                            e.parse::<usize>().ok()?,
-                            muda_type.parse::<crate::muda::MudaType>().ok()?,
-                        ))
-                    })
+                if let Some((window_id, generation, entry_id, muda_type)) =
+                    crate::muda::parse_menu_item_id(event.id())
+                    && let Some(window) = self.shared_backend_data.window_by_id(window_id)
                 {
-                    window.muda_event(eid, muda_type);
+                    window.muda_event(generation, entry_id, muda_type);
                 };
             }
         }

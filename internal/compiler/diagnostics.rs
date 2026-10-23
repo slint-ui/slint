@@ -74,8 +74,12 @@ impl SourceFileInner {
         Arc::new(Self { path, ..Default::default() })
     }
 
-    /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 1),
+    /// or (0, 0) for the offset of an invalid `Span`.
     pub fn line_column(&self, offset: usize, format: ByteFormat) -> (usize, usize) {
+        if !Span::new(offset, 0).is_valid() {
+            return (0, 0);
+        }
         let adjust_utf16 = |line_begin, col| {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
@@ -747,6 +751,24 @@ component MainWindow inherits Window {
                 column += 1;
             }
         }
+    }
+
+    #[test]
+    fn a_diagnostic_without_a_position_has_no_line_or_column() {
+        let mut diag = BuildDiagnostics::default();
+        diag.push_error_with_span(
+            "missing".into(),
+            SourceLocation {
+                source_file: Some(SourceFileInner::from_path_only(SourcePath::new("foo.slint"))),
+                span: Span::default(),
+            },
+        );
+        let diagnostic = diag.iter().next().unwrap();
+        for format in [ByteFormat::Utf8, ByteFormat::Utf16] {
+            assert_eq!(diagnostic_line_column_with_format(diagnostic, format), (0, 0));
+            assert_eq!(diagnostic_end_line_column_with_format(diagnostic, format), (0, 0));
+        }
+        assert_eq!(diagnostic.span.to_string(), "foo.slint:0:0");
     }
 
     #[cfg(feature = "display-diagnostics")]

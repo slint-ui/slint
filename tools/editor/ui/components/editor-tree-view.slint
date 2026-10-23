@@ -47,7 +47,7 @@ component EditorTreeRow {
         && root.tree-pointer.x >= root.absolute-position.x
         && root.tree-pointer.x < root.absolute-position.x + root.width
         && root.tree-pointer.y >= root.absolute-position.y + root.content-y
-        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height - 4px;
+        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;

@@ -47,7 +47,8 @@
 <div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
 <ul id="diagnostics"></ul>
 <script type="module">
-  const INTERPRETER_URLS = { release: "__RELEASE_URL__", snapshot: "__SNAPSHOT_URL__" };
+  const INTERPRETER_URL = "__INTERPRETER_URL__";
+  const CHANNEL = "__CHANNEL__";
   const LEVELS = ["error", "warning", "note"];
 
   const statusEl = document.getElementById("status");
@@ -186,7 +187,7 @@
   let interpreter = null;
   let interpreterLoads = 0;
 
-  function loadInterpreter(channel) {
+  function loadInterpreter() {
     // One interpreter per view: a second module instance can't share the event loop.
     if (interpreter) return interpreter;
     let panic;
@@ -195,18 +196,16 @@
     // A new fragment imports a fresh module instance, with its own WebAssembly memory.
     // Stack traces of the module's panics include the fragment.
     const tag = `#instance-${++interpreterLoads}`;
-    const name = channel === "release" ? "release" : "snapshot";
-    const url = INTERPRETER_URLS[name];
-    const slint = import(url + tag).then(async (slint) => {
+    const slint = import(INTERPRETER_URL + tag).then(async (slint) => {
       await slint.default();
       slint.run_event_loop();
       return slint;
     });
     // wasm-pack publishes the interpreter's package.json next to it.
-    const runtime = fetch(new URL("package.json", url))
+    const runtime = fetch(new URL("package.json", INTERPRETER_URL))
       .then((response) => response.json())
-      .then(({ version }) => `Slint ${version} (${name})`)
-      .catch(() => `Slint (${name})`);
+      .then(({ version }) => `Slint ${version} (${CHANNEL})`)
+      .catch(() => `Slint (${CHANNEL})`);
     interpreter = { tag, slint, panicked, panic, runtime };
     return interpreter;
   }
@@ -291,12 +290,17 @@
     },
   });
 
-  async function readImageFile(path) {
-    const result = await request("tools/call", { name: "read_image_file", arguments: { path } });
+  async function readBinaryFile(path) {
+    const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
     const block = result?.content?.[0];
-    if (result?.isError || block?.type !== "image") throw new Error(block?.text ?? "no image data");
-    const bytes = Uint8Array.from(atob(block.data), (c) => c.charCodeAt(0));
-    return URL.createObjectURL(new Blob([bytes], { type: block.mimeType }));
+    if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
+    const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
+    return { bytes, mimeType: block.resource.mimeType };
+  }
+
+  async function readImageFile(path) {
+    const { bytes, mimeType } = await readBinaryFile(path);
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
   }
 
   function reportMissingImage(path, message) {
@@ -316,9 +320,10 @@
 
   let instance = null;
   let runtime = null;
-  async function render({ source, path, style, channel }) {
+  async function render({ source, path, style }) {
     let url = "main.slint";
     let loadImport = null;
+    let loadResource = null;
     if (path) {
       showStatus(`Reading ${path}…`);
       try {
@@ -331,6 +336,8 @@
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error.
       loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
+      loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
     const posixPath = path?.replaceAll("\\", "/");
     const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
@@ -342,7 +349,7 @@
     };
 
     showStatus("Loading the Slint interpreter…");
-    const current = loadInterpreter(channel);
+    const current = loadInterpreter();
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
@@ -358,8 +365,8 @@
     const { component, diagnostics } = await untilPanic(
       current,
       style
-        ? slint.compile_from_string_with_style(source, url, style, loadImport)
-        : slint.compile_from_string(source, url, loadImport),
+        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource)
+        : slint.compile_from_string(source, url, loadImport, loadResource),
     );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {

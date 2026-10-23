@@ -26,3 +26,45 @@ export component Bax {
         *: Rectangle { }
     }
 }
+
+component Child {
+    callback match;
+}
+
+export global Global {
+    callback match;
+    out property <int> count;
+    match => {
+        count += 1;
+    }
+}
+
+export component NoArguments {
+    out property <int> count;
+    callback match;
+    callback match-expression;
+    callback match-int(int);
+    match => {
+        count += 1;
+    }
+    Child {
+        match => {
+            root.count += 1;
+        }
+    }
+    init => {
+        match();
+        root.match();
+        Global.match();
+    }
+}
+
+export component EmptyArguments {
+    callback match;
+    match() => { }
+}
+
+export component ExpressionHandler {
+    callback match;
+    match => debug("match");
+}

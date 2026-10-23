@@ -51,7 +51,15 @@ pub type ResourceLoader =
 
 /// The contents of the imported font files that were loaded while compiling,
 /// keyed by the path that the compiled code registers each font with.
-pub type FontFiles = Rc<HashMap<String, std::sync::Arc<Vec<u8>>>>;
+pub type FontFiles = HashMap<String, std::sync::Arc<Vec<u8>>>;
+
+/// What the compiled code refers to besides the compilation unit.
+#[derive(Clone, Default)]
+pub struct Resources {
+    pub font_files: FontFiles,
+    #[cfg(feature = "internal-embed-textures")]
+    pub pre_rendered: crate::static_resources::PreRendered,
+}
 
 /// Compiled component, one per exported public component in the
 /// source file. Produced by [`build_from_source`] and held behind
@@ -63,7 +71,7 @@ pub struct ComponentDefinitionInner {
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
     pub type_loaders: TypeLoaders,
-    pub font_files: FontFiles,
+    pub resources: Rc<Resources>,
 }
 
 impl ComponentDefinitionInner {
@@ -82,7 +90,7 @@ impl ComponentDefinitionInner {
             self.public_index,
             window_adapter,
             self.type_loaders.clone(),
-            self.font_files.clone(),
+            self.resources.clone(),
         );
         ComponentInstanceInner(vrc)
     }
@@ -93,7 +101,7 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             self.type_loaders.clone(),
-            self.font_files.clone(),
+            self.resources.clone(),
             context,
         );
         ComponentInstanceInner(vrc)
@@ -109,7 +117,7 @@ impl ComponentDefinitionInner {
             self.public_index,
             window_adapter,
             self.type_loaders.clone(),
-            self.font_files.clone(),
+            self.resources.clone(),
         );
         ComponentInstanceInner(vrc)
     }
@@ -127,7 +135,7 @@ impl ComponentDefinitionInner {
             self.compilation_unit.clone(),
             self.public_index,
             self.type_loaders.clone(),
-            self.font_files.clone(),
+            self.resources.clone(),
             parent,
             parent_item_tree_index,
         );
@@ -340,7 +348,7 @@ impl ComponentInstanceInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
             type_loaders: self.0.type_loaders.clone(),
-            font_files: self.0.globals.font_files.clone(),
+            resources: self.0.globals.resources.clone(),
         }
     }
 }
@@ -354,6 +362,11 @@ pub fn build_from_document(
     font_files: FontFiles,
     animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
+    let resources = Rc::new(Resources {
+        font_files,
+        #[cfg(feature = "internal-embed-textures")]
+        pre_rendered: crate::static_resources::PreRendered::from_document(document),
+    });
     let mut unit =
         i_slint_compiler::llr::lower_to_item_tree::lower_to_item_tree(document, compiler_config);
     if matches!(animation_mode, AnimationMode::Static) {
@@ -369,7 +382,7 @@ pub fn build_from_document(
             compilation_unit: unit.clone(),
             public_index,
             type_loaders: type_loaders.clone(),
-            font_files: font_files.clone(),
+            resources: resources.clone(),
         })
         .collect()
 }
@@ -445,7 +458,7 @@ async fn load_font_files(
             Err(e) => diag.push_warning(format!("Cannot load the font: {e}"), &token),
         }
     }
-    Rc::new(files)
+    files
 }
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]

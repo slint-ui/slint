@@ -42,6 +42,8 @@ pub(super) fn buffer_weight(buffer: &SharedImageBuffer) -> usize {
         SharedImageBuffer::RGB565(pixels) => pixels.as_bytes().len(),
         #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(pixels) => pixels.as_bytes().len(),
+        #[cfg(feature = "image-pixel-format-alpha-map")]
+        SharedImageBuffer::AlphaMap { alpha, .. } => alpha.as_bytes().len(),
     }
 }
 

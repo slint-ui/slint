@@ -3,11 +3,11 @@
 
 //! This is the module contain data structures for a scene of items that can be rendered
 
+use super::box_shadow::BoxShadowCommand;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -22,6 +22,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub box_shadows: Vec<BoxShadowCommand>,
 }
 
 pub struct Scene {
@@ -356,6 +357,10 @@ pub enum SceneCommand {
     ConicGradient {
         conic_gradient_index: u16,
     },
+    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    BoxShadow {
+        box_shadow_index: u16,
+    },
 }
 
 pub struct SceneTexture<'a> {
@@ -485,7 +490,7 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16, sdf: bool },
 }
 
 impl SharedBufferData {
@@ -495,11 +500,12 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
         }
     }
-    #[allow(unused)]
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => {
+                data.as_slice().len() / *width as usize
+            }
         }
     }
 }
@@ -551,10 +557,23 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
-            SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
+                SceneTexture {
+                    data: &alpha.as_bytes()[start..end],
+                    pixel_stride: stride as u16,
+                    format: TexturePixelFormat::AlphaMap,
+                    extra: self.extra,
+                }
+            }
+            SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
+                data: &data.as_slice()[start..end],
                 pixel_stride: *width,
-                format: TexturePixelFormat::AlphaMap,
+                format: if *sdf {
+                    TexturePixelFormat::SignedDistanceField
+                } else {
+                    TexturePixelFormat::AlphaMap
+                },
                 extra: self.extra,
             },
             SharedBufferData::SharedImage(_) => unreachable!(
@@ -587,7 +606,7 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GradientClip {
     /// A zero radius means no clip.
@@ -605,6 +624,12 @@ pub struct RoundedRectangle {
     pub width: PhysicalLength,
     pub border_color: PremultipliedRgbaColor,
     pub inner_color: PremultipliedRgbaColor,
+}
+
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
 }
 
 /// Goes from color 1 to color2

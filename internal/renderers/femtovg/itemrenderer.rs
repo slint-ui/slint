@@ -144,7 +144,7 @@ fn render_inset_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
     canvas: &CanvasRc<R>,
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     pad: f32,
 ) -> Option<ItemGraphicsCacheEntry<R>> {
     let width = shadow_options.width.get();
@@ -202,7 +202,7 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
     shadow_image: Rc<Texture<R>>,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
         let blurred_image = shadow_image

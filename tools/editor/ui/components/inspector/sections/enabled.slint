@@ -12,6 +12,11 @@ export component InspectorEnabledSection inherits InspectorSection {
         ? root.runtime-value.value-bool
         : root.source-value.code == "" || root.source-value.value-bool;
     changed value => { toggle.checked = root.value; }
+    private property <PropertyValue> runtime-read-only: Api.runtime-property-value-data("read-only", {});
+    private property <PropertyValue> source-read-only: Api.source-property-value-data("read-only", {});
+    private property <bool> read-only: root.runtime-read-only.value-resolved
+        ? root.runtime-read-only.value-bool
+        : root.source-read-only.value-bool;
 
     title: @tr("Interaction");
 
@@ -26,6 +31,24 @@ export component InspectorEnabledSection inherits InspectorSection {
                 let requested = self.checked;
                 self.checked = root.value;
                 InspectorContext.commit-code("enabled", requested ? "true" : "false");
+            }
+        }
+    }
+
+    if InspectorContext.is-read-only-selection(): InspectorPropertyRow {
+        private property <bool> value: root.read-only;
+        changed value => { read-only-toggle.checked = self.value; }
+
+        label: @tr("Read-only");
+
+        read-only-toggle := InspectorSwitch {
+            accessible-label: @tr("Read-only");
+            checked: root.read-only;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.read-only;
+                InspectorContext.commit-code("read-only", requested ? "true" : "false");
             }
         }
     }

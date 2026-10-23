@@ -14,10 +14,10 @@ This documentation describes `slint` {pkg.version}.
 
 :::caution[Beta]
 Slint-python is in a beta phase of development: the APIs, while mostly stable,
-may be subject to further changes. Any changes are documented in the
+may be subject to further changes. Any changes will be documented in the
 [ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md). You can
 track the progress of the Python integration via the
-[python-labelled issues](https://github.com/slint-ui/slint/labels/a%3Alanguage-python).
+[python-labeled issues](https://github.com/slint-ui/slint/labels/a%3Alanguage-python).
 :::
 
 ## Prerequisites
@@ -33,13 +33,14 @@ Install Slint with `uv` or `pip` from the [Python Package Index](https://pypi.or
 uv add slint
 ```
 
-The installation uses binaries provided for macOS, Windows, and Linux for
-various architectures. If your target platform is not covered by binaries, `uv`
-will automatically build Slint from source. If that happens, you will need some
-software development tools on your machine, as well as
-[Rust](https://www.rust-lang.org/learn/get-started).
+`uv` installs binaries for macOS, Windows, and Linux on various architectures.
+If no binaries are available for your target platform, `uv` automatically builds
+Slint from source. In that case, you need some software development tools on
+your machine, as well as [Rust](https://www.rust-lang.org/learn/get-started).
 
 ## Quick start
+
+To get started, follow these steps:
 
 1. Create a new project with `uv init`.
 2. Add the Slint Python package to your project: `uv add slint`.
@@ -70,7 +71,7 @@ export component AppWindow inherits Window {
 ```python
 import slint
 
-# slint.loader will look in `sys.path` for `app-window.slint`.
+# slint.loader looks in `sys.path` for `app-window.slint`.
 class App(slint.loader.app_window.AppWindow):
     @slint.callback
     def request_increase_value(self):
@@ -84,10 +85,10 @@ app.run()
 
 ## Instantiating a component
 
-Exported components are exposed as Python classes. To access such a class, you
-have two options:
+Each exported component is available as a Python class. You can access it in
+two ways:
 
-1. Call <XRef to="load_file" />. The returned object is a
+1. Call <XRef to="load_file" />, which returns a
    [namespace](https://docs.python.org/3/library/types.html#types.SimpleNamespace)
    that provides every exported component that inherits <SlintRef type="Window" />:
 
@@ -101,14 +102,16 @@ have two options:
 
    ```python
    import slint
+   # Looks for `app.slint` in `sys.path`.
    main_window = slint.loader.app.MainWindow()
    ```
 
 ## Callbacks
 
 Callbacks declared in `.slint` files are visible as callable properties on the
-component instance. Assign a Python callable to set a handler, or use the
-<XRef to="callback" /> decorator when sub-classing:
+component instance. To set a handler, assign a Python callable to the property.
+If you subclass the component, you can use the <XRef to="callback" /> decorator
+instead:
 
 ```python
 import slint
@@ -123,7 +126,7 @@ component = Component()
 
 ## Arrays and models
 
-Set array properties from Python by passing subclasses of <XRef to="Model" />.
+You can set array properties from Python by passing subclasses of <XRef to="Model" />.
 Use <XRef to="ListModel" /> to construct a model from an iterable:
 
 ```python
@@ -146,8 +149,9 @@ Alternatively, subclass <XRef to="MapModel" /> and implement `map_row()` instead
 Use <XRef to="ReverseModel" /> to show the rows of another model in reverse order.
 Setting one of its rows sets the corresponding row of the source model.
 
-Use <XRef to="FilterModel" /> to show only the rows of another model for which a filter function returns true.
-Alternatively, subclass it and implement `filter_row()`, and call `reset()` when the filter's result changes.
+Use <XRef to="FilterModel" /> to show only the rows of another model for which a filter function returns `True`.
+Alternatively, subclass it and implement `filter_row()`.
+If the filter's result changes, call `reset()`.
 
 Use <XRef to="SortModel" /> to show the rows of another model in sorted order.
 Like `sorted()`, it takes an optional `key` function and a `reverse` flag:
@@ -158,16 +162,16 @@ component.names = slint.SortModel(people, key=lambda person: person.name)
 
 ## Threading
 
-The event loop runs on the main thread, and components must be created and
-accessed from that same thread.
-Doing blocking work there stalls rendering and input, so move it to another
-thread and apply the result back on the main thread.
+The event loop runs on the main thread.
+You must create and access your components from that same thread.
+To keep rendering and input responsive, move blocking work to another thread
+and apply the result back on the main thread.
 
-Pass a coroutine to <XRef to="run_event_loop" /> to run `asyncio` alongside the
-Slint event loop.
-Use `asyncio.to_thread()` for blocking work: it runs the function on a worker
-thread, and the code after the `await` continues on the main thread, where it is
-safe to update a model.
+To run `asyncio` alongside the Slint event loop, pass a coroutine to
+<XRef to="run_event_loop" />.
+For blocking work, use `asyncio.to_thread()`. It runs the function on a worker
+thread; the code after the `await` continues on the main thread, where it's safe
+to update a model:
 
 ```python
 import asyncio
@@ -205,7 +209,9 @@ async def main(model: slint.ListModel) -> None:
     threading.Thread(target=worker, args=(loop, model), daemon=True).start()
 ```
 
-Calling a model method directly from another thread is not supported.
+:::note
+You can't call a model method directly from another thread.
+:::
 
 ## Type mappings
 
@@ -224,7 +230,7 @@ Python type:
 | <SlintRef type="styled-text" /> | <XRef to="StyledText" /> |
 | <SlintRef type="data-transfer" /> | <XRef to="DataTransfer" /> |
 | `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | `float` |
-| structure | `dict` / `Struct` |
+| struct | `dict` or `Struct` |
 | array | <XRef to="Model" /> |
 | <SlintRef type="Point" /> | <XRef to="LogicalPosition" /> |
 
