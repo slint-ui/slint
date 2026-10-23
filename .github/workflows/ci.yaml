@@ -761,7 +761,7 @@ jobs:
               run: cmake --build build --target todo
 
     ios_cpp:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full }}
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v7
