@@ -5,20 +5,17 @@ use i_slint_compiler::source_path::SourcePath;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
 
 use i_slint_core::InternalToken;
-use i_slint_core::textlayout::sharedparley::fontique;
-use i_slint_core::window::WindowInner;
 use lsp_types::Url;
 use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
-use crate::inspector::InspectorOverlay;
+use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
     SourceFileVersion,
@@ -563,60 +560,21 @@ pub async fn run_with_channels(
         }
     });
 
-    install_debug_handler(Rc::downgrade(&to_editor))?;
-
+    let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor))?;
     let mut current_component = None;
-    let mut current_highlight = None;
     let mut component_instance = None;
-    let mut inspector = None;
-    let mut registered_fonts = HashSet::new();
-    let mut pending_fonts = Vec::new();
 
     while let Some(event) = event_receiver.recv().await {
-        match event {
-            PreviewSessionEvent::SetUserSettings { .. } => {}
-            PreviewSessionEvent::ShowPreview { component } => {
-                show_component(
-                    &preview_session,
-                    &component,
-                    &mut component_instance,
-                    &mut inspector,
-                    current_highlight.as_ref(),
-                    &mut pending_fonts,
-                )
-                .await?;
-                current_component = Some(component);
-            }
-            PreviewSessionEvent::ContentsChanged => {
+        let component = match debug_agent.handle_event(event, component_instance.as_ref()) {
+            None => continue,
+            Some(PreviewUpdate::ShowPreview { component }) => &*current_component.insert(component),
+            Some(PreviewUpdate::ContentsChanged) => {
                 let Some(component) = current_component.as_ref() else { continue };
-                show_component(
-                    &preview_session,
-                    component,
-                    &mut component_instance,
-                    &mut inspector,
-                    current_highlight.as_ref(),
-                    &mut pending_fonts,
-                )
-                .await?;
+                component
             }
-            PreviewSessionEvent::HighlightFromEditor { url, offset } => {
-                current_highlight = url.map(|url| (url, offset));
-                if let Some(inspector) = inspector.as_ref() {
-                    inspector.update(component_instance.as_ref(), current_highlight.as_ref());
-                }
-            }
-            PreviewSessionEvent::RegisterFont { url, contents } => {
-                if !registered_fonts.insert(url.clone()) {
-                    tracing::debug!("Font {url} already registered, skipping");
-                    continue;
-                }
-                if let Some(component_instance) = component_instance.as_ref() {
-                    register_font(component_instance.window(), contents);
-                } else {
-                    pending_fonts.push(contents);
-                }
-            }
-        }
+        };
+        show_component(&preview_session, component, &mut component_instance, &mut debug_agent)
+            .await?;
     }
 
     Ok(())
@@ -626,9 +584,7 @@ async fn show_component(
     preview_session: &PreviewSession,
     component: &PreviewComponent,
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &mut Option<InspectorOverlay>,
-    current_highlight: Option<&(Url, u32)>,
-    pending_fonts: &mut Vec<Arc<[u8]>>,
+    debug_agent: &mut DebugAgent,
 ) -> anyhow::Result<()> {
     let PreviewCompilation::Ready(compiled) = preview_session.compile_component(component).await
     else {
@@ -641,43 +597,9 @@ async fn show_component(
     } else {
         component_definition.create()?
     };
-    for contents in pending_fonts.drain(..) {
-        register_font(new_instance.window(), contents);
-    }
-    if inspector.is_none() {
-        *inspector = Some(InspectorOverlay::new(new_instance.window()).await?);
-    }
+    debug_agent.create_overlay(new_instance.window()).await?;
     new_instance.show()?;
-    *component_instance = Some(new_instance);
-    let inspector = inspector.as_ref().unwrap();
-    inspector.attach()?;
-    inspector.update(component_instance.as_ref(), current_highlight);
-    Ok(())
-}
-
-pub fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
-    // Wrap the already-Arc-backed bytes in a Blob without copying.
-    let blob = fontique::Blob::new(Arc::new(contents));
-    WindowInner::from_pub(window).context().font_context().borrow_mut().register_fonts(blob);
-}
-
-fn install_debug_handler(
-    to_editor: std::rc::Weak<dyn PreviewToLsp>,
-) -> Result<(), slint_interpreter::PlatformError> {
-    i_slint_backend_selector::with_global_context(|context| {
-        context.set_log_message_handler(Some(Box::new(move |message| {
-            let Some(to_editor) = to_editor.upgrade() else { return };
-            let location = message
-                .location()
-                .map(|location| (PathBuf::from(location.path), location.line, location.column));
-            to_editor
-                .send(&PreviewToLspMessage::DebugMessage {
-                    location,
-                    message: message.message_arguments().to_string(),
-                })
-                .ok();
-        })))
-    })?;
+    debug_agent.show(component_instance.insert(new_instance))?;
     Ok(())
 }
 
@@ -685,6 +607,7 @@ fn install_debug_handler(
 mod tests {
     use super::*;
     use crate::protocol::VersionedUrl;
+    use std::path::PathBuf;
 
     #[derive(Default)]
     struct CaptureToEditor(RefCell<Vec<PreviewToLspMessage>>);
@@ -738,15 +661,9 @@ mod tests {
                 assert!(compiled.component_definition().is_some());
                 assert_eq!(target.url, manifest);
                 let mut instance = None;
-                let mut inspector = None;
-                show_component(
-                    &session,
-                    &target,
-                    &mut instance,
-                    &mut inspector,
-                    None,
-                    &mut Vec::new(),
-                )
+                let to_editor: Rc<dyn PreviewToLsp> = capture.clone();
+                let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor)).unwrap();
+                show_component(&session, &target, &mut instance, &mut debug_agent)
                 .await
                 .unwrap();
                 assert!(instance.is_some());
@@ -769,19 +686,11 @@ mod tests {
                     session.compile_component(&target).await,
                     PreviewCompilation::CompilationError { .. }
                 ));
-                show_component(
-                    &session,
-                    &target,
-                    &mut instance,
-                    &mut inspector,
-                    None,
-                    &mut Vec::new(),
-                )
+                show_component(&session, &target, &mut instance, &mut debug_agent)
                 .await
                 .unwrap();
                 assert!(instance.is_some());
 
-                assert!(inspector.is_some());
                 assert!(capture.0.borrow().iter().any(|message| matches!(message, PreviewToLspMessage::Diagnostics { uri, diagnostics, .. } if uri == &target.url && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("has no 'main' to compile")))));
                 assert!(
                     !capture
