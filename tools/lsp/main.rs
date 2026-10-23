@@ -52,7 +52,7 @@ use std::time::Duration;
 use crate::editor_preview::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::{
     file_watcher::{self, FileChangeKind, FileWatcher},
-    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+    protocol::PreviewToLspMessage,
 };
 
 #[cfg(not(any(
@@ -440,7 +440,6 @@ async fn run_main_loop(
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
 
-    let to_preview_clone = to_preview.clone();
     let startup_include_paths =
         (!cli_args.include_paths.is_empty()).then(|| cli_args.include_paths.clone());
     let library_paths: std::collections::HashMap<String, std::path::PathBuf> = cli_args
@@ -464,29 +463,7 @@ async fn run_main_loop(
             compiler_config.resource_url_mapper = None;
             compiler_config
         },
-        open_import_callback: Some(Rc::new(move |path| {
-            let to_preview = to_preview_clone.clone();
-            // let server_notifier = server_notifier_.clone();
-            Box::pin(async move {
-                tracing::trace!("Importing file: {path}");
-                let contents = path.read().map(std::borrow::Cow::into_owned);
-                if let SourcePath::File(_) = &path
-                    && let Some(url) = path.to_url()
-                {
-                    if let Ok(contents) = &contents {
-                        to_preview.send(&LspToPreviewMessage::SetContents {
-                            url: VersionedUrl::new(url, None),
-                            contents: contents.clone(),
-                        });
-                    } else {
-                        to_preview.send(&LspToPreviewMessage::ForgetFile { url });
-                    }
-                }
-                Some(contents.and_then(|c| {
-                    String::from_utf8(c).map(|s| (None, s)).map_err(std::io::Error::other)
-                }))
-            })
-        })),
+        open_import_callback: None,
         format: if init_param
             .capabilities
             .general
@@ -500,8 +477,8 @@ async fn run_main_loop(
         },
     };
 
-    let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
-    let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
+    let mut session = crate::editor_preview::EditorSession::new(compiler_config);
+    session.attach_preview(to_preview, None, None);
     session.set_workspace_roots(
         host_language_search::resolve_workspace_folders(&init_param)
             .into_iter()
@@ -900,7 +877,7 @@ async fn handle_preview_to_lsp_message(
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.session.primary_preview().to_preview.set_local_target(target)?;
+            ctx.session.primary_preview().to_preview().set_local_target(target)?;
         }
         M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
@@ -928,7 +905,7 @@ async fn handle_preview_to_lsp_message(
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview().remote() {
                 // `connect()` owns the dialog state and has the preview
                 // state pushed once connected.
                 crate::editor_preview::spawn_local(remote.connect(addresses, port));
@@ -937,28 +914,28 @@ async fn handle_preview_to_lsp_message(
         M::DisconnectRemote => {
             tracing::debug!("Preview asked to disconnect remote");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview().remote() {
                 crate::editor_preview::spawn_local(remote.disconnect());
             }
         }
         M::SubmitPairingCode { code } => {
             tracing::debug!("Preview submitted a pairing code");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview().remote() {
                 remote.submit_pairing_code(code);
             }
         }
         M::CancelPairing => {
             tracing::debug!("Preview cancelled pairing");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview().remote() {
                 remote.cancel_pairing();
             }
         }
         M::AcceptUnpairedConnection => {
             tracing::debug!("Preview accepted an unpaired connection");
             #[cfg(feature = "preview-remote")]
-            if let Some(remote) = ctx.session.primary_preview().to_preview.remote() {
+            if let Some(remote) = ctx.session.primary_preview().to_preview().remote() {
                 remote.accept_unpaired_connection();
             }
         }

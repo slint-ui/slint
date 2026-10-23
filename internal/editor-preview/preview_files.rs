@@ -203,7 +203,7 @@ mod tests {
 
         let (capture, recorded) = crate::test::preview_capture();
         let mut session = crate::test::session_with(empty_document_cache());
-        session.previews[0].to_preview = capture;
+        session.replace_preview_transport(0, capture);
         crate::test::load(&mut session, &main, main_source);
         recorded.borrow_mut().clear();
 

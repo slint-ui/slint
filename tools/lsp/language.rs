@@ -114,7 +114,7 @@ pub fn send_requested_state_to_preview(
         if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
     }
@@ -161,7 +161,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         {
             let version =
                 ctx.session.document_cache.document_version_by_path(node.source_file.path());
-            ctx.session.primary_preview().to_preview.send(&LspToPreviewMessage::SetContents {
+            ctx.session.primary_preview().to_preview().send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
@@ -169,7 +169,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
@@ -479,7 +479,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         if hover.is_some() {
             let (_document, preview) =
                 get_highlights_for_position(ctx, &params.text_document_position_params);
-            ctx.session.primary_preview().to_preview.send(&preview);
+            ctx.session.primary_preview().to_preview().send(&preview);
         }
 
         Ok(hover)
@@ -583,7 +583,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         // Update the highlight in the live preview.
         // We do this even if there are no highlights to clear any previous highlights.
-        ctx.session.primary_preview().to_preview.send(&preview);
+        ctx.session.primary_preview().to_preview().send(&preview);
 
         let not_empty = !document_highlights.is_empty();
         Ok(not_empty.then_some(document_highlights))
@@ -1907,7 +1907,7 @@ pub mod tests {
     -> (Context, crate::editor_preview::test::CapturedPreviewMessages) {
         let (capture, messages) = test::preview_capture();
         let mut ctx = test::mock_context();
-        ctx.session.previews[0].to_preview = capture;
+        ctx.session.replace_preview_transport(0, capture);
         (ctx, messages)
     }
 
