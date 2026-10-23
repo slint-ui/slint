@@ -157,7 +157,8 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
     }
 }
 
-fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
+/// Describe a standard widget or global without loading its implementation.
+pub fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
     let is_layout = matches!(name, "GridBox" | "HorizontalBox" | "VerticalBox");
 
     let default_properties = match name {
