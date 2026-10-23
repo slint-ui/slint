@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,8 +50,8 @@ def test_editor_loads_its_own_project(
     editor_binary: Path,
     editor_environment: dict[str, str],
 ) -> None:
-    manifest = Path(__file__).resolve().parents[2] / "slint-project.json"
-    with launch_editor(editor_binary, editor_environment, manifest) as editor:
+    project_root = Path(__file__).resolve().parents[2]
+    with launch_editor(editor_binary, editor_environment, project_root) as editor:
         window = first_window(editor)
         canvas = element(
             window, "Editor canvas", role=slint_testing.AccessibleRole.Main
@@ -60,7 +61,7 @@ def test_editor_loads_its_own_project(
         )
 
 
-@pytest.mark.parametrize("project_input", ["source", "manifest"])
+@pytest.mark.parametrize("project_input", ["source", "directory"])
 def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -70,8 +71,8 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     editor_environment["SLINT_NO_MUDA"] = "1"
     target = fixture_project / "Main.slint"
     if project_input != "source":
-        target = fixture_project / "slint-project.json"
-        target.write_text(project_file("Main.slint"))
+        target = fixture_project
+        (target / "slint-project.json").write_text(project_file("Main.slint"))
 
     with launch_editor(editor_binary, editor_environment, target) as editor:
         window = first_window(editor)
@@ -101,7 +102,9 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
             recent = contents.get("recent_projects", [])
             return (
                 settings_files[0]
-                if recent and recent[0]["preview"]["url"] == target.as_uri()
+                if recent
+                and recent[0]["preview"]["url"]
+                == (fixture_project / "Main.slint").as_uri()
                 else None
             )
 
@@ -137,52 +140,61 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         element(window, "sibling-rectangle", role=slint_testing.AccessibleRole.ListItem)
 
 
-def test_manifest_without_entry_reports_compilation_error_and_allows_navigation(
+@pytest.mark.parametrize(
+    ("project_input", "manifest_contents", "error"),
+    [
+        ("manifest", "{}", "is not a Slint file"),
+        ("directory", None, "slint-project.json"),
+        ("directory", "{", "EOF while parsing"),
+        ("directory", project_file(), "has no 'main'"),
+    ],
+)
+def test_invalid_project_input_reports_startup_error(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
+    project_input: str,
+    manifest_contents: str | None,
+    error: str,
 ) -> None:
     manifest = fixture_project / "slint-project.json"
-    manifest.write_text(project_file())
-    with launch_editor(editor_binary, editor_environment, manifest) as editor:
+    if manifest_contents is not None:
+        manifest.write_text(manifest_contents)
+    target = manifest if project_input == "manifest" else fixture_project
+    result = subprocess.run(
+        [str(editor_binary), str(target)],
+        env=editor_environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode != 0
+    assert error in result.stderr
+
+
+def test_source_without_project_main_allows_navigation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    (fixture_project / "slint-project.json").write_text(project_file())
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
         window = first_window(editor)
-        diagnostics = element(
-            window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
-        )
-        wait_until(
-            lambda: (
-                any(
-                    "has no 'main' to compile" in message.accessible_label
-                    for message in elements(
-                        diagnostics, role=slint_testing.AccessibleRole.Text
-                    )
-                )
-                or None
-            )
-        )
-        file_row(window, fixture_project)
-        assert not elements(window, "Startup wizard")
-        assert not elements(window, "No component to preview")
-        assert not elements(
-            window, "Fixture text", role=slint_testing.AccessibleRole.Text
-        )
-        screenshot(window).save(tmp_path / "missing-entry-preview.png")
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         file_row(
             window, fixture_project / "Sibling.slint"
         ).invoke_accessible_default_action()
         element(window, "sibling-rectangle", role=slint_testing.AccessibleRole.ListItem)
-        assert editor.process.poll() is None
 
 
 @pytest.mark.parametrize(
     "broken_input",
     [
-        "malformed",
         "malformed-surrounding-manifest",
-        "missing-manifest",
-        "missing-entry",
-        "no-entry",
+        "missing-main",
         "missing-source",
         "missing-root",
     ],
@@ -193,21 +205,18 @@ def test_broken_project_recovers_when_repaired_on_disk(
     fixture_project: Path,
     broken_input: str,
 ) -> None:
-    target = fixture_project / "slint-project.json"
-    repaired_source = fixture_project / "Repaired.slint"
-    if broken_input in ["malformed", "malformed-surrounding-manifest"]:
-        target.write_text("{")
-        if broken_input == "malformed-surrounding-manifest":
-            target = fixture_project / "Main.slint"
-    elif broken_input == "missing-entry":
-        target.write_text(project_file(repaired_source.name))
-    elif broken_input == "no-entry":
-        target.write_text(project_file())
-    elif broken_input == "missing-source":
+    target = fixture_project / "Main.slint"
+    if broken_input == "malformed-surrounding-manifest":
+        (fixture_project / "slint-project.json").write_text("{")
+    elif broken_input in ["missing-main", "missing-source"]:
         target = fixture_project / "missing.slint"
     elif broken_input == "missing-root":
         target = fixture_project / "unavailable" / "missing.slint"
-    with launch_editor(editor_binary, editor_environment, target) as editor:
+    project_input = target
+    if broken_input == "missing-main":
+        (fixture_project / "slint-project.json").write_text(project_file(target.name))
+        project_input = fixture_project
+    with launch_editor(editor_binary, editor_environment, project_input) as editor:
         window = first_window(editor)
         diagnostics = element(
             window, "Preview unavailable", role=slint_testing.AccessibleRole.Region
@@ -219,7 +228,6 @@ def test_broken_project_recovers_when_repaired_on_disk(
                         error in message.accessible_label
                         for error in [
                             "EOF while parsing",
-                            "has no 'main'",
                             "No component found",
                             "File not found",
                         ]
@@ -234,20 +242,15 @@ def test_broken_project_recovers_when_repaired_on_disk(
         assert not elements(window, "Startup wizard")
         assert not elements(window, "No component to preview")
         source = 'export component Main inherits Window { Text { text: "Repaired project"; } }'
-        if target.suffix == ".slint":
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(source)
-            if broken_input == "malformed-surrounding-manifest":
-                (fixture_project / "slint-project.json").write_text(project_file())
-        else:
-            repaired_source.write_text(source)
-            if broken_input != "missing-entry":
-                target.write_text(project_file(repaired_source.name))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source)
+        if broken_input == "malformed-surrounding-manifest":
+            (fixture_project / "slint-project.json").write_text(project_file())
         element(window, "Repaired project", role=slint_testing.AccessibleRole.Text)
         assert editor.process.poll() is None
 
 
-@pytest.mark.parametrize("manifest_contents", ["{", project_file()])
+@pytest.mark.parametrize("manifest_contents", ["{", '{"include-paths": false}'])
 def test_switching_to_a_broken_project_removes_the_previous_preview(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -279,7 +282,7 @@ def test_switching_to_a_broken_project_removes_the_previous_preview(
     settings["recent_projects"].append(
         {
             "root": str(broken_root),
-            "preview": {"url": manifest.as_uri(), "component": "Main"},
+            "preview": {"url": sibling.as_uri(), "component": "Main"},
         }
     )
     settings_path.write_text(json.dumps(settings))
