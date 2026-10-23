@@ -170,7 +170,10 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
-        BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
+        // Between `INLINE_THRESHOLD` and `INLINE_SINGLE_THRESHOLD` because it can be expensive:
+        // a Text lays out its text to measure it, so the call isn't repeated in several readers,
+        // but it's inlined into a single one.
+        BuiltinFunction::ImplicitLayoutInfo(_) => 3 * PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
