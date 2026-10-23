@@ -17,20 +17,17 @@ slint::slint! {
 }
 
 #[test]
-fn supplied_collection_skips_discovery_and_accepts_embedded_fonts() {
-    let collection = fontique::Collection::new(fontique::CollectionOptions {
-        shared: false,
-        system_fonts: false,
-    });
-    set_shared_collection(collection).unwrap();
-    assert!(i_slint_core::SlintContext::current().is_none());
-    assert!(i_slint_core::font_collection::prefetch().is_none());
-
+fn supplied_collection_replaces_prefetched_fonts_and_accepts_embedded_fonts() {
     i_slint_core::with_global_context(
         || Ok(Box::new(i_slint_backend_testing::TestingBackend::new(Default::default()))),
         |_| (),
     )
     .unwrap();
+    let collection = fontique::Collection::new(fontique::CollectionOptions {
+        shared: false,
+        system_fonts: false,
+    });
+    set_shared_collection(collection).unwrap();
     let mut collection = shared_collection();
     assert_eq!(collection.family_names().count(), 0);
 
@@ -59,9 +56,8 @@ fn supplied_collection_is_used_with_a_custom_platform() {
     );
     let family_id = fonts[0].0;
     collection.set_generic_families(fontique::GenericFamily::SansSerif, [family_id].into_iter());
-    set_shared_collection(collection.clone()).unwrap();
-
     i_slint_backend_testing::init_no_event_loop();
+    set_shared_collection(collection.clone()).unwrap();
     let mut active_collection = shared_collection();
     assert_eq!(active_collection.family_id("Inter"), Some(family_id));
     assert_eq!(
