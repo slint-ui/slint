@@ -2021,36 +2021,38 @@ export component TestCase inherits Window {
             assert_eq!(repeated_element.data_prop.is_none(), is_conditional);
         }
     }
-    /// The names of the properties of the lowered public component's root sub-component.
-    fn root_property_names(source: &str) -> Vec<String> {
+    /// The layout info of the lowered public component's root sub-component, `(horizontal, vertical)`,
+    /// in their debug representation.
+    fn root_layout_info(source: &str) -> (String, String) {
         let unit = crate::llr::lower_test_source(source);
-        let root = unit.public_components.iter().next().unwrap().item_tree.root;
-        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+        let root =
+            &unit.sub_components[unit.public_components.iter().next().unwrap().item_tree.root];
+        (format!("{:?}", root.layout_info_h.borrow()), format!("{:?}", root.layout_info_v.borrow()))
     }
 
     #[test]
     fn fixed_size_root_does_not_fold_children() {
-        let children = "Rectangle { Rectangle { min-width: 1px; height: 2px; } }";
-        let names = |size: &str| {
-            let names = root_property_names(&format!(
+        let children = "Rectangle { Rectangle { min-width: 17px; min-height: 23px; } }";
+        let folds = |size: &str| {
+            let (h, v) = root_layout_info(&format!(
                 "export component Main inherits Window {{ {size} {children} }}"
             ));
-            let has = |p: &str| names.iter().any(|n| n == p);
-            (has("root-1_layoutinfo-h"), has("root-1_layoutinfo-v"))
+            (h.contains("NumberLiteral(17.0)"), v.contains("NumberLiteral(23.0)"))
         };
-        assert_eq!(names(""), (true, true));
-        assert_eq!(names("width: 300px; height: 300px;"), (false, false));
-        assert_eq!(names("width: 300px;"), (false, true));
-        assert_eq!(names("height: 300px;"), (true, false));
+        assert_eq!(folds(""), (true, true));
+        assert_eq!(folds("width: 300px; height: 300px;"), (false, false));
+        assert_eq!(folds("width: 300px;"), (false, true));
+        assert_eq!(folds("height: 300px;"), (true, false));
     }
 
     #[test]
     fn fixed_width_root_measures_height_without_folding_width() {
-        let names = root_property_names(
+        let (h, _) = root_layout_info(
             "export component Main inherits Window { width: 300px; \
              VerticalLayout { Text { wrap: word-wrap; text: \"a b\"; } } }",
         );
-        assert!(!names.iter().any(|n| n == "root-1_layoutinfo-h"), "{names:?}");
+        assert_eq!(h.matches("ImplicitLayoutInfo").count(), 1, "{h}");
+        assert!(!h.contains("reference: Property("), "{h}");
     }
 
     /// A shadowing declaration and the `@shadowable` base declaration share a source name;
