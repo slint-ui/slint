@@ -2855,6 +2855,47 @@ mod tests {
     }
 
     #[test]
+    fn input_type_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("LineEdit", true), ("TextEdit", false), ("TextInput", false), ("Text", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Input Type"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
     fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
         use slint::platform::{Key, WindowEvent};
 
