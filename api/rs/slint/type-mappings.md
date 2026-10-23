@@ -45,9 +45,8 @@ struct MyStruct {
 }
 ```
 
-An anonymous struct has no name to generate a struct for.
-It becomes a tuple of its field values instead, with the fields in alphabetical order.
-For example, with this property
+If you use an anonymous struct, you work with a tuple of its field values, in alphabetical order.
+For example, consider this property:
 
 ```slint,ignore
 export component Example {
@@ -55,12 +54,11 @@ export component Example {
 }
 ```
 
-the generated accessors use a `(slint::SharedString, i32)`:
+The generated accessors take and return a `(slint::SharedString, i32)`:
 
 ```rust,ignore
 example.set_player(("Foo".into(), 100));
 let (name, score) = example.get_player();
-```
 
 The `.slint` file allows you to utilize Rust attributes and features for defining structures using the `@rust-attr()` directive.
 This enables you to customize the generated code by applying additional traits, derivations, or annotations.

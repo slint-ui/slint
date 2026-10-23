@@ -54,9 +54,8 @@ public:
 };
 ```
 
-An anonymous struct has no name to generate a class for.
-It becomes a `std::tuple` of its field values instead, with the fields in alphabetical order.
-For example, with this property
+If you use an anonymous struct, you work with a `std::tuple` of its field values, in alphabetical order.
+For example, consider this property:
 
 ```slint
 export component Example {
@@ -64,12 +63,11 @@ export component Example {
 }
 ```
 
-the generated accessors use a `std::tuple<slint::SharedString, int>`:
+The generated accessors take and return a `std::tuple<slint::SharedString, int>`:
 
 ```cpp
 example->set_player({"Foo", 100});
 auto [name, score] = example->get_player();
-```
 
 ## Enums
 
