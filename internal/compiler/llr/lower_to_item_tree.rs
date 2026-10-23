@@ -2047,12 +2047,18 @@ export component TestCase inherits Window {
 
     #[test]
     fn fixed_width_root_measures_height_without_folding_width() {
-        let (h, _) = root_layout_info(
+        let (h, v) = root_layout_info(
             "export component Main inherits Window { width: 300px; \
              VerticalLayout { Text { wrap: word-wrap; text: \"a b\"; } } }",
         );
         assert_eq!(h.matches("ImplicitLayoutInfo").count(), 1, "{h}");
         assert!(!h.contains("reference: Property("), "{h}");
+        // The text is measured at the fixed width, not at the children's horizontal fold.
+        assert!(v.contains("NumberLiteral(300.0)"), "{v}");
+        assert!(
+            !v.contains("ImplicitLayoutInfo(Horizontal)") && !v.contains("reference: Property("),
+            "{v}"
+        );
     }
 
     /// A shadowing declaration and the `@shadowable` base declaration share a source name;
