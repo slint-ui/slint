@@ -205,8 +205,8 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
-        let blurred_image = shadow_image
-            .filter(femtovg::ImageFilter::GaussianBlur { sigma: shadow_options.blur_sigma() });
+        let blurred_image =
+            shadow_image.filter(femtovg::ImageFilter::gaussian_blur(shadow_options.blur_sigma()));
         textures_to_delete_after_flush.borrow_mut().push(shadow_image);
         blurred_image
     } else {
@@ -632,6 +632,24 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
             canvas.translate(offset.x - pad, offset.y - pad);
             canvas.fill_path(&shadow_image_rect, &shadow_image_paint);
         });
+    }
+
+    fn draw_backdrop_blur(
+        &mut self,
+        backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
+        _self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
+        if sigma <= 0. {
+            return;
+        }
+        let path = rect_with_radius_to_path(
+            PhysicalRect::from_size(size * self.scale_factor),
+            backdrop_blur.logical_border_radius() * self.scale_factor,
+        );
+        // Errors leave the target untouched, so the backdrop just stays sharp.
+        let _ = self.canvas.borrow_mut().blur_path(&path, femtovg::FillRule::NonZero, sigma);
     }
 
     fn visit_opacity(
