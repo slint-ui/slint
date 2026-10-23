@@ -2034,6 +2034,7 @@ fn lower_dialog_layout(
                                         pure: None,
                                         shadowed_name: None,
                                         shadowable: false,
+                                        testable: false,
                                         moved_from: None,
                                         deprecated: None,
                                         synthesized: false,

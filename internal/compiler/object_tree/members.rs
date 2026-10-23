@@ -28,6 +28,7 @@ impl Element {
         PendingBindings<syntax_nodes::TwoWayBinding>,
     ) {
         let is_interface = matches!(r.base_type, ElementType::Interface(_));
+        let is_global = r.base_type == ElementType::Global;
         #[cfg(feature = "slint-sc")]
         let is_component_root = is_component_root(node);
         let mut property_bindings = Vec::new();
@@ -126,6 +127,19 @@ impl Element {
 
             let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
 
+            let testable = testable_attribute(prop_decl.TestableAttribute(), tr, diag);
+            if let Some(node) = &testable
+                && (is_global || is_interface)
+            {
+                diag.push_error(
+                    format!(
+                        "'@testable' is not supported on {} properties",
+                        if is_global { "global" } else { "interface" }
+                    ),
+                    node,
+                );
+            }
+
             r.property_declarations.insert(
                 prop_name.clone(),
                 PropertyDeclaration {
@@ -135,6 +149,7 @@ impl Element {
                     shadowed_name,
                     shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
                     deprecated,
+                    testable: testable.is_some(),
                     ..Default::default()
                 },
             );
@@ -220,6 +235,9 @@ impl Element {
                 continue;
             }
             let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
+            if let Some(node) = testable_attribute(sig_decl.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
+            }
             let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
             let source_name = name;
             let name = declaration.register(r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
@@ -361,6 +379,10 @@ impl Element {
                     "Function declarations in an interface must be public".into(),
                     &func,
                 );
+            }
+
+            if let Some(node) = testable_attribute(func.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
             }
 
             let declaration = PropertyDeclaration {
