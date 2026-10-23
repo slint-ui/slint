@@ -57,6 +57,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }
 
+    public pure function is-slider-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Slider";
+    }
+
     public pure function is-enable-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "Button"
