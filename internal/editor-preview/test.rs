@@ -213,9 +213,9 @@ pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
 
 /// Create an `EditorSession` around `document_cache` that sends nowhere.
 pub fn session_with(document_cache: crate::DocumentCache) -> crate::EditorSession {
-    crate::EditorSession::new(
+    crate::EditorSession::with_previews(
         document_cache,
-        crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+        vec![crate::LspToPreviews::with_one(crate::DummyLspToPreview::default())],
     )
 }
 

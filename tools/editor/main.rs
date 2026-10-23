@@ -8,18 +8,16 @@
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
-    pin::Pin,
     rc::Rc,
     time::Duration,
 };
 
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview as editor_preview;
-use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
+use i_slint_editor_preview::{LspToPreviews, Result};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage, SourceFileVersion,
-    VersionedUrl,
+    LspToPreviewMessage, PreviewComponent, PreviewTarget, PreviewToLspMessage,
 };
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
@@ -311,18 +309,17 @@ async fn lsp_main(
         LspToPreviews::with_one(springboard.clone()),
     ];
 
-    let mut session = new_editor_session(to_previews);
-
-    assert_eq!(session.previews.len(), from_previews.len());
+    assert_eq!(to_previews.len(), from_previews.len());
 
     let mut watch_paths_revision = None;
     let mut project_root = project.root.clone();
-    activate_project(
-        &mut session,
+
+    let mut session = activate_project(
         &mut file_watcher,
         &mut file_watcher_rx,
         &mut project_root,
         project,
+        &to_previews,
     )
     .await;
 
@@ -375,6 +372,7 @@ async fn lsp_main(
                             &mut file_watcher_rx,
                             &mut project_root,
                             project,
+                            &to_previews,
                         ).await;
                     }
                     Some(EditorToSessionMessage::CloseProject) => {
@@ -412,51 +410,12 @@ async fn lsp_main(
     }
 }
 
-fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::EditorSession {
+fn new_editor_session() -> editor_preview::EditorSession {
     use editor_preview::document_cache::CompilerConfiguration;
+    let compiler_config =
+        CompilerConfiguration { format: editor_preview::ByteFormat::Utf8, ..Default::default() };
 
-    let open_import_callback = {
-        let to_previews = to_previews.clone();
-        Rc::new(move |path: SourcePath| {
-            let to_previews = to_previews.clone();
-            Box::pin(async move {
-                tracing::trace!("Importing file: {path}");
-                let contents = path.read().map(std::borrow::Cow::into_owned);
-                if let SourcePath::File(_) = &path
-                    && let Some(url) = path.to_url()
-                {
-                    for to_preview in &to_previews {
-                        if let Ok(contents) = &contents {
-                            to_preview.send(&LspToPreviewMessage::SetContents {
-                                url: VersionedUrl::new(url.clone(), None),
-                                contents: contents.clone(),
-                            });
-                        } else {
-                            to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-                        }
-                    }
-                }
-                Some(
-                    contents
-                        .and_then(|c| String::from_utf8(c).map_err(std::io::Error::other))
-                        .map(|c| (None, c)),
-                )
-            })
-                as Pin<
-                    Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>,
-                >
-        }) as OpenImportCallback
-    };
-    let compiler_config = CompilerConfiguration {
-        open_import_callback: Some(open_import_callback),
-        format: editor_preview::ByteFormat::Utf8,
-        ..Default::default()
-    };
-
-    editor_preview::EditorSession::with_previews(
-        editor_preview::DocumentCache::new(compiler_config),
-        to_previews.into_iter().map(editor_preview::PreviewConnection::new).collect(),
-    )
+    editor_preview::EditorSession::new(compiler_config)
 }
 
 async fn trigger_editor_file_watcher(
@@ -503,7 +462,7 @@ fn sync_file_watcher_if_needed(
                     .project_main_urls()
                     .filter_map(|url| SourcePath::from_url(&url).into_native_path()),
             )
-            .chain(session.previews.iter().filter_map(|preview| {
+            .chain(session.previews().iter().filter_map(|preview| {
                 preview
                     .component()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
@@ -639,12 +598,14 @@ async fn handle_preview_message(
 }
 
 async fn activate_project(
-    session: &mut editor_preview::EditorSession,
     watcher: &mut FileWatcher,
     watcher_events: &mut tokio::sync::mpsc::UnboundedReceiver<WatchEvent>,
     project_root: &mut PathBuf,
     project: Project,
-) {
+    to_previews: &[Rc<LspToPreviews>],
+) -> editor_preview::EditorSession {
+    let mut session = new_editor_session();
+
     *project_root = project.root;
     session.set_workspace_roots(vec![project_root.clone()]);
     let component = project.preview;
@@ -661,10 +622,26 @@ async fn activate_project(
             None
         }
     };
-    open_preview(session, PRIMARY_PREVIEW_INDEX, component, root).await;
-    if let Err(error) = sync_file_watcher_if_needed(watcher, session, project_root, &mut None) {
+    if let Err(error) = session.reload_document(component.url.clone()).await {
+        tracing::warn!("Failed to load {}: {error}", component.url);
+    }
+
+    // Attach the previews only after the project has been loaded into the EditorSession.
+    // Otherwise, the editor sessions initialization will already send the files to the preview as
+    // the EditorSession loads them.
+    // However, the initial sync should happen via send_state_to_preview to ensure all data is
+    // synched, which would send the file contents a second time.
+    // So prevent the initial load. This means that send_state_to_preview should be called after
+    // this function returns.
+    // This happens either via the initial RequestState from the preview itself.
+    // Or manually in switch_project.
+    session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), root);
+    session.attach_preview(to_previews[RUN_PREVIEW_INDEX].clone(), None, None);
+    if let Err(error) = sync_file_watcher_if_needed(watcher, &session, &project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
     }
+
+    session
 }
 
 fn run_preview(session: &mut editor_preview::EditorSession) -> bool {
@@ -683,23 +660,16 @@ async fn switch_project(
     watcher_events: &mut tokio::sync::mpsc::UnboundedReceiver<WatchEvent>,
     project_root: &mut PathBuf,
     project: Project,
+    to_previews: &[Rc<LspToPreviews>],
 ) {
-    let to_previews = session.previews.iter().map(|preview| preview.to_preview.clone()).collect();
     stop_run_preview(session).await;
-    *session = new_editor_session(to_previews);
-    activate_project(session, file_watcher, watcher_events, project_root, project).await;
-    // TODO: The EditorSession already sends a lot of the state to the preview when show_preview
-    // is called in activate_project, which reloads the document and causes the contents to be sent
-    // to all open previews via the open_import_callback.
-    //
-    // We should rework this so that the EditorSession is aware of the Project Root.
-    // Then we can install the to_preview channels after loading the project and call
-    // send_state_to_preview afterwards to send all state over.
+    *session =
+        activate_project(file_watcher, watcher_events, project_root, project, to_previews).await;
     session.send_state_to_preview(PRIMARY_PREVIEW_INDEX);
 }
 
 async fn stop_run_preview(session: &mut editor_preview::EditorSession) {
-    session.previews[RUN_PREVIEW_INDEX].to_preview.shutdown().await;
+    session.previews()[RUN_PREVIEW_INDEX].to_preview().shutdown().await;
     session.send_to_preview(
         RUN_PREVIEW_INDEX,
         &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
@@ -813,6 +783,98 @@ async fn handle_workspace_edit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::{HashMap, HashSet};
+
+    fn count_file_contents(messages: &[LspToPreviewMessage]) -> HashMap<Url, usize> {
+        let mut counts = HashMap::new();
+        for message in messages {
+            if let LspToPreviewMessage::SetContents { url, .. } = message {
+                *counts.entry(url.url().clone()).or_insert(0) += 1;
+            }
+        }
+        counts
+    }
+
+    #[test]
+    fn initial_request_sends_each_prepared_file_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let project_directory = directory.path().canonicalize().unwrap();
+        let main_path = project_directory.join("main.slint");
+        let import_path = project_directory.join("child.slint");
+        let manifest_path = project_directory.join("slint-project.json");
+        std::fs::write(
+            &main_path,
+            "import { Child } from \"child.slint\"; export component Main { Child {} }",
+        )
+        .unwrap();
+        std::fs::write(&import_path, "export component Child inherits Rectangle {}").unwrap();
+        std::fs::write(&manifest_path, r#"{"main":"main.slint", "slint-edition": "1.19"}"#)
+            .unwrap();
+        let project = Project::from_input(&project_directory, None, None).unwrap();
+        let (to_previews, messages) = recording_previews();
+        let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
+        let mut root = PathBuf::new();
+        let mut session = spin_on::spin_on(activate_project(
+            &mut watcher,
+            &mut tokio::sync::mpsc::unbounded_channel().1,
+            &mut root,
+            project,
+            &to_previews,
+        ));
+        let request = PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() };
+        spin_on::spin_on(handle_preview_message(
+            request,
+            PRIMARY_PREVIEW_INDEX,
+            &mut session,
+            &root,
+        ));
+        for url in std::mem::take(&mut session.pending_recompile) {
+            spin_on::spin_on(session.reload_document(url)).unwrap();
+        }
+
+        let contents_counts = count_file_contents(&messages[PRIMARY_PREVIEW_INDEX].borrow());
+        let expected_urls = [&main_path, &import_path, &manifest_path]
+            .map(|path| Url::from_file_path(path).unwrap())
+            .into_iter()
+            .collect::<HashSet<_>>();
+        assert_eq!(contents_counts.keys().cloned().collect::<HashSet<_>>(), expected_urls);
+        assert!(contents_counts.values().all(|count| *count == 1), "{contents_counts:?}");
+
+        let late_import_path = project_directory.join("late.slint");
+        std::fs::write(&late_import_path, "export component Late inherits Rectangle {}").unwrap();
+        std::fs::write(
+            &main_path,
+            "import { Child } from \"child.slint\"; import { Late } from \"late.slint\"; export component Main { Child {} Late {} }",
+        )
+        .unwrap();
+        messages[PRIMARY_PREVIEW_INDEX].borrow_mut().clear();
+        let main_url = Url::from_file_path(&main_path).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(
+            main_url.clone(),
+            i_slint_live_preview::file_watcher::FileChangeKind::Changed,
+        ))
+        .unwrap();
+        for url in std::mem::take(&mut session.pending_recompile) {
+            spin_on::spin_on(session.reload_document(url)).unwrap();
+        }
+        let late_import_url = Url::from_file_path(&late_import_path).unwrap();
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::SetContents { url, .. }
+                if url.url() == &late_import_url)
+        }));
+
+        messages[PRIMARY_PREVIEW_INDEX].borrow_mut().clear();
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
+            PRIMARY_PREVIEW_INDEX,
+            &mut session,
+            &root,
+        ));
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::SetContents { url, .. }
+                if url.url() == &late_import_url)
+        }));
+    }
 
     #[test]
     fn initial_project_loads_through_the_session_after_opening_the_root() {
@@ -824,15 +886,21 @@ mod tests {
         std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
         let project = Project::from_input(&project_directory, None, None).unwrap();
         let component = project.preview.clone();
-        let (mut session, messages) = session_with_recording_previews();
+        let (to_previews, messages) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         let mut root = PathBuf::new();
-        spin_on::spin_on(activate_project(
-            &mut session,
+        let mut session = spin_on::spin_on(activate_project(
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut root,
             project,
+            &to_previews,
+        ));
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
+            PRIMARY_PREVIEW_INDEX,
+            &mut session,
+            &root,
         ));
         assert_eq!(session.primary_preview().component().cloned(), Some(component.clone()));
         assert!(
@@ -853,14 +921,17 @@ mod tests {
         );
     }
 
+    fn recording_previews()
+    -> (Vec<Rc<LspToPreviews>>, [editor_preview::test::CapturedPreviewMessages; 2]) {
+        let captures = std::array::from_fn(|_| editor_preview::test::preview_capture());
+        let previews = captures.iter().map(|(to_preview, _)| to_preview.clone()).collect();
+        let messages = captures.map(|(_, messages)| messages);
+        (previews, messages)
+    }
+
     fn session_with_recording_previews()
     -> (editor_preview::EditorSession, [editor_preview::test::CapturedPreviewMessages; 2]) {
-        let captures = std::array::from_fn(|_| editor_preview::test::preview_capture());
-        let previews = captures
-            .iter()
-            .map(|(to_preview, _)| editor_preview::PreviewConnection::new(to_preview.clone()))
-            .collect();
-        let messages = captures.map(|(_, messages)| messages);
+        let (previews, messages) = recording_previews();
         let session = editor_preview::EditorSession::with_previews(
             editor_preview::test::empty_document_cache(),
             previews,
@@ -1117,7 +1188,11 @@ mod tests {
 
     #[test]
     fn switching_project_replaces_the_document_session_and_opens_the_new_preview() {
-        let (mut session, messages) = session_with_recording_previews();
+        let (to_previews, messages) = recording_previews();
+        let mut session = editor_preview::EditorSession::with_previews(
+            editor_preview::test::empty_document_cache(),
+            to_previews.clone(),
+        );
         let old_project = tempfile::tempdir().unwrap();
         let old_path = old_project.path().join("old.slint");
         let old_url = Url::from_file_path(&old_path).unwrap();
@@ -1134,7 +1209,7 @@ mod tests {
         );
         assert!(run_preview(&mut session));
 
-        let old_run_preview = session.previews[RUN_PREVIEW_INDEX].to_preview.clone();
+        let old_run_preview = session.previews()[RUN_PREVIEW_INDEX].to_preview().clone();
         let new_project = tempfile::tempdir().unwrap();
         let new_path = new_project.path().join("new.slint");
         std::fs::write(&new_path, "export component New {}").unwrap();
@@ -1144,20 +1219,20 @@ mod tests {
         let mut project_root = old_project.path().to_path_buf();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
         clear_messages(&messages);
-
         spin_on::spin_on(switch_project(
             &mut session,
             &mut watcher,
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut project_root,
             project,
+            &to_previews,
         ));
 
         assert_eq!(project_root, expected_root);
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert!(session.document_cache.get_document(&expected_component.url).is_some());
-        assert!(session.previews[RUN_PREVIEW_INDEX].component().cloned().is_none());
-        assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
+        assert!(session.previews()[RUN_PREVIEW_INDEX].component().cloned().is_none());
+        assert!(Rc::ptr_eq(&session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
         let expected_root_url =
             Url::from_directory_path(std::fs::canonicalize(&project_root).unwrap()).unwrap();
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
@@ -1168,6 +1243,9 @@ mod tests {
             matches!(message, LspToPreviewMessage::ShowPreview(component)
                 if component == &expected_component)
         }));
+        let contents_counts = count_file_contents(&messages[PRIMARY_PREVIEW_INDEX].borrow());
+        assert_eq!(contents_counts.get(&expected_component.url), Some(&1));
+        assert!(contents_counts.values().all(|count| *count == 1), "{contents_counts:?}");
         assert!(
             messages[PRIMARY_PREVIEW_INDEX]
                 .borrow()
@@ -1201,7 +1279,7 @@ mod tests {
         clear_messages(&messages);
         assert!(run_preview(&mut session));
         assert_eq!(
-            session.previews[RUN_PREVIEW_INDEX].component().cloned(),
+            session.previews()[RUN_PREVIEW_INDEX].component().cloned(),
             Some(expected_component.clone())
         );
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1217,7 +1295,11 @@ mod tests {
 
     #[test]
     fn failed_project_switch_keeps_the_new_project_active() {
-        let (mut session, messages) = session_with_recording_previews();
+        let (to_previews, messages) = recording_previews();
+        let mut session = editor_preview::EditorSession::with_previews(
+            editor_preview::test::empty_document_cache(),
+            to_previews.clone(),
+        );
         let old_project = tempfile::tempdir().unwrap();
         let old_path = old_project.path().join("old.slint");
         let old_url = Url::from_file_path(&old_path).unwrap();
@@ -1230,7 +1312,7 @@ mod tests {
             PreviewComponent { url: old_url.clone(), component: Some("Old".into()) };
         session.show_preview(PRIMARY_PREVIEW_INDEX, old_component.clone(), None);
         assert!(run_preview(&mut session));
-        let old_run_preview = session.previews[RUN_PREVIEW_INDEX].to_preview.clone();
+        let old_run_preview = session.previews()[RUN_PREVIEW_INDEX].to_preview().clone();
         let mut project_root = old_project.path().to_path_buf();
         let missing_root = old_project.path().join("missing");
         let project = Project {
@@ -1251,13 +1333,14 @@ mod tests {
             &mut tokio::sync::mpsc::unbounded_channel().1,
             &mut project_root,
             project,
+            &to_previews,
         ));
 
         assert_eq!(project_root, missing_root);
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert_eq!(session.primary_preview().component().cloned(), Some(target));
-        assert!(session.previews[RUN_PREVIEW_INDEX].component().cloned().is_none());
-        assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
+        assert!(session.previews()[RUN_PREVIEW_INDEX].component().cloned().is_none());
+        assert!(Rc::ptr_eq(&session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
         assert!(matches!(
             messages[PRIMARY_PREVIEW_INDEX].borrow().first(),
             Some(LspToPreviewMessage::OpenProject { .. })

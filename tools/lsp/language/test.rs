@@ -31,9 +31,9 @@ pub fn mock_context() -> Context {
 
 pub fn mock_context_with_document_cache(document_cache: editor_preview::DocumentCache) -> Context {
     crate::language::Context {
-        session: editor_preview::EditorSession::new(
+        session: editor_preview::EditorSession::with_previews(
             document_cache,
-            LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+            vec![LspToPreviews::with_one(editor_preview::DummyLspToPreview::default())],
         ),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
@@ -190,9 +190,11 @@ fn preview_file_recompiled_when_dependency_changes() {
         i_slint_live_preview::protocol::PreviewComponent { url: main_url.clone(), component: None },
         None,
     );
-    ctx.session.previews.push(editor_preview::PreviewConnection::new(
+    ctx.session.attach_preview(
         editor_preview::LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
-    ));
+        None,
+        None,
+    );
     ctx.session.show_preview(
         1,
         i_slint_live_preview::protocol::PreviewComponent {
@@ -230,7 +232,7 @@ fn request_state_re_sends_only_targeted_files_when_present() {
         r#"export component Main { }"#,
     );
 
-    ctx.session.previews[0].to_preview = capture;
+    ctx.session.replace_preview_transport(0, capture);
     messages.borrow_mut().clear();
 
     crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);
@@ -248,7 +250,7 @@ fn request_state_re_sends_only_targeted_files_when_present() {
 fn request_state_serves_assets_of_the_workspace_folders() {
     let (capture, messages) = preview_capture();
     let mut ctx = mock_context();
-    ctx.session.previews[0].to_preview = capture;
+    ctx.session.replace_preview_transport(0, capture);
     let workspace = tempfile::tempdir().unwrap();
     let logo = workspace.path().join("logo.png");
     std::fs::write(&logo, []).unwrap();

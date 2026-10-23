@@ -6,7 +6,6 @@
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::project_file::{Overrides, ProjectFile, ProjectFileData};
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
@@ -23,7 +22,7 @@ use std::rc::Rc;
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
 pub struct PreviewConnection {
-    pub to_preview: Rc<crate::LspToPreviews>,
+    to_preview: Rc<crate::LspToPreviews>,
     project_root: Option<Url>,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -31,17 +30,12 @@ pub struct PreviewConnection {
 }
 
 impl PreviewConnection {
-    pub fn new(to_preview: Rc<crate::LspToPreviews>) -> Self {
-        Self {
-            to_preview,
-            project_root: None,
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: None,
-        }
-    }
-
     pub fn project_root(&self) -> Option<&Url> {
         self.project_root.as_ref()
+    }
+
+    pub fn to_preview(&self) -> &Rc<crate::LspToPreviews> {
+        &self.to_preview
     }
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -199,7 +193,8 @@ pub struct EditorSession {
     pub preview_config: PreviewConfig,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub previews: Vec<PreviewConnection>,
+    previews: Vec<PreviewConnection>,
+    preview_destinations: Rc<std::cell::RefCell<Vec<Rc<crate::LspToPreviews>>>>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
@@ -214,6 +209,10 @@ pub struct EditorSession {
 }
 
 impl EditorSession {
+    pub fn previews(&self) -> &[PreviewConnection] {
+        &self.previews
+    }
+
     pub fn primary_preview(&self) -> &PreviewConnection {
         self.previews.first().expect("EditorSession must have at least one preview")
     }
@@ -229,6 +228,7 @@ impl EditorSession {
         preview
     }
 
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
         let preview_count = self.previews.len();
         let preview = self.previews.get_mut(preview_index);
@@ -251,14 +251,49 @@ impl EditorSession {
         }
     }
 
-    pub fn new(document_cache: crate::DocumentCache, to_preview: Rc<crate::LspToPreviews>) -> Self {
-        Self::with_previews(document_cache, vec![PreviewConnection::new(to_preview)])
+    pub fn new(config: crate::document_cache::CompilerConfiguration) -> Self {
+        Self::from_document_cache(crate::DocumentCache::new(config))
     }
 
-    pub fn with_previews(
-        document_cache: crate::DocumentCache,
-        previews: Vec<PreviewConnection>,
-    ) -> Self {
+    fn from_document_cache(mut document_cache: crate::DocumentCache) -> Self {
+        let preview_destinations =
+            Rc::new(std::cell::RefCell::new(Vec::<Rc<crate::LspToPreviews>>::new()));
+        let config = document_cache.configuration_with_import_callback();
+        let original_callback = config.open_import_callback;
+        let destinations = preview_destinations.clone();
+        let callback: crate::document_cache::OpenImportCallback = Rc::new(move |path| {
+            let original_callback = original_callback.clone();
+            let destinations = destinations.clone();
+            Box::pin(async move {
+                let contents = match original_callback {
+                    Some(callback) => callback(path.clone()).await,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    None => path
+                        .as_native_path()
+                        .map(|_| path.read_to_string().map(|text| (None, text))),
+                    #[cfg(target_arch = "wasm32")]
+                    None => None,
+                };
+                if let Some(url) = path.to_url()
+                    && !path.is_builtin()
+                    && let Some(contents) = &contents
+                {
+                    let to_previews = destinations.borrow();
+                    for to_preview in to_previews.iter() {
+                        let message = match contents {
+                            Ok((version, text)) => &LspToPreviewMessage::SetContents {
+                                url: VersionedUrl::new(url.clone(), *version),
+                                contents: text.as_bytes().to_vec(),
+                            },
+                            Err(_) => &LspToPreviewMessage::ForgetFile { url: url.clone() },
+                        };
+                        to_preview.send(message);
+                    }
+                }
+                contents
+            })
+        });
+        document_cache.set_open_import_callback(callback);
         let compiler_config_defaults = document_cache.configuration_with_import_callback();
         let preview_config = PreviewConfig {
             format_utf8: compiler_config_defaults.format == crate::ByteFormat::Utf8,
@@ -268,7 +303,8 @@ impl EditorSession {
             document_cache,
             preview_config,
             open_urls: Default::default(),
-            previews,
+            previews: Default::default(),
+            preview_destinations,
             pending_recompile: Default::default(),
             compiler_config_defaults,
             startup_config_overrides: Default::default(),
@@ -277,6 +313,50 @@ impl EditorSession {
             active_projects: Default::default(),
             project_file_paths: Default::default(),
         }
+    }
+
+    /// Registers a preview and its initial selection without sending messages or scheduling a reload.
+    pub fn attach_preview(
+        &mut self,
+        to_preview: Rc<crate::LspToPreviews>,
+        component: Option<PreviewComponent>,
+        project_root: Option<Url>,
+    ) -> usize {
+        let preview_index = self.previews.len();
+        self.preview_destinations.borrow_mut().push(to_preview.clone());
+        self.previews.push(PreviewConnection {
+            to_preview,
+            project_root,
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: component,
+        });
+        #[cfg(not(any(feature = "preview-external", feature = "preview-engine")))]
+        let _ = component;
+        preview_index
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn replace_preview_transport(
+        &mut self,
+        preview_index: usize,
+        to_preview: Rc<crate::LspToPreviews>,
+    ) {
+        if let Some(preview) = self.previews.get_mut(preview_index) {
+            preview.to_preview = to_preview.clone();
+            self.preview_destinations.borrow_mut()[preview_index] = to_preview;
+        }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_previews(
+        document_cache: crate::DocumentCache,
+        to_previews: Vec<Rc<crate::LspToPreviews>>,
+    ) -> Self {
+        let mut session = Self::from_document_cache(document_cache);
+        for to_preview in to_previews {
+            session.attach_preview(to_preview, None, None);
+        }
+        session
     }
 
     pub fn set_startup_config_overrides(&mut self, overrides: SessionConfigOverrides) {
@@ -1266,8 +1346,8 @@ mod preview_tests {
                 Some(i_slint_compiler::project_file::SlintEdition::V1_19);
             compiler_config.format = crate::ByteFormat::Utf16;
             let (to_preview, messages) = crate::test::preview_capture();
-            let session =
-                EditorSession::new(crate::DocumentCache::new(compiler_config), to_preview);
+            let mut session = EditorSession::new(compiler_config);
+            session.attach_preview(to_preview, None, None);
 
             session.send_state_to_preview(0);
 
@@ -1290,10 +1370,7 @@ mod preview_tests {
     fn session_with_recording_previews()
     -> (EditorSession, [crate::test::CapturedPreviewMessages; 2]) {
         let captures = std::array::from_fn(|_| crate::test::preview_capture());
-        let previews = captures
-            .iter()
-            .map(|(to_preview, _)| PreviewConnection::new(to_preview.clone()))
-            .collect();
+        let previews = captures.iter().map(|(to_preview, _)| to_preview.clone()).collect();
         let messages = captures.map(|(_, messages)| messages);
         let session = EditorSession::with_previews(crate::test::empty_document_cache(), previews);
         (session, messages)
@@ -1804,6 +1881,94 @@ mod preview_tests {
     }
 
     #[test]
+    fn attaching_preview_records_selection_without_sending_or_reloading() {
+        let mut session =
+            EditorSession::new(crate::document_cache::CompilerConfiguration::default());
+        let (to_preview, messages) = crate::test::preview_capture();
+        let component = PreviewComponent {
+            url: crate::test::test_file_name("attached.slint").to_url().unwrap(),
+            component: Some("Attached".into()),
+        };
+        let root = Url::parse("file:///attached/").unwrap();
+
+        assert!(session.previews().is_empty());
+        assert_eq!(
+            session.attach_preview(to_preview, Some(component.clone()), Some(root.clone())),
+            0
+        );
+        assert_eq!(session.primary_preview().component(), Some(&component));
+        assert_eq!(session.primary_preview().project_root(), Some(&root));
+        assert!(session.pending_recompile.is_empty());
+        assert!(messages.borrow().is_empty());
+
+        session.send_state_to_preview(0);
+        let messages = messages.borrow();
+        for message_count in [
+            messages
+                .iter()
+                .filter(|message| {
+                    matches!(message,
+                LspToPreviewMessage::OpenProject { root: Some(sent) } if sent == &root)
+                })
+                .count(),
+            messages
+                .iter()
+                .filter(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+                .count(),
+            messages
+                .iter()
+                .filter(|message| {
+                    matches!(message,
+                LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+                })
+                .count(),
+        ] {
+            assert_eq!(message_count, 1);
+        }
+    }
+
+    #[test]
+    fn import_callback_forwards_versioned_contents_and_preserves_none() {
+        let directory = tempfile::tempdir().unwrap();
+        let versioned_path = directory.path().join("versioned.slint");
+        let fallback_path = directory.path().join("fallback.slint");
+        std::fs::write(&fallback_path, "export component Fallback {}").unwrap();
+        let expected_contents = "export component Versioned {}";
+        let callback_path = versioned_path.clone();
+        let config = crate::document_cache::CompilerConfiguration {
+            open_import_callback: Some(Rc::new(move |path| {
+                let callback_path = callback_path.clone();
+                Box::pin(async move {
+                    (path.as_native_path() == Some(callback_path.as_path()))
+                        .then(|| Ok((Some(7), expected_contents.into())))
+                })
+            })),
+            ..Default::default()
+        };
+        let mut session = EditorSession::new(config);
+        let (to_preview, messages) = crate::test::preview_capture();
+        session.attach_preview(to_preview, None, None);
+        let callback = session
+            .document_cache
+            .configuration_with_import_callback()
+            .open_import_callback
+            .unwrap();
+
+        let result = spin_on::spin_on(callback(SourcePath::File(versioned_path.clone())));
+        assert!(matches!(result, Some(Ok((Some(7), contents))) if contents == expected_contents));
+        assert!(matches!(messages.borrow().as_slice(),
+            [LspToPreviewMessage::SetContents { url, contents }]
+                if url.url() == &Url::from_file_path(&versioned_path).unwrap()
+                    && url.version() == &Some(7)
+                    && contents == expected_contents.as_bytes()
+        ));
+
+        messages.borrow_mut().clear();
+        assert!(spin_on::spin_on(callback(SourcePath::File(fallback_path))).is_none());
+        assert!(messages.borrow().is_empty());
+    }
+
+    #[test]
     fn invalid_preview_indexes_are_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let component = PreviewComponent {
@@ -2120,10 +2285,13 @@ mod tests {
             },
             ..Default::default()
         };
-        EditorSession::new(
-            crate::DocumentCache::new(config),
+        let mut session = EditorSession::new(config);
+        session.attach_preview(
             crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
-        )
+            None,
+            None,
+        );
+        session
     }
 
     fn write_document(path: &std::path::Path) {

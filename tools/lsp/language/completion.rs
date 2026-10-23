@@ -2909,9 +2909,11 @@ mod tests {
         let cursor_offset = (source.find("Entry }").unwrap() + "Entry".len()) as u32;
         let document_url =
             lsp_types::Url::from_file_path(directory.path().join("editing.slint")).unwrap();
-        let mut session = editor_preview::EditorSession::new(
+        let mut session = editor_preview::EditorSession::with_previews(
             crate::language::test::empty_document_cache(),
-            editor_preview::LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+            vec![editor_preview::LspToPreviews::with_one(
+                editor_preview::DummyLspToPreview::default(),
+            )],
         );
         spin_on::spin_on(session.open_document(source.into(), document_url.clone(), Some(1)))
             .unwrap();
