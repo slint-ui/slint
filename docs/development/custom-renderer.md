@@ -205,6 +205,23 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
+The FemtoVG screenshot tests render offscreen through WGPU and run with the `femtovg` feature, which CI enables through `--all-features`.
+They need a WGPU adapter but no window or display server, and pass without rendering when there's no adapter.
+Every case runs unless it has a `//ignore: femtovg` marker.
+
+```sh
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --no-default-features --features femtovg
+```
+
+The generator honors `SIZE`, `SLINT_SCALE_FACTOR`, `BASE_THRESHOLD`, and `//ignore: femtovg` markers.
+`SKIP_WARP` skips a case on WARP, the D3D12 software adapter on Windows CI.
+Every case accepts a color difference of at least 4, since GPU drivers round differently.
+Ignored cases run when the command includes `-- --ignored`.
+
+References live under `tests/screenshots/references/femtovg/`.
+The tests use bundled fonts and the Fluent style for consistent output across platforms.
+Separate shadow checks verify cache invalidation and corner geometry.
+
 ### Testing Backend
 
 Use the headless testing backend for automated tests:
