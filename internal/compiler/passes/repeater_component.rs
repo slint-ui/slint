@@ -61,6 +61,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 layout_info_prop: original_elem.layout_info_prop.take(),
                 layout_info_v_with_constraint: original_elem.layout_info_v_with_constraint.take(),
                 layout_info_h_at_own_height: original_elem.layout_info_h_at_own_height.take(),
+                implicit_layout_info_prop: std::mem::take(
+                    &mut original_elem.implicit_layout_info_prop,
+                ),
                 height_is_literal: original_elem.height_is_literal,
                 default_fill_parent: original_elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut original_elem.accessibility_props),

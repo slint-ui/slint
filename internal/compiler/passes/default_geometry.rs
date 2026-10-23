@@ -216,10 +216,10 @@ fn gen_layout_info_prop_from_children(
         .iter()
         .filter(|c| has_no_explicit_position(c))
         .filter_map(|c| {
-            let cb = c.borrow();
-            cb.effective_layout_info_prop(Orientation::Horizontal)
-                .cloned()
-                .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
+            let own_h = c.borrow().effective_layout_info_prop(Orientation::Horizontal).cloned();
+            let own_v = c.borrow().effective_layout_info_prop(Orientation::Vertical).cloned();
+            own_h
+                .zip(own_v)
                 .map(|(h, v)| {
                     let mut h = Expression::PropertyReference(h);
                     let mut v = Expression::PropertyReference(v);
@@ -248,7 +248,7 @@ fn gen_layout_info_prop_from_children(
                     if c.borrow().is_legacy_syntax {
                         return None;
                     }
-                    if let Some(r) = cb.repeated.as_ref() {
+                    if let Some(r) = c.borrow().repeated.as_ref() {
                         // Merge every instance's LayoutInfo (issue #407).
                         //
                         // A ListView is left out for the reason `flickable.rs` leaves it
@@ -260,7 +260,7 @@ fn gen_layout_info_prop_from_children(
                         // parent is a binding loop error once merged (#13972).
                         if !diag.enable_experimental
                             || r.is_listview.is_some()
-                            || cb.is_component_placeholder
+                            || c.borrow().is_component_placeholder
                         {
                             return None;
                         }
@@ -284,11 +284,10 @@ fn gen_layout_info_prop_from_children(
                         if explicit_constraints.has_explicit_restrictions(orientation) {
                             Some(explicit_layout_info(c, orientation))
                         } else {
-                            implicit_layout_info_call(
+                            crate::layout::implicit_layout_info(
                                 c,
                                 orientation,
                                 BuiltinFilter::SkipNonImplicit,
-                                None,
                             )
                         }
                     };
