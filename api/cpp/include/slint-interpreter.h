@@ -1105,10 +1105,10 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
-    /// If `path` is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-    /// The project file provides the settings not set on this compiler.
-    /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
-    /// A `.slint` file path compiles without loading a project file.
+    /// If `path` is a directory, Slint loads the project file (`slint-project.json`) inside that
+    /// directory. The project file provides the settings not set on this compiler. It must contain
+    /// a `main` entry, which specifies the `.slint` file the compiler loads. A `.slint` file path
+    /// compiles without loading a project file.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///

@@ -30,7 +30,9 @@ def messages(result: native.CompilationResult) -> list[str]:
 def test_include_paths_come_from_the_project_file(
     tmp_path: pathlib.Path,
 ) -> None:
-    directory = project_directory(tmp_path, {"main": "main.slint", "include-paths": ["include"]})
+    directory = project_directory(
+        tmp_path, {"main": "main.slint", "include-paths": ["include"]}
+    )
     (directory / "include").mkdir()
     (directory / "include" / "shared.slint").write_text("export component Shared { }")
 
@@ -71,7 +73,9 @@ def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     assert any("slint-project.json" in message for message in messages(result))
 
 
-def test_building_the_project_directory_builds_its_main_file(tmp_path: pathlib.Path) -> None:
+def test_building_the_project_directory_builds_its_main_file(
+    tmp_path: pathlib.Path,
+) -> None:
     directory = project_directory(
         tmp_path, {"main": "ui/main.slint", "include-paths": ["include"]}
     )
