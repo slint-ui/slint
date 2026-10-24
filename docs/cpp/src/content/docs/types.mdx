@@ -5,39 +5,38 @@ description: How .slint property types map to C++ types, plus the generated clas
 
 import SlintRef from "../../components/SlintRef.astro";
 
-The types used for properties in `.slint` design markup each translate to specific types in C++.
-The follow table summarizes the entire mapping. The `.slint` types link to the Slint language reference:
+Each property type in the Slint language maps to a specific C++ type.
+The following table summarizes the mapping.
+Each `.slint` type links to the Slint language reference:
 
 | `.slint` Type | C++ Type | Note |
 | --- | --- | --- |
 | <SlintRef type="int" /> | `int` | |
 | <SlintRef type="float" /> | `float` | |
 | <SlintRef type="bool" /> | `bool` | |
-| <SlintRef type="string" /> | [`slint::SharedString`](../api/slint/sharedstring/) | A reference-counted string type that uses UTF-8 encoding and can be easily converted to a `std::string_view` or a `const char *`. |
+| <SlintRef type="string" /> | [`slint::SharedString`](../api/slint/sharedstring/) | A reference-counted string type that uses UTF-8 encoding and converts easily to a `std::string_view` or a `const char *`. |
 | <SlintRef type="color" /> | [`slint::Color`](../api/slint/color/) | |
 | <SlintRef type="brush" /> | [`slint::Brush`](../api/slint/brush/) | |
 | <SlintRef type="image" /> | [`slint::Image`](../api/slint/image/) | |
-| <SlintRef type="physical-length" /> | `float` | The unit are physical pixels. |
-| <SlintRef type="length" /> | `float` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
+| <SlintRef type="physical-length" /> | `float` | The unit is physical pixels. |
+| <SlintRef type="length" /> | `float` | At run-time, Slint translates logical lengths to physical pixels using the device pixel ratio. |
 | <SlintRef type="duration" /> | `std::int64_t` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | <SlintRef type="angle" /> | `float` | The angle in degrees. |
 | <SlintRef type="relative-font-size" /> | `float` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
-| <SlintRef type="struct" label="structure" code={false} /> | A `class` of the same name | The order of the data member are in the same as in the slint declaration. |
+| <SlintRef type="struct" label="structure" code={false} /> | A `class` of the same name | The data members are in the same order as in the `.slint` declaration. |
 | anonymous struct | A `std::tuple` | The fields are in alphabetical order. |
 | <SlintRef type="enum" code={false} /> | An `enum class` | The values are always converted to CamelCase. The order of the values is the same as in the declaration. |
 | <SlintRef type="data-transfer" /> | [`slint::DataTransfer`](../api/slint/datatransfer/) | Data associated with a drag-drop transfer. |
-| <SlintRef type="styled-text" /> | [`slint::StyledText`](../api/slint/styledtext/) | Styled text parsed from markdown or plain text. Use `StyledText::from_markdown()` or `StyledText::from_plain_text()` to create. |
+| <SlintRef type="styled-text" /> | [`slint::StyledText`](../api/slint/styledtext/) | Styled text parsed from Markdown or plain text. To create one, use `StyledText::from_markdown()` or `StyledText::from_plain_text()`. |
 | <SlintRef type="Point" /> | [`slint::LogicalPosition`](../api/slint/logicalposition/) | A struct with `x` and `y` fields, representing logical coordinates. |
 
 ## Structures
 
-For any user-defined, exported `struct` in the `.slint` code,
-the Slint compiler generates a `class` with all data members in the same order.
-In the names of these classes and their data members, use underscores (`_`) in place of dashes (`-`).
-If a name is a C++ keyword, such as a field `delete`,
-add a trailing underscore: `delete_`.
+For each exported `struct` in your `.slint` code, the Slint compiler generates a `class` with the same data members in the same order.
+In the names of these classes and their data members, the compiler replaces dashes (`-`) with underscores (`_`).
+If a name is a C++ keyword, such as a field `delete`, the compiler appends an underscore: `delete_`.
 
-For example, this `struct` in a `.slint` file
+For example, consider this `struct` in a `.slint` file:
 
 ```slint
 export struct MyStruct {
@@ -46,7 +45,7 @@ export struct MyStruct {
 }
 ```
 
-will generate the following type in C++:
+The Slint compiler generates the following C++ class:
 
 ```cpp
 class MyStruct {
@@ -78,16 +77,16 @@ auto [name, score] = example->get_player();
 
 ## Enums
 
-The Slint compiler generates an `enum class` with all values in the same order and converted to camel case
-for any user-defined, exported `enum` in the `.slint` code.
+For each exported `enum` in your `.slint` code, the Slint compiler generates an `enum class`.
+The values keep their declaration order and are converted to CamelCase.
 
-For example, this `enum` in a `.slint` file
+For example, consider this `enum` in a `.slint` file:
 
 ```slint
 export enum MyEnum { alpha, beta-gamma, omicron }
 ```
 
-will generate the following type in C++:
+The Slint compiler generates the following C++ type:
 
 ```cpp
 enum class MyEnum { Alpha, BetaGamma, Omicron };
