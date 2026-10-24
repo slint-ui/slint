@@ -150,6 +150,7 @@ pub async fn run_passes(
             &doc.local_registry,
             &symbol_counters,
             &mut forwarded_references,
+            type_loader.compiler_config.edition,
             diag,
         );
         lower_text_input_interface::lower_text_input_interface(component);
