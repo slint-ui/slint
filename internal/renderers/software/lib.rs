@@ -32,7 +32,6 @@ use self::scene::*;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::pin::Pin;
-use euclid::Length;
 use fixed::Fixed;
 #[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
@@ -40,7 +39,7 @@ use i_slint_core::api::PlatformError;
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::RefreshMode;
-use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
@@ -1667,7 +1666,6 @@ fn gradient_commands(
     let box_w = gradient_box.width();
     let box_h = gradient_box.height();
     let (item_w, item_h) = if rotation.is_transpose() { (box_h, box_w) } else { (box_w, box_h) };
-    let alpha_stop = |s: &GradientStop| GradientStop { color: alpha_color(s.color, alpha), ..*s };
     let rect: PhysicalRect = draw_rect.round().cast();
     let to_rect_center = |x: f32, y: f32| {
         let (cx, cy) = match rotation {
@@ -1684,124 +1682,27 @@ fn gradient_commands(
 
     match brush {
         Brush::LinearGradient(g) if g.stops().nth(1).is_some() => {
-            let angle = g.angle() + rotation.angle();
-            let axis_angle = (angle % 180. + 180.) % 180.;
-            let tan = angle.to_radians().tan().abs();
-            // f32 `tan` of 90° is finite, so a horizontal gradient is detected from the angle.
-            let start = if axis_angle == 90. {
-                255
-            } else {
-                let h = tan * gradient_box.width();
-                (255. * h / (h + gradient_box.height())) as u8
-            };
-            let mut angle = angle as i32 % 360;
-            if angle < 0 {
-                angle += 360;
-            }
-            let invert_slope = (angle % 180) > 90;
-            let reversed = angle <= 90 || angle > 270;
-            let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
-
-            let act = rect.to_i32();
-            let snapped_box = gradient_box.round().to_i32();
-            let clip_length =
-                |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
-            let anchored_band = |origin: f32, extent: f32, from: f32, to: f32| {
-                ((origin + extent * from).floor() as i32, (origin + extent * to).floor() as i32)
-            };
-
-            // Returns false when the segment is too thin to get a band.
-            let mut draw_segment = |mut s1: GradientStop, mut s2: GradientStop, first, last| {
-                if reversed {
-                    core::mem::swap(&mut s1, &mut s2);
-                    s1.position = 1. - s1.position;
-                    s2.position = 1. - s2.position;
-                }
-                let mut flags = if invert_slope { 0b1 } else { 0 };
-                if first {
-                    flags |= fill_first;
-                }
-                if last {
-                    flags |= fill_last;
-                }
-
-                // At a `start` of 0 or 255 a band has no slope, so both ends are rounded from
-                // the geometry's origin and adjacent bands meet. Otherwise `draw_linear_gradient`
-                // derives the slope from the band's rounded size, and each end is rounded from
-                // its own edge.
-                let (band_left, band_right) = if start == 255 {
-                    anchored_band(
-                        gradient_box.min_x(),
-                        gradient_box.width(),
-                        1. - s2.position,
-                        1. - s1.position,
-                    )
-                } else {
-                    let (adjust_left, adjust_right) = if invert_slope {
-                        (
-                            (gradient_box.width() * s1.position).floor() as i32,
-                            (gradient_box.width() * (1. - s2.position)).ceil() as i32,
-                        )
-                    } else {
-                        (
-                            (gradient_box.width() * (1. - s2.position)).ceil() as i32,
-                            (gradient_box.width() * s1.position).floor() as i32,
-                        )
-                    };
-                    (snapped_box.min_x() + adjust_left, snapped_box.max_x() - adjust_right)
-                };
-                let (band_top, band_bottom) = if start == 0 {
-                    anchored_band(
-                        gradient_box.min_y(),
-                        gradient_box.height(),
-                        s1.position,
-                        s2.position,
-                    )
-                } else {
-                    (
-                        snapped_box.min_y() + (gradient_box.height() * s1.position).floor() as i32,
-                        snapped_box.max_y()
-                            - (gradient_box.height() * (1. - s2.position)).ceil() as i32,
-                    )
-                };
-                if band_right <= band_left || band_bottom <= band_top {
-                    return false;
-                }
-
-                let gr = LinearGradientCommand {
-                    color1: s1.color.into(),
-                    color2: s2.color.into(),
-                    start,
-                    flags,
-                    top_clip: clip_length(act.min_y() - band_top),
-                    bottom_clip: clip_length(band_bottom - act.max_y()),
-                    left_clip: clip_length(act.min_x() - band_left),
-                    right_clip: clip_length(band_right - act.max_x()),
-                    clip,
-                };
+            let (start, end) = i_slint_core::graphics::line_for_angle(
+                g.angle() + rotation.angle(),
+                euclid::size2(box_w, box_h),
+            );
+            let (axis_x, axis_y) = (end.x - start.x, end.y - start.y);
+            let length_squared = axis_x * axis_x + axis_y * axis_y;
+            let (ux, uy) = (axis_x / length_squared, axis_y / length_squared);
+            // Pixels are sampled at their centers.
+            let px = rect.min_x() as f32 + 0.5 - gradient_box.min_x() - start.x;
+            let py = rect.min_y() as f32 + 0.5 - gradient_box.min_y() - start.y;
+            // `None` for a gradient line of zero length, or one too short for the fixed point.
+            if let Some(position) = LinearGradientPosition::from_f32(px * ux + py * uy)
+                && let Some(dx) = LinearGradientPosition::from_f32(ux)
+                && let Some(dy) = LinearGradientPosition::from_f32(uy)
+            {
+                let stops = LinearGradientStop::collect(
+                    g.stops().map(|s| (alpha_color(s.color, alpha).into(), s.position)),
+                    dx,
+                );
+                let gr = LinearGradientCommand { stops, position, dx, dy, clip };
                 sink(rect, AnyGradientCommand::Linear(gr));
-                true
-            };
-
-            let mut stops = g.stops().map(alpha_stop).peekable();
-            let stop_count = g.stops().count();
-            let mut idx = 0;
-            while let (Some(s1), Some(s2)) = (stops.next(), stops.peek().copied()) {
-                let first = idx == 0;
-                let last = idx == stop_count - 2;
-                idx += 1;
-                // Rounding can give stops at the same position a 1px band, and its slope wouldn't
-                // match the neighboring bands'.
-                if s1.position >= s2.position || !draw_segment(s1, s2, first, last) {
-                    // The first and last segments still fill to the edge, so draw their outer
-                    // color as a solid segment up to the stop.
-                    if first {
-                        draw_segment(GradientStop { position: 0., ..s1 }, s1, true, false);
-                    }
-                    if last {
-                        draw_segment(s2, GradientStop { position: 1., ..s2 }, false, true);
-                    }
-                }
             }
             BrushFill::Gradient
         }
