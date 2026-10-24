@@ -497,7 +497,7 @@ impl MudaAdapter {
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
         Ok(Self {
-            map: Default::new(),
+            map: Default::default(),
             map_next_id: 0,
             menu: Some(menu_bar),
             tracker: None,
