@@ -42,6 +42,14 @@ export component Example inherits Window {
 Hovering toggles between a blue and a green background and adjusts the label;
 clicking enters the `inactive` state.
 
+While none of the states applies, a property keeps the value it would have without them.
+For a `width`, `height`, `x`, or `y`, that's the element's default [size and position](../positioning-and-layouts/),
+such as filling its parent or fitting its content.
+
+:::note
+With an [edition](../../concepts/editions/) older than 1.19, they're `0px` while none of the states applies.
+:::
+
 Transitions bind [animations](animation/) to state changes.
 Use `in` to animate when entering a state, `out` when leaving it, and `in-out` for both:
 
