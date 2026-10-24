@@ -278,6 +278,12 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     fn setup_menubar(&self, _menubar: vtable::VRc<MenuVTable>) {}
 
+    /// Returns whether the native menu bar shows menu items with an application menu role,
+    /// see [`MenuItemRole::is_application_menu_role`](crate::items::MenuItemRole::is_application_menu_role).
+    fn supports_application_menu_roles(&self) -> bool {
+        false
+    }
+
     fn show_native_popup_menu(
         &self,
         _context_menu_item: vtable::VRc<MenuVTable>,
