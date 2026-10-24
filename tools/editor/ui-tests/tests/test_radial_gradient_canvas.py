@@ -22,6 +22,7 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
+    double_click_at,
     elements,
     first_window,
     launch_editor,
@@ -183,8 +184,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         c = center(control(window, "Gradient center handle"), 35)
         r = center(control(window, "Gradient radius handle"), 35)
         p = shifted(c, x=(r.x - c.x) * 0.3, y=(r.y - c.y) * 0.3)
-        gesture(window, p, p)
-        gesture(window, p, p)
+        double_click_at(window, p)
         control(window, "Gradient stop 4")
         press_key(window, keys.Delete)
         assert not elements(window, "Gradient stop 4")
