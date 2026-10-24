@@ -59,6 +59,9 @@ The generated accessors take and return a `(slint::SharedString, i32)`:
 ```rust,ignore
 example.set_player(("Foo".into(), 100));
 let (name, score) = example.get_player();
+```
+
+**Note:** `name` comes first, although the property declares `score` first.
 
 The `.slint` file allows you to utilize Rust attributes and features for defining structures using the `@rust-attr()` directive.
 This enables you to customize the generated code by applying additional traits, derivations, or annotations.

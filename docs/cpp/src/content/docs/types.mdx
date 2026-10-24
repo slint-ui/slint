@@ -68,6 +68,11 @@ The generated accessors take and return a `std::tuple<slint::SharedString, int>`
 ```cpp
 example->set_player({"Foo", 100});
 auto [name, score] = example->get_player();
+```
+
+:::note
+`name` comes first, although the property declares `score` first.
+:::
 
 ## Enums
 
