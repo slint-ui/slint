@@ -2369,6 +2369,19 @@ fn notify_restored_selection() {
     }
 }
 
+/// Highlights the hovered element in the run preview, or the selected one once nothing is hovered.
+fn hovered_element_changed(source_uri: SharedString, offset: i32) {
+    let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone());
+    let Some(lsp) = lsp else { return };
+    let (url, offset) = if source_uri.is_empty() {
+        selected_element()
+            .map_or((None, 0), |selection| (selection.path.to_url(), selection.offset.into()))
+    } else {
+        (Url::parse(&source_uri).ok(), u32::try_from(offset).unwrap_or_default())
+    };
+    lsp.send(&PreviewToLspMessage::HighlightInRunPreview { url, offset }).ok();
+}
+
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
     inspector::invalidate_fill();
     tracing::debug!(

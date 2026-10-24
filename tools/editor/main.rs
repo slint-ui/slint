@@ -598,10 +598,17 @@ async fn handle_preview_message(
                 &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
             );
         }
+        HighlightInRunPreview { url, offset } if preview_index == PRIMARY_PREVIEW_INDEX => {
+            session.send_to_preview(
+                RUN_PREVIEW_INDEX,
+                &LspToPreviewMessage::HighlightFromEditor { url: url.clone(), offset: *offset },
+            );
+        }
 
         Diagnostics { .. }
         | ShowDocument { .. }
         | ClearHighlight
+        | HighlightInRunPreview { .. }
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
@@ -1268,6 +1275,33 @@ mod tests {
                 assert!(matches!(
                     run_messages.as_slice(),
                     [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
+                ));
+            } else {
+                assert!(run_messages.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn hover_highlight_only_reaches_the_run_preview_from_the_primary_preview() {
+        let url = editor_preview::test::test_file_name("hover.slint").to_url().unwrap();
+        for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
+            let (mut session, messages) = session_with_recording_previews();
+            let project = tempfile::tempdir().unwrap();
+
+            spin_on::spin_on(handle_preview_message(
+                PreviewToLspMessage::HighlightInRunPreview { url: Some(url.clone()), offset: 42 },
+                preview_index,
+                &mut session,
+                project.path(),
+            ));
+
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+            let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+            if preview_index == PRIMARY_PREVIEW_INDEX {
+                assert!(matches!(
+                    run_messages.as_slice(),
+                    [LspToPreviewMessage::HighlightFromEditor { url: Some(u), offset: 42 }] if *u == url
                 ));
             } else {
                 assert!(run_messages.is_empty());
