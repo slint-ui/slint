@@ -5,10 +5,10 @@
 #![cfg(target_arch = "wasm32")]
 
 use std::cell::RefCell;
-use std::path::Path;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+use i_slint_compiler::source_path::SourcePath;
 use slint_interpreter::ComponentHandle;
 
 #[wasm_bindgen]
@@ -63,12 +63,15 @@ extern "C" {
 /// `optional_import_callback` returns the source of an imported `.slint` file.
 /// `optional_resource_loader` returns the bytes of an imported font file.
 /// Without it, the interpreter fetches the font from its URL.
+/// `optional_project_root` is the URL of the directory with the `slint-project.json` to apply.
+/// The interpreter reads that file through `optional_import_callback`.
 #[wasm_bindgen]
 pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<ImportCallbackFunction>,
     optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_project_root: Option<String>,
 ) -> Result<CompilationResult, JsValue> {
     compile_from_string_with_style(
         source,
@@ -76,6 +79,7 @@ pub async fn compile_from_string(
         String::new(),
         optional_import_callback,
         optional_resource_loader,
+        optional_project_root,
     )
     .await
 }
@@ -88,6 +92,7 @@ pub async fn compile_from_string_with_style(
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
     optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_project_root: Option<String>,
 ) -> Result<CompilationResult, JsValue> {
     let mut compiler = slint_interpreter::Compiler::default();
     let config = compiler.compiler_configuration(i_slint_core::InternalToken);
@@ -96,14 +101,17 @@ pub async fn compile_from_string_with_style(
     if !style.is_empty() {
         compiler.set_style(style)
     }
+    if let Some(root) = optional_project_root {
+        compiler.set_project_root(Some(SourcePath::new(root)), i_slint_core::InternalToken);
+    }
 
     if let Some(load_callback) = optional_import_callback {
-        let open_import_callback = move |file_name: &Path| -> core::pin::Pin<
+        let open_import_callback = move |file_name: SourcePath| -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > {
             Box::pin({
                 let load_callback = js_sys::Function::from(load_callback.clone());
-                let file_name: String = file_name.to_string_lossy().into();
+                let file_name = file_name.to_string();
                 async move {
                     let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
                     let promise: js_sys::Promise = result.unwrap().into();
@@ -118,7 +126,11 @@ pub async fn compile_from_string_with_style(
                 }
             })
         };
-        compiler.set_file_loader(open_import_callback);
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(open_import_callback);
+        compiler.compiler_configuration(i_slint_core::InternalToken).open_import_callback =
+            Some(open_import_callback.clone());
+        compiler.set_project_file_loader(open_import_callback, i_slint_core::InternalToken);
     }
 
     if let Some(load_resource) = optional_resource_loader {
