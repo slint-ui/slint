@@ -256,7 +256,9 @@
     const posix = path.replaceAll("\\", "/");
     return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
   }
+  // A project file can name a library or include path by its native absolute path.
   function fromFileUrl(url) {
+    if (!url.startsWith(FILE_SCHEME)) return url;
     const path = decodeURIComponent(new URL(url).pathname);
     return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
   }
@@ -320,10 +322,12 @@
 
   let instance = null;
   let runtime = null;
-  async function render({ source, path, style }) {
+  async function render({ source, path, projectRoot, style }) {
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
+    // Interpreters without this parameter ignore it, and compile without the project file.
+    const projectRootUrl = projectRoot ? toFileUrl(projectRoot) : null;
     if (path) {
       showStatus(`Reading ${path}…`);
       try {
@@ -334,16 +338,21 @@
         return;
       }
       url = toFileUrl(path);
-      // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      // The interpreter reports only a string rejection as the import error,
+      // and continues the include path search for null.
+      // cspell:ignore ENOENT ENOTDIR
+      loadImport = (file) =>
+        readSlintFile(fromFileUrl(file)).catch((e) => {
+          const message = String(e.message ?? e);
+          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+        });
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
     const posixPath = path?.replaceAll("\\", "/");
     const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
     const location = (d) => {
-      let file = d.fileName || url;
-      if (file.startsWith(FILE_SCHEME)) file = fromFileUrl(file);
+      let file = fromFileUrl(d.fileName || url);
       if (baseDir && file.startsWith(baseDir)) file = file.slice(baseDir.length);
       return `${file}:${d.lineNumber}:${d.columnNumber}`;
     };
@@ -365,8 +374,8 @@
     const { component, diagnostics } = await untilPanic(
       current,
       style
-        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource)
-        : slint.compile_from_string(source, url, loadImport, loadResource),
+        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource, projectRootUrl)
+        : slint.compile_from_string(source, url, loadImport, loadResource, projectRootUrl),
     );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
