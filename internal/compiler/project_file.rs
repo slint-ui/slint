@@ -38,6 +38,16 @@ pub struct SlintEdition {
 impl SlintEdition {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
 
+    /// Parses an edition that this Slint supports: one that isn't newer than [`Self::current()`].
+    pub fn parse_supported(s: &str) -> Result<Self, String> {
+        let current = Self::current();
+        let edition: Self = s.parse()?;
+        if edition > current {
+            return Err(format!("{edition} is newer than this Slint {current}"));
+        }
+        Ok(edition)
+    }
+
     /// The edition of this compiler's release.
     pub fn current() -> Self {
         Self {

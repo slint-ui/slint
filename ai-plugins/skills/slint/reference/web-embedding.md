@@ -40,7 +40,10 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
 - `std-widgets.slint` and a default font are built in.
   Page fonts don't reach the canvas: call `register_font_from_memory(bytes)` before compiling.
 - `compile_from_string_with_style(source, url, "fluent", null)` picks a style.
-  The last argument of both compile functions loads imports: `(url) => Promise<string>`.
+  The third argument of `compile_from_string`, and the fourth of `compile_from_string_with_style`, loads imports: `(url) => Promise<string>`.
+- The interpreter compiles with the [edition](https://docs.slint.dev/latest/docs/slint/guide/language/concepts/editions/) of its own release.
+  The sixth argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
+  Pass `undefined` for the fifth, the resource loader, to reach it.
 - Images don't go through that callback.
   With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
   With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
