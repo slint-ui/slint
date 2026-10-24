@@ -111,6 +111,14 @@ component CupertinoTabBarBase inherits TabBarBase {
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
     accessible-item-count: root.num-tabs;
 
+    changed num-tabs => {
+        if i-focus-scope.focused-tab >= root.num-tabs {
+            i-focus-scope.focused-tab = root.num-tabs - 1;
+        } else if i-focus-scope.focused-tab < 0 && root.num-tabs > 0 {
+            i-focus-scope.focused-tab = 0;
+        }
+    }
+
     Rectangle {
         border-radius: 7px;
         border-color: CupertinoPalette.bar-border;
