@@ -770,6 +770,12 @@ impl FlickableDataInner {
 
                     let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
                         (delta.x != Coord::default()).then(|| {
+                            let past_limit = (content_x.get().0 as f32 - limit_x.as_ref().get())
+                                * delta.x as f32
+                                > 0.;
+                            if past_limit {
+                                return Self::spring_back(flick, flick_rc, Dimension::X, &geo, 0.);
+                            }
                             Self::set_simulation(
                                 &content_x,
                                 FlickAnimation::create_animation(
@@ -786,6 +792,12 @@ impl FlickableDataInner {
 
                     let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
                         (delta.y != Coord::default()).then(|| {
+                            let past_limit = (content_y.get().0 as f32 - limit_y.as_ref().get())
+                                * delta.y as f32
+                                > 0.;
+                            if past_limit {
+                                return Self::spring_back(flick, flick_rc, Dimension::Y, &geo, 0.);
+                            }
                             Self::set_simulation(
                                 &content_y,
                                 FlickAnimation::create_animation(
