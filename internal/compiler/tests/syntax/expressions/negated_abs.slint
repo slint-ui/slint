@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    property <float> value: -3;
+    property <angle> a1: -1deg.abs();
+//                       >         <warning{'-' applies to the result of 'abs()', so this is negative; write '(-1deg).abs()' for the absolute value of '-1deg'}
+    property <float> a2: - 2.5.abs();
+//                       >         <warning{'-' applies to the result of 'abs()', so this is negative; write '(-2.5).abs()' for the absolute value of '-2.5'}
+    property <length> a3: -(-4px.abs());
+//                          >        <warning{'-' applies to the result of 'abs()', so this is negative; write '(-4px).abs()' for the absolute value of '-4px'}
+
+    // No warning
+    property <angle> b1: (-1deg).abs();
+    property <float> b2: -value.abs();
+    property <float> b3: -abs(10);
+    property <float> b4: -2.5.round();
+    property <float> b5: +2.5.abs();
+}
