@@ -133,6 +133,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
         BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::FocusScopeUpdateIme
         | BuiltinFunction::TextInputSelectAll
         | BuiltinFunction::TextInputClearSelection
         | BuiltinFunction::TextInputCut

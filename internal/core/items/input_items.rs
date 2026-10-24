@@ -2,25 +2,27 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventArg,
-    PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind, PointerScrollEvent,
-    PointerScrollEventArg, RenderingResult, VoidArg,
+    CompositionEventArg, EventResult, FocusReasonArg, Item, ItemConsts, ItemRc, ItemRendererRef,
+    KeyEventArg, PointerEvent, PointerEventArg, PointerEventButton, PointerEventKind,
+    PointerScrollEvent, PointerScrollEventArg, RenderingResult, VoidArg,
 };
-use crate::api::LogicalPosition;
+use crate::api::{LogicalPosition, LogicalSize as ApiLogicalSize};
 use crate::input::{
     FocusEvent, FocusEventResult, FocusReason, InputEventFilterResult, InputEventResult,
     InternalKeyEvent, KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{ItemTreeVTable, MouseCursorInner};
+use crate::items::{
+    CompositionEvent, InputMethodHints, InputType, ItemTreeVTable, MouseCursorInner,
+};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 use crate::once_box::OnceBox;
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{WindowAdapter, WindowInner};
-use crate::{Callback, Coord, Property};
+use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
+use crate::{Callback, Coord, Property, SharedString};
 use alloc::{rc::Rc, vec::Vec};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -534,6 +536,22 @@ pub struct FocusScope {
     pub has_focus: Property<bool>,
     pub focus_on_click: Property<bool>,
     pub focus_on_tab_navigation: Property<bool>,
+    pub accepts_text_input: Property<bool>,
+    pub ime_text: Property<SharedString>,
+    pub ime_cursor_position: Property<i32>,
+    pub ime_anchor_position: Property<i32>,
+    pub ime_has_anchor: Property<bool>,
+    pub ime_preedit_text: Property<SharedString>,
+    pub ime_preedit_offset: Property<i32>,
+    pub ime_cursor_rect_x: Property<LogicalLength>,
+    pub ime_cursor_rect_y: Property<LogicalLength>,
+    pub ime_cursor_rect_width: Property<LogicalLength>,
+    pub ime_cursor_rect_height: Property<LogicalLength>,
+    pub ime_input_type: Property<InputType>,
+    pub ime_input_method_hints: Property<InputMethodHints>,
+    /// True while this scope holds an enabled input method (set on focus-in when
+    /// `accepts_text_input`, cleared on focus-out/deinit).
+    ime_active: Cell<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
     pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
@@ -541,6 +559,8 @@ pub struct FocusScope {
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
+    pub composition_update: Callback<CompositionEventArg, EventResult>,
+    pub composition_commit: Callback<CompositionEventArg, EventResult>,
     pub key_bindings: OnceBox<KeyBindingList>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
@@ -613,7 +633,12 @@ impl FocusScope {
 impl Item for FocusScope {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
-    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        // Mirror `focus_event(FocusOut)` when a focused scope is destroyed.
+        if self.ime_active.replace(false) {
+            WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
+        }
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -730,7 +755,39 @@ impl Item for FocusScope {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                EventResult::Reject
+                if !self.accepts_text_input() {
+                    return KeyEventResult::EventIgnored;
+                }
+                let composition_event = CompositionEvent {
+                    text: if matches!(event.event_type, KeyEventType::UpdateComposition) {
+                        event.preedit_text.clone()
+                    } else {
+                        event.key_event.text.clone()
+                    },
+                    preedit_selection_start: event
+                        .preedit_selection
+                        .as_ref()
+                        .map_or(-1, |r| r.start),
+                    preedit_selection_end: event.preedit_selection.as_ref().map_or(-1, |r| r.end),
+                    replacement_range_start: event
+                        .replacement_range
+                        .as_ref()
+                        .map_or(-1, |r| r.start),
+                    replacement_range_end: event.replacement_range.as_ref().map_or(-1, |r| r.end),
+                    cursor_position: event.cursor_position.unwrap_or(-1),
+                    anchor_position: event.anchor_position.unwrap_or(-1),
+                };
+                if matches!(event.event_type, KeyEventType::UpdateComposition) {
+                    Self::FIELD_OFFSETS
+                        .composition_update()
+                        .apply_pin(self)
+                        .call(&(composition_event,))
+                } else {
+                    Self::FIELD_OFFSETS
+                        .composition_commit()
+                        .apply_pin(self)
+                        .call(&(composition_event,))
+                }
             }
         };
         match r {
@@ -742,8 +799,8 @@ impl Item for FocusScope {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn(_) if !self.enabled() => return FocusEventResult::FocusIgnored,
@@ -761,11 +818,24 @@ impl Item for FocusScope {
                 self.has_focus.set(true);
                 Self::FIELD_OFFSETS.focus_changed_event().apply_pin(self).call(&(*reason,));
                 Self::FIELD_OFFSETS.focus_gained().apply_pin(self).call(&(*reason,));
+                if self.accepts_text_input() {
+                    self.ime_active.set(true);
+                    WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
+                    if let Some(w) = window_adapter.internal(crate::InternalToken) {
+                        w.input_method_request(InputMethodRequest::Enable(
+                            self.input_method_properties(self_rc),
+                        ));
+                    }
+                }
             }
             FocusEvent::FocusOut(reason) => {
                 self.has_focus.set(false);
                 Self::FIELD_OFFSETS.focus_changed_event().apply_pin(self).call(&(*reason,));
                 Self::FIELD_OFFSETS.focus_lost().apply_pin(self).call(&(*reason,));
+                // `set_text_input_focused(false)` sends `InputMethodRequest::Disable`.
+                if self.ime_active.replace(false) {
+                    WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
+                }
             }
         }
         FocusEventResult::FocusAccepted
@@ -800,6 +870,50 @@ impl ItemConsts for FocusScope {
         FocusScope,
         CachedRenderingData,
     > = FocusScope::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+impl FocusScope {
+    /// Builds `InputMethodProperties` from this scope's `ime-*` properties.
+    fn input_method_properties(self: Pin<&Self>, self_rc: &ItemRc) -> InputMethodProperties {
+        let cursor_rect_origin = self_rc.map_to_native_window(LogicalPoint::from_lengths(
+            self.ime_cursor_rect_x(),
+            self.ime_cursor_rect_y(),
+        ));
+        let cursor_rect_size =
+            LogicalSize::from_lengths(self.ime_cursor_rect_width(), self.ime_cursor_rect_height());
+        InputMethodProperties {
+            text: self.ime_text(),
+            cursor_position: self.ime_cursor_position().max(0) as usize,
+            anchor_position: self
+                .ime_has_anchor()
+                .then(|| self.ime_anchor_position().max(0) as usize),
+            preedit_text: self.ime_preedit_text(),
+            preedit_offset: self.ime_preedit_offset().max(0) as usize,
+            cursor_rect_origin: LogicalPosition::from_euclid(cursor_rect_origin),
+            cursor_rect_size: ApiLogicalSize::from_euclid(cursor_rect_size),
+            anchor_point: LogicalPosition::from_euclid(cursor_rect_origin + cursor_rect_size),
+            input_type: self.ime_input_type(),
+            input_method_hints: self.ime_input_method_hints(),
+            clip_rect: None,
+        }
+    }
+
+    /// Sends the `ime-*` properties to the platform's input method.
+    pub fn update_input_method_properties(self: Pin<&Self>, self_rc: &ItemRc) {
+        if !self.ime_active.get() {
+            return;
+        }
+        let mut window_adapter = None;
+        vtable::VRc::borrow_pin(self_rc.item_tree())
+            .as_ref()
+            .window_adapter(true, &mut window_adapter);
+        let Some(window_adapter) = window_adapter else { return };
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            w.input_method_request(InputMethodRequest::Update(
+                self.input_method_properties(self_rc),
+            ));
+        }
+    }
 }
 
 #[repr(C)]

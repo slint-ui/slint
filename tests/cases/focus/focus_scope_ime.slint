@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+
+    callback set_focus();
+    set_focus => {
+        scope.focus();
+    }
+
+    out property <string> preedit;
+    out property <string> committed;
+    out property <int> preedit-selection-start;
+    out property <int> preedit-selection-end;
+
+    scope := FocusScope {
+        accepts-text-input: true;
+        ime-text: "hello";
+        ime-cursor-position: 5;
+        ime-cursor-rect-x: 10px;
+        ime-cursor-rect-y: 20px;
+        ime-cursor-rect-width: 1px;
+        ime-cursor-rect-height: 14px;
+
+        composition-update(event) => {
+            root.preedit = event.text;
+            root.preedit-selection-start = event.preedit-selection-start;
+            root.preedit-selection-end = event.preedit-selection-end;
+            accept
+        }
+        composition-commit(event) => {
+            root.committed = event.text;
+            accept
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use slint::private_unstable_api::re_exports::InputMethodRequest;
+
+let instance = TestCase::new().unwrap();
+
+fn ime_requests(instance: &TestCase) -> Vec<InputMethodRequest> {
+    slint_testing::access_testing_window(instance.window(), |w| w.ime_requests())
+}
+
+// No input method requests before the scope is focused
+assert!(ime_requests(&instance).is_empty());
+
+instance.invoke_set_focus();
+
+// Focusing an accepts-text-input FocusScope enables the input method
+let requests = ime_requests(&instance);
+assert_eq!(requests.len(), 1, "expected one IME request: {:?}", requests);
+let InputMethodRequest::Enable(p) = &requests[0] else {
+    panic!("expected Enable, got {:?}", requests[0]);
+};
+assert_eq!(p.text, "hello");
+assert_eq!(p.cursor_position, 5);
+assert!(p.anchor_position.is_none());
+
+// A preedit update reaches composition-update
+let mut event = InternalKeyEvent::default();
+event.event_type = KeyEventType::UpdateComposition;
+event.preedit_text = "he".into();
+event.preedit_selection = Some(1..2);
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
+assert_eq!(instance.get_preedit(), "he");
+assert_eq!(instance.get_preedit_selection_start(), 1);
+assert_eq!(instance.get_preedit_selection_end(), 2);
+
+// A commit reaches composition-commit
+let mut event = InternalKeyEvent::default();
+event.event_type = KeyEventType::CommitComposition;
+event.key_event.text = "世界".into();
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
+assert_eq!(instance.get_committed(), "世界");
+```
+*/

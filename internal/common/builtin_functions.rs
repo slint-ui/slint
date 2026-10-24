@@ -91,6 +91,11 @@ macro_rules! for_each_builtin_function {
             SetSelectionOffsets: impure fn set_selection_offsets(text_input: ItemArg<TextInput> => ElementReference, anchor: i32, focus: i32) -> () {
                 with_window_adapter(&text_input.rc, |w| text_input.item.set_selection_offsets(w, &text_input.rc, anchor, focus))
             }
+            /// Pushes the `FocusScope`'s `ime-*` properties to the platform's input method as an
+            /// `InputMethodRequest::Update`.
+            FocusScopeUpdateIme: impure fn focus_scope_update_ime(scope: ItemArg<FocusScope> => ElementReference) -> () {
+                scope.item.update_input_method_properties(&scope.rc)
+            }
             TextInputSelectAll: impure fn text_input_select_all(text_input: ItemArg<TextInput> => ElementReference) -> () {
                 with_window_adapter(&text_input.rc, |w| text_input.item.select_all(w, &text_input.rc))
             }
