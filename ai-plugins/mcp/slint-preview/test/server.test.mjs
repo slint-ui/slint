@@ -248,7 +248,8 @@ test("reports a file it can't read as a tool error", async () => {
             path: "/nonexistent/main.slint",
         });
         assert.equal(result.isError, true, name);
-        assert.match(result.content[0].text, /ENOENT/, name);
+        // The view tells a missing import by this prefix.
+        assert.match(result.content[0].text, /^ENOENT:/, name);
     }
 });
 

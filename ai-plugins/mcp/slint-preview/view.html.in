@@ -337,8 +337,14 @@
         return;
       }
       url = toFileUrl(path);
-      // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      // The interpreter reports only a string rejection as the import error,
+      // and continues the include path search for null.
+      // cspell:ignore ENOENT ENOTDIR
+      loadImport = (file) =>
+        readSlintFile(fromFileUrl(file)).catch((e) => {
+          const message = String(e.message ?? e);
+          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+        });
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
