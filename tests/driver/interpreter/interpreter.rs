@@ -39,6 +39,9 @@ fn run_test(
     compiler.set_include_paths(include_paths);
     compiler.set_library_paths(library_paths);
     compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
+    let compiler_config = compiler.compiler_configuration(i_slint_core::InternalToken);
+    compiler_config.edition =
+        test_driver_lib::parse_slint_edition(&source)?.or(compiler_config.edition);
 
     if inject_debug_hooks {
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
