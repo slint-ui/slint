@@ -1,12 +1,12 @@
 # Type Mappings
 
-The types used for properties in `.slint` design markup each translate to specific types in Rust.
-The follow table summarizes the entire mapping:
+Each property type in the Slint language maps to a specific Rust type.
+The following table summarizes the mapping:
 
 | `.slint` Type | Rust Type | Note |
 | --- | --- | --- |
-| `angle` | `f32` | The angle in degrees |
-| `array` | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
+| `angle` | `f32` | The angle in degrees. |
+| `array` | [`ModelRc`] | Slint represents arrays as models, so their contents can change dynamically. |
 | `bool` | `bool` | |
 | `brush` | [`Brush`] | |
 | `color` | [`Color`] | |
@@ -14,18 +14,19 @@ The follow table summarizes the entire mapping:
 | `float` | `f32` | |
 | `image` | [`Image`] | |
 | `int` | `i32` | |
-| `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
-| `physical_length` | `f32` | The unit are physical pixels. |
+| `length` | `f32` | At run-time, Slint translates logical lengths to physical pixels using the device pixel ratio. |
+| `physical-length` | `f32` | The unit is physical pixels. |
 | `Point` | [`LogicalPosition`] | A struct with `x` and `y` fields, representing logical coordinates. |
 | `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
-| `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
-| `styled-text` | [`StyledText`] | Use [`StyledText::from_markdown`](crate::StyledText::from_markdown) or [`StyledText::from_plain_text`](crate::StyledText::from_plain_text) to create values in Rust. |
+| `string` | [`SharedString`] | A reference-counted string type that converts easily to a `&str`. |
+| `styled-text` | [`StyledText`] | To create values in Rust, use [`StyledText::from_markdown`](crate::StyledText::from_markdown) or [`StyledText::from_plain_text`](crate::StyledText::from_plain_text). |
 | anonymous struct | tuple | The fields are in alphabetical order. |
-| enumeration | `enum` of the same name | The values are converted to CamelCase |
+| enumeration | `enum` of the same name | The values are converted to CamelCase. |
 | structure | `struct` of the same name | |
 
-For user defined structures in the .slint, an extra struct is generated.
-For example, if the `.slint` contains
+For each user-defined structure in your `.slint` file, Slint generates a Rust struct.
+For example, consider this structure:
+
 ```slint,ignore
 export struct MyStruct {
     foo: int,
@@ -34,7 +35,7 @@ export struct MyStruct {
 }
 ```
 
-The following struct would be generated:
+Slint generates the following Rust struct:
 
 ```rust
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -63,9 +64,9 @@ let (name, score) = example.get_player();
 
 **Note:** `name` comes first, although the property declares `score` first.
 
-The `.slint` file allows you to utilize Rust attributes and features for defining structures using the `@rust-attr()` directive.
-This enables you to customize the generated code by applying additional traits, derivations, or annotations.
-Consider the following structure defined in the `.slint` file with Rust attributes:
+To customize a generated struct with traits, derivations, or other Rust attributes, use the `@rust-attr()` directive in your `.slint` file.
+For example, consider this structure with Rust attributes:
+
 ```slint,ignore
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
 struct MyStruct {
@@ -73,7 +74,7 @@ struct MyStruct {
 }
 ```
 
-Based on this structure, the following Rust code would be generated:
+Slint generates the following Rust code for it:
 
 ```rust
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -83,7 +84,7 @@ struct MyStruct {
 }
 ```
 
-Also you can use multiple `@rust-attr()` directives. For example:
+You can also apply multiple `@rust-attr()` directives to one structure:
 
 ```slint,ignore
 @rust-attr(derive(serde::Serialize, serde::Deserialize))
