@@ -1,5 +1,11 @@
 {
     "name": "slint-preview-mcp",
     "private": true,
-    "type": "module"
+    "type": "module",
+    "scripts": {
+        "test:e2e": "node --test test/view.e2e.mjs"
+    },
+    "devDependencies": {
+        "playwright": "catalog:"
+    }
 }
