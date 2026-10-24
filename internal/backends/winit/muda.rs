@@ -106,14 +106,9 @@ fn build_menu_tree_for_parent(
     tree
 }
 
-fn build_menu_tree(
-    menu: &vtable::VRc<MenuVTable>,
-    map_next_id: &mut usize,
-) -> Vec<MenuNode> {
+fn build_menu_tree(menu: &vtable::VRc<MenuVTable>, map_next_id: &mut usize) -> Vec<MenuNode> {
     build_menu_tree_for_parent(vtable::VRc::borrow(menu), None, 0, map_next_id)
 }
-
-
 
 fn build_menu_item(node: &MenuNode, id: muda::MenuId) -> Box<dyn muda::IsMenuItem> {
     if !node.entry.has_sub_menu {
@@ -173,7 +168,6 @@ fn update_menu_branch(
     depth: u32,
     menu_offset: usize,
 ) {
-
     // Get all menu items out of the muda item
     let menu_items = menu.items();
 
@@ -185,27 +179,27 @@ fn update_menu_branch(
                 // This item is there for the old and new; check for changes
                 if menu_entry_looks_same(&old_item.entry, &new_item.entry) {
                     // Looks the same - recurse if this is a submenu
-                if let Some(muda::MenuItemKind::Submenu(submenu)) =
-                    menu_items.get(position + menu_offset)
-                {
-                    update_menu_branch(
-                        map,
-                        generation,
-                        MenuRef::Submenu(submenu),
-                        &old_item.children,
-                        &new_item.children,
-                        window_id,
-                        muda_type,
-                        depth + 1,
-                        0,
-                    );
-                }
+                    if let Some(muda::MenuItemKind::Submenu(submenu)) =
+                        menu_items.get(position + menu_offset)
+                    {
+                        update_menu_branch(
+                            map,
+                            generation,
+                            MenuRef::Submenu(submenu),
+                            &old_item.children,
+                            &new_item.children,
+                            window_id,
+                            muda_type,
+                            depth + 1,
+                            0,
+                        );
+                    }
 
-                // We have not changed anything, but we need to refresh the item
-                if let Some(item) = menu_items.get(position + menu_offset) {
-                    map.insert(new_item.id, new_item.entry.clone());
-                }
-                (None, None)
+                    // We have not changed anything, but we need to refresh the item
+                    if let Some(item) = menu_items.get(position + menu_offset) {
+                        map.insert(new_item.id, new_item.entry.clone());
+                    }
+                    (None, None)
                 } else {
                     (Some(old_item), Some(new_item))
                 }
@@ -258,8 +252,7 @@ fn update_menu_branch(
                 Box::new(muda::PredefinedMenuItem::separator())
             } else {
                 map.insert(new_item_to_build.id, new_item_to_build.entry.clone());
-                let menu_id =
-                    menu_item_id(window_id, generation, new_item_to_build.id, muda_type);
+                let menu_id = menu_item_id(window_id, generation, new_item_to_build.id, muda_type);
 
                 // And build it
                 build_menu_item(new_item_to_build, menu_id)
@@ -607,8 +600,6 @@ impl<T> EntryMap<T> {
     }
 }
      */
-
-
 
 fn menu_item_id(
     window_id: &str,
