@@ -307,7 +307,14 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
+            MouseEvent::Released {
+                position,
+                button: PointerEventButton::Left,
+                // Following a link is an action, so a window-activating click
+                // (macOS "first mouse") only updates the cursor.
+                is_activation_click: false,
+                ..
+            } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));

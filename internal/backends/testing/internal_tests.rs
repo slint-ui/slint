@@ -7,6 +7,7 @@ use crate::TestingWindow;
 use i_slint_core::SharedString;
 use i_slint_core::api::ComponentHandle;
 pub use i_slint_core::input::BackendMouseEvent;
+pub use i_slint_core::input::PointerEventButton;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::items::AutoBool;
