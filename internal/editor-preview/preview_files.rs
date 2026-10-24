@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore avif svgz ttc
+// cSpell: ignore automounted avif svgz
 
 //! Which files on the developer's machine a preview may ask for.
 //!
@@ -12,91 +12,118 @@
 //! such as the loaded sources and the fonts they import.
 
 use crate::DocumentCache;
-use i_slint_compiler::source_path::clean_path;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::expression_types::ImageReference;
+use i_slint_compiler::object_tree::visit_all_expressions;
+use i_slint_compiler::source_path::{SourcePath, clean_path};
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// The images and fonts a `.slint` can reference.
-/// The compiler records assets only in the full pass pipeline, which the `DocumentCache` doesn't run,
-/// so they're recognized by their name.
-const ASSET_EXTENSIONS: &[&str] = &[
+/// The extensions of the `.slint` sources and images that a library directory serves.
+const LIBRARY_FILE_EXTENSIONS: &[&str] = &[
+    "slint", //
     // images, mirroring `i_slint_core::graphics::image_mime_type_from_extension`
-    "png", "jpg", "jpeg", "svg", "svgz", "gif", "webp", "bmp", "ico", "avif", //
-    // fonts, mirroring `i_slint_compiler::fileaccess::is_font_file`
-    "ttf", "ttc", "otf",
+    "png", "jpg", "jpeg", "svg", "svgz", "gif", "webp", "bmp", "ico", "avif",
 ];
 
 /// The files a preview may be sent, read from disk.
 pub(crate) struct PreviewFileAccess {
-    /// Directories files may come from: the workspace the editor opened, the
-    /// configured include and library paths, and the directories of the
-    /// documents already loaded (which covers editing a file outside any
-    /// workspace).
-    roots: HashSet<PathBuf>,
-    /// Every file the compiler loaded for this project. Sources aren't required
-    /// to be named `.slint`, so this is what says a file belongs to the project
-    /// rather than its name does.
-    project_files: HashSet<PathBuf>,
+    files: HashSet<PathBuf>,
+    library_directories: HashSet<PathBuf>,
 }
 
 impl PreviewFileAccess {
-    pub(crate) fn new(workspace_folders: &[PathBuf], document_cache: &DocumentCache) -> Self {
-        let project_files = document_cache.all_paths_to_watch();
-        let compiler_config = document_cache.compiler_configuration().compiler_config;
-
-        // Deduplicated before canonicalizing: a project has many more files
-        // than directories, and each candidate costs a system call.
-        let mut candidates: HashSet<PathBuf> = workspace_folders
-            .iter()
-            .chain(&compiler_config.include_paths)
-            .chain(compiler_config.library_paths.values())
-            .cloned()
-            .collect();
-        candidates
-            .extend(project_files.iter().filter_map(|path| path.parent()).map(Path::to_path_buf));
-
-        let roots = candidates
-            .iter()
-            .filter_map(|path| {
-                // Canonical, so that comparing against a requested path can't
-                // be sidestepped with `..` or a symlink.
-                let path = path.canonicalize().ok()?;
-                // A candidate given as a file — a library mapped to a single
-                // `.slint` — stands for the directory it sits in, which is the
-                // unit the rest of that library lives in.
-                if path.is_dir() { Some(path) } else { Some(path.parent()?.to_path_buf()) }
-            })
-            .collect();
-
-        Self { roots, project_files }
+    /// The files the project's sources name: the documents the compiler loaded or imports,
+    /// the session's `document_roots`, and the resources the documents reference.
+    /// Also the sources, images, and fonts in the directories of the configured libraries and include paths.
+    pub(crate) fn new(
+        document_cache: &DocumentCache,
+        document_roots: &HashSet<lsp_types::Url>,
+    ) -> Self {
+        let mut files = document_cache.all_paths_to_watch();
+        files.extend(
+            document_roots.iter().filter_map(|url| SourcePath::from_url(url).into_native_path()),
+        );
+        files.extend(referenced_resources(document_cache));
+        Self { files, library_directories: library_directories(document_cache) }
     }
 
-    /// Whether a preview may be sent the contents of `path`, read from disk.
-    ///
-    /// A file has to sit in one of the roots — that is what keeps a viewer to
-    /// the project being previewed — and be part of that project: either the
-    /// compiler already loaded it, or it is named like an asset a `.slint` can
-    /// reference. Without the second half, a viewer could ask for the `.env` or
-    /// the `.git/config` that happen to sit next to the sources.
     pub(crate) fn allows(&self, path: &Path) -> bool {
-        // The two halves normalize differently on purpose: the root test has to
-        // resolve `..` and symlinks to mean anything, while the compiler's paths
-        // are cleaned but not canonical, so that is what they compare against.
-        let Ok(canonical) = path.canonicalize() else {
-            return false;
-        };
-        if !self.roots.iter().any(|root| canonical.starts_with(root)) {
-            return false;
-        }
-        self.project_files.contains(&clean_path(path)) || is_asset(path)
+        // Matched as spelled: resolving a UNC or an automounted path contacts the host it names.
+        let path = clean_path(path);
+        self.files.contains(&path)
+            || (is_library_file(&path)
+                && self
+                    .library_directories
+                    .iter()
+                    .any(|directory| is_below_without_symlinks(&path, directory)))
     }
 }
 
-fn is_asset(path: &Path) -> bool {
-    path.extension().is_some_and(|extension| {
-        ASSET_EXTENSIONS.iter().any(|asset| extension.eq_ignore_ascii_case(asset))
+/// Reading the file follows a symlink, which can point anywhere on the disk.
+fn is_below_without_symlinks(path: &Path, directory: &Path) -> bool {
+    let Ok(below) = path.strip_prefix(directory) else { return false };
+    let mut current = directory.to_path_buf();
+    below.components().all(|component| {
+        current.push(component);
+        current.symlink_metadata().is_ok_and(|metadata| !metadata.file_type().is_symlink())
     })
+}
+
+/// The directories that `@library` imports and include paths resolve in,
+/// see `TypeLoader::find_file_in_library_path` and `TypeLoader::find_file_in_include_path`.
+fn library_directories(document_cache: &DocumentCache) -> HashSet<PathBuf> {
+    let config = document_cache.compiler_configuration().compiler_config;
+    let libraries = config.library_paths.into_values().filter_map(|path| {
+        let path = std::path::absolute(path).ok()?;
+        if path.is_dir() { Some(path) } else { path.parent().map(Path::to_path_buf) }
+    });
+    let importing_directories: HashSet<PathBuf> = document_cache
+        .all_urls()
+        .filter_map(|url| Some(SourcePath::from_url(&url).into_native_path()?.parent()?.to_owned()))
+        .collect();
+    let include_paths = config.include_paths.iter().flat_map(|include_path| {
+        importing_directories.iter().map(move |directory| directory.join(include_path))
+    });
+    libraries.chain(include_paths).map(|directory| clean_path(&directory)).collect()
+}
+
+fn is_library_file(path: &Path) -> bool {
+    path.to_str().is_some_and(i_slint_compiler::fileaccess::is_font_file)
+        || path.extension().is_some_and(|extension| {
+            LIBRARY_FILE_EXTENSIONS.iter().any(|allowed| extension.eq_ignore_ascii_case(allowed))
+        })
+}
+
+/// The files the `@image-url`s and font imports of the loaded documents resolve to.
+fn referenced_resources(document_cache: &DocumentCache) -> HashSet<PathBuf> {
+    fn collect_images(expression: &Expression, resources: &mut HashSet<PathBuf>) {
+        if let Expression::ImageReference { resource_ref: ImageReference::Source(path), .. } =
+            expression
+            && let Some(path) = path.as_native_path()
+        {
+            resources.insert(clean_path(path));
+        }
+        expression.visit(|expression| collect_images(expression, resources));
+    }
+
+    let mut resources = HashSet::new();
+    for document in document_cache.all_documents() {
+        resources.extend(
+            document
+                .custom_fonts
+                .iter()
+                .filter_map(|(path, _)| path.as_native_path())
+                .map(clean_path),
+        );
+        for component in &document.inner_components {
+            visit_all_expressions(component, |expression, _| {
+                collect_images(expression, &mut resources)
+            });
+        }
+    }
+    resources
 }
 
 #[cfg(test)]
@@ -105,45 +132,7 @@ mod tests {
     use crate::test::empty_document_cache;
 
     fn access(document_cache: &DocumentCache) -> PreviewFileAccess {
-        PreviewFileAccess::new(&[], document_cache)
-    }
-
-    fn cache_with_paths(
-        include_paths: Vec<PathBuf>,
-        library_paths: std::collections::HashMap<String, PathBuf>,
-    ) -> DocumentCache {
-        let mut config = empty_document_cache().compiler_configuration();
-        config.compiler_config.include_paths = include_paths;
-        config.compiler_config.library_paths = library_paths;
-        DocumentCache::new(config)
-    }
-
-    #[test]
-    fn reads_only_project_files_within_the_roots() {
-        let root = tempfile::tempdir().unwrap();
-        let elsewhere = tempfile::tempdir().unwrap();
-        let cache = cache_with_paths(vec![root.path().to_path_buf()], Default::default());
-        let access = access(&cache);
-
-        // Assets the sources reference, whatever the extension's case.
-        let asset = root.path().join("logo.PNG");
-        std::fs::write(&asset, []).unwrap();
-        assert!(access.allows(&asset));
-
-        // Not something a preview shows, even inside the project.
-        let secret = root.path().join(".env");
-        std::fs::write(&secret, "TOKEN=42").unwrap();
-        assert!(!access.allows(&secret));
-
-        // Outside the roots, whether asked for directly or through `..`.
-        let outside = elsewhere.path().join("logo.png");
-        std::fs::write(&outside, []).unwrap();
-        assert!(!access.allows(&outside));
-        let traversal =
-            root.path().join("..").join(elsewhere.path().file_name().unwrap()).join("logo.png");
-        assert!(!access.allows(&traversal));
-
-        assert!(!access.allows(&root.path().join("missing.png")));
+        PreviewFileAccess::new(document_cache, &HashSet::new())
     }
 
     #[test]
@@ -166,19 +155,236 @@ mod tests {
     }
 
     #[test]
-    fn a_library_mapped_to_a_file_makes_its_directory_readable() {
-        let library = tempfile::tempdir().unwrap();
+    fn reads_the_resources_a_loaded_document_references_wherever_they_are() {
+        let project = tempfile::tempdir().unwrap();
+        let [ui, assets] = ["ui", "assets"].map(|directory| project.path().join(directory));
+        std::fs::create_dir(&ui).unwrap();
+        std::fs::create_dir(&assets).unwrap();
+        // Outside the directory of the document.
+        let background = assets.join("background.tga");
+        let font = assets.join("font.ttf");
+        let unreferenced = assets.join("other.tga");
+        for file in [&background, &font, &unreferenced] {
+            std::fs::write(file, []).unwrap();
+        }
+        let source = ui.join("main.slint");
+        let contents = r#"
+            import "../assets/font.ttf";
+            export component Main {
+                Image { source: @image-url("../assets/background.tga"); }
+            }
+        "#;
+        std::fs::write(&source, contents).unwrap();
+
+        let mut session = crate::test::session_with(empty_document_cache());
+        crate::test::load(&mut session, &source, contents);
+        let access = access(&session.document_cache);
+
+        assert!(access.allows(&background));
+        assert!(access.allows(&font));
+        assert!(!access.allows(&unreferenced));
+    }
+
+    #[test]
+    fn refuses_an_image_beside_the_sources_that_none_references() {
+        let project = tempfile::tempdir().unwrap();
+        let [logo, unused] = ["logo.png", "unused.png"].map(|file| project.path().join(file));
+        for file in [&logo, &unused] {
+            std::fs::write(file, []).unwrap();
+        }
+        let source = project.path().join("main.slint");
+        let contents = r#"export component Main { Image { source: @image-url("logo.png"); } }"#;
+        std::fs::write(&source, contents).unwrap();
+
+        let mut session = crate::test::session_with(empty_document_cache());
+        crate::test::load(&mut session, &source, contents);
+        let access = access(&session.document_cache);
+
+        assert!(access.allows(&logo));
+        assert!(!access.allows(&unused));
+    }
+
+    #[test]
+    fn reads_the_files_of_a_library_outside_the_project() {
+        let [project, library] = [(); 2].map(|_| tempfile::tempdir().unwrap());
         let entry_point = library.path().join("lib.slint");
-        std::fs::write(&entry_point, "export component Lib {}").unwrap();
+        let entry_point_source =
+            r#"export component Lib { Image { source: @image-url("logo.png"); } }"#;
+        std::fs::write(&entry_point, entry_point_source).unwrap();
         let logo = library.path().join("logo.png");
         std::fs::write(&logo, []).unwrap();
+        let main = project.path().join("main.slint");
+        let main_source = r#"import { Lib } from "@widgets"; export component Main { Lib { } }"#;
+        std::fs::write(&main, main_source).unwrap();
 
-        let cache =
-            cache_with_paths(vec![], [("widgets".to_string(), entry_point)].into_iter().collect());
-        let access = access(&cache);
+        let mut configuration = crate::document_cache::CompilerConfiguration::default();
+        configuration.compiler_config.library_paths =
+            [("widgets".to_string(), entry_point.clone())].into_iter().collect();
+        let mut session = crate::test::session_with(DocumentCache::new(configuration));
+        crate::test::load(&mut session, &main, main_source);
+        let access = access(&session.document_cache);
 
-        // `@widgets` imports lib.slint, which references the files beside it.
+        assert!(access.allows(&entry_point));
         assert!(access.allows(&logo));
+    }
+
+    /// Loads `main.slint` from a new project with `configure` applied to the compiler configuration.
+    fn access_with(
+        project: &Path,
+        main_source: &str,
+        configure: impl FnOnce(&mut i_slint_compiler::CompilerConfiguration),
+    ) -> PreviewFileAccess {
+        let main = project.join("main.slint");
+        std::fs::write(&main, main_source).unwrap();
+        let mut configuration = crate::document_cache::CompilerConfiguration::default();
+        configure(&mut configuration.compiler_config);
+        let mut session = crate::test::session_with(DocumentCache::new(configuration));
+        crate::test::load(&mut session, &main, main_source);
+        access(&session.document_cache)
+    }
+
+    fn create_files(files: &[&Path]) {
+        for file in files {
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, []).unwrap();
+        }
+    }
+
+    #[test]
+    fn reads_the_directory_of_a_library_mapped_to_its_entry_file() {
+        let [project, vendor] = [(); 2].map(|_| tempfile::tempdir().unwrap());
+        let library = vendor.path().join("widgets");
+        let entry_point = library.join("lib.slint");
+        let [unloaded_source, unreferenced_icon, secret, beside_library] = [
+            library.join("ui/button.slint"),
+            library.join("icons/close.png"),
+            library.join(".env"),
+            vendor.path().join("other.png"),
+        ];
+        create_files(&[&unloaded_source, &unreferenced_icon, &secret, &beside_library]);
+        // A dependency outside the library's directory is served because the compiler loads it.
+        let dependency = vendor.path().join("common/theme.slint");
+        create_files(&[&dependency]);
+        std::fs::write(&dependency, "export global Theme { }").unwrap();
+        std::fs::write(
+            &entry_point,
+            r#"import { Theme } from "../common/theme.slint"; export component Lib { }"#,
+        )
+        .unwrap();
+
+        let access = access_with(
+            project.path(),
+            r#"import { Lib } from "@widgets"; export component Main { Lib { } }"#,
+            |config| {
+                config.library_paths = [("widgets".to_string(), entry_point)].into_iter().collect()
+            },
+        );
+
+        assert!(access.allows(&dependency));
+        assert!(access.allows(&unloaded_source));
+        assert!(access.allows(&unreferenced_icon));
+        assert!(!access.allows(&secret));
+        assert!(!access.allows(&beside_library));
+        assert!(!access.allows(&library.join("../other.png")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_symlink_in_a_library_directory() {
+        let [project, library, secrets] = [(); 3].map(|_| tempfile::tempdir().unwrap());
+        let secret = secrets.path().join("id_ed25519");
+        let [linked_file, linked_directory, icon] = [
+            library.path().join("icon.png"),
+            library.path().join("icons"),
+            library.path().join("real/close.png"),
+        ];
+        create_files(&[&secret, &icon]);
+        std::os::unix::fs::symlink(&secret, &linked_file).unwrap();
+        std::fs::copy(&secret, secrets.path().join("key.png")).unwrap();
+        std::os::unix::fs::symlink(secrets.path(), &linked_directory).unwrap();
+
+        let access = access_with(project.path(), "export component Main { }", |config| {
+            config.library_paths =
+                [("widgets".to_string(), library.path().to_owned())].into_iter().collect()
+        });
+
+        assert!(access.allows(&icon));
+        assert!(!access.allows(&linked_file));
+        assert!(!access.allows(&linked_directory.join("key.png")));
+    }
+
+    #[test]
+    fn reads_a_library_mapped_to_a_path_relative_to_the_working_directory() {
+        let project = tempfile::tempdir().unwrap();
+        let working_directory = std::env::current_dir().unwrap();
+        let library = tempfile::tempdir_in(&working_directory).unwrap();
+        let icon = library.path().join("close.png");
+        create_files(&[&icon]);
+        let relative = library.path().strip_prefix(&working_directory).unwrap().to_owned();
+
+        let access = access_with(project.path(), "export component Main { }", |config| {
+            config.library_paths = [("widgets".to_string(), relative)].into_iter().collect()
+        });
+
+        assert!(access.allows(&icon));
+    }
+
+    #[test]
+    fn reads_a_library_mapped_to_its_directory_but_not_the_directory_above() {
+        let [project, vendor] = [(); 2].map(|_| tempfile::tempdir().unwrap());
+        let library = vendor.path().join("widgets");
+        let [icon, font, beside_library] =
+            [library.join("close.png"), library.join("font.ttf"), vendor.path().join("other.png")];
+        create_files(&[&icon, &font, &beside_library]);
+        std::fs::write(library.join("button.slint"), "export component Button { }").unwrap();
+
+        let access = access_with(
+            project.path(),
+            r#"import { Button } from "@widgets/button.slint"; export component Main { Button { } }"#,
+            |config| {
+                config.library_paths =
+                    [("widgets".to_string(), library.clone())].into_iter().collect()
+            },
+        );
+
+        assert!(access.allows(&icon));
+        assert!(access.allows(&font));
+        assert!(!access.allows(&beside_library));
+    }
+
+    #[test]
+    fn reads_an_include_path_relative_to_the_importing_document() {
+        let project = tempfile::tempdir().unwrap();
+        let [shared_icon, beside_main] =
+            [project.path().join("shared/icon.png"), project.path().join("unused.png")];
+        create_files(&[&shared_icon, &beside_main]);
+
+        let access = access_with(project.path(), "export component Main { }", |config| {
+            config.include_paths = vec!["shared".into()]
+        });
+
+        assert!(access.allows(&shared_icon));
+        assert!(!access.allows(&beside_main));
+        assert!(!access.allows(&project.path().join("shared/../unused.png")));
+    }
+
+    #[test]
+    fn applies_an_include_path_only_to_the_directories_of_documents() {
+        let [project, pictures] = [(); 2].map(|_| tempfile::tempdir().unwrap());
+        let [background, other_picture] =
+            [pictures.path().join("background.png"), pictures.path().join("other.png")];
+        create_files(&[&background, &other_picture]);
+
+        let main_source = format!(
+            r#"export component Main {{ Image {{ source: @image-url("{}"); }} }}"#,
+            background.display().to_string().replace('\\', "/")
+        );
+        let access = access_with(project.path(), &main_source, |config| {
+            config.include_paths = vec![".".into()]
+        });
+
+        assert!(access.allows(&background));
+        assert!(!access.allows(&other_picture));
     }
 
     /// End to end through [`crate::EditorSession::send_files_to_preview`].
@@ -207,11 +413,11 @@ mod tests {
         crate::test::load(&mut session, &main, main_source);
         recorded.borrow_mut().clear();
 
-        // `other.slint` is a document the compiler loaded.
-        // `logo.png` isn't, because the `DocumentCache` only runs the import passes.
+        // `other.slint` is a document the compiler loaded,
+        // `logo.png` a resource that `main.slint` references.
         let requested = ["other.slint", "logo.png"]
             .map(|file| lsp_types::Url::from_file_path(project.path().join(file)).unwrap());
-        session.send_files_to_preview(0, &requested, &[]);
+        session.send_files_to_preview(0, &requested);
 
         let recorded = recorded.borrow();
         let served = recorded
@@ -222,15 +428,80 @@ mod tests {
     }
 
     #[test]
-    fn a_workspace_folder_makes_its_assets_readable() {
-        let workspace = tempfile::tempdir().unwrap();
-        let logo = workspace.path().join("images").join("logo.png");
-        std::fs::create_dir(logo.parent().unwrap()).unwrap();
+    fn serves_a_resource_that_a_document_loaded_after_the_last_request_references() {
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
+
+        let project = tempfile::tempdir().unwrap();
+        let logo = project.path().join("logo.png");
         std::fs::write(&logo, []).unwrap();
+        let main = project.path().join("main.slint");
+        let logo_url = lsp_types::Url::from_file_path(&logo).unwrap();
 
-        let document_cache = empty_document_cache();
-        let access = PreviewFileAccess::new(&[workspace.path().to_path_buf()], &document_cache);
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.primary_preview_mut().to_preview = capture;
+        crate::test::load(&mut session, &main, "export component Main { }");
+        session.send_files_to_preview(0, std::slice::from_ref(&logo_url));
+        crate::test::load(
+            &mut session,
+            &main,
+            r#"export component Main { Image { source: @image-url("logo.png"); } }"#,
+        );
+        recorded.borrow_mut().clear();
 
-        assert!(access.allows(&logo));
+        session.send_files_to_preview(0, &[logo_url]);
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::SetContents { .. }]),
+            "{recorded:?}"
+        );
+    }
+
+    #[test]
+    fn refuses_a_url_on_another_host() {
+        use i_slint_live_preview::protocol::LspToPreviewMessage;
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.primary_preview_mut().to_preview = capture;
+        let url = lsp_types::Url::parse("file://example.com/share/logo.png").unwrap();
+
+        session.send_files_to_preview(0, std::slice::from_ref(&url));
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::ForgetFile { url: refused }] if refused == &url),
+            "{recorded:?}"
+        );
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn serves_a_previewed_document_while_it_reloads() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewComponent};
+
+        let project = tempfile::tempdir().unwrap();
+        let main = project.path().join("main.slint");
+        let main_source = "export component Main { }";
+        std::fs::write(&main, main_source).unwrap();
+
+        let (capture, recorded) = crate::test::preview_capture();
+        let mut session = crate::test::session_with(empty_document_cache());
+        session.primary_preview_mut().to_preview = capture;
+        let (url, _) = crate::test::load(&mut session, &main, main_source);
+        session.show_preview(0, PreviewComponent { url: url.clone(), component: None });
+        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
+            .unwrap();
+        recorded.borrow_mut().clear();
+
+        session.send_files_to_preview(0, &[url]);
+
+        let recorded = recorded.borrow();
+        assert!(
+            matches!(recorded.as_slice(), [LspToPreviewMessage::SetContents { .. }]),
+            "{recorded:?}"
+        );
     }
 }
