@@ -170,7 +170,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
-        BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
+        // Between `INLINE_THRESHOLD` and `INLINE_SINGLE_THRESHOLD`: measuring a text shapes it,
+        // so the call isn't repeated in several readers, but it's inlined into a single one.
+        BuiltinFunction::ImplicitLayoutInfo(_) => 3 * PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
@@ -287,9 +289,10 @@ fn inline_simple_expressions_in_expression(
                         "We use a property and its count is zero: {}",
                         crate::llr::pretty_print::DisplayPropertyRef(prop, ctx)
                     );
-                    if cost <= INLINE_THRESHOLD
-                        || (use_count == 1 && cost <= INLINE_SINGLE_THRESHOLD)
-                    {
+                    // The binding's count includes one for being needed, so use the property's own.
+                    // A native item property has none: the item itself reads its binding.
+                    let read_once = prop_info.use_count.is_some_and(|c| c.get() == 1);
+                    if cost <= INLINE_THRESHOLD || (read_once && cost <= INLINE_SINGLE_THRESHOLD) {
                         // Perform inlining
                         *expr = binding.expression.borrow().clone();
                         map.map_expression(expr);
@@ -299,7 +302,7 @@ fn inline_simple_expressions_in_expression(
                             use_count.set(use_count.get() - 1);
                         }
                         adjust_use_count(expr, ctx, 1);
-                        if use_count == 1 {
+                        if read_once {
                             adjust_use_count(&binding.expression.borrow(), &mapped_ctx, -1);
                             binding.expression.replace(Expression::CodeBlock(Vec::new()));
                         }
@@ -480,6 +483,51 @@ mod tests {
             })
         });
         (constant, runtime)
+    }
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the names of the properties left in the public component's root sub-component.
+    fn property_names(source: &str) -> Vec<String> {
+        let unit = crate::llr::lower_test_source(source);
+        let root = unit.public_components.iter().next().unwrap().item_tree.root;
+        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+    }
+
+    #[test]
+    fn inlines_a_property_read_once() {
+        // Both bindings cost more than `INLINE_THRESHOLD`, so only the single read is inlined.
+        let names = property_names(
+            r#"
+export component Foo {
+    in property <int> a;
+    in property <int> b;
+    in property <int> c;
+    property <int> once: (root.a + root.b) * root.c;
+    property <int> twice: (root.a + root.b) * root.c;
+    out property <int> r1: root.once + 1;
+    out property <int> r2: root.twice + 1;
+    out property <int> r3: root.twice + 2;
+}
+"#,
+        );
+        assert!(!names.iter().any(|n| n.ends_with("_once")), "{names:?}");
+        assert!(names.iter().any(|n| n.ends_with("_twice")), "{names:?}");
+    }
+
+    #[test]
+    fn inlines_an_item_layout_info_read_once() {
+        // With a fixed size and position, only the out properties read the text's layout info.
+        let names = |reads: &str| {
+            property_names(&format!(
+                "export component Foo {{ t := Text {{ text: \"x\"; x: 0; y: 0; width: 10px; height: 10px; }} {reads} }}"
+            ))
+        };
+        let once = names("out property <length> w: t.preferred-width;");
+        assert!(!once.iter().any(|n| n.contains("implicit-layoutinfo")), "{once:?}");
+        let twice = names(
+            "out property <length> w: t.preferred-width; out property <length> m: t.min-width;",
+        );
+        assert!(twice.iter().any(|n| n.contains("implicit-layoutinfo-h")), "{twice:?}");
     }
 
     #[test]

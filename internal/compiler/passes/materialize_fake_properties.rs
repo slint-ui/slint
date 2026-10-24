@@ -215,15 +215,13 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match elem.borrow().effective_layout_info_prop(orient) {
-        Some(e) => Expression::PropertyReference(e.clone()),
-        None => crate::layout::implicit_layout_info_call(
-            elem,
-            orient,
-            crate::layout::BuiltinFilter::All,
-            None,
-        )
-        .unwrap(),
+    let layout_info_prop = elem.borrow().effective_layout_info_prop(orient).cloned();
+    let expr = match layout_info_prop {
+        Some(e) => Expression::PropertyReference(e),
+        None => {
+            crate::layout::implicit_layout_info(elem, orient, crate::layout::BuiltinFilter::All)
+                .unwrap()
+        }
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }
