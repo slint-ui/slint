@@ -34,4 +34,26 @@
     --undefined-fg: var(--color_dark);
 
     --default-font: 12px Helvetica, Arial, sans-serif;
+
+    /* Brand design tokens (matches the slint.dev visual language) */
+    --brand-ink: var(--color_dark);
+    --brand-ink-2: #0f1519;
+    --brand-code-bg: #0f1418;
+    --brand-text: #eef3f5;
+    --brand-muted: #9fb0b8;
+    --brand-line: rgba(255, 255, 255, 0.12);
+    --brand-line-strong: rgba(255, 255, 255, 0.2);
+
+    --brand-gradient: linear-gradient(103deg, #2379f4 4%, #6b0dff 96%);
+    --brand-gradient-bright: linear-gradient(103deg, #4f9bff 2%, #9f5bff 98%);
+
+    --brand-radius: 12px;
+    --brand-radius-lg: 18px;
+    --brand-shadow: 0 24px 64px rgba(5, 10, 14, 0.5);
+    --brand-shadow-soft: 0 12px 34px rgba(20, 35, 60, 0.14);
+
+    --brand-display:
+        "Red Hat Display", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --brand-sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --brand-mono: "JetBrains Mono", ui-monospace, "Source Code Pro", monospace;
 }
