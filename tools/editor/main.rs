@@ -67,6 +67,10 @@ fn main() -> Result<()> {
     select_backend(headless)?;
 
     let editor_ui = preview::ui::create_ui()?;
+    editor_ui.on_quit_requested(|| {
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = slint::quit_event_loop();
+    });
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
