@@ -101,6 +101,9 @@ jobs:
                       run_ui_tests: false
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
+        permissions:
+            contents: read
+            id-token: write
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
