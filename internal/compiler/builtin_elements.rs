@@ -1964,6 +1964,12 @@ fn build(l: &mut Loader) {
         in-out property <bool> checked: false;
         /// The icon shown next to the title.
         in property <image> icon;
+        /// The platform role of this `MenuItem`.
+        /// Use it to place translated "About", "Settings", and "Quit" items in the macOS application menu.
+        ///
+        /// This property can only be set in a `MenuItem` that is part of a <Link type="MenuBar"/>.
+        /// \default none
+        in property <MenuItemRole> role;
     } }
 
     element! {
@@ -2060,6 +2066,52 @@ fn build(l: &mut Loader) {
         ///     callback file-open();
         ///
         ///     // ... actual window content goes here
+        /// }
+        /// ```
+        ///
+        /// ### macOS Application Menu
+        ///
+        /// On macOS, the first menu in the menu bar is the application menu, which macOS titles with the application's name.
+        /// By default, it contains "About", "Services", "Hide", "Hide Others", "Show All", and "Quit" items with English titles.
+        ///
+        /// To provide your own, translated items, set the `role` property of a `MenuItem`, using a <Link type="MenuItemRole" /> value.
+        /// On macOS, Slint moves these items into the application menu.
+        /// On other platforms, "About", "Settings", and "Quit" items stay where you declare them,
+        /// and items with the macOS-only roles are hidden.
+        ///
+        /// ```slint
+        /// export component Example inherits Window {
+        ///     MenuBar {
+        ///         Menu {
+        ///             title: @tr("File");
+        ///             MenuItem {
+        ///                 title: @tr("Settings…");
+        ///                 role: preferences;
+        ///                 activated => { show-settings(); }
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Hide Example");
+        ///                 role: hide;
+        ///             }
+        ///             MenuItem {
+        ///                 title: @tr("Quit");
+        ///                 role: quit;
+        ///                 activated => { quit-requested(); }
+        ///             }
+        ///         }
+        ///         Menu {
+        ///             title: @tr("Help");
+        ///             MenuItem {
+        ///                 title: @tr("About Example");
+        ///                 role: about;
+        ///                 activated => { show-about(); }
+        ///             }
+        ///         }
+        ///     }
+        ///
+        ///     callback show-settings();
+        ///     callback show-about();
+        ///     callback quit-requested();
         /// }
         /// ```
         /// \skip_children

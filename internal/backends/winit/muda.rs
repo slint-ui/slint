@@ -6,8 +6,11 @@ use super::CustomEvent;
 use super::WinitWindowAdapter;
 use crate::SlintEvent;
 use core::pin::Pin;
+use i_slint_core::SharedVector;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::items::MenuEntry;
+#[cfg(any(target_os = "macos", test))]
+use i_slint_core::items::MenuItemRole;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
@@ -132,102 +135,13 @@ impl MudaAdapter {
         }
 
         self.reset_entries();
-        let generation = self.generation;
-
-        fn generate_menu_entry(
-            menu: vtable::VRef<'_, MenuVTable>,
-            entry: &MenuEntry,
-            depth: usize,
-            map: &mut Vec<MenuEntry>,
-            window_id: &str,
-            muda_type: MudaType,
-            generation: u64,
-        ) -> Box<dyn muda::IsMenuItem> {
-            let id = menu_item_id(window_id, generation, map.len(), muda_type);
-            map.push(entry.clone());
-            if entry.is_separator {
-                Box::new(muda::PredefinedMenuItem::separator())
-            } else if !entry.has_sub_menu {
-                let accelerator = keys_to_accelerator(&entry.shortcut);
-
-                let err_handler = |err| {
-                    i_slint_core::debug_log!(
-                        "Warning: Could not set accelerator {} for menu item {}: {err}",
-                        entry.shortcut,
-                        entry.title
-                    )
-                };
-
-                // the top level always has a sub menu regardless of entry.has_sub_menu
-                if entry.checkable {
-                    let check_menu = muda::CheckMenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        entry.checked,
-                        None,
-                    );
-                    check_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(check_menu)
-                } else if let Some(rgba) = entry.icon.to_rgba8() {
-                    let icon = muda::Icon::from_rgba(
-                        rgba.as_bytes().to_vec(),
-                        rgba.width(),
-                        rgba.height(),
-                    )
-                    .ok();
-                    let icon_menu = muda::IconMenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        icon,
-                        None,
-                    );
-                    icon_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(icon_menu)
-                } else {
-                    let menu_item =
-                        muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None);
-                    menu_item.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(menu_item)
-                }
-            } else {
-                let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
-                if depth < 15 {
-                    let mut sub_entries = Default::default();
-                    menu.sub_menu(Some(entry), &mut sub_entries);
-                    for e in sub_entries {
-                        sub_menu
-                            .append(&*generate_menu_entry(
-                                menu,
-                                &e,
-                                depth + 1,
-                                map,
-                                window_id,
-                                muda_type,
-                                generation,
-                            ))
-                            .unwrap();
-                    }
-                } else {
-                    // infinite menu depth is possible, but we want to limit the amount of item passed to muda
-                    sub_menu
-                        .append(&muda::MenuItem::new(
-                            "<Error: Menu Depth limit reached>",
-                            false,
-                            None,
-                        ))
-                        .unwrap();
-                }
-                Box::new(sub_menu)
-            }
-        }
 
         if let Some(menu_tree) = menu_tree {
             let mut build_menu = || {
+                let menu = vtable::VRc::borrow(menu_tree);
                 let mut menu_entries = Default::default();
-                if vtable::VRc::borrow(menu_tree).visible() {
-                    vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
+                if menu.visible() {
+                    menu.sub_menu(None, &mut menu_entries);
                 }
 
                 if menu_entries.is_empty() && muda_type == MudaType::Menubar {
@@ -261,27 +175,36 @@ impl MudaAdapter {
                     }
                 }
 
-                // Until we have menu roles, always create an app menu on macOS.
+                #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
+                let mut nodes = collect_entries(menu, menu_entries, 0);
+                let mut builder = ItemBuilder {
+                    entries: &mut self.entries,
+                    window_id: u64::from(winit_window.id()).to_string(),
+                    muda_type,
+                    generation: self.generation,
+                };
+
                 #[cfg(target_os = "macos")]
-                if matches!(muda_type, MudaType::Menubar)
-                    && let Some(menu) = self.menu.as_ref()
-                {
-                    create_default_app_menu(menu).unwrap();
+                if let Some(menu) = self.menu.as_ref() {
+                    match muda_type {
+                        MudaType::Menubar => {
+                            let role_entries = take_role_entries(&mut nodes);
+                            create_app_menu(menu, &role_entries, |entry, default_accelerator| {
+                                builder.menu_item(entry, default_accelerator)
+                            })
+                            .unwrap();
+                        }
+                        MudaType::Context => {
+                            take_entries(&mut nodes, &mut |entry| {
+                                entry.role.is_application_menu_role()
+                            });
+                        }
+                    }
                 }
 
-                let window_id = u64::from(winit_window.id()).to_string();
                 if let Some(menu) = self.menu.as_ref() {
-                    for e in menu_entries {
-                        menu.append(&*generate_menu_entry(
-                            vtable::VRc::borrow(menu_tree),
-                            &e,
-                            0,
-                            &mut self.entries,
-                            &window_id,
-                            muda_type,
-                            generation,
-                        ))
-                        .unwrap();
+                    for node in &nodes {
+                        menu.append(&*builder.build(node, 0)).unwrap();
                     }
                 }
             };
@@ -333,7 +256,7 @@ impl MudaAdapter {
     #[cfg(target_os = "macos")]
     pub fn setup_default_menu_bar() -> Result<Self, i_slint_core::api::PlatformError> {
         let menu_bar = muda::Menu::new();
-        create_default_app_menu(&menu_bar)?;
+        create_app_menu(&menu_bar, &[], |_, _| unreachable!())?;
         menu_bar.init_for_nsapp();
         Ok(Self { entries: Vec::new(), menu: Some(menu_bar), tracker: None, generation: 0 })
     }
@@ -342,6 +265,176 @@ impl MudaAdapter {
     pub fn window_activation_changed(&self, is_active: bool) {
         if is_active && let Some(menu) = self.menu.as_ref() {
             menu.init_for_nsapp();
+        }
+    }
+}
+
+// Infinite menu depth is possible, but we want to limit the amount of items passed to muda.
+const MAX_MENU_DEPTH: usize = 15;
+
+struct EntryNode {
+    entry: MenuEntry,
+    children: Vec<EntryNode>,
+}
+
+fn collect_entries(
+    menu: vtable::VRef<'_, MenuVTable>,
+    entries: SharedVector<MenuEntry>,
+    depth: usize,
+) -> Vec<EntryNode> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            let mut children = Vec::new();
+            if entry.has_sub_menu && depth < MAX_MENU_DEPTH {
+                let mut sub_entries = Default::default();
+                menu.sub_menu(Some(&entry), &mut sub_entries);
+                children = collect_entries(menu, sub_entries, depth + 1);
+            }
+            EntryNode { entry, children }
+        })
+        .collect()
+}
+
+/// Removes the entries matching `take` from `nodes` and returns them in menu order.
+/// Also removes the separators and sub-menus that the removal leaves without content.
+#[cfg(any(target_os = "macos", test))]
+fn take_entries(
+    nodes: &mut Vec<EntryNode>,
+    take: &mut impl FnMut(&MenuEntry) -> bool,
+) -> Vec<MenuEntry> {
+    let mut taken = Vec::new();
+    nodes.retain_mut(|node| {
+        if node.entry.has_sub_menu {
+            let had_children = !node.children.is_empty();
+            taken.extend(take_entries(&mut node.children, take));
+            !had_children || !node.children.is_empty()
+        } else if !node.entry.is_separator && take(&node.entry) {
+            taken.push(node.entry.clone());
+            false
+        } else {
+            true
+        }
+    });
+
+    let mut last_is_separator = true;
+    nodes.retain(|node| {
+        let keep = !(node.entry.is_separator && last_is_separator);
+        last_is_separator = node.entry.is_separator;
+        keep
+    });
+    if nodes.last().is_some_and(|node| node.entry.is_separator) {
+        nodes.pop();
+    }
+
+    taken
+}
+
+/// Takes the entries that belong in the macOS application menu: the first entry of each role,
+/// and any further entries with an application menu role, since they can't do anything in place.
+#[cfg(any(target_os = "macos", test))]
+fn take_role_entries(nodes: &mut Vec<EntryNode>) -> Vec<MenuEntry> {
+    let mut seen_roles = Vec::new();
+    take_entries(nodes, &mut |entry| {
+        if entry.role == MenuItemRole::None {
+            false
+        } else if seen_roles.contains(&entry.role) {
+            entry.role.is_application_menu_role()
+        } else {
+            seen_roles.push(entry.role);
+            true
+        }
+    })
+}
+
+struct ItemBuilder<'a> {
+    entries: &'a mut Vec<MenuEntry>,
+    window_id: String,
+    muda_type: MudaType,
+    generation: u64,
+}
+
+impl ItemBuilder<'_> {
+    fn register(&mut self, entry: &MenuEntry) -> muda::MenuId {
+        let id = menu_item_id(&self.window_id, self.generation, self.entries.len(), self.muda_type);
+        self.entries.push(entry.clone());
+        id
+    }
+
+    fn set_accelerator(
+        entry: &MenuEntry,
+        accelerator: Option<muda::accelerator::KeyAccelerator>,
+        set: impl FnOnce(Option<muda::accelerator::KeyAccelerator>) -> muda::Result<()>,
+    ) {
+        set(accelerator)
+            .map_err(|err| {
+                i_slint_core::debug_log!(
+                    "Warning: Could not set accelerator {} for menu item {}: {err}",
+                    entry.shortcut,
+                    entry.title
+                )
+            })
+            .ok();
+    }
+
+    fn menu_item(
+        &mut self,
+        entry: &MenuEntry,
+        default_accelerator: Option<muda::accelerator::KeyAccelerator>,
+    ) -> muda::MenuItem {
+        let id = self.register(entry);
+        let menu_item = muda::MenuItem::with_id(id, &entry.title, entry.enabled, None);
+        let accelerator = keys_to_accelerator(&entry.shortcut).or(default_accelerator);
+        Self::set_accelerator(entry, accelerator, |a| menu_item.set_key_accelerator(a));
+        menu_item
+    }
+
+    fn build(&mut self, node: &EntryNode, depth: usize) -> Box<dyn muda::IsMenuItem> {
+        let entry = &node.entry;
+        if entry.is_separator {
+            self.register(entry);
+            Box::new(muda::PredefinedMenuItem::separator())
+        } else if !entry.has_sub_menu {
+            if entry.checkable {
+                let id = self.register(entry);
+                let check_menu = muda::CheckMenuItem::with_id(
+                    id,
+                    &entry.title,
+                    entry.enabled,
+                    entry.checked,
+                    None,
+                );
+                Self::set_accelerator(entry, keys_to_accelerator(&entry.shortcut), |a| {
+                    check_menu.set_key_accelerator(a)
+                });
+                Box::new(check_menu)
+            } else if let Some(rgba) = entry.icon.to_rgba8() {
+                let id = self.register(entry);
+                let icon =
+                    muda::Icon::from_rgba(rgba.as_bytes().to_vec(), rgba.width(), rgba.height())
+                        .ok();
+                let icon_menu =
+                    muda::IconMenuItem::with_id(id, &entry.title, entry.enabled, icon, None);
+                Self::set_accelerator(entry, keys_to_accelerator(&entry.shortcut), |a| {
+                    icon_menu.set_key_accelerator(a)
+                });
+                Box::new(icon_menu)
+            } else {
+                Box::new(self.menu_item(entry, None))
+            }
+        } else {
+            let id = self.register(entry);
+            let sub_menu = muda::Submenu::with_id(id, &entry.title, entry.enabled);
+            if depth < MAX_MENU_DEPTH {
+                for child in &node.children {
+                    sub_menu.append(&*self.build(child, depth + 1)).unwrap();
+                }
+            } else {
+                sub_menu
+                    .append(&muda::MenuItem::new("<Error: Menu Depth limit reached>", false, None))
+                    .unwrap();
+            }
+            Box::new(sub_menu)
         }
     }
 }
@@ -434,24 +527,47 @@ fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
     }
 }
 
+/// Creates the macOS application menu. Entries in `role_entries` replace the default items,
+/// and `menu_item` creates the native item for such an entry.
 #[cfg(target_os = "macos")]
-fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::api::PlatformError> {
+fn create_app_menu(
+    menu_bar: &muda::Menu,
+    role_entries: &[MenuEntry],
+    mut menu_item: impl FnMut(&MenuEntry, Option<muda::accelerator::KeyAccelerator>) -> muda::MenuItem,
+) -> Result<(), i_slint_core::api::PlatformError> {
+    use muda::PredefinedMenuItem;
+    use muda::accelerator::{Key, KeyAccelerator, Modifiers};
+
+    let entry = |role| role_entries.iter().find(|entry| entry.role == role);
+    let title = |role| entry(role).map(|entry| entry.title.as_str());
+    let command_key =
+        |key: &str| Some(KeyAccelerator::new(Modifiers::META, Key::Character(key.into())));
+
+    let mut items: Vec<Box<dyn muda::IsMenuItem>> = Vec::new();
+    items.push(match entry(MenuItemRole::About) {
+        Some(about) => Box::new(menu_item(about, None)),
+        None => Box::new(PredefinedMenuItem::about(None, None)),
+    });
+    items.push(Box::new(PredefinedMenuItem::separator()));
+    if let Some(preferences) = entry(MenuItemRole::Preferences) {
+        items.push(Box::new(menu_item(preferences, command_key(","))));
+        items.push(Box::new(PredefinedMenuItem::separator()));
+    }
+    items.push(Box::new(PredefinedMenuItem::services(title(MenuItemRole::Services))));
+    items.push(Box::new(PredefinedMenuItem::separator()));
+    items.push(Box::new(PredefinedMenuItem::hide(title(MenuItemRole::Hide))));
+    items.push(Box::new(PredefinedMenuItem::hide_others(title(MenuItemRole::HideOthers))));
+    items.push(Box::new(PredefinedMenuItem::show_all(title(MenuItemRole::ShowAll))));
+    items.push(Box::new(PredefinedMenuItem::separator()));
+    items.push(match entry(MenuItemRole::Quit) {
+        Some(quit) => Box::new(menu_item(quit, command_key("q"))),
+        None => Box::new(PredefinedMenuItem::quit(None)),
+    });
+
     let app_menu = muda::Submenu::new("App", true);
     menu_bar
         .append(&app_menu)
-        .and_then(|_| {
-            app_menu.append_items(&[
-                &muda::PredefinedMenuItem::about(None, None),
-                &muda::PredefinedMenuItem::separator(),
-                &muda::PredefinedMenuItem::services(None),
-                &muda::PredefinedMenuItem::separator(),
-                &muda::PredefinedMenuItem::hide(None),
-                &muda::PredefinedMenuItem::hide_others(None),
-                &muda::PredefinedMenuItem::show_all(None),
-                &muda::PredefinedMenuItem::separator(),
-                &muda::PredefinedMenuItem::quit(None),
-            ])
-        })
+        .and_then(|_| app_menu.append_items(&items.iter().map(|item| &**item).collect::<Vec<_>>()))
         .map_err(|menu_bar_err| {
             i_slint_core::api::PlatformError::Other(menu_bar_err.to_string())
         })?;
@@ -598,5 +714,105 @@ mod tests {
             deliver(&replacement, &menu, &current);
             assert_eq!(&*activations.borrow(), &[i_slint_core::SharedString::from("deck-b")]);
         }
+    }
+
+    fn item(title: &str, role: MenuItemRole) -> EntryNode {
+        EntryNode {
+            entry: MenuEntry { title: title.into(), role, ..Default::default() },
+            children: Vec::new(),
+        }
+    }
+
+    fn separator() -> EntryNode {
+        EntryNode {
+            entry: MenuEntry { is_separator: true, ..Default::default() },
+            children: Vec::new(),
+        }
+    }
+
+    fn menu(title: &str, children: Vec<EntryNode>) -> EntryNode {
+        EntryNode {
+            entry: MenuEntry { title: title.into(), has_sub_menu: true, ..Default::default() },
+            children,
+        }
+    }
+
+    fn outline(nodes: &[EntryNode]) -> Vec<String> {
+        nodes
+            .iter()
+            .map(|node| match &node.entry {
+                entry if entry.is_separator => "-".into(),
+                entry if entry.has_sub_menu => {
+                    format!("{}[{}]", entry.title, outline(&node.children).join(" "))
+                }
+                entry => entry.title.to_string(),
+            })
+            .collect()
+    }
+
+    fn titles(entries: &[MenuEntry]) -> Vec<&str> {
+        entries.iter().map(|entry| entry.title.as_str()).collect()
+    }
+
+    #[test]
+    fn role_entries_are_taken_from_any_depth() {
+        use MenuItemRole::*;
+        let mut nodes = vec![
+            menu(
+                "File",
+                vec![
+                    item("Open", None),
+                    separator(),
+                    item("Settings", Preferences),
+                    separator(),
+                    item("Quit", Quit),
+                ],
+            ),
+            menu("Help", vec![menu("More", vec![item("About", About)])]),
+        ];
+        let taken = take_role_entries(&mut nodes);
+        assert_eq!(titles(&taken), ["Settings", "Quit", "About"]);
+        assert_eq!(outline(&nodes), ["File[Open]"]);
+    }
+
+    #[test]
+    fn separators_around_taken_entries_collapse() {
+        use MenuItemRole::*;
+        let mut nodes = vec![menu(
+            "File",
+            vec![
+                item("Quit", Quit),
+                separator(),
+                item("Open", None),
+                separator(),
+                item("Hide", Hide),
+                separator(),
+                item("Close", None),
+            ],
+        )];
+        take_role_entries(&mut nodes);
+        assert_eq!(outline(&nodes), ["File[Open - Close]"]);
+    }
+
+    #[test]
+    fn duplicate_roles_keep_the_first_entry() {
+        use MenuItemRole::*;
+        let mut nodes = vec![menu(
+            "File",
+            vec![item("Quit", Quit), item("Hide", Hide), item("Exit", Quit), item("Hide 2", Hide)],
+        )];
+        let taken = take_role_entries(&mut nodes);
+        assert_eq!(titles(&taken), ["Quit", "Hide", "Hide 2"]);
+        assert_eq!(outline(&nodes), ["File[Exit]"]);
+    }
+
+    #[test]
+    fn menus_without_roles_are_unchanged() {
+        let mut nodes = vec![
+            menu("File", vec![item("Open", MenuItemRole::None)]),
+            item("Empty", MenuItemRole::None),
+        ];
+        assert!(take_role_entries(&mut nodes).is_empty());
+        assert_eq!(outline(&nodes), ["File[Open]", "Empty"]);
     }
 }

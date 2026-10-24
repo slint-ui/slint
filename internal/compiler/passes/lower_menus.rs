@@ -689,6 +689,14 @@ fn lower_menu_items(
                     );
                 }
 
+                if !in_menubar && let Some(binding) = element.borrow().binding("role") {
+                    diag.push_warning(
+                        "'role' only has an effect on a 'MenuItem' in a 'MenuBar', remove it"
+                            .into(),
+                        &*binding,
+                    );
+                }
+
                 if matches!(&element.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
                 {
                     diag.push_error(

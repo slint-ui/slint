@@ -698,6 +698,37 @@ macro_rules! for_each_enums {
                 Other,
             }
 
+            /// This enum describes the platform role of a `MenuItem` in a `MenuBar`.
+            ///
+            /// On macOS, the native menu bar moves items with a role into the application menu.
+            /// On other platforms, `about`, `preferences`, and `quit` items stay where they're declared,
+            /// and items with the other roles are hidden.
+            #[non_exhaustive]
+            enum MenuItemRole {
+                /// The item has no special role and stays where it's declared.
+                None,
+                /// The item opens the application's "About" information.
+                About,
+                /// The item opens the application's settings.
+                /// The shortcut defaults to Command+, on macOS.
+                Preferences,
+                /// The item quits the application.
+                /// The shortcut defaults to Command+Q on macOS.
+                Quit,
+                /// The item is the system's "Services" sub-menu on macOS.
+                /// `activated` isn't invoked.
+                Services,
+                /// The item hides the application on macOS.
+                /// `activated` isn't invoked.
+                Hide,
+                /// The item hides all other applications on macOS.
+                /// `activated` isn't invoked.
+                HideOthers,
+                /// The item shows all hidden applications on macOS.
+                /// `activated` isn't invoked.
+                ShowAll,
+            }
+
             /// This enum describes how to scroll to a specific position
             #[non_exhaustive]
             pub enum ScrollBehavior {
