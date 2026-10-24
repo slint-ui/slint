@@ -74,6 +74,15 @@ export component App inherits Window {
                 title: @tr("MenuBar" => "Paste");
             }
         }
+
+        Menu {
+            title: @tr("MenuBar" => "Help");
+            MenuItem {
+                title: @tr("Menu" => "About");
+                role: about;
+                activated => { side-bar.select(8); }
+            }
+        }
     }
 
     HorizontalLayout {
