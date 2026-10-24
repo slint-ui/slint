@@ -470,6 +470,7 @@ impl MudaAdapter {
         menu_bar.init_for_nsapp();
         Ok(Self {
             map: Default::new(),
+            map_next_id: 0,
             menu: Some(menu_bar),
             tracker: None,
             menu_tree: Vec::new(),
