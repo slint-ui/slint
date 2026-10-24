@@ -105,14 +105,16 @@ impl MenuFromItemTree {
             }
             crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
             self.root.replace(
-                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
+                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())).0,
             );
         });
     }
 
-    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
+    /// Returns the entries for the children of `parent`, and whether any of them are hidden.
+    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> (SharedVector<MenuEntry>, bool) {
         let mut result = SharedVector::default();
         let mut last_is_separator = false;
+        let mut has_hidden_items = false;
         let supports_application_menu_roles = parent
             .window_adapter()
             .and_then(|adapter| {
@@ -127,6 +129,13 @@ impl MenuFromItemTree {
                 if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
                     let role = menu_item.role();
                     if !supports_application_menu_roles && role.is_application_menu_role() {
+                        has_hidden_items = true;
+                        return VisitChildrenResult::CONTINUE;
+                    }
+                    let item = ItemRc::new(item_tree.clone(), index);
+                    let (children, has_hidden_children) = self.update_shadow_tree_recursive(&item);
+                    if children.is_empty() && has_hidden_children {
+                        has_hidden_items = true;
                         return VisitChildrenResult::CONTINUE;
                     }
                     let title = menu_item.title();
@@ -139,8 +148,6 @@ impl MenuFromItemTree {
                     let next_id = self.next_id.get();
                     self.next_id.set(next_id + 1);
                     let id = next_id.to_shared_string();
-                    let item = ItemRc::new(item_tree.clone(), index);
-                    let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
                     let enabled = menu_item.enabled();
                     let checkable = menu_item.checkable();
@@ -176,7 +183,7 @@ impl MenuFromItemTree {
         if last_is_separator {
             result.pop();
         }
-        result
+        (result, has_hidden_items)
     }
 }
 

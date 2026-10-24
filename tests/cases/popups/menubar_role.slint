@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Without a native macOS menu bar, items with the `quit` role stay in place,
-// and items with the `hide` role are hidden.
+// items with the `hide` role are hidden, and so are menus left without items.
 
 export component TestCase inherits Window {
     in-out property <string> result;
@@ -23,6 +23,13 @@ export component TestCase inherits Window {
                 activated => { result += self.title; }
             }
         }
+        Menu {
+            title: "Window";
+            MenuItem {
+                title: "Show All";
+                role: show-all;
+            }
+        }
     }
 }
 
@@ -38,6 +45,10 @@ let assert_shortcut = |keys: &[Key], expected: &str| {
 
 assert_shortcut(&[Key::Control, Key::Q], "Quit");
 assert_shortcut(&[Key::Control, Key::H], "");
+
+let menu_bar_items: Vec<_> =
+    slint_testing::ElementHandle::find_by_element_type_name(&instance, "MenuBarItem").collect();
+assert_eq!(menu_bar_items.len(), 1);
 ```
 
 ```cpp
