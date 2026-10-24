@@ -165,7 +165,6 @@ fn update_menu_branch(
     new_items: &[MenuNode],
     window_id: &str,
     muda_type: MudaType,
-    depth: u32,
     menu_offset: usize,
 ) {
     // Get all menu items out of the muda item
@@ -190,14 +189,15 @@ fn update_menu_branch(
                             &new_item.children,
                             window_id,
                             muda_type,
-                            depth + 1,
                             0,
                         );
                     }
 
                     // We have not changed anything, but we need to refresh the item
-                    if let Some(item) = menu_items.get(position + menu_offset) {
-                        map.insert(new_item.id, new_item.entry.clone());
+                    if let Some(item) = menu_items.get(position + menu_offset)
+                        && let Some((_, _, id, _)) = parse_menu_item_id(item.id())
+                    {
+                        map.insert(id, new_item.entry.clone());
                     }
                     (None, None)
                 } else {
@@ -228,7 +228,6 @@ fn update_menu_branch(
                     &[],
                     window_id,
                     muda_type,
-                    depth + 1,
                     0,
                 );
             }
@@ -236,10 +235,10 @@ fn update_menu_branch(
             // Only remove if we're going to be inserting later; we'll take care of the other scenario later
             if new_item_to_build.is_some() {
                 let idx = position + menu_offset;
-                if let Some(item) = menu.remove_at(idx) {
-                    if let Some((_, _, entry_id, _)) = parse_menu_item_id(item.id()) {
-                        map.remove(&entry_id);
-                    }
+                if let Some(item) = menu.remove_at(idx)
+                    && let Some((_, _, entry_id, _)) = parse_menu_item_id(item.id())
+                {
+                    map.remove(&entry_id);
                 }
                 // Removing shifts items, but we handle by position carefully
             }
@@ -268,7 +267,6 @@ fn update_menu_branch(
                     &new_item_to_build.children,
                     window_id,
                     muda_type,
-                    depth + 1,
                     0,
                 );
             }
@@ -279,7 +277,7 @@ fn update_menu_branch(
     }
 
     // Purge extraneous items
-    let mut idx = new_items.len() + menu_offset;
+    let idx = new_items.len() + menu_offset;
     let old_count = old_items.len();
     for _ in new_items.len()..old_count {
         if let Some(item) = menu.remove_at(idx) {
@@ -439,7 +437,6 @@ impl MudaAdapter {
                         &new_menu_tree,
                         &window_id,
                         muda_type,
-                        0,
                         menu_offset,
                     );
                     self.menu_tree = new_menu_tree;
