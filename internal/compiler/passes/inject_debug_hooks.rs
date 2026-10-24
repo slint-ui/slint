@@ -391,6 +391,7 @@ mod tests {
         config.style = Some("fluent".into());
         config.debug_hooks = Some(std::hash::RandomState::new());
         config.inline_all_elements = false;
+        config.edition = Some(crate::project_file::SlintEdition::current());
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
