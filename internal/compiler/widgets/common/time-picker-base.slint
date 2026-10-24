@@ -432,7 +432,7 @@ export component TimePickerBase {
             minute-time-picker := TimePickerInput {
                 read-only: root.selection-mode;
                 checked: self.read-only && root.minutes-selected;
-                text: root.current-time.minute;
+                text: root.two-digits(root.current-time.minute);
                 style: root.style.input-style;
 
                 accessible-role: AccessibleRole.text-input;
@@ -528,7 +528,11 @@ export component TimePickerBase {
     function update-time(hour: int, minute: int) {
         root.current-time = { hour: hour, minute: minute };
         hour-time-picker.text = root.current-time.hour;
-        minute-time-picker.text = minute;
+        minute-time-picker.text = root.two-digits(minute);
+    }
+
+    pure function two-digits(value: int) -> string {
+        value < 10 ? "0\{value}" : "\{value}"
     }
 
     pure function index-of-minute(minute: int) -> int {
