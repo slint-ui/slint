@@ -1,0 +1,335 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore Someth
+// Selecting text in a `StyledText` with the mouse; no string templates, so the Rust driver runs it.
+// The selection is read back through `copy()` and the clipboard, as `TextEdit` is tested.
+export component TestCase inherits Window {
+    width: 800px;
+    height: 600px;
+
+    plain := StyledText {
+        x: 0;
+        y: 0;
+        width: 400px;
+        height: 80px;
+        text: @markdown("Not [selectable](https://slint.dev/plain) here");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    // Two lines of five fit; the item has room for them all.
+    cut := StyledText {
+        x: 400px;
+        y: 0;
+        width: 400px;
+        height: 300px;
+        selectable: true;
+        max-lines: 2;
+        text: @markdown("one\n\ntwo\n\nthree\n\nfour\n\nfive");
+    }
+
+    // The first paragraph is empty.
+    blank := StyledText {
+        x: 0;
+        y: 100px;
+        width: 400px;
+        height: 80px;
+        selectable: true;
+        text: @markdown("<u></u>\n\nSecond paragraph");
+    }
+
+    // Selected in `init`, before any mouse event.
+    preset := StyledText {
+        x: 0;
+        y: 300px;
+        width: 400px;
+        height: 80px;
+        selectable: true;
+        text: @markdown("Set in **init**");
+        init => {
+            self.select-all();
+        }
+    }
+
+    st := StyledText {
+        x: 0;
+        y: 450px;
+        width: 400px;
+        height: 80px;
+        selectable: true;
+        text: root.st-text;
+        link-clicked(url) => {
+            clicked_link_url = url;
+            link_clicks += 1;
+        }
+    }
+
+    // `copy()` puts the selection on the clipboard; paste it here to read it back.
+    pasted := TextInput {
+        x: 600px;
+        y: 560px;
+        width: 180px;
+        height: 30px;
+        single-line: false;
+    }
+
+    in-out property <styled-text> st-text: @markdown("[Select this](https://slint.dev/sel) **text**\n\nand more");
+    out property <bool> test: st.selectable && !plain.selectable && !st.has-selection && preset.has-selection;
+    in-out property <string> clicked_link_url: "";
+    out property <int> link_clicks: 0;
+    out property <bool> st_has_selection: st.has-selection;
+    out property <bool> plain_has_selection: plain.has-selection;
+    out property <bool> cut_has_selection: cut.has-selection;
+    out property <bool> blank_has_selection: blank.has-selection;
+
+    // Reads a bubble's selection back through the clipboard.
+    public function copy-st() -> string {
+        pasted.text = "";
+        st.copy();
+        pasted.paste();
+        return pasted.text;
+    }
+
+    public function copy-cut() -> string {
+        pasted.text = "";
+        cut.copy();
+        pasted.paste();
+        return pasted.text;
+    }
+
+    public function copy-blank() -> string {
+        pasted.text = "";
+        blank.copy();
+        pasted.paste();
+        return pasted.text;
+    }
+
+    public function copy-preset() -> string {
+        pasted.text = "";
+        preset.copy();
+        pasted.paste();
+        return pasted.text;
+    }
+
+    // Programmatic selection control, as `TextEdit` offers.
+    public function select-all() {
+        st.select-all();
+    }
+
+    public function clear-selection() {
+        st.clear-selection();
+    }
+
+    public function set-selection-offsets(anchor: int, focus: int) {
+        st.set-selection-offsets(anchor, focus);
+    }
+
+    // The selection's offsets stay, clamped to the new text.
+    public function set-other-text() {
+        st-text = @markdown("Something else entirely");
+    }
+
+    public function reset-text() {
+        st-text = @markdown("[Select this](https://slint.dev/sel) **text**\n\nand more");
+    }
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, MouseCursorInner};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.invoke_copy_preset(), "Set in init");
+
+let cursor = || slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor());
+let moved = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+let pressed = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(x, y), button: PointerEventButton::Left });
+let released = |x, y| instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(x, y), button: PointerEventButton::Left });
+
+// Not selectable: a pointer over the link only, and a drag selects nothing.
+moved(300.0, 10.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
+moved(40.0, 10.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
+pressed(2.0, 10.0);
+moved(395.0, 10.0);
+released(395.0, 10.0);
+assert!(!instance.get_plain_has_selection());
+
+// Selectable: an I-beam over the text, a pointer over its link.
+moved(300.0, 460.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+moved(5.0, 460.0);
+assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Pointer));
+
+// Dragging from the link selects instead of following it; `copy()` is the raw text.
+pressed(2.0, 460.0);
+moved(395.0, 460.0);
+assert!(instance.get_st_has_selection());
+assert_eq!(instance.invoke_copy_st(), "Select this text");
+released(395.0, 460.0);
+assert_eq!(instance.invoke_copy_st(), "Select this text");
+assert_eq!(instance.get_clicked_link_url(), "");
+
+// Across paragraphs, by character: offsets count the line break between them. (Time passes
+// first: clicks in quick succession count as double and triple clicks.)
+slint_testing::mock_elapsed_time(1000);
+pressed(2.0, 460.0);
+moved(8.0, 520.0);
+released(8.0, 520.0);
+assert_eq!(instance.invoke_copy_st(), "Select this text\na");
+
+// A click without a drag follows the link under it, and clears the selection.
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 5.0, 460.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/sel");
+assert!(!instance.get_st_has_selection());
+
+// A drag that comes back to where it started selects nothing, so it counts as a click.
+instance.set_clicked_link_url("".into());
+slint_testing::mock_elapsed_time(1000);
+pressed(5.0, 460.0);
+moved(100.0, 460.0);
+moved(5.0, 460.0);
+released(5.0, 460.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/sel");
+
+// A double click selects a word; only its first click, a plain one, follows the link.
+slint_testing::mock_elapsed_time(1000);
+let link_clicks = instance.get_link_clicks();
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+assert_eq!(instance.invoke_copy_st(), "Select");
+assert_eq!(instance.get_link_clicks(), link_clicks + 1);
+
+// A new text keeps the selection's offsets, clamped to it.
+instance.invoke_set_other_text();
+assert_eq!(instance.invoke_copy_st(), "Someth");
+instance.invoke_select_all();
+instance.invoke_reset_text();
+assert_eq!(instance.invoke_copy_st(), "Select this text\nand mo");
+instance.invoke_select_all();
+instance.invoke_set_other_text();
+assert_eq!(instance.invoke_copy_st(), "Something else entirely");
+
+// Below the lines `max-lines` keeps, the drag reaches the end of the last kept line.
+slint_testing::mock_elapsed_time(1000);
+pressed(402.0, 10.0);
+moved(600.0, 250.0);
+released(600.0, 250.0);
+assert!(instance.get_cut_has_selection());
+assert_eq!(instance.invoke_copy_cut(), "one\ntwo");
+
+// An empty first paragraph still takes its line break.
+slint_testing::mock_elapsed_time(1000);
+pressed(2.0, 140.0);
+moved(395.0, 140.0);
+released(395.0, 140.0);
+assert!(instance.get_blank_has_selection());
+assert_eq!(instance.invoke_copy_blank(), "Second paragraph");
+// The press took the focus from `cut`, and its selection with it.
+assert!(!instance.get_cut_has_selection());
+
+// The programmatic selection API, as `TextEdit` exposes it.
+instance.invoke_reset_text();
+instance.invoke_set_selection_offsets(0, 6);
+assert!(instance.get_st_has_selection());
+assert_eq!(instance.invoke_copy_st(), "Select");
+// Negative and out-of-range offsets are clamped and ordered.
+instance.invoke_set_selection_offsets(9, -1);
+assert_eq!(instance.invoke_copy_st(), "Select th");
+instance.invoke_select_all();
+assert_eq!(instance.invoke_copy_st(), "Select this text\nand more");
+instance.invoke_clear_selection();
+assert!(!instance.get_st_has_selection());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.invoke_copy_preset(), slint::SharedString("Set in init"));
+
+auto moved = [&](float x, float y) { instance.window().dispatch_pointer_move_event(slint::LogicalPosition({x, y})); };
+auto pressed = [&](float x, float y) { instance.window().dispatch_pointer_press_event(slint::LogicalPosition({x, y}), slint::PointerEventButton::Left); };
+auto released = [&](float x, float y) { instance.window().dispatch_pointer_release_event(slint::LogicalPosition({x, y}), slint::PointerEventButton::Left); };
+
+// Not selectable: a drag selects nothing.
+pressed(2.0, 10.0);
+moved(395.0, 10.0);
+released(395.0, 10.0);
+assert(!instance.get_plain_has_selection());
+
+// Dragging from the link selects instead of following it; `copy()` is the raw text.
+pressed(2.0, 460.0);
+moved(395.0, 460.0);
+released(395.0, 460.0);
+assert(instance.get_st_has_selection());
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select this text"));
+assert_eq(instance.get_clicked_link_url(), "");
+
+// Across paragraphs, by character: offsets count the line break between them.
+slint_testing::mock_elapsed_time(1000);
+pressed(2.0, 460.0);
+moved(8.0, 520.0);
+released(8.0, 520.0);
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select this text\na"));
+
+// A click without a drag follows the link under it, and clears the selection.
+slint_testing::mock_elapsed_time(1000);
+slint_testing::send_mouse_click(&instance, 5.0, 460.0);
+assert_eq(instance.get_clicked_link_url(), slint::SharedString("https://slint.dev/sel"));
+assert(!instance.get_st_has_selection());
+
+// A double click selects a word; only its first click, a plain one, follows the link.
+slint_testing::mock_elapsed_time(1000);
+auto link_clicks = instance.get_link_clicks();
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+pressed(5.0, 460.0);
+released(5.0, 460.0);
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select"));
+assert_eq(instance.get_link_clicks(), link_clicks + 1);
+
+// Below the lines `max-lines` keeps, the drag reaches the end of the last kept line.
+slint_testing::mock_elapsed_time(1000);
+pressed(402.0, 10.0);
+moved(600.0, 250.0);
+released(600.0, 250.0);
+assert(instance.get_cut_has_selection());
+assert_eq(instance.invoke_copy_cut(), slint::SharedString("one\ntwo"));
+
+// An empty first paragraph still takes its line break.
+slint_testing::mock_elapsed_time(1000);
+pressed(2.0, 140.0);
+moved(395.0, 140.0);
+released(395.0, 140.0);
+assert(instance.get_blank_has_selection());
+assert_eq(instance.invoke_copy_blank(), slint::SharedString("Second paragraph"));
+// The press took the focus from `cut`, and its selection with it.
+assert(!instance.get_cut_has_selection());
+
+// A new text keeps the selection's offsets, clamped to it.
+instance.invoke_select_all();
+instance.invoke_set_other_text();
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Something else entirely"));
+
+// The programmatic selection API, as `TextEdit` exposes it.
+instance.invoke_reset_text();
+instance.invoke_set_selection_offsets(0, 6);
+assert(instance.get_st_has_selection());
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select"));
+instance.invoke_set_selection_offsets(9, -1);
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select th"));
+instance.invoke_select_all();
+assert_eq(instance.invoke_copy_st(), slint::SharedString("Select this text\nand more"));
+instance.invoke_clear_selection();
+assert(!instance.get_st_has_selection());
+```
+*/

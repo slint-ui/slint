@@ -65,20 +65,100 @@ impl StyledText {
     }
 }
 
+/// The text without its markup: the paragraphs joined by `'\n'`, an empty one included.
+/// [`raw_text_ranges`] gives each paragraph's byte range in it.
 pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
     match styled_text.paragraphs.as_slice() {
         [] => "".into(),
         [paragraph] => paragraph.text.as_str().into(),
         _ => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
-                if !result.is_empty() {
+            for (index, paragraph) in styled_text.paragraphs.iter().enumerate() {
+                if index > 0 {
                     result.push('\n');
                 }
                 result.push_str(paragraph.text.as_str());
             }
             result.into()
         }
+    }
+}
+
+/// Each paragraph's byte range in [`get_raw_text`], in order.
+pub fn raw_text_ranges(
+    styled_text: &StyledText,
+) -> impl Iterator<Item = core::ops::Range<usize>> + '_ {
+    let mut start = 0;
+    styled_text.paragraphs.iter().map(move |paragraph| {
+        let range = start..start + paragraph.text.len();
+        start = range.end + 1;
+        range
+    })
+}
+
+/// The length of [`get_raw_text`], without joining it.
+pub fn raw_text_len(styled_text: &StyledText) -> usize {
+    raw_text_ranges(styled_text).last().map_or(0, |range| range.end)
+}
+
+/// The paragraph that `offset` into [`get_raw_text`] falls in, with its range there.
+/// The `'\n'` after a paragraph counts as its own; `None` past the end of the text.
+pub(crate) fn paragraph_at(
+    styled_text: &StyledText,
+    offset: usize,
+) -> Option<(&i_slint_common::styled_text::StyledTextParagraph, core::ops::Range<usize>)> {
+    styled_text
+        .paragraphs
+        .iter()
+        .zip(raw_text_ranges(styled_text))
+        .find(|(_, range)| range.end >= offset)
+}
+
+/// `offset` clamped into [`get_raw_text`] and up to a character boundary, as
+/// `str::ceil_char_boundary` does, without joining the text.
+pub fn clamp_byte_offset(styled_text: &StyledText, offset: i32) -> usize {
+    let Ok(offset) = usize::try_from(offset) else {
+        return 0;
+    };
+    match paragraph_at(styled_text, offset) {
+        Some((paragraph, range)) => {
+            range.start + paragraph.text.ceil_char_boundary(offset - range.start)
+        }
+        None => raw_text_len(styled_text),
+    }
+}
+
+#[cfg(test)]
+mod raw_text_tests {
+    use super::*;
+
+    fn styled(paragraphs: &[&str]) -> StyledText {
+        StyledText {
+            paragraphs: paragraphs
+                .iter()
+                .map(|text| i_slint_common::styled_text::paragraph_from_plain_text((*text).into()))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn raw_text_ranges_count_the_line_breaks() {
+        let text = styled(&["café", "", "last"]);
+        assert_eq!(get_raw_text(&text), "café\n\nlast");
+        assert_eq!(raw_text_ranges(&text).collect::<alloc::vec::Vec<_>>(), [0..5, 6..6, 7..11]);
+        assert_eq!(raw_text_len(&text), 11);
+        assert_eq!(raw_text_len(&styled(&[])), 0);
+    }
+
+    #[test]
+    fn clamp_byte_offset_rounds_up_within_the_paragraph() {
+        let text = styled(&["café", "", "last"]);
+        assert_eq!(clamp_byte_offset(&text, -3), 0);
+        assert_eq!(clamp_byte_offset(&text, 4), 5); // inside the é
+        assert_eq!(clamp_byte_offset(&text, 5), 5); // the line break
+        assert_eq!(clamp_byte_offset(&text, 6), 6); // the empty paragraph
+        assert_eq!(clamp_byte_offset(&text, 99), 11);
+        assert_eq!(clamp_byte_offset(&styled(&[]), 3), 0);
     }
 }
 

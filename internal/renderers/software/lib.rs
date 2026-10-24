@@ -993,17 +993,17 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
     ) -> bool {
-        let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
-        else {
-            return false;
-        };
-        let font_request = text_input.font_request(item_rc);
-        let font = {
-            let mut font_ctx = slint_ctx.font_context().borrow_mut();
-            fonts::match_font(&font_request, scale_factor, &mut font_ctx)
-        };
+        self.has_parley_layout(text_input.font_request(item_rc))
+    }
 
-        uses_parley(&font)
+    // Answers for the mouse selection what `draw_text` decides for drawing.
+    #[cfg(feature = "systemfonts")]
+    fn text_has_parley_layout(
+        &self,
+        text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
+        item_rc: &ItemRc,
+    ) -> bool {
+        self.has_parley_layout(text.font_request(item_rc))
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -1214,6 +1214,22 @@ fn parley_disabled() -> bool {
 #[cfg(feature = "systemfonts")]
 fn uses_parley(font: &fonts::Font) -> bool {
     matches!(font, fonts::Font::Vector(_)) && !parley_disabled()
+}
+
+#[cfg(feature = "systemfonts")]
+impl SoftwareRenderer {
+    /// Whether text in the font `font_request` asks for is laid out through parley.
+    fn has_parley_layout(&self, font_request: i_slint_core::graphics::FontRequest) -> bool {
+        let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
+        else {
+            return false;
+        };
+        let font = {
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(&font_request, scale_factor, &mut font_ctx)
+        };
+        uses_parley(&font)
+    }
 }
 
 /// The paragraph layout the cursor and hit-testing queries measure against.
@@ -2933,6 +2949,11 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
         let max_lines = text.line_limit();
+        let selection = text.selection().map(|selection| SelectionInfo {
+            selection_background: self.alpha_color(selection.background),
+            selection_color: self.alpha_color(selection.foreground),
+            selection: selection.range,
+        });
 
         with_font!(&font, |font| {
             let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
@@ -2949,7 +2970,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 max_lines,
             };
 
-            self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
         });
     }
 
