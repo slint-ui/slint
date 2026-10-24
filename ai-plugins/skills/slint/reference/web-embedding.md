@@ -39,8 +39,11 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
   `data-slint-auto-resize-to-preferred="true"` on the canvas follows the preferred size.
 - `std-widgets.slint` and a default font are built in.
   Page fonts don't reach the canvas: call `register_font_from_memory(bytes)` before compiling.
-- `compile_from_string_with_style(source, url, "fluent", null)` picks a style.
-  The last argument of both compile functions loads imports: `(url) => Promise<string>`.
+- `compile_from_string_with_style(source, url, "fluent")` picks a style.
+- After the URL, or the style, both compile functions take optional loaders and a project root:
+  - imports: `(url) => Promise<string | null>`, with `null` for a missing file
+  - fonts: `(url) => Promise<Uint8Array>`
+  - the URL of the directory with the `slint-project.json` to apply, read through the import loader
 - Images don't go through that callback.
   With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
   With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
