@@ -29,5 +29,13 @@ slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 assert_eq!(instance.get_test_anchor_pos(), 0);
+
+slint_testing::send_key_combo(&instance, [Key::End]);
+assert!(!instance.get_has_selection());
+// With Caps Lock, the text is upper case without Shift (#4221)
+slint_testing::send_key_combo(&instance, [char::from(Key::Control), 'A']);
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 4);
+assert_eq!(instance.get_test_anchor_pos(), 0);
 ```
 */
