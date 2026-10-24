@@ -1,0 +1,6 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="white" stroke-width="2">
+  <path d="M2 6V3a2 2 0 0 1 2-2h3M15 1h3a2 2 0 0 1 2 2v3M2 15v3a2 2 0 0 0 2 2h3M15 20h3a2 2 0 0 0 2-2v-3"/>
+  <path d="M6 11h10" stroke-linecap="round"/>
+</svg>

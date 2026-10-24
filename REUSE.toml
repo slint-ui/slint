@@ -210,13 +210,8 @@ path = [
   "examples/speedometer/needle.png",
 
   "demos/printerdemo/ui/images/action-button-frame.png",
-  "demos/printerdemo/ui/images/mcu/combo-active-background.png",
-  "demos/printerdemo/ui/images/mcu/copy-button.jpg",
   "demos/printerdemo/ui/images/mcu/place-document.jpg",
   "demos/printerdemo/ui/images/mcu/popup.jpg",
-  "demos/printerdemo/ui/images/mcu/scan-button.jpg",
-  "demos/printerdemo/ui/images/mcu/sub-action-button.jpg",
-  "demos/printerdemo/ui/images/mcu/switch-active.png",
   "demos/food-processor/ui/images/back.svg",
   "demos/food-processor/ui/images/bubble.jpg",
   "demos/food-processor/ui/images/close.svg",
