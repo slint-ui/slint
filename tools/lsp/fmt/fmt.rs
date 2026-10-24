@@ -152,6 +152,9 @@ fn format_node(
         SyntaxKind::SlotDeclaration => {
             return format_slot_declaration(node, writer, state);
         }
+        SyntaxKind::SlotAssignment => {
+            return format_slot_assignment(node, writer, state);
+        }
         SyntaxKind::SlotForwarding => {
             return format_slot_forwarding(node, writer, state);
         }
@@ -1260,9 +1263,37 @@ fn format_slot_declaration(
         whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
     }
     whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
-    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    let has_default = node.child_node(SyntaxKind::SubElement).is_some();
+    if has_default {
+        whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, " ")?;
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    }
     finish_node(sub, writer, state)?;
-    state.new_line();
+    if !has_default {
+        state.new_line();
+    }
+    Ok(())
+}
+
+fn format_slot_assignment(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::DoubleLess, writer, state, " ")?;
+    if node.child_node(SyntaxKind::SubElement).is_none() {
+        whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+        finish_node(sub, writer, state)?;
+        state.new_line();
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::SubElement, writer, state, " ")?;
+        finish_node(sub, writer, state)?;
+    }
     Ok(())
 }
 
@@ -2462,6 +2493,30 @@ mod tests {
     }
 
     #[test]
+    fn slot_assignment() {
+        assert_formatting(
+            "component A { Host { content<<{}  footer <<  {  }\nheader<<Text{} } }",
+            "component A {\n    Host {\n        content << { }\n        footer << { }\n        header << Text { }\n    }\n}\n",
+        );
+        assert_formatting(
+            "component A { Host { header << label := Text { text: \"x\"; } content << { } } }",
+            "component A {\n    Host {\n        header << label := Text {\n            text: \"x\";\n        }\n        content << { }\n    }\n}\n",
+        );
+    }
+
+    #[test]
+    fn slot_declaration_default() {
+        assert_formatting(
+            "component Host { slot content<<Text{text:\"Default\";} content{} }",
+            "component Host {\n    slot content << Text {\n        text: \"Default\";\n    }\n    content { }\n}\n",
+        );
+        assert_formatting(
+            "component Host { slot header << label:=Text{}\nslot footer; header{} footer{} }",
+            "component Host {\n    slot header << label := Text { }\n    slot footer;\n    header { }\n\n    footer { }\n}\n",
+        );
+    }
+
+    #[test]
     fn with_comments() {
         assert_formatting(
             r#"component /* */ Foo // aaa
@@ -3120,6 +3175,7 @@ component ABC {
 export component MainWindow inherits Window {
     animate background { duration: 800ms;}
     animate x { duration: 100ms; easing: ease-out-bounce; }
+    animate rotation { duration: 600ms; angle-interpolation: shorter; }
     Rectangle {}
 }
 "#,
@@ -3129,6 +3185,10 @@ export component MainWindow inherits Window {
     animate x {
         duration: 100ms;
         easing: ease-out-bounce;
+    }
+    animate rotation {
+        duration: 600ms;
+        angle-interpolation: shorter;
     }
     Rectangle { }
 }

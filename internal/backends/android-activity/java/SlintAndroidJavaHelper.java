@@ -138,6 +138,7 @@ class SlintInputView extends View {
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
     private int mInBatch = 0;
     private boolean mPending = false;
+    private boolean mHasPreedit = false;
     private SlintEditable mEditable;
 
     private InputHandle mCursorHandle;
@@ -146,6 +147,13 @@ class SlintInputView extends View {
     private Integer mHandleColor;
     private final Rect mSelectionRect = new Rect();
     private ActionMode mCurrentActionMode;
+    private boolean mActionMenuDeferred = false;
+
+    // The ids that callback_popup_menu_action in javahelper.rs expects.
+    private static final int MENU_CUT = 0;
+    private static final int MENU_COPY = 1;
+    private static final int MENU_PASTE = 2;
+    private static final int MENU_SELECT_ALL = 3;
 
     private class SlintEditable extends SpannableStringBuilder {
         public SlintEditable() {
@@ -169,8 +177,33 @@ class SlintInputView extends View {
             mText = toString();
             mCursorPosition = Selection.getSelectionStart(this);
             mAnchorPosition = Selection.getSelectionEnd(this);
-            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition,
-                    BaseInputConnection.getComposingSpanStart(this), BaseInputConnection.getComposingSpanEnd(this));
+            int composingStart = BaseInputConnection.getComposingSpanStart(this);
+            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
+            mHasPreedit = composingStart != composingEnd;
+            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, composingStart, composingEnd);
+        }
+
+        public void updateSelection() {
+            int cursorPosition = Selection.getSelectionStart(this);
+            int anchorPosition = Selection.getSelectionEnd(this);
+            int composingStart = BaseInputConnection.getComposingSpanStart(this);
+            int composingEnd = BaseInputConnection.getComposingSpanEnd(this);
+            boolean hasPreedit = composingStart != composingEnd;
+            if (cursorPosition == mCursorPosition && anchorPosition == mAnchorPosition
+                    && hasPreedit == mHasPreedit) {
+                return;
+            }
+            // finishComposingText() drops the composing span without a replace(), so the preedit
+            // that Slint still shows is only cleared by a full update.
+            if (mHasPreedit || hasPreedit) {
+                update();
+            } else {
+                mCursorPosition = cursorPosition;
+                mAnchorPosition = anchorPosition;
+                SlintAndroidJavaHelper.updateSelection(cursorPosition, anchorPosition);
+            }
+            getContext().getSystemService(InputMethodManager.class).updateSelection(SlintInputView.this,
+                    cursorPosition, anchorPosition, composingStart, composingEnd);
         }
     }
 
@@ -207,10 +240,23 @@ class SlintInputView extends View {
             @Override
             public boolean endBatchEdit() {
                 mInBatch -= 1;
-                if (mInBatch == 0 && mPending) {
-                    mEditable.update();
+                if (mInBatch == 0) {
+                    if (mPending) {
+                        mEditable.update();
+                    } else {
+                        mEditable.updateSelection();
+                    }
                 }
                 return super.endBatchEdit();
+            }
+
+            @Override
+            public boolean setSelection(int start, int end) {
+                boolean result = super.setSelection(start, end);
+                if (mInBatch == 0) {
+                    mEditable.updateSelection();
+                }
+                return result;
             }
         };
     }
@@ -224,6 +270,7 @@ class SlintInputView extends View {
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
+        mHasPreedit = preeditStart != preeditEnd;
         mInputType = inputType;
 
         if (typeChanged) {
@@ -301,7 +348,9 @@ class SlintInputView extends View {
             if (rightX != -1) {
                 handleHeight = mRightHandle.getHeight();
             }
-            showActionMenu();
+            if (!mActionMenuDeferred) {
+                showActionMenu();
+            }
         } else {
             if (mCursorHandle != null) {
                 handleHeight = mCursorHandle.getHeight();
@@ -330,6 +379,7 @@ class SlintInputView extends View {
 
     public void showActionMenu() {
         if (mCurrentActionMode != null) {
+            mCurrentActionMode.invalidate();
             mCurrentActionMode.hide(0);
             return;
         }
@@ -350,17 +400,16 @@ class SlintInputView extends View {
                         android.R.attr.actionModeSelectAllDrawable,
                 });
 
-                // The ids are the ones callback_popup_menu_action in javahelper.rs expects.
-                menu.add(Menu.FIRST, 0, 0, android.R.string.cut)
+                menu.add(Menu.FIRST, MENU_CUT, 0, android.R.string.cut)
                         .setAlphabeticShortcut('x')
                         .setIcon(a.getDrawable(0));
-                menu.add(Menu.FIRST, 1, 1, android.R.string.copy)
+                menu.add(Menu.FIRST, MENU_COPY, 1, android.R.string.copy)
                         .setAlphabeticShortcut('c')
                         .setIcon(a.getDrawable(1));
-                menu.add(Menu.FIRST, 2, 2, android.R.string.paste)
+                menu.add(Menu.FIRST, MENU_PASTE, 2, android.R.string.paste)
                         .setAlphabeticShortcut('v')
                         .setIcon(a.getDrawable(2));
-                menu.add(Menu.FIRST, 3, 3, android.R.string.selectAll)
+                menu.add(Menu.FIRST, MENU_SELECT_ALL, 3, android.R.string.selectAll)
                         .setAlphabeticShortcut('a')
                         .setIcon(a.getDrawable(3));
 
@@ -371,6 +420,19 @@ class SlintInputView extends View {
 
             @Override
             public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                int selectionStart = Selection.getSelectionStart(mEditable);
+                int selectionEnd = Selection.getSelectionEnd(mEditable);
+                int start = Math.min(selectionStart, selectionEnd);
+                int end = Math.max(selectionStart, selectionEnd);
+                boolean hasSelection = start >= 0 && start != end;
+                boolean editable = (mInputType & EditorInfo.TYPE_MASK_CLASS) != EditorInfo.TYPE_NULL;
+                boolean password = (mInputType & EditorInfo.TYPE_MASK_VARIATION)
+                        == EditorInfo.TYPE_TEXT_VARIATION_PASSWORD;
+                ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
+                menu.findItem(MENU_CUT).setVisible(hasSelection && editable && !password);
+                menu.findItem(MENU_COPY).setVisible(hasSelection && !password);
+                menu.findItem(MENU_PASTE).setVisible(editable && clipboard.hasPrimaryClip());
+                menu.findItem(MENU_SELECT_ALL).setVisible(start > 0 || end < mEditable.length());
                 return true;
             }
 
@@ -389,16 +451,22 @@ class SlintInputView extends View {
             // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+                // The selection rect is in window coordinates, Android expects it relative to the
+                // view, which sits below the status bar unless the window is edge-to-edge.
+                int[] location = new int[2];
+                view.getLocationInWindow(location);
                 outRect.set(mSelectionRect);
-                if (outRect.top < 0) {
-                    // FIXME: I don't know why this is the case, but without that, the menu doesn't
-                    // show at the right position when there is no room on top.
-                    // Looks like the menu is always shown at outRect.top.
-                    outRect.top = outRect.bottom;
-                }
+                outRect.offset(-location[0], -location[1]);
             }
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
+    }
+
+    void deferActionMenu(boolean deferred) {
+        mActionMenuDeferred = deferred;
+        if (deferred) {
+            finishActionMenu();
+        }
     }
 
     void finishActionMenu() {
@@ -535,6 +603,8 @@ public class SlintAndroidJavaHelper {
     public static native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditEnd);
 
+    public static native void updateSelection(int cursorPosition, int anchorPosition);
+
     public static native void setNightMode(int nightMode);
 
     public static native void setFontScale(float fontScale);
@@ -636,6 +706,14 @@ public class SlintAndroidJavaHelper {
 
     public void show_action_menu() {
         mActivity.runOnUiThread(mInputView::showActionMenu);
+    }
+
+    public void defer_action_menu(boolean deferred) {
+        mActivity.runOnUiThread(() -> mInputView.deferActionMenu(deferred));
+    }
+
+    public void hide_action_menu() {
+        mActivity.runOnUiThread(mInputView::finishActionMenu);
     }
 
     public String get_clipboard() {

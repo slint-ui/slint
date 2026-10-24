@@ -66,10 +66,16 @@ impl TsInterface {
     fn new(name: &SmolStr, aliases: Vec<SmolStr>, properties: &llr::PublicProperties) -> Self {
         let fields = properties
             .iter()
-            .map(|(name, prop)| Field {
-                name: member(name),
-                ty: ts_type_name(&prop.ty),
-                read_only: prop.read_only(),
+            .map(|(name, prop)| match (ts_read_type_name(&prop.ty), prop.read_only()) {
+                (Some(read_ty), true) => {
+                    Field { name: member(name), ty: read_ty, read_ty: None, read_only: true }
+                }
+                (read_ty, read_only) => Field {
+                    name: member(name),
+                    ty: ts_input_type_name(&prop.ty),
+                    read_ty,
+                    read_only,
+                },
             })
             .collect();
         Self { name: ident(name), aliases, fields }
@@ -88,6 +94,7 @@ impl TsInterface {
                 glob.exported_names().map(|exported| Field {
                     name: member(exported),
                     ty: glob.name.clone(),
+                    read_ty: None,
                     read_only: true,
                 })
             })
@@ -99,6 +106,7 @@ impl TsInterface {
         let globals_symbol = (!globals.is_empty()).then(|| Field {
             name: "[slint.globalsSymbol]".into(),
             ty: format_smolstr!("{{ {}; }}", globals.iter().join("; ")),
+            read_ty: None,
             read_only: true,
         });
         let interface = Interface {
@@ -204,7 +212,9 @@ mod typescript_ast {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             writeln!(f, "export interface {} {{", self.name)?;
             for field in &self.fields {
-                writeln!(f, "    {};", field)?;
+                for line in field.to_string().lines() {
+                    writeln!(f, "    {line};")?;
+                }
             }
             write!(f, "}}")
         }
@@ -213,16 +223,24 @@ mod typescript_ast {
     #[derive(Debug, Clone)]
     pub struct Field {
         pub name: SmolStr,
+        /// The type that a write accepts.
         pub ty: SmolStr,
+        /// The type that a read returns, if it isn't `ty`.
+        pub read_ty: Option<SmolStr>,
         pub read_only: bool,
     }
 
     impl Display for Field {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            if self.read_only {
-                write!(f, "readonly {}: {}", self.name, self.ty)
-            } else {
-                write!(f, "{}: {}", self.name, self.ty)
+            match (&self.read_ty, self.read_only) {
+                (Some(read_ty), _) => write!(
+                    f,
+                    "get {name}(): {read_ty}\nset {name}(value: {ty})",
+                    name = self.name,
+                    ty = self.ty
+                ),
+                (None, true) => write!(f, "readonly {}: {}", self.name, self.ty),
+                (None, false) => write!(f, "{}: {}", self.name, self.ty),
             }
         }
     }
@@ -313,9 +331,12 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
                 let fields = s
                     .fields
                     .iter()
+                    // tsc checks an object literal against a getter's type, so a get/set
+                    // pair wouldn't let `S({ rows: [1, 2] })` through.
                     .map(|(name, ty)| Field {
                         name: member(name),
-                        ty: ts_type_name(ty),
+                        ty: ts_input_type_name(ty),
+                        read_ty: None,
                         read_only: false,
                     })
                     .collect();
@@ -369,8 +390,9 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
         Declaration::DeclaredConst(DeclaredConst {
             name: compo.name.clone(),
             ty: format_smolstr!(
-                "{{ new(properties?: Partial<{name}>): {name} & Omit<slint.ComponentHandle, keyof {name}> }}",
+                "{{ new(properties?: {properties}): {name} & Omit<slint.ComponentHandle, keyof {name}> }}",
                 name = compo.name,
+                properties = constructor_properties_type(compo),
             ),
         })
     }));
@@ -387,12 +409,53 @@ pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std:
     Ok(file)
 }
 
+/// The type that reading a property of type `ty` returns, if it isn't the one that a write accepts.
+fn ts_read_type_name(ty: &Type) -> Option<SmolStr> {
+    match ty {
+        Type::Color | Type::Brush => Some(SmolStr::new_static("Required<slint.Brush>")),
+        Type::Array(_) => Some(ts_type_name(ty)),
+        _ => None,
+    }
+}
+
+/// The type an assignment accepts: an array also takes a plain JavaScript array.
+fn ts_input_type_name(ty: &Type) -> SmolStr {
+    match ty {
+        Type::Array(elem_type) => {
+            let elem = ts_input_type_name(elem_type);
+            if elem.contains(['|', '=']) {
+                format_smolstr!("slint.Model<{elem}> | ({elem})[]")
+            } else {
+                format_smolstr!("slint.Model<{elem}> | {elem}[]")
+            }
+        }
+        ty => ts_type_name(ty),
+    }
+}
+
+/// The type of the properties that the constructor of `compo` takes.
+fn constructor_properties_type(compo: &TsInterface) -> SmolStr {
+    let differing: Vec<&Field> =
+        compo.fields.iter().filter(|field| field.read_ty.is_some()).collect();
+    if differing.is_empty() {
+        return format_smolstr!("Partial<{}>", compo.name);
+    }
+    format_smolstr!(
+        "Partial<Omit<{name}, {omitted}> & {{ {written} }}>",
+        name = compo.name,
+        omitted = differing.iter().map(|field| format!("\"{}\"", field.name)).join(" | "),
+        written = differing
+            .iter()
+            .map(|field| format!("{};", Field { read_ty: None, ..(*field).clone() }))
+            .join(" "),
+    )
+}
+
 fn ts_type_name(ty: &Type) -> SmolStr {
     match ty {
         Type::Invalid => panic!("Invalid type encountered in llr output"),
         Type::Void => SmolStr::new_static("void"),
         Type::String => SmolStr::new_static("string"),
-        // Reading gives a brush; the other forms are what a write accepts.
         Type::Color => SmolStr::new_static("slint.Brush | slint.RgbaColor | string"),
         Type::Int32 => SmolStr::new_static("number"),
         Type::Float32
@@ -446,11 +509,25 @@ fn ts_type_name(ty: &Type) -> SmolStr {
         Type::Enumeration(en) if en.public => format_smolstr!("slint.language.{}", en.name),
         Type::Enumeration(_) => SmolStr::new_static("void"),
         Type::Callback(function) | Type::Function(function) => {
+            // Distinct `.slint` names can become the same one, such as `default` and `default_`.
+            let mut used = HashSet::new();
             let args = function
                 .args
                 .iter()
                 .enumerate()
-                .map(|(i, ty)| format!("arg_{}: {}", i, ts_type_name(ty)))
+                .map(|(i, ty)| {
+                    let mut name = match function.arg_names.get(i) {
+                        Some(name) if !name.is_empty() => ident(name),
+                        _ => format_smolstr!("arg_{i}"),
+                    };
+                    if used.contains(&name) {
+                        name = format_smolstr!("arg_{i}");
+                    }
+                    while !used.insert(name.clone()) {
+                        name = format_smolstr!("{name}_");
+                    }
+                    format!("{name}: {}", ts_type_name(ty))
+                })
                 .join(", ");
             format_smolstr!("({}) => {}", args, ts_type_name(&function.return_type))
         }

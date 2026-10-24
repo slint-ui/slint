@@ -135,13 +135,26 @@ The editor compiles the `.slint` file and sends the result to the remote viewer,
 
 `--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
 
+## Project File
+
+Pass a project directory to load the [project file](../project-file/) (`slint-project.json`) inside it.
+The project file must contain a `main` entry, which specifies the `.slint` file the viewer loads.
+To view a specific `.slint` file with a project root, pass `--project-root <directory>`.
+The viewer loads that directory's project file if it exists and uses the specified `.slint` file, even when the project file sets `main`.
+A `.slint` file without `--project-root` doesn't load a project file.
+Don't combine a project directory input with `--project-root`.
+`-I`, `-L`, and `--style` win over its settings:
+any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
+Pass `-I ""` or `-L ""` to use no include or library paths at all.
+
 ## Command-Line Options
 
 Run `slint-viewer --help` for the authoritative, always-current list. The common options:
 
 | Option | Description |
 |---|---|
-| `<path>` | The `.slint` file to load. Required unless `--remote` is given. |
+| `<path>` | The `.slint` file or project directory to load. Required unless `--remote` is given. |
+| `-p, --project-root <directory>` | Load settings from `slint-project.json` inside this directory when viewing a `.slint` file. |
 | `--auto-reload` | Watch the file system and reload when the file changes. |
 | `--load-data <file>` | Load the values of public properties from a JSON file. |
 | `--save-data <file>` | On exit, write the values of public properties to a JSON file. Incompatible with `--auto-reload`. |
@@ -152,10 +165,10 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--pairing-code <code>` | Always require this pairing code of 4 to 12 digits instead of showing a generated one, for devices with no usable display. Use at least 8 digits on networks you don't control. |
 | `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
-| `--style <style>` | Set the widget style. Defaults to `fluent`. |
+| `--style <style>` | Set the widget style. Wins over the style of the project file. Defaults to `fluent`. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
-| `-I <path>` | Add an include path for imported `.slint` files or images. |
-| `-L <library=path>` | Add a library path for `@library` imports. |
+| `-I <path>` | Add an include path for imported `.slint` files or images. Replaces the include paths of the project file. |
+| `-L <library=path>` | Add a library path for `@library` imports. Replaces the library paths of the project file. |
 | `--on <callback> <handler>` | Run a shell command when a callback is invoked. See [Callback Handlers](#callback-handlers). |
 
 Use `-` in place of a file path to read from standard input or write to standard output.

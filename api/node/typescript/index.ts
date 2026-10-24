@@ -6,7 +6,7 @@ export {
     Diagnostic,
     DiagnosticLevel,
     RgbaColor,
-    Brush,
+    CloseRequestResponse,
     DataTransfer,
     StyledText,
     Keys,
@@ -14,6 +14,65 @@ export {
 
 import { Model } from "./models";
 export { Model };
+
+/**
+ * A brush describes how a shape, such as a rectangle, path or even text, is filled.
+ *
+ * A `brush` or `color` property takes an object with a `color`, or a brush read from another property.
+ * It also takes a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
+ *
+ * Reading a `brush` or `color` property returns a brush that also has the optional members of this interface.
+ * Its `toString()` returns a color as `#rrggbb`, or `#rrggbbaa` if it isn't opaque.
+ * It returns a linear or radial gradient in the syntax of CSS, with alpha channels from 0 to 255,
+ * such as `linear-gradient(90deg, rgba(255, 0, 0, 255) 0%, rgba(0, 0, 255, 255) 100%)`.
+ *
+ * ```js
+ * component.background = component.background.darker(0.2);
+ * console.log(component.background.toString());
+ * ```
+ */
+export interface Brush {
+    /**
+     * The color of a solid color brush. If it isn't set, the brush is transparent.
+     * For a gradient, the color of its first stop.
+     */
+    color?: napi.RgbaColor;
+
+    /**
+     * `true` if the brush is fully transparent.
+     */
+    readonly isTransparent?: boolean;
+
+    /**
+     * `true` if the brush is fully opaque.
+     */
+    readonly isOpaque?: boolean;
+
+    /**
+     * Returns the brush with the brightness of its colors increased by `factor`.
+     * The brightness in the HSV color space is multiplied by `1 + factor`,
+     * so `brighter(0.2)` makes the colors 20% brighter.
+     */
+    brighter?(factor: number): Required<Brush>;
+
+    /**
+     * Returns the brush with the brightness of its colors decreased by `factor`.
+     * The brightness in the HSV color space is divided by `1 + factor`,
+     * so `darker(0.3)` makes the colors 30% darker.
+     */
+    darker?(factor: number): Required<Brush>;
+
+    /**
+     * Returns the brush with the opacity of its colors decreased by `amount`:
+     * their alpha channel is multiplied by `1 - amount`.
+     */
+    transparentize?(amount: number): Required<Brush>;
+
+    /**
+     * Returns the brush with the opacity of its colors set to `alpha`, between `0` and `1`.
+     */
+    withAlpha?(alpha: number): Required<Brush>;
+}
 
 export {
     ArrayModel,
@@ -108,6 +167,21 @@ export interface Window {
     requestRedraw(): void;
 
     /**
+     * Sets the callback that's invoked when the user tries to close the window.
+     * The callback returns whether to hide the window or to keep it open.
+     *
+     * ```js
+     * app.window.onCloseRequested(() => {
+     *     if (hasUnsavedChanges()) {
+     *         return slint.CloseRequestResponse.KeepWindowShown;
+     *     }
+     *     return slint.CloseRequestResponse.HideWindow;
+     * });
+     * ```
+     */
+    onCloseRequested(callback: () => napi.CloseRequestResponse): void;
+
+    /**
      * Dispatches a window event to the scene.
      *
      * Returns whether the scene accepted the event or rejected it.
@@ -121,6 +195,15 @@ export interface Window {
  * An image data type that can be displayed by the Image element.
  *
  * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
+ *
+ * Use {@link ImageData.loadFromPath} or {@link ImageData.loadFromData} to load an image file,
+ * or pass an object with the `width`, `height`, and RGBA `data` of the pixels.
+ * Pass `undefined` for an empty image.
+ *
+ * ```js
+ * app.icon = slint.ImageData.loadFromPath("icons/app.svg");
+ * app.preview = { width: 1, height: 1, data: new Uint8Array([255, 0, 0, 255]) };
+ * ```
  */
 export interface ImageData {
     /**
@@ -144,6 +227,34 @@ export interface ImageData {
      */
     get height(): number;
 }
+
+/**
+ * Use these functions to load an {@link ImageData} from an image file.
+ * The supported formats are SVG, PNG, and JPEG.
+ */
+export const ImageData = {
+    /**
+     * Loads the image from the file at `path`.
+     *
+     * @throws {Error} if the file can't be read or decoded.
+     */
+    loadFromPath(path: string): ImageData {
+        return napi.SlintImageData.loadFromPath(path);
+    },
+
+    /**
+     * Decodes the image from `data`, the content of an image file.
+     *
+     * `format` is the lowercase file extension of the data, such as `"png"` or `"svg"`.
+     * Without it, the format is guessed from the data.
+     * Only SVG data that starts with `<?xml` or `<svg` is recognized.
+     *
+     * @throws {Error} if the data can't be decoded.
+     */
+    loadFromData(data: Uint8Array, format?: string): ImageData {
+        return napi.SlintImageData.loadFromData(data, format);
+    },
+};
 
 /**
  * The key of the {@link Window} of a component.
@@ -260,12 +371,12 @@ class Component implements ComponentHandle {
 
 const componentHandleNames = new Set(["run", "show", "hide", "window"]);
 
-const shadowedBuiltinWarnings = new Set<string>();
+const warnings = new Set<string>();
 
-function warnAboutShadowedBuiltin(message: string) {
-    if (!shadowedBuiltinWarnings.has(message)) {
-        shadowedBuiltinWarnings.add(message);
-        process.emitWarning(message, { code: "SLINT_SHADOWED_BUILTIN" });
+function warnOnce(message: string, code: string) {
+    if (!warnings.has(message)) {
+        warnings.add(message);
+        process.emitWarning(message, { code });
     }
 }
 
@@ -279,20 +390,23 @@ function warnAboutShadowedBuiltins(definition: napi.ComponentDefinition) {
     );
     for (const name of memberNames) {
         if (componentHandleNames.has(name)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: '${name}' hides the built-in ${name}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         }
     }
     for (const globalName of definition.globals) {
         const jsName = translateName(globalName);
         if (memberNames.has(jsName)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: '${jsName}' hides the global ${globalName}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         } else if (componentHandleNames.has(jsName)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: the global ${globalName} hides the built-in ${jsName}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         }
     }
@@ -414,7 +528,6 @@ export interface LoadFileOptions {
 
     /**
      * Sets the widget style the compiler is currently using when compiling .slint files.
-     * This wins over the style of the project file.
      */
     style?: string;
 
@@ -477,6 +590,23 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
+    let live =
+        loadData.from === "file" &&
+        process.env.SLINT_LIVE_PREVIEW !== undefined;
+    const liveUnavailable = (reason: string) => {
+        warnOnce(
+            `SLINT_LIVE_PREVIEW is set, but the live preview couldn't start. ${reason}`,
+            "SLINT_LIVE_PREVIEW",
+        );
+        live = false;
+    };
+    if (live && !napi.buildFeatures().includes("live-preview")) {
+        liveUnavailable(
+            "Install slint-ui-dev, at the same version as slint-ui, to use it.",
+        );
+    } else if (live && options?.fileLoader !== undefined) {
+        liveUnavailable("It doesn't support a fileLoader.");
+    }
     const definitions =
         loadData.from === "file"
             ? compiler.buildFromPath(filePath)
@@ -484,7 +614,7 @@ function loadSlint(loadData: LoadData): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        if (typeof options !== "undefined" && options.quiet !== true) {
+        if (options?.quiet !== true) {
             for (const d of diagnostics) {
                 switch (d.level) {
                     case napi.DiagnosticLevel.Warning:
@@ -558,7 +688,19 @@ function loadSlint(loadData: LoadData): Object {
 
         Object.defineProperty(slint_module, translateName(definition.name), {
             value: function (properties: any) {
-                const instance = definition.create();
+                let instance: napi.ComponentInstance | null = null;
+                if (live) {
+                    try {
+                        instance = napi.createLiveInstance(
+                            filePath,
+                            key,
+                            options ?? {},
+                        );
+                    } catch (error) {
+                        liveUnavailable((error as Error).message);
+                    }
+                }
+                instance ??= definition.create();
 
                 if (instance == null) {
                     throw Error(
@@ -581,16 +723,16 @@ function loadSlint(loadData: LoadData): Object {
                     declaredName.set(translateName(name), name);
                 }
 
-                for (var key in properties) {
-                    const value = properties[key];
+                for (const propertyKey in properties) {
+                    const value = properties[propertyKey];
                     // Unknown names are passed through, to be reported by the
                     // setter below.
-                    const name = declaredName.get(key) ?? key;
+                    const name = declaredName.get(propertyKey) ?? propertyKey;
 
                     if (value instanceof Function) {
                         instance.setCallback(name, value);
                     } else {
-                        instance.setProperty(name, properties[key]);
+                        instance.setProperty(name, value);
                     }
                 }
 
@@ -651,9 +793,13 @@ function loadSlint(loadData: LoadData): Object {
  * main.greeting = "Hello friends";
  * ```
  *
- * A `slint-project.json` in the directory of the file, or in a directory above it,
- * provides the settings that `options` leaves open.
- * `filePath` can also be a `slint-project.json`, whose `entry` is loaded.
+ * If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+ * The project file provides the settings that `options` does not specify.
+ * It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+ * A `.slint` file path does not load a project file.
+ *
+ * With the `SLINT_LIVE_PREVIEW` environment variable set, the components reload when one of their files changes.
+ * See [Live Preview](https://slint.dev/docs/slint/guide/tooling/live-preview/).
  *
  * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
  * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings,
@@ -785,8 +931,12 @@ class EventLoop {
     }
 
     quit() {
-        this.#quit_loop = true;
-        napi.quitEventLoop();
+        try {
+            napi.quitEventLoop();
+        } catch {
+            // Without an event loop to post the quit to, stop the polling fallback directly.
+            this.#quit_loop = true;
+        }
     }
 }
 

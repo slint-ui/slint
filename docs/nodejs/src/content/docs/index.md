@@ -379,8 +379,8 @@ The types used for properties in .slint design markup each translate to specific
 | `bool` | `Boolean` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` | `RgbaColor` | |
-| `brush` | `Brush` | |
+| `color` | `Brush` | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
+| `brush` | `Brush` | Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
 | `keys` | `Keys` | |
 | `image` | `ImageData` | |
 | `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
@@ -533,16 +533,20 @@ The TypeScript compiler and editors don't know `.slint` files, though:
 Use `slint-compiler` to generate a `.d.ts` file next to the `.slint` file:
 
 ```sh
-slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
+npx slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
 ```
 
 This gives you full IDE autocomplete and type checking for all properties,
 callbacks, structs, and enums exported from the `.slint` file.
 
-Wire it into `package.json` so types stay in sync:
+To keep the types in sync, add `slint-compiler` as a development dependency in `package.json`,
+and call it from a script:
 
 ```json
 {
+  "devDependencies": {
+    "slint-compiler": "^1.19.0"
+  },
   "scripts": {
     "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
     "start": "npm run generate && node --import slint-ui/register app.mjs"

@@ -17,10 +17,11 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
-2. After editing: in an IDE with the Slint extension, trust the post-edit
-   diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
-   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
-   (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+2. After editing, check the compiler diagnostics.
+   An IDE with the Slint extension, Claude Code with `slint-lsp`, and Codex with `slint-viewer` report them after each edit.
+   Codex runs this plugin's hooks only once the user trusts them in `/hooks`.
+   Elsewhere, `slint-viewer --check ui/main.slint` compiles one file and prints diagnostics,
+   and `slint-viewer --screenshot` renders it (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
@@ -29,6 +30,23 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    environments.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
+
+## Standalone Component Previews
+
+For a new standalone component preview, start with a transparent Window:
+
+```slint
+export component Preview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+}
+```
+
+Place the requested component directly inside the Window with explicit dimensions.
+Leave its position unset so Slint centers it, and size the Window to leave modest space around it.
+Add a background only when the user requests one.
+Preserve the window, background, and layout of an existing application.
 
 ## Show your support
 

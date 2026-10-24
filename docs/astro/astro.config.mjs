@@ -145,6 +145,10 @@ export default defineSlintDocsConfig({
                                                 label: "Reactivity vs React.js",
                                                 slug: "guide/language/concepts/reactivity-vs-react",
                                             },
+                                            {
+                                                label: "Editions",
+                                                slug: "guide/language/concepts/editions",
+                                            },
                                         ],
                                     },
                                     {
@@ -193,10 +197,6 @@ export default defineSlintDocsConfig({
                                             {
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
-                                            },
-                                            {
-                                                label: "Deprecating Members",
-                                                slug: "guide/language/coding/deprecation",
                                             },
                                         ],
                                     },
@@ -315,6 +315,10 @@ export default defineSlintDocsConfig({
                                               {
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
+                                              },
+                                              {
+                                                  label: "Testable Properties",
+                                                  slug: "guide/experimental/testable",
                                               },
                                               {
                                                   label: "Custom Mouse Cursor",

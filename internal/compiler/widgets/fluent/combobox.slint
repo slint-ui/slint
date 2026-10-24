@@ -84,8 +84,12 @@ export component ComboBox {
             icon := Image {
                 colorize: FluentPalette.text-secondary;
                 width: 12px;
+                // The chevron fills the top of the icon: drawn at the bottom of a taller centered box,
+                // it sits 2px lower and looks centered.
+                preferred-height: 16px;
+                cross-axis-self-alignment: center;
+                vertical-alignment: bottom;
                 source: Icons.dropdown;
-                y: 2px;
                 accessible-role: none;
 
                 animate colorize { duration: 150ms; }

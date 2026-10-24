@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore descendents dontcrash
+// cSpell: ignore descendents dontcrash Digitall
 
+use crate::prelude::*;
 #[cfg(feature = "internal")]
 use i_slint_compiler::source_path::SourcePath;
 #[allow(unused_imports)]
@@ -137,6 +138,7 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         Default::default(),
         config,
         crate::AnimationMode::Running,
+        None,
     ));
     assert!(
         result
@@ -160,7 +162,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
         use i_slint_core::InternalToken;
 
         spin_on::spin_on(compiler.build_static_from_source(
-            code.into(),
+            Some(code.into()),
             SourcePath::new("test.slint"),
             InternalToken,
         ))
@@ -177,7 +179,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
 #[test]
 fn static_preview_stops_runtime_motion() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let code = r#"
         export component MotionTest {
@@ -260,7 +262,7 @@ fn static_preview_stops_runtime_motion() {
 #[test]
 fn interpreter_sub_component() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -289,7 +291,7 @@ fn interpreter_sub_component() {
 #[test]
 fn interpreter_sub_component_callback_from_if() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -326,7 +328,7 @@ fn interpreter_sub_component_callback_from_if() {
 #[test]
 fn interpreter_two_way_binding_repeated_priority() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -354,7 +356,7 @@ fn interpreter_two_way_binding_repeated_priority() {
 #[test]
 fn interpreter_children_placeholder() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -383,7 +385,7 @@ fn interpreter_children_placeholder() {
 #[test]
 fn interpreter_nested_children_placeholder() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -412,7 +414,7 @@ fn interpreter_nested_children_placeholder() {
 #[test]
 fn interpreter_model_index_propagation() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -442,7 +444,7 @@ fn interpreter_model_index_propagation() {
 #[test]
 fn interpreter_grid_with_for_cells() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::Value;
+    use Value;
 
     let instance = llr_compile(
         r#"
@@ -513,6 +515,7 @@ fn interpreter_path_elements() {
         Default::default(),
         config,
         crate::AnimationMode::Running,
+        None,
     ));
     assert!(
         result
@@ -531,7 +534,7 @@ fn interpreter_path_elements() {
     // `slint-viewer`.
     let instance = def
         .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone).unwrap());
-    assert_eq!(instance.get_property("dummy"), Some(crate::Value::Number(1.)));
+    assert_eq!(instance.get_property("dummy"), Some(Value::Number(1.)));
 }
 
 fn set_global_log_message_handler(
@@ -545,8 +548,8 @@ fn set_global_log_message_handler(
 fn context_debug_handler_overrides_platform() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use Rc;
+    use RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -584,8 +587,8 @@ fn context_debug_handler_overrides_platform() {
 fn log_messages_carry_the_slint_source_location() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use Rc;
+    use RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -626,8 +629,8 @@ export component MainWindow inherits Window {
 fn rejected_model_modification_reports_the_source_location() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use Rc;
+    use RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -699,8 +702,8 @@ fn platform_debug_handler_is_fallback() {
 fn global_debug_messages_use_context_handler() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::Compiler;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use Rc;
+    use RefCell;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
     let previous = set_global_log_message_handler(Some(Box::new({
@@ -729,7 +732,7 @@ fn global_debug_messages_use_context_handler() {
 
     assert_eq!(
         instance.get_global_property("Logic", "greeting").unwrap(),
-        crate::Value::from(crate::SharedString::from("hello"))
+        Value::from(crate::SharedString::from("hello"))
     );
     assert_eq!(captured.borrow().as_slice(), ["from global"]);
     assert!(
@@ -1072,12 +1075,12 @@ fn a_definition_kept_alive_across_into_send_still_works() {
 
 /// Poll a future that is expected to be immediately ready. The compiler is only
 /// asynchronous when an async file loader is set, which these tests don't use.
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+fn poll_ready<F: core::future::Future>(future: F) -> F::Output {
     let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
+    match core::future::Future::poll(future.as_mut(), &mut cx) {
+        core::task::Poll::Ready(result) => result,
+        core::task::Poll::Pending => unreachable!("Compiler returned Pending"),
     }
 }
 
@@ -1104,7 +1107,7 @@ fn system_tray_uses_its_context() {
     let definition = result.component("TestCase").unwrap();
     let backend = i_slint_backend_testing::TestingBackend::new(Default::default());
     let opened_url = backend.open_url.clone();
-    let ctx = i_slint_core::SlintContext::new(Box::new(backend));
+    let ctx = SlintContext::new(Box::new(backend));
     let instance = definition.create_with_context(ctx.clone()).unwrap();
 
     ctx.set_color_scheme(i_slint_core::items::ColorScheme::Dark);
@@ -1126,9 +1129,9 @@ fn system_tray_uses_its_context() {
 #[cfg(feature = "internal")]
 fn hooks_see_the_windows_of_a_sibling_context() {
     i_slint_backend_testing::init_no_event_loop();
+    use Cell;
+    use Rc;
     use i_slint_core::context::{SlintContext, set_window_event_hook, set_window_shown_hook};
-    use std::cell::Cell;
-    use std::rc::Rc;
 
     let sibling = SlintContext::current().unwrap().new_sharing_platform();
     let shown = Rc::new(Cell::new(0));
@@ -1158,8 +1161,8 @@ fn hooks_see_the_windows_of_a_sibling_context() {
 #[test]
 #[cfg(feature = "internal")]
 fn a_window_shown_twice_keeps_the_event_loop_alive_once() {
+    use Rc;
     use i_slint_core::platform::{EventLoopProxy, Platform, PlatformError, WindowAdapter};
-    use std::rc::Rc;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -1188,7 +1191,7 @@ fn a_window_shown_twice_keeps_the_event_loop_alive_once() {
     }
 
     let quits = Arc::new(AtomicUsize::new(0));
-    let ctx = i_slint_core::SlintContext::new(Box::new(CountingPlatform(
+    let ctx = SlintContext::new(Box::new(CountingPlatform(
         i_slint_backend_testing::TestingBackend::new(Default::default()),
         quits.clone(),
     )));
@@ -1222,4 +1225,93 @@ fn diagnostic_source_file_and_url() {
     let diag = result.diagnostics().next().expect("an error");
     assert_eq!(diag.source_file(), None);
     assert_eq!(diag.source_url().as_deref(), Some("https://example.com/app.slint"));
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn imported_fonts_load_through_the_resource_loader() {
+    use Rc;
+    use RefCell;
+    i_slint_backend_testing::init_no_event_loop();
+    let font = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../examples/speedometer/01 Digitall.ttf"
+    ))
+    .unwrap();
+    let requested = Rc::new(RefCell::new(Vec::new()));
+
+    let mut compiler = crate::Compiler::default();
+    compiler.set_file_loader(|path| {
+        let source = (path == std::path::Path::new("slint-file:///project/widgets/label.slint"))
+            .then(|| {
+                Ok(r#"
+import "../fonts/Label.ttf";
+import "../fonts/Main.ttf";
+export component Label inherits Text { }
+"#
+                .to_owned())
+            });
+        Box::pin(std::future::ready(source))
+    });
+    compiler.set_resource_loader(
+        {
+            let requested = requested.clone();
+            move |path| {
+                let path = path.to_string();
+                let result = if path.ends_with("/Main.ttf") {
+                    Ok(font.clone())
+                } else {
+                    Err(std::io::Error::other("not found"))
+                };
+                requested.borrow_mut().push(path);
+                Box::pin(std::future::ready(result))
+            }
+        },
+        i_slint_core::InternalToken,
+    );
+
+    let result = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+import "fonts/Main.ttf";
+import { Label } from "widgets/label.slint";
+export component App inherits Window { Label { font-family: "01 Digitall"; } }
+"#
+            .into(),
+            "slint-file:///project/main.slint".into(),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    // Each font loads once, with paths relative to an imported file resolved.
+    let mut requested = requested.take();
+    requested.sort();
+    assert_eq!(
+        requested,
+        ["slint-file:///project/fonts/Label.ttf", "slint-file:///project/fonts/Main.ttf"]
+    );
+    let warnings = result
+        .diagnostics()
+        .filter(|d| d.level() == crate::DiagnosticLevel::Warning)
+        .map(|d| (d.source_url(), d.message().to_string()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        warnings,
+        [(
+            Some("slint-file:///project/widgets/label.slint".to_string()),
+            "Cannot load the font: not found".to_string()
+        )]
+    );
+
+    let instance = result.component("App").unwrap().create().unwrap();
+    let context = i_slint_core::window::WindowInner::from_pub(instance.window()).context();
+    assert!(
+        context
+            .font_context()
+            .borrow_mut()
+            .inner
+            .collection
+            .family_by_name("01 Digitall")
+            .is_some()
+    );
 }

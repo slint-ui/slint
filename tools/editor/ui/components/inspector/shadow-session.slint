@@ -21,7 +21,7 @@ export struct ShadowValues {
 
 export global ShadowSession {
     out property <bool> inner;
-    out property <string> prefix: inner ? "inner-shadow-" : "drop-shadow-";
+    out property <string> prefix: Api.shadow-prefix(inner);
     out property <string> title: ShadowSession.label(inner);
     out property <float> direction: inner ? -1 : 1;
     out property <bool> open;
@@ -31,7 +31,6 @@ export global ShadowSession {
     out property <float> minimum-spread: -64;
     out property <float> maximum-spread: 64;
     private property <bool> shadow-exists: Api.has-shadow(prefix);
-    private property <bool> selected-inner: !Api.has-shadow("drop-shadow-") && Api.has-shadow("inner-shadow-");
     out property <bool> canvas-visible: open && !Diagnostics.preview-status-visible
         && shadow-exists && selection-key == target-selection-key
         && Api.current-element.type-name == "Rectangle" && Api.selection.highlight-index >= 0;
@@ -58,7 +57,6 @@ export global ShadowSession {
 
     changed selection-key => { ShadowSession.check-selection(); }
     changed shadow-exists => { ShadowSession.check-selection(); }
-    changed selected-inner => { ShadowSession.check-selection(); }
     changed key => {
         if ShadowSession.dragging { ShadowSession.cancel(); }
     }
@@ -70,8 +68,7 @@ export global ShadowSession {
     function check-selection() {
         if ShadowSession.open && !ShadowSession.compiling && Api.current-element.source-uri != ""
             && Diagnostics.preview-editable && Api.selection.highlight-index >= 0
-            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists
-                || ShadowSession.inner != ShadowSession.selected-inner) {
+            && (ShadowSession.selection-key != ShadowSession.target-selection-key || !ShadowSession.shadow-exists) {
             ShadowSession.close();
         }
     }

@@ -11,7 +11,9 @@ from slint import slint as native
 def project_directory(tmp_path: pathlib.Path, settings: dict[str, Any]) -> pathlib.Path:
     # resolve() so the directory matches the paths the compiler reports back.
     directory = tmp_path.resolve()
-    (directory / "slint-project.json").write_text(json.dumps(settings))
+    (directory / "slint-project.json").write_text(
+        json.dumps({"slint-edition": "1.19", **settings})
+    )
     return directory
 
 
@@ -28,69 +30,54 @@ def messages(result: native.CompilationResult) -> list[str]:
 def test_include_paths_come_from_the_project_file(
     tmp_path: pathlib.Path,
 ) -> None:
-    directory = project_directory(tmp_path, {"include-paths": ["include"]})
+    directory = project_directory(
+        tmp_path, {"main": "main.slint", "include-paths": ["include"]}
+    )
     (directory / "include").mkdir()
     (directory / "include" / "shared.slint").write_text("export component Shared { }")
 
-    main = write_main(
+    write_main(
         directory,
         """import { Shared } from "shared.slint";
            export component Main inherits Window { Shared { } }""",
     )
 
-    result = native.Compiler().build_from_path(main)
+    result = native.Compiler().build_from_path(directory)
     assert messages(result) == []
     assert "Main" in result.component_names
 
 
 def test_library_paths_come_from_the_project_file(tmp_path: pathlib.Path) -> None:
     directory = project_directory(
-        tmp_path, {"library-paths": {"widgets": "widgets.slint"}}
+        tmp_path, {"main": "main.slint", "library-paths": {"widgets": "widgets.slint"}}
     )
     (directory / "widgets.slint").write_text("export component Widget { }")
 
-    main = write_main(
+    write_main(
         directory,
         """import { Widget } from "@widgets";
            export component Main inherits Window { Widget { } }""",
     )
 
-    result = native.Compiler().build_from_path(main)
+    result = native.Compiler().build_from_path(directory)
     assert messages(result) == []
     assert "Main" in result.component_names
-
-
-def test_the_project_file_style_reaches_the_compiler(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"style": "no-such-style"})
-    main = write_main(directory, "export component Main inherits Window { }")
-
-    # A style name the compiler rejects shows which style it actually used.
-    result = native.Compiler().build_from_path(main)
-    assert any("no-such-style" in message for message in messages(result))
-
-
-def test_an_explicit_style_wins_over_the_project_file(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"style": "no-such-style"})
-    main = write_main(directory, "export component Main inherits Window { }")
-
-    compiler = native.Compiler()
-    compiler.style = "fluent"
-    result = compiler.build_from_path(main)
-    assert messages(result) == []
 
 
 def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     directory = tmp_path.resolve()
     (directory / "slint-project.json").write_text("{")
-    main = write_main(directory, "export component Main inherits Window { }")
+    write_main(directory, "export component Main inherits Window { }")
 
-    result = native.Compiler().build_from_path(main)
+    result = native.Compiler().build_from_path(directory)
     assert any("slint-project.json" in message for message in messages(result))
 
 
-def test_building_the_project_file_builds_its_entry(tmp_path: pathlib.Path) -> None:
+def test_building_the_project_directory_builds_its_main_file(
+    tmp_path: pathlib.Path,
+) -> None:
     directory = project_directory(
-        tmp_path, {"entry": "ui/main.slint", "include-paths": ["include"]}
+        tmp_path, {"main": "ui/main.slint", "include-paths": ["include"]}
     )
     (directory / "include").mkdir()
     (directory / "include" / "shared.slint").write_text("export component Shared { }")
@@ -100,6 +87,25 @@ def test_building_the_project_file_builds_its_entry(tmp_path: pathlib.Path) -> N
            export component Main inherits Window { Shared { } }"""
     )
 
-    result = native.Compiler().build_from_path(directory / "slint-project.json")
+    result = native.Compiler().build_from_path(directory)
     assert messages(result) == []
     assert "Main" in result.component_names
+
+
+def test_building_the_project_file_is_an_error(tmp_path: pathlib.Path) -> None:
+    directory = project_directory(tmp_path, {"main": "main.slint"})
+    write_main(directory, "export component Main inherits Window { }")
+
+    result = native.Compiler().build_from_path(directory / "slint-project.json")
+    assert messages(result) == [
+        f"A `slint-project.json` cannot be compiled directly; pass its directory instead ({directory})"
+    ]
+
+
+def test_building_a_file_ignores_its_project_file(tmp_path: pathlib.Path) -> None:
+    directory = tmp_path.resolve()
+    (directory / "slint-project.json").write_text("{")
+    main = write_main(directory, "export component Main inherits Window { }")
+
+    result = native.Compiler().build_from_path(main)
+    assert messages(result) == []

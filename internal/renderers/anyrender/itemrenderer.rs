@@ -9,7 +9,7 @@ use i_slint_core::graphics::ResolvedBrush;
 #[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{Image, ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{Image, ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
     RenderImage, RenderRectangle, RenderText,
@@ -224,21 +224,44 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let resolve_image_fit =
             || if tiling != Default::default() { ImageFit::Preserve } else { image.image_fit() };
 
+        let transform_scale = {
+            let [a, b, c, d, _, _] = self.current_state.transform.as_coeffs();
+            i_slint_core::graphics::transform_max_scale(a as f32, b as f32, c as f32, d as f32)
+        };
+
         // The per-item cache tracks the properties read in the closure
         // (source, image-fit, target size) and invalidates on change; the
         // shared conversion cache deduplicates across items. The fit has to
         // be resolved inside the closure to be tracked: SVGs rasterize at
         // the fitted size.
-        let image_data = self.item_image_cache.get_or_update_cache_entry(item_rc, || {
-            load_image(
-                image.source(),
-                &|| image.target_size(),
-                resolve_image_fit(),
-                self.scale_factor,
-                self.image_cache,
-                self.texture_importer,
-            )
-        });
+        let image_data = self.item_image_cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || {
+                load_image(
+                    image.source(),
+                    &|| image.target_size(),
+                    resolve_image_fit(),
+                    self.scale_factor,
+                    transform_scale,
+                    self.image_cache,
+                    self.texture_importer,
+                )
+            },
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            |cached| {
+                cached.as_ref().is_some_and(|cached| {
+                    i_slint_core::graphics::svg_needs_rasterizing_again(
+                        IntSize::new(cached.width, cached.height),
+                        &image.source(),
+                        resolve_image_fit(),
+                        image.target_size(),
+                        self.scale_factor,
+                        Default::default(),
+                        transform_scale,
+                    )
+                })
+            },
+        );
         let Some(image_data) = image_data else {
             return;
         };
@@ -572,7 +595,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         }
 
         let Some(options) =
-            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(item_rc, box_shadow, sf)
+            i_slint_core::graphics::boxshadow::BoxShadowOptions::new(item_rc, box_shadow, sf)
         else {
             return;
         };
@@ -764,6 +787,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             &|| LogicalSize::from_untyped(image.size().cast()),
             ImageFit::Fill,
             self.scale_factor,
+            1.,
             self.image_cache,
             self.texture_importer,
         ) else {
@@ -1117,13 +1141,20 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                     peniko::Gradient::new_radial(kurbo::Point::new(0., 0.), 1.0);
                 peniko_gradient.stops = to_peniko_stops(&gradient.stops);
 
-                // A unit circle at the origin, scaled to the radius and moved
-                // to the center, so the color stops span [0, radius].
+                // A unit circle at the origin, scaled to the radii and moved to the center,
+                // so the color stops span [0, radius] on each axis.
                 (
                     peniko_gradient.into(),
-                    Some(kurbo::Affine::scale(gradient.radius.get() as f64).then_translate(
-                        kurbo::Vec2::new(gradient.center.x as f64, gradient.center.y as f64),
-                    )),
+                    Some(
+                        kurbo::Affine::scale_non_uniform(
+                            gradient.radius_x.get() as f64,
+                            gradient.radius_y.get() as f64,
+                        )
+                        .then_translate(kurbo::Vec2::new(
+                            gradient.center.x as f64,
+                            gradient.center.y as f64,
+                        )),
+                    ),
                 )
             }
             ResolvedBrush::ConicGradient(gradient) => {
@@ -1308,11 +1339,14 @@ pub(crate) fn to_peniko_color(color: Color) -> peniko::Color {
     peniko::Color::from_rgba8(color.red, color.green, color.blue, color.alpha)
 }
 
+/// `transform_scale` is how much the current transform magnifies the image,
+/// see [`i_slint_core::graphics::transformed_scalable_render_size`].
 fn load_image(
     image: Image,
     target_size_fn: &dyn Fn() -> LogicalSize,
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
+    transform_scale: f32,
     image_cache: &std::cell::RefCell<crate::ImageConversionCache>,
     texture_importer: Option<&dyn crate::TextureImporter>,
 ) -> Option<crate::SharedImageData> {
@@ -1328,12 +1362,13 @@ fn load_image(
         ),
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let render_size = i_slint_core::graphics::scalable_render_size(
+            let render_size = i_slint_core::graphics::transformed_scalable_render_size(
                 svg.size(),
                 image_fit,
-                target_size_fn() * scale_factor,
+                target_size_fn(),
                 scale_factor,
                 Default::default(),
+                transform_scale,
             )?;
             image_cache.borrow_mut().get_or_insert(
                 ImageCacheKey::new(image_inner),
@@ -1341,11 +1376,7 @@ fn load_image(
                 || {
                     let pixels = match svg.render(Some(render_size)).ok()? {
                         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-                        SharedImageBuffer::RGB8(_) | SharedImageBuffer::RGBA8(_) => unreachable!(),
-                        #[cfg(feature = "image-pixel-format-rgb565")]
-                        SharedImageBuffer::RGB565(_) => unreachable!(),
-                        #[cfg(feature = "image-pixel-format-gray8")]
-                        SharedImageBuffer::Gray8(_) => unreachable!(),
+                        _ => unreachable!(),
                     };
 
                     let width = pixels.width();
@@ -1379,6 +1410,7 @@ fn load_image(
             target_size_fn,
             ImageFit::Preserve,
             scale_factor,
+            transform_scale,
             image_cache,
             texture_importer,
         ),
@@ -1387,6 +1419,7 @@ fn load_image(
             target_size_fn,
             image_fit,
             scale_factor,
+            transform_scale,
             image_cache,
             texture_importer,
         ),
@@ -1501,6 +1534,7 @@ fn image_buffer_to_peniko_image(buffer: &SharedImageBuffer) -> Option<peniko::Im
             peniko::ImageFormat::Rgba8,
             peniko::ImageAlphaType::Alpha,
         ),
+        _ => return None,
     };
 
     Some(peniko::ImageData {

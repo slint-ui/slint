@@ -109,6 +109,14 @@ bind_java_type! {
             name = "show_action_menu",
             sig = (),
         },
+        fn hide_action_menu {
+            name = "hide_action_menu",
+            sig = (),
+        },
+        fn defer_action_menu {
+            name = "defer_action_menu",
+            sig = (deferred: jboolean),
+        },
         fn show_keyboard {
             name = "show_keyboard",
             sig = (),
@@ -162,6 +170,10 @@ bind_java_type! {
                     preedit_end: jint
             ) -> (),
             fn = callback_update_text,
+        },
+        pub static fn update_selection {
+            sig = (cursor_position: jint, anchor_position: jint) -> (),
+            fn = callback_update_selection,
         },
     },
 }
@@ -604,6 +616,15 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
+    pub fn hide_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.hide_action_menu(env))
+    }
+
+    /// Keeps the text selection menu from showing for a new selection while `deferred` is set.
+    pub fn defer_action_menu(&self, deferred: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.defer_action_menu(env, deferred))
+    }
+
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let text = JString::new(env, text)?;
@@ -692,6 +713,38 @@ fn callback_update_text<'local>(
     Ok(())
 }
 
+fn callback_update_selection<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    cursor_position: jint,
+    anchor_position: jint,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.show_cursor_handles.set(false);
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
+            {
+                let text_input = text_input.as_pin_ref();
+                let text = text_input.text();
+                let to_byte_offset =
+                    |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
+                text_input.set_selection_offsets(
+                    &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                    &focus_item,
+                    to_byte_offset(anchor_position),
+                    to_byte_offset(cursor_position),
+                );
+            }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
@@ -741,6 +794,7 @@ fn callback_move_cursor_handle<'local>(
                 .upgrade()
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    adaptor.show_cursor_handles.set(true);
                     let scale_factor = adaptor.window.scale_factor();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input

@@ -92,6 +92,11 @@ struct FencedFlip {
 
 impl DrmOutput {
     pub fn new(device_opener: &DeviceOpener) -> Result<Self, PlatformError> {
+        // A lease only holds its own connector, so skip the /dev/dri scan and SLINT_DRM_OUTPUT.
+        if let Some(lease_fd) = device_opener.lease_fd() {
+            return Self::new_from_drm_device(SharedFd(lease_fd), false);
+        }
+
         let mut last_err = None;
         if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
             for device in drm_devices {
@@ -110,13 +115,20 @@ impl DrmOutput {
         device_opener: &DeviceOpener,
         device: &std::path::Path,
     ) -> Result<Self, PlatformError> {
-        let drm_device = SharedFd(device_opener(device)?);
+        Self::new_from_drm_device(SharedFd(device_opener.open(device)?), true)
+    }
 
+    fn new_from_drm_device(
+        drm_device: SharedFd,
+        honor_output_env: bool,
+    ) -> Result<Self, PlatformError> {
         let resources = drm_device
             .resource_handles()
             .map_err(|e| format!("Error reading DRM resource handles: {e}"))?;
 
-        let connector = if let Ok(requested_connector_name) = std::env::var("SLINT_DRM_OUTPUT") {
+        let requested_connector_name =
+            honor_output_env.then(|| std::env::var("SLINT_DRM_OUTPUT").ok()).flatten();
+        let connector = if let Some(requested_connector_name) = requested_connector_name {
             let mut connectors = resources.connectors().iter().filter_map(|handle| {
                 let connector = drm_device.get_connector(*handle, false).ok()?;
                 let name =
@@ -163,25 +175,24 @@ impl DrmOutput {
                 .ok_or_else(|| "No connected display connector found".to_string())?
         };
 
+        let encoder = connector
+            .current_encoder()
+            .filter(|current| connector.encoders().contains(current))
+            .and_then(|current| drm_device.get_encoder(current).ok());
+
+        let current_crtc = match encoder {
+            Some(encoder) => Some(encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?),
+            None => None,
+        };
+        let current_mode = current_crtc.and_then(|crtc| drm_device.get_crtc(crtc).ok()?.mode());
+
         let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
             |_| {
-                connector
-                    .modes()
-                    .iter()
-                    // Displays often list their native size several times, down to the
-                    // 24 Hz of film, and don't always mark one of them as preferred.
-                    .max_by_key(|mode| {
-                        (
-                            mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                            mode.size().0 as u32 * mode.size().1 as u32,
-                            refresh_rate_millihertz(mode),
-                        )
-                    })
-                    .cloned()
+                select_default_mode(connector.modes(), current_mode)
                     .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
-                let mut modes_and_index = connector.modes().iter().cloned().enumerate();
+                let modes_and_index = connector.modes().iter().cloned().enumerate();
 
                 if mode_str.to_lowercase() == "list" {
                     let mode_names: Vec<String> = modes_and_index
@@ -198,26 +209,12 @@ impl DrmOutput {
                     eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode with the SLINT_DRM_MODE environment variable and re-run the program.", mode_names.join("\n"));
                     std::process::exit(1);
                 }
-                let mode_index: usize =
-                    mode_str.parse().map_err(|_| {
-                        format!(
-                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
-                        )
-                    })?;
-                modes_and_index.nth(mode_index).map_or_else(
-                    || Err(format!("Mode index is out of bounds: {mode_index}")),
-                    |(_, mode)| Ok(mode),
-                )
+                select_requested_mode(connector.modes(), &mode_str)
             },
         )?;
 
-        let encoder = connector
-            .current_encoder()
-            .filter(|current| connector.encoders().contains(current))
-            .and_then(|current| drm_device.get_encoder(current).ok());
-
-        let crtc = if let Some(encoder) = encoder {
-            encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?
+        let crtc = if let Some(crtc) = current_crtc {
+            crtc
         } else {
             // No crtc found for current encoder? Pick the first possible crtc
             // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
@@ -583,3 +580,83 @@ fn refresh_rate_millihertz(mode: &drm::control::Mode) -> u32 {
     // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
     ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
 }
+
+/// Weston chooses in the same order.
+fn select_default_mode(
+    modes: &[drm::control::Mode],
+    current_mode: Option<drm::control::Mode>,
+) -> Option<drm::control::Mode> {
+    let largest_and_fastest = |mode: &&drm::control::Mode| {
+        (mode.size().0 as u32 * mode.size().1 as u32, refresh_rate_millihertz(mode))
+    };
+    modes
+        .iter()
+        .filter(|mode| mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED))
+        .max_by_key(largest_and_fastest)
+        .or(current_mode.as_ref())
+        // Displays often list their native size several times, down to the
+        // 24 Hz of film, and don't always mark one of them as preferred.
+        .or_else(|| modes.iter().max_by_key(largest_and_fastest))
+        .copied()
+}
+
+fn select_requested_mode(
+    modes: &[drm::control::Mode],
+    mode_str: &str,
+) -> Result<drm::control::Mode, String> {
+    if let Ok(mode_index) = mode_str.parse::<usize>() {
+        return modes
+            .get(mode_index)
+            .copied()
+            .map_or_else(|| Err(format!("Mode index is out of bounds: {mode_index}")), Ok);
+    }
+
+    let (size, refresh_rate) = match mode_str.split_once('@') {
+        Some((size, refresh_rate)) => (
+            size,
+            Some(refresh_rate.parse::<u32>().map_err(|_| {
+                format!("Invalid refresh rate in SLINT_DRM_MODE value '{mode_str}'")
+            })?),
+        ),
+        None => (mode_str, None),
+    };
+    let (width, height) = size.split_once('x').ok_or_else(|| {
+        format!(
+            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index, WIDTHxHEIGHT, WIDTHxHEIGHT@HZ, or 'list'"
+        )
+    })?;
+    let requested_size = (
+        width
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid width in SLINT_DRM_MODE value '{mode_str}'"))?,
+        height
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid height in SLINT_DRM_MODE value '{mode_str}'"))?,
+    );
+
+    modes
+        .iter()
+        .filter(|mode| {
+            mode.size() == requested_size
+                && refresh_rate.is_none_or(|refresh_rate| mode.vrefresh() == refresh_rate)
+        })
+        .max_by_key(|mode| {
+            (
+                mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
+                refresh_rate_millihertz(mode),
+            )
+        })
+        .cloned()
+        .ok_or_else(|| {
+            let (width, height) = requested_size;
+            match refresh_rate {
+                Some(refresh_rate) => {
+                    format!("Requested DRM mode {width}x{height}@{refresh_rate} is not available")
+                }
+                None => format!("Requested DRM mode {width}x{height} is not available"),
+            }
+        })
+}
+
+#[cfg(test)]
+mod mode_tests;

@@ -6,13 +6,15 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
-use crate::lengths::{PhysicalPx, ScaleFactor};
+use crate::lengths::{LogicalSize, PhysicalPx, ScaleFactor};
 use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 mod animated;
 #[cfg(any(
@@ -292,13 +294,24 @@ fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
     }
 }
 
+/// A pixel of an alpha map of `color`, with its alpha premultiplied.
+fn premultiplied_alpha_map_pixel(alpha: u8, color: crate::graphics::RgbaColor<u8>) -> Rgba8Pixel {
+    let a = alpha as u32 * color.alpha as u32;
+    Rgba8Pixel {
+        r: (color.red as u32 * a / (255 * 255)) as u8,
+        g: (color.green as u32 * a / (255 * 255)) as u8,
+        b: (color.blue as u32 * a / (255 * 255)) as u8,
+        a: (a / 255) as u8,
+    }
+}
+
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.
 ///
 /// The SharedImageBuffer's variants represent the different common formats for encoding
 /// images in pixels.
 #[derive(Clone, Debug)]
 #[repr(C)]
-/// TODO: Make this non_exhaustive before making the type public!
+#[non_exhaustive]
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
     /// and blue) and each channel is encoded as unsigned byte.
@@ -325,6 +338,13 @@ pub enum SharedImageBuffer {
     /// This variant is only available with the `image-pixel-format-gray8` feature.
     #[cfg(feature = "image-pixel-format-gray8")]
     Gray8(SharedPixelBuffer<Gray8Pixel>),
+    /// This variant holds an alpha map: each pixel is the opacity of `color`, encoded as
+    /// unsigned byte.
+    ///
+    /// This variant is only available with the internal `image-pixel-format-alpha-map` feature.
+    #[doc(hidden)]
+    #[cfg(feature = "image-pixel-format-alpha-map")]
+    AlphaMap { alpha: SharedPixelBuffer<u8>, color: crate::Color },
 }
 
 impl SharedImageBuffer {
@@ -351,6 +371,8 @@ impl SharedImageBuffer {
             Self::RGB565(buffer) => buffer.size(),
             #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(buffer) => buffer.size(),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            Self::AlphaMap { alpha, .. } => alpha.size(),
         }
     }
 }
@@ -374,6 +396,10 @@ impl PartialEq for SharedImageBuffer {
             #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(lhs_buffer) => {
                 matches!(other, Self::Gray8(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
+            }
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            Self::AlphaMap { alpha: lhs_alpha, color: lhs_color } => {
+                matches!(other, Self::AlphaMap { alpha: rhs_alpha, color: rhs_color } if lhs_alpha.data.as_ptr().eq(&rhs_alpha.data.as_ptr()) && lhs_color == rhs_color)
             }
         }
     }
@@ -508,7 +534,7 @@ impl ImageCacheKey {
                 Self::from_embedded_image_data(textures.data.as_slice())
             }
             #[cfg(feature = "svg")]
-            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
+            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key().clone(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
@@ -661,6 +687,8 @@ impl ImageInner {
             ImageInner::EmbeddedImage { cache_key, .. } => cache_key.path(),
             ImageInner::AnimatedImage(animated) => animated.source_cache_key().path(),
             ImageInner::NineSlice(nine) => nine.0.path(),
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => svg.cache_key().path(),
             _ => None,
         }
     }
@@ -728,15 +756,8 @@ impl ImageInner {
                             }
                             TexturePixelFormat::AlphaMap => {
                                 let col = t.color.to_argb_u8();
-                                let mut iter = source.iter().map(|p| {
-                                    let a = *p as u32 * col.alpha as u32;
-                                    Rgba8Pixel {
-                                        r: (col.red as u32 * a / (255 * 255)) as u8,
-                                        g: (col.green as u32 * a / (255 * 255)) as u8,
-                                        b: (col.blue as u32 * a / (255 * 255)) as u8,
-                                        a: (a / 255) as u8,
-                                    }
-                                });
+                                let mut iter =
+                                    source.iter().map(|p| premultiplied_alpha_map_pixel(*p, col));
                                 slice.fill_with(|| iter.next().unwrap());
                             }
                             #[cfg(feature = "image-pixel-format-gray8")]
@@ -1166,6 +1187,8 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => Some(map_pixels(buffer)),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => Some(map_pixels(buffer)),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { .. } => None,
         })
     }
 
@@ -1196,6 +1219,19 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { alpha, color } => {
+                let col = color.to_argb_u8();
+                let data = alpha
+                    .data
+                    .iter()
+                    .map(|a| {
+                        let a = (*a as u16 * col.alpha as u16 / 255) as u8;
+                        Rgba8Pixel::new(col.red, col.green, col.blue, a)
+                    })
+                    .collect();
+                SharedPixelBuffer { width: alpha.width, height: alpha.height, data }
+            }
         })
     }
 
@@ -1220,6 +1256,13 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedImageBuffer::AlphaMap { alpha, color } => {
+                let col = color.to_argb_u8();
+                let data =
+                    alpha.data.iter().map(|a| premultiplied_alpha_map_pixel(*a, col)).collect();
+                SharedPixelBuffer { width: alpha.width, height: alpha.height, data }
+            }
         })
     }
 
@@ -1600,6 +1643,16 @@ fn test_image_size_from_svg() {
     assert_eq!(image.to_rgba8().unwrap().size(), image.size());
 }
 
+#[cfg(all(feature = "svg", feature = "image-decoders"))]
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_image_path_of_svg() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../demos/printerdemo/ui/images/back.svg");
+    let image = Image::load_from_path(&path).unwrap();
+    assert_eq!(image.path(), Some(path.as_path()));
+}
+
 #[cfg(feature = "svg")]
 #[test]
 // memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
@@ -1879,6 +1932,87 @@ pub fn scalable_render_size(
     (!size.is_empty()).then_some(size)
 }
 
+/// The pixel size to rasterize a scalable image (an SVG) at when a transform, such as `transform-scale`, magnifies it by `transform_scale`.
+/// The other arguments are those of [`scalable_render_size`], which gives the size without that transform,
+/// except that `target_size` is the element's logical size.
+/// Scaling up the image rasterized at that size would make it look blocky.
+///
+/// The magnification is rounded up to a power of two,
+/// so that animating the scale rarely requires rasterizing the image again.
+/// The result stays within 2048 pixels on its longest side, a texture size that GPUs commonly support.
+/// Use [`svg_needs_rasterizing_again`] to tell whether a cached rasterization is too small for it.
+pub fn transformed_scalable_render_size(
+    source_size: IntSize,
+    image_fit: ImageFit,
+    target_size: LogicalSize,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+    transform_scale: f32,
+) -> Option<euclid::Size2D<u32, PhysicalPx>> {
+    let render_size = scalable_render_size(
+        source_size,
+        image_fit,
+        target_size.cast::<f32>() * scale_factor,
+        scale_factor,
+        tiling,
+    )?;
+    Some(magnified_render_size(render_size, transform_scale))
+}
+
+/// The factor by which a transform magnifies in the direction where it magnifies the most:
+/// the largest singular value of its linear part `[a b; c d]`.
+pub fn transform_max_scale(a: f32, b: f32, c: f32, d: f32) -> f32 {
+    let sum_of_squares = a * a + b * b + c * c + d * d;
+    let determinant = a * d - b * c;
+    let discriminant = sum_of_squares * sum_of_squares - 4. * determinant * determinant;
+    ((sum_of_squares + discriminant.max(0.).sqrt()) / 2.).sqrt()
+}
+
+/// Whether `image`, an SVG rasterized at `cached` pixels, is too small for a transform that
+/// magnifies it by `transform_scale`; the other arguments are those of
+/// [`transformed_scalable_render_size`]. Always `false` for an image that isn't scalable.
+///
+/// Rasterizing keeps the image's aspect ratio, so for the same magnification the rasterized image
+/// can be smaller than the wanted size in one direction;
+/// only one rasterized for a smaller magnification is smaller in both.
+pub fn svg_needs_rasterizing_again(
+    cached: IntSize,
+    image: &Image,
+    image_fit: ImageFit,
+    target_size: LogicalSize,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+    transform_scale: f32,
+) -> bool {
+    if transform_scale <= 1. || !<&ImageInner>::from(image).is_svg() {
+        return false;
+    }
+    transformed_scalable_render_size(
+        image.size(),
+        image_fit,
+        target_size,
+        scale_factor,
+        tiling,
+        transform_scale,
+    )
+    .is_some_and(|wanted| cached.width < wanted.width && cached.height < wanted.height)
+}
+
+fn magnified_render_size(
+    render_size: euclid::Size2D<u32, PhysicalPx>,
+    transform_scale: f32,
+) -> euclid::Size2D<u32, PhysicalPx> {
+    const MAX_MAGNIFIED_SIZE: f32 = 2048.;
+    if transform_scale.is_nan() || transform_scale <= 1. {
+        return render_size;
+    }
+    // Tolerate rounding errors in the transform, so that a scale of 2 doesn't become 4.
+    let power_of_two = (transform_scale.log2() - 0.001).ceil().exp2();
+    let longest_side = render_size.width.max(render_size.height) as f32;
+    let scale = power_of_two.min(MAX_MAGNIFIED_SIZE / longest_side);
+    if scale > 1. { (render_size.cast::<f32>() * scale).round().cast() } else { render_size }
+}
+
 /// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
@@ -2140,6 +2274,24 @@ mod tests {
         // Four bytes per pixel read as three, the same mistake the other way around.
         let rgba = [0u8; 8 * 8 * 4];
         SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::clone_from_slice(&rgba, 8, 8);
+    }
+
+    #[test]
+    fn test_magnified_render_size() {
+        use super::magnified_render_size;
+        let size = |width, height| euclid::size2::<u32, crate::lengths::PhysicalPx>(width, height);
+        // Without magnification, the image is rasterized at its usual size.
+        assert_eq!(magnified_render_size(size(100, 50), 1.), size(100, 50));
+        assert_eq!(magnified_render_size(size(100, 50), 0.5), size(100, 50));
+        assert_eq!(magnified_render_size(size(100, 50), f32::NAN), size(100, 50));
+        // The magnification is rounded up to a power of two, ignoring rounding errors.
+        assert_eq!(magnified_render_size(size(100, 50), 2.), size(200, 100));
+        assert_eq!(magnified_render_size(size(100, 50), 2.000_001), size(200, 100));
+        assert_eq!(magnified_render_size(size(100, 50), 3.), size(400, 200));
+        // It stops at 2048 pixels on the longest side...
+        assert_eq!(magnified_render_size(size(1000, 500), 4.), size(2048, 1024));
+        // ...but never shrinks an image that's already larger.
+        assert_eq!(magnified_render_size(size(3000, 100), 4.), size(3000, 100));
     }
 
     #[test]

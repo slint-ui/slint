@@ -746,7 +746,7 @@ export component Win inherits Window {
         refresh();
         assert!(!editor.global::<ui::InlineTextEdit>().get_active());
         assert!(begin().success);
-        super::super::reset_project_state(path.to_url().unwrap());
+        super::super::reset_project_state(path.to_url());
         let global = editor.global::<ui::InlineTextEdit>();
         assert!(!global.get_active());
         assert!(!global.get_commit_pending());

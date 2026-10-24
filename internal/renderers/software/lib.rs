@@ -16,6 +16,7 @@ extern crate alloc;
 extern crate std;
 
 pub mod api;
+mod box_shadow;
 mod draw_functions;
 mod fixed;
 mod fonts;
@@ -25,6 +26,7 @@ mod path;
 mod scene;
 
 pub use self::api::*;
+use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
 use self::fonts::GlyphRenderer;
 use self::scene::*;
 use alloc::rc::Rc;
@@ -36,6 +38,7 @@ use fixed::Fixed;
 use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::RefreshMode;
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
@@ -1090,6 +1093,13 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    fn register_shared_bitmap_font(
+        &self,
+        font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>>,
+    ) {
+        fonts::register_shared_bitmap_font(font);
+    }
+
     #[cfg(feature = "systemfonts")]
     fn register_font_from_memory(
         &self,
@@ -1203,7 +1213,7 @@ fn parley_disabled() -> bool {
 /// `text_input_has_parley_layout` reports, and it has to be the one that was drawn.
 #[cfg(feature = "systemfonts")]
 fn uses_parley(font: &fonts::Font) -> bool {
-    matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled()
+    matches!(font, fonts::Font::Vector(_)) && !parley_disabled()
 }
 
 /// The paragraph layout the cursor and hit-testing queries measure against.
@@ -1268,7 +1278,7 @@ fn render_window_frame_by_line(
                     let first_cover = items.iter().position(|span| {
                         span.pos.x <= r.start
                             && span.pos.x + span.size.width >= r.end
-                            && scene.is_guaranteed_opaque(&span.command)
+                            && scene.covers_line(span)
                     });
                     let items = match first_cover {
                         Some(i) => &items[..=i],
@@ -1373,6 +1383,16 @@ fn render_window_frame_by_line(
                                     extra_right_clip,
                                 );
                             }
+                            SceneCommand::BoxShadow { box_shadow_index } => {
+                                let shadow = &scene.vectors.box_shadows[box_shadow_index as usize];
+                                box_shadow::draw_box_shadow_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    shadow,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
                         }
                     }
                 },
@@ -1468,6 +1488,7 @@ fn prepare_scene(
 
 trait ProcessScene {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand);
     fn process_target_texture(
         &mut self,
         texture: &target_pixel_buffer::DrawTextureArgs,
@@ -1480,13 +1501,14 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand);
     #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        color: PremultipliedRgbaColor,
+        paint: path::Paint,
     );
     #[cfg(feature = "path")]
     fn process_stroked_path(
@@ -1494,7 +1516,7 @@ trait ProcessScene {
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        color: PremultipliedRgbaColor,
+        paint: path::Paint,
         stroke_style: path::StrokeStyle<'_>,
     );
 }
@@ -1507,10 +1529,6 @@ fn process_rectangle_impl(
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
-    let geom_w = geom.width();
-    let geom_h = geom.height();
-    let (item_w, item_h) =
-        if args.rotation.is_transpose() { (geom_h, geom_w) } else { (geom_w, geom_h) };
     let radius = PhysicalBorderRadius {
         top_left: args.top_left_radius as _,
         top_right: args.top_right_radius as _,
@@ -1519,7 +1537,7 @@ fn process_rectangle_impl(
         _unit: Default::default(),
     };
     // Add a small value to make sure that the clip is always positive despite floating point
-    // issues
+    // issues. A clip past `i16::MAX` saturates, which is still larger than any radius or border.
     const E: f32 = 0.00001;
     let rounded_shape = RoundedShape {
         radius,
@@ -1537,187 +1555,25 @@ fn process_rectangle_impl(
         shape: rounded_shape,
         opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
     };
-    let radial_conic_rect: PhysicalRect = clipped.round().cast();
-    let to_rect_center = |x: f32, y: f32| {
-        let (cx, cy) = match args.rotation {
-            RenderingRotation::NoRotation => (x, y),
-            RenderingRotation::Rotate90 => (geom_w - y, x),
-            RenderingRotation::Rotate180 => (geom_w - x, geom_h - y),
-            RenderingRotation::Rotate270 => (y, geom_h - x),
-        };
-        (
-            geom.min_x() + cx - radial_conic_rect.min_x() as f32,
-            geom.min_y() + cy - radial_conic_rect.min_y() as f32,
-        )
+    let fill = gradient_commands(
+        &args.background,
+        args.alpha,
+        args.rotation,
+        geom,
+        clipped,
+        gradient_clip,
+        scale_factor,
+        &mut |rect, gradient| match gradient {
+            AnyGradientCommand::Linear(g) => processor.process_linear_gradient(rect, g),
+            AnyGradientCommand::Radial(g) => processor.process_radial_gradient(rect, g),
+            AnyGradientCommand::Conic(g) => processor.process_conic_gradient(rect, g),
+        },
+    );
+
+    let color = match fill {
+        BrushFill::Solid(color) => PremultipliedRgbaColor::from(color),
+        BrushFill::Gradient => PremultipliedRgbaColor::default(),
     };
-
-    let color = if let Brush::LinearGradient(g) = &args.background
-        && g.stops().nth(1).is_some()
-    {
-        let angle = g.angle() + args.rotation.angle();
-        let axis_angle = (angle % 180. + 180.) % 180.;
-        let tan = angle.to_radians().tan().abs();
-        // f32 `tan` of 90° is finite, so a horizontal gradient is detected from the angle.
-        let start = if axis_angle == 90. {
-            255
-        } else {
-            let h = tan * geom.width();
-            (255. * h / (h + geom.height())) as u8
-        };
-        let mut angle = angle as i32 % 360;
-        if angle < 0 {
-            angle += 360;
-        }
-        let invert_slope = (angle % 180) > 90;
-        let reversed = angle <= 90 || angle > 270;
-        let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
-
-        let act_rect: PhysicalRect = clipped.round().cast();
-        let act = act_rect.to_i32();
-        let clip_length = |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
-        let anchored_band = |origin: f32, extent: f32, from: f32, to: f32| {
-            ((origin + extent * from).floor() as i32, (origin + extent * to).floor() as i32)
-        };
-
-        // Returns false when the segment is too thin to get a band.
-        let mut draw_segment = |mut s1: GradientStop, mut s2: GradientStop, first, last| {
-            if reversed {
-                core::mem::swap(&mut s1, &mut s2);
-                s1.position = 1. - s1.position;
-                s2.position = 1. - s2.position;
-            }
-            let mut flags = if invert_slope { 0b1 } else { 0 };
-            if first {
-                flags |= fill_first;
-            }
-            if last {
-                flags |= fill_last;
-            }
-
-            // At a `start` of 0 or 255 a band has no slope, so both ends are rounded from the
-            // geometry's origin and adjacent bands meet. Otherwise `draw_linear_gradient` derives
-            // the slope from the band's rounded size, and each end is rounded from its own edge.
-            let (band_left, band_right) = if start == 255 {
-                anchored_band(geom.min_x(), geom.width(), 1. - s2.position, 1. - s1.position)
-            } else {
-                let (adjust_left, adjust_right) = if invert_slope {
-                    (
-                        (geom.width() * s1.position).floor() as i32,
-                        (geom.width() * (1. - s2.position)).ceil() as i32,
-                    )
-                } else {
-                    (
-                        (geom.width() * (1. - s2.position)).ceil() as i32,
-                        (geom.width() * s1.position).floor() as i32,
-                    )
-                };
-                (
-                    act.min_x() - (clipped.min_x() - geom.min_x()) as i32 + adjust_left,
-                    act.max_x() + (geom.max_x() - clipped.max_x()) as i32 - adjust_right,
-                )
-            };
-            let (band_top, band_bottom) = if start == 0 {
-                anchored_band(geom.min_y(), geom.height(), s1.position, s2.position)
-            } else {
-                (
-                    act.min_y() - (clipped.min_y() - geom.min_y()) as i32
-                        + (geom.height() * s1.position).floor() as i32,
-                    act.max_y() + (geom.max_y() - clipped.max_y()) as i32
-                        - (geom.height() * (1. - s2.position)).ceil() as i32,
-                )
-            };
-            if band_right <= band_left || band_bottom <= band_top {
-                return false;
-            }
-
-            let gr = LinearGradientCommand {
-                color1: s1.color.into(),
-                color2: s2.color.into(),
-                start,
-                flags,
-                top_clip: clip_length(act.min_y() - band_top),
-                bottom_clip: clip_length(band_bottom - act.max_y()),
-                left_clip: clip_length(act.min_x() - band_left),
-                right_clip: clip_length(band_right - act.max_x()),
-                clip: gradient_clip,
-            };
-            processor.process_linear_gradient(act_rect, gr);
-            true
-        };
-
-        let mut stops = g
-            .stops()
-            .copied()
-            .map(|mut s| {
-                s.color = alpha_color(s.color, args.alpha);
-                s
-            })
-            .peekable();
-        let stop_count = g.stops().count();
-        let mut idx = 0;
-        while let (Some(s1), Some(s2)) = (stops.next(), stops.peek().copied()) {
-            let first = idx == 0;
-            let last = idx == stop_count - 2;
-            idx += 1;
-            // Rounding can give stops at the same position a 1px band, and its slope wouldn't
-            // match the neighboring bands'.
-            if s1.position >= s2.position || !draw_segment(s1, s2, first, last) {
-                // The first and last segments still fill to the edge, so draw their outer color
-                // as a solid segment up to the stop.
-                if first {
-                    draw_segment(GradientStop { position: 0., ..s1 }, s1, true, false);
-                }
-                if last {
-                    draw_segment(s2, GradientStop { position: 1., ..s2 }, false, true);
-                }
-            }
-        }
-        Color::default()
-    } else if let Brush::RadialGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
-        let (center_x, center_y) = to_rect_center(cx, cy);
-        let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
-
-        let radial_grad = RadialGradientCommand {
-            stops: g
-                .stops()
-                .map(|s| PremultipliedGradientStop {
-                    color: alpha_color(s.color, args.alpha).into(),
-                    position: s.position,
-                })
-                .collect(),
-            center_x,
-            center_y,
-            radius: gradient_radius,
-            clip: gradient_clip,
-        };
-
-        processor.process_radial_gradient(radial_conic_rect, radial_grad);
-        Color::default()
-    } else if let Brush::ConicGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
-        let (center_x, center_y) = to_rect_center(cx, cy);
-        let conic_grad = ConicGradientCommand {
-            stops: g
-                .stops()
-                .map(|s| PremultipliedGradientStop {
-                    color: alpha_color(s.color, args.alpha).into(),
-                    position: s.position,
-                })
-                .collect(),
-            center_x,
-            center_y,
-            clip: gradient_clip,
-            rotation: args.rotation.angle().to_radians(),
-        };
-
-        processor.process_conic_gradient(radial_conic_rect, conic_grad);
-        Color::default()
-    } else {
-        alpha_color(args.background.color(), args.alpha)
-    };
-
-    let color = PremultipliedRgbaColor::from(color);
     if border_color.alpha > 0 && border_color.alpha < 255 {
         // Find a color for the border which is an equivalent to blend the background and then the border.
         // In the end, the resulting of blending the background and the color is
@@ -1751,25 +1607,242 @@ fn process_rectangle_impl(
         return;
     }
 
-    if color.alpha > 0
-        && let Some(r) =
-            geom.round().cast().inflate(-border.get(), -border.get()).intersection(clip)
-    {
-        processor.process_simple_rectangle(r, color);
+    // `cast` panics past the `i16` range, while `as` saturates and keeps a far edge far away.
+    let b = border.get();
+    let g = geom.round().to_box2d();
+    let outer = euclid::Box2D::<i16, PhysicalPx>::new(
+        euclid::point2(g.min.x as i16, g.min.y as i16),
+        euclid::point2(g.max.x as i16, g.max.y as i16),
+    );
+    let inner = euclid::Box2D::new(
+        euclid::point2(outer.min.x.saturating_add(b), outer.min.y.saturating_add(b)),
+        euclid::point2(outer.max.x.saturating_sub(b), outer.max.y.saturating_sub(b)),
+    );
+    let clip = clip.to_box2d();
+    let mut fill = |r: euclid::Box2D<i16, PhysicalPx>, color| {
+        if let Some(r) = r.intersection(&clip) {
+            processor.process_simple_rectangle(r.to_rect(), color);
+        }
+    };
+    if color.alpha > 0 {
+        fill(inner, color);
     }
-
     if border_color.alpha > 0 {
-        let mut add_border = |r: PhysicalRect| {
-            if let Some(r) = r.intersection(clip) {
-                processor.process_simple_rectangle(r, border_color);
-            }
+        fill(euclid::Box2D::new(outer.min, euclid::point2(outer.max.x, inner.min.y)), border_color);
+        fill(euclid::Box2D::new(euclid::point2(outer.min.x, inner.max.y), outer.max), border_color);
+        fill(
+            euclid::Box2D::new(
+                euclid::point2(outer.min.x, inner.min.y),
+                euclid::point2(inner.min.x, inner.max.y),
+            ),
+            border_color,
+        );
+        fill(
+            euclid::Box2D::new(
+                euclid::point2(inner.max.x, inner.min.y),
+                euclid::point2(outer.max.x, inner.max.y),
+            ),
+            border_color,
+        );
+    }
+}
+
+/// What [`gradient_commands`] fills a shape with.
+enum BrushFill {
+    Solid(Color),
+    /// The gradient's commands went to the sink.
+    Gradient,
+}
+
+fn gradient_commands(
+    brush: &Brush,
+    alpha: u8,
+    rotation: RenderingRotation,
+    gradient_box: euclid::Rect<f32, PhysicalPx>,
+    draw_rect: euclid::Rect<f32, PhysicalPx>,
+    clip: GradientClip,
+    scale_factor: ScaleFactor,
+    sink: &mut dyn FnMut(PhysicalRect, AnyGradientCommand),
+) -> BrushFill {
+    let box_w = gradient_box.width();
+    let box_h = gradient_box.height();
+    let (item_w, item_h) = if rotation.is_transpose() { (box_h, box_w) } else { (box_w, box_h) };
+    let alpha_stop = |s: &GradientStop| GradientStop { color: alpha_color(s.color, alpha), ..*s };
+    let rect: PhysicalRect = draw_rect.round().cast();
+    let to_rect_center = |x: f32, y: f32| {
+        let (cx, cy) = match rotation {
+            RenderingRotation::NoRotation => (x, y),
+            RenderingRotation::Rotate90 => (box_w - y, x),
+            RenderingRotation::Rotate180 => (box_w - x, box_h - y),
+            RenderingRotation::Rotate270 => (y, box_h - x),
         };
-        let b = border.get();
-        let g = geom.round().cast();
-        add_border(euclid::rect(g.min_x(), g.min_y(), g.width(), b));
-        add_border(euclid::rect(g.min_x(), g.min_y() + g.height() - b, g.width(), b));
-        add_border(euclid::rect(g.min_x(), g.min_y() + b, b, g.height() - b - b));
-        add_border(euclid::rect(g.min_x() + g.width() - b, g.min_y() + b, b, g.height() - b - b));
+        (
+            gradient_box.min_x() + cx - rect.min_x() as f32,
+            gradient_box.min_y() + cy - rect.min_y() as f32,
+        )
+    };
+
+    match brush {
+        Brush::LinearGradient(g) if g.stops().nth(1).is_some() => {
+            let angle = g.angle() + rotation.angle();
+            let axis_angle = (angle % 180. + 180.) % 180.;
+            let tan = angle.to_radians().tan().abs();
+            // f32 `tan` of 90° is finite, so a horizontal gradient is detected from the angle.
+            let start = if axis_angle == 90. {
+                255
+            } else {
+                let h = tan * gradient_box.width();
+                (255. * h / (h + gradient_box.height())) as u8
+            };
+            let mut angle = angle as i32 % 360;
+            if angle < 0 {
+                angle += 360;
+            }
+            let invert_slope = (angle % 180) > 90;
+            let reversed = angle <= 90 || angle > 270;
+            let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
+
+            let act = rect.to_i32();
+            let snapped_box = gradient_box.round().to_i32();
+            let clip_length =
+                |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
+            let anchored_band = |origin: f32, extent: f32, from: f32, to: f32| {
+                ((origin + extent * from).floor() as i32, (origin + extent * to).floor() as i32)
+            };
+
+            // Returns false when the segment is too thin to get a band.
+            let mut draw_segment = |mut s1: GradientStop, mut s2: GradientStop, first, last| {
+                if reversed {
+                    core::mem::swap(&mut s1, &mut s2);
+                    s1.position = 1. - s1.position;
+                    s2.position = 1. - s2.position;
+                }
+                let mut flags = if invert_slope { 0b1 } else { 0 };
+                if first {
+                    flags |= fill_first;
+                }
+                if last {
+                    flags |= fill_last;
+                }
+
+                // At a `start` of 0 or 255 a band has no slope, so both ends are rounded from
+                // the geometry's origin and adjacent bands meet. Otherwise `draw_linear_gradient`
+                // derives the slope from the band's rounded size, and each end is rounded from
+                // its own edge.
+                let (band_left, band_right) = if start == 255 {
+                    anchored_band(
+                        gradient_box.min_x(),
+                        gradient_box.width(),
+                        1. - s2.position,
+                        1. - s1.position,
+                    )
+                } else {
+                    let (adjust_left, adjust_right) = if invert_slope {
+                        (
+                            (gradient_box.width() * s1.position).floor() as i32,
+                            (gradient_box.width() * (1. - s2.position)).ceil() as i32,
+                        )
+                    } else {
+                        (
+                            (gradient_box.width() * (1. - s2.position)).ceil() as i32,
+                            (gradient_box.width() * s1.position).floor() as i32,
+                        )
+                    };
+                    (snapped_box.min_x() + adjust_left, snapped_box.max_x() - adjust_right)
+                };
+                let (band_top, band_bottom) = if start == 0 {
+                    anchored_band(
+                        gradient_box.min_y(),
+                        gradient_box.height(),
+                        s1.position,
+                        s2.position,
+                    )
+                } else {
+                    (
+                        snapped_box.min_y() + (gradient_box.height() * s1.position).floor() as i32,
+                        snapped_box.max_y()
+                            - (gradient_box.height() * (1. - s2.position)).ceil() as i32,
+                    )
+                };
+                if band_right <= band_left || band_bottom <= band_top {
+                    return false;
+                }
+
+                let gr = LinearGradientCommand {
+                    color1: s1.color.into(),
+                    color2: s2.color.into(),
+                    start,
+                    flags,
+                    top_clip: clip_length(act.min_y() - band_top),
+                    bottom_clip: clip_length(band_bottom - act.max_y()),
+                    left_clip: clip_length(act.min_x() - band_left),
+                    right_clip: clip_length(band_right - act.max_x()),
+                    clip,
+                };
+                sink(rect, AnyGradientCommand::Linear(gr));
+                true
+            };
+
+            let mut stops = g.stops().map(alpha_stop).peekable();
+            let stop_count = g.stops().count();
+            let mut idx = 0;
+            while let (Some(s1), Some(s2)) = (stops.next(), stops.peek().copied()) {
+                let first = idx == 0;
+                let last = idx == stop_count - 2;
+                idx += 1;
+                // Rounding can give stops at the same position a 1px band, and its slope wouldn't
+                // match the neighboring bands'.
+                if s1.position >= s2.position || !draw_segment(s1, s2, first, last) {
+                    // The first and last segments still fill to the edge, so draw their outer
+                    // color as a solid segment up to the stop.
+                    if first {
+                        draw_segment(GradientStop { position: 0., ..s1 }, s1, true, false);
+                    }
+                    if last {
+                        draw_segment(s2, GradientStop { position: 1., ..s2 }, false, true);
+                    }
+                }
+            }
+            BrushFill::Gradient
+        }
+        Brush::RadialGradient(g) if g.stops().nth(1).is_some() => {
+            let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+            let (center_x, center_y) = to_rect_center(cx, cy);
+            let (rx, ry) = g.radii_or_default_scaled(item_w, item_h, scale_factor.get());
+            let (radius_x, radius_y) = if rotation.is_transpose() { (ry, rx) } else { (rx, ry) };
+
+            let radial_grad = RadialGradientCommand {
+                stops: PremultipliedGradientStop::collect(
+                    g.stops().map(|s| (alpha_color(s.color, alpha).into(), s.position)),
+                ),
+                center_x,
+                center_y,
+                radius_x,
+                radius_y,
+                clip,
+            };
+
+            sink(rect, AnyGradientCommand::Radial(radial_grad));
+            BrushFill::Gradient
+        }
+        Brush::ConicGradient(g) if g.stops().nth(1).is_some() => {
+            let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+            let (center_x, center_y) = to_rect_center(cx, cy);
+            let conic_grad = ConicGradientCommand {
+                stops: PremultipliedGradientStop::collect(
+                    g.stops().map(|s| (alpha_color(s.color, alpha).into(), s.position)),
+                ),
+                center_x,
+                center_y,
+                clip,
+                rotation: rotation.angle().to_radians(),
+            };
+
+            sink(rect, AnyGradientCommand::Conic(conic_grad));
+            BrushFill::Gradient
+        }
+        Brush::SolidColor(color) => BrushFill::Solid(alpha_color(*color, alpha)),
+        _ => BrushFill::Solid(alpha_color(brush.color(), alpha)),
     }
 }
 
@@ -1842,6 +1915,10 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
 impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<'_, B> {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         self.process_texture_impl(geometry, texture);
+    }
+
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
+        self.process_texture_impl(geometry, command.as_texture());
     }
 
     fn process_target_texture(
@@ -1928,6 +2005,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
+            box_shadow::draw_box_shadow_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &shadow,
+                buffer,
+                extra_left_clip,
+            );
+        });
+    }
 
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -1935,9 +2023,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        color: PremultipliedRgbaColor,
+        paint: path::Paint,
     ) {
-        path::render_filled_path(&commands, &path_geometry, &clip_geometry, color, self.buffer);
+        path::render_filled_path(&commands, &path_geometry, &clip_geometry, &paint, self.buffer);
     }
 
     #[cfg(feature = "path")]
@@ -1946,14 +2034,14 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        color: PremultipliedRgbaColor,
+        paint: path::Paint,
         stroke_style: path::StrokeStyle<'_>,
     ) {
         path::render_stroked_path(
             &commands,
             &path_geometry,
             &clip_geometry,
-            color,
+            &paint,
             stroke_style,
             self.buffer,
         );
@@ -1968,6 +2056,17 @@ struct PrepareScene {
 }
 
 impl ProcessScene for PrepareScene {
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
+        let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+        self.vectors.shared_buffers.push(command);
+        self.items.push(SceneItem {
+            pos: geometry.origin,
+            size: geometry.size,
+            z: self.items.len() as u16,
+            command: SceneCommand::SharedBuffer { shared_buffer_index },
+        });
+    }
+
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
@@ -1989,36 +2088,27 @@ impl ProcessScene for PrepareScene {
         };
         match &texture.data {
             target_pixel_buffer::TextureDataContainer::Static(texture_data) => {
-                let texture_index = self.vectors.textures.len() as u16;
                 let pixel_stride =
                     (texture_data.byte_stride / texture_data.pixel_format.bpp()) as u16;
-                self.vectors.textures.push(SceneTexture {
-                    data: texture_data.data,
-                    format: texture_data.pixel_format,
-                    pixel_stride,
-                    extra,
-                });
-                self.items.push(SceneItem {
-                    pos: geometry.origin,
-                    size: geometry.size,
-                    z: self.items.len() as u16,
-                    command: SceneCommand::Texture { texture_index },
-                });
+                self.process_scene_texture(
+                    geometry,
+                    SceneTexture {
+                        data: texture_data.data,
+                        format: texture_data.pixel_format,
+                        pixel_stride,
+                        extra,
+                    },
+                );
             }
-            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => {
-                let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
-                self.vectors.shared_buffers.push(SharedBufferCommand {
-                    buffer: buffer.clone(),
-                    source_rect: *source_rect,
-                    extra,
-                });
-                self.items.push(SceneItem {
-                    pos: geometry.origin,
-                    size: geometry.size,
-                    z: self.items.len() as u16,
-                    command: SceneCommand::SharedBuffer { shared_buffer_index },
-                });
-            }
+            target_pixel_buffer::TextureDataContainer::Shared { buffer, source_rect } => self
+                .process_shared_buffer(
+                    geometry,
+                    SharedBufferCommand {
+                        buffer: buffer.clone(),
+                        source_rect: *source_rect,
+                        extra,
+                    },
+                ),
         }
     }
 
@@ -2093,6 +2183,19 @@ impl ProcessScene for PrepareScene {
             });
         }
     }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let box_shadow_index = self.vectors.box_shadows.len() as u16;
+            self.vectors.box_shadows.push(shadow);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::BoxShadow { box_shadow_index },
+            });
+        }
+    }
 
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -2100,7 +2203,7 @@ impl ProcessScene for PrepareScene {
         _path_geometry: PhysicalRect,
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
-        _color: PremultipliedRgbaColor,
+        _paint: path::Paint,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -2112,7 +2215,7 @@ impl ProcessScene for PrepareScene {
         _path_geometry: PhysicalRect,
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
-        _color: PremultipliedRgbaColor,
+        _paint: path::Paint,
         _stroke_style: path::StrokeStyle<'_>,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
@@ -2325,6 +2428,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    let colorize = if let SharedImageBuffer::AlphaMap { color, .. } = &buffer
+                        && colorize.alpha() == 0
+                    {
+                        *color
+                    } else {
+                        colorize
+                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {
@@ -2439,63 +2550,78 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         continue;
                     };
 
+                    if glyph.sdf {
+                        let geometry = clipped_target.translate(offset).round();
+                        let origin = (geometry.origin - offset.round()).round().cast::<i16>();
+                        let off_x = origin.x - target_rect.origin.x as i16;
+                        let off_y = origin.y - target_rect.origin.y as i16;
+                        let pixel_stride = glyph.pixel_stride;
+                        let mut geometry = geometry.cast();
+                        if geometry.size.width > glyph.width.get() - off_x {
+                            geometry.size.width = glyph.width.get() - off_x
+                        }
+                        if geometry.size.height > glyph.height.get() - off_y {
+                            geometry.size.height = glyph.height.get() - off_y
+                        }
+                        let source_size = geometry.size;
+                        if source_size.is_empty() {
+                            continue;
+                        }
+
+                        let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                        let normalize = |x: Fixed<i32, 8>| {
+                            if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
+                        };
+                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
+                        let off_x = delta32 * off_x as i32 + fract_x;
+                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
+                        let off_y = delta32 * off_y as i32 + fract_y;
+                        let extra = SceneTextureExtra {
+                            colorize: color,
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
+                            rotation: self.rotation.orientation,
+                            dx: scale_delta,
+                            dy: scale_delta,
+                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
+                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                        };
+                        let geometry = geometry.transformed(self.rotation);
+                        match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                self.processor.process_scene_texture(
+                                    geometry,
+                                    SceneTexture {
+                                        data,
+                                        pixel_stride,
+                                        format: TexturePixelFormat::SignedDistanceField,
+                                        extra,
+                                    },
+                                )
+                            }
+                            fonts::GlyphAlphaMap::Shared { .. }
+                            | fonts::GlyphAlphaMap::Rendered(_) => {
+                                let buffer = SharedBufferData::AlphaMap {
+                                    data: glyph.alpha_map.clone(),
+                                    width: pixel_stride,
+                                    sdf: true,
+                                };
+                                let source_rect = euclid::rect(
+                                    0,
+                                    0,
+                                    buffer.width() as i16,
+                                    buffer.height() as i16,
+                                );
+                                self.processor.process_shared_buffer(
+                                    geometry,
+                                    SharedBufferCommand { buffer, source_rect, extra },
+                                )
+                            }
+                        }
+                        continue;
+                    }
                     let data = match &glyph.alpha_map {
                         fonts::GlyphAlphaMap::Static(data) => {
-                            if glyph.sdf {
-                                let geometry = clipped_target.translate(offset).round();
-                                let origin =
-                                    (geometry.origin - offset.round()).round().cast::<i16>();
-                                let off_x = origin.x - target_rect.origin.x as i16;
-                                let off_y = origin.y - target_rect.origin.y as i16;
-                                let pixel_stride = glyph.pixel_stride;
-                                let mut geometry = geometry.cast();
-                                if geometry.size.width > glyph.width.get() - off_x {
-                                    geometry.size.width = glyph.width.get() - off_x
-                                }
-                                if geometry.size.height > glyph.height.get() - off_y {
-                                    geometry.size.height = glyph.height.get() - off_y
-                                }
-                                let source_size = geometry.size;
-                                if source_size.is_empty() {
-                                    continue;
-                                }
-
-                                let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
-                                let normalize = |x: Fixed<i32, 8>| {
-                                    if x < Fixed::from_integer(0) {
-                                        x + Fixed::from_integer(1)
-                                    } else {
-                                        x
-                                    }
-                                };
-                                let fract_x =
-                                    normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
-                                let off_x = delta32 * off_x as i32 + fract_x;
-                                let fract_y =
-                                    normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                                let off_y = delta32 * off_y as i32 + fract_y;
-                                let texture = SceneTexture {
-                                    data,
-                                    pixel_stride,
-                                    format: TexturePixelFormat::SignedDistanceField,
-                                    extra: SceneTextureExtra {
-                                        colorize: color,
-                                        // color already is mixed with global alpha
-                                        alpha: color.alpha(),
-                                        rotation: self.rotation.orientation,
-                                        dx: scale_delta,
-                                        dy: scale_delta,
-                                        off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                                        off_y: Fixed::try_from_fixed(off_y).unwrap(),
-                                    },
-                                };
-                                self.processor.process_scene_texture(
-                                    geometry.transformed(self.rotation),
-                                    texture,
-                                );
-                                continue;
-                            };
-
                             target_pixel_buffer::TextureDataContainer::Static(
                                 target_pixel_buffer::TextureData::new(
                                     data,
@@ -2505,12 +2631,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 ),
                             )
                         }
-                        fonts::GlyphAlphaMap::Shared(data) => {
+                        fonts::GlyphAlphaMap::Shared { .. } | fonts::GlyphAlphaMap::Rendered(_) => {
                             let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::AlphaMap {
-                                    data: data.clone(),
+                                    data: glyph.alpha_map.clone(),
                                     width: glyph.pixel_stride,
+                                    sdf: false,
                                 },
                                 source_rect,
                             }
@@ -2553,6 +2680,30 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         } else {
             color
         }
+    }
+}
+
+/// CSS Backgrounds 3 "Overlapping Curves"
+fn scale_overlapping_radii(
+    radius: BorderRadius<f32, PhysicalPx>,
+    size: euclid::Size2D<f32, PhysicalPx>,
+) -> BorderRadius<f32, PhysicalPx> {
+    let radius = radius.max(Default::default());
+    let top = radius.top_left + radius.top_right;
+    let bottom = radius.bottom_left + radius.bottom_right;
+    let left = radius.top_left + radius.bottom_left;
+    let right = radius.top_right + radius.bottom_right;
+
+    // Skip divisions when nothing overflows
+    if top > size.width || bottom > size.width || left > size.height || right > size.height {
+        let scale =
+            [(size.width, top), (size.width, bottom), (size.height, left), (size.height, right)]
+                .into_iter()
+                .map(|(side, sum)| side / sum)
+                .fold(1.0, |acc, s| if s < acc { s } else { acc });
+        radius * scale
+    } else {
+        radius
     }
 }
 
@@ -2635,34 +2786,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     .cast()
                     .transformed(self.rotation);
 
-            let radius =
-                (rect.border_radius().cast() * self.scale_factor).transformed(self.rotation);
-
-            let width = geom.width_length().get();
-            let height = geom.height_length().get();
-            let positive = |r: f32| if r > 0. { r } else { 0. };
-            let mut tl = positive(radius.top_left);
-            let mut tr = positive(radius.top_right);
-            let mut bl = positive(radius.bottom_left);
-            let mut br = positive(radius.bottom_right);
-
-            let top = tl + tr;
-            let bottom = bl + br;
-            let left = tl + bl;
-            let right = tr + br;
-
-            // Skip divisions when nothing overflows
-            if top > width || bottom > width || left > height || right > height {
-                let scale = [(width, top), (width, bottom), (height, left), (height, right)]
-                    .into_iter()
-                    .map(|(side, sum)| side / sum)
-                    .fold(1.0, |acc, s| if s < acc { s } else { acc });
-
-                tl *= scale;
-                tr *= scale;
-                bl *= scale;
-                br *= scale;
-            }
+            let radius = scale_overlapping_radii(
+                (rect.border_radius().cast() * self.scale_factor).transformed(self.rotation),
+                geom.size,
+            );
 
             let border = rect.border_width().cast() * self.scale_factor;
             let border_color =
@@ -2673,10 +2800,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 y: geom.origin.y,
                 width: geom.size.width,
                 height: geom.size.height,
-                top_left_radius: tl,
-                top_right_radius: tr,
-                bottom_right_radius: br,
-                bottom_left_radius: bl,
+                top_left_radius: radius.top_left,
+                top_right_radius: radius.top_right,
+                bottom_right_radius: radius.bottom_right,
+                bottom_left_radius: radius.bottom_left,
                 border_width: border.get(),
                 background: rect.background(),
                 border: border_color,
@@ -2942,6 +3069,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         if !self.should_draw(&geom) {
             return;
         }
+        let alpha = (self.current_state.alpha * 255.) as u8;
+        if alpha == 0 {
+            return;
+        }
 
         // Get the fitted path events from the Path item
         let Some((offset, path_iterator)) = path.fitted_path_events(self_rc) else {
@@ -2950,6 +3081,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let physical_geom_f32 =
             geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor;
+        let gradient_box = physical_geom_f32
+            .translate(offset.cast() * self.scale_factor)
+            .transformed(self.rotation);
         let rounded_geom = physical_geom_f32.round();
         let physical_geom = rounded_geom.cast().transformed(self.rotation);
 
@@ -2960,10 +3094,6 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let offset =
             offset.cast() * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
-
-        // Convert to zeno commands
-        let zeno_commands =
-            path::convert_path_data_to_zeno(path_iterator, rotation, self.scale_factor, offset);
 
         let physical_clip =
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
@@ -2977,63 +3107,116 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             return;
         };
 
+        let zeno_commands =
+            path::convert_path_data_to_zeno(path_iterator, rotation, self.scale_factor, offset);
+
+        let orientation = self.rotation.orientation;
+        let scale_factor = self.scale_factor;
+        let resolve_paint = |brush: Brush| {
+            let mut gradients = Vec::new();
+            let fill = gradient_commands(
+                &brush,
+                alpha,
+                orientation,
+                gradient_box,
+                clipped_geom.cast(),
+                GradientClip::default(),
+                scale_factor,
+                &mut |rect, gradient| gradients.push((rect, gradient)),
+            );
+            match fill {
+                BrushFill::Solid(color) => {
+                    let color = PremultipliedRgbaColor::from(color);
+                    (color.alpha > 0).then_some(path::Paint::Solid(color))
+                }
+                BrushFill::Gradient => Some(path::Paint::Gradient(gradients)),
+            }
+        };
+
         // Draw fill if specified
         let fill_brush = path.fill();
-        if !fill_brush.is_transparent() {
-            let fill_color = self.alpha_color(fill_brush.color());
-            if fill_color.alpha() > 0 {
-                self.processor.process_filled_path(
-                    physical_geom,
-                    clipped_geom,
-                    zeno_commands.clone(),
-                    fill_color.into(),
-                );
-            }
+        if !fill_brush.is_transparent()
+            && let Some(paint) = resolve_paint(fill_brush)
+        {
+            self.processor.process_filled_path(
+                physical_geom,
+                clipped_geom,
+                zeno_commands.clone(),
+                paint,
+            );
         }
 
         // Draw stroke if specified
         let stroke_brush = path.stroke();
         let stroke_width = path.stroke_width();
-        if !stroke_brush.is_transparent() && stroke_width.get() > 0 as Coord {
-            let stroke_color = self.alpha_color(stroke_brush.color());
-            if stroke_color.alpha() > 0 {
-                let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
-                let stroke_line_cap = path.stroke_line_cap();
-                let stroke_line_join = path.stroke_line_join();
-                let stroke_miter_limit = path.stroke_miter_limit();
-                let stroke_dash_array: Vec<f32> = path
-                    .stroke_dash_array()
-                    .iter()
-                    .map(|&x| (LogicalLength::new(x).cast() * self.scale_factor).get())
-                    .collect();
-                let stroke_dash_offset =
-                    (path.stroke_dash_offset().cast() * self.scale_factor).get();
-                let stroke_style = path::StrokeStyle {
-                    width: physical_stroke_width,
-                    line_cap: stroke_line_cap,
-                    line_join: stroke_line_join,
-                    miter_limit: stroke_miter_limit,
-                    dash_array: &stroke_dash_array,
-                    dash_offset: stroke_dash_offset,
-                };
-                self.processor.process_stroked_path(
-                    physical_geom,
-                    clipped_geom,
-                    zeno_commands,
-                    stroke_color.into(),
-                    stroke_style,
-                );
-            }
+        if !stroke_brush.is_transparent()
+            && stroke_width.get() > 0 as Coord
+            && let Some(paint) = resolve_paint(stroke_brush)
+        {
+            let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
+            let stroke_line_cap = path.stroke_line_cap();
+            let stroke_line_join = path.stroke_line_join();
+            let stroke_miter_limit = path.stroke_miter_limit();
+            let stroke_dash_array: Vec<f32> = path
+                .stroke_dash_array()
+                .iter()
+                .map(|&x| (LogicalLength::new(x).cast() * self.scale_factor).get())
+                .collect();
+            let stroke_dash_offset = (path.stroke_dash_offset().cast() * self.scale_factor).get();
+            let stroke_style = path::StrokeStyle {
+                width: physical_stroke_width,
+                line_cap: stroke_line_cap,
+                line_join: stroke_line_join,
+                miter_limit: stroke_miter_limit,
+                dash_array: &stroke_dash_array,
+                dash_offset: stroke_dash_offset,
+            };
+            self.processor.process_stroked_path(
+                physical_geom,
+                clipped_geom,
+                zeno_commands,
+                paint,
+                stroke_style,
+            );
         }
     }
 
     fn draw_box_shadow(
         &mut self,
-        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
-        _: &ItemRc,
-        _size: LogicalSize,
+        box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) {
-        // TODO
+        if box_shadow.inset() {
+            return;
+        }
+        let offset = LogicalVector::from_lengths(box_shadow.offset_x(), box_shadow.offset_y());
+        if !self.should_draw(&drop_shadow_bounding_rect(
+            size.into(),
+            offset,
+            box_shadow.blur(),
+            box_shadow.spread(),
+        )) {
+            return;
+        }
+        let Some(options) = BoxShadowOptions::new(self_rc, box_shadow, self.scale_factor) else {
+            return;
+        };
+        let color = self.alpha_color(options.color);
+        let clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+        process_drop_shadow(
+            &mut self.processor,
+            &options,
+            (self.current_state.offset + offset).cast() * self.scale_factor,
+            color,
+            &clip,
+            self.rotation,
+        );
     }
 
     fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
@@ -3209,11 +3392,24 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRendererFeatures for Sce
 use i_slint_core::textlayout::sharedparley::{self, fontique};
 
 #[cfg(feature = "systemfonts")]
+#[derive(Clone, Copy)]
+struct GlyphBrush {
+    color: Color,
+    /// `None` fills the glyphs.
+    stroke: Option<fonts::vectorfont::StrokeWidth>,
+}
+
+#[cfg(feature = "systemfonts")]
 impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
-    type PlatformBrush = Color;
+    type PlatformBrush = GlyphBrush;
+
+    fn snap_y(&self, y: f32) -> f32 {
+        let origin = (self.current_state.offset.to_vector().cast::<f32>() * self.scale_factor).y;
+        (origin + y).round() - origin
+    }
 
     fn platform_brush_for_color(&mut self, color: &Color) -> Option<Self::PlatformBrush> {
-        Some(*color)
+        Some(GlyphBrush { color: *color, stroke: None })
     }
 
     fn platform_text_fill_brush(
@@ -3221,27 +3417,31 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         brush: Brush,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(brush.color())
+        Some(GlyphBrush { color: brush.color(), stroke: None })
     }
 
     fn platform_text_stroke_brush(
         &mut self,
         brush: Brush,
-        _physical_stroke_width: f32,
+        physical_stroke_width: f32,
         _size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
-        Some(brush.color())
+        Some(GlyphBrush {
+            color: brush.color(),
+            stroke: Some(fonts::vectorfont::StrokeWidth::from_physical(physical_stroke_width)),
+        })
     }
 
     fn fill_rectangle(
         &mut self,
         mut physical_rect: sharedparley::PhysicalRect,
-        color: Color,
+        brush: GlyphBrush,
         radius: sharedparley::PhysicalLength,
-        border: Option<sharedparley::RectangleBorder<Color>>,
+        border: Option<sharedparley::RectangleBorder<GlyphBrush>>,
     ) {
+        let color = brush.color;
         let has_visible_border =
-            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.alpha() > 0);
+            border.as_ref().is_some_and(|b| b.width.get() > 0.0 && b.brush.color.alpha() > 0);
         if color.alpha() == 0 && !has_visible_border {
             return;
         }
@@ -3278,13 +3478,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             args.bottom_left_radius = r;
         }
 
-        if let Some(sharedparley::RectangleBorder { brush: border_color, width: border_width }) =
+        if let Some(sharedparley::RectangleBorder { brush: border_brush, width: border_width }) =
             border
             && border_width.get() > 0.0
-            && border_color.alpha() > 0
+            && border_brush.color.alpha() > 0
         {
             args.border_width = border_width.get();
-            args.border = Brush::SolidColor(border_color);
+            args.border = Brush::SolidColor(border_brush.color);
         }
 
         self.processor.process_rectangle(&args, clip);
@@ -3296,7 +3496,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         font_size: sharedparley::PhysicalLength,
         normalized_coords: &[i16],
         synthesis: &fontique::Synthesis,
-        color: Self::PlatformBrush,
+        brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
@@ -3318,7 +3518,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
         const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
-        let color = self.alpha_color(color);
+        let color = self.alpha_color(brush.color);
         let physical_clip: euclid::Rect<i32, PhysicalPx> =
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                 * self.scale_factor)
@@ -3345,7 +3545,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             let dst_int_x = quantized_x.div_euclid(SUBPIXEL_BINS);
             let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
 
-            let Some(glyph) = font.render_vector_glyph(id, subpixel_bin, slint_context) else {
+            let Some(glyph) =
+                font.render_vector_glyph(id, subpixel_bin, brush.stroke, slint_context)
+            else {
                 continue;
             };
 
@@ -3369,8 +3571,9 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                 target_pixel_buffer::TextureDataContainer::Shared {
                     buffer: SharedBufferData::AlphaMap {
-                        data: glyph.alpha_map,
+                        data: glyph.alpha_map.into(),
                         width: glyph.pixel_stride,
+                        sdf: false,
                     },
                     source_rect,
                 }
@@ -3391,5 +3594,87 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 
             self.processor.process_target_texture(&t, clipped_target.cast());
         }
+    }
+}
+
+/// Renders `draw` into a buffer of `screen_size`, limited to the dirty `region`.
+#[cfg(test)]
+fn render_region(
+    screen_size: PhysicalSize,
+    region: &[PhysicalRect],
+    scale_factor: ScaleFactor,
+    draw: impl FnOnce(&mut dyn ProcessScene),
+) -> Vec<PremultipliedRgbaColor> {
+    let pixel_count = screen_size.width as usize * screen_size.height as usize;
+    let mut data = alloc::vec![PremultipliedRgbaColor::default(); pixel_count];
+    let mut buffer = TargetPixelSlice { data: &mut data, pixel_stride: screen_size.width as usize };
+    let mut rectangles = [euclid::Box2D::default(); PHYSICAL_REGION_MAX_SIZE];
+    for (r, dst) in region.iter().zip(rectangles.iter_mut()) {
+        *dst = r.to_box2d();
+    }
+    let mut processor = RenderToBuffer {
+        buffer: &mut buffer,
+        dirty_range_cache: Vec::new(),
+        dirty_region: PhysicalRegion { rectangles, count: region.len() },
+        scale_factor,
+    };
+    draw(&mut processor);
+    data
+}
+
+/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region`
+/// as it does unclipped on the whole screen.
+#[cfg(test)]
+fn assert_partial_render_is_identical(
+    screen_size: PhysicalSize,
+    clip: PhysicalRect,
+    region: &[PhysicalRect],
+    draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
+) {
+    let screen = PhysicalRect::from_size(screen_size);
+    let scale_factor = ScaleFactor::new(1.);
+    let full =
+        render_region(screen_size, &[screen], scale_factor, |processor| draw(processor, &screen));
+    let partial =
+        render_region(screen_size, region, scale_factor, |processor| draw(processor, &clip));
+    let mut drawn = false;
+    for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
+        let p = PhysicalPoint::new(
+            (i % screen_size.width as usize) as i16,
+            (i / screen_size.width as usize) as i16,
+        );
+        if clip.contains(p) && region.iter().any(|r| r.contains(p)) {
+            assert_eq!(bytemuck::bytes_of(a), bytemuck::bytes_of(b), "{p:?}");
+            drawn |= a.alpha > 0;
+        }
+    }
+    assert!(drawn);
+}
+
+#[test]
+fn rounded_rectangle_partial_render_is_identical() {
+    let screen_size = PhysicalSize::new(100, 80);
+    // The clip and the regions cut through the anti-aliasing of the corner curves.
+    let clip = euclid::rect(17, 5, 60, 70);
+    let region = [euclid::rect(12, 8, 21, 19), euclid::rect(48, 33, 31, 30)];
+    for border_width in [0., 4.3] {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            x: 10.,
+            y: 11.,
+            width: 62.,
+            height: 45.,
+            top_left_radius: 17.,
+            top_right_radius: 9.5,
+            bottom_right_radius: 21.2,
+            bottom_left_radius: 6.,
+            border_width,
+            background: Brush::SolidColor(Color::from_argb_u8(200, 10, 20, 30)),
+            border: Brush::SolidColor(Color::from_argb_u8(230, 200, 100, 0)),
+            alpha: 255,
+            rotation: RenderingRotation::NoRotation,
+        };
+        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+            processor.process_rectangle(&args, *clip)
+        });
     }
 }

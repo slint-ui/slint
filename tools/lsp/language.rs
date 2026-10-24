@@ -1,17 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore descr rfind unindented
+// cSpell: ignore descr
 
+mod code_actions;
 pub mod completion;
 mod formatting;
 mod goto;
 mod hover;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
-))]
-mod preview_files;
 mod semantic_tokens;
 mod signature_help;
 #[cfg(test)]
@@ -21,9 +17,9 @@ use crate::editor_preview::{EditorSession, SessionConfigOverrides};
 use crate::{editor_preview, util};
 
 use i_slint_compiler::langtype::Type;
-use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{
-    NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
+    SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
 use i_slint_compiler::source_path::SourcePath;
@@ -38,9 +34,9 @@ use i_slint_live_preview::protocol::{LspToPreviewMessage, SourceFileVersion};
 
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
-    ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
-    CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
+    ClientCapabilities, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
+    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
+    DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
     PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
     Url, WorkDoneProgressOptions,
@@ -147,18 +143,14 @@ pub fn store_user_settings(name: &str, contents: &str) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
-    let file_access = std::cell::OnceCell::new();
-    ctx.session.send_files_to_preview(0, files, |path| {
-        file_access
-            .get_or_init(|| {
-                preview_files::PreviewFileAccess::new(
-                    &ctx.init_param,
-                    &ctx.session.preview_config,
-                    &ctx.session.document_cache,
-                )
+    let workspace_folders: Vec<_> =
+        crate::host_language_search::resolve_workspace_folders(&ctx.init_param)
+            .iter()
+            .filter_map(|folder| {
+                i_slint_compiler::source_path::SourcePath::from_url(&folder.uri).into_native_path()
             })
-            .allows(path)
-    });
+            .collect();
+    ctx.session.send_files_to_preview(0, files, &workspace_folders);
 }
 
 #[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
@@ -208,21 +200,70 @@ async fn register_file_watcher(ctx: &Context) -> editor_preview::Result<()> {
                 ),
             }],
         };
-        let server_notifier = { ctx.server_notifier.clone() };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
-            .await?;
+        register_capability(
+            ctx,
+            "slint.file_watcher.registration",
+            lsp_types::notification::DidChangeWatchedFiles::METHOD,
+            fs_watcher,
+        )
+        .await?;
     }
 
     Ok(())
+}
+
+async fn register_capability(
+    ctx: &Context,
+    id: &str,
+    method: &str,
+    options: impl serde::Serialize,
+) -> editor_preview::Result<()> {
+    ctx.server_notifier
+        .send_request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
+            registrations: vec![lsp_types::Registration {
+                id: id.to_string(),
+                method: method.to_string(),
+                register_options: Some(serde_json::to_value(options).unwrap()),
+            }],
+        })?
+        .await?;
+    Ok(())
+}
+
+fn formatting_supports_dynamic_registration(client_cap: &ClientCapabilities) -> bool {
+    client_cap
+        .text_document
+        .as_ref()
+        .and_then(|td| td.formatting.as_ref())
+        .and_then(|f| f.dynamic_registration)
+        .unwrap_or(false)
+}
+
+/// Registers the formatter for `.slint` documents only.
+/// A static `document_formatting_provider` applies to every document the client
+/// sends us, including Rust files, where it competes with rust-analyzer.
+async fn register_formatting(ctx: &Context) -> editor_preview::Result<()> {
+    use lsp_types::request::Request;
+
+    if !formatting_supports_dynamic_registration(&ctx.init_param.capabilities) {
+        return Ok(());
+    }
+
+    let options = lsp_types::TextDocumentRegistrationOptions {
+        document_selector: Some(vec![
+            lsp_types::DocumentFilter {
+                language: Some("slint".into()),
+                scheme: None,
+                pattern: None,
+            },
+            lsp_types::DocumentFilter {
+                language: None,
+                scheme: None,
+                pattern: Some("**/*.slint".into()),
+            },
+        ]),
+    };
+    register_capability(ctx, "slint.formatting.registration", Formatting::METHOD, options).await
 }
 
 pub struct Context {
@@ -378,7 +419,9 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                     OneOf::Left(true)
                 },
             ),
-            document_formatting_provider: Some(OneOf::Left(true)),
+            document_formatting_provider: Some(OneOf::Left(
+                !formatting_supports_dynamic_registration(client_cap),
+            )),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -460,7 +503,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         )
         .and_then(|(token, _)| {
             let capabilities = ctx.init_param.capabilities.clone();
-            get_code_actions(&mut ctx.session.document_cache, token, &capabilities)
+            code_actions::get_code_actions(&ctx.session.document_cache, token, &capabilities)
         });
         Ok(result)
     });
@@ -662,9 +705,46 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
+    let source = SourcePath::from_url(&url);
+    let root = match source.as_native_path() {
+        Some(path) => ctx
+            .session
+            .find_project_file_path_for(path)
+            .map_err(|error| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: format!("Cannot find project file for {}: {error}", path.display()),
+            })?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
+    if *ctx.session.primary_preview().project_root.borrow() != root {
+        ctx.session.primary_preview_mut().to_show = None;
+        ctx.session.primary_preview().project_root.replace(root);
+        ctx.session.send_state_to_preview(0);
+    }
     let c = PreviewComponent { url, component };
     ctx.session.show_preview(0, c);
 
+    Ok(())
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-builtin", feature = "preview-external")
+))]
+pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std::io::Result<()> {
+    let Some(component) = session.primary_preview().to_show.as_ref() else { return Ok(()) };
+    let source = SourcePath::from_url(&component.url);
+    let root = match source.as_native_path() {
+        Some(path) => session
+            .find_project_file_path_for(path)?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
+    if *session.primary_preview().project_root.borrow() != root {
+        session.primary_preview().project_root.replace(root);
+        session.send_state_to_preview(0);
+    }
     Ok(())
 }
 
@@ -1065,386 +1145,6 @@ pub fn token_at_offset(doc: &syntax_nodes::Document, offset: TextSize) -> Option
     Some(token)
 }
 
-fn has_experimental_client_capability(capabilities: &ClientCapabilities, name: &str) -> bool {
-    capabilities
-        .experimental
-        .as_ref()
-        .and_then(|o| o.get(name).and_then(|v| v.as_bool()))
-        .unwrap_or(false)
-}
-
-fn get_code_actions(
-    document_cache: &mut editor_preview::DocumentCache,
-    token: SyntaxToken,
-    client_capabilities: &ClientCapabilities,
-) -> Option<Vec<CodeActionOrCommand>> {
-    let node = token.parent();
-    let uri = token.source_file.path().to_url()?;
-    let mut result = Vec::new();
-
-    let component = syntax_nodes::Component::new(node.clone())
-        .or_else(|| {
-            syntax_nodes::DeclaredIdentifier::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })
-        .or_else(|| {
-            syntax_nodes::QualifiedName::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Element::new)
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })
-        .or_else(|| syntax_nodes::ExportsList::new(node.clone()).and_then(|n| n.Component()))
-        .filter(|c| c.child_text(SyntaxKind::Identifier).is_none_or(|t| t != "global"));
-
-    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    {
-        if let Some(component) = &component
-            && let Some(component_name) =
-                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
-        {
-            result.push(CodeActionOrCommand::Command(create_show_preview_command(
-                false,
-                &uri,
-                &component_name,
-            )))
-        }
-    }
-
-    if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
-        let r = util::text_range_to_lsp_range(
-            &token.source_file,
-            node.text_range(),
-            document_cache.format,
-        );
-        let edits = vec![
-            TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
-            TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
-        ];
-        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-            title: "Wrap in `@tr()`".into(),
-            edit: editor_preview::editing::create_workspace_edit_from_path(
-                document_cache,
-                token.source_file.path(),
-                edits,
-            ),
-            ..Default::default()
-        }));
-    } else if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Element)
-    {
-        let is_lookup_error = {
-            let global_tr = document_cache.global_type_registry();
-            let tr = document_cache
-                .get_document_for_source_file(&token.source_file)
-                .map(|doc| &doc.local_registry)
-                .unwrap_or(&global_tr);
-            util::lookup_current_element_type(node.clone(), tr).is_none()
-        };
-        if is_lookup_error {
-            // Couldn't lookup the element, there is probably an error. Suggest an edit
-            // The catalog holds the normalized name, the token holds whichever spelling
-            // of a separator the file used.
-            let text = i_slint_compiler::parser::normalize_identifier(token.text());
-            completion::build_component_import_statements_edits(
-                &token,
-                document_cache,
-                &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
-                &mut |name, file, edit| {
-                    result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("import {{ {name} }} from \"{file}\""),
-                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: editor_preview::editing::create_workspace_edit_from_path(
-                            document_cache,
-                            token.source_file.path(),
-                            vec![edit],
-                        ),
-                        ..Default::default()
-                    }))
-                },
-            );
-        }
-
-        if has_experimental_client_capability(client_capabilities, "snippetTextEdit") {
-            let r = util::text_range_to_lsp_range(
-                &token.source_file,
-                node.parent().unwrap().text_range(),
-                document_cache.format,
-            );
-            let element = document_cache.element_at_position(&uri, &r.start);
-            let element_indent = element.as_ref().and_then(util::find_element_indent);
-            let indented_lines = node
-                .parent()
-                .unwrap()
-                .text()
-                .to_string()
-                .lines()
-                .map(|line| if line.is_empty() { line.to_string() } else { format!("    {line}") })
-                .collect::<Vec<String>>();
-            let edits = vec![TextEdit::new(
-                lsp_types::Range::new(r.start, r.end),
-                format!(
-                    "${{0:element}} {{\n{}{}\n}}",
-                    element_indent.unwrap_or("".into()),
-                    indented_lines.join("\n")
-                ),
-            )];
-            result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Wrap in element".into(),
-                kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                edit: editor_preview::editing::create_workspace_edit_from_path(
-                    document_cache,
-                    token.source_file.path(),
-                    edits,
-                ),
-                ..Default::default()
-            }));
-
-            // Collect all normal, repeated, and conditional sub-elements and any
-            // whitespace in between for substituting the parent element with its
-            // sub-elements, dropping its own properties, callbacks etc.
-            fn is_sub_element(kind: SyntaxKind) -> bool {
-                matches!(
-                    kind,
-                    SyntaxKind::SubElement
-                        | SyntaxKind::RepeatedElement
-                        | SyntaxKind::ConditionalElement
-                )
-            }
-            let sub_elements = node
-                .parent()
-                .unwrap()
-                .children_with_tokens()
-                .skip_while(|n| !is_sub_element(n.kind()))
-                .filter(|n| match n {
-                    NodeOrToken::Node(_) => is_sub_element(n.kind()),
-                    NodeOrToken::Token(t) => {
-                        t.kind() == SyntaxKind::Whitespace
-                            && t.next_sibling_or_token().is_some_and(|n| is_sub_element(n.kind()))
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            if match component {
-                // A top-level component element can only be removed if it contains
-                // exactly one sub-element (without any condition or assignment)
-                // that can substitute the component element.
-                Some(_) => {
-                    sub_elements.len() == 1
-                        && sub_elements.first().and_then(|n| {
-                            n.as_node().unwrap().first_child_or_token().map(|n| n.kind())
-                        }) == Some(SyntaxKind::Element)
-                }
-                // Any other element can be removed in favor of one or more sub-elements.
-                None => sub_elements.iter().any(|n| n.kind() == SyntaxKind::SubElement),
-            } {
-                let unindented_lines = sub_elements
-                    .iter()
-                    .map(|n| match n {
-                        NodeOrToken::Node(n) => n
-                            .text()
-                            .to_string()
-                            .lines()
-                            .map(|line| line.strip_prefix("    ").unwrap_or(line).to_string())
-                            .collect::<Vec<_>>()
-                            .join("\n"),
-                        NodeOrToken::Token(t) => {
-                            t.text().strip_suffix("    ").unwrap_or(t.text()).to_string()
-                        }
-                    })
-                    .collect::<Vec<String>>();
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.end),
-                    unindented_lines.concat(),
-                )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Remove element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
-            }
-
-            // We have already checked that the node is a qualified name of an element.
-            // Check whether the element is a direct sub-element of another element
-            // meaning that it can be repeated or made conditional.
-            if node // QualifiedName
-                .parent() // Element
-                .unwrap()
-                .parent()
-                .filter(|n| n.kind() == SyntaxKind::SubElement)
-                .and_then(|p| p.parent())
-                .is_some_and(|n| n.kind() == SyntaxKind::Element)
-            {
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.start),
-                    "for ${1:name}[index] in ${0:model} : ".to_string(),
-                )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Repeat element".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
-
-                let edits = vec![TextEdit::new(
-                    lsp_types::Range::new(r.start, r.start),
-                    "if ${0:condition} : ".to_string(),
-                )];
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: "Make conditional".into(),
-                    kind: Some(lsp_types::CodeActionKind::REFACTOR),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        edits,
-                    ),
-                    ..Default::default()
-                }));
-            }
-        }
-    } else if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Type)
-    {
-        // Offer "Add import from ..." for unresolved type references in property/callback/
-        // function type annotations (e.g. `property <MyStruct> foo`).
-        let is_lookup_error =
-            syntax_nodes::QualifiedName::new(node.clone()).is_some_and(|qualified_name| {
-                let qual = QualifiedTypeName::from_node(qualified_name);
-                let global_tr = document_cache.global_type_registry();
-                let tr = document_cache
-                    .get_document_for_source_file(&token.source_file)
-                    .map(|doc| &doc.local_registry)
-                    .unwrap_or(&global_tr);
-                matches!(tr.lookup_qualified(&qual.members), Type::Invalid)
-            });
-        if is_lookup_error {
-            // See the component quick-fix above for why the token is normalized.
-            let text = i_slint_compiler::parser::normalize_identifier(token.text());
-            completion::build_type_import_statements_edits(
-                &token,
-                document_cache,
-                &mut |type_info| type_info.name == text,
-                &mut |_type_info, name, file, edit| {
-                    result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("import {{ {name} }} from \"{file}\""),
-                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                        edit: editor_preview::editing::create_workspace_edit_from_path(
-                            document_cache,
-                            token.source_file.path(),
-                            vec![edit],
-                        ),
-                        ..Default::default()
-                    }))
-                },
-            );
-        }
-    } else if token.kind() == SyntaxKind::Identifier
-        && node.kind() == SyntaxKind::QualifiedName
-        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Expression)
-        && node.children_with_tokens().filter(|n| n.kind() == SyntaxKind::Identifier).count() == 1
-    {
-        // Qualify a bare identifier that doesn't resolve but is an enum value or named color
-        // (`red` -> `Colors.red`). Like the import action above, re-derive the lookup error rather
-        // than reading diagnostics, so nothing is offered when the identifier does resolve.
-        use i_slint_compiler::lookup::LookupObject;
-        let suggestions = util::with_lookup_ctx(document_cache, node.clone(), None, |ctx| {
-            let name = i_slint_compiler::parser::normalize_identifier(token.text());
-            if i_slint_compiler::lookup::global_lookup().lookup(ctx, &name).is_none() {
-                i_slint_compiler::lookup::enum_or_color_suggestions(ctx, token.text())
-            } else {
-                Vec::new()
-            }
-        })
-        .unwrap_or_default();
-        if !suggestions.is_empty() {
-            let range = util::text_range_to_lsp_range(
-                &token.source_file,
-                token.text_range(),
-                document_cache.format,
-            );
-            for suggestion in suggestions {
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: format!("Qualify as '{suggestion}'"),
-                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        vec![TextEdit::new(range, suggestion.to_string())],
-                    ),
-                    ..Default::default()
-                }));
-            }
-        }
-    } else if token.kind() == SyntaxKind::Identifier
-        && let Some(implement_statement) = match node.kind() {
-            SyntaxKind::ImplementStatement => syntax_nodes::ImplementStatement::new(node.clone()),
-            SyntaxKind::QualifiedName | SyntaxKind::DeclaredIdentifier
-                if node.parent().map(|n| n.kind()) == Some(SyntaxKind::ImplementStatement) =>
-            {
-                node.parent().and_then(syntax_nodes::ImplementStatement::new)
-            }
-            _ => None,
-        }
-    {
-        let r = util::text_range_to_lsp_range(
-            &token.source_file,
-            implement_statement.text_range(),
-            document_cache.format,
-        );
-        if let Some(element) = document_cache.element_at_position(&uri, &r.start) {
-            let missing =
-                i_slint_compiler::object_tree::missing_interface_members(&element.element);
-            if let Some(missing_entry) = missing
-                .into_iter()
-                .find(|entry| entry.statement.text_range() == implement_statement.text_range())
-            {
-                let indent = util::find_indent(&implement_statement).unwrap_or_default();
-                let insertion: String = missing_entry
-                    .declarations
-                    .iter()
-                    .map(|decl| format!("\n{indent}{decl}"))
-                    .collect();
-                let insert_pos = util::text_size_to_lsp_position(
-                    &token.source_file,
-                    implement_statement.text_range().end(),
-                    document_cache.format,
-                );
-                let interface_name =
-                    QualifiedTypeName::from_node(implement_statement.QualifiedName());
-                result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                    title: format!("Add the missing declarations for '{interface_name}'"),
-                    kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                    edit: editor_preview::editing::create_workspace_edit_from_path(
-                        document_cache,
-                        token.source_file.path(),
-                        vec![TextEdit::new(
-                            lsp_types::Range::new(insert_pos, insert_pos),
-                            insertion,
-                        )],
-                    ),
-                    ..Default::default()
-                }));
-            }
-        }
-    }
-
-    completion::match_element::add_code_actions(document_cache, &token, &mut result);
-
-    (!result.is_empty()).then_some(result)
-}
-
 fn get_document_color(
     document_cache: &mut editor_preview::DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
@@ -1743,6 +1443,7 @@ fn get_highlights_for_position(
 
 pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     register_file_watcher(ctx).await?;
+    register_formatting(ctx).await?;
     load_configuration(ctx).await
 }
 
@@ -1799,10 +1500,10 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
-                style,
                 enable_experimental_features: experimental,
                 ..Default::default()
             },
+            style,
             ..Default::default()
         },
     }
@@ -1850,8 +1551,7 @@ pub mod tests {
     use super::*;
 
     use crate::language::test::{
-        CodeActionRequest, complex_document_cache, loaded_document_cache,
-        loaded_document_cache_with_experimental, loaded_document_cache_with_file_name,
+        complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
     };
     use lsp_server::{Message, Request, Response};
     use lsp_types::{
@@ -2421,500 +2121,27 @@ enum {}
         }
     }
 
-    #[test]
-    fn test_code_action_wrap_string_in_tr() {
-        CodeActionRequest::at(r#"export component Test inherits Text { text: 🔺"Hello"; }"#)
-            .load()
-            .assert(
-                "Wrap in `@tr()`",
-                None,
-                r#"export component Test inherits Text { text: @tr("Hello"); }"#,
-            )
-            .compiles();
-    }
-
-    const SUB_ELEMENT: &str = r#"export component Test {
-    Rectangle {
-        Text {
-            text: "Hello";
-        }
-    }
-}
-"#;
-
-    const CONDITIONAL_ELEMENT: &str = r#"export component Test {
-    if true: Rectangle {
-        background: red;
-
-        Text { text: "A"; }
-
-        Text {
-            text: "B";
-        }
-    }
-}
-"#;
-
-    #[test]
-    fn test_code_action_element_needs_snippet_support() {
-        for column in 0..=4 {
-            CodeActionRequest::at_offset(SUB_ELEMENT, SUB_ELEMENT.find("Text").unwrap() + column)
-                .load()
-                .assert_empty();
-        }
-        CodeActionRequest::at_offset(
-            CONDITIONAL_ELEMENT,
-            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
-        )
-        .load()
-        .assert_empty();
-    }
-
-    #[test]
-    fn test_code_action_sub_element() {
-        for column in 0..=4 {
-            let actions = CodeActionRequest::at_offset(
-                SUB_ELEMENT,
-                SUB_ELEMENT.find("Text").unwrap() + column,
-            )
-            .snippets()
-            .load();
-            assert_eq!(
-                actions.titles(),
-                ["Wrap in element", "Repeat element", "Make conditional"],
-                "column {column}"
-            );
-            actions
-                .assert(
-                    "Wrap in element",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        ${0:element} {
-            Text {
-                text: "Hello";
-            }
-}
-    }
-}
-"#,
-                )
-                .compiles_with(&[("element", "Rectangle")]);
-            actions
-                .assert(
-                    "Repeat element",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        for ${1:name}[index] in ${0:model} : Text {
-            text: "Hello";
-        }
-    }
-}
-"#,
-                )
-                .compiles_with(&[("name", "item"), ("model", "3")]);
-            actions
-                .assert(
-                    "Make conditional",
-                    Some(lsp_types::CodeActionKind::REFACTOR),
-                    r#"export component Test {
-    Rectangle {
-        if ${0:condition} : Text {
-            text: "Hello";
-        }
-    }
-}
-"#,
-                )
-                .compiles_with(&[("condition", "true")]);
-        }
-    }
-
-    #[test]
-    fn test_code_action_remove_element_of_conditional() {
-        let actions = CodeActionRequest::at_offset(
-            CONDITIONAL_ELEMENT,
-            CONDITIONAL_ELEMENT.find("Rectangle").unwrap(),
-        )
-        .snippets()
-        .load();
-        assert_eq!(actions.titles(), ["Wrap in element", "Remove element"]);
-        actions
-            .assert(
-                "Wrap in element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
-    if true: ${0:element} {
-        Rectangle {
-            background: red;
-
-            Text { text: "A"; }
-
-            Text {
-                text: "B";
-            }
-        }
-}
-}
-"#,
-            )
-            .compiles_with(&[("element", "Rectangle")]);
-        actions
-            .assert(
-                "Remove element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                r#"export component Test {
-    if true: Text { text: "A"; }
-
-    Text {
-        text: "B";
-    }
-}
-"#,
-            )
-            .compiles();
-    }
-
-    #[test]
-    fn test_code_action_remove_component_root() {
-        CodeActionRequest::at("export component Test inherits 🔺Rectangle {\n    Text { }\n}\n")
-            .snippets()
-            .load()
-            .assert(
-                "Remove element",
-                Some(lsp_types::CodeActionKind::REFACTOR),
-                "export component Test inherits Text { }\n",
-            )
-            .compiles();
-    }
-
-    #[test]
-    fn test_code_action_remove_element_with_id() {
-        CodeActionRequest::at(
-            "export component Test {\n    input := 🔺Rectangle {\n        Text { }\n    }\n}\n",
-        )
-        .snippets()
-        .load()
-        .assert(
-            "Remove element",
-            Some(lsp_types::CodeActionKind::REFACTOR),
-            "export component Test {\n    input := Text { }\n}\n",
-        )
-        .compiles();
-    }
-
-    #[test]
-    fn test_code_action_import_unresolved_component() {
-        let actions = CodeActionRequest::at(
-            r#"import { Button } from "std-widgets.slint";
-
-export component Test {
-    input := 🔺LineEdit { }
-}
-"#,
-        )
-        .load();
-        assert_eq!(actions.titles(), ["import { LineEdit } from \"std-widgets.slint\""]);
-        actions
-            .assert(
-                "import { LineEdit } from \"std-widgets.slint\"",
-                Some(lsp_types::CodeActionKind::QUICKFIX),
-                r#"import { Button, LineEdit } from "std-widgets.slint";
-
-export component Test {
-    input := LineEdit { }
-}
-"#,
-            )
-            .compiles();
-    }
-
-    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    #[test]
-    fn test_code_action_show_preview() {
-        const SOURCE: &str = "export component TestWindow inherits Window { }\n";
-        let url = editor_preview::test::main_test_file_name().to_url().unwrap();
-        for offset in [
-            SOURCE.find("export").unwrap(),
-            SOURCE.find("component").unwrap(),
-            SOURCE.find("TestWindow").unwrap(),
-            SOURCE.rfind("Window").unwrap(),
-        ] {
-            let actions = CodeActionRequest::at_offset(SOURCE, offset).load();
-            assert_eq!(actions.titles(), ["Show Preview"], "offset {offset}");
-            assert_eq!(
-                actions.command("Show Preview"),
-                &Command::new(
-                    "Show Preview".into(),
-                    SHOW_PREVIEW_COMMAND.into(),
-                    Some(vec![url.as_str().into(), "TestWindow".into()]),
-                )
-            );
-        }
-    }
-
-    #[test]
-    fn test_code_action_no_show_preview_for_struct_or_global() {
-        CodeActionRequest::at("export struct 🔺NoPreviewForStruct { x: int }")
-            .load()
-            .assert_empty();
-        CodeActionRequest::at("export global 🔺NoPreviewForGlobal {}").load().assert_empty();
-    }
-
-    const MY_POINT_TYPES: &str = "export struct MyPoint { x: int, y: int }\n";
-
-    #[test]
-    fn test_add_import_for_type_annotation() {
-        CodeActionRequest::at(
-            r#"export component TestWindow inherits Window {
-    property <🔺MyPoint> position;
-}
-"#,
-        )
-        .with_file("types.slint", MY_POINT_TYPES)
-        .load()
-        .assert(
-            "import { MyPoint } from \"types.slint\"",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"import { MyPoint } from "types.slint";
-export component TestWindow inherits Window {
-    property <MyPoint> position;
-}
-"#,
-        )
-        .compiles();
-    }
-
-    #[test]
-    fn test_no_import_for_imported_type_annotation() {
-        CodeActionRequest::at(
-            r#"import { MyPoint } from "types.slint";
-
-export component TestWindow inherits Window {
-    property <🔺MyPoint> position;
-}
-"#,
-        )
-        .with_file("types.slint", MY_POINT_TYPES)
-        .load()
-        .assert_empty();
-    }
-
-    #[test]
-    fn test_add_import_for_name_with_a_separator() {
-        const TYPES: &str =
-            "export struct My_Struct { x: int }\nexport component My_Component { }\n";
-        for (name, main) in [
-            (
-                "My-Struct",
-                "export component TestWindow inherits Window {\n    property <My_Struct> position;\n}\n",
-            ),
-            (
-                "My-Component",
-                "export component TestWindow inherits Window {\n    My_Component { }\n}\n",
-            ),
-        ] {
-            let title = format!("import {{ {name} }} from \"types.slint\"");
-            let actions = CodeActionRequest::at_offset(main, main.find("My_").unwrap())
-                .with_file("types.slint", TYPES)
-                .load();
-            assert_eq!(actions.titles(), [title.as_str()]);
-            actions
-                .assert(
-                    &title,
-                    Some(lsp_types::CodeActionKind::QUICKFIX),
-                    &format!("import {{ {name} }} from \"types.slint\";\n{main}"),
-                )
-                .compiles();
-        }
-    }
-
-    const SIGNATURE_INTERFACE: &str = r#"interface Signature {
-    in property <bool> checkable;
-    in property <string> text;
-    callback clicked();
-    public function add(a: int, b: int) -> int;
-}
-
-"#;
-
-    #[test]
-    fn test_implement_missing_members_inserts_all_declarations() {
-        CodeActionRequest::at(&format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n}}\n"
-        ))
-        .experimental().load()
-        .assert(
-            "Add the missing declarations for 'Signature'",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{SIGNATURE_INTERFACE}export component TestCase {{
-    implement Signature <=> self;
-    public function add(a: int, b: int) -> int {{ }}
-    in property <bool> checkable;
-    callback clicked();
-    in property <string> text;
-}}
-"#
-            ),
-        ).skip_compile("the function body stays empty");
-    }
-
-    #[test]
-    fn test_implement_missing_members_includes_inherited_members() {
-        CodeActionRequest::at(
-            r#"interface A {
-    out property <int> speed;
-}
-interface B inherits A {
-    out property <float> direction;
-}
-export component TestCase {
-    implement 🔺B <=> self;
-}
-"#,
-        )
-        .experimental()
-        .load()
-        .assert(
-            "Add the missing declarations for 'B'",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            r#"interface A {
-    out property <int> speed;
-}
-interface B inherits A {
-    out property <float> direction;
-}
-export component TestCase {
-    implement B <=> self;
-    out property <float> direction;
-    out property <int> speed;
-}
-"#,
-        )
-        .compiles();
-    }
-
-    #[test]
-    fn test_implement_missing_members_includes_attributes() {
-        let (mut dc, url, _) = loaded_document_cache_with_experimental(
-            r#"interface Attributed {
-    @shadowable in-out property <int> value;
-    @deprecated("Use 'value' instead") callback changed();
-}
-export component TestCase {
-    implement Attributed <=> self;
-}
-"#
-            .into(),
-        );
-        let action = token_descr(&dc, &url, &Position::new(5, 14)).and_then(|(token, _)| {
-            get_code_actions(&mut dc, token, &ClientCapabilities::default())
-        });
-        assert_eq!(
-            action,
-            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add the missing declarations for 'Attributed'".into(),
-                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
-                edit: Some(WorkspaceEdit {
-                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
-                        lsp_types::TextDocumentEdit {
-                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
-                                version: Some(42),
-                                uri: url.clone(),
-                            },
-                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
-                                lsp_types::Range::new(
-                                    Position::new(5, 34),
-                                    Position::new(5, 34)
-                                ),
-                                "\n    @deprecated(\"Use 'value' instead\") callback changed();\n    @shadowable in-out property <int> value;".into()
-                            ))]
-                        }
-                    ])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })])
-        );
-    }
-
-    #[test]
-    fn test_implement_missing_members_offers_nothing_when_satisfied() {
-        CodeActionRequest::at(&format!(
-            r#"{SIGNATURE_INTERFACE}export component TestCase {{
-    implement 🔺Signature <=> self;
-
-    in property <bool> checkable;
-    in property <string> text;
-    callback clicked();
-    public function add(a: int, b: int) -> int {{ 0 }}
-}}
-"#
-        ))
-        .experimental()
-        .load()
-        .assert_empty();
-    }
-
-    #[test]
-    fn test_implement_missing_members_skips_members_with_wrong_type() {
-        CodeActionRequest::at(&format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n\n    in property <int> checkable;\n}}\n"
-        ))
-        .experimental().load()
-        .assert(
-            "Add the missing declarations for 'Signature'",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{SIGNATURE_INTERFACE}export component TestCase {{
-    implement Signature <=> self;
-    public function add(a: int, b: int) -> int {{ }}
-    callback clicked();
-    in property <string> text;
-
-    in property <int> checkable;
-}}
-"#
-            ),
-        ).skip_compile("the wrongly typed member stays");
-    }
-
-    #[test]
-    fn test_implement_missing_members_skips_members_with_invalid_type() {
-        CodeActionRequest::at(&format!(
-            "{SIGNATURE_INTERFACE}export component TestCase {{\n    implement 🔺Signature <=> self;\n\n    in property <Nonexistent> text;\n}}\n"
-        ))
-        .experimental().load()
-        .assert(
-            "Add the missing declarations for 'Signature'",
-            Some(lsp_types::CodeActionKind::QUICKFIX),
-            &format!(
-                r#"{SIGNATURE_INTERFACE}export component TestCase {{
-    implement Signature <=> self;
-    public function add(a: int, b: int) -> int {{ }}
-    in property <bool> checkable;
-    callback clicked();
-
-    in property <Nonexistent> text;
-}}
-"#
-            ),
-        ).skip_compile("the invalid member stays");
-    }
-
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
     fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
         let (mut ctx, messages) = mock_context_with_preview_capture();
         ctx.session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
             hide_ui: Some(true),
-            style: "custom-style".into(),
-            include_paths: vec![PathBuf::from("/includes")],
-            library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
+            overrides: i_slint_compiler::project_file::Overrides {
+                style: Some("custom-style".into()),
+                project: i_slint_compiler::project_file::ProjectFileData {
+                    include_paths: Some(vec![PathBuf::from("/includes")]),
+                    library_paths: Some(HashMap::from([(
+                        "widgets".into(),
+                        PathBuf::from("/libraries/widgets"),
+                    )])),
+                    enable_experimental_features: Some(true),
+                    slint_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             format_utf8: false,
-            enable_experimental: true,
         };
 
         // Configuration flows independently of user settings; a settings file
@@ -2929,48 +2156,163 @@ export component TestCase {
         assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
     }
 
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     #[test]
-    fn test_qualify_named_color() {
-        CodeActionRequest::at("export component TestCase {\n    init => { debug(🔺red); }\n}\n")
-            .load()
-            .assert(
-                "Qualify as 'Colors.red'",
-                Some(lsp_types::CodeActionKind::QUICKFIX),
-                "export component TestCase {\n    init => { debug(Colors.red); }\n}\n",
-            )
-            .compiles();
-    }
+    fn preview_root_follows_discovery_and_replays_state_after_deletion() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer_root = directory.path();
+        let nested_root = outer_root.join("ui");
+        std::fs::create_dir(&nested_root).unwrap();
+        let outer_manifest = outer_root.join("slint-project.json");
+        let nested_manifest = nested_root.join("slint-project.json");
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let source_path = nested_root.join("main.slint");
+        let outer_source_path = outer_root.join("root.slint");
+        let source = "export component Main inherits Window {}";
+        std::fs::write(&source_path, source).unwrap();
+        std::fs::write(&outer_source_path, source).unwrap();
+        let source_url = Url::from_file_path(&source_path).unwrap();
+        let outer_source_url = Url::from_file_path(&outer_source_path).unwrap();
+        let outer_manifest_url = Url::from_file_path(&outer_manifest).unwrap();
+        let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        context.session.set_workspace_roots(vec![outer_root.to_path_buf()]);
+        spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
+            .unwrap();
+        spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
+            .unwrap();
+        messages.borrow_mut().clear();
 
-    #[test]
-    fn test_no_qualify_for_resolved_color() {
-        CodeActionRequest::at("export component TestCase {\n    property <color> c: 🔺red;\n}\n")
-            .load()
-            .assert_empty();
-    }
-
-    #[test]
-    fn test_qualify_value_shared_by_enums() {
-        const SOURCE: &str = r#"enum EA { shared_value }
-enum EB { shared_value }
-export component TestCase {
-    init => { debug(shared_value); }
-}
-"#;
-        let actions =
-            CodeActionRequest::at_offset(SOURCE, SOURCE.rfind("shared_value").unwrap()).load();
-        assert_eq!(
-            actions.titles(),
-            ["Qualify as 'EA.shared-value'", "Qualify as 'EB.shared-value'"]
+        show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
+        let nested_root_url = Url::from_directory_path(&nested_root).unwrap();
+        let replay = messages.borrow();
+        assert!(
+            matches!(replay.first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &nested_root_url)
         );
-        for qualified in ["EA.shared-value", "EB.shared-value"] {
-            actions
-                .assert(
-                    &format!("Qualify as '{qualified}'"),
-                    Some(lsp_types::CodeActionKind::QUICKFIX),
-                    &SOURCE.replace("(shared_value)", &format!("({qualified})")),
-                )
-                .compiles();
+        let configuration_index = replay
+            .iter()
+            .position(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+            .unwrap();
+        for url in [&source_url, &outer_manifest_url, &nested_manifest_url] {
+            let contents_index = replay
+                .iter()
+                .position(|message| {
+                    matches!(message, LspToPreviewMessage::SetContents { url: sent, .. }
+                        if sent.url() == url)
+                })
+                .unwrap();
+            assert!(contents_index < configuration_index);
         }
+        let component_index = replay
+            .iter()
+            .position(|message| {
+                matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+            })
+            .unwrap();
+        assert!(configuration_index < component_index);
+        drop(replay);
+
+        std::fs::remove_file(&nested_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            nested_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        let outer_root_url = Url::from_directory_path(outer_root).unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: Some(root) }) if root == &outer_root_url
+        ));
+        assert!(messages.borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+        }));
+
+        std::fs::remove_file(&outer_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            outer_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: None })
+        ));
+
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        assert!(
+            matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &outer_root_url)
+        );
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_does_not_reuse_an_active_project_above_its_boundary() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer = directory.path().join("outer");
+        let inner = outer.join("inner");
+        let inner_source_directory = inner.join("ui");
+        std::fs::create_dir_all(&inner_source_directory).unwrap();
+        std::fs::write(outer.join("slint-project.json"), r#"{"slint-edition":"1.19"}"#).unwrap();
+        let outer_source = outer.join("a.slint");
+        let inner_source = inner_source_directory.join("b.slint");
+        let code = "export component Main inherits Window {}";
+        for source in [&outer_source, &inner_source] {
+            std::fs::write(source, code).unwrap();
+        }
+        let outer_url = Url::from_file_path(&outer_source).unwrap();
+        let inner_url = Url::from_file_path(&inner_source).unwrap();
+        for workspace_roots in [vec![outer.clone(), inner.clone()], Vec::new()] {
+            let (mut context, _) = mock_context_with_preview_capture();
+            context.session.set_workspace_roots(workspace_roots);
+            for url in [&outer_url, &inner_url] {
+                spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
+                    .unwrap();
+            }
+            assert_eq!(
+                context.session.find_project_file_path_for(&outer_source).unwrap(),
+                Some(outer.join("slint-project.json"))
+            );
+            assert_eq!(context.session.find_project_file_path_for(&inner_source).unwrap(), None);
+        }
+    }
+
+    #[cfg(all(unix, any(feature = "preview-builtin", feature = "preview-external")))]
+    #[test]
+    fn preview_root_lookup_errors_keep_the_current_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = directory.path().join("slint-project.json");
+        std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
+        let source_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        let error =
+            show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context)
+                .unwrap_err();
+        assert!(matches!(error.code, LspErrorCode::RequestFailed));
+        assert!(error.message.contains(&source_url.to_file_path().unwrap().display().to_string()));
+        assert!(messages.borrow().is_empty());
+
+        let previous_root = Url::from_directory_path(directory.path()).unwrap();
+        context.session.primary_preview().project_root.replace(Some(previous_root.clone()));
+        context.session.primary_preview_mut().to_show =
+            Some(PreviewComponent { url: source_url, component: None });
+        assert!(sync_preview_project_root(&context.session).is_err());
+        assert_eq!(
+            context.session.primary_preview().project_root.borrow().as_ref(),
+            Some(&previous_root)
+        );
+        assert!(messages.borrow().is_empty());
     }
 
     #[test]

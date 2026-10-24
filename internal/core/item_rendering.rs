@@ -51,6 +51,23 @@ impl<T> Default for ItemCache<T> {
 
 #[cfg(feature = "std")]
 impl<T: Clone> ItemCache<T> {
+    /// Like [`Self::get_or_update_cache_entry`], but drops a value for which `is_stale` returns
+    /// `true` and computes it again: for values whose validity depends on state the dependency
+    /// tracker doesn't see, such as the renderer's current transform.
+    pub fn get_or_update_cache_entry_unless(
+        &self,
+        item_rc: &ItemRc,
+        mut update_fn: impl FnMut() -> T,
+        is_stale: impl FnOnce(&T) -> bool,
+    ) -> T {
+        let value = self.get_or_update_cache_entry(item_rc, &mut update_fn);
+        if !is_stale(&value) {
+            return value;
+        }
+        self.release(item_rc);
+        self.get_or_update_cache_entry(item_rc, update_fn)
+    }
+
     /// Returns the cached value associated to the `item_rc` if it is still valid.
     /// Otherwise call the `update_fn` to compute that value, and track property access
     /// so it is automatically invalided when property becomes dirty.

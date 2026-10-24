@@ -5,6 +5,7 @@
 
 global MyGlobal  {
     in-out property <int> hello: 42;
+    public pure function scaled(value: int, factor: int) -> int { return value * factor; }
 }
 
 export { MyGlobal }
@@ -42,6 +43,7 @@ assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
 ```d.ts
 export interface GlobalAlias {
     hello: number;
+    scaled: (value: number, factor: number) => number;
 }
 
 export type MyGlobal = GlobalAlias;
@@ -65,6 +67,7 @@ instance.MyGlobal.hello = 100;
 assert(instance.test_global_prop_value);
 assert.equal(instance.MyGlobal.hello, 100);
 assert.equal(instance.GlobalAlias.hello, 100);
+assert.equal(instance.MyGlobal.scaled(3, 4), 12);
 
 assert.equal(instance[slintlib.globalsSymbol].MyGlobal, instance.MyGlobal);
 assert.equal(instance[slintlib.globalsSymbol].GlobalAlias.hello, 100);

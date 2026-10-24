@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
-    SlintStyledText, js_into_rust_model, rust_into_js_model,
+    RustModel, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys, SlintStyledText,
+    js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -103,13 +103,7 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             SlintImageData::from(image.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
         Value::Struct(struct_value) => {
-            let mut o = Object::new(env)?;
-            for (field_name, field_value) in struct_value.iter() {
-                let key = env.create_string(field_name.replace('-', "_"))?;
-                let val = to_js_unknown(env, field_value)?;
-                o.set_property(key, val)?;
-            }
-            o.into_unknown(env)
+            struct_to_js(env, struct_value, |_, value| to_js_unknown(env, value))
         }
         Value::Keys(keys) => {
             SlintKeys::from(keys.clone()).into_instance(env)?.as_object(env).into_unknown(env)
@@ -123,14 +117,7 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             instance.anchor_js_user_data(&mut obj)?;
             obj.into_unknown(env)
         }
-        Value::Model(model) => {
-            if let Some(maybe_js_model) = rust_into_js_model(env, model) {
-                maybe_js_model
-            } else {
-                let model_wrapper: ReadOnlyRustModel = model.clone().into();
-                model_wrapper.into_js(env)
-            }
-        }
+        Value::Model(model) => model_to_js(env, model, None),
         Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
         Value::StyledText(styled_text) => SlintStyledText::from(styled_text.clone())
             .into_instance(env)?
@@ -138,6 +125,52 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             .into_unknown(env),
         _ => ().into_unknown(env),
     }
+}
+
+/// Like `to_js_unknown`, for a `value` of type `ty`:
+/// a model in it takes `setRowData()`, which converts the row with `owner`.
+pub fn to_js_unknown_of_type<'a>(
+    env: &'a Env,
+    value: &Value,
+    ty: &Type,
+    owner: &JsAnchorOwner,
+) -> Result<Unknown<'a>> {
+    match (value, ty) {
+        (Value::Model(model), Type::Array(row_type)) => {
+            model_to_js(env, model, Some(((**row_type).clone(), owner.clone())))
+        }
+        (Value::Struct(struct_value), Type::Struct(s)) => {
+            struct_to_js(env, struct_value, |name, value| match s.fields.get(name) {
+                Some(ty) => to_js_unknown_of_type(env, value, ty, owner),
+                None => to_js_unknown(env, value),
+            })
+        }
+        _ => to_js_unknown(env, value),
+    }
+}
+
+fn model_to_js<'a>(
+    env: &'a Env,
+    model: &ModelRc<Value>,
+    row_type: Option<(Type, JsAnchorOwner)>,
+) -> Result<Unknown<'a>> {
+    match rust_into_js_model(env, model) {
+        Some(js_model) => js_model,
+        None => RustModel { model: model.clone(), row_type }.into_js(env),
+    }
+}
+
+fn struct_to_js<'a>(
+    env: &'a Env,
+    struct_value: &slint_interpreter::Struct,
+    mut field_to_js: impl FnMut(&str, &Value) -> Result<Unknown<'a>>,
+) -> Result<Unknown<'a>> {
+    let mut o = Object::new(env)?;
+    for (field_name, field_value) in struct_value.iter() {
+        let key = env.create_string(field_name.replace('-', "_"))?;
+        o.set_property(key, field_to_js(field_name, field_value)?)?;
+    }
+    o.into_unknown(env)
 }
 
 /// A capability handle for installing hidden anchor properties on an owning
@@ -173,6 +206,16 @@ impl JsAnchorOwner {
         cell.set(id + 1);
         id
     }
+
+    /// Returns the JS object of the owning instance, or `None` once the instance is finalized.
+    pub fn object(&self, env: Env) -> Option<Object<'_>> {
+        // Pure Rust check (no NAPI calls).
+        // Returns None once the owning JsComponentInstance's anchor_seq
+        // Rc has been dropped,
+        // which happens before its other fields are dropped (field declaration order).
+        self.seq.upgrade()?;
+        crate::weak_ref::weak_ref_get_object(&self.owner_weak, env)
+    }
 }
 
 /// Convert a JS value to a Slint [`Value`].
@@ -198,68 +241,12 @@ pub fn to_value(
         | Type::UnitProduct(_) => Ok(Value::Number(expect_number(unknown)?)),
         Type::String => Ok(Value::String(expect_string(unknown)?.into())),
         Type::Bool => Ok(Value::Bool(expect_bool(unknown)?)),
-        Type::Color => {
-            match unknown.get_type() {
-                Ok(ValueType::String) => {
-                    let js_string = unknown.coerce_to_string()?;
-                    return string_to_brush(js_string);
-                }
-                Ok(ValueType::Object) => {
-                    let obj = unknown.coerce_to_object()?;
-                    if let Some(direct_brush) =
-                        obj.get::<ExternalRef<Brush>>("brush").ok().flatten()
-                    {
-                        return Ok(Value::Brush(direct_brush.color().into()));
-                    }
-                    return brush_from_color(obj);
-                }
-                _ => {}
-            }
-            Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
-                    ))
-        }
-        Type::Brush => {
-            match unknown.get_type() {
-                Ok(ValueType::String) => {
-                    let js_string = unknown.coerce_to_string()?;
-                    return string_to_brush(js_string);
-                }
-                Ok(ValueType::Object) => {
-                    let obj = unknown.coerce_to_object()?;
-                    // this is used to make the color property of the `Brush` interface optional.
-                    let properties = obj.get_property_names()?;
-                    if properties.get_array_length()? == 0 {
-                        return Ok(Value::Brush(Brush::default()));
-                    }
-                    if let Some(color) = obj.get::<RgbaColor>("color").ok().flatten() {
-                        if color.red() < 0.
-                            || color.green() < 0.
-                            || color.blue() < 0.
-                            || color.alpha() < 0.
-                        {
-                            return Err(napi::Error::from_reason(
-                                "A channel of Color cannot be negative",
-                            ));
-                        }
-
-                        return Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-                            color.alpha() as u8,
-                            color.red() as u8,
-                            color.green() as u8,
-                            color.blue() as u8,
-                        ))));
-                    } else {
-                        return brush_from_color(obj);
-                    }
-                }
-                _ => {}
-            }
-            Err(napi::Error::from_reason(
-                            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string".to_string()
-                    ))
-        }
+        Type::Color => Ok(Value::Brush(js_to_brush(unknown)?.color().into())),
+        Type::Brush => Ok(Value::Brush(js_to_brush(unknown)?)),
         Type::Image => {
+            if matches!(unknown.get_type()?, napi::ValueType::Undefined | napi::ValueType::Null) {
+                return Ok(Value::Image(Image::default()));
+            }
             let object = unknown.coerce_to_object()?;
             if let Some(direct_image) = object.get::<ExternalRef<Image>>("image").ok().flatten() {
                 Ok(Value::Image((*direct_image).clone()))
@@ -403,17 +390,49 @@ pub fn to_value(
     }
 }
 
-fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Value> {
-    let string = js_string.into_utf8()?.as_str()?.to_string();
-
-    let c = string
-        .parse::<css_color_parser2::Color>()
-        .map_err(|_| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
-
-    Ok(Value::Brush(Brush::from(Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b))))
+/// Converts a color string, a brush read from a property, an object with a `color`, or a color.
+fn js_to_brush(unknown: Unknown) -> Result<Brush> {
+    match unknown.get_type()? {
+        ValueType::String => string_to_brush(unknown.coerce_to_string()?),
+        ValueType::Object => {
+            let obj = unknown.coerce_to_object()?;
+            if let Some(brush) = obj.get::<ExternalRef<Brush>>("brush").ok().flatten() {
+                return Ok((*brush).clone());
+            }
+            if let Some(color) = obj.get::<Object>("color")? {
+                return brush_from_color(color);
+            }
+            // The `color` of the `Brush` interface is optional.
+            if obj.get_property_names()?.get_array_length()? == 0 {
+                return Ok(Brush::default());
+            }
+            brush_from_color(obj)
+        }
+        _ => Err(napi::Error::from_reason(
+            "Cannot convert object to brush, because the given object is neither a brush, color, nor a string",
+        )),
+    }
 }
 
-fn brush_from_color(rgb_color: Object) -> Result<Value> {
+fn string_to_brush(js_string: napi::JsString<'_>) -> Result<Brush> {
+    let string = js_string.into_utf8()?.as_str()?.to_string();
+
+    let color = parse_color(&string)
+        .ok_or_else(|| napi::Error::from_reason(format!("Could not convert {string} to Brush.")))?;
+
+    Ok(Brush::from(color))
+}
+
+/// Parses a color as a `.slint` file writes it, such as `#rrggbbaa` or a named color.
+fn parse_color(string: &str) -> Option<Color> {
+    use i_slint_common::color_parsing::{named_colors, parse_color_literal};
+    let string = string.trim();
+    let argb = parse_color_literal(string)
+        .or_else(|| named_colors().get(string.to_ascii_lowercase().as_str()).copied())?;
+    Some(Color::from_argb_encoded(argb))
+}
+
+fn brush_from_color(rgb_color: Object) -> Result<Brush> {
     let red: f64 =
         rgb_color.get("red")?.ok_or(napi::Error::from_reason("Property red is missing"))?;
     let green: f64 =
@@ -426,10 +445,5 @@ fn brush_from_color(rgb_color: Object) -> Result<Value> {
         return Err(napi::Error::from_reason("A channel of Color cannot be negative"));
     }
 
-    Ok(Value::Brush(Brush::SolidColor(Color::from_argb_u8(
-        alpha as u8,
-        red as u8,
-        green as u8,
-        blue as u8,
-    ))))
+    Ok(Brush::SolidColor(Color::from_argb_u8(alpha as u8, red as u8, green as u8, blue as u8)))
 }

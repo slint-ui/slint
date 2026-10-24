@@ -47,6 +47,12 @@ pub struct SkiaItemRenderer<'a> {
 }
 
 impl<'a> SkiaItemRenderer<'a> {
+    /// The device position of the item's origin, when the canvas only translates the item.
+    fn translation_origin(&self) -> Option<skia_safe::Point> {
+        let transform = self.canvas.local_to_device_as_3x3();
+        transform.is_translate().then(|| transform.map_point(skia_safe::Point::default()))
+    }
+
     pub fn new(
         canvas: &'a skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
@@ -102,7 +108,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let shape_size = shadow_options.shape_size();
         if shape_size.is_empty() {
@@ -198,7 +204,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_inset_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let width = shadow_options.width.get();
         let height = shadow_options.height.get();
@@ -337,7 +343,8 @@ impl<'a> SkiaItemRenderer<'a> {
 
                 paint.set_dither(true);
 
-                let mut local_matrix = skia_safe::Matrix::scale((g.radius.get(), g.radius.get()));
+                let mut local_matrix =
+                    skia_safe::Matrix::scale((g.radius_x.get(), g.radius_y.get()));
                 local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
@@ -405,30 +412,55 @@ impl<'a> SkiaItemRenderer<'a> {
         dest_rect: PhysicalRect,
     ) {
         let tiling = item.tiling();
+        let image_fit =
+            || if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() };
+        let transform_scale = self.canvas.local_to_device_as_3x3().max_scale();
+        let scale_factor = self.scale_factor;
 
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
-        let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let image = item.source();
-            super::cached_image::as_skia_image(
-                image,
-                &|| item.target_size(),
-                if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
-                self.scale_factor,
-                self.canvas,
-                self.surface,
-            )
-            .and_then(|skia_image| {
-                let brush = item.colorize();
-                if !brush.is_transparent() {
-                    self.colorize_image(skia_image, brush)
-                } else {
-                    Some(skia_image)
-                }
-            })
-        });
+        let skia_image = self.image_cache.get_or_update_cache_entry_unless(
+            item_rc,
+            || {
+                let image = item.source();
+                super::cached_image::as_skia_image(
+                    image,
+                    &|| item.target_size(),
+                    image_fit(),
+                    scale_factor,
+                    transform_scale,
+                    self.canvas,
+                    self.surface,
+                )
+                .and_then(|skia_image| {
+                    let brush = item.colorize();
+                    if !brush.is_transparent() {
+                        self.colorize_image(skia_image, brush)
+                    } else {
+                        Some(skia_image)
+                    }
+                })
+            },
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            |cached| {
+                cached.as_ref().is_some_and(|cached| {
+                    i_slint_core::graphics::svg_needs_rasterizing_again(
+                        i_slint_core::graphics::IntSize::new(
+                            cached.width() as _,
+                            cached.height() as _,
+                        ),
+                        &item.source(),
+                        image_fit(),
+                        item.target_size(),
+                        scale_factor,
+                        Default::default(),
+                        transform_scale,
+                    )
+                })
+            },
+        );
+        let source = item.source();
 
         let Some(skia_image) = skia_image else { return };
-        let source = item.source();
         let source_size = source.size();
         if source_size.is_empty() {
             // Not sure how this can happen, but we've seen with #6280
@@ -488,19 +520,38 @@ impl<'a> SkiaItemRenderer<'a> {
                             / skia_image.height() as f32,
                     ))
                     * Matrix::translate((-(tiled_offset.x as i32), -(tiled_offset.y as i32)));
-                if let Some(shader) = skia_image
-                    .make_subset(
-                        self.canvas
-                            .recording_context()
-                            .as_mut()
-                            .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
-                        src,
-                        skia_safe::image::RequiredProperties::default(),
-                    )
-                    .and_then(|i| {
-                        i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
-                    })
-                {
+                // A texture-backed image (a colorized one, cached by a window on the GPU) has
+                // no subset without a GPU recorder, as when `take_snapshot()` draws it on a
+                // raster canvas: the whole image is used as it is, and a subset is taken from a
+                // raster copy.
+                let tile = if src == skia_image.bounds() {
+                    Some(skia_image.clone())
+                } else {
+                    skia_image
+                        .make_subset(
+                            self.canvas
+                                .recording_context()
+                                .as_mut()
+                                .map(|c| c.as_recorder() as &mut dyn skia_safe::Recorder),
+                            src,
+                            skia_safe::image::RequiredProperties::default(),
+                        )
+                        .or_else(|| {
+                            skia_image
+                                .make_raster_image(
+                                    self.canvas.direct_context().as_mut(),
+                                    skia_safe::image::CachingHint::Allow,
+                                )?
+                                .make_subset(
+                                    None::<&mut dyn skia_safe::Recorder>,
+                                    src,
+                                    skia_safe::image::RequiredProperties::default(),
+                                )
+                        })
+                };
+                if let Some(shader) = tile.and_then(|i| {
+                    i.to_shader((TileMode::Repeat, TileMode::Repeat), filter_mode, &matrix)
+                }) {
                     let mut paint = self.default_paint().unwrap_or_default();
                     paint.set_shader(shader);
                     self.canvas.draw_paint(&paint);
@@ -1007,6 +1058,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             &|| LogicalSize::from_untyped(image.size().cast()),
             ImageFit::Fill,
             self.scale_factor,
+            1.,
             self.canvas,
             self.surface,
         );
@@ -1193,12 +1245,13 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
     }
 
     fn snap_selection_x(&self, x: f32) -> f32 {
-        let transform = self.canvas.local_to_device_as_3x3();
-        if !transform.is_translate() {
-            return x;
-        }
-        let origin = transform.map_point(skia_safe::Point::default()).x;
-        (origin + x).round() - origin
+        let Some(origin) = self.translation_origin() else { return x };
+        (origin.x + x).round() - origin.x
+    }
+
+    fn snap_y(&self, y: f32) -> f32 {
+        let Some(origin) = self.translation_origin() else { return y };
+        (origin.y + y).round() - origin.y
     }
 
     fn draw_glyph_run(

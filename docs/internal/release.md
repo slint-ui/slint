@@ -17,7 +17,11 @@ This document describes the Slint release process
 * Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we
   test on the CI
 
-* Publish the helper_crates, if needed
+* Bump the version of each helper crate in `helper_crates/` that changed since its last release,
+  and update its changelog.
+  `scripts/publish.sh` publishes the helper crates whose version isn't on crates.io yet.
+  Like the other crates, they need trusted publishing configured on crates.io
+  (see the comment in `scripts/publish.sh`).
 
 * If a new crate was added since the last release, publish a dummy 0.0.0 version manually so
   that the crate exists on crates.io, then configure trusted publishing

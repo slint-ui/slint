@@ -45,6 +45,7 @@ pub fn ensure_window(
         base_type: std::mem::replace(&mut win_elem_mut.base_type, window_type),
         bindings: Default::default(),
         change_callbacks: Default::default(),
+        moved_property_declarations: Default::default(),
         is_component_placeholder: false,
         property_analysis: Default::default(),
         children: std::mem::take(&mut win_elem_mut.children),
@@ -79,6 +80,8 @@ pub fn ensure_window(
         inline_depth: 0,
         is_legacy_syntax: false,
         slot_target: None,
+        slot_default: None,
+        cleared_slots: Vec::new(),
         typed_slot_interface: None,
         forwarded_slots: Vec::new(),
     };

@@ -28,14 +28,11 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     root.for_each_sub_components(&mut |_, sc, ctx| {
-        // 2. the native items and bindings of properties
-        for (_, expr) in &sc.property_init {
-            let c = expr.use_count.get();
-            expr.use_count.set(c + 1);
-            if c == 0 {
-                visit_binding_expression(expr, ctx)
-            }
+        // 2. the `@testable` element properties, read through the debug-info channel
+        for prop in sc.testable_properties.values().flatten() {
+            visit_property(&prop.prop, ctx);
         }
+
         // 3. the init code
         for expr in sc.pre_init_code.iter().chain(&sc.init_code) {
             expr.borrow().visit_property_references(ctx, &mut visit_property);
@@ -188,6 +185,7 @@ pub fn count_property_use(root: &CompilationUnit) {
         e.borrow().visit_property_references(ctx, &mut visit_property)
     });
 
+    visit_needed_bindings(root);
     clean_unused_bindings(root);
 }
 
@@ -223,6 +221,36 @@ fn visit_binding_expression(binding: &BindingExpression, ctx: &EvaluationContext
             e.visit_property_references(ctx, &mut visit_property);
         }
         None => (),
+    }
+}
+
+/// Visit the bindings of native items, and the bindings of the properties and callbacks that are used.
+///
+/// A sub-component is visited before the parent that binds one of its properties, so a property
+/// can turn out to be used after its binding was considered: repeat until no new binding is needed.
+fn visit_needed_bindings(root: &CompilationUnit) {
+    let mut visited = std::collections::HashSet::new();
+    loop {
+        let visited_before = visited.len();
+        root.for_each_sub_components(&mut |_, sc, ctx| {
+            for (prop, expr) in &sc.property_init {
+                let key = std::ptr::from_ref(expr);
+                if visited.contains(&key)
+                    || ctx.property_info(prop).use_count.is_some_and(|c| c.get() == 0)
+                {
+                    continue;
+                }
+                visited.insert(key);
+                let c = expr.use_count.get();
+                expr.use_count.set(c + 1);
+                if c == 0 {
+                    visit_binding_expression(expr, ctx)
+                }
+            }
+        });
+        if visited.len() == visited_before {
+            break;
+        }
     }
 }
 

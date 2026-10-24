@@ -1,4 +1,4 @@
-# cSpell:ignore stdenv
+# cSpell:ignore stdenv taplo
 {
   inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
@@ -36,9 +36,26 @@
         );
       in
         mkShell {
+          # Mirrors the tools in .mise/config.toml
           nativeBuildInputs = [
             pkg-config
+
+            cargo
+            rustc
+            rustfmt
+            clippy
+            rust-analyzer
+
+            cmake
+            ninja
+            clang-tools
+
+            fd
+            taplo
+            uv
+            wasm-pack
           ] ++ (lib.optional pkgs.stdenv.hostPlatform.isLinux perf);
+          RUST_SRC_PATH = rustPlatform.rustLibSrc;
           hardeningDisable = ["fortify"];
           buildInputs = [
             # Not strictly required, but helps with
@@ -49,12 +66,9 @@
             libGL
             freetype
             fontconfig
-            nodejs
-            pnpm
-
-            fontconfig
-            runtime-libs
-          ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+            nodejs_24
+            pnpm_11
+          ] ++ runtime-libs ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
             libgbm
             libinput
             # Merge the qt packages together to make a lighter version of qt6.full

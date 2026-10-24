@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { InspectorComboOption } from "components/inspector/control-data.slint";
+
 export struct CodeBinding {
     name: string,
     value: string,
@@ -20,8 +22,10 @@ export enum ElementKind {
     component,
     rectangle,
     text,
+    styled-text,
     image,
     touch-area,
+    widget,
 }
 
 /// A palette item whose kind selects its icon and drag payload.
@@ -121,6 +125,7 @@ export enum LayoutKind {
     Horizontal,
     Vertical,
     Grid,
+    Flexbox,
 }
 
 /// A rectangular region that is selected
@@ -510,7 +515,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data-for-kind(kind: ElementKind) -> data-transfer;
+    pure callback new-component-data(type-name: string) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -528,10 +533,14 @@ export global Api {
     pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
     pure callback source-property-value(property-name: string, fallback: string) -> string;
     pure callback source-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback combo-option-index(value: string, options: [InspectorComboOption]) -> int;
     public pure function number-property(name: string, fallback: float) -> float {
         let property = Api.source-property-value-data(name, {});
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
+    }
+    public pure function shadow-prefix(inner: bool) -> string {
+        return inner ? "inner-shadow-" : "drop-shadow-";
     }
     public pure function has-shadow(prefix: string) -> bool {
         return Api.source-property-value-data(prefix + "color", {}).code != ""
@@ -540,27 +549,16 @@ export global Api {
             || Api.source-property-value-data(prefix + "offset-x", {}).code != ""
             || Api.source-property-value-data(prefix + "offset-y", {}).code != "";
     }
-    function shadow-code(name: string, fallback: string) -> string {
-        let code = Api.source-property-value-data(name, {}).code;
-        return code != "" ? code : fallback;
-    }
-    function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
-        return [
-            { name: prefix + "color", value: enabled ? Api.shadow-code(prefix + "color", prefix == "inner-shadow-" ? "#00000030" : "#00000040") : "" },
-            { name: prefix + "blur", value: enabled ? Api.shadow-code(prefix + "blur", "16px") : "" },
-            { name: prefix + "spread", value: enabled ? Api.shadow-code(prefix + "spread", "0px") : "" },
-            { name: prefix + "offset-x", value: enabled ? Api.shadow-code(prefix + "offset-x", "0px") : "" },
-            { name: prefix + "offset-y", value: enabled ? Api.shadow-code(prefix + "offset-y", "8px") : "" },
-        ];
-    }
-    public function set-shadow-effect(element: ElementInformation, value: string) -> bool {
-        if value != "none" && value != "drop" && value != "inner" { return false; }
+    public function toggle-shadow(element: ElementInformation, inner: bool) {
         Api.inspector-cancel();
-        let drop = Api.shadow-bindings("drop-shadow-", value == "drop");
-        let inner = Api.shadow-bindings("inner-shadow-", value == "inner");
-        return Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
-            drop[0], drop[1], drop[2], drop[3], drop[4],
-            inner[0], inner[1], inner[2], inner[3], inner[4],
+        let prefix = Api.shadow-prefix(inner);
+        let enabled = !Api.has-shadow(prefix);
+        Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
+            { name: prefix + "color", value: enabled ? (inner ? "#00000030" : "#00000040") : "" },
+            { name: prefix + "blur", value: enabled ? "16px" : "" },
+            { name: prefix + "spread", value: enabled ? "0px" : "" },
+            { name: prefix + "offset-x", value: enabled ? "0px" : "" },
+            { name: prefix + "offset-y", value: enabled ? "8px" : "" },
         ]);
     }
     pure callback image-source-file-name(source: string) -> string;
@@ -589,6 +587,7 @@ export global Api {
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);
     callback copy-file-path(path: string);
+    callback open-file(path: string);
 
     // ## preview data
 

@@ -66,6 +66,9 @@ libinput = ["dep:input", "dep:xkbcommon", "dep:libudev-sys", "nix/time"]
 gbm = ["dep:gbm", "dep:gbm-sys"]
 # (internal) Load libinput, libudev, libxkbcommon, and libgbm at run-time instead of linking them.
 dlopen = ["dep:libloading"]
+## Obtain a DRM lease by name from the AGL drm-lease-manager, linking its client
+## library libdlmclient (found with pkg-config).
+libdlmclient = []
 
 default = []
 
@@ -101,8 +104,12 @@ libloading = { version = "0.9", optional = true }
 libudev-sys = { version = "0.1.4", optional = true }
 gbm-sys = { version = "0.4", optional = true }
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+drm-ffi = "0.9.1"
+
 [build-dependencies]
 cfg_aliases = { workspace = true }
+pkg-config = "0.3"
 
 [dev-dependencies]
 log = { workspace = true }

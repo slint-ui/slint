@@ -11,7 +11,7 @@ pub enum JsWindowEventDispatchResult {
     /// the window acted on a resize or close request.
     Accepted,
     /// The event wasn't handled: no element consumed it, or a handler actively refused it,
-    /// such as a `close-requested` callback returning `reject` to keep the window open.
+    /// such as an `onCloseRequested` callback returning `KeepWindowShown`.
     Rejected,
 }
 

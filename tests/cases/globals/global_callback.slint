@@ -4,7 +4,7 @@
 global Glo  {
     in-out property <int> hello: 42;
     pure callback sum(int, int) -> int;
-    pure callback mul(int, int) -> int;
+    pure callback mul(first-factor: int, default: int) -> int;
     pure callback calculate_profit() -> int;
     calculate_profit() => { return 1000; }
 }
@@ -53,7 +53,7 @@ assert_eq(instance.get_profit(), 1000);
 ```d.ts
 export interface TestCase {
     five: number;
-    mul: (arg_0: number, arg_1: number) => number;
+    mul: (first_factor: number, default_: number) => number;
     profit: number;
     six: number;
     sum: (arg_0: number, arg_1: number) => number;

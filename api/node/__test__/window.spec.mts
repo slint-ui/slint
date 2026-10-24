@@ -3,7 +3,13 @@
 
 import { test, expect } from "vitest";
 
-import { language, platform, private_api } from "../dist/index.js";
+import {
+    CloseRequestResponse,
+    language,
+    loadSource,
+    platform,
+    private_api,
+} from "../dist/index.js";
 import type { Window } from "../dist/index.d.ts";
 
 private_api.initTesting();
@@ -44,6 +50,28 @@ test("Window show / hide", () => {
     expect(window.visible).toBe(true);
     window.hide();
     expect(window.visible).toBe(false);
+});
+
+test("Window logicalSize setter honors the scale factor", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+    export component App inherits Window {
+        out property <length> win-width: self.width;
+        out property <length> win-height: self.height;
+    }`,
+        "",
+    );
+    expect(definition.App).not.toBeNull();
+
+    const instance = definition.App!.create();
+    expect(instance).not.toBeNull();
+
+    const window = instance!.window() as Window;
+    window.dispatchEvent({ type: "scale-factor-changed", scaleFactor: 2 });
+    window.logicalSize = { width: 200.5, height: 100 };
+    expect(instance.getProperty("win-width")).toBe(200.5);
+    expect(instance.getProperty("win-height")).toBe(100);
 });
 
 test("Window dispatch pointer event", () => {
@@ -281,4 +309,43 @@ test("Window dispatch event result", () => {
     expect(window.dispatchEvent({ type: "key-pressed", text: "a" })).toBe(
         platform.WindowEventDispatchResult.Rejected,
     );
+});
+
+test("Window close request", () => {
+    const app = new (
+        loadSource(
+            "export component App inherits Window { width: 10px; height: 10px; }",
+            "",
+        ) as any
+    ).App();
+    const close = () => app.window.dispatchEvent({ type: "close-requested" });
+
+    let keepShown = true;
+    // Returning nothing, which TypeScript rejects, hides the window too.
+    app.window.onCloseRequested(() => {
+        if (keepShown) {
+            return CloseRequestResponse.KeepWindowShown;
+        }
+    });
+
+    global.gc!({ type: "major", execution: "sync" });
+
+    app.show();
+    expect(close()).toBe(platform.WindowEventDispatchResult.Rejected);
+    expect(app.window.visible).toBe(true);
+    keepShown = false;
+    expect(close()).toBe(platform.WindowEventDispatchResult.Accepted);
+    expect(app.window.visible).toBe(false);
+
+    for (const callback of [
+        () => {
+            throw new Error("close failed");
+        },
+        () => "not a response",
+    ]) {
+        app.window.onCloseRequested(callback);
+        app.show();
+        close();
+        expect(app.window.visible).toBe(false);
+    }
 });

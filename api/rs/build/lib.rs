@@ -11,12 +11,10 @@ The generated code must be included in your crate by using the `slint::include_m
 
 ## Project File
 
-Settings such as the style or the include paths can be put in a `slint-project.json`
-file instead. The search for it starts in the directory of the `.slint` file and
-goes up from there. What you set on [`CompilerConfiguration`] wins over it.
-
-You can also pass the `slint-project.json` itself instead of a `.slint` file.
-Its `entry` is compiled with its settings, and there's no search.
+If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+The project file provides settings not specified through [`CompilerConfiguration`].
+It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+Passing a `.slint` file compiles it without loading a project file.
 
 ## Example
 
@@ -68,10 +66,14 @@ compile_error!(
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::project_file::{self, FILE_NAME as PROJECT_FILE_NAME, ProjectFile};
+#[cfg(test)]
+use i_slint_compiler::project_file::FILE_NAME as PROJECT_FILE_NAME;
+use i_slint_compiler::project_file::{self, ProjectFile};
 
 /// Argument of [`CompilerConfiguration::with_default_translation_context()`]
 ///
@@ -162,10 +164,9 @@ impl CompilerConfiguration {
 
     /// Create a new configuration that selects the style to be used for widgets.
     ///
-    /// This wins over the style of the project file.
     #[must_use]
     pub fn with_style(mut self, style: String) -> Self {
-        self.overrides.project.style = Some(style);
+        self.overrides.style = Some(style);
         self
     }
 
@@ -336,10 +337,9 @@ impl CompilerConfiguration {
     #[cfg(test)]
     fn resolve_project_file(
         self,
-        slint_file_directory: &Path,
+        project_directory: &Path,
     ) -> Result<(i_slint_compiler::CompilerConfiguration, Option<ProjectFile>), String> {
-        let (_, project_file) =
-            project_file::resolve_input(&slint_file_directory.join("main.slint"))?;
+        let (_, project_file) = project_file::resolve_input(project_directory)?;
         Ok((self.resolve(project_file.as_ref()), project_file))
     }
 }
@@ -361,148 +361,9 @@ pub enum CompileError {
     SaveError(std::io::Error),
 }
 
+#[cfg(test)]
 fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
     manifest_dir.as_ref().join(PROJECT_FILE_NAME)
-}
-
-struct CodeFormatter<Sink> {
-    indentation: usize,
-    /// We are currently in a string
-    in_string: bool,
-    /// number of bytes after the last `'`, 0 if there was none
-    in_char: usize,
-    /// In string or char, and the previous character was `\\`
-    escaped: bool,
-    sink: Sink,
-}
-
-impl<Sink> CodeFormatter<Sink> {
-    pub fn new(sink: Sink) -> Self {
-        Self { indentation: 0, in_string: false, in_char: 0, escaped: false, sink }
-    }
-}
-
-impl<Sink: Write> Write for CodeFormatter<Sink> {
-    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
-        let len = s.len();
-        while let Some(idx) = s.iter().position(|c| match c {
-            b'{' if !self.in_string && self.in_char == 0 => {
-                self.indentation += 1;
-                true
-            }
-            b'}' if !self.in_string && self.in_char == 0 => {
-                self.indentation -= 1;
-                true
-            }
-            b';' if !self.in_string && self.in_char == 0 => true,
-            b'"' if !self.in_string && self.in_char == 0 => {
-                self.in_string = true;
-                self.escaped = false;
-                false
-            }
-            b'"' if self.in_string && !self.escaped => {
-                self.in_string = false;
-                false
-            }
-            b'\'' if !self.in_string && self.in_char == 0 => {
-                self.in_char = 1;
-                self.escaped = false;
-                false
-            }
-            b'\'' if !self.in_string && self.in_char > 0 && !self.escaped => {
-                self.in_char = 0;
-                false
-            }
-            b' ' | b'>' if self.in_char > 2 && !self.escaped => {
-                // probably a lifetime
-                self.in_char = 0;
-                false
-            }
-            b'\\' if (self.in_string || self.in_char > 0) && !self.escaped => {
-                self.escaped = true;
-                // no need to increment in_char since \ isn't a single character
-                false
-            }
-            _ if self.in_char > 0 => {
-                self.in_char += 1;
-                self.escaped = false;
-                false
-            }
-            _ => {
-                self.escaped = false;
-                false
-            }
-        }) {
-            let idx = idx + 1;
-            self.sink.write_all(&s[..idx])?;
-            self.sink.write_all(b"\n")?;
-            for _ in 0..self.indentation {
-                self.sink.write_all(b"    ")?;
-            }
-            s = &s[idx..];
-        }
-        self.sink.write_all(s)?;
-        Ok(len)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.sink.flush()
-    }
-}
-
-#[test]
-fn formatter_test() {
-    fn format_code(code: &str) -> String {
-        let mut res = Vec::new();
-        let mut formatter = CodeFormatter::new(&mut res);
-        formatter.write_all(code.as_bytes()).unwrap();
-        String::from_utf8(res).unwrap()
-    }
-
-    assert_eq!(
-        format_code("fn main() { if ';' == '}' { return \";\"; } else { panic!() } }"),
-        r#"fn main() {
-     if ';' == '}' {
-         return ";";
-         }
-     else {
-         panic!() }
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn xx<'lt>(foo: &'lt str) { println!("{}", '\u{f700}'); return Ok(()); }"#),
-        r#"fn xx<'lt>(foo: &'lt str) {
-     println!("{}", '\u{f700}');
-     return Ok(());
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn main() { ""; "'"; "\""; "{}"; "\\"; "\\\""; }"#),
-        r#"fn main() {
-     "";
-     "'";
-     "\"";
-     "{}";
-     "\\";
-     "\\\"";
-     }
-"#
-    );
-
-    assert_eq!(
-        format_code(r#"fn main() { '"'; '\''; '{'; '}'; '\\'; }"#),
-        r#"fn main() {
-     '"';
-     '\'';
-     '{';
-     '}';
-     '\\';
-     }
-"#
-    );
 }
 
 /// Compile the `.slint` file and generate rust code for it.
@@ -528,9 +389,9 @@ fn formatter_test() {
 ///
 /// This function can only be called within a build script run by cargo.
 ///
-/// A `slint-project.json` in the directory of `path`, or in a directory above it,
-/// provides the settings.
-/// `path` can also be a `slint-project.json`, whose `entry` is compiled.
+/// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+/// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+/// A `.slint` file path compiles without loading a project file.
 ///
 /// See also [`compile_with_config()`] if you want to specify a configuration.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
@@ -547,7 +408,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 /// slint_build::compile_with_config("ui/hello.slint", config).unwrap();
 /// ```
 ///
-/// The project file provides the settings that `config` leaves open.
+/// The project file provides the settings that `config` does not specify.
 pub fn compile_with_config(
     relative_slint_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
@@ -609,6 +470,8 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
     println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
+    println!("cargo:rerun-if-env-changed=SLINT_ENABLE_EXPERIMENTAL_FEATURES");
+    println!("cargo:rerun-if-env-changed=SLINT_EDITION");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
@@ -622,11 +485,13 @@ pub fn compile_with_config(
 ///
 /// Will compile the input file and write the result in the given output file.
 ///
-/// Both input_slint_file_path and output_rust_file_path should be absolute paths.
+/// Both input and output paths should be absolute.
 ///
 /// Doesn't print any cargo messages.
 ///
-/// The project file provides the settings that `config` leaves open.
+/// If the input path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+/// The project file provides the settings that `config` does not specify.
+/// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
 pub fn compile_with_output_path(
@@ -679,9 +544,9 @@ fn compile_resolved(
 
     let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
         .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
-    let output_file =
-        std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
+    let mut output_file = BufWriter::new(
+        std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?,
+    );
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
@@ -698,20 +563,13 @@ fn compile_resolved(
         }
     });
 
-    write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
+    i_slint_compiler::generator::rust_code_formatter::write_formatted(&generated, &mut output_file)
+        .map_err(CompileError::SaveError)?;
     dependencies.push(input_slint_file_path.to_path_buf());
 
-    dependencies.push(project_file.map_or_else(
-        || {
-            project_file_path_in(
-                i_slint_compiler::source_path::SourcePath::new(input_slint_file_path)
-                    .parent()
-                    .into_native_path()
-                    .unwrap_or_default(),
-            )
-        },
-        |project_file| project_file.source_path().to_owned(),
-    ));
+    if let Some(project_file) = project_file {
+        dependencies.push(project_file.source_path().as_native_path().unwrap().to_owned());
+    }
 
     for er in doc.embedded_file_resources.borrow().iter() {
         if let Some(resource) = er.path.as_ref().and_then(|p| p.as_native_path()) {
@@ -719,7 +577,7 @@ fn compile_resolved(
         }
     }
 
-    code_formatter.sink.flush().map_err(CompileError::SaveError)?;
+    output_file.flush().map_err(CompileError::SaveError)?;
 
     Ok(dependencies)
 }
@@ -855,9 +713,10 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
         fs::write(
             &project_file,
             r#"{
+                "slint-edition": "1.19",
+                "main": "main.slint",
                 "include-paths": ["project-include"],
-                "library-paths": {"widgets": "project-lib.slint"},
-                "style": "project-style"
+                "library-paths": {"widgets": "project-lib.slint"}
             }"#,
         )
         .unwrap();
@@ -873,8 +732,10 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
             config.library_paths,
             HashMap::from([("widgets".to_string(), test_root.join("project-lib.slint"))])
         );
-        assert_eq!(config.style.as_deref(), Some("project-style"));
-        assert_eq!(project_file.unwrap().source_path(), project_file_path_in(&test_root));
+        assert_eq!(
+            project_file.unwrap().source_path().as_native_path().unwrap(),
+            project_file_path_in(&test_root)
+        );
     });
 }
 
@@ -887,9 +748,10 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
         fs::write(
             &project_file,
             r#"{
+                "slint-edition": "1.19",
+                "main": "main.slint",
                 "include-paths": ["project-include"],
-                "library-paths": {"widgets": "project-lib.slint"},
-                "style": "project-style"
+                "library-paths": {"widgets": "project-lib.slint"}
             }"#,
         )
         .unwrap();
@@ -921,7 +783,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent"}"#,
+            r#"{"slint-edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -1024,44 +886,45 @@ fn compiler_configuration_defaults_without_project_file() {
     use std::fs;
 
     with_temp_test_dir("optional-project-file", |test_root| {
-        let (config, project_file) =
-            CompilerConfiguration::new().resolve_project_file(test_root).unwrap();
+        let (config, project_file) = CompilerConfiguration::new()
+            .resolve_project_file(&test_root.join("main.slint"))
+            .unwrap();
         assert!(config.style.is_none());
         assert!(project_file.is_none());
 
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{"style":"project-style"}"#).unwrap();
+        fs::write(
+            &project_file,
+            r#"{"slint-edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+        )
+        .unwrap();
 
         let (config, _) = CompilerConfiguration::new().resolve_project_file(test_root).unwrap();
-        assert_eq!(config.style.as_deref(), Some("project-style"));
+        assert_eq!(config.include_paths, vec![test_root.join("include")]);
     });
 }
 
 #[test]
-fn project_file_discovery_starts_at_the_slint_file_directory() {
+fn file_compilation_ignores_project_files() {
     use std::fs;
 
-    with_temp_test_dir("discovery-slint-file-relative", |test_root| {
-        let test_root = fs::canonicalize(test_root).unwrap();
-        let ui_dir = test_root.join("ui");
-        fs::create_dir_all(&ui_dir).unwrap();
+    with_temp_test_dir("standalone-slint-file", |test_root| {
+        let ui_directory = test_root.join("ui");
+        fs::create_dir_all(&ui_directory).unwrap();
+        fs::write(project_file_path_in(test_root), "{").unwrap();
+        fs::write(project_file_path_in(&ui_directory), "{").unwrap();
 
-        fs::write(project_file_path_in(&test_root), r#"{"style":"fluent"}"#).unwrap();
-        fs::write(project_file_path_in(&ui_dir), r#"{"style":"material"}"#).unwrap();
-
-        let input_file = ui_dir.join("main.slint");
+        let input_file = ui_directory.join("main.slint");
         let output_file = test_root.join("main.rs");
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
 
         let dependencies =
             compile_with_output_path(&input_file, &output_file, CompilerConfiguration::new())
                 .unwrap();
-
-        assert!(
-            dependencies.contains(&project_file_path_in(&ui_dir)),
-            "expected the project file next to main.slint\ndeps: {dependencies:#?}"
-        );
-        assert!(!dependencies.contains(&project_file_path_in(&test_root)));
+        assert!(dependencies.contains(&input_file));
+        for project_file in [project_file_path_in(test_root), project_file_path_in(&ui_directory)] {
+            assert!(!dependencies.contains(&project_file), "{dependencies:#?}");
+        }
     });
 }
 
@@ -1081,15 +944,15 @@ fn project_file_discovery_loads_present_paths() {
 }
 
 #[test]
-fn project_file_errors_are_compilation_errors() {
+fn missing_main_is_a_compilation_error() {
     use std::fs;
 
     with_temp_test_dir("project-file-error", |test_root| {
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, "{}").unwrap();
+        fs::write(&project_file, r#"{ "slint-edition": "1.19" }"#).unwrap();
 
         let error = compile_with_output_path(
-            &project_file,
+            test_root,
             test_root.join("main.rs"),
             CompilerConfiguration::new(),
         )
@@ -1098,7 +961,7 @@ fn project_file_errors_are_compilation_errors() {
         let CompileError::CompileError(messages) = error else {
             panic!("Expected a compilation error, got {error:?}");
         };
-        assert_eq!(messages, vec![format!("{} has no 'entry' to compile", project_file.display())]);
+        assert_eq!(messages, vec![format!("{} has no 'main' to compile", project_file.display())]);
     });
 }
 
@@ -1111,11 +974,15 @@ fn output_path_compilation_tracks_project_file_dependency() {
         let input_file = test_root.join("main.slint");
         let output_file = test_root.join("main.rs");
 
-        fs::write(&project_file, r#"{"style":"fluent"}"#).unwrap();
+        fs::write(
+            &project_file,
+            r#"{"slint-edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+        )
+        .unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
 
         let config = CompilerConfiguration::new();
-        let dependencies = compile_with_output_path(&input_file, &output_file, config).unwrap();
+        let dependencies = compile_with_output_path(test_root, &output_file, config).unwrap();
 
         let project_file = i_slint_compiler::source_path::clean_path(&project_file);
         assert!(
@@ -1127,7 +994,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
 }
 
 #[test]
-fn output_path_compilation_tracks_missing_project_file_dependency() {
+fn output_path_compilation_does_not_track_missing_project_file() {
     use std::fs;
 
     with_temp_test_dir("missing-project-deps", |test_root| {
@@ -1144,16 +1011,15 @@ fn output_path_compilation_tracks_missing_project_file_dependency() {
         assert!(
             dependencies
                 .iter()
-                .any(|dependency| i_slint_compiler::source_path::clean_path(dependency)
-                    == project_file),
-            "expected: {:?}\ndeps: {dependencies:#?}",
-            project_file
+                .all(|dependency| i_slint_compiler::source_path::clean_path(dependency)
+                    != project_file),
+            "{dependencies:#?}"
         );
     });
 }
 
 #[test]
-fn a_project_file_input_compiles_its_entry() {
+fn a_project_directory_compiles_its_main_file() {
     use std::fs;
 
     with_temp_test_dir("project-file-input", |test_root| {
@@ -1164,27 +1030,70 @@ fn a_project_file_input_compiles_its_entry() {
         fs::create_dir_all(&shared_dir).unwrap();
 
         let project_file = project_file_path_in(&test_root);
-        fs::write(&project_file, r#"{ "entry": "ui/main.slint", "include-paths": ["shared"] }"#)
-            .unwrap();
-        // Nearer to the entry, but not the project file that was passed in.
-        fs::write(project_file_path_in(&ui_dir), r#"{ "include-paths": ["nowhere"] }"#).unwrap();
-        fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
-        let entry = ui_dir.join("main.slint");
         fs::write(
-            &entry,
+            &project_file,
+            r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
+        )
+        .unwrap();
+        fs::write(
+            project_file_path_in(&ui_dir),
+            r#"{ "slint-edition": "1.19", "include-paths": ["nowhere"] }"#,
+        )
+        .unwrap();
+        fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
+        let main = ui_dir.join("main.slint");
+        fs::write(
+            &main,
             r#"import { Shared } from "shared.slint";
                export component Test inherits Rectangle { Shared {} }"#,
         )
         .unwrap();
 
         let dependencies = compile_with_output_path(
-            &project_file,
+            &test_root,
             test_root.join("main.rs"),
             CompilerConfiguration::new(),
         )
         .unwrap();
 
-        assert!(dependencies.contains(&entry), "{dependencies:#?}");
+        assert!(dependencies.contains(&main), "{dependencies:#?}");
         assert!(dependencies.contains(&project_file), "{dependencies:#?}");
+    });
+}
+
+#[test]
+fn directory_without_project_file_is_a_compilation_error() {
+    with_temp_test_dir("missing-project-file", |test_root| {
+        let error = compile_with_output_path(
+            test_root,
+            test_root.join("main.rs"),
+            CompilerConfiguration::new(),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("slint-project.json"), "{error}");
+    });
+}
+
+#[test]
+fn project_file_cannot_be_compiled_directly() {
+    with_temp_test_dir("direct-project-file", |test_root| {
+        let project_file = project_file_path_in(test_root);
+        std::fs::write(&project_file, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
+        let error = compile_with_output_path(
+            &project_file,
+            test_root.join("main.rs"),
+            CompilerConfiguration::new(),
+        )
+        .unwrap_err();
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        assert_eq!(
+            messages,
+            vec![format!(
+                "A `{PROJECT_FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
+                test_root.display()
+            )]
+        );
     });
 }

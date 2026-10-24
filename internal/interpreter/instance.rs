@@ -7,20 +7,18 @@
 use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
+use crate::prelude::*;
+use alloc::rc::Weak;
 use i_slint_compiler::llr::{
     self, CompilationUnit, ItemInstanceIdx, PublicComponentIdx, RepeatedElementIdx,
     SubComponentIdx, SubComponentInstanceIdx,
 };
-use i_slint_core::item_tree::{ItemTreeNode, ItemTreeVTable};
+use i_slint_core::item_tree::ItemTreeNode;
 use i_slint_core::model::{Conditional, Repeater};
 use i_slint_core::properties::ChangeTracker;
 use i_slint_core::window::WindowAdapterRc;
-use i_slint_core::{Callback, Property};
-use std::cell::{OnceCell, RefCell};
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
 use typed_index_collections::TiVec;
-use vtable::{VRc, VWeak};
+use vtable::VWeak;
 
 /// Either a `Repeater<Instance>` (`for` loops) or a `Conditional<Instance>`
 /// (`if expr` elements).
@@ -124,7 +122,7 @@ impl RepeaterOrConditional {
     /// Set the model binding for `for` repeaters.
     pub fn set_model_binding(
         &self,
-        binding: impl Fn() -> i_slint_core::model::ModelRc<crate::Value> + 'static,
+        binding: impl Fn() -> i_slint_core::model::ModelRc<Value> + 'static,
     ) {
         match self {
             Self::Repeater(r) => Pin::as_ref(r).set_model_binding(binding),
@@ -141,7 +139,7 @@ impl RepeaterOrConditional {
     }
 
     /// Write model data back to a for-loop model row.
-    pub fn model_set_row_data(&self, row: usize, data: crate::Value) {
+    pub fn model_set_row_data(&self, row: usize, data: Value) {
         match self {
             Self::Repeater(r) => Pin::as_ref(r).model_set_row_data(row, data),
             Self::Conditional(_) => {} // conditionals have no model data
@@ -189,14 +187,14 @@ pub struct SubComponentInstance {
     /// open popup's id (handed out by `WindowInner::show_popup`) so a
     /// later `popup.close()` in the same sub-component can resolve which
     /// popup to tear down.
-    pub popup_ids: Vec<std::cell::Cell<Option<std::num::NonZeroU32>>>,
+    pub popup_ids: Vec<Cell<Option<core::num::NonZeroU32>>>,
     /// Set on the root sub-component of a repeated `Instance`. Points back to
     /// the parent sub-component holding the `Repeater` this instance belongs to.
     /// Used by `ModelDataAssignment` to write back into the model.
     pub repeated_in: OnceCell<(Weak<SubComponentInstance>, RepeatedElementIdx)>,
     /// Keeps the `MenuFromItemTree` alive so the weak reference stored by
     /// `setup_menubar_shortcuts` in the window remains valid.
-    pub menubar: RefCell<Option<vtable::VRc<i_slint_core::menus::MenuVTable>>>,
+    pub menubar: RefCell<Option<VRc<i_slint_core::menus::MenuVTable>>>,
 }
 
 /// Top-level item tree handed to i-slint-core via `VRc<ItemTreeVTable, _>`.
@@ -283,7 +281,7 @@ impl Drop for Instance {
         }) else {
             return;
         };
-        vtable::new_vref!(let item_tree_ref : VRef<i_slint_core::item_tree::ItemTreeVTable> for i_slint_core::item_tree::ItemTree = self);
+        vtable::new_vref!(let item_tree_ref : VRef<ItemTreeVTable> for i_slint_core::item_tree::ItemTree = self);
         let items = collect_item_refs(&self.root_sub_component);
         // Same order as `i_slint_core::item_tree::unregister_item_tree`:
         // deinit each item (a focused TextInput resets
@@ -365,7 +363,7 @@ impl Instance {
             && let Some(outer) = outer_weak.upgrade()
         {
             let mut result = None;
-            vtable::VRc::borrow_pin(&outer).as_ref().window_adapter(true, &mut result);
+            VRc::borrow_pin(&outer).as_ref().window_adapter(true, &mut result);
             if let Some(a) = result {
                 let _ = self.window_adapter.set(a.clone());
                 return Ok(a);
@@ -437,7 +435,7 @@ impl Instance {
         let Some(self_rc) = self.self_weak.get().and_then(|w| w.upgrade()) else { return };
         let _ = self.window_attached.set(());
         i_slint_core::window::WindowInner::from_pub(adapter.window())
-            .set_component(&vtable::VRc::into_dyn(self_rc));
+            .set_component(&VRc::into_dyn(self_rc));
     }
 }
 
@@ -517,13 +515,6 @@ impl Instance {
         if let Some(lv) = listview_info.as_ref() {
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let listview_height = read_logical_length(&sub, &lv.listview_height);
-            // If layout hasn't propagated a real visible height yet (eager
-            // hit-test before show()), bail out instead of running the
-            // virtualization with `0`, which would create no rows or — with
-            // the loop_count == 3 retry — instantiate the whole model.
-            if listview_height.get() <= 0.0 {
-                return false;
-            }
             let props = ValueListViewProps {
                 content_y: lv.content_y.clone(),
                 content_width: lv.content_width.clone(),
@@ -640,6 +631,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        resources: Rc<crate::component::Resources>,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -648,6 +640,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            resources,
             None,
             context,
             false,
@@ -660,13 +653,15 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
-        context: i_slint_core::SlintContext,
+        resources: Rc<crate::component::Resources>,
+        context: SlintContext,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_options(
             compilation_unit,
             public_component_index,
             None,
             type_loaders,
+            resources,
             None,
             context,
             false,
@@ -679,6 +674,7 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: i_slint_core::window::WindowAdapterRc,
         type_loaders: crate::component::TypeLoaders,
+        resources: Rc<crate::component::Resources>,
     ) -> VRc<ItemTreeVTable, Instance> {
         let context =
             i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone();
@@ -687,6 +683,7 @@ impl Instance {
             public_component_index,
             Some(window_adapter),
             type_loaders,
+            resources,
             None,
             context,
             true,
@@ -701,6 +698,7 @@ impl Instance {
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
+        resources: Rc<crate::component::Resources>,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -713,6 +711,7 @@ impl Instance {
             public_component_index,
             None,
             type_loaders,
+            resources,
             Some((parent, parent_item_tree_index)),
             context,
             false,
@@ -726,12 +725,13 @@ impl Instance {
         public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
+        resources: Rc<crate::component::Resources>,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
-        context: i_slint_core::SlintContext,
+        context: SlintContext,
         disable_window_attachment: bool,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
-        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context));
+        let globals = Rc::new(GlobalStorage::new(&compilation_unit, context, resources));
         let item_tree = &public.item_tree;
         let vrc = build_instance(
             &compilation_unit,
@@ -889,7 +889,7 @@ pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     // `register_item_tree` calls `Item::init()`, which `ItemVTable::init`
     // requires to run before the bindings below.
     i_slint_core::item_tree::register_item_tree(
-        &vtable::VRc::into_dyn(vrc.clone()),
+        &VRc::into_dyn(vrc.clone()),
         vrc.window_adapter_or_default(),
     );
     let is_root = vrc.parent_instance.upgrade().is_none();
@@ -965,11 +965,11 @@ fn build_sub_component_instance(
             repeaters,
             parent,
             root: OnceCell::new(),
-            change_trackers: std::iter::repeat_with(ChangeTracker::default)
+            change_trackers: core::iter::repeat_with(ChangeTracker::default)
                 .take(2 * sc.timers.len() + sc.change_callbacks.len())
                 .collect(),
-            timers: std::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
-            popup_ids: vec![std::cell::Cell::new(None); sc.popup_windows.len()],
+            timers: core::iter::repeat_with(Default::default).take(sc.timers.len()).collect(),
+            popup_ids: vec![Cell::new(None); sc.popup_windows.len()],
             repeated_in: OnceCell::new(),
             menubar: RefCell::new(None),
         }
@@ -1017,11 +1017,7 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
     }
     fn content_y_set(&self, value: i_slint_core::lengths::LogicalLength) {
         let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
-        crate::eval::store_property(
-            &ctx,
-            &self.content_y,
-            crate::Value::Number(value.get() as f64),
-        );
+        crate::eval::store_property(&ctx, &self.content_y, Value::Number(value.get() as f64));
     }
     fn content_y_has_binding(&self) -> bool {
         // Unlike the generated code, the interpreter doesn't track whether
@@ -1035,12 +1031,12 @@ impl i_slint_core::model::ListViewProperties for ValueListViewProps {
     fn content_width_set(&self, value: i_slint_core::lengths::LogicalLength) {
         let Some(content_width) = &self.content_width else { return };
         let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
-        crate::eval::store_property(&ctx, content_width, crate::Value::Number(value.get() as f64));
+        crate::eval::store_property(&ctx, content_width, Value::Number(value.get() as f64));
     }
     fn content_height_set(&self, value: i_slint_core::lengths::LogicalLength) {
         let Some(content_height) = &self.content_height else { return };
         let ctx = crate::eval::EvalContext::new(self.ctx_sub.clone());
-        crate::eval::store_property(&ctx, content_height, crate::Value::Number(value.get() as f64));
+        crate::eval::store_property(&ctx, content_height, Value::Number(value.get() as f64));
     }
     fn register_as_dependencies(&self) {
         // Reading through `load_property` registers the dependency with the
@@ -1071,7 +1067,7 @@ type ZSortEntry = Option<Vec<llr::ZSource>>;
 fn build_tree_nodes(
     root: &llr::TreeNode,
 ) -> (Vec<ItemTreeNode>, Vec<DynamicEntry>, Vec<ItemEntry>, Vec<ZSortEntry>) {
-    use itertools::Either;
+    use either::Either;
 
     let mut out = Vec::new();
     let mut dyn_table: Vec<DynamicEntry> = Vec::new();
@@ -1142,7 +1138,7 @@ fn repeated_layout_order(
     match &sc.layout_order_for_repeated {
         Some((main_o, expr)) if crate::eval::llr_to_core_orientation(*main_o) == orientation => {
             match crate::eval::eval_expression(ctx, &expr.borrow()) {
-                crate::Value::Number(n) => n as i32,
+                Value::Number(n) => n as i32,
                 _ => 0,
             }
         }
@@ -1155,7 +1151,7 @@ fn repeated_layout_order(
 /// `update(idx, data)` writes the repeater's `index_prop` and `data_prop` on
 /// the repeated instance's root sub-component.
 impl i_slint_core::model::RepeatedItemTree for Instance {
-    type Data = crate::Value;
+    type Data = Value;
 
     fn update(&self, index: usize, data: Self::Data) {
         let sc_idx = self.root_sub_component.sub_component_idx;
@@ -1169,7 +1165,7 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
             let target = &self.root_sub_component.properties[idx];
             match prop.name.as_str() {
                 "model_data" => Pin::as_ref(target).set(data.clone()),
-                "model_index" => Pin::as_ref(target).set(crate::Value::Number(index as f64)),
+                "model_index" => Pin::as_ref(target).set(Value::Number(index as f64)),
                 _ => {}
             }
         }
@@ -1227,7 +1223,7 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
         // `this.root_sub_component`.
         let row_sub = this.root_sub_component.clone();
         let ctx = crate::eval::EvalContext::new(row_sub.clone());
-        crate::eval::store_property(&ctx, &lv.prop_y, crate::Value::Number(offset_y.get() as f64));
+        crate::eval::store_property(&ctx, &lv.prop_y, Value::Number(offset_y.get() as f64));
         let height_v = crate::eval::load_property(&ctx, &lv.prop_height);
         let height: f64 = height_v.try_into().unwrap_or(0.0);
         *offset_y += LogicalLength::new(height as f32);
@@ -1294,7 +1290,7 @@ impl i_slint_core::model::RepeatedItemTree for Instance {
             return self.layout_item_info(orientation, None);
         };
         let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
-        ctx.locals.insert(CROSS_WIDTH_LOCAL.into(), crate::Value::Number(cross_width as f64));
+        ctx.locals.insert(CROSS_WIDTH_LOCAL.into(), Value::Number(cross_width as f64));
         let constraint =
             crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default();
         // The per-item fields are the same as in `layout_item_info`, which is
@@ -1366,7 +1362,7 @@ impl Instance {
             let mut ctx = crate::eval::EvalContext::new(self.root_sub_component.clone());
             ctx.locals.insert(
                 i_slint_compiler::llr::CROSS_WIDTH_LOCAL.into(),
-                crate::Value::Number(cross_width as f64),
+                Value::Number(cross_width as f64),
             );
             info.constraint = crate::eval::eval_expression(&mut ctx, &v_expr.borrow())
                 .try_into()
@@ -1458,18 +1454,17 @@ fn row_child_cross_width(
     use i_slint_compiler::llr::GRID_MEASURE_CHILD_INDEX_LOCAL;
     let expr = sc.grid_row_child_cross_width.as_ref()?;
     let mut ctx = crate::eval::EvalContext::new(this.root_sub_component.clone());
-    ctx.locals
-        .insert(GRID_MEASURE_CHILD_INDEX_LOCAL.into(), crate::Value::Number(flat_index as f64));
+    ctx.locals.insert(GRID_MEASURE_CHILD_INDEX_LOCAL.into(), Value::Number(flat_index as f64));
     crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().ok()
 }
 
 fn value_to_flexbox_layout_item_info(
-    v: crate::Value,
+    v: Value,
     orientation: i_slint_core::items::Orientation,
     instance: Pin<&Instance>,
 ) -> i_slint_core::layout::FlexboxLayoutItemInfo {
     use i_slint_core::model::RepeatedItemTree;
-    let crate::Value::Struct(s) = v else {
+    let Value::Struct(s) = v else {
         let info = RepeatedItemTree::layout_item_info(instance, orientation, None);
         return info.into();
     };

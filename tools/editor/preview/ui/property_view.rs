@@ -610,7 +610,7 @@ export component Win inherits Window {
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
-            code.into(),
+            Some(code.into()),
             path.clone(),
             i_slint_core::InternalToken,
         ));
@@ -688,7 +688,7 @@ export component Win inherits Window {
         drop(item);
         let old_item = cache.as_ref().get();
         let compiled = spin_on::spin_on(compiler.build_from_source_path(
-            code.replace("Test Family", "Next Family"),
+            Some(code.replace("Test Family", "Next Family")),
             path,
             i_slint_core::InternalToken,
         ));
@@ -1322,6 +1322,38 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 20px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(result.value_resolved);
+        assert!(result.fill.custom_radius);
+        assert_eq!(result.fill.radius, 0.);
+
+        let result = property_conversion_test(
+            r#"global Foo {
+                out property <brush> ellipse: @radial-gradient(ellipse, #f00 0%, #00f 100%);
+            }
+            export component Test { in property <brush> test1: Foo.ellipse; }"#,
+            3,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,

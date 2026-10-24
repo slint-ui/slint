@@ -29,10 +29,17 @@ export component Test inherits Rectangle {
             && self.background != self.colo;
     }
 
+    // Properties named like colors are used as an angle and a position, not colors.
+    property <angle> tan: 90deg;
+    property <float> peru: 40%;
+    out property <bool> test_named_like_colors:
+        @linear-gradient(tan, red, blue peru) == @linear-gradient(90deg, red, blue 40%);
+
     out property <bool> test_rgb: rgb(color_brush.red, color_brush.green, color_brush.blue) == color_brush;
 
     out property<bool> test: lighter == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col
-        && test_circle.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4 && test_rgb;
+        && test_circle.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4 && test_rgb
+        && test_named_like_colors;
 }
 
 /*
@@ -59,28 +66,51 @@ assert_eq!(t.get_color_brush().color(), green);
 
 ```
 
+```ts
+const t = new slint.Test({ color_brush: "#0000ff", lighter: { color: { red: 1, green: 2, blue: 3 } } });
+const brighter: slintlib.Brush = t.color_brush.brighter(0.5);
+t.lighter = t.conditional;
+t.color_brush = "#00ff00";
+t.r2_col = { red: 1, green: 2, blue: 3 };
+const red: number = t.r2_col.color.red;
+const opaque: boolean = t.seethru.isOpaque && !t.lighter.withAlpha(0).darker(0.1).isOpaque;
+console.log(brighter.toString(), red, opaque);
+```
+
 ```d.ts
 export interface Test {
-    color_brush: slint.Brush | string;
-    conditional: slint.Brush | string;
-    lighter: slint.Brush | string;
-    r2_col: slint.Brush | slint.RgbaColor | string;
-    seethru: slint.Brush | string;
+    get color_brush(): Required<slint.Brush>;
+    set color_brush(value: slint.Brush | string);
+    get conditional(): Required<slint.Brush>;
+    set conditional(value: slint.Brush | string);
+    get lighter(): Required<slint.Brush>;
+    set lighter(value: slint.Brush | string);
+    get r2_col(): Required<slint.Brush>;
+    set r2_col(value: slint.Brush | slint.RgbaColor | string);
+    get seethru(): Required<slint.Brush>;
+    set seethru(value: slint.Brush | string);
     readonly test: boolean;
+    readonly test_named_like_colors: boolean;
     readonly test_rgb: boolean;
 }
 
-export declare const Test: { new(properties?: Partial<Test>): Test & Omit<slint.ComponentHandle, keyof Test> };
+export declare const Test: { new(properties?: Partial<Omit<Test, "color_brush" | "conditional" | "lighter" | "r2_col" | "seethru"> & { color_brush: slint.Brush | string; conditional: slint.Brush | string; lighter: slint.Brush | string; r2_col: slint.Brush | slint.RgbaColor | string; seethru: slint.Brush | string; }>): Test & Omit<slint.ComponentHandle, keyof Test> };
 ```
 
 ```js
 var t = new slint.Test({});
 assert.equal(t.color_brush.toString(), "#0000ff");
 assert(t.test);
+assert.equal(t.color_brush.brighter(0.5).toString(), t.lighter.toString());
+assert.equal(t.color_brush.transparentize(0.3).toString(), t.seethru.toString());
 
-let green = "#00ff00";
-t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
-assert.equal(t.color_brush.toString(), green);
+t.lighter = t.conditional;
+assert.equal(t.lighter.toString(), t.conditional.toString());
+
+t.color_brush = "#00ff00";
+assert.equal(t.color_brush.toString(), "#00ff00");
+t.color_brush = "#00ff0080";
+assert.equal(t.color_brush.toString(), "#00ff0080");
 
 ```
 */

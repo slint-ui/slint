@@ -23,7 +23,7 @@ pub enum ArrayOutput {
     Vector,
 }
 
-pub use crate::expression_types::MouseCursorInner;
+pub use crate::expression_types::{MouseCursorInner, RadialGradientShape};
 
 /// Name of the local that carries the known width a measure pass measures a
 /// cell at. The generated code binds it around each static measure cell's
@@ -233,9 +233,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <radius>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -667,12 +666,12 @@ macro_rules! visit_impl {
                     $visitor(b);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     $visitor(cx);
                     $visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.$iter() {
                     $visitor(r);
                 }
                 for (a, b) in stops {

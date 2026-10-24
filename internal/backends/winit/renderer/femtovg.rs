@@ -238,7 +238,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
         // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.
-        self.renderer.render_transformed_with_post_callback(0., (0., 0.), window.size(), None)
+        self.renderer.render_transformed(0., (0., 0.), window.size())
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {

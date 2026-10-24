@@ -48,7 +48,7 @@ pub fn setup(
         let Some(path) = choose_project_file(window) else {
             return false;
         };
-        match Project::from_file(path, None) {
+        match Project::from_selected_file(path, None) {
             Ok(project) => start_existing_project(project),
             Err(error) => {
                 tracing::warn!("Failed to open project: {error}");
@@ -143,8 +143,8 @@ fn show_startup_wizard(editor_ui: &EditorUi, settings: &VisualEditorSettings) {
 #[cfg(not(target_arch = "wasm32"))]
 fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     crate::file_dialog::create(window)
-        .set_title(tr::tr!("Open Slint File"))
-        .add_filter(tr::tr!("Slint files"), &["slint"])
+        .set_title(tr::tr!("Open Slint Project or File"))
+        .add_filter(tr::tr!("Slint projects and files"), &["slint", "json"])
         .pick_file()
 }
 

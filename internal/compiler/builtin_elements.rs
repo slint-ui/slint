@@ -668,7 +668,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! Supported by the Skia, FemtoVG, Vello, and software renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
@@ -1645,7 +1645,7 @@ fn build(l: &mut Loader) {
         ///       Moves that don't start a flick don't reset or cancel this delay.
         ///    2. If the release comes before the 100ms elapse, the press and the release are delivered right away.
         ///    3. If no element inside the `Flickable` handles the press, and it doesn't start a flick,
-        ///       the click goes to the elements behind the `Flickable`.
+        ///       the click goes to the parent elements of the `Flickable`, but not to other elements behind it.
         ///       They receive the press together with the release.
         /// 4. Dragging more than 8 logical pixels (10 on iOS) along an axis the `Flickable` can scroll starts a flick.
         ///    If an element inside already received the press, the drag must start within 500ms of the press,
@@ -1760,7 +1760,7 @@ fn build(l: &mut Loader) {
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
         /// If no child handles a click, and the click doesn't start a swipe,
-        /// the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// the click goes to the parent elements of the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
@@ -2227,7 +2227,8 @@ fn build(l: &mut Loader) {
         /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
         out property <Size> virtual-keyboard-size;
         /// Request that the window be closed.
-        /// This triggers the `close-requested` callback, giving the application a chance to cancel the close.
+        /// This invokes the close request handler that the application set on the window,
+        /// which can cancel the close.
         /// Returns `true` if the application accepted the close request; false otherwise.
         /// Returns `false` if called on a child `Window` element, which can't be closed independently.
         @shadowable function close() -> bool { BuiltinFunction.WindowClose }
@@ -2648,9 +2649,11 @@ fn build(l: &mut Loader) {
             /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
             in property <length> spacing;
             //! To target specific axis with different values use the following properties:
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
-            ///
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -2662,16 +2665,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
 
             // Additional accepted child
             children: Row;
@@ -2731,16 +2742,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (vertical) axis. Matches the CSS flex box.
@@ -2822,16 +2841,24 @@ fn build(l: &mut Loader) {
             //! To target specific sides with different values use the following properties:
             //!
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment along the main (horizontal) axis. Matches the CSS flex box.
@@ -2993,8 +3020,12 @@ fn build(l: &mut Loader) {
             in property <length> spacing;
             //! To target specific directions with different values use the following properties:
             /// The horizontal distance between items in the layout. CSS Flexbox calls this "column-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-horizontal;
             /// The vertical distance between items in the layout. CSS Flexbox calls this "row-gap".
+            /// Defaults to the value of `spacing`.
+            /// \default spacing
             in property <length> spacing-vertical;
             //! ## Padding Properties
             //!
@@ -3005,16 +3036,24 @@ fn build(l: &mut Loader) {
             //!
             //! To target specific sides with different values use the following properties:
             //! ### padding-left
-            //! <SlintProperty propName="padding-left" typeName="length"/>
+            //! <SlintProperty propName="padding-left" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-right
-            //! <SlintProperty propName="padding-right" typeName="length"/>
+            //! <SlintProperty propName="padding-right" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-top
-            //! <SlintProperty propName="padding-top" typeName="length"/>
+            //! <SlintProperty propName="padding-top" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ### padding-bottom
-            //! <SlintProperty propName="padding-bottom" typeName="length"/>
+            //! <SlintProperty propName="padding-bottom" typeName="length" defaultValue="padding">
+            //! Defaults to the value of `padding`.
+            //! </SlintProperty>
             //!
             //! ## Alignment Properties
             /// Set the alignment of items along the main axis. CSS Flexbox calls this "justify-content".
@@ -3240,8 +3279,11 @@ fn build(l: &mut Loader) {
         //!
         //! ### Commands
         //! <SlintProperty propName="commands" typeName="string">
-        //! A string providing the commands according to the SVG path specification.
-        //! This property can only be set in a binding and cannot be accessed in an expression.
+        //! A string with the commands in the SVG path syntax.
+        //!
+        //! :::note[Note]
+        //! This property is special: you can set it with any expression, but other expressions can't read it.
+        //! :::
         //! </SlintProperty>
         //!
         //! ## Path Using SVG Path Elements
@@ -3684,6 +3726,7 @@ fn build(l: &mut Loader) {
             in property <easing> easing;
             in property <float> iteration-count: 1.0;
             in property <bool> enabled: true;
+            in property <AngleInterpolation> angle-interpolation;
         }
     }
 

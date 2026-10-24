@@ -56,6 +56,8 @@ jobs:
                   rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
                   echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ --extern-html-root-url android_activity=https://docs.rs/android-activity/0.5/ --extern-html-root-url raw_window_handle=https://docs.rs/raw_window_handle/0.6 --extern-html-root-url winit=https://docs.rs/winit/0.30 --extern-html-root-url wgpu=https://docs.rs/wgpu/30 --extern-html-root-url input=https://docs.rs/input/0.9 --extern-html-root-url fontique=https://docs.rs/fontique/0.8" >> $GITHUB_ENV
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: doxygen
             - uses: pnpm/action-setup@v6.1.0
             - uses: actions/setup-node@v7
               with:
@@ -65,8 +67,6 @@ jobs:
               with:
                   toolchain: nightly
                   target: aarch64-linux-android
-            - name: Install apt dependencies
-              run: sudo timeout 600 apt-get install doxygen
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
             - name: Test Cpp docs converter
@@ -150,11 +150,11 @@ jobs:
               with:
                 node-version: 24
                 package-manager-cache: false
+            - name: Accept the MS fonts license, for comic sans needed by one of the screenshots in the docs
+              run: echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install MS fonts for comic sans needed by one of the screenshots in the docs
-              run: |
-                  echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-                  sudo timeout 600 apt-get install ttf-mscorefonts-installer -y
+              with:
+                  extra-packages: ttf-mscorefonts-installer fonts-liberation
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable

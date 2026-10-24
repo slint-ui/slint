@@ -15,6 +15,7 @@ import {
     private_api,
     windowSymbol,
     globalsSymbol,
+    type Brush,
 } from "../dist/index.js";
 
 private_api.initTesting();
@@ -280,6 +281,18 @@ test("quiet doesn't warn about hidden built-ins", () => {
     ) as any;
 
     expect(new mod.QuietTray().window).toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+});
+
+test("loadSource prints the warnings unless quiet", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The `:=` syntax to declare a component is deprecated.
+    const source = "export Old := Window {}";
+    loadSource(source, "api.spec.ts");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Warning:"));
+    warn.mockClear();
+    loadSource(source, "api.spec.ts", { quiet: true });
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
 });
@@ -644,4 +657,82 @@ test("file loader", () => {
     const test = new demo.App();
 
     expect(test.test_text).toStrictEqual("Hello World");
+});
+
+test("Brush read from a color property", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <color> background: #336699;
+            in-out property <color> faded: #33669980;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // Fails to compile if the native brush lacks a member that `Brush` documents.
+    const background: Required<Brush> =
+        app.background as private_api.SlintBrush;
+
+    expect(background.color).toStrictEqual({
+        red: 0x33,
+        green: 0x66,
+        blue: 0x99,
+        alpha: 255,
+    });
+    expect(background.toString()).toBe("#336699");
+    expect(background.isOpaque).toBe(true);
+    expect(background.brighter(0.5).toString()).toBe("#4c99e6");
+    expect(background.withAlpha(0).isTransparent).toBe(true);
+    expect(app.faded.toString()).toBe("#33669980");
+    expect(app.faded.transparentize(1).isTransparent).toBe(true);
+
+    app.background = background.darker(0.5);
+    expect(app.background.toString()).toBe("#224466");
+});
+
+test("assign brushes to brush and color properties", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <brush> gradient: @linear-gradient(90deg, red 0%, blue 100%);
+            in-out property <brush> target;
+            in-out property <color> color;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // The gradient used to be replaced by its first color.
+    app.target = app.gradient;
+    expect(app.target.toString()).toBe(app.gradient.toString());
+
+    // A `color` property used to reject a `Brush` with a `color`.
+    const plain: Brush = { color: { red: 1, green: 2, blue: 3 } };
+    app.color = plain;
+    expect(app.color.toString()).toBe("#010203");
+});
+
+test("assign a color string", () => {
+    const demo = loadSource(
+        `export component App { in-out property <color> c; }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // A translucent color used to read back as a string it couldn't parse.
+    app.c = "#33669980";
+    expect(app.c.toString()).toBe("#33669980");
+    app.c = app.c.toString();
+    expect(app.c.toString()).toBe("#33669980");
+
+    app.c = "#abc";
+    expect(app.c.toString()).toBe("#aabbcc");
+    app.c = "RebeccaPurple";
+    expect(app.c.toString()).toBe("#663399");
+    app.c = "transparent";
+    expect(app.c.isTransparent).toBe(true);
+    for (const string of ["not a color", "rgb(255, 0, 0)"]) {
+        expect(() => {
+            app.c = string;
+        }).toThrow(`Could not convert ${string} to Brush.`);
+    }
 });

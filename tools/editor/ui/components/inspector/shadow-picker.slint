@@ -7,58 +7,87 @@ import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indi
 import { ShadowSession, ShadowGesture } from "shadow-session.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorColorField } from "color-field.slint";
-import { InspectorSegment } from "segment.slint";
+import { Diagnostics } from "../../diagnostics.slint";
 import { InspectorEffectSlider } from "effect-slider.slint";
+import { InputSurface } from "../input-surface.slint";
+import { InspectorSwitch } from "switch.slint";
 
-export component InspectorShadowControl inherits FocusScope {
+export component InspectorShadowControl inherits Rectangle {
     in property <bool> inner;
     private property <string> title: ShadowSession.label(root.inner);
+    private property <string> prefix: Api.shadow-prefix(root.inner);
+    private property <bool> effect-enabled: Api.has-shadow(root.prefix);
     height: Style.inspector-field.height;
-    key-pressed(event) => {
-        if event.text == Key.Return || event.text == " " { root.activate(); return accept; }
-        return reject;
+    changed effect-enabled => { toggle.checked = root.effect-enabled; }
+
+    HorizontalLayout {
+        spacing: Metrics.space-small;
+        cross-axis-alignment: center;
+        control := FocusScope {
+            enabled: root.effect-enabled && Diagnostics.preview-editable;
+            opacity: root.effect-enabled ? 1 : Metrics.disabled-opacity;
+            horizontal-stretch: 1;
+            height: Style.inspector-field.height;
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space { root.activate(); return accept; }
+                return reject;
+            }
+            InputSurface {
+                width: parent.width;
+                height: parent.height;
+                enabled: control.enabled;
+                focused: control.has-focus;
+                hovered: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner);
+                HorizontalLayout {
+                    padding-left: Style.inspector-field.padding-inline;
+                    padding-right: Style.inspector-field.padding-inline;
+                    spacing: Style.inspector-field.gap;
+                    cross-axis-alignment: center;
+                    ColorIndicator {
+                        width: Style.color-field.swatch-size;
+                        height: self.width;
+                        border-radius: self.width / 2;
+                        border-width: Metrics.border-width;
+                        outline-color: Style.color-field.swatch-border;
+                        color: Api.source-color-field-data(root.prefix + "color").fill.color;
+                        checker-light: Style.color-field.checker.light;
+                        checker-dark: Style.color-field.checker.dark;
+                    }
+                    Text {
+                        text: root.title;
+                        color: Colors.foreground;
+                        font-size: Typography.control.size;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                }
+                touch := TouchArea {
+                    enabled: control.enabled;
+                    mouse-cursor: default;
+                    accessible-role: button;
+                    accessible-label: root.title;
+                    accessible-enabled: control.enabled;
+                    accessible-action-default => { root.activate(); }
+                    clicked => { root.activate(); }
+                }
+            }
+        }
+        toggle := InspectorSwitch {
+            accessible-label: root.inner ? @tr("Enable inner shadow") : @tr("Enable drop shadow");
+            checked: root.effect-enabled;
+            toggled => {
+                self.focus();
+                self.checked = root.effect-enabled;
+                ShadowSession.close();
+                Api.toggle-shadow(Api.current-element, root.inner);
+            }
+        }
     }
     function activate() {
-        root.focus();
+        if !control.enabled { return; }
+        control.focus();
         if ShadowSession.open && ShadowSession.inner == root.inner { ShadowSession.close(); }
         else { ShadowSession.begin(root.absolute-position, { width: root.width, height: root.height }, root.inner); }
-    }
-    Rectangle {
-        border-radius: Style.inspector-field.radius;
-        background: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner)
-            ? Style.inspector-field.appearance.hover.background : Style.inspector-field.appearance.normal.background;
-        border-width: root.has-focus ? Metrics.focus-width : 0px;
-        border-color: Colors.focus;
-        HorizontalLayout {
-            padding-left: Style.inspector-field.padding-inline;
-            padding-right: Style.inspector-field.padding-inline;
-            spacing: Style.inspector-field.gap;
-            cross-axis-alignment: center;
-            ColorIndicator {
-                width: Style.color-field.swatch-size;
-                height: self.width;
-                border-radius: self.width / 2;
-                border-width: Metrics.border-width;
-                outline-color: Style.color-field.swatch-border;
-                color: Api.source-color-field-data(root.inner ? "inner-shadow-color" : "drop-shadow-color").fill.color;
-                checker-light: Style.color-field.checker.light;
-                checker-dark: Style.color-field.checker.dark;
-            }
-            Text {
-                text: root.title;
-                color: Colors.foreground;
-                font-size: Typography.control.size;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-            }
-        }
-        touch := TouchArea {
-            mouse-cursor: pointer;
-            accessible-role: button;
-            accessible-label: root.title;
-            accessible-action-default => { root.activate(); }
-            clicked => { root.activate(); }
-        }
     }
 }
 
@@ -118,7 +147,7 @@ export component InspectorShadowPicker inherits FocusScope {
             }
         }
         InspectorEffectSlider {
-            width: parent.width;
+            width: panel.width - 2 * Metrics.space-large;
             accessible-name: @tr("Shadow blur");
             label: @tr("Blur");
             value: ShadowSession.values.blur;
@@ -133,22 +162,6 @@ export component InspectorShadowPicker inherits FocusScope {
                 return ShadowSession.commit(ShadowGesture.blur, ShadowSession.updated(ShadowSession.values, ShadowGesture.blur, value, 0));
             }
             canceled => { ShadowSession.cancel(); }
-        }
-        HorizontalLayout {
-            spacing: Metrics.space-small;
-            for action in [
-                { value: ShadowSession.inner ? "drop" : "inner", label: ShadowSession.label(!ShadowSession.inner) },
-                { value: "none", label: @tr("Remove shadow") },
-            ]: InspectorSegment {
-                kind: "text";
-                label: action.label;
-                clicked => {
-                    if ShadowSession.canvas-active {
-                        Api.set-shadow-effect(Api.current-element, action.value);
-                        ShadowSession.close();
-                    }
-                }
-            }
         }
     }
 }

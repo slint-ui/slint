@@ -12,13 +12,15 @@
 //     only when requested via SLINT_MCP_PORT / SLINT_TEST_SERVER, and otherwise
 //     the lean release binary is kept,
 //   * a version mismatch warns and falls back to the release binary, and
-//   * importing slint-ui-dev directly throws.
+//   * importing slint-ui-dev directly throws,
+//   * `npx slint-compiler` and `pnpm dlx slint-compiler` run the platform binary.
 //
 // Two modes:
 //   * Gate (publish workflow): SLINT_E2E_TGZ_DIR/_VERSION/_TAG point at the real,
 //     already-built all-platform tarballs — see publish_npm_package.yaml.
 //   * Dev (local): builds and packs the host packages on the fly under a
-//     throwaway version (needs `pnpm build` + `pnpm build:debug` in api/node).
+//     throwaway version (needs `pnpm build` + `pnpm build:debug` in api/node, and
+//     `cargo build --release -p slint-compiler`).
 //
 // Run with `node --test` (Node >= 23 strips types automatically; older Node needs
 // --experimental-strip-types).
@@ -48,6 +50,8 @@ import type { Server } from "node:http";
 import {
     NAPI_TARGETS,
     packBinary,
+    packCompilerBinary,
+    packCompilerMeta,
     packDevMeta,
     publishAll,
     run,
@@ -92,6 +96,8 @@ function npmEnv(): NodeJS.ProcessEnv {
         }
     }
     env.npm_config_userconfig = join(work, ".npmrc");
+    // npx caches packages by name and version, which repeat across dev-mode runs.
+    env.npm_config_cache = join(work, "npm-cache");
     return env;
 }
 
@@ -140,6 +146,20 @@ before(async () => {
             });
         }
         await packDevMeta({ version: VERSION, dest: tgzDir, targets });
+        const releaseDir = join(repoRoot, "target", "release");
+        assert.ok(
+            readdirSync(releaseDir).some((f) =>
+                /^slint-compiler(\.exe)?$/.test(f),
+            ),
+            "slint-compiler not built (run `cargo build --release -p slint-compiler`)",
+        );
+        await packCompilerBinary({
+            target: hostTarget,
+            releaseDir,
+            version: VERSION,
+            dest: tgzDir,
+        });
+        await packCompilerMeta({ version: VERSION, dest: tgzDir, targets });
     }
 
     // In-process Verdaccio: binds 127.0.0.1 directly, no readiness polling.
@@ -378,10 +398,34 @@ test("a consumer TypeScript project type-checks against slint-ui", async () => {
     });
 });
 
+for (const pm of ["npm", "pnpm"] as const) {
+    test(`${pm}: running slint-compiler without installing it`, async () => {
+        const dir = await consumerProject(`${pm}-compiler`);
+        writeFileSync(
+            join(dir, "app.slint"),
+            'export component App inherits Window { Text { text: "Hello"; } }\n',
+        );
+        const runCompiler = (args: string[]) =>
+            pm === "npm"
+                ? run("npx", ["--yes", `slint-compiler@${VERSION}`, ...args], {
+                      cwd: dir,
+                      env: npmEnv(),
+                  })
+                : run("pnpm", ["dlx", `slint-compiler@${VERSION}`, ...args], {
+                      cwd: dir,
+                      env: npmEnv(),
+                  });
+        const { stdout } = await runCompiler(["-f", "cpp", "app.slint"]);
+        assert.match(stdout, /class App\b/);
+        // A failed compile fails the launcher too.
+        await assert.rejects(runCompiler(["-f", "cpp", "missing.slint"]));
+    });
+}
+
 function verdaccioConfig(storage: string): string {
     // The native binary packages are large (especially debug builds), so lift the
-    // default 10mb body limit. @slint-ui/*, slint-ui and slint-ui-dev are served
-    // locally; everything else is proxied to npmjs.
+    // default 10mb body limit. @slint-ui/*, slint-ui, slint-ui-dev and
+    // slint-compiler are served locally; everything else is proxied to npmjs.
     return `storage: ${storage}
 max_body_size: 2gb
 uplinks:
@@ -395,6 +439,9 @@ packages:
     access: $all
     publish: $all
   'slint-ui-dev':
+    access: $all
+    publish: $all
+  'slint-compiler':
     access: $all
     publish: $all
   '**':

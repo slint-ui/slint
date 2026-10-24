@@ -227,8 +227,10 @@ cpp! {{
         ensure_initialized();
         auto ptr = std::make_unique<SlintAnimatedWidget<Base>>();
         // For our hacks to work, we need to have some invisible parent widget.
-        static QWidget globalParent;
-        ptr->setParent(&globalParent);
+        // Leak it like the QApplication: destroying it at exit deletes the widgets still
+        // parented to it, after Qt's animation timers are gone, which crashes in some styles.
+        static QWidget *globalParent = new QWidget;
+        ptr->setParent(globalParent);
         // Let Qt thinks the widget is visible even if it isn't so update() from animation is forwarded
         ptr->setAttribute(Qt::WA_WState_Visible, true);
         // Hack so update() send a UpdateLater event

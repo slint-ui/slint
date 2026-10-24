@@ -34,7 +34,6 @@ component TableViewColumn inherits Rectangle {
             colorize: CosmicPalette.foreground;
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
-            y: (parent.height - self.height) / 2;
             source: root.sort-order == SortOrder.ascending ? Icons.arrow-down : Icons.arrow-up;
             accessible-role: none;
 

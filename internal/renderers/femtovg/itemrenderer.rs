@@ -144,7 +144,7 @@ fn render_inset_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
     canvas: &CanvasRc<R>,
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     pad: f32,
 ) -> Option<ItemGraphicsCacheEntry<R>> {
     let width = shadow_options.width.get();
@@ -202,7 +202,7 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
     shadow_image: Rc<Texture<R>>,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
         let blurred_image = shadow_image
@@ -984,11 +984,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
     }
 
     fn snap_selection_x(&self, x: f32) -> f32 {
-        let [a, b, c, d, origin, _y] = self.canvas.borrow().transform().0;
-        if !(a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.)) {
-            return x;
-        }
+        let Some((origin, _)) = self.translation_origin() else { return x };
         (origin + x).round() - origin
+    }
+
+    fn snap_y(&self, y: f32) -> f32 {
+        let Some((_, origin)) = self.translation_origin() else { return y };
+        (origin + y).round() - origin
     }
 
     fn draw_glyph_run(
@@ -996,20 +998,32 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         font: &parley::FontData,
         font_size: PhysicalLength,
         normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
-        let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + y_offset.get(),
-            glyph_id: glyph.id as u16,
-        });
+        let mut glyphs_it = glyphs_it
+            .map(|glyph| femtovg::PositionedGlyph {
+                x: glyph.x,
+                y: glyph.y + y_offset.get(),
+                glyph_id: glyph.id as u16,
+            })
+            .peekable();
 
         let mut canvas = self.canvas.borrow_mut();
+
+        // Faux italic for a font without an italic face: lean the glyphs to the right around
+        // the baseline.
+        let skew = synthesis.skew().zip(glyphs_it.peek().map(|glyph| glyph.y));
+        if let Some((skew_degrees, baseline)) = skew {
+            canvas.save();
+            canvas.translate(0., baseline);
+            canvas.skew_x(-skew_degrees.to_radians());
+            canvas.translate(0., -baseline);
+        }
 
         match &mut brush {
             GlyphBrush::Fill(paint) => {
@@ -1020,6 +1034,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                 paint.set_font_size(font_size.get());
                 canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
+        }
+
+        if skew.is_some() {
+            canvas.restore();
         }
     }
 
@@ -1148,6 +1166,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> LayerRenderer<'a> for GLItemRen
 }
 
 impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
+    /// The device position of the item's origin, when the canvas only translates the item.
+    fn translation_origin(&self) -> Option<(f32, f32)> {
+        let [a, b, c, d, x, y] = self.canvas.borrow().transform().0;
+        let translation_only =
+            a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.);
+        translation_only.then_some((x, y))
+    }
+
     pub(super) fn new(
         canvas: &CanvasRc<R>,
         graphics_cache: &'a ItemGraphicsCache<R>,
@@ -1339,6 +1365,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         }
     }
 
+    /// How much the canvas transform magnifies in the direction where it magnifies the most:
+    /// the largest singular value of its linear part.
+    fn current_transform_scale(&self) -> f32 {
+        let [a, b, c, d, _, _] = self.canvas.borrow().transform().0;
+        i_slint_core::graphics::transform_max_scale(a, b, c, d)
+    }
+
     fn draw_image_impl(
         &mut self,
         item_rc: &ItemRc,
@@ -1349,6 +1382,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             return;
         }
 
+        let transform_scale = self.current_transform_scale();
+        let scale_factor = self.scale_factor;
+
+        let image = item.source();
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
                 let image = item.source();
@@ -1356,12 +1393,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let tiling = item.tiling();
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
-                    Some(i_slint_core::graphics::scalable_render_size(
+                    Some(i_slint_core::graphics::transformed_scalable_render_size(
                         image.size(),
                         item.image_fit(),
-                        item.target_size() * self.scale_factor,
-                        self.scale_factor,
+                        item.target_size(),
+                        scale_factor,
                         tiling,
+                        transform_scale,
                     )?)
                 } else {
                     None
@@ -1406,12 +1444,8 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
             // later when the callback from load_html_image has issued a repaint
-            let cached_image = match image_cache_entry {
-                Some(entry) if entry.as_texture().size().is_some() => entry,
-                _ => {
-                    return;
-                }
-            };
+            let Some(cached_image) = image_cache_entry else { return };
+            let Some(texture_size) = cached_image.as_texture().size() else { return };
 
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
@@ -1421,10 +1455,23 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 continue;
             }
 
+            // An SVG magnified more than when it was cached is rasterized again (#10903).
+            if i_slint_core::graphics::svg_needs_rasterizing_again(
+                texture_size,
+                &image,
+                item.image_fit(),
+                item.target_size(),
+                scale_factor,
+                item.tiling(),
+                transform_scale,
+            ) {
+                self.graphics_cache.release(item_rc);
+                continue;
+            }
+
             break cached_image.as_texture().clone();
         };
 
-        let image = item.source();
         let image_id = cached_image.id;
         let orig_size = image.size().cast::<f32>();
         let buf_size = cached_image.size().unwrap_or_default().cast::<f32>();
@@ -1562,11 +1609,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 gradient.end.y,
                 to_femtovg_stops(&gradient.stops),
             ),
-            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::radial_gradient_stops(
+            ResolvedBrush::RadialGradient(gradient) => femtovg::Paint::elliptical_gradient_stops(
                 gradient.center.x,
                 gradient.center.y,
                 0.,
-                gradient.radius.get(),
+                0.,
+                gradient.radius_x.get(),
+                gradient.radius_y.get(),
                 to_femtovg_stops(&gradient.stops),
             ),
             ResolvedBrush::ConicGradient(gradient) => {

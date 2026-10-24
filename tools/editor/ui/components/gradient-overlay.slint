@@ -34,7 +34,7 @@ component GradientHandle inherits FocusScope {
     callback activated();
     callback keyboard(KeyEvent) -> EventResult;
     width: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
-    height: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
+    height: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.height);
     z: touch.pressed ? 3 : root.selected || root.has-focus ? 2 : 1;
     key-pressed(event) => { return root.keyboard(event); }
     changed has-focus => { if root.has-focus { root.selection-requested(); } }
@@ -43,6 +43,7 @@ component GradientHandle inherits FocusScope {
         x: (parent.width - self.width) / 2;
         y: 0px;
         active: root.selected || root.has-focus;
+        pointer-up: true;
         stop-color: root.color;
     }
     if root.endpoint: Rectangle {

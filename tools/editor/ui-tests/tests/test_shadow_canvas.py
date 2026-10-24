@@ -214,7 +214,7 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
         swatch = element(window, "Shadow color color picker")
         gesture(window, center(swatch), center(swatch))
         element(window, "Hex color", role=slint_testing.AccessibleRole.TextInput)
-        element(window, "Close Custom").invoke_accessible_default_action()
+        element(window, "Close Fill").invoke_accessible_default_action()
         expect(query(window, "Hex color")).to_be_hidden()
         element(window, "Shadow blur", role=slint_testing.AccessibleRole.Slider)
         snapshot.assert_unchanged()
@@ -467,9 +467,7 @@ def test_shadow_drag_rejects_a_changed_target(
         else:
             shadow_scene.write_bytes(external)
             snapshot.wait_for_applied(external)
-            if change == "effect" or (
-                change == "coexist" and shadow_family.name == "inner"
-            ):
+            if change == "effect":
                 expect(query(window, "Shadow offset handle")).to_be_hidden()
             elif change == "coexist":
                 expect(query(window, "Shadow offset handle")).to_be_visible()
@@ -579,12 +577,11 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
         select_outline_row(window, "shadow-card")
-        edit_field(
+        inspector_field(
             window,
-            "Rectangle effect",
-            shadow_family.name,
-            slint_testing.AccessibleRole.Combobox,
-        )
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        ).invoke_accessible_default_action()
         added = wait_for_source_change(shadow_scene, baseline)
         assert f"{shadow_family.prefix}color:".encode() in added
         open_shadow(window, shadow_family)
@@ -597,60 +594,336 @@ def test_picker_undo_closes_a_shadow_created_by_the_previous_edit(
         expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
 
 
-@pytest.mark.parametrize("action", ["switch", "Remove shadow"])
-@pytest.mark.parametrize("input_method", ["pointer", "keyboard"])
-def test_shadow_actions_are_available_without_a_context_menu(
+@pytest.mark.parametrize("other_enabled", [False, True])
+def test_shadow_toggle_keeps_unrelated_controls_visually_stable(
     shadow_family,
     editor_binary,
     editor_environment,
     shadow_scene,
     tmp_path,
-    action,
-    input_method,
+    other_enabled,
 ):
-    other = shadow_family.other
-    if action == "switch":
-        action = f"{other.capitalize()} shadow"
     baseline = shadow_scene.read_bytes()
+    if other_enabled:
+        baseline = baseline.replace(
+            b"        background: #e5eaff;",
+            f"        background: #e5eaff;\n        {shadow_family.other}-shadow-color: #12345678;".encode(),
+        )
+        shadow_scene.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        other = inspector_field(
+            window,
+            f"Enable {shadow_family.other} shadow",
+            slint_testing.AccessibleRole.Switch,
+        )
+        run = element(window, "Start preview", role=slint_testing.AccessibleRole.Button)
+        window.dispatch_event(slint_testing.PointerMoveEvent(center(switch)))
+        before = screenshot(window)
+        scale = before.width / window.root_element.size.width
+        selection = element(
+            window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region
+        )
+        rect = selection.absolute_rect
+        blue_pixels = []
+        for y in range(
+            round((rect.y - 5) * scale), round((rect.y + rect.height + 5) * scale)
+        ):
+            for x in range(
+                round((rect.x - 5) * scale), round((rect.x + rect.width + 5) * scale)
+            ):
+                pixel = before.getpixel((x, y))
+                if (
+                    isinstance(pixel, tuple)
+                    and pixel[0] < 100
+                    and pixel[1] > 100
+                    and pixel[2] > 230
+                ):
+                    blue_pixels.append((x, y, pixel))
+        assert len(blue_pixels) > 100
+        controls = {}
+        for name, control in (("other-switch", other), ("run", run)):
+            position, size = control.absolute_position, control.size
+            bounds = (
+                round(position.x * scale),
+                round(position.y * scale),
+                round((position.x + size.width) * scale),
+                round((position.y + size.height) * scale),
+            )
+            controls[name] = (bounds, before.crop(bounds).tobytes())
+        for _ in range(2):
+            gesture(window, center(switch), center(switch))
+            changed = set()
+            deadline = time.monotonic() + 0.8
+            while time.monotonic() < deadline:
+                frame = screenshot(window, settle=False)
+                if any(frame.getpixel((x, y)) != pixel for x, y, pixel in blue_pixels):
+                    if "selection-overlay" not in changed:
+                        frame.save(tmp_path / "flashing-selection-overlay.png")
+                    changed.add("selection-overlay")
+                for name, (bounds, pixels) in controls.items():
+                    if frame.crop(bounds).tobytes() != pixels and name not in changed:
+                        frame.save(tmp_path / f"flashing-{name}.png")
+                        changed.add(name)
+            baseline = wait_for_source_change(shadow_scene, baseline)
+            assert not changed, f"Unrelated controls flashed: {sorted(changed)}"
+        screenshot(window).save(tmp_path / "stable-shadow-toggle.png")
+
+        shadow_scene.write_bytes(baseline.replace(b"width: 240px;", b"width: ;"))
+        expect(
+            query(window, "Editing paused until the preview is available")
+        ).to_be_visible()
+        expect(switch).to_be_enabled(False)
+        expect(run).to_be_enabled(False)
+        assert run.computed_opacity < 1
+
+
+def test_shadow_switch_focus_ring_requires_tab_navigation(
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
+):
+    baseline = shadow_scene.read_bytes()
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        ring = query(switch, id="InspectorSwitch::switch-focus-ring")
+        gesture(window, center(switch), center(switch))
+        disabled = wait_for_source_change(shadow_scene, baseline)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect(ring).to_be_hidden()
+        press_key(window, keys.Space)
+        enabled = wait_for_source_change(shadow_scene, disabled)
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        expect(ring).to_be_hidden()
+        screenshot(window).save(tmp_path / "pointer-focus.png")
+
+        press_key(window, keys.Tab)
+        press_shortcut(window, keys.Shift, keys.Tab)
+        expect(ring).to_be_visible()
+        screenshot(window).save(tmp_path / "keyboard-focus.png")
+        press_key(window, keys.Space)
+        wait_for_source_change(shadow_scene, enabled)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect(ring).to_be_visible()
+
+        gesture(window, center(switch), center(switch))
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        expect(ring).to_be_hidden()
+
+
+@pytest.mark.parametrize("other_enabled", [False, True])
+def test_shadow_switches_enable_independently_and_support_keyboard_undo(
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    other_enabled,
+):
+    original = shadow_scene.read_bytes()
+    baseline = b"".join(
+        line
+        for line in original.splitlines(keepends=True)
+        if not line.lstrip().startswith(shadow_family.prefix.encode())
+    )
+    other_prefix = f"{shadow_family.other}-shadow-".encode()
+    if other_enabled:
+        baseline = baseline.replace(
+            b"        background: #e5eaff;",
+            b"        background: #e5eaff;\n        "
+            + other_prefix
+            + b"color: #12345678;\n"
+            + b"        "
+            + other_prefix
+            + b"blur: 23px;",
+        )
+    shadow_scene.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
         wait_for_source(shadow_scene, baseline)
         window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        control = inspector_field(
+            window, shadow_family.title, slint_testing.AccessibleRole.Button
+        )
+        expect(control).to_be_enabled(False)
+        control.invoke_accessible_default_action()
+        gesture(window, center(control), center(control))
+        expect(query(window, "Shadow offset handle")).to_be_hidden()
+        snapshot.assert_unchanged()
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        other_switch = inspector_field(
+            window,
+            f"Enable {shadow_family.other} shadow",
+            slint_testing.AccessibleRole.Switch,
+        )
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect.poll(lambda: other_switch.accessible_checked).to_equal(other_enabled)
+        screenshot(window).save(tmp_path / "disabled-shadow-rows.png")
+        gesture(window, center(switch), center(switch))
+        added = wait_for_source_change(shadow_scene, baseline)
+        properties = [
+            ("color", "#00000030" if shadow_family.name == "inner" else "#00000040"),
+            ("blur", "16px"),
+            ("spread", "0px"),
+            ("offset-x", "0px"),
+            ("offset-y", "8px"),
+        ]
+        if shadow_family.name == "inner":
+            anchor = b"        background: #e5eaff;"
+            bindings = b"".join(
+                f"        {shadow_family.prefix}{name}: {value};\n".encode()
+                for name, value in properties
+            )
+            expected = baseline.replace(anchor, bindings + anchor)
+        else:
+            anchor = b"        height: 160px;"
+            bindings = b"".join(
+                f"        {shadow_family.prefix}{name}: {value};\n".encode()
+                for name, value in properties
+                if name != "blur"
+            )
+            expected = baseline.replace(anchor, bindings + anchor).replace(
+                b"        border-radius: 12px;",
+                b"        border-radius: 12px;\n        drop-shadow-blur: 16px;",
+            )
+        snapshot.wait_for_applied(expected)
+        assert added == expected
+        expect(control).to_be_enabled()
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        expect.poll(lambda: other_switch.accessible_checked).to_equal(other_enabled)
+        press_key(window, keys.Space)
+        snapshot.wait_for_applied(baseline)
+        expect(control).to_be_enabled(False)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+        expect.poll(lambda: other_switch.accessible_checked).to_equal(other_enabled)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(added)
+        expect(control).to_be_enabled()
+        expect.poll(lambda: switch.accessible_checked).to_equal(True)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(baseline)
+        expect(control).to_be_enabled(False)
+        expect.poll(lambda: switch.accessible_checked).to_equal(False)
+
+
+def test_shadow_switch_rejects_stale_preview(
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
+):
+    baseline = shadow_scene.read_bytes()
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        shadow_scene.write_bytes(baseline + b"\ninvalid Slint\n")
+        element(window, "Stale preview", role=slint_testing.AccessibleRole.Region)
+        snapshot = SourceSnapshot.capture(tmp_path)
+        expect(switch).to_be_enabled(False)
+        switch.invoke_accessible_default_action()
+        gesture(window, center(switch), center(switch))
+        snapshot.assert_unchanged()
+
+
+def test_both_shadow_pickers_edit_only_their_own_properties(
+    shadow_family, editor_binary, editor_environment, shadow_scene, tmp_path
+):
+    baseline = shadow_scene.read_bytes()
+    baseline = baseline.replace(
+        b"        background: #e5eaff;",
+        b"        background: #e5eaff;\n"
+        + f"        {shadow_family.other}-shadow-color: #12345678;\n"
+        f"        {shadow_family.other}-shadow-blur: 23px;".encode(),
+    )
+    shadow_scene.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        inspector_field(
+            window,
+            "Shadow blur value",
+            slint_testing.AccessibleRole.TextInput,
+            shadow=shadow_family.title,
+        )
+        screenshot(window).save(tmp_path / "both-shadow-picker.png")
+        panel = element(window, id="InspectorShadowPicker::panel")
+        expect(query(panel, "Remove shadow")).to_be_hidden()
+        expect(
+            query(
+                panel,
+                f"{shadow_family.other.capitalize()} shadow",
+                role=slint_testing.AccessibleRole.Button,
+            )
+        ).to_be_hidden()
+        edit_field(
+            window, "Shadow blur value", "48", slint_testing.AccessibleRole.TextInput
+        )
+        edited = baseline.replace(
+            f"{shadow_family.prefix}blur: 32px".encode(),
+            f"{shadow_family.prefix}blur: 48px".encode(),
+        )
+        snapshot.wait_for_applied(edited)
+        expect(query(window, "Shadow offset handle")).to_be_visible()
+        move_shadow_panel(window, shadow_family)
+        other_switch = inspector_field(
+            window,
+            f"Enable {shadow_family.other} shadow",
+            slint_testing.AccessibleRole.Switch,
+        )
+        gesture(window, center(other_switch), center(other_switch))
+        without_other = b"".join(
+            line
+            for line in edited.splitlines(keepends=True)
+            if not line.lstrip().startswith(f"{shadow_family.other}-shadow-".encode())
+        )
+        snapshot.wait_for_applied(without_other)
+        expect(query(window, "Shadow offset handle")).to_be_hidden()
         open_shadow(window, shadow_family)
-        if input_method == "pointer":
-            point = center(
-                element(window, action, role=slint_testing.AccessibleRole.Button)
+        expect(
+            element(
+                panel, "Shadow blur value", role=slint_testing.AccessibleRole.TextInput
             )
-            gesture(window, point, point)
-        else:
-            point = center(element(window, f"Move {shadow_family.title} picker"))
-            gesture(window, point, point)
-            panel = element(window, id="InspectorShadowPicker::panel")
-            target = element(panel, action, role=slint_testing.AccessibleRole.Button)
-            image = screenshot(window)
-            scale = image.width / window.root_element.size.width
-            rect = target.absolute_rect
-            bounds = (
-                round(rect.x * scale),
-                round(rect.y * scale),
-                round((rect.x + rect.width) * scale),
-                round((rect.y + rect.height) * scale),
-            )
-            unfocused = image.crop(bounds).tobytes()
-            for _ in range(len(elements(panel)) + 1):
-                press_key(window, keys.Tab)
-                if screenshot(window).crop(bounds).tobytes() != unfocused:
-                    break
-            else:
-                raise AssertionError(f"Cannot reach {action} with Tab")
-            press_key(window, keys.Return)
-        expected = wait_for_source_change(shadow_scene, baseline)
-        assert shadow_family.prefix.encode() not in expected
-        if action != "Remove shadow":
-            assert f"{other}-shadow-color:".encode() in expected
-        else:
-            assert f"{other}-shadow-".encode() not in expected
+        ).to_have_value("48")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(edited)
+        switch = inspector_field(
+            window,
+            f"Enable {shadow_family.title.lower()}",
+            slint_testing.AccessibleRole.Switch,
+        )
+        gesture(window, center(switch), center(switch))
+        removed = b"".join(
+            line
+            for line in edited.splitlines(keepends=True)
+            if not line.lstrip().startswith(shadow_family.prefix.encode())
+        )
+        snapshot.wait_for_applied(removed)
+        expect(query(window, "Shadow offset handle")).to_be_hidden()
         expect(query(window, f"Close {shadow_family.title}")).to_be_hidden()
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(edited)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline)
 

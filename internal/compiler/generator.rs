@@ -27,6 +27,8 @@ pub mod cpp_live_preview;
 #[cfg(feature = "rust")]
 pub mod rust;
 #[cfg(feature = "rust")]
+pub mod rust_code_formatter;
+#[cfg(feature = "rust")]
 pub mod rust_live_preview;
 #[cfg(feature = "slint-sc")]
 pub mod slint_sc;
@@ -112,7 +114,7 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
-            write!(destination, "{output}")?;
+            rust_code_formatter::write_formatted(&output, destination)?;
         }
         #[cfg(feature = "slint-sc")]
         OutputFormat::SlintSc => {

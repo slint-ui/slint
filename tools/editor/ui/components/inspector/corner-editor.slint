@@ -24,11 +24,11 @@ component CornerMode inherits FocusScope {
     Rectangle {
         border-radius: root.style.radius;
         background: root.selected ? root.style.selected-background : root.style.background;
-        border-width: root.has-focus ? 1px : 0px;
-        border-color: root.style.focus-border;
+        border-width: root.has-focus || root.selected ? 1px : 0px;
+        border-color: root.has-focus ? root.style.focus-border : root.style.border;
         Rectangle {
-            x: 7px; y: 5px; width: 14px; height: 14px;
-            border-radius: root.style.radius; border-width: Metrics.border-width;
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 14px; height: 14px;
+            border-radius: Metrics.radius-small; border-width: Metrics.border-width;
             border-color: root.selected ? root.style.foreground : root.style.muted;
             if root.separate: Rectangle { x: 5px; y: -1px; width: 4px; height: 16px; background: root.selected ? root.style.selected-background : root.style.background; }
             if root.separate: Rectangle { x: -1px; y: 5px; width: 16px; height: 4px; background: root.selected ? root.style.selected-background : root.style.background; }

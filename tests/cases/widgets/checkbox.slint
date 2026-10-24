@@ -10,6 +10,7 @@ export component TestCase inherits Window {
     in-out property <string> toggled;
     in-out property <bool> checked <=> checkbox.checked;
     in-out property <bool> enabled <=> checkbox.enabled;
+    out property <string> labeled-text: labeled.text;
 
     HorizontalLayout {
         alignment: start;
@@ -23,6 +24,10 @@ export component TestCase inherits Window {
             text: "Custom font";
             font-size: 24px;
             font-weight: 700;
+        }
+        labeled := CheckBox {
+            text: "Bbb";
+            accessible-label: "Custom label";
         }
     }
 }
@@ -48,6 +53,11 @@ assert_eq!(checkbox.accessible_value_step(), None);
 assert_eq!(checkbox.accessible_checked(), Some(false));
 assert_eq!(checkbox.accessible_checkable(), Some(true));
 assert_eq!(checkbox.accessible_enabled(), Some(true));
+
+// A custom accessible-label leaves the visible text alone
+let labeled = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::labeled").next().unwrap();
+assert_eq!(labeled.accessible_label().unwrap(), "Custom label");
+assert_eq!(instance.get_labeled_text(), "Bbb");
 
 // accessible action can toggle
 checkbox.invoke_accessible_default_action();
@@ -97,6 +107,13 @@ assert(!checkbox.accessible_value_minimum());
 assert(!checkbox.accessible_value_step());
 assert_eq(checkbox.accessible_checked().value(), false);
 assert_eq(checkbox.accessible_checkable().value(), true);
+
+// A custom accessible-label leaves the visible text alone
+auto labeled_search = slint::testing::ElementHandle::find_by_element_id(handle, "TestCase::labeled");
+assert(labeled_search.size() == 1);
+assert_eq(labeled_search[0].accessible_label().value(), "Custom label");
+assert_eq(instance.get_labeled_text(), "Bbb");
+
 checkbox.invoke_accessible_default_action();
 assert_eq(instance.get_checked(), true);
 assert_eq(checkbox.accessible_checked().value(), true);

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { EditorGrid } from "editor-grid.slint";
+import { FloatingSurface } from "floating-surface.slint";
 import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, ButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
 // cspell:ignore nesw
 
@@ -208,7 +209,7 @@ component FloatingCopyButton inherits Rectangle {
     }
 }
 
-component FloatingImageDetailsPanel inherits Rectangle {
+component FloatingImageDetailsPanel inherits FloatingSurface {
     in property <ImageDetailsStyle> style: Style.image-details;
     in property <string> file;
     in property <string> format;
@@ -219,11 +220,8 @@ component FloatingImageDetailsPanel inherits Rectangle {
 
     border-radius: root.style.radius;
     border-width: Metrics.border-width;
-    border-color: root.style.border;
-    background: root.style.background;
-    drop-shadow-blur: root.style.shadow.blur;
-    drop-shadow-offset-y: root.style.shadow.offset-y;
-    drop-shadow-color: root.style.shadow.color;
+    border-color: Style.floating-surface.border;
+    background: Style.floating-surface.background;
 
     VerticalLayout {
         padding: root.style.padding;
@@ -711,18 +709,15 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: FloatingSurface {
         x: root.rail-x;
         y: root.tab-bar-height;
         width: root.rail-width;
         height: root.preview-panel-height;
         border-radius: Metrics.radius-large;
         border-width: Metrics.border-width;
-        border-color: root.style.preview.border;
-        background: root.style.preview.background;
-        drop-shadow-blur: root.style.preview.shadow.blur;
-        drop-shadow-offset-y: root.style.preview.shadow.offset-y;
-        drop-shadow-color: root.style.preview.shadow.color;
+        border-color: Style.floating-surface.border;
+        background: Style.floating-surface.background;
 
         Text {
             x: Metrics.space-medium;

@@ -32,6 +32,7 @@ armeabi
 armhf
 arrayvec
 artboard
+ashpd
 assetcatalog
 astrolib
 astrowind
@@ -54,6 +55,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
@@ -141,6 +143,7 @@ datatypes
 datepickerpopup
 Datelike
 DBUILD
+dbus
 DCACHE
 DCMAKE
 DDEFAULT
@@ -356,6 +359,7 @@ libavformat
 libavutil
 LIBC
 LIBCLANG
+libdlmclient
 libdrm
 libegl
 libfile
@@ -546,9 +550,11 @@ radiobuttontile
 Raleway
 Randriana
 rasterizer
+rasterizers
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable

@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An instance of a RadioGroup subclass that declares its own RadioButtons
+// used to render as an empty group, with the subclass's title gone too.
+// https://github.com/slint-ui/slint/issues/14256
+import { RadioGroup } from "std-widgets.slint";
+
+component Colors inherits RadioGroup {
+    title: "Colors";
+    RadioButton { text: "Red"; }
+    RadioButton { text: "Green"; checked: true; }
+}
+
+component MoreColors inherits Colors { }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 400px;
+
+    VerticalLayout {
+        colors1 := Colors { }
+        colors2 := Colors {
+            title: "Horizontal";
+            orientation: horizontal;
+        }
+        more := MoreColors { }
+    }
+
+    out property <bool> test: colors1.current-value == "Green" && colors2.current-value == "Green" && more.current-value == "Green";
+}
+
+/*
+```rust
+use slint_testing::Orientation;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Each of the three instances shows both inherited buttons.
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Red").count(), 3);
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Green").count(), 3);
+
+let colors: Vec<_> = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Colors").collect();
+assert_eq!(colors.len(), 2);
+for group in &colors {
+    assert_eq!(group.accessible_item_count(), Some(2));
+    assert_eq!(group.accessible_orientation(), Some(Orientation::Vertical));
+}
+
+// Bindings set at the instantiation site apply to the inherited group.
+let horizontal = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Horizontal").next().unwrap();
+assert_eq!(horizontal.accessible_item_count(), Some(2));
+assert_eq!(horizontal.accessible_orientation(), Some(Orientation::Horizontal));
+```
+*/

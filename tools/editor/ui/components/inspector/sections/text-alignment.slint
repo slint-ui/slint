@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorTextAlignmentSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> popup-bottom;
+
+    title: @tr("Alignment");
+
+    GridLayout {
+        padding-left: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        Row {
+            InspectorFieldLabel {
+                text: @tr("Horizontal");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Horizontal Alignment");
+                value: InspectorEnumOptions.option-label("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
+                options: InspectorEnumOptions.text-horizontal-alignment-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("horizontal-alignment", text);
+                }
+            }
+
+            Rectangle { }
+        }
+
+        Row {
+            InspectorFieldLabel {
+                text: @tr("Vertical");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Vertical Alignment");
+                value: InspectorEnumOptions.option-label("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
+                options: InspectorEnumOptions.text-vertical-alignment-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("vertical-alignment", text);
+                }
+            }
+
+            Rectangle { }
+        }
+    }
+}

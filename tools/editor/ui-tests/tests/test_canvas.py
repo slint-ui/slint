@@ -34,7 +34,9 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    outline_rows,
     press_key,
+    query,
     screenshot,
     select_fixture_element,
     select_outline_row,
@@ -1545,6 +1547,7 @@ def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
         window.dispatch_event(slint_testing.PointerMoveEvent(corner_position))
         wait_for_radius_tooltip(window, 0)
         for corner, position in radius_handle_positions(window).items():
+            expect(query(window, f"Rectangle radius {corner}")).to_be_visible()
             expected_x = x if "left" in corner else x + width
             expected_y = y if "top" in corner else y + height
             assert (
@@ -1554,13 +1557,6 @@ def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
                 )
                 < 1.5
             )
-        rendered = screenshot(window)
-        scale = rendered.width / window.root_element.size.width
-        sample = (
-            round((corner_position.x + 3) * scale),
-            round(corner_position.y * scale),
-        )
-        assert rendered.getpixel(sample) == pytest.approx((255, 255, 255), abs=20)
 
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(corner_position, button)
@@ -1998,4 +1994,30 @@ def test_disabled_manipulation_does_not_edit_source(
             target,
             slint_testing.LogicalPosition(x=target.x + 20, y=target.y + 16),
         )
+        snapshot.assert_unchanged()
+
+
+def test_root_element_is_not_moveable(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
+        snapshot = SourceSnapshot.capture(fixture_project)
+        root_row = outline_rows(window)[0]
+        root_row.invoke_accessible_default_action()
+        expect(root_row).to_be_selected()
+        handle = element(window, "Window move handle")
+        assert not handle.accessible_enabled
+        start = center(handle)
+        end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
+        initial_frame = selection_frame(window, "Window")
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        assert selection_frame(window, "Window") == initial_frame
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         snapshot.assert_unchanged()

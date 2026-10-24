@@ -360,12 +360,23 @@ impl Snapshotter {
 
             let root_element = self.create_element(&component.root_element);
 
+            let optimized = component.optimized_elements.borrow();
+            let elements =
+                optimized.iter().map(|o| self.create_element(&o.element)).collect::<Vec<_>>();
             let optimized_elements = RefCell::new(
-                component
-                    .optimized_elements
-                    .borrow()
+                optimized
                     .iter()
-                    .map(|e| self.create_element(e))
+                    .zip(elements)
+                    .map(|(o, element)| object_tree::OptimizedElement {
+                        element,
+                        former_parent: o
+                            .former_parent
+                            .upgrade()
+                            .and_then(|parent| {
+                                self.element_map.get(&by_address::ByAddress(parent)).cloned()
+                            })
+                            .unwrap_or_default(),
+                    })
                     .collect(),
             );
 
@@ -489,6 +500,8 @@ impl Snapshotter {
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
         target_element.slot_target = elem.slot_target.clone();
+        target_element.slot_default = elem.slot_default.clone();
+        target_element.cleared_slots = elem.cleared_slots.clone();
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
@@ -581,6 +594,7 @@ impl Snapshotter {
                     pure: v.pure,
                     shadowed_name: v.shadowed_name.clone(),
                     shadowable: v.shadowable,
+                    testable: v.testable,
                     moved_from: v.moved_from.clone(),
                     deprecated: v.deprecated.clone(),
                     synthesized: v.synthesized,
@@ -906,11 +920,11 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
+            Expression::RadialGradient { center, shape, stops } => Expression::RadialGradient {
                 center: center.as_ref().map(|(cx, cy)| {
                     (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
                 }),
-                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
+                shape: shape.map(|r| self.snapshot_expression(r)),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))

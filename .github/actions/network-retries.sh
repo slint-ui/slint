@@ -20,7 +20,8 @@ if [ ! -f "$curl_home/.curlrc" ]; then
 fi
 
 # The Azure Ubuntu mirror sometimes stalls, and apt then waits until the step's
-# timeout. Give up on a request sooner and retry it.
+# timeout. Give up on a request sooner and retry it. Also skip the unused
+# Translation files.
 # Job containers, such as the flatpak and musl cross images, may have no apt
 # and no sudo, but run as root.
 apt_conf=/etc/apt/apt.conf.d/80-ci-network-retries
@@ -29,6 +30,6 @@ if [ "$RUNNER_OS" = "Linux" ] && [ -d "$(dirname "$apt_conf")" ] && [ ! -f "$apt
     if [ "$(id -u)" -ne 0 ]; then
         sudo=sudo
     fi
-    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
+    printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nAcquire::Languages "none";\n' \
         | $sudo tee "$apt_conf" > /dev/null
 fi

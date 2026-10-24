@@ -85,14 +85,35 @@ impl VisualEditorSettings {
 }
 
 impl Project {
-    pub(crate) fn from_file(
+    pub(crate) fn from_selected_file(
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = std::fs::canonicalize(path.as_ref())?;
-        let root = path
-            .parent()
-            .ok_or_else(|| format!("Failed to determine project root for {}", path.display()))?;
+        let path = path.as_ref();
+        let input = if i_slint_compiler::project_file::is_project_file(path) {
+            path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
+        } else {
+            path
+        };
+        Self::from_input(input, component, None)
+    }
+
+    pub(crate) fn from_input(
+        path: impl AsRef<Path>,
+        component: Option<String>,
+        project_root: Option<&Path>,
+    ) -> i_slint_editor_preview::Result<Self> {
+        let path =
+            std::fs::canonicalize(path.as_ref()).unwrap_or(std::path::absolute(path.as_ref())?);
+        if path.is_dir() {
+            if project_root.is_some() {
+                return Err("A project directory cannot be combined with --project-root".into());
+            }
+            let (main, _) = i_slint_compiler::project_file::resolve_input(&path)?;
+            return Self::from_root(&path, &main, component);
+        }
+        let root =
+            project_root.unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
         Self::from_root(root, &path, component)
     }
 
@@ -101,16 +122,14 @@ impl Project {
         path: &Path,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let root = std::fs::canonicalize(root)?;
-        if !root.is_dir() {
-            return Err(format!("{} is not a directory", root.display()).into());
-        }
-        let path = std::fs::canonicalize(path)?;
-        if !path.is_file()
-            || !path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+        let root = std::fs::canonicalize(root)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(root)?));
+        let path = std::fs::canonicalize(path)
+            .unwrap_or(i_slint_compiler::source_path::clean_path(&std::path::absolute(path)?));
+        if !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
         {
             return Err(format!("{} is not a Slint file", path.display()).into());
         }
@@ -340,7 +359,7 @@ mod tests {
         let (directory, path) = project_file();
         let expected_url = Url::from_file_path(std::fs::canonicalize(&path).unwrap()).unwrap();
 
-        let project = Project::from_file(&path, Some("MainWindow".into())).unwrap();
+        let project = Project::from_input(&path, Some("MainWindow".into()), None).unwrap();
 
         assert_eq!(project.root, std::fs::canonicalize(directory.path().join("ui")).unwrap());
         assert_eq!(project.preview.url, expected_url);
@@ -356,5 +375,48 @@ mod tests {
 
         assert_eq!(project.root, std::fs::canonicalize(directory.path()).unwrap());
         assert_eq!(project.preview.url, expected_url);
+    }
+    #[test]
+    fn project_inputs_use_only_the_selected_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let nested = root.join("ui");
+        std::fs::create_dir(&nested).unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"ui/missing.slint"}"#).unwrap();
+        let source = nested.join("missing.slint");
+        let standalone = Project::from_input(&source, None, None).unwrap();
+        assert_eq!(standalone.root, nested);
+        assert_eq!(standalone.preview.url, Url::from_file_path(&source).unwrap());
+        let explicit = Project::from_input(&source, None, Some(&root)).unwrap();
+        assert_eq!(explicit.root, root);
+        let directory = Project::from_input(&root, None, None).unwrap();
+        assert_eq!(directory.preview.url, Url::from_file_path(&source).unwrap());
+        assert!(Project::from_input(&root, None, Some(&nested)).is_err());
+        assert!(Project::from_input(&manifest, None, None).is_err());
+        let missing_root = root.join("unavailable");
+        let path = missing_root.join("main.slint");
+        assert_eq!(Project::from_root(&missing_root, &path, None).unwrap().root, missing_root);
+        assert!(Project::from_input(root.join("other.json"), None, None).is_err());
+    }
+
+    #[test]
+    fn selecting_a_project_file_opens_its_directory_and_main_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let source = root.join("ui/main.slint");
+        std::fs::create_dir(source.parent().unwrap()).unwrap();
+        std::fs::write(&source, "export component Main inherits Window {}").unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"ui/main.slint"}"#).unwrap();
+
+        let project = Project::from_selected_file(&manifest, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+        assert!(Project::from_input(&manifest, None, None).is_err());
+
+        std::fs::write(&manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        assert!(Project::from_selected_file(&manifest, None).is_err());
+        assert!(Project::from_selected_file(root.join("other.json"), None).is_err());
     }
 }

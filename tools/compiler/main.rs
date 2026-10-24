@@ -92,15 +92,14 @@ struct Cli {
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
-    /// Specify the path to the main .slint file to compile.
-    /// A slint-project.json in its directory, or in a directory above it, provides the settings.
-    /// A slint-project.json given here compiles its entry.
+    /// Specify a .slint file or a project directory to compile.
+    /// If the path is a directory, Slint loads slint-project.json inside that directory.
+    /// It must contain a main entry specifying the .slint file to compile.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
 
     /// Set the style for the UI (e.g., 'native' or 'fluent').
-    /// Wins over the style of the project file.
     #[arg(long, name = "style name")]
     style: Option<String>,
 
@@ -156,14 +155,22 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
-/// Replaces a project file given as input by its entry,
-/// and returns the project file that applies to the input.
+/// Resolves a project directory to its main file and settings.
 fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file::ProjectFile> {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
     if args.slint_sc {
         if i_slint_compiler::project_file::is_project_file(&args.path) {
-            eprintln!("--slint-sc can't compile a project file, pass its entry instead");
+            eprintln!(
+                "{}",
+                i_slint_compiler::project_file::project_file_input_error(
+                    &i_slint_compiler::source_path::SourcePath::File(args.path.clone())
+                )
+            );
+            std::process::exit(1);
+        }
+        if args.path.is_dir() {
+            eprintln!("--slint-sc can't compile a project directory, pass its main file instead");
             std::process::exit(1);
         }
         return None;
@@ -189,7 +196,7 @@ fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let mut args = Cli::parse();
-    let input_is_project_file = i_slint_compiler::project_file::is_project_file(&args.path);
+    let input_project_directory = args.path.is_dir().then(|| args.path.clone());
     let project_file = resolve_project_file(&mut args);
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_file(&args.path, &mut diag);
@@ -302,8 +309,8 @@ fn main() -> std::io::Result<()> {
 
     if let Some(project_file) = &project_file {
         project_file.apply_to(&mut compiler_config);
-        if input_is_project_file {
-            compiler_config.input_project_file = Some(project_file.source_path().to_path_buf());
+        if let Some(project_directory) = input_project_directory {
+            compiler_config.input_project_directory = Some(project_directory);
         }
     }
 
@@ -357,7 +364,9 @@ fn main() -> std::io::Result<()> {
     let diag = diag.check_and_exit_on_error();
 
     if args.output == std::path::Path::new("-") {
-        generator::generate(format, &mut std::io::stdout(), None, &doc, &loader.compiler_config)?;
+        let mut stdout = std::io::BufWriter::new(std::io::stdout());
+        generator::generate(format, &mut stdout, None, &doc, &loader.compiler_config)?;
+        std::io::Write::flush(&mut stdout)?;
     } else {
         let mut cursor = Cursor::new(Vec::new());
         generator::generate(
@@ -376,7 +385,7 @@ fn main() -> std::io::Result<()> {
         let mut cursor = Cursor::new(Vec::new());
         write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
         if let Some(project_file) = &project_file {
-            write!(cursor, " {}", project_file.source_path().display())?;
+            write!(cursor, " {}", project_file.source_path())?;
         }
         for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
             if x.is_absolute() {

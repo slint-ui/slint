@@ -121,6 +121,10 @@ figma_inspector:
  - 'tools/figma-inspector/**'
  - *js_config
 
+ai_plugins:
+ - 'ai-plugins/**'
+ - *ci_config
+
 material_components:
  - '.github/workflows/material.yaml'
  - 'ui-libraries/material/**'
@@ -141,6 +145,14 @@ cpp_cmake_config:
  - 'api/cpp/{CMakeLists.txt,Cargo.toml}'
  - 'api/cpp/cmake/**'
  - 'cmake/**'
+
+# What the C++ test driver's live-preview mode exercises beyond its normal mode.
+live_preview_cpp:
+ - 'internal/live-preview/**'
+ - 'internal/interpreter/**'
+ - 'api/cpp/**'
+ - 'internal/compiler/generator/cpp*{,/**}'
+ - *ci_config
 
 android_backend:
  - 'internal/backends/android-activity/**'

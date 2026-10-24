@@ -61,16 +61,30 @@ type Result<T> = std::result::Result<T, Error>;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        value_parser = clap::value_parser!(std::ffi::OsString)
+    )]
+    include_paths: Option<Vec<std::ffi::OsString>>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    library_paths: Option<Vec<String>>,
 
     /// The .slint file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
+
+    #[arg(
+        short = 'p',
+        long,
+        requires = "path",
+        help = "Load project settings from this directory"
+    )]
+    project_root: Option<std::path::PathBuf>,
 
     /// Start in remote viewer mode: listen for WebSocket connections from the LSP
     #[arg(long)]
@@ -187,6 +201,11 @@ fn main() -> Result<()> {
     let args = Cli::parse_from(["slint-viewer", "--remote"]);
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
+
+    if args.project_root.is_some() && args.path.as_ref().is_some_and(|path| path.is_dir()) {
+        eprintln!("A project directory cannot be combined with --project-root");
+        std::process::exit(2);
+    }
 
     if args.screenshot.is_some() {
         if args.auto_reload {
@@ -341,6 +360,13 @@ fn install_log_message_handler() -> Result<()> {
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
+    if let Some(root) = &args.project_root {
+        let root = std::path::absolute(root).unwrap_or_else(|_| root.clone());
+        compiler.set_project_root(
+            Some(i_slint_compiler::source_path::SourcePath::new(root)),
+            i_slint_core::InternalToken,
+        );
+    }
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
@@ -350,13 +376,21 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.set_include_paths(args.include_paths.clone());
-    compiler.set_library_paths(
-        args.library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-    );
+    if let Some(paths) = &args.include_paths {
+        compiler.set_include_paths(
+            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
+        );
+    }
+    if let Some(entries) = &args.library_paths {
+        compiler.set_library_paths(
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }

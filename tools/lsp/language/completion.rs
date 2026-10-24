@@ -518,10 +518,37 @@ pub(crate) fn completion_at(
         return Some(r);
     } else if node.kind() == SyntaxKind::PropertyAnimation {
         let global_tr = document_cache.global_type_registry();
+        let doc = node.source_file().and_then(|sf| document_cache.get_document_for_source_file(sf));
+        let tr = doc.map(|d| &d.local_registry).unwrap_or(&global_tr);
+
+        // Hide `angle-interpolation` if we can prove every animated property is not an angle.
+        let exclude_angle_interpolation = lookup_current_element_type(node.clone(), tr)
+            .is_some_and(|element_type| {
+                let mut any_resolved = false;
+                let mut all_non_angle = true;
+                for qn in node.children().filter_map(syntax_nodes::QualifiedName::new) {
+                    let Some(prop_name) = i_slint_compiler::parser::identifier_text(&qn) else {
+                        continue;
+                    };
+                    let lookup = element_type
+                        .lookup_property(prop_name.as_str(), PropertyLookupMode::ComponentLocal);
+                    if !lookup.property_type.is_property_type() {
+                        continue;
+                    }
+                    any_resolved = true;
+                    if matches!(lookup.property_type, Type::Angle) {
+                        all_non_angle = false;
+                        break;
+                    }
+                }
+                any_resolved && all_non_angle
+            });
+
         let r = global_tr
             .property_animation_type_for_property(Type::Float32)
             .property_list()
             .into_iter()
+            .filter(|(k, _)| !(exclude_angle_interpolation && k.as_str() == "angle-interpolation"))
             .map(|(k, t)| {
                 let mut c = CompletionItem::new_simple(k.to_string(), t.to_string());
                 c.kind = Some(CompletionItemKind::PROPERTY);
@@ -1472,7 +1499,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
-                ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                ("radial-gradient(..)", "radial-gradient(${1|circle,ellipse|}, $2)"),
                 ("conic-gradient(..)", "conic-gradient($1)"),
             ]
             .into_iter()
@@ -1513,6 +1540,7 @@ fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::test::CURSOR_EMOJI;
     use lsp_types::Position;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
@@ -1525,7 +1553,6 @@ mod tests {
     }
 
     fn get_completions_impl(file: &str, enable_experimental: bool) -> Option<Vec<CompletionItem>> {
-        const CURSOR_EMOJI: char = '🔺';
         let offset = (file.find(CURSOR_EMOJI).unwrap() as u32).into();
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = if enable_experimental {
@@ -2376,6 +2403,24 @@ mod tests {
         res.iter().find(|ci| ci.label == "direction").unwrap();
         res.iter().find(|ci| ci.label == "iteration-count").unwrap();
         res.iter().find(|ci| ci.label == "easing").unwrap();
+        // angle-interpolation should not be suggested for a non-angle property
+        assert!(!res.iter().any(|ci| ci.label == "angle-interpolation"));
+    }
+
+    #[test]
+    fn animation_completion_angle() {
+        let source = r#"
+            component Foo {
+                Rectangle {
+                    animate transform-rotation {
+                        🔺
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "duration").unwrap();
+        res.iter().find(|ci| ci.label == "angle-interpolation").unwrap();
     }
 
     #[test]
@@ -2431,6 +2476,26 @@ mod tests {
             ..Default::default()
         }]);
         assert_completions_found(expected, &res);
+    }
+
+    #[test]
+    fn animation_interpolation_completion() {
+        let source = r#"
+            component Foo {
+                Text {
+                    width: 20px;
+                    animate width {
+                        angle-interpolation: 🔺;
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "linear").unwrap();
+        res.iter().find(|ci| ci.label == "shorter").unwrap();
+        res.iter().find(|ci| ci.label == "longer").unwrap();
+        res.iter().find(|ci| ci.label == "increasing").unwrap();
+        res.iter().find(|ci| ci.label == "decreasing").unwrap();
     }
 
     #[test]
@@ -2788,7 +2853,6 @@ mod tests {
     ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
 
-        const CURSOR_EMOJI: char = '🔺';
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
         let cursor_offset = (main_file_with_cursor.find(CURSOR_EMOJI).unwrap() as u32).into();
 
@@ -2826,11 +2890,11 @@ mod tests {
     }
 
     #[test]
-    fn project_entry_import_graph_supplies_completion_suggestions() {
+    fn project_main_import_graph_supplies_completion_suggestions() {
         let directory = tempfile::TempDir::new().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{ "entry": "entry.slint" }"#,
+            r#"{ "slint-edition": "1.19", "main": "entry.slint" }"#,
         )
         .unwrap();
         std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();

@@ -40,7 +40,7 @@ jobs:
               with:
                   filters: .github/ci_path_filters.yaml
                   predicate-quantifier: some-with-excludes
-            - uses: jdx/mise-action@v5.1.1
+            - uses: jdx/mise-action@v5.2.0
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -58,7 +58,7 @@ jobs:
         timeout-minutes: 5
         steps:
             - uses: actions/checkout@v7
-            - uses: jdx/mise-action@v5.1.1
+            - uses: jdx/mise-action@v5.2.0
               with:
                 version: 2025.9.18
                 log_level: debug
@@ -76,6 +76,7 @@ jobs:
         permissions:
             contents: read
             deployments: write
+            id-token: write
         uses: ./.github/workflows/ci.yaml
         with:
             full: false
@@ -88,7 +89,6 @@ jobs:
             CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
             CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
             READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-            SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
 
     done:
         # Note: We use `needs` + `if: always()` here to ensure the "done"

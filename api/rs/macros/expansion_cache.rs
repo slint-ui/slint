@@ -122,6 +122,7 @@ pub fn key_material(
     let _ = write!(key, "td={:?};", config.translation_domain);
     let _ = write!(key, "dtc={:?};", config.default_translation_context);
     let _ = write!(key, "exp={};", config.enable_experimental);
+    let _ = write!(key, "edition={:?};", config.edition);
     let _ = write!(key, "inl={};", config.inline_all_elements);
     key.push_str("tokens=");
     for t in tokens {

@@ -84,8 +84,8 @@ pub enum JsWindowEvent {
     },
     /// The user requested to close the window.
     ///
-    /// Dispatching this event invokes the `close-requested` callback of the window element,
-    /// and hides the window unless that callback returns `reject`.
+    /// Dispatching this event invokes the callback set with `Window.onCloseRequested`,
+    /// and hides the window unless that callback returns `KeepWindowShown`.
     CloseRequested,
     /// The window was activated or de-activated.
     WindowActiveChanged {
