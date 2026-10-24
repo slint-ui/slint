@@ -8,7 +8,7 @@ use crate::graphics::Image;
 use crate::input::{InternalKeyEvent, Keys};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::items::{ItemRc, ItemRef, MenuEntry, MenuItemRole, VoidArg};
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -113,10 +113,22 @@ impl MenuFromItemTree {
     fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
         let mut result = SharedVector::default();
         let mut last_is_separator = false;
+        let supports_application_menu_roles = parent
+            .window_adapter()
+            .and_then(|adapter| {
+                adapter
+                    .internal(crate::InternalToken)
+                    .map(|internal| internal.supports_application_menu_roles())
+            })
+            .unwrap_or_default();
 
         let mut actual_visitor =
             |item_tree: &ItemTreeRc, index: u32, item_pin: Pin<ItemRef>| -> VisitChildrenResult {
                 if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
+                    let role = menu_item.role();
+                    if !supports_application_menu_roles && role.is_application_menu_role() {
+                        return VisitChildrenResult::CONTINUE;
+                    }
                     let title = menu_item.title();
                     let is_separator =
                         title.as_str() == i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
@@ -149,6 +161,7 @@ impl MenuFromItemTree {
                         checked,
                         icon,
                         shortcut,
+                        role,
                     });
                 }
                 VisitChildrenResult::CONTINUE
@@ -202,6 +215,12 @@ impl Menu for MenuFromItemTree {
 
 MenuVTable_static!(static MENU_FROM_ITEM_TREE_VT for MenuFromItemTree);
 
+impl MenuItemRole {
+    pub fn is_application_menu_role(self) -> bool {
+        matches!(self, Self::Services | Self::Hide | Self::HideOthers | Self::ShowAll)
+    }
+}
+
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -215,6 +234,7 @@ pub struct MenuItem {
     pub checked: Property<bool>,
     pub icon: Property<Image>,
     pub shortcut: Property<Keys>,
+    pub role: Property<MenuItemRole>,
 }
 
 impl crate::items::Item for MenuItem {
