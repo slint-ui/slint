@@ -7,7 +7,8 @@ import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
-    InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorOrientationSection,
+    InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
+    InspectorOrientationSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -88,6 +89,10 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
 
                 if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
+
+                if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
+                    popup-bottom: root.popup-bottom;
+                }
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
