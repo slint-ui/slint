@@ -6,6 +6,8 @@
 mod debug;
 mod screenshot;
 
+#[cfg(feature = "connect")]
+mod connect;
 #[cfg(feature = "remote")]
 mod remote;
 
@@ -59,6 +61,7 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
+#[command(group(clap::ArgGroup::new("pairing_mode").args(["remote", "connect"])))]
 struct Cli {
     /// Include path for other .slint files or images
     #[arg(
@@ -94,15 +97,26 @@ struct Cli {
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
 
-    /// Always require this pairing code, given as 4 to 12 digits, instead of showing a
-    /// freshly generated one. For devices without a usable display, and for scripted
-    /// clients. Longer codes take longer to guess.
-    #[arg(long, value_name = "code", requires = "remote", conflicts_with = "no_pairing")]
+    /// Connect to a viewer started with --remote at `host:port`, and show the .slint
+    /// file there. Runs without a display: only the remote viewer renders.
+    #[arg(
+        long,
+        value_name = "host:port",
+        conflicts_with_all = ["screenshot", "save_data", "load_data", "on"]
+    )]
+    connect: Option<String>,
+
+    /// With --remote: always require this pairing code, given as 4 to 12 digits, instead
+    /// of showing a freshly generated one. For devices without a usable display, and for
+    /// scripted clients. Longer codes take longer to guess.
+    /// With --connect: the code shown on the remote viewer, instead of asking for it.
+    #[arg(long, value_name = "code", requires = "pairing_mode", conflicts_with = "no_pairing")]
     pairing_code: Option<String>,
 
-    /// Accept any connection without pairing. Anyone who can reach this viewer can
-    /// then drive what it displays, so only use this on a network you control.
-    #[arg(long, requires = "remote")]
+    /// With --remote: accept any connection without pairing. Anyone who can reach this
+    /// viewer can then drive what it displays, so only use this on a network you control.
+    /// With --connect: connect to such a viewer, though the session isn't encrypted.
+    #[arg(long, requires = "pairing_mode")]
     no_pairing: bool,
 
     /// The style name. Defaults to 'fluent' if not specified
@@ -146,7 +160,7 @@ struct Cli {
     #[arg(
         long,
         action,
-        conflicts_with_all = ["auto_reload", "screenshot", "save_data", "load_data", "on", "remote"],
+        conflicts_with_all = ["auto_reload", "screenshot", "save_data", "load_data", "on", "remote", "connect"],
     )]
     check: bool,
 
@@ -220,6 +234,52 @@ fn main() -> Result<()> {
         if args.remote {
             eprintln!("Cannot pass both --remote and --screenshot");
             std::process::exit(2);
+        }
+    }
+
+    if let Some(target) = args.connect.clone() {
+        #[cfg(feature = "connect")]
+        {
+            if args.path().as_os_str() == "-" {
+                eprintln!("--connect needs a file path, it can't read from stdin");
+                std::process::exit(2);
+            }
+            // The remote viewer doesn't read the project file, it uses the paths sent here.
+            let (path, project_file) = i_slint_compiler::project_file::resolve_input(args.path())?;
+            let project = project_file.map(|file| file.resolved_data()).unwrap_or_default();
+            connect::run(connect::Options {
+                target,
+                path,
+                component: args.component.clone(),
+                pairing_code: args.pairing_code.clone(),
+                accept_unpaired: args.no_pairing,
+                auto_reload: args.auto_reload,
+                config: i_slint_live_preview::protocol::PreviewConfig {
+                    hide_ui: None,
+                    style: args.style.clone().unwrap_or_default(),
+                    include_paths: match &args.include_paths {
+                        Some(paths) => parse_include_paths(paths),
+                        None => project.include_paths.unwrap_or_default(),
+                    },
+                    library_paths: match &args.library_paths {
+                        Some(entries) => parse_library_paths(entries),
+                        None => project.library_paths.unwrap_or_default(),
+                    },
+                    format_utf8: true,
+                    enable_experimental: std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
+                        .is_some()
+                        || project.enable_experimental_features.unwrap_or(false),
+                },
+            })?;
+            return Ok(());
+        }
+        #[cfg(not(feature = "connect"))]
+        {
+            let _ = target;
+            eprintln!(
+                "Connecting to a remote viewer is not supported in this build, recompile Slint Viewer with the \"connect\" feature enabled."
+            );
+            return Err(Error("Connect mode not enabled".into()));
         }
     }
 
@@ -377,19 +437,10 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
     if let Some(paths) = &args.include_paths {
-        compiler.set_include_paths(
-            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
-        );
+        compiler.set_include_paths(parse_include_paths(paths));
     }
     if let Some(entries) = &args.library_paths {
-        compiler.set_library_paths(
-            entries
-                .iter()
-                .filter_map(|entry| {
-                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
-                })
-                .collect(),
-        );
+        compiler.set_library_paths(parse_library_paths(entries));
     }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
@@ -459,6 +510,19 @@ fn init_dialog(instance: &ComponentInstance) {
             })
             .unwrap();
     }
+}
+
+/// Parse `-I` arguments, where `-I ""` stands for no include paths.
+fn parse_include_paths(paths: &[std::ffi::OsString]) -> Vec<PathBuf> {
+    paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect()
+}
+
+/// Parse `-L library=path` arguments.
+fn parse_library_paths(entries: &[String]) -> HashMap<String, PathBuf> {
+    entries
+        .iter()
+        .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
+        .collect()
 }
 
 fn watchable_path(path: &Path) -> Option<PathBuf> {

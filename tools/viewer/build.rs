@@ -36,6 +36,12 @@ fn main() {
             println!("cargo:rustc-env=SLINT_STYLE=material");
         }
         generate_third_party_licenses();
+    } else if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        // Termux builds the command-line viewer for Android.
+        println!(
+            "cargo:warning=Building for Android without the `remote` feature: \
+             only the command-line viewer works, the Viewer app library has no `android_main`"
+        );
     }
 }
 
