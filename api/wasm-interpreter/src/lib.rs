@@ -38,7 +38,7 @@ impl CompilationResult {
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<string>;
+type ImportCallbackFunction = (url: string) => Promise<string | null>;
 type ResourceLoaderFunction = (url: string) => Promise<Uint8Array>;
 type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
@@ -61,7 +61,8 @@ extern "C" {
 ///
 /// Returns a promise to a compiled component which can be run with ".run()"
 ///
-/// `optional_import_callback` returns the source of an imported `.slint` file.
+/// `optional_import_callback` returns the source of an imported `.slint` file,
+/// or `null` if the file doesn't exist, so that the search continues in the next include path.
 /// `optional_resource_loader` returns the bytes of an imported font file.
 /// Without it, the interpreter fetches the font from its URL.
 /// `optional_project_root` is the URL of the directory with the `slint-project.json` to apply.
@@ -140,16 +141,25 @@ pub async fn compile_from_string_with_style(
                 let load_callback = js_sys::Function::from(load_callback.clone());
                 let file_name = file_name.to_string();
                 async move {
-                    let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
-                    let promise: js_sys::Promise = result.unwrap().into();
-                    let future = wasm_bindgen_futures::JsFuture::from(promise);
-                    match future.await {
-                        Ok(js_ok) => Some(Ok(js_ok.as_string().unwrap_or_default())),
-                        Err(js_err) => Some(Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            js_err.as_string().unwrap_or_default(),
-                        ))),
-                    }
+                    let result = match load_callback.call1(&JsValue::UNDEFINED, &file_name.into()) {
+                        Ok(promise) => {
+                            wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise))
+                                .await
+                        }
+                        Err(js_err) => Err(js_err),
+                    };
+                    Some(match result {
+                        Ok(js_ok) if js_ok.is_null() => Err(std::io::ErrorKind::NotFound.into()),
+                        Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
+                        Err(js_err) => Err(std::io::Error::other(
+                            js_err
+                                .as_string()
+                                .or_else(|| {
+                                    js_err.dyn_ref::<js_sys::Error>().map(|e| e.message().into())
+                                })
+                                .unwrap_or_default(),
+                        )),
+                    })
                 }
             })
         };
