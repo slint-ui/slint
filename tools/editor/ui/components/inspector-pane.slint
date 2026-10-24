@@ -6,8 +6,8 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorAppearanceSection, InspectorBorderSection, InspectorContext, InspectorEffectsSection, InspectorEnabledSection,
-    InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorOrientationSection,
+    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
+    InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorOrientationSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -86,6 +86,8 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-title-selection(): InspectorTitleSection { }
 
                 if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
+
+                if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
