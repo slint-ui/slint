@@ -85,6 +85,11 @@ const tools = [
                     description:
                         "The .slint source. The last exported component is shown.",
                 },
+                projectRoot: {
+                    type: "string",
+                    description:
+                        "Absolute path of the directory with the slint-project.json to apply to `path`, for its library and include paths.",
+                },
                 style: {
                     type: "string",
                     enum: ["fluent", "material", "cupertino", "cosmic"],
@@ -200,6 +205,17 @@ const toolCalls = {
         }
         if (typeof args.path === "string" && !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be absolute");
+        }
+        if (args.projectRoot !== undefined) {
+            if (typeof args.path !== "string") {
+                throw rpcError(-32602, "'projectRoot' requires 'path'");
+            }
+            if (
+                typeof args.projectRoot !== "string" ||
+                !isAbsolute(args.projectRoot)
+            ) {
+                throw rpcError(-32602, "'projectRoot' must be absolute");
+            }
         }
         const previous = latestPreview;
         latestPreview = {
